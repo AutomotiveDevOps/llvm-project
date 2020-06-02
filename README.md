@@ -1,15 +1,15 @@
 # The LLVM Compiler Infrastructure / PowerPC e200 Fork
 
 > The PowerPC e200 is a family of 32-bit Power ISA microprocessor cores developed by Freescale for primary use in automotive and industrial control systems. The cores are designed to form the CPU part in system-on-a-chip (SoC) designs with speed ranging up to 600 MHz, thus making them ideal for embedded applications.
-
+  
 > The e200 core is developed from the MPC5xx family processors, which in turn is derived from the MPC8xx core in the PowerQUICC SoC processors. e200 adheres to the Power ISA v.2.03 as well as the previous Book E specification. All e200 core based microprocessors are named in the MPC55xx and MPC56xx/JPC56x scheme, not to be confused with the MPC52xx processors which is based on the PowerPC e300 core.
-
+  
 > In April 2007 Freescale and IPextreme opened up the e200 cores for licensing to other manufacturers.[1]
-
+  
 > Continental AG and Freescale are developing SPACE, a tri-core e200 based processor designed for electronic brake systems in cars.[2]
-
+  
 > STMicroelectronics and Freescale have jointly developed microcontrollers for automotive applications based on e200 in the MPC56xx/SPC56x family. 
-
+  
 >  -   https://en.wikipedia.org/wiki/PowerPC_e200
 
 # Roadmap:
@@ -17,15 +17,16 @@
 - [NXP MPC5744P](https://www.nxp.com/design/development-boards/automotive-development-platforms/mpc57xx-mcu-platforms/mpc5744p-development-board-for-functional-safety-motor-control:DEVKIT-MPC5744P).
 - https://www.nxp.com/docs/en/data-sheet/MPC5744P.pdf
 
-
 >> The e200z4 has a five-stage, dual-issue pipeline with a branch prediction unit, a 16 entry MMU, signal processing extension (SPE), a SIMD capable single precision FPU and a 4 Kilobyte 2/4-way set associative instruction L1 cache (Pseudo round-robin replacement algorithm). It has no data cache. It can use the complete 32-bit PowerPC ISA as well as the VLE instructions. It uses a dual 64-bit bus AMBA 2.0v6 interface. The load/store unit is pipelined, has a 2-cycle load latency and supports throughput of one load or store operation per cycle.
-
 >> Depending on the derivative may support SPE or LSP. 
+
+![mpc5744p_mods](mpc5744p_mods.png)
+![mpc5744p_feature2](mpc5744p_feature2.png)
+![safetylake_diagram.png](safetylake_diagram.png)
 
 ## Dev Platform:
 
 - [DEVKIT MPC5744P](https://octopart.com/devkit-mpc5744p-nxp+semiconductors-82944748?r=sp)
-
 
 # TODO:
 
