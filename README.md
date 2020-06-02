@@ -17,6 +17,11 @@
 - [NXP MPC5744P](https://www.nxp.com/design/development-boards/automotive-development-platforms/mpc57xx-mcu-platforms/mpc5744p-development-board-for-functional-safety-motor-control:DEVKIT-MPC5744P).
 - https://www.nxp.com/docs/en/data-sheet/MPC5744P.pdf
 
+
+>> The e200z4 has a five-stage, dual-issue pipeline with a branch prediction unit, a 16 entry MMU, signal processing extension (SPE), a SIMD capable single precision FPU and a 4 Kilobyte 2/4-way set associative instruction L1 cache (Pseudo round-robin replacement algorithm). It has no data cache. It can use the complete 32-bit PowerPC ISA as well as the VLE instructions. It uses a dual 64-bit bus AMBA 2.0v6 interface. The load/store unit is pipelined, has a 2-cycle load latency and supports throughput of one load or store operation per cycle.
+
+>> Depending on the derivative may support SPE or LSP. 
+
 ## Dev Platform:
 
 - [DEVKIT MPC5744P](https://octopart.com/devkit-mpc5744p-nxp+semiconductors-82944748?r=sp)
