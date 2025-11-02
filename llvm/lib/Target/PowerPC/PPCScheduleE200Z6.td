@@ -90,32 +90,36 @@ def PPCE200Z6Itineraries : ProcessorItineraries<
   InstrItinData<IIC_IntDivW,     [InstrStage<1, [E200Z6_FETCH], 0>,
                                    InstrStage<1, [E200Z6_DECODE], 0>,
                                    InstrStage<1, [E200Z6_EX, E200Z6_ALU], 0>,
-                                   InstrStage<34, [E200Z6_EX, E200Z6_ALU]>],
-                                  [38, 1, 1], // Latency = 34, Repeat rate = 34
+                                   InstrStage<15, [E200Z6_EX, E200Z6_ALU]>],
+                                  [19, 1, 1], // Latency = 16 (worst case), Repeat rate = 16
+                                  // Manual: 6-16 cycles (data-dependent), worst case 16 cycles (blocking)
                                   [E200Z6_GPR_Bypass,
                                    E200Z6_GPR_Bypass, E200Z6_GPR_Bypass]>,
   InstrItinData<IIC_IntMulHW,    [InstrStage<1, [E200Z6_FETCH], 0>,
                                    InstrStage<1, [E200Z6_DECODE], 0>,
                                    InstrStage<1, [E200Z6_EX, E200Z6_MUL]>,
-                                   InstrStage<4, [E200Z6_MEM]>,
+                                   InstrStage<2, [E200Z6_MEM]>,
                                    InstrStage<1, [E200Z6_WB]>],
-                                  [8, 1, 1, 1, 1], // Latency = 4, Repeat rate = 1
+                                  [7, 1, 1, 1, 1], // Latency = 3, Repeat rate = 1
+                                  // Manual: 3-cycle latency, 1 per cycle throughput (pipelined)
                                   [E200Z6_GPR_Bypass,
                                    E200Z6_GPR_Bypass, E200Z6_GPR_Bypass]>,
   InstrItinData<IIC_IntMulHWU,   [InstrStage<1, [E200Z6_FETCH], 0>,
                                    InstrStage<1, [E200Z6_DECODE], 0>,
                                    InstrStage<1, [E200Z6_EX, E200Z6_MUL]>,
-                                   InstrStage<4, [E200Z6_MEM]>,
+                                   InstrStage<2, [E200Z6_MEM]>,
                                    InstrStage<1, [E200Z6_WB]>],
-                                  [8, 1, 1, 1, 1], // Latency = 4, Repeat rate = 1
+                                  [7, 1, 1, 1, 1], // Latency = 3, Repeat rate = 1
+                                  // Manual: 3-cycle latency, 1 per cycle throughput (pipelined)
                                   [E200Z6_GPR_Bypass,
                                    E200Z6_GPR_Bypass, E200Z6_GPR_Bypass]>,
   InstrItinData<IIC_IntMulLI,    [InstrStage<1, [E200Z6_FETCH], 0>,
                                    InstrStage<1, [E200Z6_DECODE], 0>,
                                    InstrStage<1, [E200Z6_EX, E200Z6_MUL]>,
-                                   InstrStage<4, [E200Z6_MEM]>,
+                                   InstrStage<2, [E200Z6_MEM]>,
                                    InstrStage<1, [E200Z6_WB]>],
-                                  [8, 1, 1, 1, 1], // Latency = 4, Repeat rate = 1
+                                  [7, 1, 1, 1, 1], // Latency = 3, Repeat rate = 1
+                                  // Manual: 3-cycle latency, 1 per cycle throughput (pipelined)
                                   [E200Z6_GPR_Bypass,
                                    E200Z6_GPR_Bypass, E200Z6_GPR_Bypass]>,
   InstrItinData<IIC_IntRotate,   [InstrStage<1, [E200Z6_FETCH], 0>,
@@ -167,14 +171,16 @@ def PPCE200Z6Itineraries : ProcessorItineraries<
                                    InstrStage<1, [E200Z6_EX]>,
                                    InstrStage<1, [E200Z6_MEM, E200Z6_LSU]>,
                                    InstrStage<1, [E200Z6_WB]>],
-                                  [6, 1, 1, 1, 1], // Latency = 4 (3 pipeline stages + 1 writeback)
+                                  [6, 1, 1, 1, 1], // Latency = 3
+                                  // Manual: 3-cycle latency, 1 per cycle throughput (pipelined)
                                   [E200Z6_GPR_Bypass, E200Z6_GPR_Bypass]>,
   InstrItinData<IIC_LdStLoadUpd, [InstrStage<1, [E200Z6_FETCH], 0>,
                                    InstrStage<1, [E200Z6_DECODE], 0>,
                                    InstrStage<1, [E200Z6_EX, E200Z6_ALU], 0>,
                                    InstrStage<1, [E200Z6_MEM, E200Z6_LSU]>,
                                    InstrStage<1, [E200Z6_WB]>],
-                                  [6, 1, 1, 1, 1], // Latency = 4 (3 pipeline stages + 1 writeback)
+                                  [6, 1, 1, 1, 1], // Latency = 3 (same as regular load)
+                                  // Manual: 3-cycle latency, 1 per cycle throughput
                                   [E200Z6_GPR_Bypass, E200Z6_GPR_Bypass],
                                   2>, // 2 micro-ops
   InstrItinData<IIC_LdStLoadUpdX,[InstrStage<1, [E200Z6_FETCH], 0>,
@@ -182,27 +188,31 @@ def PPCE200Z6Itineraries : ProcessorItineraries<
                                    InstrStage<1, [E200Z6_EX, E200Z6_ALU], 0>,
                                    InstrStage<1, [E200Z6_MEM, E200Z6_LSU]>,
                                    InstrStage<1, [E200Z6_WB]>],
-                                  [6, 1, 1, 1, 1], // Latency = 4 (3 pipeline stages + 1 writeback)
+                                  [6, 1, 1, 1, 1], // Latency = 3 (same as regular load)
+                                  // Manual: 3-cycle latency, 1 per cycle throughput
                                   [E200Z6_GPR_Bypass, E200Z6_GPR_Bypass],
                                   2>, // 2 micro-ops
   InstrItinData<IIC_LdStStore,   [InstrStage<1, [E200Z6_FETCH], 0>,
                                    InstrStage<1, [E200Z6_DECODE], 0>,
                                    InstrStage<1, [E200Z6_EX]>,
                                    InstrStage<1, [E200Z6_MEM, E200Z6_LSU]>],
-                                  [5, 1, 1, 1], // Latency = 4 (store completion timing)
+                                  [5, 1, 1, 1], // Latency = 3
+                                  // Manual: 3-cycle latency, 1 per cycle throughput (pipelined)
                                   [NoBypass, E200Z6_GPR_Bypass]>,
   InstrItinData<IIC_LdStSTU,     [InstrStage<1, [E200Z6_FETCH], 0>,
                                    InstrStage<1, [E200Z6_DECODE], 0>,
                                    InstrStage<1, [E200Z6_EX, E200Z6_ALU], 0>,
                                    InstrStage<1, [E200Z6_MEM, E200Z6_LSU]>],
-                                  [5, 1, 1, 1], // Latency = 3
+                                  [5, 1, 1, 1], // Latency = 3 (same as regular store)
+                                  // Manual: 3-cycle latency, 1 per cycle throughput
                                   [NoBypass, E200Z6_GPR_Bypass],
                                   2>, // 2 micro-ops
   InstrItinData<IIC_LdStSTUX,    [InstrStage<1, [E200Z6_FETCH], 0>,
                                    InstrStage<1, [E200Z6_DECODE], 0>,
                                    InstrStage<1, [E200Z6_EX, E200Z6_ALU], 0>,
                                    InstrStage<1, [E200Z6_MEM, E200Z6_LSU]>],
-                                  [5, 1, 1, 1], // Latency = 3
+                                  [5, 1, 1, 1], // Latency = 3 (same as regular store)
+                                  // Manual: 3-cycle latency, 1 per cycle throughput
                                   [NoBypass, E200Z6_GPR_Bypass],
                                   2>, // 2 micro-ops
   InstrItinData<IIC_SprMFSPR,    [InstrStage<1, [E200Z6_FETCH], 0>,
@@ -228,9 +238,9 @@ def PPCE200Z6Itineraries : ProcessorItineraries<
 def PPCE200Z6Model : SchedMachineModel {
   let IssueWidth = 1;  // Single-issue in-order processor.
                        // CORRECTED: Was incorrectly modeled as dual-issue.
-  let LoadLatency = 4; // Load-to-use latency (4 cycles total: FETCH+DECODE+EX+MEM+WB stages).
-                       // Aligned with itinerary OperandCycles timing. This is overriden by
-                       // OperandCycles if the Itineraries are queried instead.
+  let LoadLatency = 4; // Load-to-use latency (manual: 3-cycle latency + 1 cycle writeback).
+                       // Loads have 3-cycle latency with 1 per cycle throughput (pipelined).
+                       // This is overriden by OperandCycles if the Itineraries are queried instead.
   let MicroOpBufferSize = 0; // In-order processor, no reorder buffer.
   let MispredictPenalty = 3;  // Branch misprediction penalty.
   let PostRAScheduler = 1;
