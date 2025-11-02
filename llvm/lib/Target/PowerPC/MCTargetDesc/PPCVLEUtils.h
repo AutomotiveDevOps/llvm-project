@@ -32,31 +32,36 @@ enum class InstructionEncoding {
 /// Determines if a VLE instruction is 16-bit or 32-bit based on AN4648 algorithm.
 ///
 /// According to AN4648, the instruction length is determined by examining
-/// bits 31 and 28 of the instruction word:
-/// - If (instruction & 0x9000) == 0x1000, the instruction is 32-bit
+/// bits 31 and 28 of the instruction word. The algorithm checks the upper
+/// 16 bits (bits 31-16) of the instruction:
+/// - If (upper_halfword & 0x9000) == 0x1000, the instruction is 32-bit
 /// - Otherwise, the instruction is 16-bit
 ///
 /// Note: This function assumes the instruction is already known to be VLE.
 /// For mixed VLE/Book E systems, additional checks may be needed.
 ///
 /// The mask 0x9000 checks:
-/// - Bit 31 (mask bit 0x8000) - most significant bit
-/// - Bit 28 (mask bit 0x1000)
+/// - Bit 31 (mask bit 0x8000) - most significant bit of the 32-bit instruction
+/// - Bit 28 (mask bit 0x1000) - bit 28 of the 32-bit instruction
 ///
 /// \param Instruction32 The 32-bit instruction word (must be in correct
-///                      byte order for the target)
+///                      byte order for the target, typically big-endian)
 /// \returns true if the instruction is 32-bit, false if 16-bit
 inline bool isVLE32BitInstruction(uint32_t Instruction32) {
-  // The algorithm from AN4648 checks bits 31 and 28 of the instruction word.
-  // In a 32-bit word where bit 31 is the MSB:
-  // - Bit 31 is at position 31 (0x80000000)
-  // - Bit 28 is at position 28 (0x10000000)
-  // Together they form mask 0x90000000
+  // According to AN4648, we check the upper 16 bits (bits 31-16) of the
+  // instruction word. The assembly example does:
+  //   se_lhz r4,0(r5)  # load halfword at exception address
+  //   e_andi. r3,r4,0x9000  # mask bits 31 and 28
+  //   e_cmpli 0x0,r3,0x1000  # compare with 0x1000
   //
-  // The condition is: (instruction & 0x90000000) == 0x10000000
-  // This means: bit 31 = 0, bit 28 = 1, which indicates a 32-bit VLE instruction
+  // This is equivalent to checking (Instruction32 & 0x90000000) == 0x10000000
+  // when the instruction is in standard PowerPC byte order (big-endian).
+  //
+  // The condition means: bit 31 = 0, bit 28 = 1, which indicates 32-bit VLE
   
-  return (Instruction32 & 0x90000000U) == 0x10000000U;
+  // Extract upper 16 bits and apply the mask from AN4648
+  uint16_t UpperHalfword = (Instruction32 >> 16) & 0xFFFF;
+  return (UpperHalfword & 0x9000) == 0x1000;
 }
 
 /// Determines the encoding type and length of a PowerPC instruction.
