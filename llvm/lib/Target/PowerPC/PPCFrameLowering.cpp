@@ -93,6 +93,15 @@ PPCFrameLowering::PPCFrameLowering(const PPCSubtarget &STI)
       BasePointerSaveOffset(computeBasePointerSaveOffset(Subtarget)),
       CRSaveOffset(computeCRSaveOffset(Subtarget)) {}
 
+//===----------------------------------------------------------------------===//
+// Helper function to check if function is an interrupt handler
+//===----------------------------------------------------------------------===//
+static bool isInterruptHandler(const MachineFunction &MF) {
+  const Function &F = MF.getFunction();
+  // Check for PowerPC interrupt attribute
+  return F.hasFnAttribute("interrupt");
+}
+
 // With the SVR4 ABI, callee-saved registers have fixed offsets on the stack.
 const PPCFrameLowering::SpillSlot *PPCFrameLowering::getCalleeSavedSpillSlots(
     unsigned &NumEntries) const {
@@ -1658,6 +1667,47 @@ void PPCFrameLowering::emitEpilogue(MachineFunction &MF,
   // call optimization
   if (IsReturnBlock) {
     unsigned RetOpcode = MBBI->getOpcode();
+    
+    // For interrupt handlers, replace BLR/BLR8 with RFI (Return From Interrupt)
+    // or RFCI (Return From Critical Interrupt).
+    // - Critical interrupts (IVOR0): Hardware saves to CSRR0/CSRR1, use RFCI
+    // - External interrupts (IVOR4): Hardware saves to SRR0/SRR1, use RFI
+    // - Default interrupts: Use RFI (same as external)
+    // For VLE mode, e_rfi should be used (VLE 32-bit form of RFI).
+    // Note: RFCI is for critical interrupts only (non-maskable, IVOR0).
+    if (isInterruptHandler(MF) &&
+        (RetOpcode == PPC::BLR || RetOpcode == PPC::BLR8)) {
+      // Erase the BLR instruction.
+      MBBI = MBB.erase(MBBI);
+      
+      // Check interrupt type from function attribute
+      const Function &F = MF.getFunction();
+      StringRef InterruptType = "";
+      if (F.hasFnAttribute("interrupt")) {
+        Attribute Attr = F.getFnAttribute("interrupt");
+        if (Attr.isStringAttribute()) {
+          InterruptType = Attr.getValueAsString();
+        }
+      }
+      
+      // Emit RFCI for critical interrupts, RFI/e_rfi for others
+      const PPCSubtarget &Subtarget = MF.getSubtarget<PPCSubtarget>();
+      unsigned ReturnOpcode;
+      if (InterruptType == "critical") {
+        // Critical interrupt: use RFCI (Return From Critical Interrupt)
+        // Hardware automatically saves to CSRR0/CSRR1 for critical interrupts
+        // RFCI restores from CSRR0/CSRR1
+        ReturnOpcode = PPC::RFCI;
+      } else {
+        // External or default interrupt: use RFI/e_rfi
+        // Hardware automatically saves to SRR0/SRR1 for external interrupts
+        // RFI restores from SRR0/SRR1
+        ReturnOpcode = Subtarget.hasVLE() ? PPC::E_RFI : PPC::RFI;
+      }
+      BuildMI(MBB, MBBI, dl, TII.get(ReturnOpcode));
+      return;
+    }
+    
     if (MF.getTarget().Options.GuaranteedTailCallOpt &&
         (RetOpcode == PPC::BLR || RetOpcode == PPC::BLR8) &&
         MF.getFunction().getCallingConv() == CallingConv::Fast) {
@@ -1842,6 +1892,153 @@ void PPCFrameLowering::determineCalleeSaves(MachineFunction &MF,
         MFI.CreateFixedObject(SpillSize, SpillOffset,
                               /* IsImmutable */ true, /* IsAliased */ false);
     FI->setCRSpillFrameIndex(FrameIdx);
+  }
+
+  // For interrupt handlers, we must save LR, CR, and all used GPRs.
+  // Interrupt handlers must preserve complete processor state, so we need to
+  // save all registers that may be modified, including caller-saved registers.
+  if (isInterruptHandler(MF)) {
+    // Force save LR (Link Register) - required for interrupt context
+    SavedRegs.set(LR);
+    FI->setMustSaveLR(true);
+
+    // Force save CR (the entire condition register) - UNCONDITIONAL for interrupt handlers.
+    // Interrupt handlers must preserve complete processor state. CR may be modified
+    // implicitly by comparison operations, branches, and arithmetic instructions,
+    // even if CR fields are not explicitly tested. Saving CR unconditionally ensures
+    // correct restoration of the interrupted context.
+    // On 64-bit SVR4 and AIX, we save CR at SP+8. On 32-bit SVR4, we save
+    // it in the callee-saved area.
+    if (!SavedRegs.test(PPC::CR2) && !SavedRegs.test(PPC::CR3) &&
+        !SavedRegs.test(PPC::CR4)) {
+      SavedRegs.set(PPC::CR2);
+      SavedRegs.set(PPC::CR3);
+      SavedRegs.set(PPC::CR4);
+      FI->addMustSaveCR(PPC::CR2);
+      FI->addMustSaveCR(PPC::CR3);
+      FI->addMustSaveCR(PPC::CR4);
+
+      // Create the CR spill slot if it doesn't exist.
+      if (!FI->getCRSpillFrameIndex()) {
+        const uint64_t SpillSize = 4;
+        const int64_t SpillOffset =
+            Subtarget.isPPC64() ? 8 : Subtarget.isAIXABI() ? 4 : -4;
+        int FrameIdx =
+            MFI.CreateFixedObject(SpillSize, SpillOffset,
+                                  /* IsImmutable */ true, /* IsAliased */ false);
+        FI->setCRSpillFrameIndex(FrameIdx);
+      }
+    }
+
+    // For interrupt handlers, save all GPRs that are used in the function.
+    // This ensures that all modified registers are preserved across the
+    // interrupt handler execution. We check both caller-saved and callee-saved
+    // GPRs that are actually used.
+    const MachineRegisterInfo &MRI = MF.getRegInfo();
+    
+    // Save all callee-saved GPRs that are used.
+    const MCPhysReg *CSRegs = RegInfo->getCalleeSavedRegs(&MF);
+    for (unsigned i = 0; CSRegs[i]; ++i) {
+      unsigned Reg = CSRegs[i];
+      if ((PPC::GPRCRegClass.contains(Reg) || PPC::G8RCRegClass.contains(Reg)) &&
+          MRI.isPhysRegUsed(Reg))
+        SavedRegs.set(Reg);
+    }
+    
+    // Also save caller-saved GPRs if the function makes calls.
+    // In interrupt handlers that make function calls, we need to preserve
+    // all caller-saved registers as well.
+    if (MFI.hasCalls()) {
+      // R3-R10 (X3-X10) are caller-saved argument registers
+      // R11-X11, R12-X12 are caller-saved scratch registers
+      // R0-X0 is a special register (constant 0, but can be used as scratch)
+      static const MCPhysReg CallerSavedGPRs[] = {
+        PPC::R3, PPC::R4, PPC::R5, PPC::R6, PPC::R7, PPC::R8,
+        PPC::R9, PPC::R10, PPC::R11, PPC::R12,
+        PPC::X3, PPC::X4, PPC::X5, PPC::X6, PPC::X7, PPC::X8,
+        PPC::X9, PPC::X10, PPC::X11, PPC::X12,
+        0
+      };
+      for (unsigned i = 0; CallerSavedGPRs[i]; ++i) {
+        unsigned Reg = CallerSavedGPRs[i];
+        // Only save registers that are actually used and valid for the target.
+        if (MRI.isPhysRegUsed(Reg)) {
+          // Make sure the register is valid for the target architecture.
+          if ((isPPC64 && PPC::G8RCRegClass.contains(Reg)) ||
+              (!isPPC64 && PPC::GPRCRegClass.contains(Reg)))
+            SavedRegs.set(Reg);
+        }
+      }
+    }
+
+    // Check for Special Purpose Register (SPR) usage in interrupt handlers.
+    // SPRs like XER and CTR may be used and need to be saved/restored.
+    // XER (Fixed-Point Exception Register) may be implicitly modified by
+    // arithmetic operations (overflow/carry bits), and CTR (Count Register)
+    // may be used for loops.
+    // Note: SPRs cannot be directly spilled like GPRs; they require mfspr/mtspr
+    // instructions to save/restore, which will be handled in emitPrologue/emitEpilogue.
+    if (MRI.isPhysRegUsed(PPC::XER)) {
+      // XER is used - mark that we need XER save/restore
+      FI->setMustSaveXER(true);
+    }
+    
+    if (MRI.isPhysRegUsed(PPC::CTR) || MRI.isPhysRegUsed(PPC::CTR8)) {
+      // CTR is used - mark that we need CTR save/restore
+      // CTR is typically reserved for counter-based loops, but if it's
+      // explicitly used in an interrupt handler, we must preserve it.
+      FI->setMustSaveCTR(true);
+    }
+    
+    // Check for FPR (Floating-Point Register) usage in interrupt handlers.
+    // e200z4 and e200z7 have SPE/FPU support. If FPU operations are used in
+    // an interrupt handler, all FPRs used must be saved to preserve processor state.
+    // FPRs are saved using standard floating-point store instructions (stfs/stfd).
+    const PPCSubtarget &Subtarget = MF.getSubtarget<PPCSubtarget>();
+    if (Subtarget.hasSPE() || Subtarget.hasFPU()) {
+      // Check for any FPR usage in the interrupt handler
+      bool UsesFPR = false;
+      for (unsigned i = 0; i < 32; ++i) {
+        unsigned FPR = isPPC64 ? PPC::F8_First + i : PPC::F0 + i;
+        if (MRI.isPhysRegUsed(FPR)) {
+          UsesFPR = true;
+          break;
+        }
+      }
+      
+      if (UsesFPR) {
+        // Mark that FPRs need to be saved/restored
+        // TODO: Track which specific FPRs are used and save only those.
+        // For now, mark that FPR save is needed. The actual save/restore
+        // will be handled in emitPrologue/emitEpilogue when FPR save slots
+        // are allocated.
+        FI->setMustSaveFPRs(true);
+        
+        // For e200z4/e200z7 with SPE, also save SPEFSCR (SPE Floating-Point
+        // Status and Control Register) if FPU operations are used.
+        // SPEFSCR contains exception flags and control bits that must be preserved.
+        if (Subtarget.hasSPE()) {
+          if (MRI.isPhysRegUsed(PPC::SPEFSCR)) {
+            FI->setMustSaveSPEFSCR(true);
+          } else {
+            // Even if SPEFSCR is not explicitly read, FPU operations modify it
+            // implicitly (exception flags, rounding mode, etc.), so we should
+            // save it if any FPR operations are present.
+            FI->setMustSaveSPEFSCR(true);
+          }
+        }
+      }
+    }
+    
+    // Note: Other SPRs (MSR, IVORs, etc.) are typically not modified by
+    // interrupt handlers, but if mfspr/mtspr instructions are used to access
+    // other SPRs, they should be tracked and saved. This requires more sophisticated
+    // analysis of mfspr/mtspr instruction usage, which can be added in a future
+    // enhancement.
+    // 
+    // TODO: Extract IVOR table from e200z4 Core Reference Manual Chapter 5 to
+    // determine if different interrupt types (critical vs external) require
+    // different register save requirements.
   }
 }
 

@@ -6010,9 +6010,9 @@ static void handlePowerPCInterruptAttr(Sema &S, Decl *D,
   StringRef Str;
   SourceLocation ArgLoc;
 
-  // 'standard' is the default interrupt type.
+  // Default to generic interrupt type.
   if (AL.getNumArgs() == 0)
-    Str = "standard";
+    Str = "";
   else if (!S.checkStringLiteralArgumentAttr(AL, 0, Str, &ArgLoc))
     return;
 
@@ -6021,7 +6021,7 @@ static void handlePowerPCInterruptAttr(Sema &S, Decl *D,
   // - Must have no parameters.
   // - Must have the 'void' return type.
   // - The attribute itself must either have no argument or one of the
-  //   valid interrupt types: "critical", "external", "standard"
+  //   valid interrupt types, see [PowerPCInterruptDocs].
 
   if (D->getFunctionType() == nullptr) {
     S.Diag(D->getLocation(), diag::warn_attribute_wrong_decl_type)
@@ -6077,6 +6077,11 @@ static void handleInterruptAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
     break;
   case llvm::Triple::avr:
     handleAVRInterruptAttr(S, D, AL);
+    break;
+  case llvm::Triple::ppc:
+  case llvm::Triple::ppc64:
+  case llvm::Triple::ppc64le:
+    handlePowerPCInterruptAttr(S, D, AL);
     break;
   case llvm::Triple::riscv32:
   case llvm::Triple::riscv64:

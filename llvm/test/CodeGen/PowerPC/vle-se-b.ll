@@ -1,4 +1,8 @@
 ; RUN: llc -mtriple=powerpc-none-eabivle -mcpu=e200z4 -mvle -Oz < %s | FileCheck %s
+<<<<<<< HEAD
+=======
+; RUN: llc -mtriple=powerpc-none-eabivle -mcpu=e200z4 -mvle -O2 < %s | FileCheck %s --check-prefix=NOOPT
+>>>>>>> master
 
 ; Test SE_B (16-bit unconditional branch) instruction selection.
 ; SE_B performs unconditional branch with 8-bit signed displacement.
@@ -21,3 +25,8 @@ end:
   ret i32 0
 }
 
+<<<<<<< HEAD
+=======
+attributes #0 = { minsize optsize "target-cpu"="e200z4" }
+
+>>>>>>> master

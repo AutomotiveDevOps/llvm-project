@@ -497,7 +497,17 @@ void PPCPassConfig::addMachineSSAOptimization() {
 }
 
 void PPCPassConfig::addPreRegAlloc() {
+  // VLE optimization: Run early when optimizing for code size to enable
+  // better register allocation decisions that prefer R0-R7 for 16-bit VLE
   if (getOptLevel() != CodeGenOpt::None) {
+    const PPCSubtarget &ST = getPPCTargetMachine().getSubtarget<PPCSubtarget>();
+    if (ST.hasVLE()) {
+      initializePPCVLEOptPass(*PassRegistry::getPassRegistry());
+      // Insert VLEOpt early in the pipeline, before register allocation
+      // This allows register allocator to see VLE-eligible instructions
+      // and prefer R0-R7 registers
+      insertPass(&MachineSchedulerID, &PPCVLEOptID);
+    }
     initializePPCVSXFMAMutatePass(*PassRegistry::getPassRegistry());
     insertPass(VSXFMAMutateEarly ? &RegisterCoalescerID : &MachineSchedulerID,
                &PPCVSXFMAMutateID);

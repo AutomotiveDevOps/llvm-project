@@ -258,9 +258,34 @@ def GPRC : RegisterClass<"PPC", [i32,f32], 32, (add (sequence "R%u", 2, 12),
                                                     R31, R0, R1, FP, BP)> {
   // On non-Darwin PPC64 systems, R2 can be allocated, but must be restored, so
   // put it at the end of the list.
-  let AltOrders = [(add (sub GPRC, R2), R2)];
+  let AltOrders = [(add (sub GPRC, R2), R2),
+                   // VLE code size optimization: Prefer R0-R7 for 16-bit VLE instructions
+                   // This alternative order prioritizes R0-R7 which are required
+                   // for 16-bit VLE encoding (3-bit register field)
+                   (add R0, R1, R2, R3, R4, R5, R6, R7,
+                        (sequence "R%u", 8, 12),
+                        (sequence "R%u", 30, 13), R31, FP, BP)];
   let AltOrderSelect = [{
-    return MF.getSubtarget<PPCSubtarget>().is64BitELFABI();
+    const PPCSubtarget &Subtarget = MF.getSubtarget<PPCSubtarget>();
+    // Use 64-bit ELF ABI order when needed
+    if (Subtarget.is64BitELFABI())
+      return 1;
+    // Use VLE-preferred order (R0-R7 first) when VLE is enabled.
+    // This preference is especially important when optimizing for code size,
+    // but also beneficial for VLE targets in general to enable 16-bit instruction forms.
+    // 16-bit VLE instructions require R0-R7 (3-bit register encoding), so prioritizing
+    // these registers enables better code size optimization opportunities.
+    if (Subtarget.hasVLE()) {
+      // Strong preference when optimizing for code size
+      if (MF.getFunction().hasOptSize() || MF.getFunction().hasMinSize())
+        return 2;
+      // Also prefer R0-R7 when VLE is available and not explicitly optimizing
+      // for performance (this helps enable VLE code size benefits)
+      // Note: We can adjust this heuristic based on optimization level if needed
+      return 2;
+    }
+    // Default order
+    return 0;
   }];
 }
 
@@ -293,6 +318,17 @@ def G8RC_NOX0 : RegisterClass<"PPC", [i64], 64, (add (sub G8RC, X0), ZERO8)> {
   let AltOrders = [(add (sub G8RC_NOX0, X2), X2)];
   let AltOrderSelect = [{
     return MF.getSubtarget<PPCSubtarget>().is64BitELFABI();
+  }];
+}
+
+// VLE register class for 16-bit instructions: Only R0-R7 are encodable
+// in 16-bit VLE instructions due to 3-bit register field limitation.
+// This register class enforces the constraint at instruction selection time.
+def GPRC_VLE_R0_R7 : RegisterClass<"PPC", [i32,f32], 32, (add R0, R1, R2, R3, R4, R5, R6, R7)> {
+  let AltOrders = [GPRC_VLE_R0_R7];  // No alternative ordering needed
+  let AltOrderSelect = [{
+    // Always use default order for VLE R0-R7 register class
+    return 0;
   }];
 }
 

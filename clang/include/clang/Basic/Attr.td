@@ -362,6 +362,7 @@ def TargetBPF : TargetArch<["bpfel", "bpfeb"]>;
 def TargetMips32 : TargetArch<["mips", "mipsel"]>;
 def TargetAnyMips : TargetArch<["mips", "mipsel", "mips64", "mips64el"]>;
 def TargetMSP430 : TargetArch<["msp430"]>;
+def TargetPowerPC : TargetArch<["ppc", "ppc64", "ppc64le"]>;
 def TargetRISCV : TargetArch<["riscv32", "riscv64"]>;
 def TargetPowerPC : TargetArch<["powerpc", "powerpc64", "powerpcle", "powerpc64le"]>;
 def TargetX86 : TargetArch<["x86"]>;
@@ -1629,7 +1630,7 @@ def PowerPCInterrupt : InheritableAttr, TargetSpecificAttr<TargetPowerPC> {
   let Subjects = SubjectList<[Function]>;
   let Args = [EnumArgument<"Interrupt", "InterruptType",
                            ["critical", "external", ""],
-                           ["critical", "external", "standard"],
+                           ["critical", "external", "Generic"],
                            1>];
   let ParseKind = "Interrupt";
   let Documentation = [PowerPCInterruptDocs];

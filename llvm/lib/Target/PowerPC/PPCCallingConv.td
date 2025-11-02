@@ -372,3 +372,27 @@ def CSR_64_AllRegs_Altivec : CalleeSavedRegs<(add CSR_64_AllRegs,
 def CSR_64_AllRegs_VSX : CalleeSavedRegs<(add CSR_64_AllRegs_Altivec,
                                          (sequence "VSL%u", 0, 31))>;
 
+// Interrupt handler callee-saved registers for PowerPC e200 (32-bit embedded)
+// Interrupt handlers must save/restore all registers that may be modified,
+// including both caller-saved and callee-saved registers, as well as special
+// registers like LR (Link Register), CR (Condition Register), and XER.
+// Note: R1 (SP) is not included as it's the stack pointer and is managed separately.
+// Note: R0 is included as it may be used as a scratch register in interrupt handlers.
+def CSR_Interrupt_32 : CalleeSavedRegs<(add LR,                    // Link Register (R1 implicitly saved via LR)
+                                          R0,                      // R0 (may be used as scratch)
+                                          (sequence "R%u", 2, 12), // R2-R12 (caller-saved)
+                                          (sequence "R%u", 14, 31), // R14-R31 (callee-saved)
+                                          (sequence "CR%u", 0, 7),  // CR0-CR7 (Condition Register)
+                                          XER, CTR                 // XER, CTR (if used)
+                                      )>;
+
+// Interrupt handler with FPU support (e200z6)
+def CSR_Interrupt_32_FPU : CalleeSavedRegs<(add CSR_Interrupt_32,
+                                          (sequence "F%u", 0, 31)   // All FPU registers
+                                      )>;
+
+// Interrupt handler with SPE support (e200z4, e200z7)
+def CSR_Interrupt_32_SPE : CalleeSavedRegs<(add CSR_Interrupt_32,
+                                          (sequence "S%u", 0, 31)   // All SPE registers
+                                      )>;
+

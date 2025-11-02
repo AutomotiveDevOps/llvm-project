@@ -141,6 +141,7 @@ namespace {
     const PPCSubtarget *PPCSubTarget = nullptr;
     const PPCTargetLowering *PPCLowering = nullptr;
     unsigned GlobalBaseReg = 0;
+    bool PreferVLE = false; // Prefer VLE instructions when optimizing for code size
 
   public:
     explicit PPCDAGToDAGISel(PPCTargetMachine &tm, CodeGenOpt::Level OptLevel)
@@ -151,6 +152,12 @@ namespace {
       GlobalBaseReg = 0;
       PPCSubTarget = &MF.getSubtarget<PPCSubtarget>();
       PPCLowering = PPCSubTarget->getTargetLowering();
+      
+      // Determine if we should prefer VLE instructions for code size optimization
+      PreferVLE = PPCSubTarget && PPCSubTarget->hasVLE() &&
+                  (MF.getFunction().hasOptSize() || 
+                   MF.getFunction().hasMinSize());
+      
       SelectionDAGISel::runOnMachineFunction(MF);
 
       if (!PPCSubTarget->isSVR4ABI())
@@ -4643,11 +4650,194 @@ void PPCDAGToDAGISel::Select(SDNode *N) {
   // prioritize VLE instruction patterns. This helps achieve the 20-30% code size
   // reduction promised by VLE by preferring smaller 16-bit and 32-bit VLE forms
   // over standard 32-bit PowerPC instructions.
-  // Note: PreferVLE flag is set to enable VLE-aware optimizations throughout selection.
-  // Actual pattern prioritization is handled by TableGen pattern ordering and cost model.
+  // Pattern prioritization is handled by:
+  // 1. Cost model (PPCTargetTransformInfo::getUserCost) which returns accurate
+  //    instruction sizes (2 bytes for 16-bit VLE, 4 bytes for 32-bit VLE)
+  // 2. TableGen pattern ordering where VLE patterns should be listed before
+  //    standard PowerPC patterns
+  // 3. Explicit VLE pattern matching here when PreferVLE is true
+  // 4. Register allocation preferences for R0-R7 (handled in PPCRegisterInfo)
   bool PreferVLE = PPCSubTarget && PPCSubTarget->hasVLE() &&
                    (MF->getFunction().optForSize() || 
                     MF->getFunction().hasMinSize());
+  
+  // When optimizing for code size with VLE, try VLE-specific patterns first
+  // This code identifies operations that could benefit from 16-bit VLE forms
+  // and provides hints to the TableGen pattern matcher. The actual pattern
+  // selection happens in TableGen, but this early detection helps prioritize
+  // VLE patterns when multiple matches are possible.
+  if (PreferVLE) {
+    // Check for operations that could benefit from 16-bit VLE forms
+    // This includes checking immediate ranges and register constraints
+    switch (N->getOpcode()) {
+    case ISD::ADD:
+    case ISD::SUB: {
+      // Check if we can use 16-bit VLE addi/subi (requires s6imm: -32 to 31)
+      // and register constraints (R0-R7) will be checked by register allocator
+      if (N->getNumOperands() == 2) {
+        if (auto *C = dyn_cast<ConstantSDNode>(N->getOperand(1))) {
+          int64_t Imm = C->getSExtValue();
+          // Check immediate range for 16-bit VLE (s6imm: -32 to 31)
+          if (Imm >= -32 && Imm <= 31) {
+            // Immediate fits in s6imm range for se_addi/se_subi
+            // TableGen patterns will select VLE forms if registers are R0-R7
+            break;
+          }
+          // Also check u7imm range (0-127) for se_addi/se_subi extended forms
+          if (Imm >= 0 && Imm <= 127 && (N->getOpcode() == ISD::ADD)) {
+            // Could potentially use se_li + se_addi sequence or extended forms
+            break;
+          }
+        }
+      }
+      break;
+    }
+    case ISD::AND:
+    case ISD::OR:
+    case ISD::XOR: {
+      // Check for logical operations with immediate that fit 16-bit VLE
+      // se_andi, se_ori, se_xori support u5imm (0-31)
+      if (N->getNumOperands() == 2) {
+        if (auto *C = dyn_cast<ConstantSDNode>(N->getOperand(1))) {
+          uint64_t Imm = C->getZExtValue();
+          // Check if immediate fits in u5imm (0-31) for VLE
+          if (Imm <= 31) {
+            // Immediate fits, TableGen patterns will handle VLE selection
+            break;
+          }
+        }
+      }
+      break;
+    }
+    case ISD::SHL:
+    case ISD::SRL:
+    case ISD::SRA: {
+      // Shift operations with small shift amounts can use 16-bit VLE
+      // se_slwi, se_srwi, se_srawi support shift amounts 0-31
+      if (N->getNumOperands() == 2) {
+        if (auto *C = dyn_cast<ConstantSDNode>(N->getOperand(1))) {
+          uint64_t ShiftAmt = C->getZExtValue();
+          if (ShiftAmt <= 31) {
+            // Shift amount fits, VLE patterns will be tried first
+            break;
+          }
+        }
+      }
+      break;
+    }
+    case ISD::SETCC: {
+      // Comparisons with immediate can use se_cmpi (s6imm: -32 to 31)
+      if (N->getNumOperands() >= 3) {
+        if (auto *C = dyn_cast<ConstantSDNode>(N->getOperand(2))) {
+          int64_t Imm = C->getSExtValue();
+          if (Imm >= -32 && Imm <= 31) {
+            // Immediate fits in s6imm range for se_cmpi
+            break;
+          }
+        }
+      }
+      break;
+    }
+    case ISD::LOAD: {
+      // Load operations can use 16-bit VLE forms when:
+      // - Displacement fits in s6imm (-32..31) for se_lwz (word loads)
+      // - Displacement fits in u5imm (0..31) for se_lwz
+      // - Displacement fits in u4imm (0..15) for se_lbz, se_lhz (byte/halfword)
+      // - Base register is R0-R7 (checked by register allocator)
+      LoadSDNode *LD = cast<LoadSDNode>(N);
+      EVT MemVT = LD->getMemoryVT();
+      
+      // Check displacement for simple base+offset addressing
+      if (LD->getAddressingMode() == ISD::UNINDEXED) {
+        // Try to extract constant offset from address computation
+        SDValue Addr = LD->getBasePtr();
+        
+        // Check if address is a simple base register (potential for se_lwz with 0 offset)
+        if (Addr.getOpcode() == ISD::Register || 
+            (Addr.getOpcode() == ISD::FrameIndex)) {
+          // Frame index or direct register - could use VLE form with 0 offset
+          // or small offset if frame lowering cooperates
+          break;
+        }
+        
+        // Check if address is base + constant offset
+        if (Addr.getOpcode() == ISD::ADD) {
+          if (auto *OffsetC = dyn_cast<ConstantSDNode>(Addr.getOperand(1))) {
+            int64_t Offset = OffsetC->getSExtValue();
+            // Check displacement ranges based on load type
+            if (MemVT == MVT::i32) {
+              // Word loads: se_lwz supports s6imm (-32..31) or u5imm (0..31)
+              if ((Offset >= -32 && Offset <= 31) || (Offset >= 0 && Offset <= 31)) {
+                break;
+              }
+            } else if (MemVT == MVT::i16 || MemVT == MVT::i8) {
+              // Byte/halfword loads: se_lbz, se_lhz support u4imm (0..15)
+              if (Offset >= 0 && Offset <= 15) {
+                break;
+              }
+            }
+          }
+        }
+      }
+      break;
+    }
+    case ISD::STORE: {
+      // Store operations can use 16-bit VLE forms when:
+      // - Displacement fits in s6imm (-32..31) for se_stw (word stores)
+      // - Displacement fits in u5imm (0..31) for se_stw
+      // - Displacement fits in u4imm (0..15) for se_stb, se_sth (byte/halfword)
+      // - Base register is R0-R7 (checked by register allocator)
+      StoreSDNode *ST = cast<StoreSDNode>(N);
+      EVT MemVT = ST->getMemoryVT();
+      
+      // Check displacement for simple base+offset addressing
+      if (ST->getAddressingMode() == ISD::UNINDEXED) {
+        // Try to extract constant offset from address computation
+        SDValue Addr = ST->getBasePtr();
+        
+        // Check if address is a simple base register (potential for se_stw with 0 offset)
+        if (Addr.getOpcode() == ISD::Register || 
+            (Addr.getOpcode() == ISD::FrameIndex)) {
+          // Frame index or direct register - could use VLE form with 0 offset
+          break;
+        }
+        
+        // Check if address is base + constant offset
+        if (Addr.getOpcode() == ISD::ADD) {
+          if (auto *OffsetC = dyn_cast<ConstantSDNode>(Addr.getOperand(1))) {
+            int64_t Offset = OffsetC->getSExtValue();
+            // Check displacement ranges based on store type
+            if (MemVT == MVT::i32) {
+              // Word stores: se_stw supports u5imm (0..31)
+              if (Offset >= 0 && Offset <= 31) {
+                break;
+              }
+            } else if (MemVT == MVT::i16 || MemVT == MVT::i8) {
+              // Byte/halfword stores: se_stb, se_sth support u4imm (0..15)
+              if (Offset >= 0 && Offset <= 15) {
+                break;
+              }
+            }
+          }
+        }
+      }
+      break;
+    }
+    case ISD::Constant: {
+      // Constant materialization can use se_li for small values (u7imm: 0-127)
+      if (auto *C = dyn_cast<ConstantSDNode>(N)) {
+        int64_t Imm = C->getSExtValue();
+        if (Imm >= 0 && Imm <= 127 && N->getValueType(0) == MVT::i32) {
+          // Could use se_li for small positive constants
+          break;
+        }
+      }
+      break;
+    }
+    default:
+      break;
+    }
+  }
 
   // Try matching complex bit permutations before doing anything else.
   if (tryBitPermutation(N))

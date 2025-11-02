@@ -1,0 +1,180 @@
+[TITLE:e200z4 Manual Extracted Findings - Validation Results]
+
+[INTRO]
+This document contains information extracted from the e200z4 Core Reference Manual
+for validation against LLVM implementation. Manual available at:
+https://www.elektronikjk.com/elementy_czynne/IC/E200Z4.pdf
+
+[FIXES-APPLIED]
+UID: FIXES-001
+
+FIX_001: Corrected SPE instruction terminology
+File: llvm/lib/Target/PowerPC/PPCScheduleE200Z4.td:226-228
+Issue: Comment incorrectly said "must use ALU0" (e200z7 terminology) instead of DIS0 (e200z4 terminology)
+Fix: Updated comment to use correct e200z4 dispatch port terminology (DIS0)
+Status: ✓ FIXED
+
+FIX_002: Added dual-issue pairing rules documentation
+File: llvm/lib/Target/PowerPC/PPCScheduleE200Z4.td:275-302
+Issue: Missing documentation about dual-issue pairing rules and incomplete model status
+Fix: Added comprehensive comments documenting:
+  - Need to extract pairing rules from manual Chapter 4
+  - Known restrictions (SPE cannot pair, SU0-only instructions)
+  - TODO items for complete model validation
+Status: ✓ FIXED
+
+FIX_003: Added FPR and SPEFSCR save logic for interrupt handlers
+Files: 
+  - llvm/lib/Target/PowerPC/PPCFrameLowering.cpp:1947-1984
+  - llvm/lib/Target/PowerPC/PPCMachineFunctionInfo.h:83-91, 208-212
+Issue: Interrupt handlers with SPE/FPU support (e200z4, e200z7) were not saving FPRs or SPEFSCR
+Fix: Added logic to:
+  - Detect FPR usage in interrupt handlers
+  - Mark MustSaveFPRs flag when FPRs are used
+  - Mark MustSaveSPEFSCR flag for SPE-enabled cores (e200z4, e200z7)
+  - Added getter/setter methods to PPCMachineFunctionInfo
+Status: ✓ FIXED (partial - prologue/epilogue code generation for FPR/SPEFSCR save still needed)
+
+[CRITICAL-FINDINGS]
+UID: CRITICAL
+
+FINDING_001:
+Issue: SPE instructions comment says "must use ALU0" but e200z4 uses SU0/DIS0 terminology
+Code_Location: PPCScheduleE200Z4.td:226
+Impact: Terminology mismatch may indicate incorrect understanding
+Action: ✓ FIXED - Updated comment to use DIS0 terminology
+
+FINDING_002:
+Issue: No explicit SU0-only restrictions modeled in itineraries
+Code_Location: PPCScheduleE200Z4.td:35-45
+Impact: Scheduler may incorrectly allow SU1 for SU0-only instructions
+Status: ⚠ NEEDS MANUAL EXTRACTION - Need to extract SU0-only instruction list from manual Chapter 4
+
+FINDING_003:
+Issue: Dual-issue pairing rules not explicitly modeled
+Code_Location: PPCScheduleE200Z4.td:274-286
+Impact: CompleteModel = 0, scheduler doesn't enforce pairing rules
+Status: ⚠ NEEDS MANUAL EXTRACTION - Need pairing rules table from manual Chapter 4
+Action: ✓ DOCUMENTED - Added comments explaining need for extraction
+
+FINDING_004:
+Issue: Interrupt context save doesn't handle SPRs, FPRs, SPEFSCR
+Code_Location: PPCFrameLowering.cpp:1843-1913
+Impact: Interrupt handlers corrupting register state for SPE/FPU operations
+Status: ✓ PARTIALLY FIXED
+  - Added FPR usage detection (lines 1947-1984)
+  - Added MustSaveFPRs flag support
+  - Added MustSaveSPEFSCR flag support
+  - TODO: Implement actual save/restore code generation in emitPrologue/emitEpilogue
+
+[MANUAL-EXTRACTION-REQUIRED]
+UID: MANUAL-EXTRACT
+
+FROM_CHAPTER_4:
+Priority: HIGHEST (Required for CERT-001, CERT-007, CERT-010)
+- [ ] Instruction timing tables
+- [ ] Dual-issue pairing rules table (CRITICAL)
+- [ ] SU0 vs SU1 restrictions (CRITICAL)
+- [ ] Dispatch port (DIS0/DIS1) usage rules
+- [ ] Resource conflict rules
+- [ ] Load-to-use latency specification
+- [ ] Bypass path specifications
+- [ ] Branch misprediction penalty
+- [ ] Cache timing (ICache mentioned in code)
+
+FROM_CHAPTER_5:
+Priority: HIGHEST (Required for CERT-003, CERT-005)
+- [ ] IVOR table (all entries)
+- [ ] Exception entry sequence
+- [ ] Exception exit sequence (RFI/e_rfi)
+- [ ] Register save requirements per interrupt type (CRITICAL)
+- [ ] SPR save requirements (XER, CTR handled; others may be needed)
+- [ ] FPR save requirements (detection added; verify manual requirements)
+- [ ] SPEFSCR save requirements (detection added; verify manual requirements)
+- [ ] Critical vs external interrupt differentiation
+
+FROM_CHAPTER_3:
+Priority: MEDIUM (Required for CERT-004, CERT-006, CERT-008, CERT-009)
+- [ ] Memory barrier semantics (MSYNC, SYNC)
+- [ ] VLE encoding rules
+- [ ] Exception specifications
+
+FROM_CHAPTER_1:
+Priority: MEDIUM
+- [ ] Section 1.4: Microarchitecture Summary
+  - Dual-issue overview confirmation
+  - Functional unit descriptions
+  - Pipeline structure confirmation
+  - Cache architecture (for CERT-006)
+
+[IMPLEMENTATION-GAPS]
+UID: GAPS
+
+GAP_001: Dual-issue pairing rules enforcement
+Status: NOT IMPLEMENTED
+Impact: Scheduler doesn't prevent invalid instruction pairings
+Requirement: Extract pairing rules from manual and implement in scheduler
+Certification: Blocks CERT-001 (Complete Pipeline Scheduling Model)
+
+GAP_002: SU0-only instruction restrictions
+Status: NOT IMPLEMENTED  
+Impact: Scheduler may incorrectly allow SU1 for SU0-only instructions
+Requirement: Extract SU0-only list from manual and add resource constraints
+Certification: Blocks CERT-001
+
+GAP_003: FPR/SPEFSCR save/restore code generation
+Status: PARTIALLY IMPLEMENTED
+  - Detection logic: ✓ Added
+  - Flag support: ✓ Added
+  - Prologue code generation: ✗ Missing
+  - Epilogue code generation: ✗ Missing
+Impact: Interrupt handlers using FPU will corrupt FPR state
+Requirement: Implement mfspr/mtspr for SPEFSCR, stfs/stfd for FPRs in emitPrologue/emitEpilogue
+Certification: Blocks CERT-003 (Interrupt Handler Context Save)
+
+GAP_004: Complete scheduling model
+Status: INCOMPLETE (CompleteModel = 0)
+Impact: WCET analysis cannot be fully validated
+Requirement: Extract all timing information from manual and validate
+Certification: Blocks CERT-001
+
+[VALIDATION-NEXT-ACTIONS]
+UID: NEXT-ACTIONS
+
+IMMEDIATE:
+1. ✓ Fix SPE instruction terminology (DONE)
+2. ✓ Document dual-issue pairing rules requirements (DONE)
+3. ✓ Add FPR/SPEFSCR detection and flags (DONE)
+4. [ ] Read Chapter 4 from e200z4 manual PDF directly
+5. [ ] Extract instruction timing tables
+6. [ ] Extract dual-issue pairing rules table
+7. [ ] Compare with PPCScheduleE200Z4.td implementation
+8. [ ] Document discrepancies
+
+THEN:
+9. [ ] Read Chapter 5 from e200z4 manual PDF
+10. [ ] Extract IVOR table
+11. [ ] Extract register save requirements
+12. [ ] Compare with PPCFrameLowering.cpp implementation
+13. [ ] Implement FPR/SPEFSCR save/restore in emitPrologue/emitEpilogue
+14. [ ] Document missing SPR/FPR/SPEFSCR save logic
+
+FINALLY:
+15. [ ] Create fixes based on manual specifications
+16. [ ] Update CompleteModel flag if appropriate
+17. [ ] Add explicit pairing rule enforcement
+18. [ ] Complete interrupt context save implementation
+
+[NOTES]
+UID: NOTES
+
+MANUAL_ACCESS:
+- e200z4: https://www.elektronikjk.com/elementy_czynne/IC/E200Z4.pdf
+- Note: Web search results only show table of contents, not detailed timing tables
+- Need to extract directly from PDF sections manually
+
+KNOWN_ISSUES:
+- CompleteModel = 0 indicates incomplete scheduling model
+- Pairing rules not enforced (only documented as TODO)
+- FPR/SPEFSCR save detection added but code generation not implemented
+- IVOR table differentiation not implemented (all interrupts treated same)

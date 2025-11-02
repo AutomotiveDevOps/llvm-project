@@ -55,3 +55,8 @@ entry:
   ret void
 }
 
+<<<<<<< HEAD
+=======
+attributes #0 = { minsize optsize "target-cpu"="e200z4" }
+
+>>>>>>> master

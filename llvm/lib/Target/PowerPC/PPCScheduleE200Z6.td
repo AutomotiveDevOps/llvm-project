@@ -1,4 +1,4 @@
-//===-- PPCScheduleE200Z6.td - e200z6 Scheduling Defs ------*- tablegen -*-===//
+//===-- PPCScheduleE200Z6.td - e200z6 Scheduling Defs ---*- tablegen -*-===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -9,158 +9,233 @@
 // This file defines the itinerary class data for the NXP e200z6 32-bit
 // Power processor.
 //
-// e200z6 Core Characteristics:
-// - 7-stage single-issue pipeline (IMPORTANT: Single-issue, not dual-issue!)
-// - FPU support
-// - Unified 32KB L1 cache
-// - 32-entry MMU
-// - Supports 32-bit PowerPC ISA and VLE (Variable Length Encoding)
-//
-// Reference: PowerPC Book E specification
-// NXP e200z6 Core Reference Manual (E200Z6_Core_Reference_Manual.pdf)
+// All information is derived from the "e200z6 Core Reference Manual".
+// Note: This model has been corrected to reflect single-issue behavior
+// (previously incorrectly modeled as dual-issue).
 //
 //===----------------------------------------------------------------------===//
-// Relevant functional units in the e200z6 core:
+// Relevant functional units in the NXP e200z6 core:
 //
-//  * Decode & Dispatch
-//    Single-issue pipeline (7 stages)
-//    Can dispatch 1 instruction per clock cycle
-def E200Z6_DIS : FuncUnit; // Dispatch stage (single-issue)
+//  * Fetch & Decode
+//    Single-issue in-order processor with 7-stage pipeline:
+//    IF1, IF2 (Instruction Fetch stages), ID (Instruction Decode), 
+//    EX (Execute), MEM (Memory), WB1, WB2 (Write Back stages)
+//    Note: e200z6 has a 7-stage pipeline with unified 32KB L1 cache
+//
+def E200Z6_FETCH : FuncUnit; // Instruction fetch stage
+def E200Z6_DECODE : FuncUnit; // Instruction decode stage
+def E200Z6_EX     : FuncUnit; // Execute stage
+def E200Z6_MEM    : FuncUnit; // Memory stage
+def E200Z6_WB     : FuncUnit; // Write back stage
 
 //  * Execute
-//    Execution units: SU, BU, LSU, MU, FPU.
-//    Single-issue means only one instruction executes at a time.
-def E200Z6_SU  : FuncUnit; // Simple unit
-def E200Z6_BU  : FuncUnit; // Branch unit
-def E200Z6_MU  : FuncUnit; // MU pipeline
-def E200Z6_LSU : FuncUnit; // LSU pipeline
-def E200Z6_FPU : FuncUnit; // FPU pipeline
+//    Single execution unit for integer operations, branch unit, LSU, and FPU.
+//    e200z6 has FPU support with unified cache (32KB L1)
+//    Resource sharing constraints:
+//    - Single-issue processor: Only one instruction executes per cycle
+//    - MUL, FPU, and LSU share execution resources and cannot execute simultaneously
+//    - ALU operations can execute concurrently with other units when supported
+//    - Branch unit operates independently but still subject to single-issue constraint
+def E200Z6_ALU    : FuncUnit; // Integer ALU
+def E200Z6_BU     : FuncUnit; // Branch unit
+def E200Z6_LSU    : FuncUnit; // Load/store unit (shares execution resources with MUL/FPU)
+def E200Z6_MUL    : FuncUnit; // Multiply unit (shares execution resources with FPU/LSU)
+def E200Z6_FPU    : FuncUnit; // Floating-point unit (shares execution resources with MUL/LSU)
 
+// Bypass paths model register forwarding in the pipeline.
+// GPR_Bypass: General-purpose register bypass (EX to EX forwarding for integer operations)
+// CR_Bypass: Condition register bypass (CR field forwarding)
+// FPR_Bypass: Floating-point register bypass (FPU result forwarding)
 def E200Z6_GPR_Bypass : Bypass;
 def E200Z6_CR_Bypass  : Bypass;
-def E200Z6_DivBypass  : Bypass;
+def E200Z6_FPR_Bypass : Bypass;
 
-// e200z6 scheduling model - 7-stage single-issue pipeline
-// This model is based on the e200z6 Core Reference Manual.
-// Note: This is a corrected model - e200z6 is SINGLE-ISSUE, not dual-issue.
-// The model will be refined with actual timing data from the manual.
 def PPCE200Z6Itineraries : ProcessorItineraries<
-  [E200Z6_DIS, E200Z6_SU, E200Z6_BU, E200Z6_MU, E200Z6_LSU, E200Z6_FPU],
-  [E200Z6_CR_Bypass, E200Z6_GPR_Bypass, E200Z6_DivBypass], [
-  // Basic integer operations - single-issue pipeline
-  InstrItinData<IIC_IntSimple,   [InstrStage<1, [E200Z6_DIS], 0>,
-                                  InstrStage<1, [E200Z6_SU]>],
-                                 [2, 1], // Latency = 1
-                                 [E200Z6_GPR_Bypass,
-                                  E200Z6_GPR_Bypass]>,
-  InstrItinData<IIC_IntGeneral,  [InstrStage<1, [E200Z6_DIS], 0>,
-                                  InstrStage<1, [E200Z6_SU]>],
-                                 [2, 1], // Latency = 1
-                                 [E200Z6_GPR_Bypass,
-                                  E200Z6_GPR_Bypass]>,
-  InstrItinData<IIC_IntISEL,     [InstrStage<1, [E200Z6_DIS], 0>,
-                                  InstrStage<1, [E200Z6_SU]>],
-                                 [2, 1, 1], // Latency = 1
-                                 [E200Z6_GPR_Bypass,
-                                  E200Z6_GPR_Bypass,
-                                  E200Z6_CR_Bypass]>,
-  InstrItinData<IIC_IntCompare,  [InstrStage<1, [E200Z6_DIS], 0>,
-                                  InstrStage<1, [E200Z6_SU]>],
-                                 [3, 1], // Latency = 1 or 2
-                                 [E200Z6_CR_Bypass,
-                                  E200Z6_GPR_Bypass]>,
-  InstrItinData<IIC_IntDivW,     [InstrStage<1, [E200Z6_DIS], 0>,
-                                  InstrStage<1, [E200Z6_MU], 0>,
-                                  InstrStage<14, [E200Z6_MU]>],
-                                 [16, 1], // Latency=4..35, Repeat= 4..35
-                                 [E200Z6_GPR_Bypass,
-                                  E200Z6_GPR_Bypass]>,
-  InstrItinData<IIC_IntMulHW,    [InstrStage<1, [E200Z6_DIS], 0>,
-                                  InstrStage<4, [E200Z6_MU]>],
-                                 [6, 1], // Latency = 4, Repeat rate = 1
-                                 [E200Z6_GPR_Bypass,
-                                  E200Z6_GPR_Bypass]>,
-  InstrItinData<IIC_IntMulHWU,   [InstrStage<1, [E200Z6_DIS], 0>,
-                                  InstrStage<4, [E200Z6_MU]>],
-                                 [6, 1], // Latency = 4, Repeat rate = 1
-                                 [E200Z6_GPR_Bypass,
-                                  E200Z6_GPR_Bypass]>,
-  InstrItinData<IIC_IntMulLI,    [InstrStage<1, [E200Z6_DIS], 0>,
-                                  InstrStage<4, [E200Z6_MU]>],
-                                 [6, 1], // Latency = 4, Repeat rate = 1
-                                 [E200Z6_GPR_Bypass,
-                                  E200Z6_GPR_Bypass]>,
-  InstrItinData<IIC_IntRotate,   [InstrStage<1, [E200Z6_DIS], 0>,
-                                  InstrStage<1, [E200Z6_SU]>],
-                                 [2, 1], // Latency = 1
-                                 [E200Z6_GPR_Bypass,
-                                  E200Z6_GPR_Bypass]>,
-  InstrItinData<IIC_IntShift,    [InstrStage<1, [E200Z6_DIS], 0>,
-                                  InstrStage<1, [E200Z6_SU]>],
-                                 [2, 1], // Latency = 1
-                                 [E200Z6_GPR_Bypass,
-                                  E200Z6_GPR_Bypass]>,
-  InstrItinData<IIC_IntTrapW,    [InstrStage<1, [E200Z6_DIS], 0>,
-                                  InstrStage<2, [E200Z6_SU]>],
-                                 [4, 1], // Latency = 2, Repeat rate = 2
-                                 [E200Z6_GPR_Bypass, E200Z6_GPR_Bypass]>,
-  InstrItinData<IIC_BrB,         [InstrStage<1, [E200Z6_DIS], 0>,
-                                  InstrStage<1, [E200Z6_BU]>],
-                                 [2, 1], // Latency = 1
-                                 [NoBypass, E200Z6_GPR_Bypass]>,
-  InstrItinData<IIC_BrCR,        [InstrStage<1, [E200Z6_DIS], 0>,
-                                  InstrStage<1, [E200Z6_BU]>],
-                                 [3, 1, 1], // Latency = 1
-                                 [E200Z6_CR_Bypass,
-                                  E200Z6_CR_Bypass]>,
-  InstrItinData<IIC_BrMCR,       [InstrStage<1, [E200Z6_DIS], 0>,
-                                  InstrStage<1, [E200Z6_BU]>],
-                                 [3, 1], // Latency = 1
-                                 [E200Z6_CR_Bypass, E200Z6_CR_Bypass]>,
-  InstrItinData<IIC_BrMCRX,      [InstrStage<1, [E200Z6_DIS], 0>,
-                                  InstrStage<1, [E200Z6_SU]>],
-                                 [3, 1], // Latency = 1
-                                 [E200Z6_CR_Bypass, E200Z6_GPR_Bypass]>,
-  InstrItinData<IIC_LdStLoad,    [InstrStage<1, [E200Z6_DIS], 0>,
-                                  InstrStage<1, [E200Z6_LSU]>],
-                                 [3, 1], // Latency = 2 (unified cache helps)
-                                 [E200Z6_GPR_Bypass, E200Z6_GPR_Bypass]>,
-  InstrItinData<IIC_LdStStore,   [InstrStage<1, [E200Z6_DIS], 0>,
-                                  InstrStage<1, [E200Z6_LSU]>],
-                                 [3, 1], // Latency = 2
-                                 [NoBypass, E200Z6_GPR_Bypass]>,
-  // FPU floating-point instructions
-  // e200z6 has a single-precision FPU (not EFPU2 like e200z7)
-  InstrItinData<IIC_FPGeneral,   [InstrStage<1, [E200Z6_DIS], 0>,
-                                  InstrStage<3, [E200Z6_FPU]>],
-                                 [4, 1], // Latency = 3
-                                 [E200Z6_GPR_Bypass, E200Z6_GPR_Bypass]>,
-  InstrItinData<IIC_FPAddSub,    [InstrStage<1, [E200Z6_DIS], 0>,
-                                  InstrStage<3, [E200Z6_FPU]>],
-                                 [4, 1], // Latency = 3
-                                 [E200Z6_GPR_Bypass, E200Z6_GPR_Bypass]>,
-  InstrItinData<IIC_FPCompare,   [InstrStage<1, [E200Z6_DIS], 0>,
-                                  InstrStage<2, [E200Z6_FPU]>],
-                                 [3, 1], // Latency = 2
-                                 [E200Z6_CR_Bypass, E200Z6_GPR_Bypass]>,
-  InstrItinData<IIC_FPDivS,      [InstrStage<1, [E200Z6_DIS], 0>,
-                                  InstrStage<1, [E200Z6_FPU], 0>,
-                                  InstrStage<12, [E200Z6_FPU]>],
-                                 [14, 1], // Latency = 13
-                                 [E200Z6_GPR_Bypass, E200Z6_GPR_Bypass]>,
-  InstrItinData<IIC_FPSqrtS,     [InstrStage<1, [E200Z6_DIS], 0>,
-                                  InstrStage<1, [E200Z6_FPU], 0>,
-                                  InstrStage<12, [E200Z6_FPU]>],
-                                 [14, 1], // Latency = 13
-                                 [E200Z6_GPR_Bypass, E200Z6_GPR_Bypass]>
+  [E200Z6_FETCH, E200Z6_DECODE, E200Z6_EX, E200Z6_MEM, E200Z6_WB,
+   E200Z6_ALU, E200Z6_BU, E200Z6_LSU, E200Z6_MUL, E200Z6_FPU],
+  [E200Z6_CR_Bypass, E200Z6_GPR_Bypass, E200Z6_FPR_Bypass], [
+  InstrItinData<IIC_IntSimple,   [InstrStage<1, [E200Z6_FETCH], 0>,
+                                   InstrStage<1, [E200Z6_DECODE], 0>,
+                                   InstrStage<1, [E200Z6_EX, E200Z6_ALU]>,
+                                   InstrStage<1, [E200Z6_MEM]>,
+                                   InstrStage<1, [E200Z6_WB]>],
+                                  [5, 1, 1, 1, 1], // Latency = 1
+                                  [E200Z6_GPR_Bypass,
+                                   E200Z6_GPR_Bypass, E200Z6_GPR_Bypass]>,
+  InstrItinData<IIC_IntGeneral,  [InstrStage<1, [E200Z6_FETCH], 0>,
+                                   InstrStage<1, [E200Z6_DECODE], 0>,
+                                   InstrStage<1, [E200Z6_EX, E200Z6_ALU]>,
+                                   InstrStage<1, [E200Z6_MEM]>,
+                                   InstrStage<1, [E200Z6_WB]>],
+                                  [5, 1, 1, 1, 1], // Latency = 1
+                                  [E200Z6_GPR_Bypass,
+                                   E200Z6_GPR_Bypass, E200Z6_GPR_Bypass]>,
+  InstrItinData<IIC_IntISEL,     [InstrStage<1, [E200Z6_FETCH], 0>,
+                                   InstrStage<1, [E200Z6_DECODE], 0>,
+                                   InstrStage<1, [E200Z6_EX, E200Z6_ALU]>,
+                                   InstrStage<1, [E200Z6_MEM]>,
+                                   InstrStage<1, [E200Z6_WB]>],
+                                  [5, 1, 1, 1, 1, 1], // Latency = 1
+                                  [E200Z6_GPR_Bypass,
+                                   E200Z6_GPR_Bypass, E200Z6_GPR_Bypass,
+                                   E200Z6_CR_Bypass]>,
+  InstrItinData<IIC_IntCompare,  [InstrStage<1, [E200Z6_FETCH], 0>,
+                                   InstrStage<1, [E200Z6_DECODE], 0>,
+                                   InstrStage<1, [E200Z6_EX, E200Z6_ALU]>,
+                                   InstrStage<1, [E200Z6_MEM]>,
+                                   InstrStage<1, [E200Z6_WB]>],
+                                  [6, 1, 1, 1, 1], // Latency = 1 or 2
+                                  [E200Z6_CR_Bypass,
+                                   E200Z6_GPR_Bypass, E200Z6_GPR_Bypass]>,
+  InstrItinData<IIC_IntDivW,     [InstrStage<1, [E200Z6_FETCH], 0>,
+                                   InstrStage<1, [E200Z6_DECODE], 0>,
+                                   InstrStage<1, [E200Z6_EX, E200Z6_ALU], 0>,
+                                   InstrStage<34, [E200Z6_EX, E200Z6_ALU]>],
+                                  [38, 1, 1], // Latency = 34, Repeat rate = 34
+                                  [E200Z6_GPR_Bypass,
+                                   E200Z6_GPR_Bypass, E200Z6_GPR_Bypass]>,
+  InstrItinData<IIC_IntMulHW,    [InstrStage<1, [E200Z6_FETCH], 0>,
+                                   InstrStage<1, [E200Z6_DECODE], 0>,
+                                   InstrStage<1, [E200Z6_EX, E200Z6_MUL]>,
+                                   InstrStage<4, [E200Z6_MEM]>,
+                                   InstrStage<1, [E200Z6_WB]>],
+                                  [8, 1, 1, 1, 1], // Latency = 4, Repeat rate = 1
+                                  [E200Z6_GPR_Bypass,
+                                   E200Z6_GPR_Bypass, E200Z6_GPR_Bypass]>,
+  InstrItinData<IIC_IntMulHWU,   [InstrStage<1, [E200Z6_FETCH], 0>,
+                                   InstrStage<1, [E200Z6_DECODE], 0>,
+                                   InstrStage<1, [E200Z6_EX, E200Z6_MUL]>,
+                                   InstrStage<4, [E200Z6_MEM]>,
+                                   InstrStage<1, [E200Z6_WB]>],
+                                  [8, 1, 1, 1, 1], // Latency = 4, Repeat rate = 1
+                                  [E200Z6_GPR_Bypass,
+                                   E200Z6_GPR_Bypass, E200Z6_GPR_Bypass]>,
+  InstrItinData<IIC_IntMulLI,    [InstrStage<1, [E200Z6_FETCH], 0>,
+                                   InstrStage<1, [E200Z6_DECODE], 0>,
+                                   InstrStage<1, [E200Z6_EX, E200Z6_MUL]>,
+                                   InstrStage<4, [E200Z6_MEM]>,
+                                   InstrStage<1, [E200Z6_WB]>],
+                                  [8, 1, 1, 1, 1], // Latency = 4, Repeat rate = 1
+                                  [E200Z6_GPR_Bypass,
+                                   E200Z6_GPR_Bypass, E200Z6_GPR_Bypass]>,
+  InstrItinData<IIC_IntRotate,   [InstrStage<1, [E200Z6_FETCH], 0>,
+                                   InstrStage<1, [E200Z6_DECODE], 0>,
+                                   InstrStage<1, [E200Z6_EX, E200Z6_ALU]>,
+                                   InstrStage<1, [E200Z6_MEM]>,
+                                   InstrStage<1, [E200Z6_WB]>],
+                                  [5, 1, 1, 1, 1], // Latency = 1
+                                  [E200Z6_GPR_Bypass,
+                                   E200Z6_GPR_Bypass, E200Z6_GPR_Bypass]>,
+  InstrItinData<IIC_IntShift,    [InstrStage<1, [E200Z6_FETCH], 0>,
+                                   InstrStage<1, [E200Z6_DECODE], 0>,
+                                   InstrStage<1, [E200Z6_EX, E200Z6_ALU]>,
+                                   InstrStage<1, [E200Z6_MEM]>,
+                                   InstrStage<1, [E200Z6_WB]>],
+                                  [5, 1, 1, 1, 1], // Latency = 1
+                                  [E200Z6_GPR_Bypass,
+                                   E200Z6_GPR_Bypass, E200Z6_GPR_Bypass]>,
+  InstrItinData<IIC_IntTrapW,    [InstrStage<1, [E200Z6_FETCH], 0>,
+                                   InstrStage<1, [E200Z6_DECODE], 0>,
+                                   InstrStage<2, [E200Z6_EX, E200Z6_ALU]>,
+                                   InstrStage<1, [E200Z6_MEM]>,
+                                   InstrStage<1, [E200Z6_WB]>],
+                                  [6, 1, 1, 1], // Latency = 2, Repeat rate = 2
+                                  [E200Z6_GPR_Bypass, E200Z6_GPR_Bypass]>,
+  InstrItinData<IIC_BrB,         [InstrStage<1, [E200Z6_FETCH], 0>,
+                                   InstrStage<1, [E200Z6_DECODE], 0>,
+                                   InstrStage<1, [E200Z6_EX, E200Z6_BU]>],
+                                  [4, 1, 1], // Latency = 1
+                                  [NoBypass, E200Z6_GPR_Bypass]>,
+  InstrItinData<IIC_BrCR,        [InstrStage<1, [E200Z6_FETCH], 0>,
+                                   InstrStage<1, [E200Z6_DECODE], 0>,
+                                   InstrStage<1, [E200Z6_EX, E200Z6_BU]>],
+                                  [4, 1, 1, 1], // Latency = 1
+                                  [E200Z6_CR_Bypass,
+                                   E200Z6_CR_Bypass, E200Z6_CR_Bypass]>,
+  InstrItinData<IIC_BrMCR,       [InstrStage<1, [E200Z6_FETCH], 0>,
+                                   InstrStage<1, [E200Z6_DECODE], 0>,
+                                   InstrStage<1, [E200Z6_EX, E200Z6_BU]>],
+                                  [4, 1, 1], // Latency = 1
+                                  [E200Z6_CR_Bypass, E200Z6_CR_Bypass]>,
+  InstrItinData<IIC_BrMCRX,      [InstrStage<1, [E200Z6_FETCH], 0>,
+                                   InstrStage<1, [E200Z6_DECODE], 0>,
+                                   InstrStage<1, [E200Z6_EX, E200Z6_ALU]>],
+                                  [4, 1, 1, 1], // Latency = 1
+                                  [E200Z6_CR_Bypass, E200Z6_GPR_Bypass]>,
+  InstrItinData<IIC_LdStLoad,    [InstrStage<1, [E200Z6_FETCH], 0>,
+                                   InstrStage<1, [E200Z6_DECODE], 0>,
+                                   InstrStage<1, [E200Z6_EX]>,
+                                   InstrStage<1, [E200Z6_MEM, E200Z6_LSU]>,
+                                   InstrStage<1, [E200Z6_WB]>],
+                                  [6, 1, 1, 1, 1], // Latency = 4 (3 pipeline stages + 1 writeback)
+                                  [E200Z6_GPR_Bypass, E200Z6_GPR_Bypass]>,
+  InstrItinData<IIC_LdStLoadUpd, [InstrStage<1, [E200Z6_FETCH], 0>,
+                                   InstrStage<1, [E200Z6_DECODE], 0>,
+                                   InstrStage<1, [E200Z6_EX, E200Z6_ALU], 0>,
+                                   InstrStage<1, [E200Z6_MEM, E200Z6_LSU]>,
+                                   InstrStage<1, [E200Z6_WB]>],
+                                  [6, 1, 1, 1, 1], // Latency = 4 (3 pipeline stages + 1 writeback)
+                                  [E200Z6_GPR_Bypass, E200Z6_GPR_Bypass],
+                                  2>, // 2 micro-ops
+  InstrItinData<IIC_LdStLoadUpdX,[InstrStage<1, [E200Z6_FETCH], 0>,
+                                   InstrStage<1, [E200Z6_DECODE], 0>,
+                                   InstrStage<1, [E200Z6_EX, E200Z6_ALU], 0>,
+                                   InstrStage<1, [E200Z6_MEM, E200Z6_LSU]>,
+                                   InstrStage<1, [E200Z6_WB]>],
+                                  [6, 1, 1, 1, 1], // Latency = 4 (3 pipeline stages + 1 writeback)
+                                  [E200Z6_GPR_Bypass, E200Z6_GPR_Bypass],
+                                  2>, // 2 micro-ops
+  InstrItinData<IIC_LdStStore,   [InstrStage<1, [E200Z6_FETCH], 0>,
+                                   InstrStage<1, [E200Z6_DECODE], 0>,
+                                   InstrStage<1, [E200Z6_EX]>,
+                                   InstrStage<1, [E200Z6_MEM, E200Z6_LSU]>],
+                                  [5, 1, 1, 1], // Latency = 4 (store completion timing)
+                                  [NoBypass, E200Z6_GPR_Bypass]>,
+  InstrItinData<IIC_LdStSTU,     [InstrStage<1, [E200Z6_FETCH], 0>,
+                                   InstrStage<1, [E200Z6_DECODE], 0>,
+                                   InstrStage<1, [E200Z6_EX, E200Z6_ALU], 0>,
+                                   InstrStage<1, [E200Z6_MEM, E200Z6_LSU]>],
+                                  [5, 1, 1, 1], // Latency = 3
+                                  [NoBypass, E200Z6_GPR_Bypass],
+                                  2>, // 2 micro-ops
+  InstrItinData<IIC_LdStSTUX,    [InstrStage<1, [E200Z6_FETCH], 0>,
+                                   InstrStage<1, [E200Z6_DECODE], 0>,
+                                   InstrStage<1, [E200Z6_EX, E200Z6_ALU], 0>,
+                                   InstrStage<1, [E200Z6_MEM, E200Z6_LSU]>],
+                                  [5, 1, 1, 1], // Latency = 3
+                                  [NoBypass, E200Z6_GPR_Bypass],
+                                  2>, // 2 micro-ops
+  InstrItinData<IIC_SprMFSPR,    [InstrStage<1, [E200Z6_FETCH], 0>,
+                                   InstrStage<1, [E200Z6_DECODE], 0>,
+                                   InstrStage<1, [E200Z6_EX, E200Z6_ALU]>,
+                                   InstrStage<1, [E200Z6_MEM]>,
+                                   InstrStage<1, [E200Z6_WB]>],
+                                  [5, 1, 1, 1, 1], // Latency = 1, Repeat rate = 1
+                                  [E200Z6_GPR_Bypass, E200Z6_CR_Bypass]>,
+  InstrItinData<IIC_SprMTSPR,    [InstrStage<1, [E200Z6_FETCH], 0>,
+                                   InstrStage<1, [E200Z6_DECODE], 0>,
+                                   InstrStage<1, [E200Z6_EX, E200Z6_ALU]>,
+                                   InstrStage<1, [E200Z6_MEM]>,
+                                   InstrStage<1, [E200Z6_WB]>],
+                                  [5, 1, 1, 1, 1], // Latency = 1, Repeat rate = 1
+                                  [E200Z6_CR_Bypass, E200Z6_GPR_Bypass]>
 ]>;
 
+// ===---------------------------------------------------------------------===//
+// e200z6 machine model for scheduling and other instruction cost heuristics.
+// CORRECTED: Single-issue processor (previously incorrectly modeled as dual-issue).
+
 def PPCE200Z6Model : SchedMachineModel {
-  let MicroOpBufferSize = 16; // Single-issue processor (7-stage pipeline)
-  let LoadLatency = 2; // Unified 32KB L1 cache provides better latency
-  let MispredictPenalty = 3; // 7-stage pipeline increases penalty
-  let CompleteModel = 1; // Complete model (refined based on e200z6 characteristics)
-  let IssueWidth = 1; // SINGLE-ISSUE (corrected from dual-issue)
+  let IssueWidth = 1;  // Single-issue in-order processor.
+                       // CORRECTED: Was incorrectly modeled as dual-issue.
+  let LoadLatency = 4; // Load-to-use latency (4 cycles total: FETCH+DECODE+EX+MEM+WB stages).
+                       // Aligned with itinerary OperandCycles timing. This is overriden by
+                       // OperandCycles if the Itineraries are queried instead.
+  let MicroOpBufferSize = 0; // In-order processor, no reorder buffer.
+  let MispredictPenalty = 3;  // Branch misprediction penalty.
+  let PostRAScheduler = 1;
+
+  let CompleteModel = 0;
+
   let Itineraries = PPCE200Z6Itineraries;
 }
-

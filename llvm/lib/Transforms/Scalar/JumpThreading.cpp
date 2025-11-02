@@ -31,6 +31,7 @@
 #include "llvm/Analysis/Loads.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/Analysis/TargetLibraryInfo.h"
+#include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/BasicBlock.h"
 #include "llvm/IR/CFG.h"
@@ -146,6 +147,7 @@ namespace {
       AU.addPreserved<LazyValueInfoWrapperPass>();
       AU.addPreserved<GlobalsAAWrapperPass>();
       AU.addRequired<TargetLibraryInfoWrapperPass>();
+      AU.addRequired<TargetTransformInfoWrapperPass>();
     }
 
     void releaseMemory() override { Impl.releaseMemory(); }
@@ -160,6 +162,7 @@ INITIALIZE_PASS_BEGIN(JumpThreading, "jump-threading",
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(LazyValueInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TargetLibraryInfoWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(AAResultsWrapperPass)
 INITIALIZE_PASS_END(JumpThreading, "jump-threading",
                 "Jump Threading", false, false)
@@ -301,6 +304,7 @@ bool JumpThreading::runOnFunction(Function &F) {
   auto DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
   auto LVI = &getAnalysis<LazyValueInfoWrapperPass>().getLVI();
   auto AA = &getAnalysis<AAResultsWrapperPass>().getAAResults();
+  auto TTI = &getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F);
   DomTreeUpdater DTU(*DT, DomTreeUpdater::UpdateStrategy::Lazy);
   std::unique_ptr<BlockFrequencyInfo> BFI;
   std::unique_ptr<BranchProbabilityInfo> BPI;
@@ -310,7 +314,7 @@ bool JumpThreading::runOnFunction(Function &F) {
     BFI.reset(new BlockFrequencyInfo(F, *BPI, LI));
   }
 
-  bool Changed = Impl.runImpl(F, TLI, LVI, AA, &DTU, F.hasProfileData(),
+  bool Changed = Impl.runImpl(F, TLI, LVI, AA, TTI, &DTU, F.hasProfileData(),
                               std::move(BFI), std::move(BPI));
   if (PrintLVIAfterJumpThreading) {
     dbgs() << "LVI for function '" << F.getName() << "':\n";
@@ -325,6 +329,7 @@ PreservedAnalyses JumpThreadingPass::run(Function &F,
   auto &DT = AM.getResult<DominatorTreeAnalysis>(F);
   auto &LVI = AM.getResult<LazyValueAnalysis>(F);
   auto &AA = AM.getResult<AAManager>(F);
+  auto &TTI = AM.getResult<TargetIRAnalysis>(F);
   DomTreeUpdater DTU(DT, DomTreeUpdater::UpdateStrategy::Lazy);
 
   std::unique_ptr<BlockFrequencyInfo> BFI;
@@ -335,7 +340,7 @@ PreservedAnalyses JumpThreadingPass::run(Function &F,
     BFI.reset(new BlockFrequencyInfo(F, *BPI, LI));
   }
 
-  bool Changed = runImpl(F, &TLI, &LVI, &AA, &DTU, F.hasProfileData(),
+  bool Changed = runImpl(F, &TLI, &LVI, &AA, &TTI, &DTU, F.hasProfileData(),
                          std::move(BFI), std::move(BPI));
 
   if (!Changed)
@@ -349,13 +354,15 @@ PreservedAnalyses JumpThreadingPass::run(Function &F,
 
 bool JumpThreadingPass::runImpl(Function &F, TargetLibraryInfo *TLI_,
                                 LazyValueInfo *LVI_, AliasAnalysis *AA_,
-                                DomTreeUpdater *DTU_, bool HasProfileData_,
+                                TargetTransformInfo *TTI_, DomTreeUpdater *DTU_,
+                                bool HasProfileData_,
                                 std::unique_ptr<BlockFrequencyInfo> BFI_,
                                 std::unique_ptr<BranchProbabilityInfo> BPI_) {
   LLVM_DEBUG(dbgs() << "Jump threading on function '" << F.getName() << "'\n");
   TLI = TLI_;
   LVI = LVI_;
   AA = AA_;
+  TTI = TTI_;
   DTU = DTU_;
   BFI.reset();
   BPI.reset();
@@ -487,7 +494,8 @@ static void ReplaceFoldableUses(Instruction *Cond, Value *ToVal) {
 /// when exceeding the threshold. If duplication is impossible, returns ~0U.
 static unsigned getJumpThreadDuplicationCost(BasicBlock *BB,
                                              Instruction *StopAt,
-                                             unsigned Threshold) {
+                                             unsigned Threshold,
+                                             const TargetTransformInfo *TTI) {
   assert(StopAt->getParent() == BB && "Not an instruction from proper BB?");
   /// Ignore PHI nodes, these will be flattened when duplication happens.
   BasicBlock::const_iterator I(BB->getFirstNonPHI());
@@ -533,22 +541,18 @@ static unsigned getJumpThreadDuplicationCost(BasicBlock *BB,
     if (I->getType()->isTokenTy() && I->isUsedOutsideOfBlock(BB))
       return ~0U;
 
-    // All other instructions count for at least one unit.
-    ++Size;
+    // Use TargetTransformInfo to get the actual instruction cost.
+    // For code size, this provides accurate instruction size analysis rather
+    // than heuristics.
+    unsigned Cost = TTI ? TTI->getUserCost(&*I, TargetTransformInfo::TCK_CodeSize) : 1;
+    Size += Cost;
 
-    // Calls are more expensive.  If they are non-intrinsic calls, we model them
-    // as having cost of 4.  If they are a non-vector intrinsic, we model them
-    // as having cost of 2 total, and if they are a vector intrinsic, we model
-    // them as having cost 1.
+    // Calls are more expensive. Check if they can be duplicated.
     if (const CallInst *CI = dyn_cast<CallInst>(I)) {
       if (CI->cannotDuplicate() || CI->isConvergent())
         // Blocks with NoDuplicate are modelled as having infinite cost, so they
         // are never duplicated.
         return ~0U;
-      else if (!isa<IntrinsicInst>(CI))
-        Size += 3;
-      else if (!CI->getType()->isVectorTy())
-        Size += 1;
     }
   }
 
@@ -2161,9 +2165,9 @@ bool JumpThreadingPass::MaybeThreadThroughTwoBasicBlocks(BasicBlock *BB,
 
   // Compute the cost of duplicating BB and PredBB.
   unsigned BBCost =
-      getJumpThreadDuplicationCost(BB, BB->getTerminator(), BBDupThreshold);
+      getJumpThreadDuplicationCost(BB, BB->getTerminator(), BBDupThreshold, TTI);
   unsigned PredBBCost = getJumpThreadDuplicationCost(
-      PredBB, PredBB->getTerminator(), BBDupThreshold);
+      PredBB, PredBB->getTerminator(), BBDupThreshold, TTI);
 
   // Give up if costs are too high.  We need to check BBCost and PredBBCost
   // individually before checking their sum because getJumpThreadDuplicationCost
@@ -2268,7 +2272,7 @@ bool JumpThreadingPass::TryThreadEdge(
   }
 
   unsigned JumpThreadCost =
-      getJumpThreadDuplicationCost(BB, BB->getTerminator(), BBDupThreshold);
+      getJumpThreadDuplicationCost(BB, BB->getTerminator(), BBDupThreshold, TTI);
   if (JumpThreadCost > BBDupThreshold) {
     LLVM_DEBUG(dbgs() << "  Not threading BB '" << BB->getName()
                       << "' - Cost is too high: " << JumpThreadCost << "\n");
@@ -2537,7 +2541,7 @@ bool JumpThreadingPass::DuplicateCondBranchOnPHIIntoPred(
   }
 
   unsigned DuplicationCost =
-      getJumpThreadDuplicationCost(BB, BB->getTerminator(), BBDupThreshold);
+      getJumpThreadDuplicationCost(BB, BB->getTerminator(), BBDupThreshold, TTI);
   if (DuplicationCost > BBDupThreshold) {
     LLVM_DEBUG(dbgs() << "  Not duplicating BB '" << BB->getName()
                       << "' - Cost is too high: " << DuplicationCost << "\n");
@@ -2948,7 +2952,7 @@ bool JumpThreadingPass::ThreadGuard(BasicBlock *BB, IntrinsicInst *Guard,
 
   ValueToValueMapTy UnguardedMapping, GuardedMapping;
   Instruction *AfterGuard = Guard->getNextNode();
-  unsigned Cost = getJumpThreadDuplicationCost(BB, AfterGuard, BBDupThreshold);
+  unsigned Cost = getJumpThreadDuplicationCost(BB, AfterGuard, BBDupThreshold, TTI);
   if (Cost > BBDupThreshold)
     return false;
   // Duplicate all instructions before the guard and the guard itself to the

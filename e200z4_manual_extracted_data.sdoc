@@ -1,0 +1,276 @@
+[TITLE:e200z4 Manual Extracted Data - Critical Specifications]
+
+[INTRO]
+This document contains key specifications extracted directly from the e200z4 Core
+Reference Manual (e200z4RM, Rev. 0, 10/2009) for validation against LLVM implementation.
+
+MANUAL_SOURCE: https://www.elektronikjk.com/elementy_czynne/IC/E200Z4.pdf
+EXTRACTION_DATE: 2025-11-02
+EXTRACTION_METHOD: pdftotext + manual review
+
+[CHAPTER-4-DUAL-ISSUE-PAIRING]
+UID: CH4-PAIRING
+
+TITLE: Dual-Issue Pairing Rules from Table 4-1
+
+LOCATION: Chapter 4, Table 4-1 (Page 4-2)
+
+EXTRACTED_TABLE: Concurrent Instruction Issue Capabilities
+
+Instruction pairs marked with "4" can dual-issue together.
+Instruction pairs marked with "—" cannot dual-issue together.
+
+Row (First Instruction)  | Branch | Load/Store | Scalar Int | Scalar Float | Vector Int | Vector Float | Special
+Column (Second Instruction)|        |            |            |              |            |               |
+---------------------------|--------|------------|------------|--------------|------------|---------------|----------
+Branch                     |   —    |     4      |     4      |      4       |     4      |       4       |    —
+Load/Store                 |   4    |     —      |     4      |      4       |     4      |       4       |    —
+Scalar Integer             |   4    |     4      |     41     |      4       |     42     |       4       |    —
+Scalar Float               |   4    |     4      |     4      |      4       |     4      |       —       |    —
+Vector Integer             |   4    |     4      |     42     |      4       |     43     |       4       |    —
+Vector Float               |   4    |     4      |     4      |      —       |     4      |       —       |    —
+Special                    |   —    |     —      |     —      |      —       |     —      |       —       |    —
+
+FOOTNOTES:
+1: Excludes divide class instructions occurring in both issue slots
+2: Excludes vector MAC/multiply class instructions occurring with scalar multiply, 
+   or divide class instructions occurring in both issue slots
+3: Excludes vector MAC/multiply class instructions occurring in both issue slots, 
+   or divide class instructions occurring in both issue slots
+
+KEY_RESTRICTIONS:
+- Two divide instructions cannot issue simultaneously (single divide unit, blocking)
+- Vector MAC/multiply cannot pair with scalar multiply
+- Special instructions cannot pair with anything
+
+VALIDATION_STATUS: ⚠ NOT IMPLEMENTED
+LLVM_CURRENT_STATE: CompleteModel = 0, no explicit pairing rule enforcement
+
+[CHAPTER-4-TIMING]
+UID: CH4-TIMING
+
+TITLE: Instruction Timing Specifications
+
+LOCATION: Chapter 4.3 (Execution Units)
+
+INTEGER_INSTRUCTIONS:
+- Simple integer (adds, subtracts, compares, shifts, rotates, count leading zeros): 
+  1 cycle latency, single cycle execution
+  
+- Multiply instructions: 
+  Latency: 2 cycles
+  Throughput: 1 per cycle (pipelined)
+  
+- Divide instructions:
+  Latency: Variable 4-14 cycles (worst case: 14 cycles)
+  Throughput: Blocking (pipeline unavailable during divide)
+
+LOAD_STORE_INSTRUCTIONS:
+- Load instructions:
+  Latency: 2 cycles
+  Throughput: 1 per cycle (maximum)
+  Load-to-use: Single stall cycle if dependent
+  
+- Store instructions:
+  Latency: 2 cycles  
+  Throughput: 1 per cycle (maximum)
+  Store data can be fed-forward from immediately preceding load (no stall)
+
+FLOATING_POINT_INSTRUCTIONS (SPE/EFPU):
+- FP add, subtract, compare, multiply, multiply-accumulate:
+  Latency: 2 cycles
+  Throughput: 1 per cycle
+  
+- SPE floating-point divide:
+  Latency: 13 cycles
+  Throughput: Blocking (pipeline unavailable during divide)
+
+BRANCH_INSTRUCTIONS:
+- Conditional branches (not taken): 1 clock cycle
+- Branches with successful BTB target prefetching: 1 clock cycle (if correctly predicted)
+- All other taken branches: 2 clock cycles
+- Branch misprediction penalty: 3 cycles (mentioned in code)
+
+VALIDATION_STATUS:
+- ✓ Integer simple: 1 cycle - MATCHES (PPCScheduleE200Z4.td:66)
+- ✓ Multiply: 2 cycles - DISCREPANCY (code says 4 cycles, manual says 2)
+- ✓ Divide: 4-14 cycles - DISCREPANCY (code says 34 cycles, manual says worst case 14)
+- ✓ Load: 2 cycles - DISCREPANCY (code says 3 cycles)
+- ✓ Store: 2 cycles - DISCREPANCY (code says 3 cycles)
+- ✓ FP general: 2 cycles - DISCREPANCY (code says 3 cycles)
+- ✓ FP divide: 13 cycles - DISCREPANCY (code says 25 cycles)
+
+[CHAPTER-4-PIPELINE]
+UID: CH4-PIPELINE
+
+TITLE: Pipeline Stages
+
+LOCATION: Chapter 4.4, Table 4-2
+
+STAGES:
+1. IFETCH - Instruction Fetch From Memory
+2. DECODE/RF READ/FF/MEM EA - Instruction Decode/Register Read/Operand Forwarding/Memory Effective Address Generation
+3. EXECUTE0/MEM0 - Instruction Execution stage 0/Memory Access stage 0
+4. EXECUTE1/MEM1 - Instruction Execution stage 1/Memory Access stage 1
+5. WB - Write Back to Registers
+
+VALIDATION_STATUS: ⚠ PARTIAL MATCH
+- Code has: IF, ID, EX, MEM, WB (5 stages)
+- Manual has: IFETCH, DECODE/RF READ/FF/MEM EA, EXECUTE0/MEM0, EXECUTE1/MEM1, WB
+- Note: Manual shows dual-execute stages (EXECUTE0/MEM0, EXECUTE1/MEM1) which may be for dual-issue
+
+[CHAPTER-5-IVOR-TABLE]
+UID: CH5-IVOR
+
+TITLE: IVOR Register Table
+
+LOCATION: Chapter 1, Table 1-2 and Chapter 5.6
+
+EXTRACTED_IVOR_TABLE:
+IVORn    | Interrupt Type                          | Notes
+---------|-----------------------------------------|----------------------------------------
+None     | System reset (not an interrupt)         | Vector to [p_rstbase[0:29]] || 0xFFC
+0        | Critical input                          | Autovectored (uses IVOR0)
+1        | Machine check                           | 
+         | Machine check (non-maskable interrupt)  |
+2        | Data storage                            |
+3        | Instruction storage                     |
+4        | External input                          | Autovectored (uses IVOR4)
+5        | Alignment                               |
+6        | Program                                 |
+7        | Floating-point unavailable               |
+8        | System call                             |
+9        | AP unavailable                          | Not used by e200z4 core
+10       | Decrementer                             |
+11       | Fixed-interval timer                     |
+12       | Watchdog timer                          |
+13       | Data TLB error                          |
+14       | Instruction TLB error                   |
+15       | Debug                                   |
+16-31    | Reserved                                |
+32       | SPE unavailable                         |
+33       | SPE data exception                       |
+34       | SPE round exception                      |
+
+NOTES:
+- Critical input (IVOR0) and External input (IVOR4) can be autovectored
+- Vectored interrupts supply interrupt vector offset directly
+
+VALIDATION_STATUS: ⚠ NEEDS IMPLEMENTATION
+LLVM_CURRENT_STATE: No differentiation between interrupt types in context save logic
+
+[CHAPTER-5-REGISTER-SAVE]
+UID: CH5-REGSAVE
+
+TITLE: Register Save Requirements for Interrupts
+
+LOCATION: Chapter 5.7 (Interrupt Definitions)
+
+NOTE: Manual sections 5.7.1-5.7.20 describe each interrupt type but register save
+requirements may be in exception entry sequence descriptions.
+
+HARDWARE_AUTOMATIC_SAVES:
+On interrupt entry, hardware automatically saves:
+- SRR0 (Save/Restore Register 0): Instruction address
+- SRR1 (Save/Restore Register 1): Machine State Register (MSR) value
+
+SOFTWARE_SAVE_REQUIREMENTS:
+Based on Power ISA embedded category and e200z4 architecture:
+
+REQUIRED_FOR_ALL_INTERRUPTS:
+- LR (Link Register) - Return address
+- CR (Condition Register) - Processor state
+- XER (Fixed-Point Exception Register) - If modified/used
+- CTR (Count Register) - If used
+- GPRs (General-Purpose Registers) - All used registers
+
+REQUIRED_FOR_FPU_SPE_INTERRUPTS (if FPU/SPE used):
+- FPRs (Floating-Point Registers) - All used FPRs
+- SPEFSCR (SPE Floating-Point Status and Control Register) - Required if FPU operations present
+
+NOTE: Need to extract detailed table from manual sections 5.7.1 and 5.7.5 for
+critical vs external interrupt specific requirements.
+
+VALIDATION_STATUS: ⚠ PARTIAL IMPLEMENTATION
+LLVM_CURRENT_STATE:
+- ✓ LR save: Implemented
+- ✓ CR save: Implemented  
+- ✓ GPR save: Implemented (based on usage)
+- ✓ XER save: Implemented (detection added)
+- ✓ CTR save: Implemented (detection added)
+- ✓ FPR save: Detection added, code generation missing
+- ✓ SPEFSCR save: Detection added, code generation missing
+- ✗ SPR save: Only XER/CTR handled, others may be needed
+- ✗ Interrupt type differentiation: Not implemented
+
+[CRITICAL-DISCREPANCIES]
+UID: DISCREPANCIES
+
+DISCREPANCY_001: Multiply Instruction Latency
+Manual: 2 cycles
+Code: 4 cycles (PPCScheduleE200Z4.td:101-108)
+Impact: WCET analysis will be pessimistic (2x slower)
+Priority: HIGH
+
+DISCREPANCY_002: Divide Instruction Latency  
+Manual: 4-14 cycles (worst case 14 cycles)
+Code: 34 cycles (PPCScheduleE200Z4.td:94-100)
+Impact: WCET analysis will be highly pessimistic (2.4x slower)
+Priority: CRITICAL
+
+DISCREPANCY_003: Load Instruction Latency
+Manual: 2 cycles
+Code: 3 cycles (PPCScheduleE200Z4.td:169-175)
+Impact: WCET analysis will be pessimistic
+Priority: HIGH
+
+DISCREPANCY_004: Store Instruction Latency
+Manual: 2 cycles
+Code: 3 cycles (PPCScheduleE200Z4.td:192-197)
+Impact: WCET analysis will be pessimistic
+Priority: HIGH
+
+DISCREPANCY_005: FP General Instruction Latency
+Manual: 2 cycles
+Code: 3 cycles (PPCScheduleE200Z4.td:240-247)
+Impact: WCET analysis will be pessimistic
+Priority: MEDIUM
+
+DISCREPANCY_006: FP Divide Instruction Latency
+Manual: 13 cycles
+Code: 25 cycles (PPCScheduleE200Z4.td:262-268)
+Impact: WCET analysis will be highly pessimistic (1.9x slower)
+Priority: HIGH
+
+DISCREPANCY_007: Dual-Issue Pairing Rules Not Modeled
+Manual: Table 4-1 defines explicit pairing rules
+Code: CompleteModel = 0, no pairing rule enforcement
+Impact: Scheduler may create invalid instruction pairs
+Priority: CRITICAL (blocks CERT-001)
+
+[NEXT-ACTIONS]
+UID: ACTIONS
+
+IMMEDIATE:
+1. Fix instruction latencies to match manual:
+   - Multiply: 2 cycles (currently 4)
+   - Divide: 4-14 cycles (currently 34) - use worst case 14
+   - Load: 2 cycles (currently 3)
+   - Store: 2 cycles (currently 3)
+   - FP general: 2 cycles (currently 3)
+   - FP divide: 13 cycles (currently 25)
+
+2. Extract detailed register save requirements from manual sections 5.7.1 and 5.7.5
+   for critical vs external interrupt differentiation
+
+3. Implement dual-issue pairing rule enforcement based on Table 4-1
+
+THEN:
+4. Validate pipeline stage modeling matches manual (EXECUTE0/MEM0, EXECUTE1/MEM1)
+5. Implement FPR/SPEFSCR save/restore code generation in emitPrologue/emitEpilogue
+6. Add interrupt type differentiation (critical vs external vs others)
+
+FINALLY:
+7. Set CompleteModel = 1 after all validations pass
+8. Update WCET analysis tests with correct latencies
+

@@ -659,6 +659,15 @@ def u6imm   : Operand<i32> {
   let ParserMatchClass = PPCU6ImmAsmOperand;
   let DecoderMethod = "decodeUImmOperand<6>";
 }
+def PPCS6ImmAsmOperand : AsmOperandClass {
+  let Name = "S6Imm"; let PredicateMethod = "isS6Imm";
+  let RenderMethod = "addImmOperands";
+}
+def s6imm   : Operand<i32> {
+  let PrintMethod = "printS6ImmOperand";
+  let ParserMatchClass = PPCS6ImmAsmOperand;
+  let DecoderMethod = "decodeSImmOperand<6>";
+}
 def PPCU7ImmAsmOperand : AsmOperandClass {
   let Name = "U7Imm"; let PredicateMethod = "isU7Imm";
   let RenderMethod = "addImmOperands";
@@ -3405,6 +3414,7 @@ def : Pat<(fcopysign f32:$frB, f64:$frA),
 include "PPCInstrAltivec.td"
 include "PPCInstrSPE.td"
 include "PPCInstr64Bit.td"
+include "PPCInstrVLE.td"
 include "PPCInstrVSX.td"
 include "PPCInstrQPX.td"
 include "PPCInstrHTM.td"

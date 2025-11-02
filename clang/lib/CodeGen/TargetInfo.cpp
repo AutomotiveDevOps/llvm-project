@@ -4505,6 +4505,29 @@ public:
   static bool isStructReturnInRegABI(const llvm::Triple &Triple,
                                      const CodeGenOptions &Opts);
 
+  void setTargetAttributes(const Decl *D, llvm::GlobalValue *GV,
+                          CodeGen::CodeGenModule &CGM) const override {
+    if (GV->isDeclaration())
+      return;
+    const FunctionDecl *FD = dyn_cast_or_null<FunctionDecl>(D);
+    if (!FD)
+      return;
+
+    const PowerPCInterruptAttr *Attr = FD->getAttr<PowerPCInterruptAttr>();
+    if (!Attr)
+      return;
+
+    const char *Kind;
+    switch (Attr->getInterrupt()) {
+    case PowerPCInterruptAttr::Generic: Kind = ""; break;
+    case PowerPCInterruptAttr::Critical: Kind = "critical"; break;
+    case PowerPCInterruptAttr::External: Kind = "external"; break;
+    }
+
+    llvm::Function *Fn = cast<llvm::Function>(GV);
+    Fn->addFnAttr("interrupt", Kind);
+  }
+
   int getDwarfEHStackPointer(CodeGen::CodeGenModule &M) const override {
     // This is recovered from gcc output.
     return 1; // r1 is the dedicated stack pointer
@@ -4880,6 +4903,29 @@ public:
       : TargetCodeGenInfo(std::make_unique<PPC64_SVR4_ABIInfo>(
             CGT, Kind, HasQPX, SoftFloatABI)) {}
 
+  void setTargetAttributes(const Decl *D, llvm::GlobalValue *GV,
+                          CodeGen::CodeGenModule &CGM) const override {
+    if (GV->isDeclaration())
+      return;
+    const FunctionDecl *FD = dyn_cast_or_null<FunctionDecl>(D);
+    if (!FD)
+      return;
+
+    const PowerPCInterruptAttr *Attr = FD->getAttr<PowerPCInterruptAttr>();
+    if (!Attr)
+      return;
+
+    const char *Kind;
+    switch (Attr->getInterrupt()) {
+    case PowerPCInterruptAttr::Generic: Kind = ""; break;
+    case PowerPCInterruptAttr::Critical: Kind = "critical"; break;
+    case PowerPCInterruptAttr::External: Kind = "external"; break;
+    }
+
+    llvm::Function *Fn = cast<llvm::Function>(GV);
+    Fn->addFnAttr("interrupt", Kind);
+  }
+
   int getDwarfEHStackPointer(CodeGen::CodeGenModule &M) const override {
     // This is recovered from gcc output.
     return 1; // r1 is the dedicated stack pointer
@@ -4892,6 +4938,29 @@ public:
 class PPC64TargetCodeGenInfo : public DefaultTargetCodeGenInfo {
 public:
   PPC64TargetCodeGenInfo(CodeGenTypes &CGT) : DefaultTargetCodeGenInfo(CGT) {}
+
+  void setTargetAttributes(const Decl *D, llvm::GlobalValue *GV,
+                          CodeGen::CodeGenModule &CGM) const override {
+    if (GV->isDeclaration())
+      return;
+    const FunctionDecl *FD = dyn_cast_or_null<FunctionDecl>(D);
+    if (!FD)
+      return;
+
+    const PowerPCInterruptAttr *Attr = FD->getAttr<PowerPCInterruptAttr>();
+    if (!Attr)
+      return;
+
+    const char *Kind;
+    switch (Attr->getInterrupt()) {
+    case PowerPCInterruptAttr::Generic: Kind = ""; break;
+    case PowerPCInterruptAttr::Critical: Kind = "critical"; break;
+    case PowerPCInterruptAttr::External: Kind = "external"; break;
+    }
+
+    llvm::Function *Fn = cast<llvm::Function>(GV);
+    Fn->addFnAttr("interrupt", Kind);
+  }
 
   int getDwarfEHStackPointer(CodeGen::CodeGenModule &M) const override {
     // This is recovered from gcc output.
