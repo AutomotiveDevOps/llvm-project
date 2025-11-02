@@ -34,6 +34,8 @@ std::string getMCPU();
 
 std::vector<std::string> getMAttrs();
 
+bool getMVLE();
+
 Reloc::Model getRelocModel();
 Optional<Reloc::Model> getExplicitRelocModel();
 

@@ -1,0 +1,1059 @@
+         Chapter 12. Synchronization Requirements for Context Alterations                                   1237
+Version 2.07
+
+
+   The sync instruction also ensures that all storage
+   accesses associated with instructions preceding
+   the sync instruction, before the sync instruction is
+   executed, will be performed with respect to any
+   thread or mechanism, to the extent required by the
+   associated Memory Coherence Required or Alter-
+   nate Coherence Mode attributes, before any data
+   accesses caused by instructions following the
+   sync instruction are performed with respect to that
+   thread or mechanism.
+9. After executing a mtspr that sets one of the TLB
+   invalidate all bits in the MMUCSR0 to a 1, software
+   must read MMUCSR0 using a mfspr instruction
+   until the corresponding bit is zero and then perform
+   the CSI, or CSI and sync as indicated in the
+   “Required After” column.
+
+
+
+
+1238     Power ISA™ - Book III-E
+                                                                                                        Version 2.07
+
+
+
+
+Appendix A. Implementation-Dependent Instructions
+
+This appendix documents architectural resources that        may exercise reasonable flexibility in implementing
+are allocated for specific implementation-sensitive func-   these functions, but that flexibility should be limited to
+tions which have scope-limited utility. Implementations     that allowed in this appendix.
+
+
+
+
+A.1 Embedded Cache Initialization [Category: Embedded.Cache Ini-
+tialization]
+Data Cache Invalidate                             X-form    Instruction Cache Invalidate                      X-form
+dci             CT                                          ici             CT
+
+      31    /   CT        ///        ///        454    /          31    /   CT        ///        ///        966     /
+0           6 7      11         16         21         31    0           6 7      11         16         21          31
+
+
+If CT is not supported by the implementation, this          If CT is not supported by the implementation, this
+instruction designates the primary data cache as the        instruction designates the primary instruction cache as
+target data cache.                                          the target instruction cache.
+If CT is supported by the implementation, let CT desig-     If CT is supported by the implementation, let CT desig-
+nate either the primary data cache or another level of      nate either the primary instruction cache or another
+the data cache hierarchy, as specified in Section 4.3,      level of the instruction cache hierarchy, as specified in
+“Cache Management Instructions”, in Book II, as the         Section 4.3, “Cache Management Instructions”, in Book
+target data cache.                                          II, as the target instruction cache.
+The contents of the target data cache of the thread exe-    The contents of the target instruction cache of the
+cuting the dci instruction are invalidated.                 thread executing the ici instruction are invalidated.
+Software must place a sync instruction before the dci       Software must place a sync instruction before the ici to
+to guarantee all previous data storage accesses com-        guarantee all previous instruction storage accesses
+plete before the dci is performed.                          complete before the ici is performed.
+Software must place a sync instruction after the dci to     Software must place an isync instruction after the ici to
+guarantee that the dci completes before any subse-          invalidate any instructions that may have already been
+quent data storage accesses are performed.                  fetched from the previous contents of the instruction
+                                                            cache after the isync.
+This instruction is hypervisor privileged.
+                                                            This instruction is hypervisor privileged.
+Special Registers Altered:
+    None                                                    Special Registers Altered:
+                                                                None
+Extended Mnemonics:
+                                                            Extended Mnemonics:
+Extended mnemonic for Data Cache Invalidate
+                                                            Extended mnemonic for Instruction Cache Invalidate
+           Extended:             Equivalent to:
+           dccci                 dci  0                                Extended:             Equivalent to:
+                                                                       iccci                 ici  0
+
+
+
+
+                                     Appendix A. Implementation-Dependent Instructions                            1239
+Version 2.07
+
+
+A.2 Embedded Cache Debug Facility
+[Category: Embedded.Cache Debug]
+
+A.2.1 Embedded Cache Debug Registers
+
+A.2.1.1 Data Cache Debug Tag Register                      A.2.1.2 Data Cache Debug Tag Register
+High                                                       Low
+The Data Cache Debug Tag Register High (DCDBTRH)           The Data Cache Debug Tag Register Low (DCDBTRL)
+is a 32-bit Special Purpose Register. The Data Cache       is a 32-bit Special Purpose Register. The Data Cache
+Debug Tag Register High is read using mfspr and is         Debug Tag Register Low is read using mfspr and is set
+set by dcread.                                             by dcread.
+
+                                    DCDBTRH                                                     DCDBTRL
+                          32                          63                              32                         63
+
+Figure 87. Data Cache Debug Tag Register High              Figure 88. Data Cache Debug Tag Register Low
+
+       Programming Note                                           Programming Note
+  An example implementation of DCDBTRH could                 An example implementation of DCDBTRL could
+  have the following content and format.                     have the following content and format.
+
+  Bit(s)   Description                                       Bit(s)   Description
+  32:55    Tag Real Address (TRA)                            32:44    Reserved (TRA)
+           Bits 0:23 of the lower 32 bits of the 36-bit
+                                                             45       U bit parity (UPAR)
+           real address associated with this cache
+           block                                             46:47    Tag parity (TPAR)
+  56       Valid (V)                                         48:51    Data parity (DPAR)
+           The valid indicator for the cache block (1        52:55    Modified (dirty) parity (MPAR)
+           indicates valid)
+                                                             56:59    Dirty Indicators (D)
+  57:59    Reserved                                                   The “dirty” (modified) indicators for each
+  60:63    Tag Extended Real Address (TERA)                           of the four doublewords in the cache block
+           Upper 4 bits of the 36-bit real address           60       U0 Storage Attribute (U0)
+           associated with this cache block                           The U0 storage attribute for the page
+  Implementations may support different content and                   associated with this cache block
+  format based on their cache implementation.                61       U1 Storage Attribute (U1)
+                                                                      The U1 storage attribute for the page
+This register is hypervisor privileged.                               associated with this cache block
+                                                             62       U2 Storage Attribute (U2)
+                                                                      The U2 storage attribute for the page
+                                                                      associated with this cache block
+                                                             63       U3 Storage Attribute (U3)
+                                                                      The U3 storage attribute for the page
+                                                                      associated with this cache block
+                                                             Implementations may support different content and
+                                                             format based on their cache implementation.
+
+                                                           This register is hypervisor privileged.
+
+
+
+
+1240       Power ISA™ - Book III-E
+                                                                                                    Version 2.07
+
+
+A.2.1.3 Instruction Cache Debug Data                      A.2.1.5 Instruction Cache Debug Tag
+Register                                                  Register Low
+The Instruction Cache Debug Data Register (ICDBDR)        The Instruction Cache Debug Tag Register Low (ICDB-
+is a read-only 32-bit Special Purpose Register. The       TRL) is a 32-bit Special Purpose Register. The Instruc-
+Instruction Cache Debug Data Register can be read         tion Cache Debug Tag Register Low is read using
+using mfspr and is set by icread.                         mfspr and is set by icread.
+
+                                     ICDBDR                                                    ICDBTRL
+                          32                        63                             32                        63
+
+Figure 89. Instruction Cache Debug Data Register          Figure 91. Instruction Cache Debug Tag Register
+                                                                     Low
+This register is hypervisor privileged.
+                                                                 Programming Note
+A.2.1.4 Instruction Cache Debug Tag                         An example implementation of ICDBTRL could
+Register High                                               have the following content and format.
+The Instruction Cache Debug Tag Register High (ICDB-
+                                                            Bit(s)   Description
+TRH) is a 32-bit Special Purpose Register. The Instruc-
+tion Cache Debug Tag Register High is read using            32:53    Reserved
+mfspr and is set by icread.
+                                                            54       Translation Space (TS)
+                                                                     The address space portion of the virtual
+                                     ICDBTRH                         address associated with this cache block.
+                          32                        63
+                                                            55       Translation ID Disable (TD)
+Figure 90. Instruction Cache Debug Tag Register                      TID Disable field for the memory page
+           High                                                      associated with this cache block
+                                                            56:63    Translation ID (TID)
+       Programming Note
+                                                                     TID field portion of the virtual address
+  An example implementation of ICDBTRH could                         associated with this cache block
+  have the following content and format.
+                                                            Other implementations may support different con-
+  Bit(s)   Description                                      tent and format based on their cache implementa-
+  32:55    Tag Effective Address (TEA)                      tion.
+           Bits 0:23 of the 32-bit effective address
+           associated with this cache block               This register is hypervisor privileged.
+  56       Valid (V)
+           The valid indicator for the cache block (1
+           indicates valid)
+  57:58    Tag parity (TPAR)
+  59       Instruction Data parity (DPAR)
+  60:63    Reserved
+  Implementations may support different content and
+  format based on their cache implementation.
+
+This register is hypervisor privileged.
+
+
+
+
+                                Appendix A. Implementation-Dependent Instructions                          1241
+Version 2.07
+
+
+A.2.2 Embedded Cache Debug Instructions
+Data Cache Read                                X-form       sync                       # ensure that all previous
+                                                                                       # cache operations have
+dcread        RT,RA,RB                                                                 # completed
+
+    31        RT        RA        RB        486      /      dcread      regT,regA,regB# read cache information;
+0         6        11        16        21            31
+                                                            isync                      # ensure dcread completes
+                                                                                       # before attempting to
+[Alternative Encoding]                                                                 # read results
+
+    31        RT        RA        RB        326      /      mfspr       regD,dcdbtrh # move high portion of tag
+0         6        11        16        21            31
+                                                                                     # into GPR D
+
+                                                            mfspr       regE,dcdbtrl # move low portion of tag
+if RA = 0 then b 0                                                                   # into GPR E
+else            b (RA)
+EA b + (RB)                                                This instruction is hypervisor privileged.
+C     log2(cache size)                                     Special Registers Altered:
+B     log2(cache block size)                                   DCDBTRH DCDBTRL
+IDX EA64-C:63-B
+WD    EA64-B:61
+RT0:31 undefined                                                Programming Note
+RT32:63 (data cache data)[IDX]WD×32:WD×32+31                 dcread can be used by a debug tool to determine
+DCDBTRH (data cache tag high)[IDX]                           the contents of the data cache, without knowing the
+DCDBTRL (data cache tag low)[IDX]                            specific addresses of the blocks which are currently
+Let the effective address (EA) be the sum of the con-        contained within the cache.
+tents of register RA, or 0 if RA is equal to 0, and the
+contents of register RB.                                        Programming Note
+Let C = log2(cache size in bytes).                           Execution of dcread before the data cache has
+Let B = log2(cache block size in bytes).                     completed all cache operations associated with
+                                                             previously executed instructions (such as block fills
+EA64-C:63-B selects one of the 2C-B data cache blocks.
+                                                             and block flushes) is undefined.
+EA64-B:61 selects one of the data words in the selected
+data cache block.
+The selected word in the selected data cache block is
+placed into register RT.
+The contents of the data cache directory entry associ-
+ated with the selected data cache block are placed into
+DCDBTRH and DCDBTRL (see Figure 87 and
+Figure 88).
+dcread requires software to guarantee execution syn-
+chronization before subsequent mfspr instructions can
+read the results of the dcread instruction into GPRs. In
+order to guarantee that the mfspr instructions obtain
+the results of the dcread instruction, a sequence such
+as the following must be used:
+
+
+
+
+1242       Power ISA™ - Book III-E
+                                                                                                  Version 2.07
+
+
+Instruction Cache Read                            X-form         Programming Note
+icread           RA,RB                                         icread can be used by a debug tool to determine
+                                                               the contents of the instruction cache, without know-
+     31          ///        RA        RB        998       /    ing the specific addresses of the blocks which are
+0            6         11        16        21             31   currently contained within the cache.
+
+
+if RA = 0 then b 0
+else            b (RA)
+EA b + (RB)
+C    log2(cache size)
+B    log2(cache block size)
+IDX EA64-C:63-B
+WD   EA64-B:61
+ICDBDR (instruction cache data)[IDX]WD×32:WD×32+31
+ICDBTRH (instruction cache tag high)[IDX]
+ICDBTRL (instruction cache tag low)[IDX]
+Let the effective address (EA) be the sum of the con-
+tents of register RA, or 0 if RA is equal to 0, and the
+contents of register RB.
+Let C = log2(cache size in bytes).
+Let B = log2(cache block size in bytes).
+EA64-C:63-B selects one of the 2C-B instruction cache
+blocks.
+EA64-B:61 selects one of the data words in the selected
+instruction cache block.
+The selected word in the selected instruction cache
+block is placed into ICDBDR.
+The contents of the instruction cache directory entry
+associated with the selected cache block are placed
+into ICDBTRH and ICDBTRL (see Figure 90 and
+Figure 91).
+icread requires software to guarantee execution syn-
+chronization before subsequent mfspr instructions can
+read the results of the icread instruction into GPRs. In
+order to guarantee that the mfspr instructions obtain
+the results of the icread instruction, a sequence such
+as the following must be used:
+
+    icread       regA,regB       # read cache information
+
+    isync                        # ensure icread completes
+                                 # before attempting to
+                                 # read results
+
+    mficdbdr regC                # move instruction
+                                 # information into GPR C
+
+    mficdbtrh regD               # move high portion of
+                                 # tag into GPR D
+
+    mficdbtrl regE               # move low portion of tag
+                                 # into GPR E
+This instruction is hypervisor privileged.
+Special Registers Altered:
+    ICDBDR ICDBTRH ICDBTRL
+
+
+
+
+                                      Appendix A. Implementation-Dependent Instructions                       1243
+Version 2.07
+
+
+
+
+1244   Power ISA™ - Book III-E
+                                                                          Version 2.07
+
+
+
+
+Appendix B. Assembler Extended Mnemonics
+
+In order to make assembler language programs simpler
+to write and easier to understand, a set of extended
+mnemonics and symbols is provided for certain instruc-
+tions. This appendix defines extended mnemonics and
+symbols related to instructions defined in Book III.
+Assemblers should provide the extended mnemonics
+and symbols listed here, and may provide others.
+
+
+
+
+                                       Appendix B. Assembler Extended Mnemonics   1245
+Version 2.07
+
+
+B.1 Move To/From Special Purpose Register Mnemonics
+This section defines extended mnemonics for the              Time Base instruction, which specifies the portion of
+mtspr and mfspr instructions, including the Special          the Time Base as a numeric operand.
+Purpose Registers (SPRs) defined in Book I and cer-
+                                                             Note: mftb serves as both a basic and an extended
+tain privileged SPRs, and for the Move From Time Base
+                                                             mnemonic. The Assembler will recognize an mftb mne-
+instruction defined in Book II.
+                                                             monic with two operands as the basic form, and an
+The mtspr and mfspr instructions specify an SPR as a         mftb mnemonic with one operand as the extended
+numeric operand; extended mnemonics are provided             form. In the extended form the TBR operand is omitted
+that represent the SPR in the mnemonic rather than           and assumed to be 268 (the value that corresponds to
+requiring it to be coded as an operand. Similar              TB).
+extended mnemonics are provided for the Move From
+
+
+
+
+Table 14:Extended mnemonics for moving to/from an SPR
+                                                  Move To SPR                          Move From SPR
+    Special Purpose Register
+                                         Extended          Equivalent to         Extended          Equivalent to
+Fixed-Point Exception Register            mtxer Rx           mtspr 1,Rx           mfxer Rx           mfspr Rx,1
+Link Register                             mtlr Rx            mtspr 8,Rx           mflr Rx            mfspr Rx,8
+Count Register                            mtctr Rx           mtspr 9,Rx           mfctr Rx           mfspr Rx,9
+Decrementer                              mtdec Rx           mtspr 22,Rx          mfdec Rx           mfspr Rx,22
+Save/Restore Register 0                  mtsrr0 Rx          mtspr 26,Rx          mfsrr0 Rx          mfspr Rx,26
+Save/Restore Register 1                  mtsrr1 Rx          mtspr 27,Rx          mfsrr1 Rx          mfspr Rx,27
+Special Purpose Registers
+                                        mtsprg n,Rx       mtspr 272+n,Rx        mfsprg Rx,n       mfspr Rx,272+n
+  G0 through G3
+Time Base [Lower]                         mttbl Rx         mtspr 284,Rx           mftb Rx          mftb Rx,2681
+                                                                                                   mfspr Rx,268
+Time Base Upper                           mttbu Rx         mtspr 285,Rx           mftbu Rx         mftb Rx,2691
+                                                                                                   mfspr Rx,269
+PPR32                                   mtppr32 Rx         mtspr 898, Rx        mfppr32 Rx         mfspr Rx, 898
+Processor Version Register                    -                   -              mfpvr Rx          mfspr Rx,287
+1   The mftb instruction is Category: Phased-Out. Assemblers targeting Version 2.03 or later of the architecture
+    should generate an mfspr instruction for the mftb and mftbu extended mnemonics; see the corresponding
+    Assembler Note in the mftb instruction description (see Section 6.2.1 of Book II).
+
+
+
+
+1246       Power ISA™ - Book III-E
+                                                                           Version 2.07
+
+
+B.2 Data Cache Block Flush
+Mnemonics [Category: Embed-
+ded.Phased In]
+The L field in the Data Cache Block Flush by External
+PID instruction controls the scope of the flush function
+performed by the instruction. Extended mnemonics are
+provided that represent the L value in the mnemonic
+rather than requiring it to be coded as a numeric oper-
+and.
+Note: dcbfep serves as both a basic and an extended
+mnemonic. The Assembler will recognize a dcbfep
+mnemonic with three operands as the basic form, and a
+dcbfep mnemonic with two operands as the extended
+form. In the extended form the L operand is omitted
+and assumed to be 0.
+
+   dcbfep RA,RB   (equivalent to: dcbfep
+                    RA,RB,0)
+   dcbflep RA,RB (equivalent to: dcbfep
+                    RA,RB,1)
+   dcbflpep RA,RB (equivalent to: dcbfep
+                    RA,RB,3)
+
+
+
+
+                                        Appendix B. Assembler Extended Mnemonics   1247
+Version 2.07
+
+
+
+
+1248   Power ISA™ - Book III-E
+                                                                                                  Version 2.07
+
+
+
+
+Appendix C. Guidelines for 64-bit Implementations in
+32-bit Mode and 32-bit Implementations
+
+C.1 Hardware Guidelines
+
+C.1.1 64-bit Specific Instructions                           Branch to Link Register and Branch to Count Register
+                                                             instructions, given the LR and CTR are implemented
+The instructions in the Category: 64-Bit are considered      only as 32-bit registers, only concatenating 2 0s to the
+restricted only to 64-bit processing. A 32-bit implemen-     right of bits 32:61 of these registers is necessary to
+tation need not implement the group; likewise, the           form the 32-bit branch target address.
+32-bit applications will not utilize any of these instruc-
+                                                             For next sequential instruction address computation,
+tions. All other instructions shall either be supported
+                                                             the behavior is the same as for 64-bit implementations
+directly by the implementation, or sufficient infrastruc-
+                                                             in 32-bit mode.
+ture will be provided to enable software emulation of
+the instructions. A 64-bit implementation that is execut-
+ing in 32-bit mode may choose to take an Unimple-            C.1.4 TLB Fields on 32-bit Imple-
+mented Instruction Exception when these 64-bit
+specific instructions are executed.                          mentations
+                                                             32-bit implementations should support bits 32:53 of the
+C.1.2 Registers on 32-bit Imple-                             Effective Page Number (EPN) field in the TLB. This size
+                                                             provides support for a 32-bit effective address, which
+mentations                                                   Power ISA ABIs may have come to expect to be avail-
+                                                             able. 32-bit implementations may support greater than
+The Power ISA provides 32-bit and 64-bit registers. All
+                                                             32-bit real addresses by supporting more than bits
+32-bit registers shall be supported as defined in the
+                                                             32:53 of the Real Page Number (RPN) field in the TLB.
+specification except the MSR and EPCR. The MSR
+shall be supported as defined in the specification
+except that CM is treated as a reserved bit. EPCR shall      C.1.5 Thread Control and Status
+be supported as defined in the specification except that
+ICM and GICM are treated as reserved bits. Only bits         on 32-bit Implementations
+32:63 of the 64-bit registers are required to be imple-      As the TEN and TENSR are 32-bits on 32-bit imple-
+mented in hardware in a 32-bit implementation except         mentations, the maximum number of threads for such
+for the 64-bit FPRs. Such 64-bit registers include the       implementations is limited to 32.
+LR, the CTR, the XER, the 32 GPRs, SRR0, CSRR0,
+DSRR0 <E.ED>, MCSRR0. and GSRR0 <E.HV>.
+For additional information, see Section 1.5.2 of Book I.     C.2 32-bit Software Guidelines
+C.1.3 Addressing on 32-bit Imple-                            C.2.1 32-bit Instruction Selection
+mentations                                                   Any software that uses any of the instructions listed in
+                                                             Category: 64-Bit shall be considered 64-bit software,
+Only bits 32:63 of the 64-bit instruction and data stor-
+                                                             and correct execution cannot be guaranteed on 32-bit
+age effective addresses need to be calculated and pre-
+                                                             implementations. Generally speaking, 32-bit software
+sented to main storage. Given that the only branch and
+                                                             should avoid using any instruction or instructions that
+data storage access instructions that are not included
+                                                             depend on any particular setting of bits 0:31 of any
+in Section C.1.1 are defined to prepend 32 0s to bits
+                                                             64-bit application-accessible system register, including
+32:63 of the effective address computation, a 32-bit
+                                                             General Purpose Registers, for producing the correct
+implementation can simply bypass the prepending of
+                                                             32-bit results. Context switching may or may not pre-
+the 32 0s when implementing these instructions. For
+                                                             serve the upper 32 bits of application-accessible 64-bit
+
+
+      Appendix C. Guidelines for 64-bit Implementations in 32-bit Mode and                                    1249
+Version 2.07
+
+
+system registers and insertion of arbitrary settings of
+those upper 32 bits at arbitrary times during the execu-
+tion of the 32-bit application must not affect the final
+result.
+
+
+
+
+1250       Power ISA™ - Book III-E
+                                                                                                Version 2.07
+
+
+
+
+Appendix D. Example Performance Monitor
+[Category: Embedded.Performance Monitor]
+
+                                                             Counter registers. These registers are used for
+D.1 Overview                                                  data collection. The occurrence of selected events
+This appendix describes an example of a Performance           are counted here. These registers are named
+Monitor facility. It defines an architecture suitable for     PMC0..15. User and supervisor level access to
+performance monitoring facilities in the Embedded             these registers is through different PMR numbers
+environment. The architecture itself presents only pro-       allowing different access rights.
+gramming model visible features in conjunction with          Global controls. This register control global set-
+architecturally defined behavioral features. Much of the      tings of the Performance Monitor facility and affect
+selection of events is by necessity implementa-               all counters. This register is named PMGC0. User
+tion-dependent and is not described as part of the            and supervisor level access to these registers is
+architecture; however, this document provides guide-          through different PMR numbers allowing different
+lines for some features of a performance monitor imple-       access rights. In addition, a bit in the MSR
+mentation that should be followed by all                      (MSRPMM) is defined to enable/disable counting.
+implementations.
+                                                             Local controls. These registers control settings that
+The example Performance Monitor facility provides the         apply only to a particular counter. These registers
+ability to monitor and count predefined events such as        are named PMLCa0..15 and PMLCb0..15. User
+clocks, misses in the instruction cache or data cache,        and supervisor level access to these registers is
+types of instructions decoded, or mispredicted                through different PMR numbers allowing different
+branches. The count of such events can be used to trig-       access rights. Each set of local control registers
+ger the Performance Monitor exception. While most of          (PMLCan and PMLCbn) contains controls that
+the specific events are not architected, the mechanism        apply to the associated same numbered counter
+of controlling data collection is.                            register (e.g. PMLCa0 and PMLCb0 contain con-
+                                                              trols for PMC0 while PMLCa1 and PMLCb1 con-
+The example Performance Monitor facility can be used
+                                                              tain controls for PMC1).
+to do the following:
+  Improve system performance by monitoring soft-              Assembler Note
+   ware execution and then recoding algorithms for          The counter registers, global controls, and local
+   more efficiency. For example, memory hierarchy           controls have alias names which cause the assem-
+   behavior can be monitored and analyzed to opti-          bler to use different PMR numbers. The names
+   mize task scheduling or data distribution algo-          PMC0...15,      PMGC0,     PMLCa0...15,      and
+   rithms.                                                  PMLCb0...15 cause the assembler to use the
+  Characterize performance in environments not             supervisor level PMR number, and the names
+   easily characterized by benchmarking.                    UPMC0...15, UPMGC0, UPMLCa0...15, and
+                                                            UPMLCb0...15 cause the assembler to use the
+  Help system developers bring up and debug their
+                                                            user-level PMR number.
+   systems.
+
+                                                               Architecture Note
+D.2 Programming Model                                       The two mark values (0 and 1) are equivalent
+                                                            except with respect to interrupts. That is, either
+The example Performance Monitor facility defines a set      mark value can be specified for a given process,
+of Performance Monitor Registers (PMRs) that are            and either mark value can control whether the
+used to collect and control performance data collection     PMCs are incremented, but interrupts always
+and an interrupt to allow intervention by software. The     cause the mark value in the MSR to be set to 0.
+PMRs provide various controls and access to collected
+data. They are categorized as follows:
+
+
+
+
+ Appendix D. Example Performance Monitor [Category: Embedded.Perfor-                                        1251
+Version 2.07
+
+
+A given implementation may implement fewer counter            PMLCan necessary to enable monitoring of each
+registers (and their associated control registers) than       thread state are shown in Figure 92.
+are architected. Architected counter and counter con-
+trol registers that are not implemented behave the                   Thread State         FCS FCU FCM1 FCM0
+same as unarchitected Performance Monitor Registers.
+                                                                        Marked              0     0      0      1
+PMRs are described in Section D.3.                                    Not marked            0     0      1      0
+Software uses the global and local controls to select                 Supervisor            0     1      0      0
+which events are counted in the counter registers,                       User               1     0      0      0
+when such events should be counted, and what action
+                                                                Marked and supervisor       0     1      0      1
+should be taken when a counter overflows. Software
+can use the collected information to determine perfor-             Marked and user          1     0      0      1
+mance attributes of a given segment of code, a pro-           Not marked and supervisor     0     1      1      0
+cess, or the entire software system. PMRs can be read             Not mark and user         1     0      1      0
+by software using the mfpmr instruction and PMRs can
+be written by using the mtpmr instruction. Both instruc-                  All               0     0      0      0
+tions are described in Section D.4.                                      None               X     X      1      1
+Since counters are defined as 32-bit registers, it is pos-               None               1     1      X      X
+sible for the counting of some events to overflow. A Per-     Figure 92. Thread States and PMLCan Bit Settings
+formance Monitor interrupt is provided that can be
+programmed to occur in the event of a counter overflow.       Two unconditional counting modes may be specified:
+The Performance Monitor interrupt is described in               Counting is unconditionally enabled regardless of
+detail in Section D.2.5 and Section D.2.6.                       the states of MSRPMM and MSRPR. This can be
+                                                                 accomplished       by      setting  PMLCanFCS,
+D.2.1 Event Counting                                             PMLCanFCU, PMLCanFCM1, and PMLCanFCM0 to
+                                                                 0 for each counter control.
+Event counting can be configured in several different
+                                                                Counting is unconditionally disabled regardless of
+ways. This section describes configurability and spe-
+                                                                 the states of MSRPMM and MSRPR. This can be
+cific unconditional counting modes.
+                                                                 accomplished by setting PMGC0FAC to 1 or by set-
+                                                                 ting PMLCanFC to 1 for each counter control. Alter-
+D.2.2 Thread Context Config-                                     natively, this can be accomplished by setting
+                                                                 PMLCanFCM1 to 1 and PMLCanFCM0 to 1 for each
+urability                                                        counter control or by setting PMLCanFCS to 1 and
+Counting can be enabled if conditions in the thread              PMLCanFCU to 1 for each counter control.
+state match a software-specified condition. Because a
+software task scheduler may switch a thread’s execu-              Programming Note
+tion among multiple processes and because statistics           Events may be counted in a fuzzy manner. That is,
+on only a particular process may be of interest, a facility    events may not be counted precisely due to the
+is provided to mark a process. The Performance Moni-           nature of an implementation. Users of the Perfor-
+tor mark bit, MSRPMM, is used for this purpose. System         mance Monitor facility should be aware that an
+software may set this bit to 1 when a marked process is        event may be counted even if it was precisely fil-
+running. This enables statistics to be gathered only dur-      tered, though it should not have been. In general
+ing the execution of the marked process. The states of         such discrepancies are statistically unimportant
+MSRPR and MSRPMM together define a state that the              and users should not assume that counts are
+thread (supervisor or user) and the process (marked or         explicitly accurate.
+unmarked) may be in at any time. If this state matches
+an individual state specified by the PMLCanFCS, PML-
+CanFCU, PMLCanFCM1 and PMLCanFCM0 fields in                   D.2.3 Event Selection
+PMLCan (the state for which monitoring is enabled),
+counting is enabled for PMCn.                                 Events to count are determined by placing an imple-
+                                                              mentation     defined    event    value    into  the
+Each event, on an implementation basis, may count             PMLCa0..15EVENT field. Which events may be pro-
+regardless of the value of MSRPMM. The counting               grammed into which counter are implementation spe-
+behavior of each event should be documented in the            cific and should be defined in the User’s Manual. In
+User’s Manual.                                                general, most events may be programmed into any of
+The thread states and the settings of the PMLCanFCS,          the implementation available counters. Programming a
+PMLCanFCU, PMLCanFCM1 and PMLCanFCM0 fields in                counter with an event that is not supported for that
+                                                              counter gives boundedly undefined results.
+
+
+
+1252       Power ISA™ - Book III-E
+                                                                                                       Version 2.07
+
+
+                                                              exception exists. When a Performance Monitor inter-
+     Programming Note
+                                                              rupt occurs, SRR0 and SRR1 (GSRR0 and GSRR1 if
+  Event name and event numbers will differ greatly            EPCRPMGS=1 <E.HV>) record the current state of the
+  across implementations and software should not              NIA and the MSR and the MSR is set to handle the
+  expect that events and event names will be consis-          interrupt. Instruction execution resumes at an address
+  tent.                                                       based on which categories are supported:
+                                                                If both Interrupt Fixed Offsets [Category: Embed-
+                                                                   ded.Phased-In] and Embedded.Hypervisor are
+D.2.4 Thresholds                                                   supported, instruction execution resumes at:
+                                                                      address IVPR0:51 || 0x260 when EPCRP-
+Thresholds are values that must be exceeded for an
+                                                                        MGS=0. Otherwise, instruction execution
+event to be counted. Threshold values are programmed                    resumes at address GIVPR0:47 || 0x260.
+in the PMLCb0..15THRESHOLD field. The events which              If Interrupt Fixed Offsets [Category: Embed-
+may be thresholded and the units of each event that                ded.Phased-In] is supported and Embed-
+may be thresholded are implementation-dependent.                   ded.Hypervisor is not supported, instruction
+Programming a threshold value for an event that is not             execution resumes at address IVPR0:51 || 0x260.
+defined to use a threshold gives boundedly undefined            If Interrupt Fixed Offsets [Category: Embed-
+results.                                                           ded.Phased-In] is not supported and Embed-
+                                                                   ded.Hypervisor is supported, instruction execution
+D.2.5 Performance Monitor                                          resumes at:
+                                                                      address IVPR0:51 || IVOR3548:59 || 0b0000.
+Exception                                                               when EPCRPMGS=0. Otherwise, instruction
+                                                                        execution resumes at address GIVPR0:47 ||
+A Performance Monitor exception occurs when counter
+                                                                        GIVOR3548:59 || 0b0000.
+overflow detection is enabled and a counter overflows.
+                                                                If neither Interrupt Fixed Offsets [Category:
+More specifically, for each counter register n, if
+                                                                   Embedded.Phased-In] nor Embedded.Hypervisor
+PMGC0PMIE=1, PMLCanCE=1, PMCnOV=1, and the
+                                                                   is supported, instruction execution resumes at
+performance monitor interrupt is enabled in the MSR
+                                                                   address IVPR0:51 || IVOR3548:59 || 0b0000.
+(see below), a Performance Monitor exception is said to
+exist. The Performance Monitor exception condition will       The Performance Monitor interrupt is precise and asyn-
+cause a Performance Monitor interrupt if the exception        chronous.
+is the highest priority exception.
+The performance monitor interrupt enabling conditions               Programming Note
+in the MSR are as follows:                                      When taking a Performance Monitor interrupt soft-
+  If category E.HV is implemented, the performance             ware should clear the overflow condition by reading
+     monitor interrupt is enabled if:                           the counter register and setting the counter register
+        EPCRPMGS=0 and (MSREE=1 or MSRGS=1).                   to a non-overflow value since the normal return
+         The interrupt will be directed to the hypervisor       from the interrupt will set MSREE back to 1.
+         state. or if
+        EPCRPMGS=1          and      (MSREE=1       and
+         MSRGS=1). The interrupt will be directed to
+         the guest state.
+                                                              D.3 Performance Monitor Regis-
+  If category E.HV is not implemented, the perfor-           ters
+     mance monitor interrupt is enabled if MSREE=1.
+The Performance Monitor exception is level sensitive          D.3.1 Performance Monitor Glo-
+and the exception condition may cease to exist if any of
+the required conditions fail to be met. Thus it is possible   bal Control Register 0
+for a counter to overflow and continue counting events        The Performance Monitor Global Control Register 0
+until PMCnOV becomes 0 without taking a Performance           (PMGC0) controls all Performance Monitor counters.
+Monitor interrupt if the enabling conditions in the MSR
+are not met during the overflow condition. To avoid this,
+                                                                                                       PMGC0
+software should program the counters to freeze if an
+                                                                                          32                        63
+overflow condition is detected (see Section D.3.4).
+                                                              Figure 93. [User] Performance            Monitor   Global
+                                                                         Control Register 0
+D.2.6 Performance Monitor Inter-
+rupt                                                          These bits are interpreted as follows:
+                                                              Bit      Description
+A Performance Monitor interrupt occurs when a Perfor-
+mance Monitor exception exists and no higher priority
+
+
+ Appendix D. Example Performance Monitor [Category: Embedded.Perfor-                                             1253
+Version 2.07
+
+
+32      Freeze All Counters (FAC)                                   0   The PMC can be incremented (if enabled
+        The FAC bit is sticky; that is, once set to 1 it                by other Performance Monitor control
+        remains set to 1 until it is set to 0 by an mtpmr               fields).
+        instruction.                                                1   The PMC can not be incremented.
+        0    The PMCs can be incremented (if enabled        33      Freeze Counter in Supervisor State (FCS)
+             by other Performance Monitor control
+                                                                    0   The PMC is incremented (if enabled by
+             fields).
+                                                                        other Performance Monitor control fields).
+        1    The PMCs can not be incremented.
+                                                                    1   The PMC can not be incremented if
+33      Performance      Monitor    Interrupt    Enable                 MSRPR is 0.
+        (PMIE)
+                                                            34      Freeze Counter in User State (FCU)
+        0    Performance Monitor interrupts are dis-
+                                                                    0   The PMC can be incremented (if enabled
+             abled.
+                                                                        by other Performance Monitor control
+        1    Performance Monitor interrupts are
+                                                                        fields).
+             enabled and occur when an enabled con-
+                                                                    1   The PMC can not be incremented if
+             dition or event occurs. Enabled conditions
+                                                                        MSRPR is 1.
+             and events are described in Section D.2.5.
+                                                            35      Freeze Counter while Mark is Set (FCM1)
+34      Freeze Counters on Enabled Condition or
+        Event (FCECE)                                               0   The PMC can be incremented (if enabled
+        Enabled conditions and events are described                     by other Performance Monitor control
+        in Section D.2.5.                                               fields).
+                                                                    1   The PMC can not be incremented if
+        0    The PMCs can be incremented (if enabled
+                                                                        MSRPMM is 1.
+             by other Performance Monitor control
+             fields).                                       36      Freeze Counter while Mark is Cleared
+        1    The PMCs can be incremented (if enabled                (FCM0)
+             by other Performance Monitor control                   0   The PMC can be incremented (if enabled
+             fields) only until an enabled condition or                 by other Performance Monitor control
+             event occurs. When an enabled condition                    fields).
+             or event occurs, PMGC0FAC is set to 1. It              1   The PMC can not be incremented if
+             is the user’s responsibility to set                        MSRPMM is 0.
+             PMGC0FAC to 0.
+                                                            37      Condition Enable (CE)
+35:63   Reserved
+                                                                    0   Overflow conditions for PMCn cannot
+The UPMGC0 register is an alias to the PMGC0 regis-                     occur (PMCn cannot cause interrupts,
+ter for user mode read only access.                                     cannot freeze counters)
+                                                                    1   Overflow conditions occur when the
+D.3.2 Performance Monitor Local                                         most-significant-bit of PMCn is equal to 1.
+
+Control A Registers                                                 It is recommended that CE be set to 0 when
+                                                                    counter PMCn is selected for chaining; see
+The Performance Monitor Local Control A Registers 0                 Section D.5.1.
+through 15 (PMLCa0..15) function as event selectors
+                                                            38      Freeze Counter in Guest State (FCGS)
+and give local control for the corresponding numbered
+Performance Monitor counters. PMLCa works with the                  0   The PMC is incremented (if enabled by
+corresponding numbered PMLCb register.                                  other Performance Monitor control fields).
+                                                                    1   The PMC can not be incremented if
+                                   PMLCa0..15                           MSRGS is 1.
+                           32                         63    39      Freeze Counter in Hypervisor State (FCHS)
+Figure 94. [User] Performance         Monitor     Local             0   The PMC is incremented (if enabled by
+           Control A Registers                                          other Performance Monitor control fields).
+                                                                    1   The PMC can not be incremented if
+PMLCa is set to 0 at reset. These bits are interpreted
+                                                                        MSRGS is 0 and MSRPR is 0.
+as follows:
+                                                            40      Reserved
+Bit     Description
+                                                            41:47   Event Selector (EVENT)
+32      Freeze Counter (FC)
+                                                                    Up to 128 events selectable; see Section
+                                                                    D.2.3.
+                                                            48:53   Setting is implementation-dependent.
+
+
+1254        Power ISA™ - Book III-E
+                                                                                                 Version 2.07
+
+
+54:63    Reserved
+                                                                  Programming Note
+The UPMLCa0..15 registers are aliases to the                  By varying the threshold value, software can obtain
+PMLCa0..15 registers for user mode read only access.          a profile of the event characteristics subject to
+                                                              thresholding. For example, if PMC1 is configured to
+D.3.3 Performance Monitor Local                               count cache misses that last longer than the
+                                                              threshold value, software can measure the distribu-
+Control B Registers                                           tion of cache miss durations for a given program by
+                                                              monitoring the program repeatedly using a different
+The Performance Monitor Local Control B Registers 0           threshold value each time.
+through 15 (PMLCb0..15) specify a threshold value and
+a multiple to apply to a threshold event selected for the
+                                                            The UPMLCb0..15 registers are aliases to the
+corresponding Performance Monitor counter. Threshold
+                                                            PMLCb0..15 registers for user mode read only access.
+capability is implementation counter dependent. Not all
+events or all counters of an implementation are guaran-
+teed to support thresholds. PMLCb works with the cor-       D.3.4 Performance Monitor
+responding numbered PMLCa register.
+                                                            Counter Registers
+                                    PMLCb0..15              The Performance Monitor Counter Registers
+                            32                        63    (PMC0..15) are 32-bit counters that can be pro-
+                                                            grammed to generate interrupt signals when they over-
+Figure 95. [User] Performance          Monitor    Local
+                                                            flow. Each counter is enabled to count up to 128
+           Control B Register
+                                                            events.
+PMLCb is set to 0 at reset. These bits are interpreted
+as follows:                                                                                     PMC0..15
+Bit      Description                                                                   32                       63
+
+32:52    Reserved                                           Figure 96. [User] Performance Monitor Counter
+                                                                       Registers
+53:55    Threshold Multiple (THRESHMUL)
+                                                            PMCs are set to 0 at reset. These bits are interpreted
+         000  Threshold field is multiplied by 1
+                                                            as follows:
+            (THRESHOLD × 1)
+         001 Threshold field is multiplied by 2             Bit      Description
+            (THRESHOLD × 2)
+                                                            32       Overflow (OV)
+         010 Threshold field is multiplied by 4
+            (THRESHOLD × 4)                                          0   Counter has not reached an overflow
+         011 Threshold field is multiplied by 8                          state.
+            (THRESHOLD × 8)                                          1   Counter has reached an overflow state.
+         100 Threshold field is multiplied by 16            33:63    Counter Value (CV)
+            (THRESHOLD × 16)                                         Indicates the number of occurrences of the
+         101 Threshold field is multiplied by 32                     specified event.
+            (THRESHOLD × 32)
+         110 Threshold field is multiplied by 64            The minimum value for a counter is 0 (0x0000_0000)
+            (THRESHOLD × 64)                                and the       maximum       value   is 4,294,967,295
+         111 Threshold field is multiplied by 128           (0xFFFF_FFFF). A counter can increment up to the
+            (THRESHOLD × 128)                               maximum value and then wraps to the minimum value.
+                                                            A counter enters the overflow state when the high-order
+56:57    Reserved                                           bit is set to 1, which normally occurs only when the
+                                                            counter increments from a value below 2,147,483,648
+58:63    Threshold (THRESHOLD)
+                                                            (0x8000_0000) to a value greater than or equal to
+         Only events that exceed the value THRESH-          2,147,483,648 (0x8000_0000).
+         OLD multiplied as described by THRESHMUL
+         are counted. Events to which a threshold           Several different actions may occur when an overflow
+         value applies are implementation-dependent         state is reached, depending on the configuration:
+         as are the unit (for example duration in cycles)     If PMLCanCE is 0, no special actions occur on
+         and the granularity with which the threshold          overflow: the counter continues incrementing, and
+         value is interpreted.                                 no exception is signaled.
+                                                              If PMLCanCE and PMGC0FCECE are 1, all counters
+                                                               are frozen when PMCn overflows.
+                                                              If PMLCanCE, PMGC0PMIE, and MSREE are 1, an
+                                                               exception is signalled when PMCn reaches over-
+
+
+
+ Appendix D. Example Performance Monitor [Category: Embedded.Perfor-                                        1255
+Version 2.07
+
+
+    flow. Note that the interrupts are masked by setting
+    MSREE to 0. An overflow condition may be present
+    while MSREE is zero, but the interrupt is not taken
+    until MSREE is set to 1.
+If an overflow condition occurs while MSREE is 0 (the
+exception is masked), the exception is still signalled
+once MSREE is set to 1 if the overflow condition is still
+present and the configuration has not been changed in
+the meantime to disable the exception; however, if
+MSREE remains 0 until after the counter leaves the
+overflow state (MSB becomes 0), or if MSREE remains
+0 until after PMLCanCE or PMGC0PMIE are set to 0, the
+exception does not occur.
+
+     Programming Note
+  Loading a PMC with an overflowed value can
+  cause an immediate exception. For example, if
+  PMLCanCE, PMGC0PMIE, and MSREE are all 1,
+  and an mtpmr loads an overflowed value into a
+  PMCn that previously held a non-overflowed value,
+  then an interrupt will be generated before any event
+  counting has occurred.
+
+The following sequence is generally recommended for
+setting the counter values and configurations.
+ 1. Set PMGC0FAC to 1 to freeze the counters.
+ 2. Perform a series of mtpmr operations to initialize
+    counter values and configure the control registers
+ 3. Release the counters by setting PMGC0FAC to 0
+    with a final mtpmr.
+
+
+
+
+1256       Power ISA™ - Book III-E
+                                                                                                       Version 2.07
+
+
+D.4 Performance Monitor Instructions
+Move From Performance Monitor Register                          Move To Performance Monitor Register
+XFX-form                                                        XFX-form
+mfpmr             RT,PMRN                                       mtpmr          PMRN,RS
+
+      31          RT        pmrn              334        /          31         RS         pmrn               462        /
+0             6        11              21                31     0          6        11                21                31
+
+
+
+n    pmrn5:9 || pmrn0:4                                         n    pmrn5:9 || pmrn0:4
+if length(PMR(n)) = 64 then                                     if length(PMR(n)) = 64 then
+   RT    PMR(n)                                                    PMR(n)    (RS)
+else                                                            else
+         320 || PMR(n)
+   RT                 32:63                                        PMR(n)    (RS)32:63
+Let PMRN denote a Performance Monitor Register                  Let PMRN denote a Performance Monitor Register
+number and PMR the set of Performance Monitor Reg-              number and PMR the set of Performance Monitor Reg-
+isters.                                                         isters.
+The contents of the designated Performance Monitor              The contents of the register RS are placed into the des-
+Register are placed into register RT.                           ignated Performance Monitor Register.
+The list of defined Performance Monitor Registers and           The list of defined Performance Monitor Registers and
+their privilege class is provided in Figure 97.                 their privilege class is provided in Figure 97.
+Execution of this instruction specifying a defined and          Execution of this instruction specifying a defined and
+privileged Performance Monitor Register when                    privileged Performance Monitor Register when
+MSRPR=1 will result in a Privileged Instruction excep-          MSRPR=1 will result in a Privileged Instruction excep-
+tion.                                                           tion.
+Category: Embedded.Hypervisor]                                  [Category: Embedded.Hypervisor]
+If MSRPPMMP = 1 and MSRGS = 1, execution of this                If MSRPPMMP = 1 and MSRGS = 1 and MSRPR = 0,
+instruction specifying a defined Performance Monitor            execution of this instruction specifying a defined Perfor-
+Register sets RT to 0.                                          mance Monitor Register results in a Embedded Hyper-
+                                                                visor Privilege exception.
+Execution of this instruction specifying an undefined
+Performance Monitor Register will either result in an           Execution of this instruction specifying an undefined
+Illegal Instruction exception or will produce an unde-          Performance Monitor Register will either result in an
+fined value for register RT.                                    Illegal Instruction exception or will perform no opera-
+                                                                tion.
+Special Registers Altered:
+    None                                                        Special Registers Altered:
+                                                                    None
+
+
+
+                     PMR1                                  Privileged
+    decimal                         Register Name                          Cat
+               pmrn5:9 pmrn0:4                           mtpmr mfpmr
+       0-15      00000 0xxxx PMC0..15                      -        no    E.PM
+      16-31      00000 1xxxx PMC0..15                     yes      yes    E.PM
+     128-143     00100 0xxxx PMLCA0..15                    -        no    E.PM
+     144-159     00100 1xxxx PMLCA0..15                   yes      yes    E.PM
+     256-271     01000 0xxxx PMLCB0..15                    -        no    E.PM
+     272-287     01000 1xxxx PMLCB0..15                   yes      yes    E.PM
+       384       01100 00000 PMGC0                         -        no    E.PM
+       400       01100 10000 PMGC0                        yes      yes    E.PM
+    - This register is not defined for this instruction.
+    1
+       Note that the order of the two 5-bit halves of the PMR number is reversed.
+Figure 97. Embedded.Peformance Monitor PMRs
+
+
+
+
+    Appendix D. Example Performance Monitor [Category: Embedded.Perfor-                                            1257
+Version 2.07
+
+
+D.5 Performance Monitor Soft-
+ware Usage Notes
+D.5.1 Chaining Counters
+An implementation may contain events that are used to
+“chain” counters together to provide a larger range of
+event counts. This is accomplished by programming the
+desired event into one counter and programming
+another counter with an event that occurs when the first
+counter transitions from 1 to 0 in the most significant
+bit.
+The counter chaining feature can be used to decrease
+the processing pollution caused by Performance Moni-
+tor interrupts, (things like cache contamination, and
+pipeline effects), by allowing a higher event count than
+is possible with a single counter. Chaining two counters
+together effectively adds 32 bits to a counter register
+where the first counter’s carry-out event acts like a
+carry-out feeding the second counter. By defining the
+event of interest to be another PMC’s overflow genera-
+tion, the chained counter increments each time the first
+counter rolls over to zero. Multiple counters may be
+chained together.
+Because the entire chained value cannot be read in a
+single instruction, an overflow may occur between
+counter reads, producing an inaccurate value. A
+sequence like the following is necessary to read the
+complete chained value when it spans multiple
+counters and the counters are not frozen. The example
+shown is for a two-counter case.
+
+loop:
+  mfpmr     Rx,pmctr1    #load from upper counter
+  mfpmr     Ry,pmctr0    #load from lower counter
+  mfpmr     Rz,pmctr1    #load from upper counter
+  cmp       cr0,0,Rz,Rx #see if ‘old’ = ‘new’
+  bc        4,2,loop
+             #loop if carry occurred between reads
+The comparison and loop are necessary to ensure that
+a consistent set of values has been obtained. The
+above sequence is not necessary if the counters are
+frozen.
+
+
+D.5.2 Thresholding
+Threshold event measurement enables the counting of
+duration and usage events. Assume an example event,
+dLFB load miss cycles, requires a threshold value. A
+dLFB load miss cycles event is counted only when the
+number of cycles spent recovering from the miss is
+greater than the threshold. If the event is counted on
+two counters and each counter has an individual
+threshold, one execution of a performance monitor pro-
+gram can sample two different threshold values. Mea-
+suring code performance with multiple concurrent
+thresholds expedites code profiling significantly.
+
+
+
+1258       Power ISA™ - Book III-E
+                                                            Version 2.07
+
+
+
+
+Book VLE:
+
+Power ISA Operating Environment Architecture -
+Variable Length Encoding (VLE) Environment
+[Category: Variable Length Encoding]
+
+
+
+
+         Book VLE: Power ISA Operating Environment Architecture -   1259
+Version 2.07
+
+
+
+
+1260   Power ISA™ - Book VLE
+                                                                                                  Version 2.07
+
+
+

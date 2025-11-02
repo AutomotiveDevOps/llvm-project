@@ -1,0 +1,56 @@
+                                                               Chapter 5. Fixed-Point Instructions                                 1309
+Version 2.07
+
+
+5.11 Move To/From System Register Instructions
+The VLE category provides 16-bit forms of instructions    The fixed-point Move To/From System Register instruc-
+to move to/from the LR and CTR.                           tions from Book III-E, mfspr<E.DC>, mtspr, mfdcr,
+                                                          mtdcr<E.DC>, mtmsr, mfmsr, wrtee, and wrteei are
+The fixed-point Move To/From System Register instruc-
+                                                          available while executing in VLE mode. The mnemon-
+tions from Book I, mfspr, mtcrf, mfcr, mfdcrx, mtocrf,
+                                                          ics, decoding, and semantics for these instructions are
+mfocrf, mcrxr, mtdcrx, mtdcrux, mfdcrux, and mtspr
+                                                          identical to those in Book III-E; see Section 5.4.1 of
+are available while executing in VLE mode. The mne-
+                                                          Book III-E for the instruction definitions.
+monics, decoding, and semantics for these instructions
+are identical to those in Book I; see Section 3.3.16 of
+Book I for the instruction definitions.
+
+
+Move From Count Register                     R-form       Move From Link Register                        R-form
+se_mfctr         RX                                       se_mflr         RX
+
+      0          10        RX                                  0           8        RX
+0            6        12        15                        0           6        12        15
+
+
+
+RX    CTR                                                 RX   LR
+The CTR contents are placed into register RX.             The LR contents are placed into register RX.
+Special Registers Altered:                                Special Registers Altered:
+    None                                                      None
+
+
+Move To Count Register                       R-form       Move To Link Register                          R-form
+se_mtctr         RX                                       se_mtlr         RX
+
+      0          11        RX                                  0           9        RX
+0            6        12        15                        0           6        12        15
+
+
+
+CTR       (RX)                                            LR   (RX)
+The contents of register RX are placed into the CTR.      The contents of register RX are placed into the LR.
+Special Registers Altered:                                Special Registers Altered:
+    CTR                                                       LR
+
+
+
+
+1310         Power ISA™ - Book VLE
+                                                                                                  Version 2.07
+
+
+

@@ -1,0 +1,2358 @@
+Chapter 8
+Debug Support
+This chapter describes the debug features of the e200 core.
+
+8.1       Overview
+Internal debug support in the e200 core allows for software and hardware debug by providing debug
+functions, such as instruction and data breakpoints and program trace modes. For software based
+debugging, debug facilities consisting of a set of software accessible debug registers and interrupt
+mechanisms are provided. These facilities are also available to a hardware based debugger which
+communicates using a modified IEEE 1149.1 Test Access Port (TAP) controller and pin interface. When
+hardware debug is enabled, the debug facilities are protected from software modification.
+Software debug facilities are defined as part of Power Architecture Book E. e200 supports a subset of these
+defined facilities. In addition to the facilities defined in Power Architecture Book E, e200 provides
+additional flexibility and functionality in the form of linked instruction and data breakpoints, and
+sequential debug event detection. These features are also available to a hardware-based debugger.
+The e200 core provides support for an external Nexus real-time debug module. Real-time debugging in a
+e200-based system is supported by a Nexus class 1 module.
+
+8.1.1        Software Debug Facilities
+e200 provides debug facilities to enable hardware and software debug functions, such as instruction and
+data breakpoints and program single stepping. The debug facilities consist of a set of debug control
+registers (DBCR0-2), a set of address compare registers (IAC1, IAC2, IAC3, IAC4, DAC1, and DAC2),
+a Debug Status Register (DBSR) for enabling and recording various kinds of debug events, and a special
+Debug interrupt type built into the interrupt mechanism (see Section 5.7.10, “Debug Interrupt
+(IVOR15)”). The debug facilities also provide a mechanism for software-controlled processor reset in a
+debug environment.
+Software debug facilities are enabled by setting the internal debug mode bit in Debug Control register 0
+(DBCR0[IDM]). When internal debug mode is enabled, debug events can occur, and can be enabled to
+record exceptions in the Debug Status register (DBSR). If enabled by MSR[DE], these recorded
+exceptions cause Debug interrupts to occur. When DBCR0[IDM] is cleared, (and DBCR0[EDM] is
+cleared as well), no debug events occur, and no status flags are set in DBSR unless already set. In addition,
+when DBCR0[IDM] is cleared (or is overridden by DBCR0[EDM] being set) no Debug interrupts occur,
+regardless of the contents of DBSR. A software Debug interrupt handler may access all system resources
+and perform necessary functions appropriate for system debug.
+
+
+
+
+                           e200z0 Power Architecture Core Reference Manual, Rev. 0
+Freescale Semiconductor                                                                                   8-1
+Debug Support
+
+
+8.1.1.1         Power Architecture Book E Compatibility
+The e200 core implements a subset of the Power Architecture Book E internal debug features. The
+following restrictions on functionality are present:
+    • Instruction address compares do not support compare on physical (real) addresses.
+    • Data address compares do not support compare on physical (real) addresses.
+    • Data value compares are not supported.
+
+8.1.2       Additional Debug Facilities
+In addition to the debug functionality defined in Power Architecture Book E, e200 provides capability to
+link instruction and data breakpoints, and also provides a sequential breakpoint control mechanism.
+e200 also defines two new debug events (CIRPT, CRET) for debugging around critical interrupts.
+In addition, e200 implements the Debug APU, which when enabled allows Debug Interrupts to utilize a
+dedicated set of save/restore registers (DSRR0, DSRR1) for saving state information when a Debug
+Interrupt occurs, and for restoring this state information at the end of a debug interrupt handler by means
+of the se_rfdi instruction.
+
+8.1.3       Hardware Debug Facilities
+The e200 core contains facilities that allow for external test and debugging. A modified IEEE 1149.1
+control interface is used to communicate with the core resources. This interface is implemented through a
+standard 1149.1 TAP (test access port) controller.
+By using public instructions, the external debugger can freeze or halt the e200 core, read and write internal
+state and debug facilities, single-step instructions, and resume normal execution.
+Hardware Debug is enabled by setting the External Debug Mode enable bit in Debug Control register 0
+(DBCR0[EDM]). Setting DBCR0[EDM] overrides the Internal Debug Mode enable bit DBCR0[IDM].
+When the Hardware Debug facility is enabled, software is blocked from modifying the debug facilities. In
+addition, because resources are “owned” by the Hardware debugger, inconsistent values may be present if
+software attempts to read debug-related resources.
+When hardware debug is enabled by setting DBCR0[EDM]=1, the registers and resources described in
+Section 8.3, “Debug Registers,” are reserved for use by the external debugger. The same events described
+in Section 8.2, “Software Debug Events and Exceptions,” are also used for external debugging, but
+exceptions are not generated to running software. Debug events enabled in the respective DBCR[0–2]
+registers are recorded in the DBSR regardless of MSR[DE], and no debug interrupts are generated. Instead,
+the CPU enters debug mode when an enabled event causes a DBSR bit to become set. DBCR0[EDM] may
+only be written through the OnCE port.
+Access to most debug resources (registers) requires that the core clock (m_clk) be running in order to
+perform write accesses from the external hardware debugger.
+
+
+
+
+                           e200z0 Power Architecture Core Reference Manual, Rev. 0
+8-2                                                                                    Freescale Semiconductor
+                                                                                                           Debug Support
+
+
+Figure 8-1 shows the e200 debug resources.
+
+
+
+           cpu_dbgack
+           dbg_dbgrq
+
+
+
+                            Pipeline                          Breakpoint and
+                           Information                         Trace Logic
+
+                                                                                                  j_tclk
+           DATA#
+
+          ADDR#
+                                 .                                    .           OnCE
+                                                                                  Controller
+                                                                                  and
+                                                                                                  j_tdi
+
+          ATTR#
+         PSTAT#              .                                                    Serial
+                                                                                  Interface
+                                                                                               j_tdo, j_tdo_en
+
+                                                                                                  j_tms
+                                                                                                  j_trst_b
+                                                                                                  jd_en_once
+                                                           Debug
+                                                           Registers                              jd_de_b
+                                                           and
+                                                           Comparators                            jd_mclk_on
+
+
+                                                                                               #-internal signals
+                                                                                               to/from CPU only
+
+
+
+
+          p_ude
+
+           p_devt[1,2]
+         jd_watchpt[0:n]
+            jd_de_en
+            jd_debug_b
+
+
+
+                                          Figure 8-1. e200 Debug Resources
+
+
+8.2       Software Debug Events and Exceptions
+Software debug events and exceptions are available when internal debug mode is enabled
+(DBCR0[IDM]=1) and not overridden by external debug mode (DBCR0[EDM] must be cleared). When
+enabled, debug events cause debug exceptions to be recorded in the Debug Status Register. Specific event
+types are enabled by the Debug Control Registers (DBCR0–2). The Unconditional Debug Event (UDE) is
+an exception to this rule; it is always enabled. Once a Debug Status Register (DBSR) bit is set (other than
+MRR), if Debug interrupts are enabled by MSR[DE], a Debug interrupt is generated. The debug interrupt
+handler is responsible for ensuring that multiple repeated debug interrupts do not occur by clearing the
+DBSR as appropriate.
+
+
+
+                                 e200z0 Power Architecture Core Reference Manual, Rev. 0
+Freescale Semiconductor                                                                                              8-3
+Debug Support
+
+
+Certain debug events are not allowed to occur when MSR[DE]=0 and DBCR0[EDM]=0. In such
+situations, no debug exception occurs and thus no DBSR bit is set. Other debug events may cause debug
+exceptions and set DBSR bits regardless of the state of MSR[DE]. A Debug interrupt is delayed until
+MSR[DE] is later set to ‘1’.
+When a Debug Status Register bit is set while MSR[DE]=0 and DBCR0[EDM]=0, an Imprecise Debug
+Event flag (DBSR[IDE]) also is set to indicate that an exception bit in the Debug Status Register was set
+while Debug interrupts were disabled. Debug interrupt handler software can use this bit to determine
+whether the address recorded in Debug Save/Restore Register 0 is an address associated with the
+instruction causing the debug exception, or the address of the instruction which enabled a delayed Debug
+interrupt by setting the MSR[DE] bit. A mtmsr or mtdbcr0 which causes both MSR[DE] and
+DBCR0[IDM] to become set, enabling precise debug mode, may cause an Imprecise (Delayed) Debug
+exception to be generated due to an earlier recorded event in the Debug Status register.
+There are eight types of debug events defined by Power Architecture Book E, as follows:
+   1. Instruction Address Compare debug events
+   2. Data Address Compare debug events
+   3. Trap debug events
+   4. Branch Taken debug events
+   5. Instruction Complete debug events
+   6. Interrupt Taken debug events
+   7. Return debug events
+   8. Unconditional debug events
+In addition, e200 defines additional debug events:
+      •   The External debug events DEVT1 and DEVT2 which are described in Section 8.2.11, “External
+          Debug Event.”
+      •   The Critical Interrupt Taken debug event CIRPT which is described in Section 8.2.8, “Critical
+          Interrupt Taken Debug Event.”
+      •   The Critical Return debug event CRET which is described in Section 8.2.10, “Critical Return
+          Debug Event.”
+The e200 debug configuration supports most of these event types. Unsupported Power Architecture Book
+E defined functionality is as follows:
+   • Instruction Address Compare and Data Address Compare real address mode is not supported.
+   • Data Value Compare Mode is not supported.
+A brief description of each of the event types follows. In these descriptions, DSRR0 and DSRR1 are used,
+assuming that the Debug APU is enabled. If it is disabled, use CSRR0 and CSRR1, respectively.
+
+8.2.1         Instruction Address Compare Event
+Instruction Address Compare debug events occur when enabled and execution is attempted of an
+instruction at an address that meets the criteria specified in the DBCR0, DBCR1, IAC1, IAC2, IAC3, and
+IAC4 Registers. Instruction Address compares may specify user/supervisor mode and instruction space
+
+                            e200z0 Power Architecture Core Reference Manual, Rev. 0
+8-4                                                                                   Freescale Semiconductor
+                                                                                                   Debug Support
+
+
+(MSR[IS]), along with an effective address, masked effective address, or range of effective addresses for
+comparison. This event can occur and be recorded in DBSR regardless of the setting of MSR[DE]. IAC
+events do not occur when an instruction would not have normally begun execution due to a higher priority
+exception at an instruction boundary.
+IAC compares perform a 31-bit compare for VLE instructions. Each halfword fetched by the instruction
+fetch unit is marked with a set of bits indicating whether an Instruction Address Compare occurred on that
+halfword. Debug exceptions occur if enabled and a 16-bit instruction, or the first halfword of a 32-bit
+instruction, is tagged with an IAC hit.
+
+8.2.2        Data Address Compare Event
+Data Address Compare debug events occur when enabled and execution of a load or store class instruction
+results in a data access that meets the criteria specified in the DBCR0, DBCR2, DAC1, and DAC2
+Registers. Data address compares may specify user/supervisor mode and data space (MSR[DS]), along
+with an effective address, masked effective address, or range of effective addresses for comparison. This
+event can occur and be recorded in DBSR regardless of the setting of MSR[DE]. Two address compare
+values (DAC1, DAC2) are provided.
+                                                    NOTE
+                In contrast to the Power Architecture Book E definition, Data Address
+                Compare events on e200 do not prevent the load or store class instruction
+                from completing. If a load or store class instruction completes successfully
+                without a Data TLB or Data Storage interrupt, Data Address Compare
+                exceptions are reported at the completion of the instruction. If the exception
+                results in a precise Debug interrupt, the address value saved in DSRR0 (or
+                CSRR0 if the Debug APU is disabled) is the address of the instruction
+                following the load or store class instruction.
+                If a load or store class instruction does not complete successfully due to a
+                Data Storage exception, and a Data Address Compare debug exception also
+                occurs, the result is an imprecise Debug interrupt, the address value saved
+                in DSRR0 (or CSRR0 if the Debug APU is disabled) is the address of the
+                load or store class instruction, and the DBSR[IDE] bit is set. In addition to
+                occurring when DBCR0[IDM]=1, this circumstance can also occur when
+                DBCR0[EDM]=1.
+                                                   NOTE
+                DAC events are not recorded or counted if a lmw or stmw instruction is
+                interrupted prior to completion by a critical input or external input interrupt.
+                                                   NOTE
+                DAC events are not signaled on the second portion of a misaligned load or
+                store that is broken up into two separate accesses.
+
+
+
+
+                            e200z0 Power Architecture Core Reference Manual, Rev. 0
+Freescale Semiconductor                                                                                      8-5
+Debug Support
+
+
+8.2.3       Linked Instruction Address and Data Address Compare Event
+Data Address Compare debug events may be ‘linked’ with an Instruction Address Compare event by
+setting the DAC1LNK and/or DAC2LNK control bits in DBCR2 to further refine when a Data Address
+Compare debug event is generated. DAC1 may be linked with IAC1, and DAC2 (when not used as a mask
+or range bounds register) may be linked with IAC3. When linked, a DAC1 (or DAC2) debug event occurs
+when the same instruction which generates the DAC1 (or DAC2) ‘hit’ also generates an IAC1 (or IAC3)
+‘hit’. When linked, the IAC1 (or IAC3) event is not recorded in the Debug Status register, regardless of
+whether a corresponding DAC1 (or DAC2) event occurs, or whether the IAC1 (or IAC3) event enable is
+set.
+When enabled and execution of a load or store class instruction results in a data access with an address that
+meets the criteria specified in the DBCR0, DBCR2, DAC1, and DAC2 Registers, and the instruction also
+meets the criteria for generating an Instruction Address Compare event, a Linked Data Address Compare
+debug event occurs. This event can occur and be recorded in DBSR regardless of the setting of MSR[DE].
+The normal DAC1 and DAC2 status bits in the DBSR are used for recording these events. The IAC1 and
+IAC3 status bits are not set if the corresponding Instruction Address Compare register is linked.
+Linking is enabled using control bits in DBCR2.
+                                                   NOTE
+                Linked DAC events are not recorded if a load multiple word or store
+                multiple word instruction is interrupted prior to completion by a critical
+                input or external input interrupt.
+
+8.2.4       Trap Debug Event
+A Trap debug event (TRAP) occurs if Trap debug events are enabled (DBCR0[TRAP]=1), a Trap
+instruction (tw) is executed, and the conditions specified by the instruction for the trap are met. This event
+can occur and be recorded in DBSR regardless of the setting of MSR[DE]. When a Trap debug event
+occurs, the DBSR[TRAP] bit is set to 1 to record the debug exception.
+
+8.2.5       Branch Taken Debug Event
+A Branch Taken debug event (BRT) occurs if Branch Taken debug events are enabled (DBCR0[BRT]=1)
+and execution is attempted of a branch instruction, which is taken (either an unconditional branch, or a
+conditional branch whose branch condition is true), and MSR[DE]=1 or DBCR0[EDM]=1. Branch Taken
+debug events are not recognized if MSR[DE]=0 and DBCR0[EDM]=0 at the time of execution of the
+branch instruction and thus DBSR[IDE] can not be set by a Branch Taken debug event. When a Branch
+Taken debug event is recognized, the DBSR[BRT] bit is set to 1 to record the debug exception, and the
+address of the branch instruction is recorded in DSRR0.
+
+8.2.6       Instruction Complete Debug Event
+An Instruction Complete debug event (ICMP) occurs if Instruction Complete debug events are enabled
+(DBCR0[ICMP]=1), execution of any instruction is completed, and MSR[DE]=1 or DBCR0[EDM]=1. If
+execution of an instruction is suppressed due to the instruction causing some other exception which is
+
+                           e200z0 Power Architecture Core Reference Manual, Rev. 0
+8-6                                                                                     Freescale Semiconductor
+                                                                                                Debug Support
+
+
+enabled to generate an interrupt, then the attempted execution of that instruction does not cause an
+Instruction Complete debug event. The sc instruction does not fall into the category of an instruction whose
+execution is suppressed, because the instruction actually executes and then generates a System Call
+interrupt. In this case, the Instruction Complete debug exception is also set. When an Instruction Complete
+debug event is recognized, DBSR[ICMP] is set to 1 to record the debug exception and the address of the
+next instruction to be executed is recorded in DSRR0.
+Instruction Complete debug events are not recognized if MSR[DE]=0 and DBCR0[EDM]=0 at the time
+of execution of the instruction, thus DBSR[IDE] is not generally set by an ICMP debug event.
+                                                  NOTE
+                Instruction complete debug events are not generated by the execution of an
+                instruction which sets MSR[DE] to ‘1’ while DBCR0[ICMP]=1, nor by the
+                execution of an instruction which sets DBCR0[ICMP] to ‘1’ while
+                MSR[DE]=1 or DBCR0[EDM]=1.
+
+8.2.7        Interrupt Taken Debug Event
+An Interrupt Taken debug event (IRPT) occurs if Interrupt Taken debug events are enabled
+(DBCR0[IRPT]=1) and a non-critical interrupt occurs. Only non-critical class interrupts cause an Interrupt
+Taken debug event. This event can occur and be recorded in DBSR regardless of the setting of MSR[DE].
+When an Interrupt Taken debug event occurs, the DBSR[IRPT] bit is set to 1 to record the debug exception.
+The value saved in DSRR0 is the address of the non-critical interrupt handler.
+
+8.2.8        Critical Interrupt Taken Debug Event
+A Critical Interrupt Taken debug event (CIRPT) occurs if Critical Interrupt Taken debug events are enabled
+(DBCR0[CIRPT]=1) and a critical interrupt (other than a Debug interrupt when the Debug APU is
+disabled) occurs. Only critical class interrupts cause a Critical Interrupt Taken debug event. This event can
+occur and be recorded in DBSR regardless of the setting of MSR[DE]. When a Critical Interrupt Taken
+debug event occurs, the DBSR[CIRPT] bit is set to 1 to record the debug exception. The value saved in
+DSRR0 is the address of the critical interrupt handler. Note that this debug event should not normally be
+enabled unless the Debug APU is also enabled to avoid corruption of CSRR0/1.
+
+8.2.9        Return Debug Event
+A Return debug event (RET) occurs if Return debug events are enabled (DBCR0[RET]=1) and an attempt
+is made to execute an se_rfi instruction. This event can occur and be recorded in DBSR regardless of the
+setting of MSR[DE]. When a Return debug event occurs, the DBSR[RET] bit is set to 1 to record the debug
+exception.
+If MSR[DE]=0 and DBCR0[EDM]=0 at the time of the execution of the se_rfi (such as before the MSR
+is updated by the se_rfi), then DBSR[IDE] is also set to 1 to record the imprecise debug event.
+If MSR[DE]=1 at the time of the execution of the se_rfi, a Debug interrupt occurs provided there exists
+no higher priority exception which is enabled to cause an interrupt. Debug Save/Restore Register 0 is set
+to the address of the se_rfi instruction.
+
+                           e200z0 Power Architecture Core Reference Manual, Rev. 0
+Freescale Semiconductor                                                                                   8-7
+Debug Support
+
+
+8.2.10      Critical Return Debug Event
+A Critical Return debug event (CRET) occurs if Critical Return debug events are enabled
+(DBCR0[CRET]=1) and an attempt is made to execute an se_rfci instruction. This event can occur and be
+recorded in DBSR regardless of the setting of MSR[DE]. When a Critical Return debug event occurs, the
+DBSR[CRET] bit is set to 1 to record the debug exception.
+If MSR[DE]=0 and DBCR0[EDM]=0 at the time of the execution of the se_rfci (such as before the MSR
+is updated by the se_rfci), then DBSR[IDE] is also set to 1 to record the imprecise debug event.
+If MSR[DE]=1 at the time of the execution of the se_rfci, a Debug interrupt occurs provided there exists
+no higher priority exception which is enabled to cause an interrupt. Debug Save/Restore Register 0 is set
+to the address of the se_rfci instruction. Note that this debug event should not normally be enabled unless
+the Debug APU is also enabled to avoid corruption of CSRR0/1.
+
+8.2.11      External Debug Event
+An External debug event (DEVT1, DEVT2) occurs if External debug events are enabled
+(DBCR0[DEVT1]=1 or DBCR0[DEVT2]=1), and the respective p_devt1 or p_devt2 input signal
+transitions to the asserted state. This event can occur and be recorded in DBSR regardless of the setting of
+MSR[DE]. When an External debug event occurs, DBSR[DEVT{1,2}] is set to ‘1’ to record the debug
+exception.
+
+8.2.12      Unconditional Debug Event
+An Unconditional debug event (UDE) occurs when the Unconditional Debug Event (p_ude) input
+transitions to the asserted state, and either DBCR0[IDM]=1 or DBCR0[EDM]=1. The Unconditional
+debug event is the only debug event which does not have a corresponding enable bit for the event in
+DBCR0. This event can occur and be recorded in DBSR regardless of the setting of MSR[DE]. When an
+Unconditional debug event occurs, the DBSR[UDE] bit is set to ‘1’ to record the debug exception.
+
+8.3       Debug Registers
+This section describes debug-related registers that are software accessible. These registers are intended for
+use by special debug tools and debug software, not by general application code.
+Access to these registers by software is conditioned by the External Debug Mode control bit
+(DBCR0[EDM]) which can be set by the hardware debug port. If DBCR0[EDM] is set, software is
+prevented from modifying debug register values. Execution of a mtspr instruction targeting a debug
+register does not cause modifications to occur. In addition, because the external debugger hardware may
+be manipulating debug register values, the state of these registers is not guaranteed to be consistent if
+accessed (read) by software with a mfspr instruction, other than the DBCR0[EDM] bit itself.
+
+8.3.1       Debug Address and Value Registers
+Instruction Address Compare registers IAC1, IAC2, IAC3, and IAC4 are used to hold instruction
+addresses for address comparison purposes. In addition, IAC2 and IAC4 hold mask information for IAC1
+
+
+                           e200z0 Power Architecture Core Reference Manual, Rev. 0
+8-8                                                                                    Freescale Semiconductor
+                                                                                                                                                     Debug Support
+
+
+and IAC3 respectively when Address Bit Match compare modes are selected. Note that when performing
+instruction address compares, the low order bit of the instruction address and the corresponding IAC
+register is ignored.
+Data Address Compare registers DAC1 and DAC2 are used to hold data access addresses for address
+comparison purposes. In addition, DAC2 holds mask information for DAC1 when Address Bit Match
+compare mode is selected.
+
+8.3.2                   Debug Control and Status Registers
+Debug Control Registers 0-2 (DBCR0, DBCR1, DBCR2) are used to enable debug events, reset the
+processor, and set the debug mode of the processor. The Debug Status register (DBSR) records debug
+exceptions while Internal or External Debug Mode is enabled.
+e200 requires that a context synchronizing instruction follow a mtspr DBCR0-2 or DBSR to ensure that
+any alterations enabling/disabling debug events are effective. The context synchronizing instruction may
+or may not be affected by the alteration. Typically, an isync instruction is used to create a synchronization
+boundary beyond which it can be guaranteed that the newly written control values are in effect.
+For watchpoint generation, configuration settings contained in DBCR1and DBCR2 are used, even though
+the corresponding event(s) may be disabled (via DBCR0) from setting DBSR flags.
+
+8.3.2.1                   Debug Control Register 0 (DBCR0)
+Debug Control Register 0 is used to enable debug modes and controls which debug events are allowed to
+set DBSR flags. e200 adds some implementation specific bits to this register, as seen in Figure 8-2.
+                                                                                                                          DEVT2
+                                                                                                                  DEVT1
+
+
+
+
+                                                                                                                                      CIRPT
+                                                                                                                                              CRET
+                                                      TRAP
+
+
+
+
+                                                                                         DAC1
+
+
+                                                                                                DAC2
+                                  ICMP
+
+
+                                               IRPT
+        EDM
+
+
+
+
+                                                             IAC1
+                                                                    IAC2
+                                                                           IAC3
+                                                                                  IAC4
+                        RST
+
+
+
+                                         BRT
+
+
+
+
+                                                                                                       RET
+              IDM
+
+
+
+
+                                                                                                             0                    0                  0
+
+
+        0     1     2         3   4      5     6      7      8      9      10     11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31
+
+                                                                                SPR—308; Read/Write; Reset1—0x0
+
+                                                                                  Figure 8-2. DBCR0 Register
+    1
+            DBCR0[EDM] is affected by j_trst_b or m_por assertion, and while in the Test_Logic_Reset state, but not by
+            p_reset_b. All other bits are reset by processor reset p_reset_b as well as by m_por.
+
+
+
+
+                                                       e200z0 Power Architecture Core Reference Manual, Rev. 0
+Freescale Semiconductor                                                                                                                                        8-9
+Debug Support
+
+
+Table 8-1 provides bit definitions for Debug Control Register 0.
+                                            Table 8-1. DBCR0 Bit Definitions
+
+  Bit(s)    Name                                                        Description
+
+       0        EDM    External Debug Mode. This bit is read-only by software.
+                       0 External debug mode disabled. Internal debug events not mapped into external debug events.
+                       1 External debug mode enabled. Events do not cause the CPU to vector to interrupt code. Software is
+                         not permitted to write to debug registers {DBCRx, DBSR, DBCNT, IAC1-4, DAC1-2}.
+
+                       Programming Notes:
+                       It is recommended that debug status bits in the Debug Status Register be cleared before disabling
+                       external debug mode to avoid any internal imprecise debug interrupts.
+                       Software may use this bit to determine if external debug has control over the debug registers.
+                       The hardware debugger must set the EDM bit to ‘1’ before other bits in this register (and other debug
+                       registers) may be altered. On the initial setting of this bit to ‘1’, all other bits are unchanged. This bit is
+                       only writable through the OnCE port.
+
+       1        IDM    Internal Debug Mode
+                       0 Debug exceptions are disabled. Debug events do not affect DBSR unless EDM is set.
+                       1 Debug exceptions are enabled. Enabled debug events update the DBSR. If MSR[DE]=1, the
+                          occurrence of a debug event, or the recording of an earlier debug event in the Debug Status Register
+                          when MSR[DE] was cleared, causes a Debug interrupt.
+
+   2:3          RST    Reset Control
+                       00 No function
+                       01 Reserved
+                       10 p_resetout_b pin asserted by Debug Reset Control. Allows external device to initiate processor
+                          reset.
+                       11 Reserved
+
+       4    ICMP       Instruction Complete Debug Event Enable
+                       0 ICMP debug events are disabled
+                       1 ICMP debug events are enabled
+
+       5        BRT    Branch Taken Debug Event Enable
+                       0 BRT debug events are disabled
+                       1 BRT debug events are enabled
+
+       6        IRPT   Interrupt Taken Debug Event Enable
+                       0 IRPT debug events are disabled
+                       1 IRPT debug events are enabled
+
+       7    TRAP       Trap Taken Debug Event Enable
+                       0 TRAP debug events are disabled
+                       1 TRAP debug events are enabled
+
+       8        IAC1   Instruction Address Compare 1 Debug Event Enable
+                       0 IAC1 debug events are disabled
+                       1 IAC1 debug events are enabled
+
+       9        IAC2   Instruction Address Compare 2 Debug Event Enable
+                       0 IAC2 debug events are disabled
+                       1 IAC2 debug events are enabled
+
+   10           IAC3   Instruction Address Compare 3 Debug Event Enable
+                       0 IAC3 debug events are disabled
+                       1 IAC3 debug events are enabled
+
+
+
+
+                               e200z0 Power Architecture Core Reference Manual, Rev. 0
+8-10                                                                                                       Freescale Semiconductor
+                                                                                                                                                                      Debug Support
+
+
+                                                                               Table 8-1. DBCR0 Bit Definitions (continued)
+
+  Bit(s)              Name                                                                                                Description
+
+   11                     IAC4                      Instruction Address Compare 4 Debug Event Enable
+                                                    0 IAC4 debug events are disabled
+                                                    1 IAC4 debug events are enabled
+
+  12:13                   DAC1                      Data Address Compare 1 Debug Event Enable
+                                                    00 DAC1 debug events are disabled
+                                                    01 DAC1 debug events are enabled only for store-type data storage accesses
+                                                    10 DAC1 debug events are enabled only for load-type data storage accesses
+                                                    11 DAC1 debug events are enabled for load-type or store-type data storage accesses
+
+  14:15                   DAC2                      Data Address Compare 2 Debug Event Enable
+                                                    00 DAC2 debug events are disabled
+                                                    01 DAC2 debug events are enabled only for store-type data storage accesses
+                                                    10 DAC2 debug events are enabled only for load-type data storage accesses
+                                                    11 DAC2 debug events are enabled for load-type or store-type data storage accesses
+
+   16                      RET                      Return Debug Event Enable
+                                                    0 RET debug events are disabled
+                                                    1 RET debug events are enabled
+
+  17:20                       —                     Reserved
+
+   21                 DEVT1                         External Debug Event 1 Enable
+                                                    0 DEVT1 debug events are disabled
+                                                    1 DEVT1 debug events are enabled
+
+   22                 DEVT2                         External Debug Event 2 Enable
+                                                    0 DEVT2 debug events are disabled
+                                                    1 DEVT2 debug events are enabled
+
+  23:24                       —                         Reserved
+
+   25                 CIRPT                         Critical Interrupt Taken Debug Event Enable
+                                                    0 CIRPT debug events are disabled
+                                                    1 CIRPT debug events are enabled
+
+   26                 CRET                          Critical Return Debug Event Enable
+                                                    0 CRET debug events are disabled
+                                                    1 CRET debug events are enabled
+
+  27:31                       —                         Reserved
+
+
+8.3.2.2                        Debug Control Register 1 (DBCR1)
+Debug Control Register 1 is used to configure Instruction Address Compare operation. The DBCR1
+register is shown in Figure 8-3.
+                          IAC1ER
+
+
+
+
+                                                             IAC2ER
+
+
+
+
+                                                                                                                              IAC3ER
+
+
+
+
+                                                                                                                                                IAC4ER
+         IAC1US
+
+
+
+
+                                           IAC2US
+
+
+
+
+                                                                                                                 IAC3US
+
+
+
+
+                                                                                                                                       IAC4US
+                                                                              IAC12M
+
+
+
+
+                                                                                                                                                         IAC34M
+
+
+
+
+                                                                                                     0                                                            0
+
+
+     0            1   2            3   4            5    6            7   8            9   10   11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31
+
+                                                                                                SPR—309; Read/Write; Reset—0x0
+
+                                                                                                 Figure 8-3. DBCR1 Register
+
+
+                                                                      e200z0 Power Architecture Core Reference Manual, Rev. 0
+Freescale Semiconductor                                                                                                                                                       8-11
+Debug Support
+
+
+Table 8-2 provides bit definitions for Debug Control Register 1.
+                                         Table 8-2. DBCR1 Bit Definitions
+
+  Bit(s)    Name                                                   Description
+
+   0:1     IAC1US   Instruction Address Compare 1 User/Supervisor Mode
+                    00 IAC1 debug events not affected by MSR[PR]
+                    01 Reserved
+                    10 IAC1 debug events can only occur if MSR[PR]=0 (Supervisor mode)
+                    11 IAC1 debug events can only occur if MSR[PR]=1. (User mode)
+
+   2:3     IAC1ER   Instruction Address Compare 1 Effective/Real Mode
+                    00 IAC1 debug events are based on effective address
+                    01 Unimplemented in e200 (Book E real address compare), no match can occur
+                    10 IAC1 debug events are based on effective address and can only occur if MSR[IS]=0
+                    11 IAC1 debug events are based on effective address and can only occur if MSR[IS]=1
+
+   4:5     IAC2US   Instruction Address Compare 2 User/Supervisor Mode
+                    00 IAC2 debug events not affected by MSR[PR]
+                    01 Reserved
+                    10 IAC2 debug events can only occur if MSR[PR]=0 (Supervisor mode)
+                    11 IAC2 debug events can only occur if MSR[PR]=1. (User mode)
+
+   6:7     IAC2ER   Instruction Address Compare 2 Effective/Real Mode
+                    00 IAC2 debug events are based on effective address
+                    01 Unimplemented in e200 (Book E real address compare), no match can occur
+                    10 IAC2 debug events are based on effective address and can only occur if MSR[IS]=0
+                    11 IAC2 debug events are based on effective address and can only occur if MSR[IS]=1
+
+                    Instruction Address Compare 1/2 Mode
+                    00 Exact address compare. IAC1 debug events can only occur if the address of the instruction fetch is
+                        equal to the value specified in IAC1. IAC2 debug events can only occur if the address of the
+                        instruction fetch is equal to the value specified in IAC2.
+                    01 Address bit match. IAC1 debug events can occur only if the address of the instruction fetch, ANDed
+                        with the contents of IAC2 are equal to the contents of IAC1, also ANDed with the contents of IAC2.
+   8:9     IAC12M       IAC2 debug events do not occur. IAC1US and IAC1ER settings are used.
+                    10 Inclusive address range compare. IAC1 debug events can occur only if the address of the instruction
+                        fetch is greater than or equal to the value specified in IAC1 and less than the value specified in IAC2.
+                        IAC2 debug events do not occur. IAC1US and IAC1ER settings are used.
+                    11 Exclusive address range compare. IAC1 debug events can occur only if the address of the
+                        instruction fetch is less than the value specified in IAC1 or is greater than or equal to the value
+                        specified in IAC2. IAC2 debug events do not occur. IAC1US and IAC1ER settings are used.
+
+  10:15         —   Reserved
+
+                    Instruction Address Compare 3 User/Supervisor Mode
+                    00 IAC3 debug events not affected by MSR[PR]
+  16:17    IAC3US   01 Reserved
+                    10 IAC3 debug events can only occur if MSR[PR]=0 (Supervisor mode)
+                    11 IAC3 debug events can only occur if MSR[PR]=1 (User mode)
+
+                    Instruction Address Compare 3 Effective/Real Mode
+                    00 IAC3 debug events are based on effective address
+  18:19    IAC3ER   01 Unimplemented in e200 (Book E real address compare), no match can occur
+                    10 IAC3 debug events are based on effective address and can only occur if MSR[IS]=0
+                    11 IAC3 debug events are based on effective address and can only occur if MSR[IS]=1
+
+
+
+
+                            e200z0 Power Architecture Core Reference Manual, Rev. 0
+8-12                                                                                                  Freescale Semiconductor
+                                                                                                                                                          Debug Support
+
+
+                                                                              Table 8-2. DBCR1 Bit Definitions (continued)
+
+  Bit(s)              Name                                                                                             Description
+
+                                                    Instruction Address Compare 4 User/Supervisor Mode
+                                                    00 IAC4 debug events not affected by MSR[PR]
+  20:21               IAC4US                        01 Reserved
+                                                    10 IAC4 debug events can only occur if MSR[PR]=0 (Supervisor mode).
+                                                    11 IAC4 debug events can only occur if MSR[PR]=1. (User mode)
+
+                                                    Instruction Address Compare 4Effective/Real Mode
+                                                    00 IAC4 debug events are based on effective address
+  22:23               IAC4ER                        01 Unimplemented in e200 (Book E real address compare), no match can occur
+                                                    10 IAC4 debug events are based on effective address and can only occur if MSR[IS]=0
+                                                    11 IAC4 debug events are based on effective address and can only occur if MSR[IS]=1
+
+                                                    Instruction Address Compare 3/4 Mode
+                                                    00 Exact address compare. IAC3 debug events can only occur if the address of the instruction fetch is
+                                                        equal to the value specified in IAC3. IAC4 debug events can only occur if the address of the
+                                                        instruction fetch is equal to the value specified in IAC4.
+                                                    01 Address bit match. IAC3 debug events can occur only if the address of the instruction fetch, ANDed
+                                                        with the contents of IAC4 are equal to the contents of IAC3, also ANDed with the contents of IAC4.
+  24:25               IAC34M                            IAC4 debug events do not occur. IAC3US and IAC3ER settings are used.
+                                                    10 Inclusive address range compare. IAC3 debug events can occur only if the address of the instruction
+                                                        fetch is greater than or equal to the value specified in IAC3 and less than the value specified in IAC4.
+                                                        IAC4 debug events do not occur. IAC3US and IAC3ER settings are used.
+                                                    11 Exclusive address range compare. IAC3 debug events can occur only if the address of the
+                                                        instruction fetch is less than the value specified in IAC3 or is greater than or equal to the value
+                                                        specified in IAC4. IAC4 debug events do not occur. IAC3US and IAC3ER settings are used.
+
+  26:31                       —                     Reserved
+
+
+8.3.2.3                        Debug Control Register 2 (DBCR2)
+Debug Control Register 2 is used to configure Data Address Compare and Data Value Compare
+operation.The DBCR2 register is shown in Figure 8-4.
+                                                                                          DAC1LNK
+                                                                                                     DAC2LNK
+                                                                             DAC12M
+         DAC1US
+
+
+                          DAC1ER
+
+
+                                           DAC2US
+
+
+                                                            DAC2ER
+
+
+
+
+                                                                                                                                     0
+
+
+     0            1   2            3   4            5   6            7   8            9   10        11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31
+
+                                                                                                    SPR—310; Read/Write; Reset—0x0
+
+                                                                                                     Figure 8-4. DBCR2 Register
+
+
+
+
+                                                                     e200z0 Power Architecture Core Reference Manual, Rev. 0
+Freescale Semiconductor                                                                                                                                              8-13
+Debug Support
+
+
+Table 8-3 provides bit definitions for Debug Control Register 2.
+                                          Table 8-3. DBCR2 Bit Definitions
+
+  Bit(s)    Name                                                   Description
+
+                      Data Address Compare 1 User/Supervisor Mode
+                      00 DAC1 debug events not affected by MSR[PR]
+   0:1     DAC1US     01 Reserved
+                      10 DAC1 debug events can only occur if MSR[PR]=0 (Supervisor mode)
+                      11 DAC1 debug events can only occur if MSR[PR]=1. (User mode)
+
+                      Data Address Compare 1 Effective/Real Mode
+                      00 DAC1 debug events are based on effective address
+   2:3     DAC1ER     01 Unimplemented in e200 (Book E real address compare), no match can occur
+                      10 DAC1 debug events are based on effective address and can only occur if MSR[DS]=0
+                      11 DAC1 debug events are based on effective address and can only occur if MSR[DS]=1
+
+                      Data Address Compare 2 User/Supervisor Mode.
+                      00 DAC2 debug events not affected by MSR[PR]
+   4:5     DAC2US     01 Reserved
+                      10 DAC2 debug events can only occur if MSR[PR]=0 (Supervisor mode)
+                      11 DAC2 debug events can only occur if MSR[PR]=1. (User mode)
+
+                      Data Address Compare 2 Effective/Real Mode
+                      00 DAC2 debug events are based on effective address
+   6:7     DAC2ER     01 Unimplemented in e200 (Book E real address compare), no match can occur
+                      10 DAC2 debug events are based on effective address and can only occur if MSR[DS]=0
+                      11 DAC2 debug events are based on effective address and can only occur if MSR[DS]=1
+
+                      Data Address Compare 1/2 Mode
+                      00 Exact address compare. DAC1 debug events can only occur if the address of the data access is
+                         equal to the value specified in DAC1. DAC2 debug events can only occur if the address of the data
+                         access is equal to the value specified in DAC2.
+                      01 Address bit match. DAC1 debug events can occur only if the address of the data access ANDed with
+                         the contents of DAC2, are equal to the contents of DAC1 also ANDed with the contents of DAC2.
+   8:9     DAC12M        DAC2 debug events do not occur. DAC1US and DAC1ER settings are used.
+                      10 Inclusive address range compare. DAC1 debug events can occur only if the address of the data
+                         access is greater than or equal to the value specified in DAC1 and less than the value specified in
+                         DAC2. DAC2 debug events do not occur. DAC1US and DAC1ER settings are used.
+                      11 Exclusive address range compare. DAC1 debug events can occur only if the address of the data
+                         access is less than the value specified in DAC1 or is greater than or equal to the value specified in
+                         DAC2. DAC2 debug events do not occur. DAC1US and DAC1ER settings are used.
+
+                   Data Address Compare 1 Linked
+                   0 no affect
+   10      DAC1LNK 1 DAC1 debug events are linked to IAC1 debug events. IAC1 debug events do not affect DBSR
+                   When linked to IAC1, DAC1 debug events are conditioned based on whether the instruction also
+                     generated an IAC1 debug event
+
+                   Data Address Compare 2 Linked
+                   0 no affect
+                   1 DAC 2 debug events are linked to IAC3 debug events. IAC3 debug events do not affect DBSR
+   11      DAC2LNK
+                   When linked to IAC3, DAC2 debug events are conditioned based on whether the instruction also
+                   generated an IAC3 debug event. DAC2 can only be linked if DAC12M specifies Exact Address Compare
+                   because DAC2 debug events are not generated in the other compare modes.
+
+  12:31         —     Reserved for Data Value Compare control (not supported by e200)
+
+
+
+
+                              e200z0 Power Architecture Core Reference Manual, Rev. 0
+8-14                                                                                                 Freescale Semiconductor
+                                                                                                                                                                                       Debug Support
+
+
+8.3.2.4                  Debug Status Register (DBSR)
+The Debug Status Register (DBSR) contains status on debug events and the most recent processor reset.
+The Debug Status Register is set via hardware, and read and cleared via software. Bits in the Debug Status
+Register can be cleared using mtspr DBSR,RS. Clearing is done by writing to the Debug Status Register
+with a 1 in any bit position that is to be cleared and 0 in all other bit positions. The write data to the Debug
+Status Register is not direct data, but a mask. A ‘1’ causes the bit to be cleared, and a ‘0’ has no effect.
+Debug Status bits are set by Debug events only while Internal Debug Mode is enabled or External Debug
+Mode is enabled. When debug interrupts are enabled (MSR[DE]=1, DBCR0[IDM]=1, and
+DBCR0[EDM]=0), a set bit in DBSR other than MRR or VLES causes a debug interrupt to be generated.
+The debug interrupt handler is responsible for clearing DBSR bits prior to returning to normal execution.
+The Power Architecture VLE APU adds the DBSR[VLES] status bit to indicate debug events occurring
+due to a Power Architecture VLE instruction. The DBSR register is shown in Figure 8-5.
+
+
+                                                                                                 DAC1W
+
+
+                                                                                                                 DAC2W
+                                                                                         DAC1R
+
+
+                                                                                                         DAC2R
+
+
+
+
+                                                                                                                                             DEVT1
+                                                                                                                                                     DEVT2
+
+
+
+                                                                                                                                                                 CIRPT
+                                                                                                                                                                         CRET
+                                                     TRAP
+
+
+
+
+                                                                                                                                                                                VLES
+                                 ICMP
+                       MRR
+
+
+
+
+                                              IRPT
+
+
+                                                            IAC1
+                                                                   IAC2
+                                                                          IAC3
+                                                                                  IAC4
+             UDE
+
+
+
+
+                                                                                                                         RET
+                                        BRT
+       IDE
+
+
+
+
+                                                                                                                                   0                         0                          0
+
+
+       0     1     2         3   4      5     6      7      8      9      10      11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31
+
+                                                                       SPR—304; Read/Write; Reset—0x1000_0000
+
+                                                                                    Figure 8-5. DBSR Register
+
+Table 8-4 provides bit definitions for the Debug Status Register.
+                                                                                 Table 8-4. DBSR Bit Definitions
+
+ Bit(s)            Name                                                                                                        Description
+
+   0                   IDE              Imprecise Debug Event
+                                        Set to 1 if MSR[DE]=0 and DBCR0[EDM]=0 and a debug event causes its respective Debug Status
+                                        Register bit to be set to 1. It may also be set to ‘1’ if DBCR0[EDM]=1 and an imprecise debug event
+                                        occurs due to a DAC event on a load or store which is terminated with error.
+
+   1               UDE                  Unconditional Debug Event
+                                        Set to 1 if an Unconditional debug event occurred.
+
+  2:3              MRR                  Most Recent Reset.
+                                        00 No reset occurred because these bits were last cleared by software
+                                        01 A hard reset occurred because these bits were last cleared by software
+                                        10 Reserved
+                                        11 Reserved
+
+   4               ICMP                 Instruction Complete Debug Event
+                                        Set to 1 if an Instruction Complete debug event occurred.
+
+   5               BRT                  Branch Taken Debug Event
+                                        Set to 1 if an Branch Taken debug event occurred.
+
+   6               IRPT                 Interrupt Taken Debug Event
+                                        Set to 1 if an Interrupt Taken debug event occurred.
+
+   7               TRAP                 Trap Taken Debug Event
+                                        Set to 1 if a Trap Taken debug event occurred.
+
+
+
+
+                                                      e200z0 Power Architecture Core Reference Manual, Rev. 0
+Freescale Semiconductor                                                                                                                                                                        8-15
+Debug Support
+
+
+                                  Table 8-4. DBSR Bit Definitions (continued)
+
+ Bit(s)    Name                                                   Description
+
+   8        IAC1    Instruction Address Compare 1 Debug Event
+                    Set to 1 if an IAC1 debug event occurred.
+
+   9        IAC2    Instruction Address Compare 2 Debug Event
+                    Set to 1 if an IAC2 debug event occurred.
+
+  10        IAC3    Instruction Address Compare 3 Debug Event
+                    Set to 1 if an IAC3 debug event occurred.
+
+  11        IAC4    Instruction Address Compare 4 Debug Event
+                    Set to 1 if an IAC4 debug event occurred.
+
+  12       DAC1R    Data Address Compare 1 Read Debug Event
+                    Set to 1 if a read-type DAC1 debug event occurred while DBCR0[DAC1]=0b10 or DBCR0[DAC1]=0b11
+
+  13       DAC1W    Data Address Compare 1 Write Debug Event
+                    Set to 1 if a write-type DAC1 debug event occurred while DBCR0[DAC1]=0b01 or DBCR0[DAC1]=0b11
+
+  14       DAC2R    Data Address Compare 2 Read Debug Event
+                    Set to 1 if a read-type DAC2 debug event occurred while DBCR0[DAC2]=0b10 or DBCR0[DAC2]=0b11
+
+  15       DAC2W    Data Address Compare 2 Write Debug Event
+                    Set to 1 if a write-type DAC2 debug event occurred while DBCR0[DAC2]=0b01 or DBCR0[DAC2]=0b11
+
+  16        RET     Return Debug Event
+                    Set to 1 if a Return debug event occurred
+
+ 17:20          —   Reserved
+
+  21       DEVT1    External Debug Event 1 Debug Event
+                    Set to 1 if a DEVT1 debug event occurred
+
+  22       DEVT2    External Debug Event 2 Debug Event
+                    Set to 1 if a DEVT2 debug event occurred
+
+ 23:24          —     Reserved
+
+  25       CIRPT    Critical Interrupt Taken Debug Event
+                    Set to 1 if a Critical Interrupt Taken debug event occurred.
+
+  26       CRET     Critical Return Debug Event
+                    Set to 1 if a Critical Return debug event occurred
+
+  27        VLES    VLE Status
+                    Set to 1 if an ICMP, BRT, TRAP, RET, CRET, IAC, or DAC debug event occurred on a Power Architecture
+                    VLE Instruction. Undefined for IRPT, CIRPT, DEVT[1,2], and UDE events
+
+ 28:31          —     Reserved
+
+
+8.4       External Debug Support
+External debug support is supplied through the e200 OnCE controller serial interface which allows access
+to internal core registers and other system state while in External Debug Mode (EDM). All debug
+resources including DBCR0-2, DBSR, IAC1-4, and DAC1-2 are accessible through the serial OnCE
+interface in external debug mode. Setting the DBCR0[EDM]bit to ‘1’ through the OnCE interface enables
+external debug mode and disables software updates to the debug registers. When DBCR0[EDM] is set,
+debug events enabled to set respective DBSR status bits also cause the CPU to enter Debug Mode as
+
+                            e200z0 Power Architecture Core Reference Manual, Rev. 0
+8-16                                                                                           Freescale Semiconductor
+                                                                                                Debug Support
+
+
+opposed to generating Debug Interrupts. In Debug Mode, the CPU is halted at a recoverable boundary, and
+an external Debug Control Module may control CPU operation through the On-Chip Emulation logic
+(OnCE). No Debug interrupts can occur while DBCR0[EDM] remains set.
+                                                    NOTE
+                On the initial setting of DBCR0[EDM] to ‘1’, other bits in DBCR0 remain
+                unchanged. After DBCR0[EDM] has been set, all debug register resources
+                may be subsequently controlled through the OnCE interface. The DBSR
+                register should be cleared as part of the process of enabling external debug
+                activity. The core should be placed into debug mode via the OCR[DR]
+                control bit prior to writing EDM to ‘1’. This gives the debugger the
+                opportunity to cleanly write to the DBCRx registers and the DBSR to clear
+                out any residual state / control information which could cause unintended
+                operation.
+                                                    NOTE
+                It is intended for the core to remain in external debug mode
+                (DBCR0[EDM]=1) in order to single step or perform other debug mode
+                entry/ reentry via the OCR[DR], by performing go+noexit commands, or by
+                assertion of the jd_de_b signal.
+                                                    NOTE
+                DBCR0[EDM] operation is blocked if OnCE operation is disabled
+                (jd_en_once negated) regardless of whether it is set or cleared. This means
+                that if DBCR0[EDM] was previously set, and then jd_en_once is negated
+                (this should not occur), entry into debug mode is blocked, all events are
+                blocked, and watchpoints are blocked.
+Due to clock domain design, the CPU clock (m_clk) must be active in order to perform writes to debug
+registers other than the OnCE Command register (OCMD), the OnCE Control register (OCR), or the
+DBCR0[EDM] bit. Register read data is synchronized back to the j_tclk clock domain. The OnCE Control
+register provides the capability of signaling the system level clock controller that the CPU clock should be
+activated if not already active.
+Updates to the DBCRx and DBSR registers via the OnCE interface should be performed with the CPU in
+debug mode to guarantee proper operation. Due to the various points in the CPU pipeline where control is
+sampled and event handshaking is performed, it is possible that modifications to these registers while the
+CPU is running may result in early or late entry into debug mode, and may have incorrect status posted in
+the DBSR register.
+
+8.4.1        OnCE Introduction
+The e200 on-chip emulation circuitry (OnCE™/Nexus Class 1 interface) provides a means of interacting
+with the e200 core and integrated system so that a user may examine registers, memory, or on-chip
+peripherals facilitating hardware/software development. OnCE operation is controlled via an industry
+standard IEEE 1149.1 TAP controller. By using public instructions, the external hardware debugger can
+freeze or halt the CPU, read and write internal state, and resume normal execution. The core does not
+
+                           e200z0 Power Architecture Core Reference Manual, Rev. 0
+Freescale Semiconductor                                                                                 8-17
+Debug Support
+
+
+contain IEEE 1149.1 standard boundary cells on its interface, as it is a building block for further
+integration. It does not support the JTAG related boundary scan instruction functionality, although JTAG
+public instructions may be decoded and signaled to external logic.
+The OnCE logic provides for Nexus Class 1 static debug capability (utilizing the same set of resources
+available to software while in internal debug mode), and is present in all e200-based designs. The OnCE
+module also provides support for directly integrating a Nexus class 2 or class 3 Real-Time Debug unit with
+the e200 core for development of real-time systems where traditional static debug is insufficient. The
+partitioning between a OnCE module and a connected Nexus module to provide real-time debug allows
+for capability and cost trade-offs to be made.
+The e200 core is designed to be a fully integrateable module. The OnCE TAP controller and associated
+enabling logic are designed to allow concatenation with an existing JTAG controller if present in the
+system. Thus, the e200 module can be easily integrated with existing JTAG designs or as a stand-alone
+controller.
+In order to enable full OnCE operation, the jd_enable_once input signal must be asserted. In some system
+integrations, this is automatic, because the input is tied asserted. Other integrations may require the
+execution of the Enable OnCE command via the TAP and appropriate entry of serial data. Exact
+requirements are documented by the integrated product specification. The jd_enable_once input signal
+should not change state during a debug session, or undefined activity may occur.
+The following figures show the TAP controller state model and the TAP registers implemented by the
+OnCE logic.
+
+                                         Auxiliary data registers
+
+
+                                    OnCE mapped Debug registers
+
+
+                      j_tdi              External Data registers                        j_tdo
+
+
+                                             Bypass register
+
+
+                                        TAP instruction register
+                                            (OnCE OCMD)
+
+                     j_tclk
+                     j_tms            TAP                        TDO
+                                    controller                 mux logic                j_tdo_en
+                  j_trst_b
+
+
+                                Figure 8-6. OnCE TAP Controller and Registers
+
+The OnCE controller is implemented as a 16-state FSM, with a one-to-one correspondence to the states
+defined for the JTAG TAP controller.
+
+
+
+
+                              e200z0 Power Architecture Core Reference Manual, Rev. 0
+8-18                                                                                            Freescale Semiconductor
+                                                                                                     Debug Support
+
+
+
+              Test-Logic-
+                Reset
+         1            0
+
+
+                               1                                    1             Select—IR              1
+              Run—Test /                         Select DR-
+                Idle                                Scan                             Scan
+         0                                             0                                   0
+                                          1                                1
+                                               Capture—DR                        Capture—IR
+
+                                                       0                                   0
+
+                                                 Shift—DR                             Shift—IR
+
+                                                        1       0                          1         0
+                                                                 1                                       1
+                                                 Exit1—DR                             Exit1—IR
+
+                                                       0                                   0
+
+                                                Pause—DR                          Pause—IR
+
+                                                        1       0                          1         0
+
+                                                 Exit2—DR                             Exit2—IR
+                                           0                                0
+                                                        1                                  1
+
+                                                Update—DR                         Update—IR
+
+                                                   1        0                          1         0
+
+
+
+Access to e200 processor registers and the contents of memory locations are performed by enabling
+external debug mode (setting DBCR0[EDM] to ‘1’), placing the processor into debug mode, followed by
+scanning instructions and data into and out of the e200 CPU Scan Chain (CPUSCR); execution of scanned
+instructions by the e200 is used as the method to access required data. Memory locations may be read by
+scanning a load instruction into the e200 core, which references the desired memory location, executing
+the load instruction, and then scanning out the result of the load. Other resources are accessed in a similar
+manner.
+The initial entry by the CPU into the debug state (or mode) from normal, stopped, halted, or checkstop
+states (all indicated via the OnCE Status Register (OSR), Section 8.4.5.1, “e200 OnCE Status Register”)
+by assertion of one or more debug requests, begins a debug session. The jd_debug_b output signal
+indicates that a debug session is in progress, and the OSR indicates the CPU is in the debug state.
+
+
+                            e200z0 Power Architecture Core Reference Manual, Rev. 0
+Freescale Semiconductor                                                                                      8-19
+Debug Support
+
+
+Instructions may the be single-stepped by scanning new values into the CPUSCR, and performing a OnCE
+go+noexit command (See Section 8.4.5.2, “e200 OnCE Command Register (OCMD)”). The CPU then
+temporarily exits the debug state (but not the debug session) to execute the instruction, and then returns to
+the debug state (again indicated via the OnCE Status Register (OSR)). The debug session remains in force
+until the final OnCE go+exit command is executed, at which time the CPU returns to the previous state it
+was in (unless a new debug request is pending). A scan into the CPUSCR is required prior to executing
+each go+exit or go+noexit OnCE command.
+
+8.4.2       JTAG/OnCE Pins
+The JTAG/OnCE pin interface is used to transfer OnCE instructions and data to the OnCE control block.
+Depending on the particular resource being accessed, the CPU may need to be placed in the Debug mode.
+For resources outside of the CPU block and contained in the OnCE block, the processor is not disturbed,
+and may continue execution. If a processor resource is required, an internal debug request (dbg_dbgrq)
+may be asserted to the CPU by the OnCE controller, and causes the CPU to finish the current instruction
+being executed, save the instruction pipeline information, enter Debug Mode, and wait for further
+commands. Asserting dbg_dbgrq causes the chip to exit the low power mode enabled by the setting of
+MSR[WE], as well as temporarily exiting the waiting, stopped, or halted power management states.
+Table 8-5 details the primary JTAG/OnCE interface signals.
+                                 Table 8-5. JTAG/OnCE Primary Interface Signals
+
+                          Signal Name        Type                       Description
+
+                      j_trst_b                  I     JTAG test reset
+
+                      j_tclk                    I     JTAG test clock
+
+                      j_tms                     I     JTAG test mode select
+
+                      j_tdi                     I     JTAG test data input
+
+                      j_tdo                    O      Test data out to master controller or pad
+
+                      j_tdo_en1                O      Enables TDO output buffer
+                      1   j_tdo_en is asserted when the TAP controller is in the shift_DR or shift_IR
+                          state.
+
+A full description of JTAG pins is provided in Section 6.3.15, “JTAG Support Signals.”
+
+8.4.3       OnCE Internal Interface Signals
+The following paragraphs describe the e200 OnCE interface signals to other internal blocks associated
+with the e200 OnCE controller.
+
+8.4.3.1         CPU Debug Request (dbg_dbgrq)
+The dbg_dbgrq signal is asserted by the e200 OnCE control logic to request the CPU to enter the debug
+state. It may be asserted for a number of different conditions, and causes the CPU to finish the current
+
+
+
+                               e200z0 Power Architecture Core Reference Manual, Rev. 0
+8-20                                                                                                    Freescale Semiconductor
+                                                                                              Debug Support
+
+
+instruction being executed, save the instruction pipeline information, enter the debug mode, and wait for
+further commands.
+
+8.4.3.2       CPU Debug Acknowledge (cpu_dbgack)
+The cpu_dbgack signal is asserted by the CPU upon entering the debug state. This signal is used as part of
+the handshake mechanism between the e200 OnCE control logic and the rest of the CPU. The CPU core
+may enter debug mode either through a software or hardware event.
+
+8.4.3.3       CPU Address, Attributes
+The CPU address and attribute information are used by a Nexus class 2-4 debug unit with information for
+real-time address trace information.
+
+8.4.3.4       CPU Data
+The CPU data bus(es) are used to supply a Nexus class 2-4 debug unit with information for real-time data
+trace capability.
+
+8.4.4        OnCE Interface Signals
+The following paragraphs describe additional e200 OnCE interface signals to other external blocks such
+as a Nexus Controller and external blocks which may need information pertaining to debug operation.
+
+8.4.4.1       OnCE Enable (jd_en_once)
+The OnCE enable signal jd_en_once is used to enable the OnCE controller to allow certain instructions
+and operations to be executed. Assertion of this signal enables the full OnCE command set, as well as
+operation of control signals and OnCE Control register functions. When this signal is disabled, only the
+Bypass, ID and Enable_OnCE commands are executed by the OnCE unit, and all other commands default
+to a “Bypass” command. The OnCE Status register (OSR) is not visible when OnCE operation is disabled.
+In addition, OnCE Control register (OCR) functions are disabled, as is the operation of the jd_de_b input.
+Secure systems may choose to leave the jd_en_once signal negated until a security check has been
+performed. Other systems should tie this signal asserted to enable full OnCE operation. The
+j_en_once_regsel output signal is provided to assist external logic performing security checks. Refer to
+Section 6.3.15.15, “Enable Once Register Select (j_en_once_regsel),” for a description of the
+j_en_once_regsel output signal.
+The jd_en_once input must only change state during the Test-Logic-Reset, Run-Test/Idle, or Update_DR
+TAP states. A new value takes effect after one additional j_tclk cycle of synchronization. In addition,
+jd_enable_once input signal must not change state during a debug session, or undefined activity may
+occur.
+
+8.4.4.2       OnCE Debug Request/Event (jd_de_b, jd_de_en)
+If implemented at the SoC level, a system level bidirectional open drain debug event pin DE_b (not part
+of the e200 interface) provides a fast means of entering the Debug Mode of operation from an external
+
+                          e200z0 Power Architecture Core Reference Manual, Rev. 0
+Freescale Semiconductor                                                                               8-21
+Debug Support
+
+
+command controller (when input) as well as a fast means of acknowledging the entering of the Debug
+Mode of operation to an external command controller (when output). The assertion of this pin by a
+command controller causes the CPU core to finish the current instruction being executed, save the
+instruction pipeline information, enter Debug Mode, and wait for commands to be entered. If DE_b was
+used to enter the Debug Mode then DE_b must be negated after the OnCE controller responds with an
+acknowledge and before sending the first OnCE command. The assertion of this pin by the CPU Core
+acknowledges that it has entered the Debug Mode and is waiting for commands to be entered.
+To support operation of this system pin, the OnCE logic supplies the jd_de_en output and samples the
+jd_de_b input when OnCE is enabled (jd_en_once asserted). Assertion of jd_de_b causes the OnCE logic
+to place the CPU into Debug Mode. Once Debug Mode has been entered, the jd_de_en output is asserted
+for three j_tclk periods to signal an acknowledge. jd_de_en can be used to enable the open-drain pulldown
+of the system level DE_b pin.
+For systems which do not implement a system level bidirectional open drain debug event pin DE_b, the
+jd_de_en and jd_de_b signals may still be used to handshake debug entry.
+
+8.4.4.3         e200 OnCE Debug Output (jd_debug_b)
+The e200 OnCE Debug output jd_debug_b is used to indicate to on-chip resources that a debug session is
+in progress. Peripherals and other units may use this signal to modify normal operation for the duration of
+a debug session, which may involve the CPU executing a sequence of instructions solely for the purpose
+of visibility/system control which are not part of the normal instruction stream the CPU would have
+executed had it not been placed in debug mode. This signal is asserted the first time the CPU enters the
+debug state, and remains asserted until the CPU is released by a write to the e200 OnCE Command
+Register with the GO and EX bits set, and a register specified as either “No Register Selected” or the
+CPUSCR. This signal remains asserted even though the CPU may enter and exit the debug state for each
+instruction executed under control of the e200 OnCE controller. See Section 8.4.5.2, “e200 OnCE
+Command Register (OCMD),” for more information on the function of the GO and EX bits. This signal is
+not normally used by the CPU.
+
+8.4.4.4         e200 CPU Clock On Input (jd_mclk_on)
+The e200 CPU Clock On input jd_mclk_on is used to indicate that the CPU’s m_clk input is active. This
+input signal is expected to be driven by system logic external to the e200 core, is synchronized to the j_tclk
+(scan clock) clock domain, and is presented as a status flag on the j_tdo output during the Shift_IR state.
+External firmware may use this signal to ensure proper scan sequences occur to access debug resources in
+the m_clk clock domain.
+
+8.4.4.5         Watchpoint Events (jd_watchpt[0:5])
+The jd_watchpt[0:5] signals may be asserted by the e200 OnCE control logic to signal that a watchpoint
+condition has occurred. Watchpoints do not cause the CPU to be affected. They are provided to allow
+external visibility only. Watchpoint events are conditioned by the settings in the DBCR0, DBCR1, and
+DBCR2 registers.
+
+
+
+
+                           e200z0 Power Architecture Core Reference Manual, Rev. 0
+8-22                                                                                    Freescale Semiconductor
+                                                                                                       Debug Support
+
+
+8.4.5        e200 OnCE Controller and Serial Interface
+The e200 OnCE Controller contains the e200 OnCE command register, the e200 OnCE decoder, and the
+status/control register. Figure 8-7 is a block diagram of the e200 OnCE controller. In operation, the e200
+OnCE Command register acts as the IR for the e200 TAP controller, and all other OnCE resources are
+treated as data registers (DR) by the TAP controller. The Command register is loaded by serially shifting
+in commands during the TAP controller Shift-IR state, and is loaded during the Update-IR state. The
+Command register selects a resource to be accessed as a data register (DR) during the TAP controller
+Capture-DR, Shift-DR and Update-DR states.
+
+                                                                                       ..       TDI
+                                 OnCE COMMAND REGISTER                                          TCLK
+
+
+
+
+                                                                                                UPDATE
+                                 OnCE DECODER
+
+
+
+
+                                 .                           STATUS AND CONTROL
+                                              .                  REGISTERS
+                                                                                            .   TDO
+
+
+
+
+                            REG READ      REG WRITE               MODE SELECT
+
+                                     CPU CONTROL/STATUS
+
+
+                            Figure 8-7. e200 OnCE Controller and Serial Interface
+
+
+8.4.5.1       e200 OnCE Status Register
+Status information regarding the state of the e200 CPU is latched into the OnCE Status register when the
+OnCE controller state machine enters the Capture-IR state. When OnCE operation is enabled, this
+information is provided on the j_tdo output in serial fashion when the Shift_IR state is entered following
+a Capture-IR. Information is shifted out least significant bit first.
+
+
+      MCLK       ERR      CHKSTOP      RESET          HALT   STOP     DEBUG       WAIT          0         1
+
+        0          1         2            3            4      5          6         7            8         9
+
+                                         Figure 8-8. OnCE Status Register
+
+
+
+
+                            e200z0 Power Architecture Core Reference Manual, Rev. 0
+Freescale Semiconductor                                                                                        8-23
+Debug Support
+
+
+Table 8-6 provides bit definitions for the Once Status Register.
+                                Table 8-6. OnCE Status Register Bit Definitions
+
+  Bit(s)        Name                                                 Description
+
+       0        MCLK   MCLK
+                       m_clk Status Bit
+                       0 Inactive state
+                       1 Active state
+                       This status bit reflects the logic level on the jd_mclk_on input signal after capture by j_tclk.
+
+       1        ERR    ERROR
+                       This bit is used to indicate that an error condition occurred during attempted execution of the last
+                       single-stepped instruction (GO+NoExit with CPUSCR or No Register Selected in OCMD), and that
+                       the instruction may not have been properly executed. This could occur if an Interrupt (all classes
+                       including External, Critical, machine check, Storage, Alignment, Program, etc.) occurred while
+                       attempting to perform the instruction single step. In this case, the CPUSCR contains information
+                       related to the first instruction of the Interrupt handler, and no portion of the handler will have been
+                       executed.
+
+       2   CHKSTOP     CHECKSTOP Mode
+                       This bit reflects the logic level on the CPU p_chkstop output after capture by j_tclk.
+
+       3    RESET      RESET Mode
+                       This bit reflects the inverted logic level on the CPU p_reset_b input after capture by j_tclk.
+
+       4        HALT   HALT Mode
+                       This bit reflects the logic level on the CPU p_halted output after capture by j_tclk.
+
+       5        STOP   STOP Mode
+                       This bit reflects the logic level on the CPU p_stopped output after capture by j_tclk.
+
+       6    DEBUG      Debug Mode
+                       This bit is asserted once the CPU is in debug mode. It is negated once the CPU exits debug mode
+                       (even during a debug session)
+
+       7        WAIT   Waiting Mode
+                       This bit reflects the logic level on the CPU p_waiting output after capture by j_tclk.
+
+       8         —     Reserved, set to 0 for 1149.1 compliance
+
+       9         —     Reserved, set to 1 for 1149.1 compliance
+
+
+8.4.5.2         e200 OnCE Command Register (OCMD)
+The OnCE Command Register (OCMD) is a 10-bit shift register that receives its serial data from the TDI
+pin and serves as the instruction register (IR). It holds the 10-bit commands to be used as input for the e200
+OnCE Decoder. The Command Register is shown in Figure 8-9. The OCMD is updated when the TAP
+controller enters the Update-IR state. It contains fields for controlling access to a resource, as well as
+controlling single-step operation and exit from OnCE mode.
+Although the OCMD is updated during the Update-IR TAP controller state, the corresponding resource is
+accessed in the DR scan sequence of the TAP controller, and as such, the Update-DR state must be
+transitioned through in order for an access to occur. In addition, the Update-DR state must also be
+transitioned through in order for the single-step and/or exit functionality to be performed, even though the
+command appears to have no data resource requirement associated with it.
+
+
+                             e200z0 Power Architecture Core Reference Manual, Rev. 0
+8-24                                                                                                   Freescale Semiconductor
+                                                                                                                       Debug Support
+
+
+
+
+          R/W         GO          EX                                              RS[0:6]
+
+           0           1           2            3           4            5           6            7            8           9
+
+                 Reset—10’b1000000010 on assertion of j_trst_b or m_por, or while in the Test_Logic_Reset state
+
+                                            Figure 8-9. OnCE Command Register
+
+Table 8-7 provides bit definitions for the Once Command Register.
+                                   Table 8-7. OnCE Command Register Bit Definitions
+
+ Bit(s)        Name                                                    Description
+
+   0           R/W    Read/Write Command Bit
+                      The R/W bit specifies the direction of data transfer. The table below describes the options defined by the
+                      R/W bit.
+                      0 Write the data associated with the command into the register specified by RS[0:6]
+                      1 Read the data contained in the register specified by RS[0:6]
+                      Note: The R/W bit generally ignored for read-only or write-only registers. In addition, it is ignored for all
+                      bypass operations. When performing writes, most registers are sampled in the Capture-DR state into a
+                      32-bit shift register, and subsequently shifted out on j_tdo during the first 32 clocks of Shift-DR.
+
+   1            GO    Go
+                      Go Command Bit
+                      0 Inactive (no action taken)
+                      1 Execute instruction in IR
+                      If the GO bit is set, the chip executes the instruction that resides in the IR register in the CPUSCR. To
+                      execute the instruction, the processor leaves the debug mode, executes the instruction, and if the EX bit is
+                      cleared, returns to the debug mode immediately after executing the instruction. The processor goes on to
+                      normal operation if the EX bit is set, and no other debug request source is asserted. The GO command is
+                      executed only if the operation is a read/write to CPUSCR or a read/write to “No Register Selected”.
+                      Otherwise the GO bit is ignored.The processor leaves the debug mode after the TAP controller Update-DR
+                      state is entered.
+                      On a GO+NoExit operation, returning to debug mode is treated as a debug event, thus exceptions such as
+                      machine checks and interrupts may take priority and prevent execution of the intended instruction. Debug
+                      firmware should mask these exceptions as appropriate. The OSR[ERR] bit indicates such an occurrence.
+
+   2            EX    Exit Command Bit
+                      0 Remain in debug mode
+                      1 Leave debug mode
+                      If the EX bit is set, the processor leaves the debug mode and resume normal operation until another debug
+                      request is generated. The Exit command is executed only if the Go command is issued, and the operation
+                      is a read/write to CPUSCR or a read/write to “No Register Selected”. Otherwise the EX bit is ignored.
+                      The processor leaves the debug mode after the TAP controller Update-DR state is entered. Note that if the
+                      DR bit in the OnCE control register is set or remains set, or if a bit in the DBSR is set and DBCR0[EDM]=1
+                      (external debug mode is enabled), or if another debug request source is asserted, then the processor may
+                      return to the debug mode without execution of an instruction, even though the EX bit was set.
+
+  3:9           RS    Register Select
+                      The Register Select bits define which register is source (destination) for the read (write) operation. Table 8-9
+                      indicates the e200 OnCE register addresses. Attempted writes to read-only registers are ignored.
+
+
+
+
+                                  e200z0 Power Architecture Core Reference Manual, Rev. 0
+Freescale Semiconductor                                                                                                           8-25
+Debug Support
+
+
+Table 8-8 indicates the e200 OnCE register addresses.
+                                 Table 8-8. e200 OnCE Register Addressing
+
+                      RS[0:6]                               Register Selected
+
+                      000 0000        Reserved
+
+                      000 0001        Reserved
+
+                      000 0010        JTAG ID (read-only)
+
+                 000 0011–000 1111    Reserved
+
+                      001 0000        CPU Scan Register (CPUSCR)
+
+                      001 0001        No Register Selected (Bypass)
+
+                      001 0010        OnCE Control Register (OCR)
+
+                      001 0011        Reserved
+
+                 001 0100–001 1111    Reserved
+
+                      010 0000        Instruction Address Compare 1 (IAC1)
+
+                      010 0001        Instruction Address Compare 2 (IAC2)
+
+                      010 0010        Instruction Address Compare 3 (IAC3)
+
+                      010 0011        Instruction Address Compare 4 (IAC4)
+
+                      010 0100        Data Address Compare 1 (DAC1)
+
+                      010 0101        Data Address Compare 2 (DAC2)
+
+                      010 0110        Reserved (DVC1 future use)
+
+                      010 0111        Reserved (DVC2 future use)
+
+                 010 1000–010 1011    Reserved
+
+                      010 1100        Reserved (DBCNT)
+
+                 010 1101–010 1111    Reserved
+
+                      011 0000        Debug Status Register (DBSR)
+
+                      011 0001        Debug Control Register 0 (DBCR0)
+
+                      011 0010        Debug Control Register 1 (DBCR1)
+
+                      011 0011        Debug Control Register 2 (DBCR2)
+
+                 011 0100–101 1111    Reserved (do not access)
+
+                 110 0000–110 1110    Reserved (do not access)
+
+                      110 1111        Shared Nexus Control Register Register Select
+
+                 111 0000–111 1001    General Purpose register selects [0:9]
+
+                      111 1010        (Reserved))
+
+                      111 1011        (Reserved)
+
+                      111 1100        Nexus2/3-Access
+
+                      111 1101        Reserved
+
+
+                          e200z0 Power Architecture Core Reference Manual, Rev. 0
+8-26                                                                                  Freescale Semiconductor
+                                                                                                                                                            Debug Support
+
+
+                                         Table 8-8. e200 OnCE Register Addressing (continued)
+
+                                     RS[0:6]                                                               Register Selected
+
+                                    111 1110                        Enable_OnCE 1
+
+                                    111 1111                        Bypass
+                     1
+                             Causes assertion of the j_en_once_regsel output. Refer to Section 6.3.15.15,
+                             “Enable Once Register Select (j_en_once_regsel).”
+
+
+The Once Decoder receives as input the 10-bit command from the OCMD, and status signals from the
+processor, and generates all the strobes required for reading and writing the selected OnCE registers.
+Single stepping of instructions is performed by placing the CPU in debug mode, scanning in appropriate
+information into the CPUSCR, and setting the Go bit (with the EX bit cleared) with the RS field indicating
+either the CPUSCR or No Register Selected. After executing a single instruction, the CPU re-enters debug
+mode and await further commands. During single-stepping, exception conditions may occur if not
+properly masked by debug firmware (interrupts, machine checks, bus error conditions, etc.) and may
+prevent the desired instruction from being successfully executed. The OSR[ERR] bit is set to indicate this
+condition. In these cases, values in the CPUSCR correspond to the first instruction of the exception
+handler.
+Additionally, the DBCR0[EDM] bit is forced to ‘1’ internally while single-stepping to prevent Debug
+events from generating Debug interrupts. Also, during a debug session, the DBSR is frozen from updates
+due to debug events regardless of DBCRO[EDM]. They may still be modified during a debug session via
+a single-stepped mtspr instruction if DBCRO[EDM] is programmed to a ‘0’, or via OnCE access if
+DBCR0[EDM] is set.
+
+8.4.5.3          e200 OnCE Control Register (OCR)
+The e200 OnCE Control Register is a 32-bit register used to force the e200 core into debug mode and to
+enable / disable sections of the e200 OnCE control logic. It also provides control over the MMU during a
+debug session. The control bits are read/write. These bits are only effective while OnCE is enabled
+(jd_en_once asserted). The OCR is shown in Figure 8-10.
+                                                                                                       D_DMDIS
+                                             I_DMDIS
+
+
+
+
+                                                                     I_DVLE
+
+
+
+
+                                                                                                                                                            WKUP
+                                                                                                                     D_DW
+
+
+                                                                                                                                   D_DM
+                                                                                                                                          D_DG
+                                                                                                                                                 D_DE
+                                                                                     I_DM
+
+
+
+
+                                                                                                                            D_DI
+                                                                                                I_DE
+
+
+
+
+                                                                                                                                                                   FDB
+                                                                              I_DI
+
+
+
+
+                                                                                                                                                                         DR
+                     0                                     0                                                     0                                      0
+                                                                                            0
+
+
+
+
+     0   1   2   3       4     5     6   7   8         9       10    11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31
+
+                                   Reset—0xo000_0000 on m_por, j_trst_b, or entering Test_logic_Reset state
+
+                                                               Figure 8-10. OnCE Control Register
+
+
+
+
+                                         e200z0 Power Architecture Core Reference Manual, Rev. 0
+Freescale Semiconductor                                                                                                                                                       8-27
+Debug Support
+
+
+Table 8-9 provides bit definitions for the OnCE Control Register.
+                                 Table 8-9. OnCE Control Register Bit Definitions
+
+  Bit(s)        Name                                                 Description
+
+   0:7           —      Reserved
+
+       8   I_DMDIS1     Instruction Side Debug MMU Disable Control Bit (I_DMDIS)
+                        0 MMU not disabled for debug sessions
+                        1 MMU disabled for debug sessions
+                        This bit may be used to control whether the MMU is enabled normally, or whether the MMU is disabled
+                        during a debug session for Instruction Accesses. When enabled, the MMU functions normally. When
+                        disabled, for Instruction Accesses, no address translation is performed (1:1 address mapping), and
+                        the TLB VLE, I,M, and E bits are taken from the OCR bits I_VLE, I_DI, I_DM, and I_DE bits. The W
+                        and G bits are assumed ‘0’. The SX and UX access permission control bits are set to‘1’ to allow full
+                        access. When disabled, no TLB miss or TLB exceptions are generated for Instruction accesses.
+                        External access errors can still occur.
+
+  9:10           —      Reserved
+
+   11       I_DVLE1     Instruction Side Debug TLB ‘VLE’ Attribute Bit (I_DVLE)
+                        This bit is used to provide the ‘VLE’ attribute bit to be used when the MMU is disabled during a debug
+                        session.
+
+   12           I_DI1   Instruction Side Debug TLB ‘I’ Attribute Bit (I_DI)
+                        This bit is used to provide the ‘I’ attribute bit to be used for Instruction accesses when the MMU is
+                        disabled for Instruction accesses during a debug session.
+
+   13           I_DM1   Instruction Side Debug TLB ‘M’ Attribute Bit (I_DM)
+                        This bit is used to provide the ‘M’ attribute bit to be used for Instruction accesses when the MMU is
+                        disabled for Instruction accesses during a debug session.
+
+   14            —      Reserved
+
+   15           I_DE1   Instruction Side Debug TLB ‘E’ Attribute Bit (I_DE)
+                        This bit is used to provide the ‘E’ attribute bit to be used for Instruction accesses when the MMU is
+                        disabled for Instruction accesses during a debug session.
+
+   16      D_DMDIS1     Data Side Debug MMU Disable Control Bit (D_DMDIS)
+                        0 MMU not disabled for debug sessions
+                        1 MMU disabled for debug sessions
+                        This bit may be used to control whether the MMU is enabled normally, or whether the MMU is disabled
+                        during a debug session for Data Accesses. When enabled, the MMU functions normally. When
+                        disabled, for Data Accesses, no address translation is performed (1:1 address mapping), and the TLB
+                        WIMGE bits are taken from the OCR bits D_DW, D_DI, D_DM, D_DG, and D_DE bits. The SR, SW,
+                        UR, and UW access permission control bits are set to‘1’ to allow full access. When disabled, no TLB
+                        miss or TLB exceptions are generated for Data accesses. External access errors can still occur.
+
+  17:18          —      Reserved
+
+   19       D_DW1       Data Side Debug TLB ‘W’ Attribute Bit (D_DW)
+                        This bit is used to provide the ‘W’ attribute bit to be used for Data accesses when the MMU is disabled
+                        for Data accesses during a debug session.
+
+   20           D_DI1   Data Side Debug TLB ‘I’ Attribute Bit (D_DI)
+                        This bit is used to provide the ‘I’ attribute bit to be used for Data accesses when the MMU is disabled
+                        for Data accesses during a debug session.
+
+   21       D_DM1       Data Side Debug TLB ‘M’ Attribute Bit (D_DM)
+                        This bit is used to provide the ‘M’ attribute bit to be used for Data accesses when the MMU is disabled
+                        for Data accesses during a debug session.
+
+
+                              e200z0 Power Architecture Core Reference Manual, Rev. 0
+8-28                                                                                                  Freescale Semiconductor
+                                                                                                                   Debug Support
+
+
+                           Table 8-9. OnCE Control Register Bit Definitions (continued)
+
+    Bit(s)    Name                                                     Description
+
+     22       D_DG1       Data Side Debug TLB ‘G’ Attribute Bit (D_DG)
+                          This bit is used to provide the ‘G’ attribute bit to be used for Data accesses when the MMU is disabled
+                          for Data accesses during a debug session.
+
+     23       D_DE 1      Data Side Debug TLB ‘E’ Attribute Bit (D_DE)
+                          This bit is used to provide the ‘E’ attribute bit to be used for Data accesses when the MMU is disabled
+                          for Data accesses during a debug session.
+
+    24:28       —         Reserved
+
+     29       WKUP        Wakeup Request Bit (WKUP)
+                          This control bit may be used to force the e200 p_wakeup output signal to be asserted. This control
+                          function may be used by debug firmware to request that the chip-level clock controller restore the
+                          m_clk input to normal operation regardless of whether the CPU is in a low power state to ensure that
+                          debug resources may be properly accessed by external hardware through scan sequences.
+
+     30        FDB        Force Breakpoint Debug Mode Bit (FDB)
+                          This control bit is used to determine whether the processor is operating in breakpoint debug enable
+                          mode or not. The processor may be placed in breakpoint debug enable mode by setting this bit. In
+                          breakpoint debug enable mode, execution of the ‘bkpt’ pseudo- instruction causes the processor to
+                          enter debug mode, as if the jd_de_b input had been asserted.
+                          This bit is qualified with DBCR0[EDM], which must be set for FDB to take effect.
+
+     31        DR         CPU Debug Request Control Bit
+                          This control bit is used to unconditionally request the CPU to enter the Debug Mode. The CPU
+                          indicates that Debug Mode has been entered via the data scanned out in the shift-IR state.
+                          0 No Debug Mode request
+                          1 Unconditional Debug Mode request
+                          When the DR bit is set the processor enters Debug mode at the next instruction boundary.
+1
+    Unused by Zen Z0n2p and Zen Z0Hn2p
+
+
+8.4.6         Access to Debug Resources
+Resources contained in the e200 OnCE Module which do not require the e200 processor core to be halted
+for access may be accessed while the e200 core is running, and does not interfere with processor execution.
+Accesses to other resources such as the CPUSCR require the e200 core to be placed in debug mode to
+avoid synchronization hazards. Debug firmware may ensure that it is safe to access these resources by
+determining the state of the e200 core prior to access. Note that a scan operation to update the CPUSCR
+is required prior to exiting debug mode if debug mode has been entered.
+Some cases of write accesses other than accesses to the OnCE Command and Control registers, or the
+EDM bit of DBCR0 require the e200 m_clk to be running for proper operation. The OnCE control register
+provides a means of signaling this need to a system level clock control module.
+In addition, because the CPU may cause multiple bits of certain registers to change state, reads of certain
+registers while the CPU is running (DBSR, etc.) may not have consistent bit settings unless read twice with
+the same value indicated. In order to guarantee that the contents are consistent, the CPU should be placed
+into debug mode, or multiple reads should be performed until consistent values have been obtained on
+consecutive reads.
+Table 8-10 provides a list of access requirements for OnCE registers.
+
+                                e200z0 Power Architecture Core Reference Manual, Rev. 0
+Freescale Semiconductor                                                                                                      8-29
+Debug Support
+
+
+                                    Table 8-10. OnCE Register Access Requirements
+
+                                              Access Requirements
+
+                                                    Requires      Requires      Requires
+                        Requires
+    Register Name                      Requires      m_clk        CPU to be     CPU to be                  Notes
+                      jd_en_once
+                                        DBCR0        Active         Halted       Halted
+                         to be
+                                      [EDM] = 1     for Write      for Read     for Write
+                        Asserted
+                                                     Access         Access       Access
+
+     Enable_OnCE            N             N             N             N             —                        —
+
+        Bypass              N             N             N             N             N                        —
+
+       CPUSCR               Y             Y             Y             Y             Y                        —
+
+         DAC1               Y             Y             Y             N             *1                       —
+
+         DAC2               Y             Y             Y             N             *1                       —
+
+        DBCR0               Y             Y             Y             N             *1       *DBCR0[EDM] access only
+                                                                                             requires jd_en_once asserted
+
+        DBCR1               Y             Y             Y             N             *1                       —
+
+        DBCR2               Y             Y             Y             N             *1                       —
+
+         DBSR               Y             Y             Y             N2            *1                       —
+
+         IAC1               Y             Y             Y             N             *1                       —
+
+         IAC2               Y             Y             Y             N             *1                       —
+
+         IAC3               Y             Y             Y             N             *1                       —
+
+         IAC4               Y             Y             Y             N             *1                       —
+
+        JTAG ID             N             N             —             N             —        Read-only
+
+         OCR                Y             N             N             N             N                        —
+
+         OSR                Y             N             —             N             —        Read-only, accessed by scanning
+                                                                                             out IR while jd_en_once is
+                                                                                             asserted
+
+    Cache Debug             Y             N             Y             Y             Y        CPU must be in debug mode with
+    Access Control                                                                           clocks running
+     (CDACNTL)2
+
+     Cache Debug            Y             N             Y             Y             Y        CPU must be in debug mode with
+     Access Data                                                                             clocks running
+     (CDADATA)2
+
+    Nexus2/3-Access         Y             N             N             N             N                        —
+
+     External GPRs          Y             N             N             N             N                        —
+
+      LSRL Select           Y             N             ?             ?             ?        System Test logic implementation
+                                                                                             determines LSRL functionality
+1
+     Writes to these registers while the CPU is running may have unpredictable results due to the pipelined nature of
+     operation, and the fact that updates are not synchronized to a particular clock, instruction, or bus cycle boundary,
+     therefore it is strongly recommended to ensure the processor is first placed into debug mode before updates to these
+     registers are performed.
+
+
+
+                                  e200z0 Power Architecture Core Reference Manual, Rev. 0
+8-30                                                                                                  Freescale Semiconductor
+                                                                                                  Debug Support
+
+2
+    Not present on Zen Z0n2p or Zen Z0Hn2p
+
+
+8.4.7         Methods of Entering Debug Mode
+The OnCE Status Register indicates that the CPU has entered the debug mode via the DEBUG status bit.
+The following sections describe how e200 Debug Mode is entered assuming the OnCE circuitry has been
+enabled. e200 OnCE operation is enabled by the assertion of the jd_en_once input (see Section 8.4.4.1).
+
+8.4.7.1         External Debug Request During RESET
+Holding the jd_de_b signal asserted during the assertion of p_reset_b, and continuing to hold it asserted
+following the negation of p_reset_b causes the e200 core to enter Debug Mode. After receiving an
+acknowledge via the OnCE Status Register DEBUG bit, the external command controller should negate
+the jd_de_b signal before sending the first command. Note that in this case the e200 core does not execute
+an instruction before entering Debug Mode, although the first instruction to be executed may be fetched
+prior to entering Debug Mode.
+In this case, all values in the debug scan chain are undefined, and the external Debug Control Module is
+responsible for proper initialization of the chain before debug mode is exited. In particular, the exception
+processing associated with reset, may not be performed when the debug mode is exited, thus, the Debug
+controller must initialize the PC, MSR, and IR to the image that the processor would have obtained in
+performing reset exception processing, or must cause the appropriate reset to be re-asserted.
+
+8.4.7.2         Debug Request During RESET
+Asserting a debug request by setting the DR bit in the OCR during the assertion of p_reset_b causes the
+chip to enter debug mode. In this case the chip may fetch the first instruction of the reset exception handler,
+but does not execute an instruction before entering debug mode. In this case, all values in the debug scan
+chain are undefined, and the external Debug Control Module is responsible for proper initialization of the
+chain before debug mode is exited. In particular, the exception processing associated with reset may not
+be performed when the debug mode is exited, thus, the Debug controller must initialize the PC, MSR, and
+IR to the image that the processor would have obtained in performing reset exception processing, or must
+cause the appropriate reset to be re-asserted.
+
+8.4.7.3         Debug Request During Normal Activity
+Asserting a debug request by setting the DR bit in the OCR during normal chip activity causes the chip to
+finish the execution of the current instruction and then enter the debug mode. Note that in this case the chip
+completes the execution of the current instruction and stops after the newly fetched instruction enters the
+CPU instruction register. This process is the same for any newly fetched instruction including instructions
+fetched by the interrupt processing, or those that are aborted by the interrupt processing.
+
+8.4.7.4         Debug Request During Waiting, Halted or Stopped State
+Asserting a debug request by setting the DR bit in the OCR when the chip is in the Waiting state (p_waiting
+asserted), Halted state (p_halted asserted) or Stopped state (p_stopped asserted) causes the CPU to exit the
+state and enter the debug mode once the CPU clock m_clk has been restored. Note that in this case, the
+
+                              e200z0 Power Architecture Core Reference Manual, Rev. 0
+Freescale Semiconductor                                                                                    8-31
+Debug Support
+
+
+CPU negates the p_waiting, p_halted and p_stopped outputs. Once the debug session has ended, the CPU
+returns to the state it was in prior to entering debug mode.
+To signal the chip-level clock generator to re-enable m_clk, the p_wakeup output is asserted whenever the
+debug block is asserting a debug request to the CPU due to OCR[DR] being set, or jd_de_b assertion, and
+remains set from then until the debug session ends (jd_debug_b goes from asserted to negated). In
+addition, the status of the jd_mclk_on input (after synchronization to the j_tclk clock domain) may be
+sampled along with other status bits from the j_tdo output during the Shift_IR TAP controller state. This
+status may be used if necessary by external debug firmware to ensure proper scan sequences occur to
+registers in the m_clk clock domain.
+
+8.4.7.5         Software Request During Normal Activity
+Upon executing a “bkpt” pseudo-instruction (for e200, defined to be an all 0’s instruction opcode) when
+the OCR register’s (FDB) bit is set (debug mode enable control bit is true), and DBCR0[EDM]=1, the CPU
+enters the debug mode after the instruction following the “bkpt” pseudo-instruction has entered the
+instruction register.
+
+8.4.8       CPU Status and Control Scan Chain Register (CPUSCR)
+A number of on-chip registers store the CPU pipeline status and are configured in a single scan chain for
+access by the e200 OnCE controller. The CPUSCR register contains these processor resources, which are
+used to restore the pipeline and resume normal chip activity upon return from the debug mode, as well as
+a mechanism for the emulator software to access processor and memory contents. Figure 8-11 shows the
+block diagram of the pipeline information registers contained in the CPUSCR. Once debug mode has been
+entered, it is required to scan in and update this register prior to exiting debug mode.
+
+
+
+
+                          e200z0 Power Architecture Core Reference Manual, Rev. 0
+8-32                                                                                Freescale Semiconductor
+                                                                                                 Debug Support
+
+
+
+
+                                                                          TDO
+                                               32                               TCK
+                           0                                        31
+                                          WBBRlow
+
+
+                                               32                                    TDI
+                           0                                        31
+                                          WBBRhigh
+
+                                               32
+                           0                                        31
+                                             MSR
+
+                                               32
+                           0                                        31
+                                              PC
+
+                                               32
+                           0                                        31
+                                               IR
+
+                                               32
+                           0                                        31
+                                             CTL
+
+
+
+
+                               Figure 8-11. CPU Scan Chain Register (CPUSCR)
+
+
+8.4.8.1       Instruction Register (IR)
+The Instruction Register (IR) provides a mechanism for controlling the debug session by serving as a
+means for forcing in selected instructions, and then causing them to be executed in a controlled manner by
+the debug control block. The opcode of the next instruction to be executed when entering debug mode is
+contained in this register when the scan-out of this chain begins. This value should be saved for later
+restoration if continuation of the normal instruction stream is desired.
+On scan-in, in preparation for exiting debug mode, this register is filled with an instruction opcode selected
+by debug control software. By selecting appropriate instructions and controlling the execution of those
+instructions, the results of execution may be used to examine or change memory locations and processor
+registers. The debug control module external to the processor core controls execution by providing a
+single-step capability. Once the debug session is complete and normal processing is to be resumed, this
+register may be loaded with the value originally scanned out.
+
+
+
+                           e200z0 Power Architecture Core Reference Manual, Rev. 0
+Freescale Semiconductor                                                                                   8-33
+Debug Support
+
+
+8.4.8.2            Control State Register (CTL)
+The Control State Register (CTL) is a 32-bit register that stores the value of certain internal CPU state
+variables before the debug mode is entered. This register is affected by the operations performed during
+the debug session and should normally be restored by the external command controller when returning to
+normal mode. In addition to saved internal state variables, two of the bits are used by emulation firmware
+to control the debug process. In certain circumstances, emulation firmware must modify the content of this
+register as well as the PC and IR values in the CPUSCR before exiting debug mode. These cases are
+described below. Figure 8-12.
+
+
+
+
+                                                                WAITING
+
+
+                                                                          PCOFST
+
+
+
+
+                                                                                                  IRSTAT0
+                                                                                                            IRSTAT1
+                                                                                                                      IRSTAT2
+                                                                                                                                IRSTAT3
+                                                                                                                                          IRSTAT4
+                                                                                                                                                    IRSTAT5
+                                                                                                                                                              IRSTAT6
+                                                                                                                                                                        IRSTAT7
+                                                                                                                                                                                  IRSTAT8
+                                                                                                                                                                                            IRSTAT9
+                                                                                   PCINV
+                                                                                           FFRA
+                                   *
+
+
+
+
+       0   1   2   3   4   5   6   7   8   9   10   11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31
+
+                                           Figure 8-12. Control State Register (CTL)
+
+WAITING—WAITING State Status
+This bit indicates whether the CPU was in the waiting state prior to entering debug mode. If set, the CPU
+was in the waiting state. Upon exiting a debug session, the value of this bit in the restored CPUSCR
+determines whether the CPU re-enters the waiting state on a go+exit.
+            0—CPU was not in the waiting state when debug mode was entered
+            1—CPU was in the waiting state when debug mode was entered
+PCOFST—PC Offset Field
+This field indicates whether the value in the PC portion of the CPUSCR must be adjusted prior to exiting
+debug mode. Due to the pipelined nature of the CPU, the PC value must be backed-up by emulation
+software in certain circumstances. The PCOFST field specifies the value to be subtracted from the original
+value of the PC. This adjusted PC value should be restored into the PC portion of the CPUSCR just prior
+to exiting debug mode with a go+exit. In the event the PCOFST is non-zero, the IR should be loaded with
+a nop instruction instead of the original IR value, other wise the original value of IR should be restored.
+(But see PCINV which overrides this field)
+            0000—No correction required.
+            0001—Subtract 0x04 from PC.
+            0010—Subtract 0x08 from PC.
+            0011—Subtract 0x0C from PC.
+            0100—Subtract 0x10 from PC.
+            0101—Subtract 0x14 from PC.
+            All other encodings are reserved
+* — Internal State Bits
+                   These control bits represent internal processor state and should be restored to their original
+                   value after a debug session is completed, i.e when a e200 OnCE command is issued with the
+                   GO and EX bits set and not ignored. When performing instruction execution during a debug
+
+                                   e200z0 Power Architecture Core Reference Manual, Rev. 0
+8-34                                                                                                                                      Freescale Semiconductor
+                                                                                                 Debug Support
+
+
+              session (see Section 8.4.4.3, “e200 OnCE Debug Output (jd_debug_b)”) which is not part
+              of the normal program execution flow, these bits should be set to a 0.
+PCINV—PC and IR Invalid Status Bit
+              This status bit indicates that the values in the IR and PC portions of the CPUSCR are
+              invalid. Exiting debug mode with the saved values in the PC and IR have unpredictable
+              results. Debug firmware should initialize the PC and IR values in the CPUSCR with desired
+              values prior to exiting debug mode if this bit was set when debug mode was initially
+              entered.
+              0=     No error condition exists.
+              1=     Error condition exists. PC and IR are corrupted.
+FFRA— Feed Forward RA Operand Bit
+              This control bit causes the content of the WBBRlow to be used as the RA (RS for logical and
+              shift operations or RX for VLE se_ instructions) operand value of the first instruction to be
+              executed following an update of the CPUSCR. This allows the debug firmware to update
+              processor registers — initialize the WBBRlow with the desired value, set the FFRA bit, and
+              execute a ori Rx,Rx,0 instruction to the desired register.
+              0=     No action.
+              1=     Content of WBBRlow used as RA (RS for logical and shift operations) operand value
+IRStat0—IR Status Bit 0
+              This control bit indicates a TEA status for the IR.
+              0=     No TEA occurred on the fetch of this instruction.
+              1=     TEA occurred on the fetch of this instruction.
+IRStat1—IR Status Bit 1
+              This control bit indicates a TLB Miss status for the IR. (Note: this bit is reserved.)
+              0=     No TLB Miss occurred on the fetch of this instruction.
+              1=     TLB Miss occurred on the fetch of this instruction.
+IRStat2—IR Status Bit 2
+              This control bit indicates an Instruction Address Compare 1 event status for the IR.
+              0=     No Instruction Address Compare 1 event occurred on the fetch of this instruction.
+              1=     An Instruction Address Compare 1 event occurred on the fetch of this instruction.
+IRStat3—IR Status Bit 3
+              This control bit indicates an Instruction Address Compare 2 event status for the IR.
+              0=     No Instruction Address Compare 2 event occurred on the fetch of this instruction.
+              1=     An Instruction Address Compare 2 event occurred on the fetch of this instruction.
+IRStat4—IR Status Bit 4
+              This control bit indicates an Instruction Address Compare 3 event status for the IR.
+
+
+                            e200z0 Power Architecture Core Reference Manual, Rev. 0
+Freescale Semiconductor                                                                                  8-35
+Debug Support
+
+
+                0=    No Instruction Address Compare 3 event occurred on the fetch of this instruction.
+                1=    An Instruction Address Compare 3 event occurred on the fetch of this instruction.
+IRStat5—IR Status Bit 5
+                This control bit indicates an Instruction Address Compare 4 event status for the IR.
+                0=    No Instruction Address Compare 4 event occurred on the fetch of this instruction.
+                1=    An Instruction Address Compare 4 event occurred on the fetch of this instruction.
+IRStat6—IR Status Bit 6
+                This control bit indicates a Parity Error status for the IR. (Note: this bit is reserved.)
+                0=    No Parity Error occurred on the fetch of this instruction.
+                1=    Parity Error occurred on the fetch of this instruction.
+IRStat7—IR Status Bit 7
+                This control bit indicates a Precise External Termination Error status for the IR.
+                0=    0 = No Precise External Termination Error occurred on the fetch of this instruction.
+                1=    Precise External Termination Error occurred on the fetch of this instruction.
+IRStat8—IR Status Bit 8
+                This control bit indicates the Power Architecture VLE status for the IR. (Note: this bit is
+                always set on Zen Z0n2p and Zen Z0Hn2p.)
+                0=    IR contains a Book E instruction.
+                1=    IR contains a Power Architecture VLE instruction, aligned in the Most Significant
+                      Portion of IR if 16-bit.
+IRStat9—IR Status Bit 9
+                This control bit indicates the Power Architecture VLE Byte-ordering Error status for the IR,
+                or a Book E misaligned instruction fetch, depending on the state of IRStat8. (Note: this bit
+                is reserved on Zen Z0n2p and Zen Z0Hn2p.)
+                0=    IR contains an instruction without a byte-ordering error and no Misaligned
+                      Instruction Fetch Exception has occurred (no MIF).
+                1=    If IRStat8 = ‘0’, A Book E Misaligned Instruction Fetch Exception has occurred
+                      while filling the IR.
+                      If IRStat8 = ‘1’, IR contains an instruction with a byte-ordering error due to
+                      mismatched VLE page attributes, or due to E indicating little-endian for a VLE page.
+Emulation firmware should modify the content of the CTL, PC, and IR values in the CPUSCR during
+execution of debug related instructions as well as just prior to exiting debug with a go+exit command.
+During the debug session, the CTL register should be written with the FFRA bit set as appropriate, and all
+other bit set to ‘0’, and the IR set to the value of the desired instruction to be executed. IRStat8 is used to
+determine the type of instruction present in the IR.
+Just prior to exiting debug mode with a go+exit, the PCINV status bit which was originally present when
+debug mode was first entered should be tested, and if set, the PC and IR initialized for performing whatever
+recovery sequence is appropriate for a faulted exception vector fetch. If the PCINV bit is cleared, then the
+
+                              e200z0 Power Architecture Core Reference Manual, Rev. 0
+8-36                                                                                       Freescale Semiconductor
+                                                                                                  Debug Support
+
+
+PCOFST bits should be examined to determine whether the PC value must be adjusted. Due to the
+pipelined nature of the CPU, the PC value must be backed-up by emulation software in certain
+circumstances. The PCOFST field specifies the value to be subtracted from the original value of the PC.
+This adjusted PC value should be restored in to the PC portion of the CPUSCR just prior to exiting debug
+mode with a go+exit. In the event the PCOFST is non-zero, the IR should be loaded with a nop instruction
+(such as ori r0,r0,0) instead of the original IR value, otherwise the original value of IR should be restored.
+Note that when a correction is made to the PC value, it generally points to the last completed instruction,
+although that instruction is not re-executed. The nop instruction is executed instead, and instruction fetch
+and execution resumes at location PC+4. IRStat8 is used to determine the type of instruction present in the
+IR, thus should be cleared in this case.
+For the CTL register, the internal state bits should be restored to their original value. The IRStatus bits
+should be set to ‘0’s if the PC was adjusted. If no PC adjustment was performed, emulation firmware
+should determine whether IRStat2-5 should be set to ‘0’ to avoid re-entry into debug mode for an
+instruction breakpoint request. Upon exiting debug mode with go+exit, if one of these bits is set, debug
+mode is re-entered prior to any further instruction execution.
+
+8.4.8.3       Program Counter Register (PC)
+The PC is a 32-bit register that stores the value of the program counter which was present when the chip
+entered the debug mode. It is affected by the operations performed during the debug mode and must be
+restored by the external command controller when the CPU returns to normal mode. PC normally points
+to the instruction contained in the IR portion of CPUSCR. If debug firmware wishes to redirect program
+flow to an arbitrary location, the PC and IR should be initialized to correspond to the first instruction to be
+executed upon resumption of normal processing. Alternatively, the IR may be set to a nop and the PC set
+to point to the location prior to the location at which it is desired to redirect flow to. On exiting debug
+mode, the nop is executed, and instruction fetch and execution resumes at PC+4.
+
+8.4.8.4       Write-Back Bus Register (WBBRlow, WBBRhigh)
+WBBR is used as a means of passing operand information between the CPU and the external command
+controller. Whenever the external command controller needs to read the contents of a register or memory
+location, it forces the chip to execute an instruction that brings that information to WBBR. WBBRlow holds
+the 32-bit result of most instructions including load data returned for a load or load with update instruction.
+WBBRhigh holds the updated effective address calculated by a load with update instruction. It is undefined
+for other instructions.
+As an example, to read the lower 32 bits of processor register r1, an e_ori r1,r1,0 instruction is executed,
+and the result value of the instruction is latched into WBBRlow. The contents of WBBRlow can then be
+delivered serially to the external command controller. To update a processor resource, this register is
+initialized with a data value to be written, and an e_ori instruction is executed which uses this value as a
+substitute data value. The Control State register FFRA bit forces the value of the WBBRlow to be
+substituted for the normal RS source value of the e_ori instruction, thus allowing updates to processor
+registers to be performed (refer to Section 8.4.8.2, “Control State Register (CTL),” for more detail on the
+CTL[FFRA] bit).
+
+
+
+                            e200z0 Power Architecture Core Reference Manual, Rev. 0
+Freescale Semiconductor                                                                                    8-37
+Debug Support
+
+
+WBBRlow and WBBRhigh are generally undefined on instructions which do not writeback a result, and due
+to control issues are not defined on lmw or branch instructions as well.
+
+8.4.8.5         Machine State Register (MSR)
+The MSR is a 32-bit register used to read/write the Machine State Register. Whenever the external
+command controller needs to save or modify the contents of the Machine State Register, this register is
+used.This register is affected by the operations performed during the debug mode and must be restored by
+the external command controller when returning to normal mode.
+
+8.4.9        Reserved Registers (Reserved)
+The Reserved Registers are used to control various test control logic. These registers are not intended for
+customer use. To preclude device and/or system damage, these registers should not be accessed.
+
+8.5        Watchpoint Support
+e200 supports the generation and signalling of watchpoints when operating in internal debug mode
+(DBCR0[IDM]=1) or in external debug mode (DBCR0[EDM]=1). Watchpoints are indicated with a
+dedicated set of interface signals. The jd_watchpoint[0:5] output signals are used to indicate that a
+watchpoint has occurred.
+Each debug address compare function (IAC1-4, DAC1-2) is capable of triggering a watchpoint output. The
+DBCRx control fields are used to configure watchpoints, regardless of whether events are enabled in
+DBCR0. Watchpoints may occur whenever an associated event would have been posted in the Debug
+Status Register if enabled. No explicit enable bits are provided for watchpoints; they are always enabled
+by definition (except during a debug session). If not desired, the base address values for these events may
+be programmed to an unused system address. MSR[DE] has no effect on watchpoint generation.
+External logic may monitor the assertion of these signals for debugging purposes. Watchpoints are
+signaled in the clock cycle following the occurrence of the actual event. The Nexus2+ module also
+monitors assertion of these signals for various development control purposes.
+                            Table 8-11. Watchpoint Output Signal Assignments
+
+  Signal Name      Type                                         Description
+
+   jd_watchpt[0]   IAC1   Instruction Address Compare 1 watchpoint
+                          Asserted whenever an IAC1 compare occurs regardless of being enabled to set DBSR status
+
+   jd_watchpt[1]   IAC2   Instruction Address Compare 2 watchpoint
+                          Asserted whenever an IAC2 compare occurs regardless of being enabled to set DBSR status
+
+   jd_watchpt[2]   IAC3   Instruction Address Compare 3 watchpoint
+                          Asserted whenever an IAC3 compare occurs regardless of being enabled to set DBSR status
+
+   jd_watchpt[3]   IAC4   Instruction Address Compare 4 watchpoint
+                          Asserted whenever an IAC4 compare occurs regardless of being enabled to set DBSR status
+
+
+
+
+                           e200z0 Power Architecture Core Reference Manual, Rev. 0
+8-38                                                                                       Freescale Semiconductor
+                                                                                                                 Debug Support
+
+
+                           Table 8-11. Watchpoint Output Signal Assignments (continued)
+
+    Signal Name         Type                                             Description
+
+    jd_watchpt[4]      DAC11    Data Address Compare 1 watchpoint
+                                Asserted whenever a DAC1 compare occurs regardless of being enabled to set DBSR status
+
+    jd_watchpt[5]      DAC21    Data Address Compare 2 watchpoint
+                                Asserted whenever a DAC2 compare occurs regardless of being enabled to set DBSR status
+1
+    If the corresponding event is completely disabled in DBCR0, either load-type or store-type data accesses are allowed to
+     generate watchpoints, otherwise watchpoints are generated only for the enabled conditions.
+
+
+8.6          Basic Steps for Enabling, Using, and Exiting External Debug
+             Mode
+The following steps show one possible scenario for a debugger wishing to use the external debug facilities.
+This simplified flow is intended to illustrate basic operations, but does not cover all potential methods in
+depth.
+Enabling External Debug Mode and initializing Debug registers
+     •    The debugger should ensure that the jd_en_once control signal is asserted in order to enable OnCE
+          operation
+     •    Select the OCR and write a value to it in which OCR[DR], OCR[WKUP], are set to ‘1’. The tap
+          controller must step through the proper states as outlined earlier. This step places the CPU in a
+          debug state in which it is halted and awaiting single-step commands or a release to normal mode
+     •    Scan out the value of the OSR to determine that the CPU clock is running and the CPU has entered
+          the Debug state. This can be done in conjunction with a Read of the CPUSCR. The OSR is shifted
+          out during the Shift_IR state. The CPUSCR is shifted out during the Shift_DR state. The debugger
+          should save the scanned-out value of CPUSCR for later restoration.
+     •    Select the DBCR0 register and update it with the DBCR0[EDM] bit set
+     •    Clear the DBSR status bits
+     •    Write appropriate values to the DBCRx, IAC, DAC registers. Note that the initial write to DBCR0
+          only affects the EDM bit, so the remaining portion of the register must now be initialized, keeping
+          the EDM bit set
+At this point the system is ready to commence debug operations. Depending on the desired operation,
+different steps must occur.
+    • Optionally, set the OCR[I_DMDIS] and/or OCR[I_DMDIS] control bits to ensure that no TLB
+        misses occur while performing the debug operations
+    • Optionally, ensure that the values entered into the MSR portion of the CPUSCR during the
+        following steps cause interrupt to be disabled (clearing MSR[EE] and MSR[CE). This ensures that
+        external interrupt sources do not cause single-step errors.
+
+
+
+
+                                 e200z0 Power Architecture Core Reference Manual, Rev. 0
+Freescale Semiconductor                                                                                                       8-39
+Debug Support
+
+
+To single-step the CPU:
+    • debugger scans in either a new or a previously saved value of the CPUSCR (with appropriate
+       modification of the PC and IR as described in Section 8.4.8.2, “Control State Register (CTL)”),
+       with a Go+Noexit OnCE Command value.
+    • The debugger scans out the OSR with ‘no-register selected’, Go cleared, and determines that the
+       PCU has re-entered the Debug state and that no ERR condition occurred
+To return the CPU to normal operation (without disabling external debug mode)
+    • The OCR[DMDIS], OCR[DR], control bits should be cleared, leaving the OCR[WKUP] bit set
+    • The debugger restores the CPUSCR with a previously saved value of the CPUSCR (with
+       appropriate modification of the PC and IR as described in Section 8.4.8.2, “Control State Register
+       (CTL)”), with a Go+Exit OnCE Command value.
+    • The OCR[WKUP] bit may then be cleared
+To exit External Debug Mode
+   • The debugger should place the CPU in the debug state via the OCR[DR] with OCR[WKUP]
+        asserted, scanning out and saving the CPUSCR
+   • The debugger should write the DBCRx registers as needed, likely clearing every enable except the
+        DBCR0[EDM] bit
+   • The debugger should write the DBSR to a cleared state
+   • The debugger should re-write the DBCR0 with all bits including EDM cleared
+   • The debugger should clear the OCR[DR] bit
+   • The debugger restores the CPUSCR with the previously saved value of the CPUSCR (with
+        appropriate modification of the PC and IR as described in Section 8.4.8.2, “Control State Register
+        (CTL)”), with a Go+Exit OnCE Command value.
+   • The OCR[WKUP] bit may then be cleared
+                                                 NOTE
+                These steps are meant by way of examples, and are not meant to be an exact
+                template for debugger operation.
+
+
+
+
+                           e200z0 Power Architecture Core Reference Manual, Rev. 0
+8-40                                                                                 Freescale Semiconductor

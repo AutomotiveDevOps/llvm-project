@@ -147,6 +147,16 @@ void PPCSubtarget::initSubtargetFeatures(StringRef CPU, StringRef FS) {
   // Parse features string.
   ParseSubtargetFeatures(CPUName, FS);
 
+  // Enable VLE automatically if the target triple indicates VLE (e.g., powerpc-none-eabivle).
+  // VLE can also be explicitly enabled via +vle in the feature string.
+  if (!HasVLE) {
+    std::string TripleStr = TargetTriple.getTriple();
+    if (TripleStr.find("eabivle") != std::string::npos ||
+        TripleStr.find("-vle") != std::string::npos) {
+      HasVLE = true;
+    }
+  }
+
   // If the user requested use of 64-bit regs, but the cpu selected doesn't
   // support it, ignore.
   if (IsPPC64 && has64BitSupport())
@@ -159,9 +169,29 @@ void PPCSubtarget::initSubtargetFeatures(StringRef CPU, StringRef FS) {
 
   if (HasSPE && IsPPC64)
     report_fatal_error( "SPE is only supported for 32-bit targets.\n", false);
-  if (HasSPE && (HasAltivec || HasQPX || HasVSX || HasFPU))
+  
+  // SPE and traditional FPU are mutually exclusive.
+  // Resolve conflicts based on processor defaults:
+  // - e200z4/e200z7 default to SPE
+  // - e200z6 defaults to FPU
+  // - Other processors default to FPU
+  if (HasSPE && HasFPU) {
+    // If both are enabled, prefer based on processor defaults
+    if (CPUDirective == PPC::DIR_E200Z4 || CPUDirective == PPC::DIR_E200Z7) {
+      // e200z4/e200z7 default to SPE, so disable FPU
+      HasFPU = false;
+    } else if (CPUDirective == PPC::DIR_E200Z6) {
+      // e200z6 defaults to FPU, so disable SPE
+      HasSPE = false;
+    } else {
+      // For other processors, prefer FPU (standard behavior)
+      HasSPE = false;
+    }
+  }
+  
+  if (HasSPE && (HasAltivec || HasQPX || HasVSX))
     report_fatal_error(
-        "SPE and traditional floating point cannot both be enabled.\n", false);
+        "SPE and Altivec/VSX/QPX cannot be enabled simultaneously.\n", false);
 
   // If not SPE, set standard FPU
   if (!HasSPE)

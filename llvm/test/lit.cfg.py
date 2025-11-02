@@ -17,8 +17,25 @@ from lit.llvm.subst import ToolSubst
 # name: The name of this test suite.
 config.name = 'LLVM'
 
+# TODO: Consolidate the logic for turning on the internal shell by default for all LLVM test suites.
+# See https://github.com/llvm/llvm-project/issues/106636 for more details.
+#
+# We prefer the lit internal shell which provides a better user experience on failures
+# and is faster unless the user explicitly disables it with LIT_USE_INTERNAL_SHELL=0
+# env var.
+use_lit_shell = True
+lit_shell_env = os.environ.get('LIT_USE_INTERNAL_SHELL')
+if lit_shell_env:
+    use_lit_shell = lit.util.pythonize_bool(lit_shell_env)
+
 # testFormat: The test format to use to interpret tests.
-config.test_format = lit.formats.ShTest(not llvm_config.use_lit_shell)
+extra_substitutions = []
+if getattr(config, 'enable_profcheck', False):
+    extra_substitutions = [
+        (r'FileCheck .*', 'cat > /dev/null'),
+        (r'not FileCheck .*', 'cat > /dev/null'),
+    ]
+config.test_format = lit.formats.ShTest(not use_lit_shell, extra_substitutions)
 
 # suffixes: A list of file extensions to treat as test files. This is overriden
 # by individual lit.local.cfg files in the test subdirectories.
@@ -33,39 +50,45 @@ config.excludes = ['Inputs', 'CMakeLists.txt', 'README.txt', 'LICENSE.txt']
 config.test_source_root = os.path.dirname(__file__)
 
 # test_exec_root: The root path where tests should be run.
-config.test_exec_root = os.path.join(config.llvm_obj_root, 'test')
+if hasattr(config, 'llvm_obj_root'):
+    config.test_exec_root = os.path.join(config.llvm_obj_root, 'test')
+else:
+    config.test_exec_root = config.test_source_root
 
 # Tweak the PATH to include the tools dir.
-llvm_config.with_environment('PATH', config.llvm_tools_dir, append_path=True)
+if llvm_config and hasattr(config, 'llvm_tools_dir'):
+    llvm_config.with_environment('PATH', config.llvm_tools_dir, append_path=True)
 
 # Propagate some variables from the host environment.
-llvm_config.with_system_environment(
-    ['HOME', 'INCLUDE', 'LIB', 'TMP', 'TEMP', 'ASAN_SYMBOLIZER_PATH', 'MSAN_SYMBOLIZER_PATH'])
+if llvm_config:
+    llvm_config.with_system_environment(
+        ['HOME', 'INCLUDE', 'LIB', 'TMP', 'TEMP', 'ASAN_SYMBOLIZER_PATH', 'MSAN_SYMBOLIZER_PATH'])
 
 
 # Set up OCAMLPATH to include newly built OCaml libraries.
-top_ocaml_lib = os.path.join(config.llvm_lib_dir, 'ocaml')
-llvm_ocaml_lib = os.path.join(top_ocaml_lib, 'llvm')
+if llvm_config and hasattr(config, 'llvm_lib_dir'):
+    top_ocaml_lib = os.path.join(config.llvm_lib_dir, 'ocaml')
+    llvm_ocaml_lib = os.path.join(top_ocaml_lib, 'llvm')
 
-llvm_config.with_system_environment('OCAMLPATH')
-llvm_config.with_environment('OCAMLPATH', top_ocaml_lib, append_path=True)
-llvm_config.with_environment('OCAMLPATH', llvm_ocaml_lib, append_path=True)
+    llvm_config.with_system_environment('OCAMLPATH')
+    llvm_config.with_environment('OCAMLPATH', top_ocaml_lib, append_path=True)
+    llvm_config.with_environment('OCAMLPATH', llvm_ocaml_lib, append_path=True)
 
-llvm_config.with_system_environment('CAML_LD_LIBRARY_PATH')
-llvm_config.with_environment(
-    'CAML_LD_LIBRARY_PATH', llvm_ocaml_lib, append_path=True)
+    llvm_config.with_system_environment('CAML_LD_LIBRARY_PATH')
+    llvm_config.with_environment(
+        'CAML_LD_LIBRARY_PATH', llvm_ocaml_lib, append_path=True)
 
-# Set up OCAMLRUNPARAM to enable backtraces in OCaml tests.
-llvm_config.with_environment('OCAMLRUNPARAM', 'b')
+    # Set up OCAMLRUNPARAM to enable backtraces in OCaml tests.
+    llvm_config.with_environment('OCAMLRUNPARAM', 'b')
 
 # Provide the path to asan runtime lib 'libclang_rt.asan_osx_dynamic.dylib' if
 # available. This is darwin specific since it's currently only needed on darwin.
 
 
 def get_asan_rtlib():
-    if not 'Address' in config.llvm_use_sanitizer or \
-       not 'Darwin' in config.host_os or \
-       not 'x86' in config.host_triple:
+    if not hasattr(config, 'llvm_use_sanitizer') or not 'Address' in config.llvm_use_sanitizer or \
+       not hasattr(config, 'host_os') or not 'Darwin' in config.host_os or \
+       not hasattr(config, 'host_triple') or not 'x86' in config.host_triple:
         return ''
     try:
         import glob
@@ -74,6 +97,8 @@ def get_asan_rtlib():
         return ''
     # The libclang_rt.asan_osx_dynamic.dylib path is obtained using the relative
     # path from the host cc.
+    if not hasattr(config, 'host_cc'):
+        return ''
     host_lib_dir = os.path.join(os.path.dirname(config.host_cc), '../lib')
     asan_dylib_dir_pattern = host_lib_dir + \
         '/clang/*/lib/darwin/libclang_rt.asan_osx_dynamic.dylib'
@@ -83,12 +108,16 @@ def get_asan_rtlib():
     return found_dylibs[0]
 
 
-llvm_config.use_default_substitutions()
+if llvm_config:
+    llvm_config.use_default_substitutions()
 
 # Add site-specific substitutions.
-config.substitutions.append(('%llvmshlibdir', config.llvm_shlib_dir))
-config.substitutions.append(('%shlibext', config.llvm_shlib_ext))
-config.substitutions.append(('%exeext', config.llvm_exe_ext))
+if hasattr(config, 'llvm_shlib_dir'):
+    config.substitutions.append(('%llvmshlibdir', config.llvm_shlib_dir))
+if hasattr(config, 'llvm_shlib_ext'):
+    config.substitutions.append(('%shlibext', config.llvm_shlib_ext))
+if hasattr(config, 'llvm_exe_ext'):
+    config.substitutions.append(('%exeext', config.llvm_exe_ext))
 
 
 lli_args = []
@@ -97,43 +126,50 @@ lli_args = []
 # we don't support COFF in MCJIT well enough for the tests, force ELF format on
 # Windows.  FIXME: the process target triple should be used here, but this is
 # difficult to obtain on Windows.
-if re.search(r'cygwin|windows-gnu|windows-msvc', config.host_triple):
+if hasattr(config, 'host_triple') and re.search(r'cygwin|windows-gnu|windows-msvc', config.host_triple):
     lli_args = ['-mtriple=' + config.host_triple + '-elf']
 
 llc_args = []
 
 # Similarly, have a macro to use llc with DWARF even when the host is Windows
-if re.search(r'windows-msvc', config.target_triple):
+if hasattr(config, 'target_triple') and re.search(r'windows-msvc', config.target_triple):
     llc_args = [' -mtriple=' +
                 config.target_triple.replace('-msvc', '-gnu')]
 
 # Provide the path to asan runtime lib if available. On darwin, this lib needs
 # to be loaded via DYLD_INSERT_LIBRARIES before libLTO.dylib in case the files
 # to be linked contain instrumented sanitizer code.
-ld64_cmd = config.ld64_executable
+ld64_cmd = getattr(config, 'ld64_executable', '')
 asan_rtlib = get_asan_rtlib()
 if asan_rtlib:
     ld64_cmd = 'DYLD_INSERT_LIBRARIES={} {}'.format(asan_rtlib, ld64_cmd)
 
-ocamlc_command = '%s ocamlc -cclib -L%s %s' % (
-    config.ocamlfind_executable, config.llvm_lib_dir, config.ocaml_flags)
-ocamlopt_command = 'true'
-if config.have_ocamlopt:
-    ocamlopt_command = '%s ocamlopt -cclib -L%s -cclib -Wl,-rpath,%s %s' % (
-        config.ocamlfind_executable, config.llvm_lib_dir, config.llvm_lib_dir, config.ocaml_flags)
+if hasattr(config, 'ocamlfind_executable') and hasattr(config, 'llvm_lib_dir') and hasattr(config, 'ocaml_flags'):
+    ocamlc_command = '%s ocamlc -cclib -L%s %s' % (
+        config.ocamlfind_executable, config.llvm_lib_dir, config.ocaml_flags)
+    ocamlopt_command = 'true'
+    if getattr(config, 'have_ocamlopt', False):
+        ocamlopt_command = '%s ocamlopt -cclib -L%s -cclib -Wl,-rpath,%s %s' % (
+            config.ocamlfind_executable, config.llvm_lib_dir, config.llvm_lib_dir, config.ocaml_flags)
+else:
+    ocamlc_command = 'true'
+    ocamlopt_command = 'true'
 
-opt_viewer_cmd = '%s %s/tools/opt-viewer/opt-viewer.py' % (sys.executable, config.llvm_src_root)
+opt_viewer_cmd = '%s %s/tools/opt-viewer/opt-viewer.py' % (sys.executable, getattr(config, 'llvm_src_root', os.path.dirname(os.path.dirname(os.path.dirname(__file__)))))
 
-llvm_locstats_tool = os.path.join(config.llvm_tools_dir, 'llvm-locstats')
-config.substitutions.append(
-    ('%llvm-locstats', "'%s' %s" % (config.python_executable, llvm_locstats_tool)))
-config.llvm_locstats_used = os.path.exists(llvm_locstats_tool)
+if hasattr(config, 'llvm_tools_dir'):
+    llvm_locstats_tool = os.path.join(config.llvm_tools_dir, 'llvm-locstats')
+    config.substitutions.append(
+        ('%llvm-locstats', "'%s' %s" % (getattr(config, 'python_executable', sys.executable), llvm_locstats_tool)))
+    config.llvm_locstats_used = os.path.exists(llvm_locstats_tool)
+else:
+    config.llvm_locstats_used = False
 
 tools = [
     ToolSubst('%lli', FindTool('lli'), post='.', extra_args=lli_args),
     ToolSubst('%llc_dwarf', FindTool('llc'), extra_args=llc_args),
-    ToolSubst('%go', config.go_executable, unresolved='ignore'),
-    ToolSubst('%gold', config.gold_executable, unresolved='ignore'),
+    ToolSubst('%go', getattr(config, 'go_executable', ''), unresolved='ignore'),
+    ToolSubst('%gold', getattr(config, 'gold_executable', ''), unresolved='ignore'),
     ToolSubst('%ld64', ld64_cmd, unresolved='ignore'),
     ToolSubst('%ocamlc', ocamlc_command, unresolved='ignore'),
     ToolSubst('%ocamlopt', ocamlopt_command, unresolved='ignore'),
@@ -169,20 +205,24 @@ tools.extend([
     ToolSubst('Kaleidoscope-Ch7', unresolved='ignore'),
     ToolSubst('Kaleidoscope-Ch8', unresolved='ignore')])
 
-llvm_config.add_tool_substitutions(tools, config.llvm_tools_dir)
+if llvm_config and hasattr(config, 'llvm_tools_dir'):
+    llvm_config.add_tool_substitutions(tools, config.llvm_tools_dir)
 
 # Targets
 
-config.targets = frozenset(config.targets_to_build.split())
-
-for arch in config.targets_to_build.split():
-    config.available_features.add(arch.lower() + '-registered-target')
+if hasattr(config, 'targets_to_build'):
+    config.targets = frozenset(config.targets_to_build.split())
+    for arch in config.targets_to_build.split():
+        config.available_features.add(arch.lower() + '-registered-target')
+else:
+    config.targets = frozenset()
 
 # Features
 known_arches = ["x86_64", "mips64", "ppc64", "aarch64"]
-if (config.host_ldflags.find("-m32") < 0
+if (hasattr(config, 'host_ldflags') and hasattr(config, 'llvm_host_triple')
+    and config.host_ldflags.find("-m32") < 0
     and any(config.llvm_host_triple.startswith(x) for x in known_arches)):
-  config.available_features.add("llvm-64-bits")
+    config.available_features.add("llvm-64-bits")
 
 config.available_features.add("host-byteorder-" + sys.byteorder + "-endian")
 
@@ -194,32 +234,38 @@ else:
     config.available_features.add('can-execute')
 
 # Loadable module
-if config.has_plugins:
+if getattr(config, 'has_plugins', False):
     config.available_features.add('plugins')
 
-if config.build_examples:
+if getattr(config, 'build_examples', False):
     config.available_features.add('examples')
 
-if config.linked_bye_extension:
+if getattr(config, 'linked_bye_extension', False):
     config.substitutions.append(('%llvmcheckext', 'CHECK-EXT'))
     config.substitutions.append(('%loadbye', ''))
     config.substitutions.append(('%loadnewpmbye', ''))
 else:
     config.substitutions.append(('%llvmcheckext', 'CHECK-NOEXT'))
-    config.substitutions.append(('%loadbye',
-                                 '-load={}/Bye{}'.format(config.llvm_shlib_dir,
-                                                         config.llvm_shlib_ext)))
-    config.substitutions.append(('%loadnewpmbye',
-                                 '-load-pass-plugin={}/Bye{}'
-                                 .format(config.llvm_shlib_dir,
-                                         config.llvm_shlib_ext)))
+    if hasattr(config, 'llvm_shlib_dir') and hasattr(config, 'llvm_shlib_ext'):
+        config.substitutions.append(('%loadbye',
+                                     '-load={}/Bye{}'.format(config.llvm_shlib_dir,
+                                                             config.llvm_shlib_ext)))
+        config.substitutions.append(('%loadnewpmbye',
+                                     '-load-pass-plugin={}/Bye{}'
+                                     .format(config.llvm_shlib_dir,
+                                             config.llvm_shlib_ext)))
+    else:
+        config.substitutions.append(('%loadbye', ''))
+        config.substitutions.append(('%loadnewpmbye', ''))
 
 
 # Static libraries are not built if BUILD_SHARED_LIBS is ON.
-if not config.build_shared_libs and not config.link_llvm_dylib:
+if not getattr(config, 'build_shared_libs', True) and not getattr(config, 'link_llvm_dylib', False):
     config.available_features.add('static-libs')
 
 def have_cxx_shared_library():
+    if not hasattr(config, 'llvm_tools_dir'):
+        return False
     readobj_exe = lit.util.which('llvm-readobj', config.llvm_tools_dir)
     if not readobj_exe:
         print('llvm-readobj not found')
@@ -249,23 +295,28 @@ def have_cxx_shared_library():
 if have_cxx_shared_library():
     config.available_features.add('cxx-shared-library')
 
-if config.libcxx_used:
+if getattr(config, 'libcxx_used', False):
     config.available_features.add('libcxx-used')
 
 # LLVM can be configured with an empty default triple
 # Some tests are "generic" and require a valid default triple
-if config.target_triple:
+if hasattr(config, 'target_triple') and config.target_triple:
     config.available_features.add('default_triple')
 
 import subprocess
 
 
 def have_ld_plugin_support():
+    if not hasattr(config, 'llvm_shlib_dir') or not hasattr(config, 'llvm_shlib_ext'):
+        return False
     if not os.path.exists(os.path.join(config.llvm_shlib_dir, 'LLVMgold' + config.llvm_shlib_ext)):
         return False
 
+    gold_exe = getattr(config, 'gold_executable', None)
+    if not gold_exe:
+        return False
     ld_cmd = subprocess.Popen(
-        [config.gold_executable, '--help'], stdout=subprocess.PIPE, env={'LANG': 'C'})
+        [gold_exe, '--help'], stdout=subprocess.PIPE, env={'LANG': 'C'})
     ld_out = ld_cmd.stdout.read().decode()
     ld_cmd.wait()
 
@@ -287,7 +338,7 @@ def have_ld_plugin_support():
         config.available_features.add('ld_emu_elf32ppc')
 
     ld_version = subprocess.Popen(
-        [config.gold_executable, '--version'], stdout=subprocess.PIPE, env={'LANG': 'C'})
+        [gold_exe, '--version'], stdout=subprocess.PIPE, env={'LANG': 'C'})
     if not 'GNU gold' in ld_version.stdout.read().decode():
         return False
     ld_version.wait()
@@ -300,6 +351,8 @@ if have_ld_plugin_support():
 
 
 def have_ld64_plugin_support():
+    if not hasattr(config, 'llvm_shlib_dir') or not hasattr(config, 'llvm_shlib_ext'):
+        return False
     if not os.path.exists(os.path.join(config.llvm_shlib_dir, 'libLTO' + config.llvm_shlib_ext)):
         return False
 
@@ -321,9 +374,10 @@ if have_ld64_plugin_support():
     config.available_features.add('ld64_plugin')
 
 # Ask llvm-config about asserts and global-isel.
-llvm_config.feature_config(
-    [('--assertion-mode', {'ON': 'asserts'}),
-     ('--has-global-isel', {'ON': 'global-isel'})])
+if llvm_config:
+    llvm_config.feature_config(
+        [('--assertion-mode', {'ON': 'asserts'}),
+         ('--has-global-isel', {'ON': 'global-isel'})])
 
 if 'darwin' == sys.platform:
     cmd = ['sysctl', 'hw.optional.fma']
@@ -340,17 +394,17 @@ if 'darwin' == sys.platform:
             config.available_features.add('fma3')
 
 # .debug_frame is not emitted for targeting Windows x64.
-if not re.match(r'^x86_64.*-(windows-gnu|windows-msvc)', config.target_triple):
+if hasattr(config, 'target_triple') and not re.match(r'^x86_64.*-(windows-gnu|windows-msvc)', config.target_triple):
     config.available_features.add('debug_frame')
 
-if config.have_libxar:
+if getattr(config, 'have_libxar', False):
     config.available_features.add('xar')
 
-if config.enable_threads:
+if getattr(config, 'enable_threads', False):
     config.available_features.add('thread_support')
 
-if config.llvm_libxml2_enabled:
+if getattr(config, 'llvm_libxml2_enabled', False):
     config.available_features.add('libxml2')
 
-if config.have_opt_viewer_modules:
+if getattr(config, 'have_opt_viewer_modules', False):
     config.available_features.add('have_opt_viewer_modules')

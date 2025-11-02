@@ -1,0 +1,12 @@
+     Chapter 3. Branch and Condition Register Operations . . . . . . . . . . . . . . . . . . . . . . . . 45
+                         3.1           Branch Operations Overview . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 45
+                         3.2           Registers for Branch Operations . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 45
+                         3.2.1            Condition Register . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 45
+                         3.2.1.1              Condition Register setting for integer instructions . . . . . . . . . . . . . . . 46
+                         3.2.1.2              Condition Register setting for store conditional instructions . . . . . . . . 47
+                         3.2.1.3              Condition Register setting for floating-point instructions . . . . . . . . . . 47
+                         3.2.1.4              Condition Register setting for compare instructions . . . . . . . . . . . . . . 47
+                         3.2.2            Link Register . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 48
+                         3.2.3            Count Register . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 48
+                         3.3           Branch Instructions . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 49
+                         3.4           Condition Register Instructions . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 52

@@ -1,0 +1,62 @@
+                                                    Chapter 6. Storage Control Instructions                   1311
+Version 2.07
+
+
+6.2 Cache Management Instruc-                              6.5 Instruction Alignment and
+tions                                                      Byte Ordering
+Cache management instructions implemented by cate-         Only Big-Endian instruction memory is supported when
+gory VLE are identical to those defined in Book II and     executing from a page of VLE instructions. Attempting
+Book III-E.                                                to fetch VLE instructions from a page marked as Lit-
+                                                           tle-Endian generates an instruction storage interrupt
+The Cache Management instructions from Book II,
+                                                           byte-ordering exception.
+dcba, dcbf, dcbst, dcbt, dcbtst, dcbz, icbi, and icbt
+are available while executing in VLE mode. The mne-
+monics, decoding, and semantics for these instructions
+are identical to those in Book II; see Section 4.3 of
+Book II for the instruction definitions.
+The Cache Management instruction from Book III-E,
+dcbi is available while executing in VLE mode. The
+mnemonics, decoding, and semantics for this instruc-
+tion are identical to those in Book III-E; see
+Section 6.11.1 of Book III-E for the instruction defini-
+tion.
+
+
+6.3 Cache Locking Instructions
+Cache locking instructions implemented by category
+VLE are identical to those defined in Book III-E. If the
+Cache Locking instructions are implemented in cate-
+gory VLE, the Category: Embedded Cache Locking
+must also be implemented.
+The Cache Locking instructions from Book III-E,
+dcbtls, dcbtstls, dcblc, dcblq., icbtls, icblq., and
+icblc are available while executing in VLE mode. The
+mnemonics, decoding, and semantics for these instruc-
+tions are identical to those in Book III-E; see
+Section 6.11.2 of Book III-E for the instruction defini-
+tions.
+
+
+6.4 TLB Management Instruc-
+tions
+The TLB Management instructions implemented by cat-
+egory VLE are identical to those defined in Book III-E.
+The TLB Management instructions from Book III-E,
+tlbre, tlbwe, tlbivax, tlbilx, tlbsync, tlbsrx. <E.TWC>,
+and tlbsx are available while executing in VLE mode.
+The mnemonics, decoding, and semantics for these
+instructions are identical to those in Book III-E. See
+Section 6.11.4.9 of Book III-E.
+Instructions and resources described in Chapter 6 of
+Book III-E are available if the appropriate category is
+implemented.
+
+
+
+
+1312       Power ISA™ - Book VLE
+                                                                                                     Version 2.07
+
+
+

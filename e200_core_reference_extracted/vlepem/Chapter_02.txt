@@ -1,0 +1,536 @@
+Chapter 2
+Instruction Model
+This chapter provides an overview of the VLE instruction model, including the following:
+   • Section 2.1, “VLE Storage Addressing”
+   • Section 2.2, “VLE Compatibility with the Standard Architecture”
+   • Section 2.3, “Branch Operation Instructions”
+   • Section 2.4, “Integer Instructions”
+   • Section 2.5, “Storage Control Instructions”
+   • Section 2.6, “Additional Categories Available in VLE”
+
+2.1        VLE Storage Addressing
+A program references memory using the effective address (EA) the processor computes when it executes
+a memory access or branch instruction (or certain other instructions defined in the VEA and OEA) or when
+it fetches the next sequential instruction.
+
+2.1.1         Data Storage Addressing Modes
+Table 2-1 lists data storage addressing modes supported by VLE. Instruction forms are described in
+Appendix A, “VLE Instruction Formats.”
+                                     Table 2-1. Data Storage Addressing Modes
+
+             Mode                                                        Description
+
+Base+16-bit displacement         The 16-bit D field is sign-extended and added to the contents of the GPR designated by rA
+(D-form, 32-bit format)          or to zero if rA = 0 to produce the EA.
+
+Base+8-bit displacement          The 8-bit D8 field is sign-extended and added to the contents of the GPR designated by rA
+(D8-form,32-bit format)          or to zero if rA = 0 to produce the EA.
+
+Base+scaled 4-bit displacement The 4-bit SD4 field zero-extended, scaled (shifted left) according to the size of the operand,
+(SD4-form, 16-bit format)      and added to the contents of the GPR designated by rX to produce the EA. (Note that rX = 0
+                               is not a special case.
+
+Base+Index                       The GPR contents designated by rB are added to the GPR contents designated by rA or to
+(X-form, 32-bit format)          zero if rA = 0 to produce the EA.
+
+
+
+
+                      Variable-Length Encoding (VLE) Programming Environments Manual, Rev. 0
+Freescale Semiconductor                                                                                                    2-1
+Instruction Model
+
+
+2.1.2         Instruction Storage Addressing Modes
+Table 2-2 lists instruction storage addressing modes supported by VLE.
+                                   Table 2-2. Instruction Storage Addressing Modes
+
+                Mode                                                         Description
+
+Taken BD24-form branch instructions The 24-bit BD24 field is concatenated on the right with 0b0, sign-extended, and then
+(32-bit instruction format)         added to the address of the branch instruction.
+
+Taken B15-form branch instructions    The 15-bit BD15 field is concatenated on the right with 0b0, sign-extended, and then
+(32-bit instruction format)           added to the address of the branch instruction to form the EA of the next instruction.
+
+Take BD8-form branch instructions     The 8-bit BD8 field is concatenated on the right with 0b0, sign-extended, and then added
+(16-bit instruction format)           to the address of the branch instruction to form the EA of the next instruction.
+
+Sequential instruction fetching (or   The value 4 [2] is added to the address of the current 32-bit [16-bit] instruction to form
+non-taken branch instructions)        the EA of the next instruction. If the address of the current instruction is
+                                      0xFFFF_FFFF_FFFF_FFFC [0xFFFF_FFFF_FFFF_FFFE] in 64-bit mode or
+                                      0xFFFF_FFFC [0xFFFF_FFFE] in 32-bit mode, the address of the next sequential
+                                      instruction is undefined.
+
+Any branch instruction with LK = 1    The value 4 is added to the address of the current branch instruction and the result is
+(32-bit instruction format)           placed into the LR. If the address of the current instruction is
+                                      0xFFFF_FFFF_FFFF_FFFC in 64-bit mode o r0xFFFF_FFFC in 32-bit mode, the result
+                                      placed into the LR is undefined.
+
+Branch se_bl. se_blrl. se_bctrl       The value 2 is added to the address of the current branch instruction and the result is
+instructions (16-bit instruction      placed into the LR. If the address of the current instruction is
+format)                               0xFFFF_FFFF_FFFF_FFFE in 64-bit mode or 0xFFFF_FFFE in 32-bit mode, the result
+                                      placed into the LR is undefined.
+
+
+2.1.2.1         Misaligned, Mismatched, and Byte-Ordering Instruction Storage
+                Exceptions
+A misaligned instruction storage exception occurs when an implementation that supports VLE attempts to
+execute an instruction that is not 32-bit aligned and the VLE storage attribute is not set for the page that
+corresponds to the effective address of the instruction. The attempted execution can be the result of a
+branch instruction that has bit 62 of the target address set or the result of an rfi, se_rfi, rfci, se_rfci, rfdi,
+se_rfdi, rfmci, or se_rfmci instruction that has bit 62 set in the respective save/restore register. If a
+misaligned instruction storage exception is detected and no higher priority exception exists, an instruction
+storage interrupt occurs, setting SRR0 to the misaligned address for which execution was attempted.
+A mismatched instruction storage exception occurs when an implementation that supports VLE attempts
+to execute an instruction that crosses a page boundary for which the first page has the VLE storage attribute
+set and the second page has the VLE storage attribute bit cleared. If a mismatched instruction storage
+exception is detected and no higher priority exception exists, an instruction storage interrupt occurs, setting
+SRR0 to the misaligned address for which execution was attempted.
+A byte-ordering instruction storage exception occurs when an implementation that supports VLE attempts
+to execute an instruction that has the VLE storage attribute set and the E (Endian) storage attribute set for
+the page that corresponds to the effective address of the instruction. If a byte-ordering instruction storage
+exception is detected and no higher priority exception exists, an instruction storage interrupt occurs, setting
+SRR0 to the address for which execution was attempted.
+
+                       Variable-Length Encoding (VLE) Programming Environments Manual, Rev. 0
+2-2                                                                                                    Freescale Semiconductor
+                                                                                                Instruction Model
+
+
+2.1.2.2       VLE Exception Syndrome Bits
+VLE defines the following bits to facilitate VLE exception handling, as described in the EREF:
+  • ESR[VLEMI] is set when an exception and subsequent interrupt is caused by the execution or
+      attempted execution of an instruction that resides in memory with the VLE storage attribute set.
+  • ESR[MIF] is set when an instruction storage interrupt is caused by a misaligned instruction storage
+      exception, or when an instruction TLB error interrupt was caused by a TLB miss on the second half
+      of a misaligned 32-bit instruction.
+  • ESR[BO] is set when an instruction storage interrupt is caused by a mismatched instruction storage
+      exception or a byte-ordering instruction storage exception.
+                                          NOTE (Programming)
+                When an instruction TLB error interrupt occurs as the result of an
+                instruction TLB miss on the second half of a 32-bit VLE instruction that is
+                aligned to only 16-bits, SRR0 points to the first half of the instruction and
+                ESR[MIF] is set. Any other status posted as a result of the TLB miss (such
+                as MAS register updates) reflects the page corresponding to the second half
+                of the instruction that caused the instruction TLB miss.
+
+2.2       VLE Compatibility with the Standard Architecture
+This chapter addresses the relationship between VLE and the standard architecture.
+
+2.2.1        Overview
+VLE uses the same semantics as other Power ISA instructions. Due to the limited instruction encoding
+formats, VLE instructions typically support reduced immediate fields and displacements, and not all
+operations defined by the standard architecture are encoded in VLE. The design criteria are to capture all
+useful operations, with most frequent operations given priority. Immediate fields and displacements are
+provided to cover the majority of ranges encountered in embedded control code. Instructions are encoded
+in either a 16- or 32-bit format, and these may be freely intermixed.
+VLE instructions cannot access FPRs. VLE instructions use GPRs and SPRs with the following
+limitations:
+    • Most VLE instructions using 16-bit formats are limited to addressing GPR0–GPR7 and
+        GPR24–GPR31. Move instructions are provided to transfer register contents between these
+        registers and GPR8–GPR23.
+    • VLE compare and bit test instructions using the 16-bit formats implicitly set their results in CR0.
+VLE instruction encodings are generally different than instructions defined by the standard architecture,
+except that most instructions falling within primary opcode 31 are encoded identically and have identical
+semantics unless they affect or access a resource unsupported by VLE.
+
+2.2.2        VLE Processor and Storage Control Extensions
+This section describes additional functionality to support VLE.
+
+                    Variable-Length Encoding (VLE) Programming Environments Manual, Rev. 0
+Freescale Semiconductor                                                                                      2-3
+Instruction Model
+
+
+2.2.2.1         Instruction Extensions
+This section describes extensions to support VLE operations. Because instructions may reside on a
+half-word boundary, bit 62 is not masked by instructions that read an instruction address from a register,
+such as LR, CTR, or a save/restore register 0 that holds an instruction address:
+The instruction set defined by the standard architecture is modified to support halfword instruction
+addressing, as follows:
+   • Return from interrupt instructions (rfi, rfci, rfdi, and rfmci) no longer mask bit 62 of the respective
+       save/restore register 0. The destination address is SRR0[0–62] || 0b0, CSRR0[0–62] || 0b0,
+       DSRR0[0–62] || 0b0, MCSRR0[0–62] || 0b0, respectively.
+   • bclr, bclrl, bcctr, and bcctrl no longer mask bit 62 of LR or CTR. The destination address is
+       LR[0–62] || 0b0 or CTR[0–62] || 0b0.
+
+2.2.2.2         MMU Extensions
+VLE operation is indicated by the VLE storage page attribute. When this attribute is set, instruction fetches
+from that page are decoded and processed as VLE instructions. See the EREF.
+When instructions execute from a page whose VLE storage attribute is set, the processor is in VLE mode.
+
+2.2.3         VLE Limitations
+VLE instruction fetches are valid only when performed in a big-endian mode. Attempting to fetch an
+instruction in a little-endian mode from a page with the VLE storage attribute set causes an instruction
+storage byte-ordering exception.
+Support for concurrent modification and execution of VLE instructions is implementation-dependent.
+
+2.3        Branch Operation Instructions
+This section describes branch instructions that can be executed when a processor is in VLE mode. It also
+describes the registers that support them.
+
+2.3.1         Branch Processor Registers
+The following registers support branch operations:
+   • Section 2.3.1.1, “Condition Register (CR)”
+   • Section 2.3.1.2, “Link Register (LR)”
+   • Section 2.3.1.3, “Count Register (CTR)”
+
+
+
+
+                    Variable-Length Encoding (VLE) Programming Environments Manual, Rev. 0
+2-4                                                                                    Freescale Semiconductor
+                                                                                                          Instruction Model
+
+
+2.3.1.1         Condition Register (CR)
+The CR reflects the result of certain operations and provides a mechanism for testing (and branching).
+VLE uses the entire CR, as described in the EREF, but some comparison operations and all branch
+instructions are limited to using CR0–CR3. The full UISA-defined CR field and logical operations are
+provided, however.
+CR bits are grouped into eight 4-bit fields, CR field 0 (CR0) ... CR field 7 (CR7), which are set by
+VLE-defined instructions in one of the following ways:
+   • Specified CR fields can be set by a move to the CR from a GPR (mtcrf, mtocrf).
+   • A specified CR field can be set by a move to the CR from another CR field (e_mcrf) or from
+       XER[32–35] (mcrxr).
+   • CR field 0 can be set as the implicit result of an integer instruction.
+   • A specified CR field can be set as the result of an integer compare instruction.
+   • CR field 0 can be set as the result of an integer bit test instruction.
+Other instructions from implemented categories may also set bits in the CR in the same manner that they
+would when not in VLE mode.
+Instructions are provided to perform logical operations on individual CR bits and to test individual CR bits.
+For all integer instructions in which the Rc bit is defined and set, and for e_add2i., e_and2i., and
+e_and2is., the first three bits of CR field 0 (CR32:34) are set by signed comparison of the result to zero,
+and the fourth bit of CR field 0 (CR[35]) is copied from the final state of XER[SO]. “Result” here refers
+to the entire 64-bit value placed into the target register in 64-bit mode, and to bits 32–63 of the value placed
+into the target register in 32-bit mode.
+if (64-bit mode)
+   then M I 0
+   else M I 32
+if       (target_register)M:63 < 0 then c I 0b100
+else if (target_register)M:63 > 0 then c I 0b010
+else                                     c I 0b001
+CR0 I c || XERSO
+
+If any portion of the result is undefined, the value placed into the first three bits of CR field 0 is undefined.
+The bits of CR field 0 are interpreted as shown in Table 2-3.
+                                          Table 2-3. CR0 Field Descriptions
+
+    Bits Name                                                Description
+
+     32    LT    Negative—The result is negative.
+
+     33    GT    Positive—The result is positive.
+
+     34    EQ    Zero—The result is 0.
+
+     35    SO    Summary overflow—This is a copy of the contents of XER[SO] at the completion of the instruction.
+
+
+
+
+                     Variable-Length Encoding (VLE) Programming Environments Manual, Rev. 0
+Freescale Semiconductor                                                                                                2-5
+Instruction Model
+
+
+2.3.1.1.1           Condition Register Setting for Compare Instructions
+For compare instructions, a CR field specified by the BF operand for the e_cmph, e_cmphl, e_cmpi, and
+e_cmpli instructions, or CR0 for the se_cmpl, e_cmp16i, e_cmph16i, e_cmphl16i, e_cmpl16i, se_cmp,
+se_cmph, se_cmphl, se_cmpi, and se_cmpli instructions, is set to reflect the result of the comparison. The
+CR field bits are interpreted as shown below. A complete description of how the bits are set is given in the
+instruction descriptions and the EREF.
+Condition register bits settings for compare instructions are interpreted as shown in Table 2-4.
+                          Table 2-4. Condition Register Settings for Compare Instructions
+
+    CR Bit1                                                     Description
+
+4×BF + 32 Less than (LT). For signed integer compare, (rA) or (rX) < sci8, SI, (rB), or (rY).
+          For unsigned integer compare, (rA) or (rX) <u sci8, UI, UI5, (rB), or (rY).
+
+4×BF + 33 Greater than (GT). For signed integer compare, (rA) or (rX) > sci8, SI, (rB), or (rY).
+          For unsigned integer compare, (rA) or (rX) >u sci8, UI, UI5, (rB), or (rY).
+
+4×BF + 34 Equal (EQ). For integer compare, (rA) or (rX) = sci8, UI, UI5, SI, (rB), or (rY).
+
+4×BF + 35 Summary overflow (SO). For integer compare, this is a copy of XER[SO] at the completion of the instruction.
+1   e_cmpi, and e_cmpli instructions have a BF32 field instead of a BF field; for these instructions, BF32 should be substituted
+    for BF in the table.
+
+
+2.3.1.1.2           Condition Register Setting for the Bit Test Instruction
+The Bit Test Immediate instruction, se_btsti, also sets CR field 0. See the instruction description and also
+the EREF.
+
+2.3.1.2          Link Register (LR)
+VLE instructions use the LR as defined in the UISA, although VLE defines a subset of the variants defined
+for conditional branches involving the LR.
+
+2.3.1.3          Count Register (CTR)
+VLE instructions use the CTR as defined in the UISA, although VLE defines a subset of the variants
+defined for conditional branches involving the CTR.
+
+2.3.2          Branch Instructions
+The sequence of instruction execution can be changed by the branch instructions. Because VLE
+instructions must be aligned on half-word boundaries, the low-order bit of the generated branch target
+address is forced to 0 by the processor in performing the branch.
+The branch instructions compute the EA of the target in one of the following ways, as described in
+Section 2.1.2, “Instruction Storage Addressing Modes.”
+   1. Adding a displacement to the address of the branch instruction.
+   2. Using the address contained in the LR (Branch to Link Register [and Link]).
+
+
+                        Variable-Length Encoding (VLE) Programming Environments Manual, Rev. 0
+2-6                                                                                                    Freescale Semiconductor
+                                                                                               Instruction Model
+
+
+    3. Using the address contained in the CTR (Branch to Count Register [and Link]).
+Branching can be conditional or unconditional, and the return address can optionally be provided. If the
+return address is to be provided (LK = 1), the EA of the instruction following the branch instruction is
+placed into the LR after the branch target address has been computed; this is done regardless of whether
+the branch is taken.
+In branch conditional instructions, the BI32 or BI16 instruction field specifies the CR bit to be tested. For
+32-bit instructions using BI32, CR[32–47] (corresponding to bits in CR0:CR3) may be specified. For
+16-bit instructions using BI16, only CR[32–35] (bits within CR0) may be specified.
+In branch conditional instructions, the BO32 or BO16 field specifies the conditions under which the branch
+is taken and how the branch is affected by or affects the CR and CTR. Note that VLE instructions also have
+different encodings for the BO32 and BO16 fields than in the UISA-defined BO field.
+If the BO32 field specifies that the CTR is to be decremented, in 64-bit mode CTR[0–63] are decremented,
+and in 32-bit mode CTR[32–63] are decremented. If BO16 or BO32 specifies a condition that must be
+TRUE or FALSE, that condition is obtained from the contents of CR[BI32+32] or CR[BI16+32]. (Note
+that CR bits are numbered 32–63. BI32 or BI16 refers to the condition register bit field in the branch
+instruction encoding. For example, specifying BI32 = 2 refers to CR[34].)
+For Table 2-5, let M = 0 in 64-bit mode and M = 32 in 32-bit mode.
+Encodings for the BO32 field for VLE are shown in Table 2-5.
+                                         Table 2-5. BO32 Field Encodings
+
+                     BO32                                      Description
+
+                      00    Branch if the condition is false.
+
+                      01    Branch if the condition is true.
+
+                      10    Decrement CTR[M–63], then branch if the decremented value ¦ 0
+
+                      11    Decrement CTR[M–63], then branch if the decremented value = 0.
+
+Encodings for the BO16 field for VLE are shown in Table 2-6.
+                                         Table 2-6. BO16 Field Encodings
+
+                                      BO16                     Description
+
+                                        0      Branch if the condition is false.
+
+                                        1      Branch if the condition is true.
+
+
+2.3.3        System Linkage Instructions
+The system linkage instructions enable the program to call on the system to perform a service and provide
+a means by which the system can return from performing a service or from processing an interrupt. System
+linkage instructions defined by VLE are identical in semantics to system linkage instructions defined in
+the UISA and OEA, with the exception of the LEV field, but are encoded differently.
+
+
+
+                    Variable-Length Encoding (VLE) Programming Environments Manual, Rev. 0
+Freescale Semiconductor                                                                                     2-7
+Instruction Model
+
+
+se_sc provides the same functionality as sc without the LEV field. se_rfi, se_rfci, se_rfdi, and se_rfmci
+provide the same functionality as rfi, rfci, rfdi, and rfmci, respectively.
+
+2.4        Integer Instructions
+This section lists the integer instructions supported by VLE.
+
+2.4.1         Integer Load Instructions
+The integer load instructions compute the EA of the memory to be accessed as described in Section 2.1.1,
+“Data Storage Addressing Modes.”
+The byte, halfword, word, or doubleword in storage addressed by EA is loaded into rD or rZ.
+VLE supports both big- and little-endian byte ordering for data accesses.
+Some integer load instructions have an update form in which rA is updated with the EA. For these forms,
+if rA¦0 and rA¦rD, the EA is placed into rA and the memory element (byte, halfword, word, or
+doubleword) addressed by EA is loaded into rD. If rA = 0 or rA = rD, the instruction form is invalid. This
+is the same behavior as specified for UISA load with update instructions.
+The integer load instructions, lbzx, lbzux, lhzx, lhzux, lwzx, and lwzux, are available in VLE mode. The
+mnemonics, decoding, and semantics for these instructions are identical to those defined by the UISA. See
+the EREF for the instruction definitions.
+The integer load instructions, lwax, lwaux, ldx, and ldux, are available in VLE mode on 64-bit
+implementations. The mnemonics, decoding, and semantics for these instructions are identical to those in
+the UISA. See the EREF for the instruction definitions.
+
+2.4.2         Integer Load and Store with Byte Reversal Instructions
+The integer load with byte reversal and store with byte reversal instructions, lhbrx, lwbrx, sthbrx, and
+stwbrx, are available in VLE mode. The mnemonics, decoding, and semantics for these instructions are
+identical to those in the UISA. See the EREF for instruction definitions.
+
+2.4.3         Integer Load and Store Multiple Instructions
+The load/store multiple instructions have preferred forms; see the EREF. In the preferred forms storage
+alignment satisfies the following rule.
+    • The combination of the EA and rD (rS) is such that the low-order byte of GPR 31 is loaded (stored)
+       from (into) the last byte of an aligned quadword in storage.
+
+2.4.4         Integer Arithmetic Instructions
+The integer arithmetic instructions use the contents of the GPRs as source operands and place results into
+GPRs, into status bits in the XER, and into CR0.
+
+
+
+                    Variable-Length Encoding (VLE) Programming Environments Manual, Rev. 0
+2-8                                                                                    Freescale Semiconductor
+                                                                                               Instruction Model
+
+
+The integer arithmetic instructions treat source operands as signed integers unless an instruction is
+explicitly identified as performing an unsigned operation.
+The e_add2i. instruction and other arithmetic instructions with Rc=1 set the first three bits of CR0 to
+characterize the result placed into the target register. In 64-bit mode, these bits are set by signed
+comparison of the result to 0. In 32-bit mode, these bits are set by signed comparison of the low-order 32
+bits of the result to zero.
+e_addic[.] and e_subfic[.] always set CA to reflect the carry out of bit 0 in 64-bit mode and out of bit 32
+in 32-bit mode.
+The integer arithmetic instructions, add[.], addo[.], addc[.], addco[.], adde[.], addeo[.], addme[.],
+addmeo[.], addze[.], addzeo[.], divw[.], divwo[.], divwu[.], divwuo[.], mulhw[.], mulhwu[.], mullw[.],
+mullwo[.] neg[.], nego[.], subf[.], subfo[.] subfe[.], subfeo[.], subfme[.], subfmeo[.], subfze[.],
+subfzeo[.], subfc[.], and subfco[.] are available in VLE mode. The mnemonics, decoding, and semantics
+for these instructions are identical to those in the UISA; see the EREF for the instruction definitions.
+The integer arithmetic instructions, mulld[.], mulldo[.], mulhd[.], muldu[.], divd[.], divdo[.], divdu[.],
+and divduo[.] are available in VLE mode on 64-bit implementations. The mnemonics, decoding, and
+semantics for those instructions are identical to these in the UISA; see the EREF for the instruction
+definitions.
+
+2.4.5        Integer Trap Instructions
+The integer trap instruction tw is available in VLE mode. The mnemonics, decoding, and semantics for
+this instruction are identical to that in the UISA; see the EREF for the instruction definition.
+The integer trap instruction td is available in VLE mode on 64-bit implementations. The mnemonic,
+decoding, and semantics for the td instruction are identical to those in the UISA; see the EREF for the
+instruction definitions.
+
+2.4.6        Integer Select Instruction
+The Integer Select instruction isel provides a means to select one of two registers and place the result in a
+destination register under the control of a predicate value supplied by a CR bit.
+The isel is available in VLE mode. The mnemonics, decoding, and semantics for this instruction are
+identical to that in the UISA; see the EREF for the instruction definition.
+
+2.4.7        Integer Logical, Bit, and Move Instructions
+The logical instructions perform bit-parallel operations on 64-bit operands. The bit instructions manipulate
+a bit, or create a bit mask, in a register. The move instructions move a register or an immediate value into
+a register.
+The X-form logical instructions with Rc=1, the SCI8-form logical instructions with Rc=1, the RR-form
+logical instructions with Rc=1, the e_and2i. instruction, and the e_and2is. instruction set the first three
+bits of CR field 0 as the arithmetic instructions described in Section 2.4.4, “Integer Arithmetic
+
+
+                    Variable-Length Encoding (VLE) Programming Environments Manual, Rev. 0
+Freescale Semiconductor                                                                                     2-9
+Instruction Model
+
+
+Instructions.” (Also see Section 2.3.1.1, “Condition Register (CR).”) The logical instructions do not
+change the SO, OV, and CA bits in the XER.
+The integer logical instructions, and[.], or[.], xor[.], nand[.], nor[.], eqv[.], andc[.], orc[.], extsb[.],
+extsh[.], cntlzw[.], and popcntb, are available in VLE mode. The mnemonics, decoding, and semantics
+for these instructions are identical to those in the UISA; see the EREF for instruction definitions.
+The integer logical instructions, extsw[.] and cntlzd[.], are available in VLE mode on 64-bit
+implementations. The mnemonics, decoding, and semantics for these instructions are identical to those in
+the UISA; see the EREF for instruction definitions.
+
+2.5        Storage Control Instructions
+
+2.5.1         Storage Synchronization Instructions
+The memory synchronization instructions implemented by VLE are identical in semantics to those defined
+in the VEA and OEA. The se_isync instruction is defined by VLE but has the same semantics as isync.
+The load and reserve instruction lwarx and the store conditional instruction stwcx are available in VLE
+mode. The mnemonics, decoding, and semantics for those instructions are identical to those in the VEA;
+see the EREF for instruction definitions.
+The load and reserve instruction ldarx and the store conditional instruction stdcx are available in VLE
+mode on 64-bit implementations. The mnemonics, decoding, and semantics for those instructions are
+identical to those in the VEA; see the EREF for instruction definitions.
+Memory barrier instructions, sync (msync) and mbar are available in VLE mode. The mnemonics,
+decoding, and semantics for those instructions are identical to those in the VEA; see the EREF for
+instruction definitions.
+The wait instruction is available in VLE mode if the category Wait is implemented. The mnemonics,
+decoding, and semantics for wait are identical to those in the VEA; see the EREF for the instruction
+definition.
+
+2.5.2         Cache Management Instructions
+Cache management instructions implemented by VLE are identical to those defined in the VEA and OEA.
+The cache management instructions, dcba, dcbf, dcbst, dcbt, dcbtst, dcbz, icbi, and icbt, are available
+in VLE mode. The mnemonics, decoding, and semantics for these instructions are identical to those in the
+VEA; see the EREF instruction definitions.
+dcbi is available in VLE mode. The mnemonics, decoding, and semantics for this instruction are identical
+to those in the OEA; see the EREF for instruction definition.
+
+
+
+
+                    Variable-Length Encoding (VLE) Programming Environments Manual, Rev. 0
+2-10                                                                                   Freescale Semiconductor
+                                                                                             Instruction Model
+
+
+2.5.3        Cache Locking Instructions
+Cache locking instructions implemented by VLE are identical to those defined by the OEA. If the cache
+locking instructions are implemented in VLE, the embedded cache locking instructions must also be
+implemented.
+The cache locking instructions defined by the OEA, dcbtls, dcbtstls, dcblc, icbtls, and icblc are available
+in VLE mode. The mnemonics, decoding, and semantics for these instructions are identical to those
+defined in the OEA; see the EREF for instruction definitions.
+
+2.5.4        TLB Management Instructions
+The TLB management instructions implemented by VLE are identical to those defined by the OEA.
+The OEA-defined TLB management instructions, tlbre, tlbwe, tlbivax, tlbsync, and tlbsx, are available
+in VLE mode. The mnemonics, decoding, and semantics for these instructions are identical to those in the
+OEA. See the EREF for instruction definitions.
+Instructions and resources from category Embedded.MMU Type FSL are available if that category is
+implemented.
+
+2.5.5        Instruction Alignment and Byte Ordering
+Only big-endian instruction memory is supported when executing from a page of VLE instructions.
+Attempting to fetch VLE instructions from a page marked as little-endian generates an instruction storage
+interrupt byte-ordering exception.
+
+2.6       Additional Categories Available in VLE
+Processors that implement VLE may implement instructions and resources from categories other than
+Base and Embedded. User documentation for each processor core indicates which of these may be
+implemented. These instructions are described in the EREF.
+Such categories include those for which all the instructions in the category use primary opcode 4 or
+primary opcode 31, as listed below:
+    • Move assist. Move assist instructions implemented by VLE are identical to those defined in the
+       UISA. The mnemonics, decoding, and semantics for those instructions are identical to those in the
+       UISA; see the EREF for the instruction definitions.
+    • Vector. Vector instructions implemented by VLE are identical to those defined in the UISA. The
+       mnemonics, decoding, and semantics for those instructions are identical to those in the UISA; see
+       the EREF for the instruction definitions.
+    • Signal processing engine (SPE). SPE instructions implemented by VLE are identical to those
+       defined in the UISA. The mnemonics, decoding, and semantics for those instructions are identical
+       to those in the UISA; see the EREF for the instruction definitions.
+    • Embedded floating-point. Embedded floating-point instructions implemented by VLE are identical
+       to those defined in the UISA.The mnemonics, decoding, and semantics for those instructions are
+       identical to those in the UISA; see the EREF for the instruction definitions.
+
+                    Variable-Length Encoding (VLE) Programming Environments Manual, Rev. 0
+Freescale Semiconductor                                                                                  2-11
+Instruction Model
+
+
+       •   Legacy move assist. Legacy move assist instructions implemented by VLE are identical to those
+           defined in the UISA. The mnemonics, decoding, and semantics for those instructions are identical
+           to those in the UISA; see the EREF for instruction definitions.
+       •   External PID. External process ID instructions implemented by VLE are identical to those defined
+           by the OEA. Semantics for those instructions are identical to those in the OEA; see the EREF for
+           the instruction definitions.
+       •   Embedded performance monitor. Embedded performance monitor instructions implemented by
+           VLE are identical to those defined by the OEA. The mnemonics, decoding, and semantics for those
+           instructions are identical to those in the OEA; see the EREF for the instruction definitions.
+       •   Processor control. Processor control instructions implemented by VLE are identical to those
+           defined by the OEA. The mnemonics, decoding, and semantics for those instructions are identical
+           to those in the OEA; see the EREF for the instruction definitions.
+
+
+
+
+                      Variable-Length Encoding (VLE) Programming Environments Manual, Rev. 0
+2-12                                                                                     Freescale Semiconductor

@@ -1,0 +1,15 @@
+        Chapter 2. Processor Control . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 39
+                           2.1           Processor Control Registers . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 39
+                           2.1.1            Machine State Register . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 39
+                           2.1.2            Processor Identification Register. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 41
+                           2.1.3            Processor Version Register . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 41
+                           2.1.4            Software-Use Special Purpose Registers . . . . . . . . . . . . . . . . . . . . . . . . . . 42
+                           2.1.5            Device Control Registers . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 42
+                           2.2           Processor Control Instructions. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 43
+                           2.2.1            System Linkage Instructions . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 43
+
+
+07 May 02                  Table of Contents                                                                                                                v
+                         2.2.2              Processor Control Register Manipulation Instructions . . . . . . . . . . . . . . . 43
+                         2.2.3              Instruction Synchronization Instruction . . . . . . . . . . . . . . . . . . . . . . . . . . 43
+                         2.2.4              Auxiliary Processing Query Instruction . . . . . . . . . . . . . . . . . . . . . . . . . . 44

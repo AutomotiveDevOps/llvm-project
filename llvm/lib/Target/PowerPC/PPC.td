@@ -138,9 +138,6 @@ def FeatureE500      : SubtargetFeature<"e500", "IsE500", "true",
                                         "Enable E500/E500mc instructions">;
 def FeatureE200      : SubtargetFeature<"e200", "IsE200", "true",
                                         "Enable e200 instructions">;
-def FeatureVLE       : SubtargetFeature<"vle","HasVLE", "true",
-                                        "Enable VLE (Variable Length Encoding) instructions",
-                                        [FeatureBookE]>;
 def FeatureSecurePlt : SubtargetFeature<"secure-plt","SecurePlt", "true",
                                         "Enable secure plt mode">;
 def FeaturePPC4xx    : SubtargetFeature<"ppc4xx", "IsPPC4xx", "true",
@@ -520,27 +517,27 @@ def : ProcessorModel<"e200z0", PPCE200Z0Model,
                   [DirectiveE200Z0,
                    FeatureICBT, FeatureBookE,
                    FeatureISEL, FeatureMFTB, FeatureE200,
-                   FeatureVLE, FeatureMSYNC]>;
+                   FeatureMSYNC]>;
 def : ProcessorModel<"e200z4", PPCE200Z4Model,
                   [DirectiveE200Z4,
                    FeatureICBT, FeatureBookE,
                    FeatureISEL, FeatureMFTB, FeatureE200,
-                   FeatureSPE, FeatureFPU, FeatureVLE, FeatureMSYNC]>;
+                   FeatureSPE, FeatureMSYNC]>;
 def : ProcessorModel<"e200z3", PPCE200Z3Model,
                   [DirectiveE200Z3,
                    FeatureICBT, FeatureBookE,
                    FeatureISEL, FeatureMFTB, FeatureE200,
-                   FeatureVLE, FeatureMSYNC]>;
+                   FeatureMSYNC]>;
 def : ProcessorModel<"e200z6", PPCE200Z6Model,
                   [DirectiveE200Z6,
                    FeatureICBT, FeatureBookE,
                    FeatureISEL, FeatureMFTB, FeatureE200,
-                   FeatureFPU, FeatureVLE, FeatureMSYNC]>;
+                   FeatureFPU, FeatureMSYNC]>;
 def : ProcessorModel<"e200z7", PPCE200Z7Model,
                   [DirectiveE200Z7,
                    FeatureICBT, FeatureBookE,
                    FeatureISEL, FeatureMFTB, FeatureE200,
-                   FeatureSPE, FeatureFPU, FeatureVLE, FeatureMSYNC]>;
+                   FeatureSPE, FeatureMSYNC]>;
 def : ProcessorModel<"a2", PPCA2Model,
                   [DirectiveA2, FeatureICBT, FeatureBookE, FeatureMFOCRF,
                    FeatureFCPSGN, FeatureFSqrt, FeatureFRE, FeatureFRES,

@@ -1,0 +1,21 @@
+         Chapter 9. Debug Facilities . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 199
+                            9.1          Background. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 199
+                            9.2          Internal Debug Mode . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 201
+                            9.3          Debug Events . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 201
+                            9.3.1            Instruction Address Compare Debug Event . . . . . . . . . . . . . . . . . . . . . . 202
+                            9.3.2            Data Address Compare Debug Event . . . . . . . . . . . . . . . . . . . . . . . . . . . 204
+                            9.3.3            Trap Debug Event . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 206
+                            9.3.4            Branch Taken Debug Event . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 207
+                            9.3.5            Instruction Complete Debug Event. . . . . . . . . . . . . . . . . . . . . . . . . . . . . 207
+                            9.3.6            Interrupt Taken Debug Event. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 208
+                            9.3.7            Return Debug Event . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 208
+                            9.3.8            Unconditional Debug Event . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 209
+                            9.4          Debug Registers . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 210
+                            9.4.1            Debug Control Registers . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 210
+                            9.4.1.1              Debug Control Register 0 . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 210
+                            9.4.1.2              Debug Control Register 1 . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 212
+                            9.4.1.3              Debug Control Register 2 . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 215
+                            9.4.2            Debug Status Register . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 217
+                            9.4.3            Instruction Address Compare Registers . . . . . . . . . . . . . . . . . . . . . . . . . 218
+                            9.4.4            Data Address Compare Registers . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 218
+                            9.4.5            Data Value Compare Registers . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 219

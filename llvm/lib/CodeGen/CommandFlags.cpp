@@ -47,6 +47,7 @@ using namespace llvm;
 CGOPT(std::string, MArch)
 CGOPT(std::string, MCPU)
 CGLIST(std::string, MAttrs)
+CGOPT(bool, MVLE)
 CGOPT_EXP(Reloc::Model, RelocModel)
 CGOPT(ThreadModel::Model, ThreadModel)
 CGOPT_EXP(CodeModel::Model, CodeModel)
@@ -107,6 +108,12 @@ codegen::RegisterCodeGenFlags::RegisterCodeGenFlags() {
       cl::desc("Target specific attributes (-mattr=help for details)"),
       cl::value_desc("a1,+a2,-a3,..."));
   CGBINDOPT(MAttrs);
+
+  // PowerPC-specific flags
+  static cl::opt<bool> MVLE(
+      "mvle", cl::desc("Enable PowerPC Variable Length Encoding (VLE) instructions"),
+      cl::init(false));
+  CGBINDOPT(MVLE);
 
   static cl::opt<Reloc::Model> RelocModel(
       "relocation-model", cl::desc("Choose relocation model"),
@@ -507,6 +514,10 @@ std::string codegen::getFeaturesStr() {
   for (auto const &MAttr : getMAttrs())
     Features.AddFeature(MAttr);
 
+  // Add VLE feature if -mvle flag is specified
+  if (getMVLE())
+    Features.AddFeature("+vle");
+
   return Features.getString();
 }
 
@@ -526,6 +537,10 @@ std::vector<std::string> codegen::getFeatureList() {
 
   for (auto const &MAttr : getMAttrs())
     Features.AddFeature(MAttr);
+
+  // Add VLE feature if -mvle flag is specified
+  if (getMVLE())
+    Features.AddFeature("+vle");
 
   return Features.getFeatures();
 }
