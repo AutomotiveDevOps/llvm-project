@@ -11,6 +11,7 @@
 
 #include "Cuda.h"
 #include "Gnu.h"
+#include "clang/Basic/LangOptions.h"
 #include "clang/Driver/Tool.h"
 #include "clang/Driver/ToolChain.h"
 
@@ -19,7 +20,7 @@ namespace driver {
 namespace tools {
 
 namespace CrossWindows {
-class LLVM_LIBRARY_VISIBILITY Assembler : public Tool {
+class LLVM_LIBRARY_VISIBILITY Assembler final : public Tool {
 public:
   Assembler(const ToolChain &TC) : Tool("CrossWindows::Assembler", "as", TC) {}
 
@@ -31,10 +32,9 @@ public:
                     const char *LinkingOutput) const override;
 };
 
-class LLVM_LIBRARY_VISIBILITY Linker : public Tool {
+class LLVM_LIBRARY_VISIBILITY Linker final : public Tool {
 public:
-  Linker(const ToolChain &TC)
-      : Tool("CrossWindows::Linker", "ld", TC, RF_Full) {}
+  Linker(const ToolChain &TC) : Tool("CrossWindows::Linker", "ld", TC) {}
 
   bool hasIntegratedCPP() const override { return false; }
   bool isLinkJob() const override { return true; }
@@ -54,14 +54,15 @@ public:
   CrossWindowsToolChain(const Driver &D, const llvm::Triple &T,
                         const llvm::opt::ArgList &Args);
 
-  bool IsIntegratedAssemblerDefault() const override { return true; }
-  bool IsUnwindTablesDefault(const llvm::opt::ArgList &Args) const override;
+  UnwindTableLevel
+  getDefaultUnwindTableLevel(const llvm::opt::ArgList &Args) const override;
   bool isPICDefault() const override;
-  bool isPIEDefault() const override;
+  bool isPIEDefault(const llvm::opt::ArgList &Args) const override;
   bool isPICDefaultForced() const override;
 
-  unsigned int GetDefaultStackProtectorLevel(bool KernelOrKext) const override {
-    return 0;
+  LangOptions::StackProtectorMode
+  GetDefaultStackProtectorLevel(bool KernelOrKext) const override {
+    return LangOptions::SSPOff;
   }
 
   void

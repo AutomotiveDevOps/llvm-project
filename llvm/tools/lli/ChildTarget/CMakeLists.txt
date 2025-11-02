@@ -1,7 +1,7 @@
 set(LLVM_LINK_COMPONENTS
-  OrcError
   OrcJIT
-  RuntimeDyld
+  OrcShared
+  OrcTargetProcess
   Support
   )
 
@@ -10,5 +10,6 @@ add_llvm_utility(lli-child-target
 
   DEPENDS
   intrinsics_gen
-)
 
+  EXPORT_SYMBOLS
+)

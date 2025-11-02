@@ -1,4 +1,4 @@
-//===--- MisplacedConstCheck.cpp - clang-tidy------------------------------===//
+//===----------------------------------------------------------------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -12,9 +12,7 @@
 
 using namespace clang::ast_matchers;
 
-namespace clang {
-namespace tidy {
-namespace misc {
+namespace clang::tidy::misc {
 
 void MisplacedConstCheck::registerMatchers(MatchFinder *Finder) {
   auto NonConstAndNonFunctionPointerType = hasType(pointerType(unless(
@@ -22,11 +20,12 @@ void MisplacedConstCheck::registerMatchers(MatchFinder *Finder) {
 
   Finder->addMatcher(
       valueDecl(
-          hasType(isConstQualified()),
-          hasType(typedefType(hasDeclaration(anyOf(
-              typedefDecl(NonConstAndNonFunctionPointerType).bind("typedef"),
-              typeAliasDecl(NonConstAndNonFunctionPointerType)
-                  .bind("typeAlias"))))))
+          hasType(qualType(isConstQualified(),
+                           typedefType(hasDeclaration(anyOf(
+                               typedefDecl(NonConstAndNonFunctionPointerType)
+                                   .bind("typedef"),
+                               typeAliasDecl(NonConstAndNonFunctionPointerType)
+                                   .bind("typeAlias")))))))
           .bind("decl"),
       this);
 }
@@ -52,7 +51,7 @@ void MisplacedConstCheck::check(const MatchFinder::MatchResult &Result) {
   QualType CanQT = Var->getType().getCanonicalType();
 
   SourceLocation AliasLoc;
-  const char *AliasType;
+  const char *AliasType = nullptr;
   if (const auto *Typedef = Result.Nodes.getNodeAs<TypedefDecl>("typedef")) {
     AliasLoc = Typedef->getLocation();
     AliasType = "typedef";
@@ -73,6 +72,4 @@ void MisplacedConstCheck::check(const MatchFinder::MatchResult &Result) {
   diag(AliasLoc, "%0 declared here", DiagnosticIDs::Note) << AliasType;
 }
 
-} // namespace misc
-} // namespace tidy
-} // namespace clang
+} // namespace clang::tidy::misc

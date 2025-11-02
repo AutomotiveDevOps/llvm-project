@@ -298,14 +298,14 @@ typedef typeArgs15<NSObject *, NSString *> typeArgs16; // expected-error{{type a
 
 typedef typeArgs15<NSObject> typeArgsAndProtocolQuals6;
 
-void testSpecializedTypePrinting() {
+void testSpecializedTypePrinting(void) {
   int *ip;
 
-  ip = (typeArgs15*)0; // expected-warning{{'typeArgs15 *' (aka 'PC1<NSObject *,NSString *> *')}}
-  ip = (typeArgsAndProtocolQuals4*)0; // expected-warning{{'typeArgsAndProtocolQuals4 *' (aka 'PC1<NSObject *,NSString *><NSCopying> *')}}
-  ip = (typeArgsAndProtocolQuals5*)0; // expected-warning{{'typeArgsAndProtocolQuals5 *' (aka 'typeArgs15<NSCopying> *')}}
+  ip = (typeArgs15*)0; // expected-error{{'typeArgs15 *' (aka 'PC1<NSObject *,NSString *> *')}}
+  ip = (typeArgsAndProtocolQuals4*)0; // expected-error{{'typeArgsAndProtocolQuals4 *' (aka 'PC1<NSObject *,NSString *><NSCopying> *')}}
+  ip = (typeArgsAndProtocolQuals5*)0; // expected-error{{'typeArgsAndProtocolQuals5 *' (aka 'typeArgs15<NSCopying> *')}}
   ip = (typeArgsAndProtocolQuals6)0; // expected-error{{used type 'typeArgsAndProtocolQuals6' (aka 'typeArgs15<NSObject>')}}
-  ip = (typeArgsAndProtocolQuals6*)0;// expected-warning{{'typeArgsAndProtocolQuals6 *' (aka 'typeArgs15<NSObject> *')}}
+  ip = (typeArgsAndProtocolQuals6*)0;// expected-error{{'typeArgsAndProtocolQuals6 *' (aka 'typeArgs15<NSObject> *')}}
 }
 
 // --------------------------------------------------------------------------

@@ -5,12 +5,14 @@
 // RUN: %clang_cc1 -emit-pch -o %t %s
 // RUN: %clang_cc1 -include-pch %t -fsyntax-only -verify %s 
 
+// RUN: %clang_cc1 -emit-pch -fpch-instantiate-templates -o %t %s
+// RUN: %clang_cc1 -include-pch %t -fsyntax-only -verify %s
+
 // expected-no-diagnostics
 
 #ifndef HEADER
 #define HEADER
 
-// rdar://12627738
 namespace rdar12627738 {
 
 class RecyclerTag {

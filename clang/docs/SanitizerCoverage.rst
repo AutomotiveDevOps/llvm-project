@@ -41,7 +41,7 @@ With an additional ``...=trace-pc,indirect-calls`` flag
 
 The functions `__sanitizer_cov_trace_pc_*` should be defined by the user.
 
-Example: 
+Example:
 
 .. code-block:: c++
 
@@ -74,7 +74,7 @@ Example:
   extern "C" void __sanitizer_cov_trace_pc_guard(uint32_t *guard) {
     if (!*guard) return;  // Duplicate the guard check.
     // If you set *guard to 0 this code will not be called again for this edge.
-    // Now you can get the PC and do whatever you want: 
+    // Now you can get the PC and do whatever you want:
     //   store it somewhere or symbolize it and print right away.
     // The values of `*guard` are as you set them in
     // __sanitizer_cov_trace_pc_guard_init and so you can make them consecutive
@@ -96,7 +96,7 @@ Example:
   }
 
 .. code-block:: console
-  
+
   clang++ -g  -fsanitize-coverage=trace-pc-guard trace-pc-guard-example.cc -c
   clang++ trace-pc-guard-cb.cc trace-pc-guard-example.o -fsanitize=address
   ASAN_OPTIONS=strip_path_prefix=`pwd`/ ./a.out
@@ -275,6 +275,12 @@ integer division instructions (to capture the right argument of division)
 and with  ``-fsanitize-coverage=trace-gep`` --
 the `LLVM GEP instructions <https://llvm.org/docs/GetElementPtr.html>`_
 (to capture array indices).
+Similarly, with ``-fsanitize-coverage=trace-loads`` and ``-fsanitize-coverage=trace-stores``
+the compiler will instrument loads and stores, respectively.
+
+Currently, these flags do not work by themselves - they require one
+of ``-fsanitize-coverage={trace-pc,inline-8bit-counters,inline-bool}``
+flags to work.
 
 Unless ``no-prune`` option is provided, some of the comparison instructions
 will not be instrumented.
@@ -289,7 +295,7 @@ will not be instrumented.
   void __sanitizer_cov_trace_cmp8(uint64_t Arg1, uint64_t Arg2);
 
   // Called before a comparison instruction if exactly one of the arguments is constant.
-  // Arg1 and Arg2 are arguments of the comparison, Arg1 is a compile-time constant. 
+  // Arg1 and Arg2 are arguments of the comparison, Arg1 is a compile-time constant.
   // These callbacks are emitted by -fsanitize-coverage=trace-cmp since 2017-08-11
   void __sanitizer_cov_trace_const_cmp1(uint8_t Arg1, uint8_t Arg2);
   void __sanitizer_cov_trace_const_cmp2(uint16_t Arg1, uint16_t Arg2);
@@ -308,33 +314,167 @@ will not be instrumented.
   void __sanitizer_cov_trace_div4(uint32_t Val);
   void __sanitizer_cov_trace_div8(uint64_t Val);
 
-  // Called before a GetElemementPtr (GEP) instruction
+  // Called before a GetElementPtr (GEP) instruction
   // for every non-constant array index.
   void __sanitizer_cov_trace_gep(uintptr_t Idx);
 
-Partially disabling instrumentation
-===================================
+  // Called before a load of appropriate size. Addr is the address of the load.
+  void __sanitizer_cov_load1(uint8_t *addr);
+  void __sanitizer_cov_load2(uint16_t *addr);
+  void __sanitizer_cov_load4(uint32_t *addr);
+  void __sanitizer_cov_load8(uint64_t *addr);
+  void __sanitizer_cov_load16(__int128 *addr);
+  // Called before a store of appropriate size. Addr is the address of the store.
+  void __sanitizer_cov_store1(uint8_t *addr);
+  void __sanitizer_cov_store2(uint16_t *addr);
+  void __sanitizer_cov_store4(uint32_t *addr);
+  void __sanitizer_cov_store8(uint64_t *addr);
+  void __sanitizer_cov_store16(__int128 *addr);
+
+
+Tracing control flow
+====================
+
+With ``-fsanitize-coverage=control-flow`` the compiler will create a table to collect
+control flow for each function. More specifically, for each basic block in the function,
+two lists are populated. One list for successors of the basic block and another list for
+non-intrinsic called functions.
+
+**TODO:** in the current implementation, indirect calls are not tracked
+and are only marked with special value (-1) in the list.
+
+Each table row consists of the basic block address
+followed by ``null``-ended lists of successors and callees.
+The table is encoded in a special section named ``sancov_cfs``
+
+Example:
+
+.. code-block:: c++
+
+  int foo (int x) {
+    if (x > 0)
+      bar(x);
+    else
+      x = 0;
+    return x;
+  }
+
+The code above contains 4 basic blocks, let's name them A, B, C, D:
+
+.. code-block:: none
+
+    A
+    |\
+    | \
+    B  C
+    | /
+    |/
+    D
+
+The collected control flow table is as follows:
+``A, B, C, null, null, B, D, null, @bar, null, C, D, null, null, D, null, null.``
+
+Users need to implement a single function to capture the CF table at startup:
+
+.. code-block:: c++
+
+  extern "C"
+  void __sanitizer_cov_cfs_init(const uintptr_t *cfs_beg,
+                                const uintptr_t *cfs_end) {
+    // [cfs_beg,cfs_end) is the array of ptr-sized integers representing
+    // the collected control flow.
+  }
+
+Tracing Stack Depth
+===================
+
+With ``-fsanitize-coverage=stack-depth`` the compiler will track how much
+stack space has been used for a function call chain. Leaf functions are
+not included in this tracing.
+
+The maximum depth of a function call graph is stored in the thread-local
+``__sancov_lowest_stack`` variable. Instrumentation is inserted in every
+non-leaf function to check the frame pointer against this variable,
+and if it is lower, store the current frame pointer. This effectively
+inserts the following:
+
+.. code-block:: c++
+
+  extern thread_local uintptr_t __sancov_lowest_stack;
+
+  uintptr_t stack = (uintptr_t)__builtin_frame_address(0);
+  if (stack < __sancov_lowest_stack)
+    __sancov_lowest_stack = stack;
+
+If ``-fsanitize-coverage-stack-depth-callback-min=N`` (where
+``N > 0``) is also used, the tracking is delegated to a callback,
+``__sanitizer_cov_stack_depth``, instead of adding instrumentation to
+update ``__sancov_lowest_stack``. The ``N`` of the argument is used
+to determine which functions to instrument. Only functions estimated
+to be using ``N`` bytes or more of stack space will be instrumented to
+call the tracing callback. In the case of a dynamically sized stack,
+the callback is unconditionally added.
+
+The callback takes no arguments and is responsible for determining
+the stack usage and doing any needed comparisons and storage. A roughly
+equivalent implementation of ``__sancov_lowest_stack`` using the callback
+would look like this:
+
+.. code-block:: c++
+
+  void __sanitizer_cov_stack_depth(void) {
+    uintptr_t stack = (uintptr_t)__builtin_frame_address(0);
+
+    if (stack < __sancov_lowest_stack)
+      __sancov_lowest_stack = stack;
+  }
+
+Gated Trace Callbacks
+=====================
+
+Gate the invocation of the tracing callbacks with
+``-sanitizer-coverage-gated-trace-callbacks``.
+
+When this option is enabled, the instrumentation will not call into the
+runtime-provided callbacks for tracing, thus only incurring in a trivial
+branch without going through a function call.
+
+It is up to the runtime to toggle the value of the global variable in order to
+enable tracing.
+
+This option is only supported for trace-pc-guard and trace-cmp.
+
+Disabling instrumentation with ``__attribute__((no_sanitize("coverage")))``
+===========================================================================
+
+It is possible to disable coverage instrumentation for select functions via the
+function attribute ``__attribute__((no_sanitize("coverage")))``. Because this
+attribute may not be supported by other compilers, it is recommended to use it
+together with ``__has_feature(coverage_sanitizer)``.
+
+Disabling instrumentation without source modification
+=====================================================
 
 It is sometimes useful to tell SanitizerCoverage to instrument only a subset of the
-functions in your target.
-With ``-fsanitize-coverage-whitelist=whitelist.txt``
-and ``-fsanitize-coverage-blacklist=blacklist.txt``,
-you can specify such a subset through the combination of a whitelist and a blacklist.
+functions in your target without modifying source files.
+With ``-fsanitize-coverage-allowlist=allowlist.txt``
+and ``-fsanitize-coverage-ignorelist=blocklist.txt``,
+you can specify such a subset through the combination of an allowlist and a blocklist.
 
 SanitizerCoverage will only instrument functions that satisfy two conditions.
-First, the function should belong to a source file with a path that is both whitelisted
-and not blacklisted.
-Second, the function should have a mangled name that is both whitelisted and not blacklisted.
+First, the function should belong to a source file with a path that is both allowlisted
+and not blocklisted.
+Second, the function should have a mangled name that is both allowlisted and not blocklisted.
 
-The whitelist and blacklist format is similar to that of the sanitizer blacklist format.
-The default whitelist will match every source file and every function.
-The default blacklist will match no source file and no function.
+The allowlist and blocklist format is similar to that of the sanitizer blocklist format.
+The default allowlist will match every source file and every function.
+The default blocklist will match no source file and no function.
 
-A common use case is to have the whitelist list folders or source files for which you want
-instrumentation and allow all function names, while the blacklist will opt out some specific
-files or functions that the whitelist loosely allowed.
+A common use case is to have the allowlist list folders or source files for which you want
+instrumentation and allow all function names, while the blocklist will opt out some specific
+files or functions that the allowlist loosely allowed.
 
-Here is an example whitelist:
+Here is an example allowlist:
 
 .. code-block:: none
 
@@ -345,13 +485,13 @@ Here is an example whitelist:
   # Enable instrumentation for all functions in those files
   fun:*
 
-And an example blacklist:
+And an example blocklist:
 
 .. code-block:: none
 
-  # Disable instrumentation for a specific source file that the whitelist allowed
+  # Disable instrumentation for a specific source file that the allowlist allowed
   src:bar/b.cpp
-  # Disable instrumentation for a specific function that the whitelist allowed
+  # Disable instrumentation for a specific function that the allowlist allowed
   fun:*myFunc*
 
 The use of ``*`` wildcards above is required because function names are matched after mangling.
@@ -359,7 +499,7 @@ Without the wildcards, one would have to write the whole mangled name.
 
 Be careful that the paths of source files are matched exactly as they are provided on the clang
 command line.
-For example, the whitelist above would include file ``bar/b.cpp`` if the path was provided
+For example, the allowlist above would include file ``bar/b.cpp`` if the path was provided
 exactly like this, but would it would fail to include it with other ways to refer to the same
 file such as ``./bar/b.cpp``, or ``bar\b.cpp`` on Windows.
 So, please make sure to always double check that your lists are correctly applied.
@@ -414,11 +554,11 @@ offsets in the corresponding binary/DSO that were executed during the run.
 Sancov Tool
 -----------
 
-An simple ``sancov`` tool is provided to process coverage files.
+A simple ``sancov`` tool is provided to process coverage files.
 The tool is part of LLVM project and is currently supported only on Linux.
 It can handle symbolization tasks autonomously without any extra support
-from the environment. You need to pass .sancov files (named 
-``<module_name>.<pid>.sancov`` and paths to all corresponding binary elf files. 
+from the environment. You need to pass .sancov files (named
+``<module_name>.<pid>.sancov`` and paths to all corresponding binary elf files.
 Sancov matches these files using module names and binaries file names.
 
 .. code-block:: console
@@ -432,7 +572,7 @@ Sancov matches these files using module names and binaries file names.
       -symbolize                - Symbolizes the report.
 
     Options
-      -blacklist=<string>         - Blacklist file (sanitizer blacklist format).
+      -blocklist=<string>         - Blocklist file (sanitizer blocklist format).
       -demangle                   - Print demangled function name.
       -strip_path_prefix=<string> - Strip this prefix from file paths in reports
 

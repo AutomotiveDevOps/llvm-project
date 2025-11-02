@@ -1,4 +1,4 @@
-//===--- LLVMLibcTidyModule.cpp - clang-tidy ------------------------------===//
+//===----------------------------------------------------------------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -11,10 +11,10 @@
 #include "../ClangTidyModuleRegistry.h"
 #include "CalleeNamespaceCheck.h"
 #include "ImplementationInNamespaceCheck.h"
+#include "InlineFunctionDeclCheck.h"
 #include "RestrictSystemLibcHeadersCheck.h"
 
-namespace clang {
-namespace tidy {
+namespace clang::tidy {
 namespace llvm_libc {
 
 class LLVMLibcModule : public ClangTidyModule {
@@ -24,6 +24,8 @@ public:
         "llvmlibc-callee-namespace");
     CheckFactories.registerCheck<ImplementationInNamespaceCheck>(
         "llvmlibc-implementation-in-namespace");
+    CheckFactories.registerCheck<InlineFunctionDeclCheck>(
+        "llvmlibc-inline-function-decl");
     CheckFactories.registerCheck<RestrictSystemLibcHeadersCheck>(
         "llvmlibc-restrict-system-libc-headers");
   }
@@ -37,7 +39,7 @@ static ClangTidyModuleRegistry::Add<LLVMLibcModule>
 
 // This anchor is used to force the linker to link in the generated object file
 // and thus register the LLVMLibcModule.
+// NOLINTNEXTLINE(misc-use-internal-linkage)
 volatile int LLVMLibcModuleAnchorSource = 0;
 
-} // namespace tidy
-} // namespace clang
+} // namespace clang::tidy

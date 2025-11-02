@@ -1,17 +1,20 @@
 include_directories( ${CMAKE_CURRENT_SOURCE_DIR}/.. )
-
-if( HAVE_LIBDL )
-    set(LLVM_INTEL_JIT_LIBS ${CMAKE_DL_LIBS})
+if(NOT DEFINED ITTAPI_SOURCE_DIR)
+    set(ITTAPI_SOURCE_DIR ${PROJECT_BINARY_DIR})
 endif()
-
-set(LLVM_INTEL_JIT_LIBS ${LLVM_PTHREAD_LIB} ${LLVM_INTEL_JIT_LIBS})
-
-
+include_directories( ${ITTAPI_SOURCE_DIR}/ittapi/include/ )
 add_llvm_component_library(LLVMIntelJITEvents
   IntelJITEventListener.cpp
-  jitprofiling.c
 
-  LINK_LIBS ${LLVM_INTEL_JIT_LIBS}
+
+  LINK_COMPONENTS
+  CodeGen
+  Core
+  DebugInfoDWARF
+  Support
+  Object
+  ExecutionEngine
+  IntelJITProfiling
 )
 
 add_dependencies(LLVMIntelJITEvents LLVMCodeGen)

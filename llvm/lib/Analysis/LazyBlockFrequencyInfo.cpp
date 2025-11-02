@@ -32,9 +32,7 @@ INITIALIZE_PASS_END(LazyBlockFrequencyInfoPass, DEBUG_TYPE,
 
 char LazyBlockFrequencyInfoPass::ID = 0;
 
-LazyBlockFrequencyInfoPass::LazyBlockFrequencyInfoPass() : FunctionPass(ID) {
-  initializeLazyBlockFrequencyInfoPassPass(*PassRegistry::getPassRegistry());
-}
+LazyBlockFrequencyInfoPass::LazyBlockFrequencyInfoPass() : FunctionPass(ID) {}
 
 void LazyBlockFrequencyInfoPass::print(raw_ostream &OS, const Module *) const {
   LBFI.getCalculated().print(OS);
@@ -45,8 +43,8 @@ void LazyBlockFrequencyInfoPass::getAnalysisUsage(AnalysisUsage &AU) const {
   // We require DT so it's available when LI is available. The LI updating code
   // asserts that DT is also present so if we don't make sure that we have DT
   // here, that assert will trigger.
-  AU.addRequired<DominatorTreeWrapperPass>();
-  AU.addRequired<LoopInfoWrapperPass>();
+  AU.addRequiredTransitive<DominatorTreeWrapperPass>();
+  AU.addRequiredTransitive<LoopInfoWrapperPass>();
   AU.setPreservesAll();
 }
 
@@ -61,8 +59,8 @@ bool LazyBlockFrequencyInfoPass::runOnFunction(Function &F) {
 
 void LazyBlockFrequencyInfoPass::getLazyBFIAnalysisUsage(AnalysisUsage &AU) {
   LazyBranchProbabilityInfoPass::getLazyBPIAnalysisUsage(AU);
-  AU.addRequired<LazyBlockFrequencyInfoPass>();
-  AU.addRequired<LoopInfoWrapperPass>();
+  AU.addRequiredTransitive<LazyBlockFrequencyInfoPass>();
+  AU.addRequiredTransitive<LoopInfoWrapperPass>();
 }
 
 void llvm::initializeLazyBFIPassPass(PassRegistry &Registry) {

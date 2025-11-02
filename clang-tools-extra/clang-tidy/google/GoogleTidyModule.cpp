@@ -1,4 +1,4 @@
-//===--- GoogleTidyModule.cpp - clang-tidy --------------------------------===//
+//===----------------------------------------------------------------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -19,11 +19,11 @@
 #include "DefaultArgumentsCheck.h"
 #include "ExplicitConstructorCheck.h"
 #include "ExplicitMakePairCheck.h"
+#include "FloatTypesCheck.h"
 #include "FunctionNamingCheck.h"
 #include "GlobalNamesInHeadersCheck.h"
 #include "GlobalVariableDeclarationCheck.h"
 #include "IntegerTypesCheck.h"
-#include "NonConstReferences.h"
 #include "OverloadedUnaryAndCheck.h"
 #include "TodoCommentCheck.h"
 #include "UnnamedNamespaceInHeaderCheck.h"
@@ -32,12 +32,11 @@
 
 using namespace clang::ast_matchers;
 
-namespace clang {
-namespace tidy {
+namespace clang::tidy {
 namespace google {
 
 class GoogleModule : public ClangTidyModule {
- public:
+public:
   void addCheckFactories(ClangTidyCheckFactories &CheckFactories) override {
     CheckFactories.registerCheck<build::ExplicitMakePairCheck>(
         "google-build-explicit-make-pair");
@@ -59,12 +58,12 @@ class GoogleModule : public ClangTidyModule {
         "google-objc-function-naming");
     CheckFactories.registerCheck<objc::GlobalVariableDeclarationCheck>(
         "google-objc-global-variable-declaration");
+    CheckFactories.registerCheck<runtime::RuntimeFloatCheck>(
+        "google-runtime-float");
     CheckFactories.registerCheck<runtime::IntegerTypesCheck>(
         "google-runtime-int");
     CheckFactories.registerCheck<runtime::OverloadedUnaryAndCheck>(
         "google-runtime-operator");
-    CheckFactories.registerCheck<runtime::NonConstReferences>(
-        "google-runtime-references");
     CheckFactories
         .registerCheck<readability::AvoidUnderscoreInGoogletestNameCheck>(
             "google-readability-avoid-underscore-in-googletest-name");
@@ -100,11 +99,10 @@ class GoogleModule : public ClangTidyModule {
 static ClangTidyModuleRegistry::Add<GoogleModule> X("google-module",
                                                     "Adds Google lint checks.");
 
-}  // namespace google
+} // namespace google
 
 // This anchor is used to force the linker to link in the generated object file
 // and thus register the GoogleModule.
-volatile int GoogleModuleAnchorSource = 0;
+volatile int GoogleModuleAnchorSource = 0; // NOLINT(misc-use-internal-linkage)
 
-}  // namespace tidy
-}  // namespace clang
+} // namespace clang::tidy

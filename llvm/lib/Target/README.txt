@@ -2,20 +2,6 @@ Target Independent Opportunities:
 
 //===---------------------------------------------------------------------===//
 
-We should recognized various "overflow detection" idioms and translate them into
-llvm.uadd.with.overflow and similar intrinsics.  Here is a multiply idiom:
-
-unsigned int mul(unsigned int a,unsigned int b) {
- if ((unsigned long long)a*b>0xffffffff)
-   exit(0);
-  return a*b;
-}
-
-The legalization code for mul-with-overflow needs to be made more robust before
-this can be implemented though.
-
-//===---------------------------------------------------------------------===//
-
 Get the C front-end to expand hypot(x,y) -> llvm.sqrt(x*x+y*y) when errno and
 precision don't matter (ffastmath).  Misc/mandel will like this. :)  This isn't
 safe in general, even on darwin.  See the libm implementation of hypot for
@@ -232,7 +218,7 @@ unsigned int popcount(unsigned int input) {
   return count;
 }
 
-This should be recognized as CLZ:  rdar://8459039
+This should be recognized as CLZ:  https://github.com/llvm/llvm-project/issues/64167
 
 unsigned clz_a(unsigned a) {
   int i;
@@ -1541,9 +1527,9 @@ int bar() { return foo("abcd"); }
 
 //===---------------------------------------------------------------------===//
 
-functionattrs doesn't know much about memcpy/memset.  This function should be
+function-attrs doesn't know much about memcpy/memset.  This function should be
 marked readnone rather than readonly, since it only twiddles local memory, but
-functionattrs doesn't handle memset/memcpy/memmove aggressively:
+function-attrs doesn't handle memset/memcpy/memmove aggressively:
 
 struct X { int *p; int *q; };
 int foo() {
@@ -1557,7 +1543,7 @@ int foo() {
 }
 
 This can be seen at:
-$ clang t.c -S -o - -mkernel -O0 -emit-llvm | opt -functionattrs -S
+$ clang t.c -S -o - -mkernel -O0 -emit-llvm | opt -function-attrs -S
 
 
 //===---------------------------------------------------------------------===//
@@ -1840,7 +1826,7 @@ current definition always folds to a constant. We also should make sure that
 we remove checking in code like
 
   char *p = malloc(strlen(s)+1);
-  __strcpy_chk(p, s, __builtin_objectsize(p, 0));
+  __strcpy_chk(p, s, __builtin_object_size(p, 0));
 
 //===---------------------------------------------------------------------===//
 

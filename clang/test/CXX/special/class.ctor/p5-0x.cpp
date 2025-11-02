@@ -1,10 +1,12 @@
-// RUN: %clang_cc1 -fsyntax-only -verify %s -std=c++11 -Wno-defaulted-function-deleted
+// RUN: %clang_cc1 -fsyntax-only -verify %s -std=c++11 -Wno-deprecated-builtins -Wno-defaulted-function-deleted
 
 struct DefaultedDefCtor1 {};
 struct DefaultedDefCtor2 { DefaultedDefCtor2() = default; };
+struct DefaultedDefCtorUninitialized1 { int x; };
+struct DefaultedDefCtorUninitialized2 { int x; DefaultedDefCtorUninitialized2() = default; };
 struct DeletedDefCtor { DeletedDefCtor() = delete; DeletedDefCtor(int); }; // expected-note {{explicitly marked deleted here}}
 class PrivateDefCtor { PrivateDefCtor() = default; public: PrivateDefCtor(int); };
-struct DeletedDtor { ~DeletedDtor() = delete; }; // expected-note 8{{explicitly marked deleted here}}
+struct DeletedDtor { ~DeletedDtor() = delete; }; // expected-note 4{{explicitly marked deleted here}}
 class PrivateDtor { ~PrivateDtor() = default; };
 class Friend {
   Friend() = default; ~Friend() = default;
@@ -51,21 +53,20 @@ class NotDeleted2d { int &&a = 0; }; // expected-error {{reference member 'a' bi
 NotDeleted2d nd2d; // expected-note {{first required here}}
 
 // - any non-variant non-static data member of const qualified type (or array
-// thereof) with no brace-or-equal-initializer does not have a user-provided
-// default constructor,
+// thereof) with no brace-or-equal-initializer is not const-default-constructible
 class Deleted3a { const int a; }; // expected-note {{because field 'a' of const-qualified type 'const int' would not be initialized}} \
                                      expected-warning {{does not declare any constructor}} \
                                      expected-note {{will never be initialized}}
 Deleted3a d3a; // expected-error {{implicitly-deleted default constructor}}
-class Deleted3b { const DefaultedDefCtor1 a[42]; }; // expected-note {{because field 'a' of const-qualified type 'const DefaultedDefCtor1 [42]' would not be initialized}}
+class Deleted3b { const DefaultedDefCtorUninitialized1 a[42]; }; // expected-note {{because field 'a' of const-qualified type 'const DefaultedDefCtorUninitialized1[42]' would not be initialized}}
 Deleted3b d3b; // expected-error {{implicitly-deleted default constructor}}
-class Deleted3c { const DefaultedDefCtor2 a; }; // expected-note {{because field 'a' of const-qualified type 'const DefaultedDefCtor2' would not be initialized}}
+class Deleted3c { const DefaultedDefCtorUninitialized2 a; }; // expected-note {{because field 'a' of const-qualified type 'const DefaultedDefCtorUninitialized2' would not be initialized}}
 Deleted3c d3c; // expected-error {{implicitly-deleted default constructor}}
 class NotDeleted3a { const int a = 0; };
 NotDeleted3a nd3a;
-class NotDeleted3b { const DefaultedDefCtor1 a[42] = {}; };
+class NotDeleted3b { const DefaultedDefCtorUninitialized1 a[42] = {}; };
 NotDeleted3b nd3b;
-class NotDeleted3c { const DefaultedDefCtor2 a = DefaultedDefCtor2(); };
+class NotDeleted3c { const DefaultedDefCtorUninitialized2 a = DefaultedDefCtorUninitialized2(); };
 NotDeleted3c nd3c;
 union NotDeleted3d { const int a; int b; };
 NotDeleted3d nd3d;
@@ -75,6 +76,10 @@ union NotDeleted3f { const DefaultedDefCtor2 a; int b; };
 NotDeleted3f nd3f;
 struct NotDeleted3g { union { const int a; int b; }; };
 NotDeleted3g nd3g;
+struct NotDeleted3h { const DefaultedDefCtor1 a[42]; };
+NotDeleted3h nd3h;
+struct NotDeleted3i { const DefaultedDefCtor2 a; };
+NotDeleted3i nd3i;
 
 // - X is a union and all of its variant members are of const-qualified type (or
 // array thereof),
@@ -122,22 +127,22 @@ NotDeleted6c nd6c;
 // - any direct or virtual base class or non-static data member has a type with
 // a destructor that is deleted or inaccessible from the defaulted default
 // constructor.
-struct Deleted7a : DeletedDtor {}; // expected-note 2{{because base class 'DeletedDtor' has a deleted destructor}}
-Deleted7a d7a; // expected-error {{implicitly-deleted default constructor}} expected-error {{attempt to use a deleted function}}
-struct Deleted7b : virtual DeletedDtor {}; // expected-note 2{{because base class 'DeletedDtor' has a deleted destructor}}
-Deleted7b d7b; // expected-error {{implicitly-deleted default constructor}} expected-error {{attempt to use a deleted function}}
-struct Deleted7c { DeletedDtor a; }; // expected-note 2{{because field 'a' has a deleted destructor}}
-Deleted7c d7c; // expected-error {{implicitly-deleted default constructor}} expected-error {{attempt to use a deleted function}}
-struct Deleted7d { DeletedDtor a = {}; }; // expected-note 2{{because field 'a' has a deleted destructor}}
-Deleted7d d7d; // expected-error {{implicitly-deleted default constructor}} expected-error {{attempt to use a deleted function}}
-struct Deleted7e : PrivateDtor {}; // expected-note 2{{base class 'PrivateDtor' has an inaccessible destructor}}
-Deleted7e d7e; // expected-error {{implicitly-deleted default constructor}} expected-error {{attempt to use a deleted function}}
-struct Deleted7f : virtual PrivateDtor {}; // expected-note 2{{base class 'PrivateDtor' has an inaccessible destructor}}
-Deleted7f d7f; // expected-error {{implicitly-deleted default constructor}} expected-error {{attempt to use a deleted function}}
-struct Deleted7g { PrivateDtor a; }; // expected-note 2{{field 'a' has an inaccessible destructor}}
-Deleted7g d7g; // expected-error {{implicitly-deleted default constructor}} expected-error {{attempt to use a deleted function}}
-struct Deleted7h { PrivateDtor a = {}; }; // expected-note 2{{field 'a' has an inaccessible destructor}}
-Deleted7h d7h; // expected-error {{implicitly-deleted default constructor}} expected-error {{attempt to use a deleted function}}
+struct Deleted7a : DeletedDtor {}; // expected-note {{because base class 'DeletedDtor' has a deleted destructor}}
+Deleted7a d7a; // expected-error {{implicitly-deleted default constructor}}
+struct Deleted7b : virtual DeletedDtor {}; // expected-note {{because base class 'DeletedDtor' has a deleted destructor}}
+Deleted7b d7b; // expected-error {{implicitly-deleted default constructor}}
+struct Deleted7c { DeletedDtor a; }; // expected-note {{because field 'a' has a deleted destructor}}
+Deleted7c d7c; // expected-error {{implicitly-deleted default constructor}}
+struct Deleted7d { DeletedDtor a = {}; }; // expected-note {{because field 'a' has a deleted destructor}}
+Deleted7d d7d; // expected-error {{implicitly-deleted default constructor}}
+struct Deleted7e : PrivateDtor {}; // expected-note {{base class 'PrivateDtor' has an inaccessible destructor}}
+Deleted7e d7e; // expected-error {{implicitly-deleted default constructor}}
+struct Deleted7f : virtual PrivateDtor {}; // expected-note {{base class 'PrivateDtor' has an inaccessible destructor}}
+Deleted7f d7f; // expected-error {{implicitly-deleted default constructor}}
+struct Deleted7g { PrivateDtor a; }; // expected-note {{field 'a' has an inaccessible destructor}}
+Deleted7g d7g; // expected-error {{implicitly-deleted default constructor}}
+struct Deleted7h { PrivateDtor a = {}; }; // expected-note {{field 'a' has an inaccessible destructor}}
+Deleted7h d7h; // expected-error {{implicitly-deleted default constructor}}
 struct NotDeleted7i : Friend {};
 NotDeleted7i d7i;
 struct NotDeleted7j : virtual Friend {};

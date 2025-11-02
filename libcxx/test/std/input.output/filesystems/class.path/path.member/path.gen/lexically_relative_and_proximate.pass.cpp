@@ -6,7 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-// UNSUPPORTED: c++98, c++03
+// UNSUPPORTED: c++03, c++11, c++14
 
 // <filesystem>
 
@@ -15,17 +15,15 @@
 // path lexically_relative(const path& p) const;
 // path lexically_proximate(const path& p) const;
 
-#include "filesystem_include.h"
-#include <type_traits>
-#include <vector>
-#include <iostream>
-#include <cassert>
+#include <filesystem>
+#include <string>
 
-#include "test_macros.h"
-#include "test_iterators.h"
+#include "../../path_helper.h"
+#include "assert_macros.h"
+#include "concat_macros.h"
 #include "count_new.h"
-#include "filesystem_test_helper.h"
-
+#include "test_macros.h"
+namespace fs = std::filesystem;
 
 int main(int, char**) {
   // clang-format off
@@ -39,8 +37,15 @@ int main(int, char**) {
       {"a", "/", ""},
       {"//net", "a", ""},
       {"a", "//net", ""},
+#ifdef _WIN32
+      {"//net/", "//net", ""},
+      {"//net", "//net/", ""},
+      {"C:\\a\\b", "C:/a", "b"},
+#else
       {"//net/", "//net", "."},
       {"//net", "//net/", "."},
+      {"C:\\a\\b", "C:/a", "../../C:\\a\\b"},
+#endif
       {"//base", "a", ""},
       {"a", "a", "."},
       {"a/b", "a/b", "."},
@@ -56,33 +61,40 @@ int main(int, char**) {
       {"a/b", "c/d", "../../a/b"}
   };
   // clang-format on
-  int ID = 0;
-  bool Failed = false;
   for (auto& TC : TestCases) {
-    ++ID;
     const fs::path p(TC.input);
     const fs::path output = p.lexically_relative(TC.base);
-    auto ReportErr = [&](const char* Testing, fs::path const& Output,
-                                              fs::path const& Expected) {
-      Failed = true;
-      std::cerr << "TEST CASE #" << ID << " FAILED: \n";
-      std::cerr << "  Testing: " << Testing << "\n";
-      std::cerr << "  Input: '" << TC.input << "'\n";
-      std::cerr << "  Base: '" << TC.base << "'\n";
-      std::cerr << "  Expected: '" << Expected << "'\n";
-      std::cerr << "  Output: '" << Output.native() << "'";
-      std::cerr << std::endl;
-    };
-    if (!PathEq(output, TC.expect))
-      ReportErr("path::lexically_relative", output, TC.expect);
+    fs::path expect(TC.expect);
+    expect.make_preferred();
+
+    // clang-format off
+    TEST_REQUIRE(
+        PathEq(output, expect),
+        TEST_WRITE_CONCATENATED(
+            "path::lexically_relative test case failed",
+            "\nInput: ", TC.input,
+            "\nBase: ", TC.base,
+            "\nExpected: ", expect,
+            "\nOutput: ", output));
+    // clang-format on
+
     const fs::path proximate_output = p.lexically_proximate(TC.base);
     // [path.gen] lexically_proximate
     // Returns: If the value of lexically_relative(base) is not an empty path,
     // return it. Otherwise return *this.
-    const fs::path proximate_expected = output.native().empty() ? p
-        : output;
-    if (!PathEq(proximate_expected, proximate_output))
-      ReportErr("path::lexically_proximate", proximate_output, proximate_expected);
+    const fs::path proximate_expect = expect.empty() ? p : expect;
+
+    // clang-format off
+    TEST_REQUIRE(
+        PathEq(proximate_output, proximate_expect),
+        TEST_WRITE_CONCATENATED(
+            "path::lexically_proximate test case failed",
+            "\nInput: ", TC.input,
+            "\nBase: ", TC.base,
+            "\nExpected: ", proximate_expect,
+            "\nOutput: ", proximate_output));
+    // clang-format on
   }
-  return Failed;
+
+  return 0;
 }

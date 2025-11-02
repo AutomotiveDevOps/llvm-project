@@ -1,16 +1,5 @@
 // RUN: %clang_builtins %s %librt -o %t && %run %t
 // REQUIRES: librt_has_fixsfdi
-//===-- fixsfdi_test.c - Test __fixsfdi -----------------------------------===//
-//
-// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
-// See https://llvm.org/LICENSE.txt for license information.
-// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-//
-//===----------------------------------------------------------------------===//
-//
-// This file tests __fixsfdi for the compiler_rt library.
-//
-//===----------------------------------------------------------------------===//
 
 #include "int_lib.h"
 #include <stdio.h>
@@ -81,5 +70,8 @@ int main()
     if (test__fixsfdi(-0x1.FFFFFCp+62F, 0x8000010000000000LL))
         return 1;
 
-   return 0;
+    if (test__fixsfdi(-0x8000000000000000.0p+0F, 0x8000000000000000LL))
+        return 1;
+
+    return 0;
 }

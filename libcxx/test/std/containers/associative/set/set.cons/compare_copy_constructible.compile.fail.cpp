@@ -6,9 +6,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-// GCC 5 does not evaluate static assertions dependent on a template parameter.
-// UNSUPPORTED: gcc-5
-
 // <set>
 
 // Check that std::set fails to instantiate if the comparison predicate is
@@ -18,16 +15,16 @@
 
 template <class T>
 struct Comp {
-    bool operator () (const T& lhs, const T& rhs) const { return lhs < rhs; }
+  bool operator()(const T& lhs, const T& rhs) const { return lhs < rhs; }
 
-    Comp () {}
+  Comp() {}
+
 private:
-    Comp (const Comp &); // declared but not defined
-    };
-
+  Comp(const Comp&); // declared but not defined
+};
 
 int main(int, char**) {
-    std::set<int, Comp<int> > m;
+  std::set<int, Comp<int> > m;
 
   return 0;
 }

@@ -5,16 +5,16 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
-#ifndef LLVM_INCLUDE_LLVM_XRAY_FDRRECORDPRODUCER_H_
-#define LLVM_INCLUDE_LLVM_XRAY_FDRRECORDPRODUCER_H_
+#ifndef LLVM_XRAY_FDRRECORDPRODUCER_H
+#define LLVM_XRAY_FDRRECORDPRODUCER_H
 
+#include "llvm/Support/Compiler.h"
 #include "llvm/Support/Error.h"
 #include "llvm/XRay/FDRRecords.h"
 #include "llvm/XRay/XRayRecord.h"
 #include <memory>
 
-namespace llvm {
-namespace xray {
+namespace llvm::xray {
 
 class RecordProducer {
 public:
@@ -24,7 +24,7 @@ public:
   virtual ~RecordProducer() = default;
 };
 
-class FileBasedRecordProducer : public RecordProducer {
+class LLVM_ABI FileBasedRecordProducer : public RecordProducer {
   const XRayFileHeader &Header;
   DataExtractor &E;
   uint64_t &OffsetPtr;
@@ -44,7 +44,6 @@ public:
   Expected<std::unique_ptr<Record>> produce() override;
 };
 
-} // namespace xray
-} // namespace llvm
+} // namespace llvm::xray
 
-#endif // LLVM_INCLUDE_LLVM_XRAY_FDRRECORDPRODUCER_H_
+#endif // LLVM_XRAY_FDRRECORDPRODUCER_H

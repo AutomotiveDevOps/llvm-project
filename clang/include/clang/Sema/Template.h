@@ -23,6 +23,7 @@
 #include "llvm/ADT/PointerUnion.h"
 #include "llvm/ADT/SmallVector.h"
 #include <cassert>
+#include <optional>
 #include <utility>
 
 namespace clang {
@@ -41,6 +42,17 @@ class TagDecl;
 class TypedefNameDecl;
 class TypeSourceInfo;
 class VarDecl;
+
+/// The kind of template substitution being performed.
+enum class TemplateSubstitutionKind : char {
+  /// We are substituting template parameters for template arguments in order
+  /// to form a template specialization.
+  Specialization,
+  /// We are substituting template parameters for (typically) other template
+  /// parameters in order to rewrite a declaration as a different declaration
+  /// (for example, when forming a deduction guide from a constructor).
+  Rewrite,
+};
 
   /// Data structure that captures multiple levels of template argument
   /// lists for use in template instantiation.
@@ -63,24 +75,47 @@ class VarDecl;
   /// template argument list (17) at depth 1.
   class MultiLevelTemplateArgumentList {
     /// The template argument list at a certain template depth
+
     using ArgList = ArrayRef<TemplateArgument>;
+    struct ArgumentListLevel {
+      llvm::PointerIntPair<Decl *, 1, bool> AssociatedDeclAndFinal;
+      ArgList Args;
+    };
+    using ContainerType = SmallVector<ArgumentListLevel, 4>;
+
+    using ArgListsIterator = ContainerType::iterator;
+    using ConstArgListsIterator = ContainerType::const_iterator;
 
     /// The template argument lists, stored from the innermost template
     /// argument list (first) to the outermost template argument list (last).
-    SmallVector<ArgList, 4> TemplateArgumentLists;
+    ContainerType TemplateArgumentLists;
 
     /// The number of outer levels of template arguments that are not
     /// being substituted.
     unsigned NumRetainedOuterLevels = 0;
+
+    /// The kind of substitution described by this argument list.
+    TemplateSubstitutionKind Kind = TemplateSubstitutionKind::Specialization;
 
   public:
     /// Construct an empty set of template argument lists.
     MultiLevelTemplateArgumentList() = default;
 
     /// Construct a single-level template argument list.
-    explicit
-    MultiLevelTemplateArgumentList(const TemplateArgumentList &TemplateArgs) {
-      addOuterTemplateArguments(&TemplateArgs);
+    MultiLevelTemplateArgumentList(Decl *D, ArgList Args, bool Final) {
+      addOuterTemplateArguments(D, Args, Final);
+    }
+
+    void setKind(TemplateSubstitutionKind K) { Kind = K; }
+
+    /// Determine the kind of template substitution being performed.
+    TemplateSubstitutionKind getKind() const { return Kind; }
+
+    /// Determine whether we are rewriting template parameters rather than
+    /// substituting for them. If so, we should not leave references to the
+    /// original template parameters behind.
+    bool isRewrite() const {
+      return Kind == TemplateSubstitutionKind::Rewrite;
     }
 
     /// Determine the number of levels in this template argument
@@ -93,6 +128,16 @@ class VarDecl;
     /// argument list.
     unsigned getNumSubstitutedLevels() const {
       return TemplateArgumentLists.size();
+    }
+
+    // Determine the number of substituted args at 'Depth'.
+    unsigned getNumSubsitutedArgs(unsigned Depth) const {
+      assert(NumRetainedOuterLevels <= Depth && Depth < getNumLevels());
+      return TemplateArgumentLists[getNumLevels() - Depth - 1].Args.size();
+    }
+
+    unsigned getNumRetainedOuterLevels() const {
+      return NumRetainedOuterLevels;
     }
 
     /// Determine how many of the \p OldDepth outermost template parameter
@@ -108,8 +153,19 @@ class VarDecl;
     /// Retrieve the template argument at a given depth and index.
     const TemplateArgument &operator()(unsigned Depth, unsigned Index) const {
       assert(NumRetainedOuterLevels <= Depth && Depth < getNumLevels());
-      assert(Index < TemplateArgumentLists[getNumLevels() - Depth - 1].size());
-      return TemplateArgumentLists[getNumLevels() - Depth - 1][Index];
+      assert(Index <
+             TemplateArgumentLists[getNumLevels() - Depth - 1].Args.size());
+      return TemplateArgumentLists[getNumLevels() - Depth - 1].Args[Index];
+    }
+
+    /// A template-like entity which owns the whole pattern being substituted.
+    /// This will usually own a set of template parameters, or in some
+    /// cases might even be a template parameter itself.
+    std::pair<Decl *, bool> getAssociatedDecl(unsigned Depth) const {
+      assert(NumRetainedOuterLevels <= Depth && Depth < getNumLevels());
+      auto AD = TemplateArgumentLists[getNumLevels() - Depth - 1]
+                    .AssociatedDeclAndFinal;
+      return {AD.getPointer(), AD.getInt()};
     }
 
     /// Determine whether there is a non-NULL template argument at the
@@ -122,35 +178,81 @@ class VarDecl;
       if (Depth < NumRetainedOuterLevels)
         return false;
 
-      if (Index >= TemplateArgumentLists[getNumLevels() - Depth - 1].size())
+      if (Index >=
+          TemplateArgumentLists[getNumLevels() - Depth - 1].Args.size())
         return false;
 
       return !(*this)(Depth, Index).isNull();
+    }
+
+    bool isAnyArgInstantiationDependent() const {
+      for (ArgumentListLevel ListLevel : TemplateArgumentLists)
+        for (const TemplateArgument &TA : ListLevel.Args)
+          if (TA.isInstantiationDependent())
+            return true;
+      return false;
     }
 
     /// Clear out a specific template argument.
     void setArgument(unsigned Depth, unsigned Index,
                      TemplateArgument Arg) {
       assert(NumRetainedOuterLevels <= Depth && Depth < getNumLevels());
-      assert(Index < TemplateArgumentLists[getNumLevels() - Depth - 1].size());
-      const_cast<TemplateArgument&>(
-                TemplateArgumentLists[getNumLevels() - Depth - 1][Index])
-        = Arg;
-    }
-
-    /// Add a new outermost level to the multi-level template argument
-    /// list.
-    void addOuterTemplateArguments(const TemplateArgumentList *TemplateArgs) {
-      addOuterTemplateArguments(ArgList(TemplateArgs->data(),
-                                        TemplateArgs->size()));
+      assert(Index <
+             TemplateArgumentLists[getNumLevels() - Depth - 1].Args.size());
+      const_cast<TemplateArgument &>(
+          TemplateArgumentLists[getNumLevels() - Depth - 1].Args[Index]) = Arg;
     }
 
     /// Add a new outmost level to the multi-level template argument
     /// list.
+    /// A 'Final' substitution means that these Args don't need to be
+    /// resugared later.
+    void addOuterTemplateArguments(Decl *AssociatedDecl, ArgList Args,
+                                   bool Final) {
+      assert(!NumRetainedOuterLevels &&
+             "substituted args outside retained args?");
+      assert(getKind() == TemplateSubstitutionKind::Specialization);
+      TemplateArgumentLists.push_back(
+          {{AssociatedDecl ? AssociatedDecl->getCanonicalDecl() : nullptr,
+            Final},
+           Args});
+    }
+
     void addOuterTemplateArguments(ArgList Args) {
       assert(!NumRetainedOuterLevels &&
              "substituted args outside retained args?");
-      TemplateArgumentLists.push_back(Args);
+      assert(getKind() == TemplateSubstitutionKind::Rewrite);
+      TemplateArgumentLists.push_back({{}, Args});
+    }
+
+    void addOuterTemplateArguments(std::nullopt_t) {
+      assert(!NumRetainedOuterLevels &&
+             "substituted args outside retained args?");
+      TemplateArgumentLists.push_back({});
+    }
+
+    /// Replaces the current 'innermost' level with the provided argument list.
+    /// This is useful for type deduction cases where we need to get the entire
+    /// list from the AST, but then add the deduced innermost list.
+    void replaceInnermostTemplateArguments(Decl *AssociatedDecl, ArgList Args,
+                                           bool Final = false) {
+      assert((!TemplateArgumentLists.empty() || NumRetainedOuterLevels) &&
+             "Replacing in an empty list?");
+
+      if (!TemplateArgumentLists.empty()) {
+        TemplateArgumentLists[0].Args = Args;
+        return;
+      }
+      --NumRetainedOuterLevels;
+      TemplateArgumentLists.push_back(
+          {{AssociatedDecl, /*Final=*/Final}, Args});
+    }
+
+    void replaceOutermostTemplateArguments(Decl *AssociatedDecl, ArgList Args) {
+      assert((!TemplateArgumentLists.empty()) && "Replacing in an empty list?");
+      TemplateArgumentLists.back().AssociatedDeclAndFinal.setPointer(
+          AssociatedDecl);
+      TemplateArgumentLists.back().Args = Args;
     }
 
     /// Add an outermost level that we are not substituting. We have no
@@ -159,10 +261,40 @@ class VarDecl;
     void addOuterRetainedLevel() {
       ++NumRetainedOuterLevels;
     }
+    void addOuterRetainedLevels(unsigned Num) {
+      NumRetainedOuterLevels += Num;
+    }
 
     /// Retrieve the innermost template argument list.
     const ArgList &getInnermost() const {
-      return TemplateArgumentLists.front();
+      return TemplateArgumentLists.front().Args;
+    }
+    /// Retrieve the outermost template argument list.
+    const ArgList &getOutermost() const {
+      return TemplateArgumentLists.back().Args;
+    }
+    ArgListsIterator begin() { return TemplateArgumentLists.begin(); }
+    ConstArgListsIterator begin() const {
+      return TemplateArgumentLists.begin();
+    }
+    ArgListsIterator end() { return TemplateArgumentLists.end(); }
+    ConstArgListsIterator end() const { return TemplateArgumentLists.end(); }
+
+    LLVM_DUMP_METHOD void dump() const {
+      LangOptions LO;
+      LO.CPlusPlus = true;
+      LO.Bool = true;
+      PrintingPolicy PP(LO);
+      llvm::errs() << "NumRetainedOuterLevels: " << NumRetainedOuterLevels
+                   << "\n";
+      for (unsigned Depth = NumRetainedOuterLevels; Depth < getNumLevels();
+           ++Depth) {
+        llvm::errs() << Depth << ": ";
+        printTemplateArgumentList(
+            llvm::errs(),
+            TemplateArgumentLists[getNumLevels() - Depth - 1].Args, PP);
+        llvm::errs() << "\n";
+      }
     }
   };
 
@@ -237,7 +369,7 @@ class VarDecl;
   class LocalInstantiationScope {
   public:
     /// A set of declarations.
-    using DeclArgumentPack = SmallVector<VarDecl *, 4>;
+    using DeclArgumentPack = SmallVector<ValueDecl *, 4>;
 
   private:
     /// Reference to the semantic analysis that is performing
@@ -283,6 +415,11 @@ class VarDecl;
     /// lookup will search our outer scope.
     bool CombineWithOuterScope;
 
+    /// Whether this scope is being used to instantiate a lambda or block
+    /// expression, in which case it should be reused for instantiating the
+    /// lambda's FunctionProtoType.
+    bool InstantiatingLambdaOrBlock = false;
+
     /// If non-NULL, the template parameter pack that has been
     /// partially substituted per C++0x [temp.arg.explicit]p9.
     NamedDecl *PartiallySubstitutedPack = nullptr;
@@ -297,9 +434,11 @@ class VarDecl;
     unsigned NumArgsInPartiallySubstitutedPack;
 
   public:
-    LocalInstantiationScope(Sema &SemaRef, bool CombineWithOuterScope = false)
+    LocalInstantiationScope(Sema &SemaRef, bool CombineWithOuterScope = false,
+                            bool InstantiatingLambdaOrBlock = false)
         : SemaRef(SemaRef), Outer(SemaRef.CurrentInstantiationScope),
-          CombineWithOuterScope(CombineWithOuterScope) {
+          CombineWithOuterScope(CombineWithOuterScope),
+          InstantiatingLambdaOrBlock(InstantiatingLambdaOrBlock) {
       SemaRef.CurrentInstantiationScope = this;
     }
 
@@ -351,10 +490,10 @@ class VarDecl;
         const Decl *D = I->first;
         llvm::PointerUnion<Decl *, DeclArgumentPack *> &Stored =
           newScope->LocalDecls[D];
-        if (I->second.is<Decl *>()) {
-          Stored = I->second.get<Decl *>();
+        if (auto *D2 = dyn_cast<Decl *>(I->second)) {
+          Stored = D2;
         } else {
-          DeclArgumentPack *OldPack = I->second.get<DeclArgumentPack *>();
+          DeclArgumentPack *OldPack = cast<DeclArgumentPack *>(I->second);
           DeclArgumentPack *NewPack = new DeclArgumentPack(*OldPack);
           Stored = NewPack;
           newScope->ArgumentPacks.push_back(NewPack);
@@ -365,7 +504,7 @@ class VarDecl;
       return newScope;
     }
 
-    /// deletes the given scope, and all otuer scopes, down to the
+    /// deletes the given scope, and all outer scopes, down to the
     /// given outermost scope.
     static void deleteScopes(LocalInstantiationScope *Scope,
                              LocalInstantiationScope *Outermost) {
@@ -386,6 +525,12 @@ class VarDecl;
     /// returns NULL.
     llvm::PointerUnion<Decl *, DeclArgumentPack *> *
     findInstantiationOf(const Decl *D);
+
+    /// Similar to \p findInstantiationOf(), but it wouldn't assert if the
+    /// instantiation was not found within the current instantiation scope. This
+    /// is helpful for on-demand declaration instantiation.
+    llvm::PointerUnion<Decl *, DeclArgumentPack *> *
+    getInstantiationOfIfExists(const Decl *D);
 
     void InstantiatedLocal(const Decl *D, Decl *Inst);
     void InstantiatedLocalPackArg(const Decl *D, VarDecl *Inst);
@@ -422,39 +567,54 @@ class VarDecl;
     NamedDecl *
     getPartiallySubstitutedPack(const TemplateArgument **ExplicitArgs = nullptr,
                                 unsigned *NumExplicitArgs = nullptr) const;
+
+    /// Determine whether D is a pack expansion created in this scope.
+    bool isLocalPackExpansion(const Decl *D);
+
+    /// Determine whether this scope is for instantiating a lambda or block.
+    bool isLambdaOrBlock() const { return InstantiatingLambdaOrBlock; }
   };
 
   class TemplateDeclInstantiator
     : public DeclVisitor<TemplateDeclInstantiator, Decl *>
   {
     Sema &SemaRef;
-    Sema::ArgumentPackSubstitutionIndexRAII SubstIndex;
+    Sema::ArgPackSubstIndexRAII SubstIndex;
     DeclContext *Owner;
     const MultiLevelTemplateArgumentList &TemplateArgs;
     Sema::LateInstantiatedAttrVec* LateAttrs = nullptr;
     LocalInstantiationScope *StartingScope = nullptr;
+    // Whether to evaluate the C++20 constraints or simply substitute into them.
+    bool EvaluateConstraints = true;
 
     /// A list of out-of-line class template partial
     /// specializations that will need to be instantiated after the
     /// enclosing class's instantiation is complete.
     SmallVector<std::pair<ClassTemplateDecl *,
-                                ClassTemplatePartialSpecializationDecl *>, 4>
-      OutOfLinePartialSpecs;
+                          ClassTemplatePartialSpecializationDecl *>,
+                1>
+        OutOfLinePartialSpecs;
 
     /// A list of out-of-line variable template partial
     /// specializations that will need to be instantiated after the
     /// enclosing variable's instantiation is complete.
     /// FIXME: Verify that this is needed.
     SmallVector<
-        std::pair<VarTemplateDecl *, VarTemplatePartialSpecializationDecl *>, 4>
-    OutOfLineVarPartialSpecs;
+        std::pair<VarTemplateDecl *, VarTemplatePartialSpecializationDecl *>, 1>
+        OutOfLineVarPartialSpecs;
 
   public:
     TemplateDeclInstantiator(Sema &SemaRef, DeclContext *Owner,
                              const MultiLevelTemplateArgumentList &TemplateArgs)
-        : SemaRef(SemaRef),
-          SubstIndex(SemaRef, SemaRef.ArgumentPackSubstitutionIndex),
+        : SemaRef(SemaRef), SubstIndex(SemaRef, SemaRef.ArgPackSubstIndex),
           Owner(Owner), TemplateArgs(TemplateArgs) {}
+
+    void setEvaluateConstraints(bool B) {
+      EvaluateConstraints = B;
+    }
+    bool getEvaluateConstraints() {
+      return EvaluateConstraints;
+    }
 
 // Define all the decl visitors using DeclNodes.inc
 #define DECL(DERIVED, BASE) \
@@ -464,6 +624,7 @@ class VarDecl;
 // Decls which never appear inside a class or function.
 #define OBJCCONTAINER(DERIVED, BASE)
 #define FILESCOPEASM(DERIVED, BASE)
+#define TOPLEVELSTMT(DERIVED, BASE)
 #define IMPORT(DERIVED, BASE)
 #define EXPORT(DERIVED, BASE)
 #define LINKAGESPEC(DERIVED, BASE)
@@ -476,7 +637,10 @@ class VarDecl;
 #define EMPTY(DERIVED, BASE)
 #define LIFETIMEEXTENDEDTEMPORARY(DERIVED, BASE)
 
-    // Decls which use special-case instantiation code.
+// Decls which never appear inside a template.
+#define OUTLINEDFUNCTION(DERIVED, BASE)
+
+// Decls which use special-case instantiation code.
 #define BLOCK(DERIVED, BASE)
 #define CAPTURED(DERIVED, BASE)
 #define IMPLICITPARAM(DERIVED, BASE)
@@ -492,8 +656,6 @@ class VarDecl;
     // A few supplemental visitor functions.
     Decl *VisitCXXMethodDecl(CXXMethodDecl *D,
                              TemplateParameterList *TemplateParams,
-                             Optional<const ASTTemplateArgumentListInfo *>
-                                 ClassScopeSpecializationArgs = llvm::None,
                              RewriteKind RK = RewriteKind::None);
     Decl *VisitFunctionDecl(FunctionDecl *D,
                             TemplateParameterList *TemplateParams,
@@ -501,6 +663,8 @@ class VarDecl;
     Decl *VisitDecl(Decl *D);
     Decl *VisitVarDecl(VarDecl *D, bool InstantiatingVarTemplate,
                        ArrayRef<BindingDecl *> *Bindings = nullptr);
+    Decl *VisitBaseUsingDecls(BaseUsingDecl *D, BaseUsingDecl *Inst,
+                              LookupResult *Lookup);
 
     // Enable late instantiation of attributes.  Late instantiated attributes
     // will be stored in LA.
@@ -563,13 +727,13 @@ class VarDecl;
     bool SubstQualifier(const TagDecl *OldDecl,
                         TagDecl *NewDecl);
 
-    Decl *VisitVarTemplateSpecializationDecl(
-        VarTemplateDecl *VarTemplate, VarDecl *FromVar, void *InsertPos,
-        const TemplateArgumentListInfo &TemplateArgsInfo,
+    VarTemplateSpecializationDecl *VisitVarTemplateSpecializationDecl(
+        VarTemplateDecl *VarTemplate, VarDecl *FromVar,
         ArrayRef<TemplateArgument> Converted,
         VarTemplateSpecializationDecl *PrevDecl = nullptr);
 
     Decl *InstantiateTypedefNameDecl(TypedefNameDecl *D, bool IsTypeAlias);
+    Decl *InstantiateTypeAliasTemplateDecl(TypeAliasTemplateDecl *D);
     ClassTemplatePartialSpecializationDecl *
     InstantiateClassTemplatePartialSpecialization(
                                               ClassTemplateDecl *ClassTemplate,

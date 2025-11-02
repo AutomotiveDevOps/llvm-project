@@ -1,3 +1,4 @@
+// UNSUPPORTED: target={{.*}}-zos{{.*}}, target={{.*}}-aix{{.*}}
 // RUN: rm -rf %t
 // Test that only forward declarations are emitted for types defined in modules.
 
@@ -24,6 +25,8 @@
 @import DebugCXX;
 #endif
 
+// Set the line number so that the LIT check expected line number doesn't have to be updated after adding/removing a line in the RUN section.
+#line 50
 using DebugCXX::Struct;
 
 Struct s;
@@ -204,8 +207,12 @@ void foo() {
 // CHECK: ![[GLOBAL_ANON]] = !DICompositeType(tag: DW_TAG_structure_type,
 // CHECK-SAME:              name: "InAnonymousNamespace", {{.*}}DIFlagFwdDecl)
 
+// There is a full definition of the type available in the module.
+// CHECK: !DICompositeType(tag: DW_TAG_structure_type, name: "Virtual",
+// CHECK-SAME:             DIFlagFwdDecl
+// CHECK-SAME:             identifier: "_ZTS7Virtual")
 
-// CHECK: !DIImportedEntity(tag: DW_TAG_imported_declaration, scope: !{{[0-9]+}}, entity: ![[STRUCT]], file: ![[CPP]], line: 27)
+// CHECK: !DIImportedEntity(tag: DW_TAG_imported_declaration, scope: !{{[0-9]+}}, entity: ![[STRUCT]], file: ![[CPP]], line: 50)
 
 // CHECK: !DICompileUnit(
 // CHECK-SAME:           splitDebugFilename:
@@ -215,8 +222,3 @@ void foo() {
 
 // CHECK: !DICompositeType(tag: DW_TAG_class_type, name: "A",
 // CHECK-SAME:             DIFlagFwdDecl
-
-// There is a full definition of the type available in the module.
-// CHECK: !DICompositeType(tag: DW_TAG_structure_type, name: "Virtual",
-// CHECK-SAME:             DIFlagFwdDecl
-// CHECK-SAME:             identifier: "_ZTS7Virtual")

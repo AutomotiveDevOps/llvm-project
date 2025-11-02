@@ -6,8 +6,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef MLIR_DIALECT_LLVMIR_TRANSFORMS_LEGALIZE_FOR_EXPORT_H
-#define MLIR_DIALECT_LLVMIR_TRANSFORMS_LEGALIZE_FOR_EXPORT_H
+#ifndef MLIR_DIALECT_LLVMIR_TRANSFORMS_LEGALIZEFOREXPORT_H
+#define MLIR_DIALECT_LLVMIR_TRANSFORMS_LEGALIZEFOREXPORT_H
 
 #include <memory>
 
@@ -17,6 +17,9 @@ class Pass;
 
 namespace LLVM {
 
+#define GEN_PASS_DECL_LLVMLEGALIZEFOREXPORTPASS
+#include "mlir/Dialect/LLVMIR/Transforms/Passes.h.inc"
+
 /// Make argument-taking successors of each block distinct.  PHI nodes in LLVM
 /// IR use the predecessor ID to identify which value to take. They do not
 /// support different values coming from the same predecessor. If a block has
@@ -24,11 +27,7 @@ namespace LLVM {
 /// a new dummy block for LLVM PHI nodes to tell the sources apart.
 void ensureDistinctSuccessors(Operation *op);
 
-/// Creates a pass that legalizes the LLVM dialect operations so that they can
-/// be translated to LLVM IR.
-std::unique_ptr<Pass> createLegalizeForExportPass();
-
 } // namespace LLVM
 } // namespace mlir
 
-#endif // MLIR_DIALECT_LLVMIR_TRANSFORMS_LEGALIZE_FOR_EXPORT_H
+#endif // MLIR_DIALECT_LLVMIR_TRANSFORMS_LEGALIZEFOREXPORT_H

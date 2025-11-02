@@ -1,4 +1,4 @@
-if (MLIR_CUDA_CONVERSIONS_ENABLED)
+if ("NVPTX" IN_LIST LLVM_TARGETS_TO_BUILD)
   set(NVPTX_LIBS
     NVPTXCodeGen
     NVPTXDesc
@@ -6,7 +6,7 @@ if (MLIR_CUDA_CONVERSIONS_ENABLED)
   )
 endif()
 
-if (MLIR_ROCM_CONVERSIONS_ENABLED)
+if (MLIR_ENABLE_ROCM_CONVERSIONS)
   set(AMDGPU_LIBS
     AMDGPUCodeGen
     AMDGPUDesc
@@ -14,9 +14,10 @@ if (MLIR_ROCM_CONVERSIONS_ENABLED)
   )
 endif()
 
-add_mlir_conversion_library(MLIRGPUtoGPURuntimeTransforms
-  ConvertLaunchFuncToRuntimeCalls.cpp
-  ConvertKernelFuncToBlob.cpp
+add_mlir_conversion_library(MLIRGPUToGPURuntimeTransforms
+  AttrToSPIRVConverter.cpp
+  GPUToLLVMConversion.cpp
+  GPUOpsLowering.cpp
 
   DEPENDS
   MLIRConversionPassIncGen
@@ -29,9 +30,17 @@ add_mlir_conversion_library(MLIRGPUtoGPURuntimeTransforms
   ${NVPTX_LIBS}
 
   LINK_LIBS PUBLIC
-  MLIRGPU
+  MLIRArithToLLVM
+  MLIRAsyncToLLVM
+  MLIRControlFlowToLLVM
+  MLIRConvertToLLVMPass
+  MLIRFuncToLLVM
+  MLIRGPUTransforms
   MLIRIR
-  MLIRLLVMIR
+  MLIRLLVMCommonConversion
+  MLIRLLVMDialect
+  MLIRMemRefToLLVM
   MLIRPass
   MLIRSupport
+  MLIRVectorToLLVM
 )

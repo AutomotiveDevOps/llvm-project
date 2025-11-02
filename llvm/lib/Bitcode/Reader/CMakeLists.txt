@@ -10,4 +10,10 @@ add_llvm_component_library(LLVMBitReader
 
   DEPENDS
   intrinsics_gen
+
+  LINK_COMPONENTS
+  BitstreamReader
+  Core
+  Support
+  TargetParser
   )

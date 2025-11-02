@@ -38,14 +38,10 @@ define half @freeze_half() {
 ; X86ASM:       # %bb.0:
 ; X86ASM-NEXT:    pushq %rax
 ; X86ASM-NEXT:    .cfi_def_cfa_offset 16
-; X86ASM-NEXT:    xorl %edi, %edi
-; X86ASM-NEXT:    callq __gnu_h2f_ieee
-; X86ASM-NEXT:    callq __gnu_f2h_ieee
-; X86ASM-NEXT:    movzwl %ax, %edi
-; X86ASM-NEXT:    callq __gnu_h2f_ieee
+; X86ASM-NEXT:    callq __extendhfsf2@PLT
 ; X86ASM-NEXT:    addss %xmm0, %xmm0
-; X86ASM-NEXT:    callq __gnu_f2h_ieee
-; X86ASM-NEXT:    popq %rcx
+; X86ASM-NEXT:    callq __truncsfhf2@PLT
+; X86ASM-NEXT:    popq %rax
 ; X86ASM-NEXT:    .cfi_def_cfa_offset 8
 ; X86ASM-NEXT:    retq
   %y1 = freeze half undef
@@ -63,14 +59,14 @@ define <2 x i32> @freeze_ivec() {
   ret <2 x i32> %t1
 }
 
-define i8* @freeze_ptr() {
+define ptr @freeze_ptr() {
 ; X86ASM-LABEL: freeze_ptr:
 ; X86ASM:       # %bb.0:
 ; X86ASM-NEXT:    addq $4, %rax
 ; X86ASM-NEXT:    retq
-  %y1 = freeze i8* undef
-  %t1 = getelementptr i8, i8* %y1, i64 4
-  ret i8* %t1
+  %y1 = freeze ptr undef
+  %t1 = getelementptr i8, ptr %y1, i64 4
+  ret ptr %t1
 }
 
 define i32 @freeze_struct() {
@@ -121,4 +117,72 @@ define i64 @freeze_array() {
   %v2 = extractvalue [2 x i64] %y1, 1
   %t1 = add i64 %v1, %v2
   ret i64 %t1
+}
+
+; Make sure we emit a movl to zext the input before the imulq. This previously
+; failed because freeze was not listed in the instructions that don't zext their
+; result in the def32 pattern X86InstrCompiler.td.
+define i32 @freeze_zext(i64 %a) nounwind {
+; X86ASM-LABEL: freeze_zext:
+; X86ASM:       # %bb.0: # %entry
+; X86ASM-NEXT:    movq %rdi, %rax
+; X86ASM-NEXT:    movl %eax, %ecx
+; X86ASM-NEXT:    movl $3435973837, %edx # imm = 0xCCCCCCCD
+; X86ASM-NEXT:    imulq %rcx, %rdx
+; X86ASM-NEXT:    shrq $35, %rdx
+; X86ASM-NEXT:    addl %edx, %edx
+; X86ASM-NEXT:    leal (%rdx,%rdx,4), %ecx
+; X86ASM-NEXT:    subl %ecx, %eax
+; X86ASM-NEXT:    # kill: def $eax killed $eax killed $rax
+; X86ASM-NEXT:    retq
+entry:
+  %x = trunc i64 %a to i32
+  %y = freeze i32 %x
+  %z = urem i32 %y, 10
+  ret i32 %z
+}
+
+; Make sure we don't crash when replacing all uses of N with an existing freeze N.
+
+define i64 @pr155345(ptr %p1, i1 %cond, ptr %p2, ptr %p3) {
+; X86ASM-LABEL: pr155345:
+; X86ASM:       # %bb.0: # %entry
+; X86ASM-NEXT:    movzbl (%rdi), %edi
+; X86ASM-NEXT:    xorl %eax, %eax
+; X86ASM-NEXT:    orb $1, %dil
+; X86ASM-NEXT:    movb %dil, (%rdx)
+; X86ASM-NEXT:    movzbl %dil, %edx
+; X86ASM-NEXT:    cmovel %edx, %eax
+; X86ASM-NEXT:    sete %dil
+; X86ASM-NEXT:    testb $1, %sil
+; X86ASM-NEXT:    cmovnel %edx, %eax
+; X86ASM-NEXT:    movb %dl, (%rcx)
+; X86ASM-NEXT:    movl $1, %edx
+; X86ASM-NEXT:    movl %eax, %ecx
+; X86ASM-NEXT:    shlq %cl, %rdx
+; X86ASM-NEXT:    orb %sil, %dil
+; X86ASM-NEXT:    movzbl %dil, %eax
+; X86ASM-NEXT:    andl %edx, %eax
+; X86ASM-NEXT:    andl $1, %eax
+; X86ASM-NEXT:    retq
+entry:
+  %load1 = load i8, ptr %p1, align 1
+  %v1 = or i8 %load1, 1
+  %v2 = zext i8 %v1 to i32
+  store i8 %v1, ptr %p2, align 1
+  %v3 = load i8, ptr %p2, align 1
+  %ext1 = sext i8 %v3 to i64
+  %ext2 = zext i32 %v2 to i64
+  %cmp1 = icmp ult i64 0, %ext1
+  %v4 = select i1 %cond, i1 false, i1 %cmp1
+  %sel1 = select i1 %v4, i64 0, i64 %ext2
+  %shl = shl i64 1, %sel1
+  store i8 %v1, ptr %p3, align 1
+  %v5 = load i8, ptr %p3, align 1
+  %ext3 = sext i8 %v5 to i64
+  %cmp2 = icmp ult i64 0, %ext3
+  %v6 = select i1 %cond, i1 false, i1 %cmp2
+  %sel2 = select i1 %v6, i64 0, i64 1
+  %and = and i64 %sel2, %shl
+  ret i64 %and
 }

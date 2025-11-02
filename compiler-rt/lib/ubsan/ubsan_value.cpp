@@ -16,23 +16,72 @@
 #include "ubsan_value.h"
 #include "sanitizer_common/sanitizer_common.h"
 #include "sanitizer_common/sanitizer_libc.h"
+#include "sanitizer_common/sanitizer_mutex.h"
+
+#if SANITIZER_APPLE
+#include <dlfcn.h>
+#endif
 
 using namespace __ubsan;
 
+typedef const char *(*ObjCGetClassNameTy)(void *);
+
+const char *__ubsan::getObjCClassName(ValueHandle Pointer) {
+#if SANITIZER_APPLE
+  // We need to query the ObjC runtime for some information, but do not want
+  // to introduce a static dependency from the ubsan runtime onto ObjC. Try to
+  // grab a handle to the ObjC runtime used by the process.
+  static bool AttemptedDlopen = false;
+  static void *ObjCHandle = nullptr;
+  static void *ObjCObjectGetClassName = nullptr;
+
+  // Prevent threads from racing to dlopen().
+  static __sanitizer::StaticSpinMutex Lock;
+  {
+    __sanitizer::SpinMutexLock Guard(&Lock);
+
+    if (!AttemptedDlopen) {
+      ObjCHandle = dlopen(
+          "/usr/lib/libobjc.A.dylib",
+          RTLD_LAZY         // Only bind symbols when used.
+              | RTLD_LOCAL  // Only make symbols available via the handle.
+              | RTLD_NOLOAD // Do not load the dylib, just grab a handle if the
+                            // image is already loaded.
+              | RTLD_FIRST  // Only search the image pointed-to by the handle.
+      );
+      AttemptedDlopen = true;
+      if (!ObjCHandle)
+        return nullptr;
+      ObjCObjectGetClassName = dlsym(ObjCHandle, "object_getClassName");
+    }
+  }
+
+  if (!ObjCObjectGetClassName)
+    return nullptr;
+
+  return ObjCGetClassNameTy(ObjCObjectGetClassName)((void *)Pointer);
+#else
+  return nullptr;
+#endif
+}
+
 SIntMax Value::getSIntValue() const {
   CHECK(getType().isSignedIntegerTy());
+  // Val was zero-extended to ValueHandle. Sign-extend from original width
+  // to SIntMax.
+  const unsigned ExtraBits =
+      sizeof(SIntMax) * 8 - getType().getIntegerBitCount();
   if (isInlineInt()) {
-    // Val was zero-extended to ValueHandle. Sign-extend from original width
-    // to SIntMax.
-    const unsigned ExtraBits =
-      sizeof(SIntMax) * 8 - getType().getIntegerBitWidth();
-    return SIntMax(Val) << ExtraBits >> ExtraBits;
+    return SIntMax(UIntMax(Val) << ExtraBits) >> ExtraBits;
   }
-  if (getType().getIntegerBitWidth() == 64)
-    return *reinterpret_cast<s64*>(Val);
+  if (getType().getIntegerBitWidth() == 64) {
+    return SIntMax(UIntMax(*reinterpret_cast<s64 *>(Val)) << ExtraBits) >>
+           ExtraBits;
+  }
 #if HAVE_INT128_T
   if (getType().getIntegerBitWidth() == 128)
-    return *reinterpret_cast<s128*>(Val);
+    return SIntMax(UIntMax(*reinterpret_cast<s128 *>(Val)) << ExtraBits) >>
+           ExtraBits;
 #else
   if (getType().getIntegerBitWidth() == 128)
     UNREACHABLE("libclang_rt.ubsan was built without __int128 support");

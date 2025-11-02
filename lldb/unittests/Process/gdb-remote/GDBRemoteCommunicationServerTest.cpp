@@ -9,9 +9,10 @@
 #include "gtest/gtest.h"
 
 #include "GDBRemoteTestUtils.h"
-
 #include "Plugins/Process/gdb-remote/GDBRemoteCommunicationServer.h"
 #include "lldb/Utility/Connection.h"
+#include "lldb/Utility/UnimplementedError.h"
+#include "lldb/lldb-enumerations.h"
 
 namespace lldb_private {
 namespace process_gdb_remote {
@@ -25,10 +26,7 @@ TEST(GDBRemoteCommunicationServerTest, SendErrorResponse_ErrorNumber) {
 
 TEST(GDBRemoteCommunicationServerTest, SendErrorResponse_Status) {
   MockServerWithMockConnection server;
-  Status status;
-
-  status.SetError(0x42, lldb::eErrorTypeGeneric);
-  status.SetErrorString("Test error message");
+  Status status(0x42, lldb::eErrorTypePOSIX, "Test error message");
   server.SendErrorResponse(status);
 
   EXPECT_THAT(
@@ -39,8 +37,7 @@ TEST(GDBRemoteCommunicationServerTest, SendErrorResponse_Status) {
 TEST(GDBRemoteCommunicationServerTest, SendErrorResponse_UnimplementedError) {
   MockServerWithMockConnection server;
 
-  auto error =
-      llvm::make_error<PacketUnimplementedError>("Test unimplemented error");
+  auto error = llvm::make_error<UnimplementedError>();
   server.SendErrorResponse(std::move(error));
 
   EXPECT_THAT(server.GetPackets(), testing::ElementsAre("$#00"));
@@ -61,8 +58,8 @@ TEST(GDBRemoteCommunicationServerTest, SendErrorResponse_StringError) {
 TEST(GDBRemoteCommunicationServerTest, SendErrorResponse_ErrorList) {
   MockServerWithMockConnection server;
 
-  auto error = llvm::joinErrors(llvm::make_error<PacketUnimplementedError>(),
-                                llvm::make_error<PacketUnimplementedError>());
+  auto error = llvm::joinErrors(llvm::make_error<UnimplementedError>(),
+                                llvm::make_error<UnimplementedError>());
 
   server.SendErrorResponse(std::move(error));
   // Make sure only one packet is sent even when there are multiple errors.

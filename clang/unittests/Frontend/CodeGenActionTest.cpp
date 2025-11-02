@@ -15,6 +15,8 @@
 #include "clang/CodeGen/BackendUtil.h"
 #include "clang/Frontend/CompilerInstance.h"
 #include "clang/Lex/PreprocessorOptions.h"
+#include "llvm/Support/FormatVariadic.h"
+#include "llvm/Support/VirtualFileSystem.h"
 #include "gtest/gtest.h"
 
 using namespace llvm;
@@ -49,8 +51,8 @@ TEST(CodeGenTest, TestNullCodeGen) {
       FrontendInputFile("test.cc", Language::CXX));
   Invocation->getFrontendOpts().ProgramAction = EmitLLVM;
   Invocation->getTargetOpts().Triple = "i386-unknown-linux-gnu";
-  CompilerInstance Compiler;
-  Compiler.setInvocation(std::move(Invocation));
+  CompilerInstance Compiler(std::move(Invocation));
+  Compiler.setVirtualFileSystem(llvm::vfs::getRealFileSystem());
   Compiler.createDiagnostics();
   EXPECT_TRUE(Compiler.hasDiagnostics());
 
@@ -59,4 +61,21 @@ TEST(CodeGenTest, TestNullCodeGen) {
   EXPECT_TRUE(Success);
 }
 
+TEST(CodeGenTest, CodeGenFromIRMemBuffer) {
+  auto Invocation = std::make_shared<CompilerInvocation>();
+  std::unique_ptr<MemoryBuffer> MemBuffer =
+      MemoryBuffer::getMemBuffer("", "test.ll");
+  Invocation->getFrontendOpts().Inputs.push_back(
+      FrontendInputFile(*MemBuffer, Language::LLVM_IR));
+  Invocation->getFrontendOpts().ProgramAction = frontend::EmitLLVMOnly;
+  Invocation->getTargetOpts().Triple = "i386-unknown-linux-gnu";
+  CompilerInstance Compiler(std::move(Invocation));
+  Compiler.setVirtualFileSystem(llvm::vfs::getRealFileSystem());
+  Compiler.createDiagnostics();
+  EXPECT_TRUE(Compiler.hasDiagnostics());
+
+  EmitLLVMOnlyAction Action;
+  bool Success = Compiler.ExecuteAction(Action);
+  EXPECT_TRUE(Success);
+}
 }

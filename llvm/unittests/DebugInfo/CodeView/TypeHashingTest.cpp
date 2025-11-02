@@ -8,6 +8,7 @@
 
 #include "llvm/DebugInfo/CodeView/TypeHashing.h"
 #include "llvm/DebugInfo/CodeView/AppendingTypeTableBuilder.h"
+#include "llvm/DebugInfo/CodeView/TypeRecord.h"
 
 #include "gtest/gtest.h"
 
@@ -96,7 +97,6 @@ TEST(TypeHashingTest, ContentHash) {
   // LF_PROCEDURE           0x1004   {int** func(char**, int***)}
   //   ArgList = 0x1003
   //   ReturnType = 0x1001
-  std::vector<GloballyHashedType> Ordering1Hashes;
   CharPP[0] = createPointerRecord(Ordering1, CharP);
   IntPP[0] = createPointerRecord(Ordering1, IntP);
   IntPPP[0] = createPointerRecord(Ordering1, IntPP[0]);

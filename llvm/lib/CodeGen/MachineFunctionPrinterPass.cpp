@@ -14,7 +14,7 @@
 #include "llvm/CodeGen/MachineFunctionPass.h"
 #include "llvm/CodeGen/Passes.h"
 #include "llvm/CodeGen/SlotIndexes.h"
-#include "llvm/IR/IRPrintingPasses.h"
+#include "llvm/IR/PrintPasses.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
@@ -39,15 +39,16 @@ struct MachineFunctionPrinterPass : public MachineFunctionPass {
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.setPreservesAll();
-    AU.addUsedIfAvailable<SlotIndexes>();
+    AU.addUsedIfAvailable<SlotIndexesWrapperPass>();
     MachineFunctionPass::getAnalysisUsage(AU);
   }
 
   bool runOnMachineFunction(MachineFunction &MF) override {
-    if (!llvm::isFunctionInPrintList(MF.getName()))
+    if (!isFunctionInPrintList(MF.getName()))
       return false;
     OS << "# " << Banner << ":\n";
-    MF.print(OS, getAnalysisIfAvailable<SlotIndexes>());
+    auto *SIWrapper = getAnalysisIfAvailable<SlotIndexesWrapperPass>();
+    MF.print(OS, SIWrapper ? &SIWrapper->getSI() : nullptr);
     return false;
   }
 };
@@ -59,13 +60,11 @@ char &llvm::MachineFunctionPrinterPassID = MachineFunctionPrinterPass::ID;
 INITIALIZE_PASS(MachineFunctionPrinterPass, "machineinstr-printer",
                 "Machine Function Printer", false, false)
 
-namespace llvm {
 /// Returns a newly-created MachineFunction Printer pass. The
 /// default banner is empty.
 ///
-MachineFunctionPass *createMachineFunctionPrinterPass(raw_ostream &OS,
-                                                      const std::string &Banner){
+MachineFunctionPass *
+llvm::createMachineFunctionPrinterPass(raw_ostream &OS,
+                                       const std::string &Banner) {
   return new MachineFunctionPrinterPass(OS, Banner);
-}
-
 }

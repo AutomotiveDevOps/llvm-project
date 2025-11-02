@@ -27,11 +27,17 @@
 #include <string>
 #include <type_traits>
 
-// Some environments, viz. clang on Darwin, allow the macro HUGE
-// to leak out of <math.h> even when it is never directly included.
+// Some environments, viz. glibc 2.17 and *BSD, allow the macro HUGE
+// to leak out of <math.h>.
 #undef HUGE
 
 namespace Fortran::evaluate::value {
+
+// Computes decimal range in the sense of SELECTED_INT_KIND
+static constexpr int DecimalRange(int bits) {
+  // This magic value is LOG10(2.)*1E12.
+  return static_cast<int>((bits * 301029995664) / 1000000000000);
+}
 
 // Implements an integer as an assembly of smaller host integer parts
 // that constitute the digits of a large-radix fixed-point number.
@@ -50,9 +56,12 @@ namespace Fortran::evaluate::value {
 // named accordingly in ALL CAPS so that they can be referenced easily in
 // the language standard.
 template <int BITS, bool IS_LITTLE_ENDIAN = isHostLittleEndian,
-    int PARTBITS = BITS <= 32 ? BITS : 32,
+    int PARTBITS = BITS <= 32 ? BITS
+        : BITS % 32 == 0      ? 32
+        : BITS % 16 == 0      ? 16
+                              : 8,
     typename PART = HostUnsignedInt<PARTBITS>,
-    typename BIGPART = HostUnsignedInt<PARTBITS * 2>>
+    typename BIGPART = HostUnsignedInt<PARTBITS * 2>, int ALIGNMENT = BITS>
 class Integer {
 public:
   static constexpr int bits{BITS};
@@ -65,6 +74,7 @@ public:
   static_assert(std::is_unsigned_v<BigPart>);
   static_assert(CHAR_BIT * sizeof(BigPart) >= 2 * partBits);
   static constexpr bool littleEndian{IS_LITTLE_ENDIAN};
+  static constexpr int alignment{ALIGNMENT};
 
 private:
   static constexpr int maxPartBits{CHAR_BIT * sizeof(Part)};
@@ -79,6 +89,8 @@ private:
   static_assert((parts - 1) * partBits + topPartBits == bits);
   static constexpr Part partMask{static_cast<Part>(~0) >> extraPartBits};
   static constexpr Part topPartMask{static_cast<Part>(~0) >> extraTopPartBits};
+  static constexpr int partsWithAlignment{
+      (ALIGNMENT + partBits - 1) / partBits};
 
 public:
   // Some types used for member function results
@@ -154,7 +166,10 @@ public:
           }
         }
       } else {
-        INT signExtension{-(n < 0)};
+        // Avoid left shifts of negative signed values (that's an undefined
+        // behavior in C++).
+        auto signExtension{std::make_unsigned_t<INT>(n < 0)};
+        signExtension = ~signExtension + 1;
         static_assert(nBits >= partBits);
         if constexpr (nBits > partBits) {
           signExtension <<= nBits - partBits;
@@ -176,22 +191,22 @@ public:
   constexpr Integer &operator=(const Integer &) = default;
 
   constexpr bool operator<(const Integer &that) const {
-    return CompareUnsigned(that) == Ordering::Less;
+    return CompareSigned(that) == Ordering::Less;
   }
   constexpr bool operator<=(const Integer &that) const {
-    return CompareUnsigned(that) != Ordering::Greater;
+    return CompareSigned(that) != Ordering::Greater;
   }
   constexpr bool operator==(const Integer &that) const {
-    return CompareUnsigned(that) == Ordering::Equal;
+    return CompareSigned(that) == Ordering::Equal;
   }
   constexpr bool operator!=(const Integer &that) const {
     return !(*this == that);
   }
   constexpr bool operator>=(const Integer &that) const {
-    return CompareUnsigned(that) != Ordering::Less;
+    return CompareSigned(that) != Ordering::Less;
   }
   constexpr bool operator>(const Integer &that) const {
-    return CompareUnsigned(that) == Ordering::Greater;
+    return CompareSigned(that) == Ordering::Greater;
   }
 
   // Left-justified mask (e.g., MASKL(1) has only its sign bit set)
@@ -307,7 +322,7 @@ public:
       }
       result.overflow = false;
     } else if constexpr (bits < FROM::bits) {
-      auto back{FROM::template ConvertSigned(result.value)};
+      auto back{FROM::template ConvertSigned<Integer>(result.value)};
       result.overflow = back.value.CompareUnsigned(that) != Ordering::Equal;
     }
     return result;
@@ -358,9 +373,9 @@ public:
 
   static constexpr int DIGITS{bits - 1}; // don't count the sign bit
   static constexpr Integer HUGE() { return MASKR(bits - 1); }
-  static constexpr int RANGE{// in the sense of SELECTED_INT_KIND
-      // This magic value is LOG10(2.)*1E12.
-      static_cast<int>(((bits - 1) * 301029995664) / 1000000000000)};
+  static constexpr Integer Least() { return MASKL(1); }
+  static constexpr int RANGE{DecimalRange(bits - 1)};
+  static constexpr int UnsignedRANGE{DecimalRange(bits)};
 
   constexpr bool IsZero() const {
     for (int j{0}; j < parts; ++j) {
@@ -462,21 +477,35 @@ public:
     return CompareUnsigned(y);
   }
 
-  constexpr std::uint64_t ToUInt64() const {
-    std::uint64_t n{LEPart(0)};
-    int filled{partBits};
-    for (int j{1}; filled < 64 && j < parts; ++j, filled += partBits) {
-      n |= std::uint64_t{LEPart(j)} << filled;
+  template <typename UINT = std::uint64_t> constexpr UINT ToUInt() const {
+    UINT n{LEPart(0)};
+    std::size_t filled{partBits};
+    constexpr std::size_t maxBits{CHAR_BIT * sizeof n};
+    for (int j{1}; filled < maxBits && j < parts; ++j, filled += partBits) {
+      n |= UINT{LEPart(j)} << filled;
     }
     return n;
   }
 
-  constexpr std::int64_t ToInt64() const {
-    std::int64_t signExtended = ToUInt64();
-    if constexpr (bits < 64) {
-      signExtended |= -(signExtended >> (bits - 1)) << bits;
+  template <typename SINT = std::int64_t, typename UINT = std::uint64_t>
+  constexpr SINT ToSInt() const {
+    SINT n = ToUInt<UINT>();
+    constexpr std::size_t maxBits{CHAR_BIT * sizeof n};
+    if constexpr (bits < maxBits) {
+      // Avoid left shifts of negative signed values (that's an undefined
+      // behavior in C++).
+      auto u{std::make_unsigned_t<SINT>(ToUInt())};
+      u = (u >> (bits - 1)) << (bits - 1); // Get the sign bit only.
+      u = ~u + 1; // Negate top bits if not 0.
+      n |= static_cast<SINT>(u);
     }
-    return signExtended;
+    return n;
+  }
+
+  constexpr std::uint64_t ToUInt64() const { return ToUInt<std::uint64_t>(); }
+
+  constexpr std::int64_t ToInt64() const {
+    return ToSInt<std::int64_t, std::uint64_t>();
   }
 
   // Ones'-complement (i.e., C's ~)
@@ -774,12 +803,12 @@ public:
     return {diff.value, overflow};
   }
 
-  // MAX(X-Y, 0)
-  constexpr Integer DIM(const Integer &y) const {
+  // DIM(X,Y)=MAX(X-Y, 0)
+  constexpr ValueWithOverflow DIM(const Integer &y) const {
     if (CompareSigned(y) != Ordering::Greater) {
       return {};
     } else {
-      return SubtractSigned(y).value;
+      return SubtractSigned(y);
     }
   }
 
@@ -805,7 +834,13 @@ public:
           if (Part ypart{y.LEPart(k)}) {
             BigPart xy{xpart};
             xy *= ypart;
+#if defined __GNUC__ && __GNUC__ < 8 || __GNUC__ >= 12
+            // && to < (2 * parts) was added to avoid GCC build failure on
+            // -Werror=array-bounds. This can be removed if -Werror is disabled.
+            for (int to{j + k}; xy != 0 && to < (2 * parts); ++to) {
+#else
             for (int to{j + k}; xy != 0; ++to) {
+#endif
               xy += product[to];
               product[to] = xy & partMask;
               xy >>= partBits;
@@ -1019,14 +1054,17 @@ private:
     }
   }
 
-  Part part_[parts]{};
+  Part part_[partsWithAlignment]{};
 };
 
 extern template class Integer<8>;
 extern template class Integer<16>;
 extern template class Integer<32>;
 extern template class Integer<64>;
-extern template class Integer<80>;
+using X87IntegerContainer =
+    Integer<80, isHostLittleEndian, 16, std::uint16_t, std::uint32_t, 128>;
+extern template class Integer<80, isHostLittleEndian, 16, std::uint16_t,
+    std::uint32_t, 128>;
 extern template class Integer<128>;
 } // namespace Fortran::evaluate::value
 #endif // FORTRAN_EVALUATE_INTEGER_H_

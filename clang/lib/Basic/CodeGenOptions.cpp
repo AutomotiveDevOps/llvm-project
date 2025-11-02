@@ -7,25 +7,47 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/Basic/CodeGenOptions.h"
-#include <string.h>
 
 namespace clang {
 
 CodeGenOptions::CodeGenOptions() {
-#define CODEGENOPT(Name, Bits, Default) Name = Default;
-#define ENUM_CODEGENOPT(Name, Type, Bits, Default) set##Name(Default);
+#define CODEGENOPT(Name, Bits, Default, Compatibility) Name = Default;
+#define ENUM_CODEGENOPT(Name, Type, Bits, Default, Compatibility)              \
+  set##Name(Default);
 #include "clang/Basic/CodeGenOptions.def"
 
   RelocationModel = llvm::Reloc::PIC_;
-  memcpy(CoverageVersion, "408*", 4);
 }
 
-bool CodeGenOptions::isNoBuiltinFunc(const char *Name) const {
-  StringRef FuncName(Name);
-  for (unsigned i = 0, e = NoBuiltinFuncs.size(); i != e; ++i)
-    if (FuncName.equals(NoBuiltinFuncs[i]))
-      return true;
-  return false;
+void CodeGenOptions::resetNonModularOptions(StringRef ModuleFormat) {
+  // FIXME: Replace with C++20 `using enum CodeGenOptions::CompatibilityKind`.
+  using CK = CompatibilityKind;
+
+  // First reset benign codegen and debug options.
+#define CODEGENOPT(Name, Bits, Default, Compatibility)                         \
+  if constexpr (CK::Compatibility == CK::Benign)                               \
+    Name = Default;
+#define ENUM_CODEGENOPT(Name, Type, Bits, Default, Compatibility)              \
+  if constexpr (CK::Compatibility == CK::Benign)                               \
+    set##Name(Default);
+#include "clang/Basic/CodeGenOptions.def"
+
+  // Conditionally reset debug options that only matter when the debug info is
+  // emitted into the PCM (-gmodules).
+  if (ModuleFormat == "raw" && !DebugTypeExtRefs) {
+#define DEBUGOPT(Name, Bits, Default, Compatibility)                           \
+  if constexpr (CK::Compatibility != CK::Benign)                               \
+    Name = Default;
+#define VALUE_DEBUGOPT(Name, Bits, Default, Compatibility)                     \
+  if constexpr (CK::Compatibility != CK::Benign)                               \
+    Name = Default;
+#define ENUM_DEBUGOPT(Name, Type, Bits, Default, Compatibility)                \
+  if constexpr (CK::Compatibility != CK::Benign)                               \
+    set##Name(Default);
+#include "clang/Basic/DebugOptions.def"
+  }
+
+  RelocationModel = llvm::Reloc::PIC_;
 }
 
 }  // end namespace clang

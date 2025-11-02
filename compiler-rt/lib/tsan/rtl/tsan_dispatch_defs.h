@@ -51,9 +51,9 @@ extern const dispatch_block_t _dispatch_data_destructor_munmap;
 #define DISPATCH_DATA_DESTRUCTOR_MUNMAP  _dispatch_data_destructor_munmap
 
 #if __has_attribute(noescape)
-  #define DISPATCH_NOESCAPE __attribute__((__noescape__))
+# define DISPATCH_NOESCAPE __attribute__((__noescape__))
 #else
-  #define DISPATCH_NOESCAPE
+# define DISPATCH_NOESCAPE
 #endif
 
 // Data types used in dispatch APIs

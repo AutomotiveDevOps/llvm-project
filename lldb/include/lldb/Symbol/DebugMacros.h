@@ -27,7 +27,6 @@ public:
       INVALID, DEFINE, UNDEF, START_FILE, END_FILE, INDIRECT
   };
 
-public:
   static DebugMacroEntry CreateDefineEntry(uint32_t line, const char *str);
 
   static DebugMacroEntry CreateUndefEntry(uint32_t line, const char *str);
@@ -40,7 +39,7 @@ public:
   static DebugMacroEntry
   CreateIndirectEntry(const DebugMacrosSP &debug_macros_sp);
 
-  DebugMacroEntry() : m_type(INVALID) {}
+  DebugMacroEntry() : m_type(INVALID), m_line(0), m_debug_line_file_idx(0) {}
 
   ~DebugMacroEntry() = default;
 
@@ -89,7 +88,8 @@ public:
   }
 
 private:
-  DISALLOW_COPY_AND_ASSIGN(DebugMacros);
+  DebugMacros(const DebugMacros &) = delete;
+  const DebugMacros &operator=(const DebugMacros &) = delete;
 
   std::vector<DebugMacroEntry> m_macro_entries;
 };

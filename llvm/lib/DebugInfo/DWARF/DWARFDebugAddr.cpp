@@ -8,7 +8,8 @@
 
 #include "llvm/DebugInfo/DWARF/DWARFDebugAddr.h"
 #include "llvm/BinaryFormat/Dwarf.h"
-#include "llvm/DebugInfo/DWARF/DWARFUnit.h"
+#include "llvm/DebugInfo/DWARF/DWARFContext.h"
+#include "llvm/Support/Errc.h"
 
 using namespace llvm;
 
@@ -18,12 +19,10 @@ Error DWARFDebugAddrTable::extractAddresses(const DWARFDataExtractor &Data,
   assert(EndOffset >= *OffsetPtr);
   uint64_t DataSize = EndOffset - *OffsetPtr;
   assert(Data.isValidOffsetForDataOfSize(*OffsetPtr, DataSize));
-  if (AddrSize != 4 && AddrSize != 8)
-    return createStringError(errc::not_supported,
-                             "address table at offset 0x%" PRIx64
-                             " has unsupported address size %" PRIu8
-                             " (4 and 8 are supported)",
-                             Offset, AddrSize);
+  if (Error SizeErr = DWARFContext::checkAddressSizeSupported(
+          AddrSize, errc::not_supported, "address table at offset 0x%" PRIx64,
+          Offset))
+    return SizeErr;
   if (DataSize % AddrSize != 0) {
     invalidateLength();
     return createStringError(errc::invalid_argument,
@@ -138,16 +137,30 @@ void DWARFDebugAddrTable::dump(raw_ostream &OS, DIDumpOptions DumpOpts) const {
   if (DumpOpts.Verbose)
     OS << format("0x%8.8" PRIx64 ": ", Offset);
   if (Length) {
-    int LengthFieldWidth = (Format == dwarf::DwarfFormat::DWARF64) ? 16 : 8;
-    OS << format("Address table header: length = 0x%0*" PRIx64
-                 ", version = 0x%4.4" PRIx16 ", addr_size = 0x%2.2" PRIx8
-                 ", seg_size = 0x%2.2" PRIx8 "\n",
-                 LengthFieldWidth, Length, Version, AddrSize, SegSize);
+    int OffsetDumpWidth = 2 * dwarf::getDwarfOffsetByteSize(Format);
+    OS << "Address table header: "
+       << format("length = 0x%0*" PRIx64, OffsetDumpWidth, Length)
+       << ", format = " << dwarf::FormatString(Format)
+       << format(", version = 0x%4.4" PRIx16, Version)
+       << format(", addr_size = 0x%2.2" PRIx8, AddrSize)
+       << format(", seg_size = 0x%2.2" PRIx8, SegSize) << "\n";
   }
 
   if (Addrs.size() > 0) {
-    const char *AddrFmt =
-        (AddrSize == 4) ? "0x%8.8" PRIx64 "\n" : "0x%16.16" PRIx64 "\n";
+    const char *AddrFmt;
+    switch (AddrSize) {
+    case 2:
+      AddrFmt = "0x%4.4" PRIx64 "\n";
+      break;
+    case 4:
+      AddrFmt = "0x%8.8" PRIx64 "\n";
+      break;
+    case 8:
+      AddrFmt = "0x%16.16" PRIx64 "\n";
+      break;
+    default:
+      llvm_unreachable("unsupported address size");
+    }
     OS << "Addrs: [\n";
     for (uint64_t Addr : Addrs)
       OS << format(AddrFmt, Addr);
@@ -164,9 +177,8 @@ Expected<uint64_t> DWARFDebugAddrTable::getAddrEntry(uint32_t Index) const {
                            Index, Offset);
 }
 
-Optional<uint64_t> DWARFDebugAddrTable::getFullLength() const {
+std::optional<uint64_t> DWARFDebugAddrTable::getFullLength() const {
   if (Length == 0)
-    return None;
+    return std::nullopt;
   return Length + dwarf::getUnitLengthFieldByteSize(Format);
 }
-

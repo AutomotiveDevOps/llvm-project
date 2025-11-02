@@ -3,7 +3,7 @@
 
 ; https://bugs.llvm.org/show_bug.cgi?id=41668
 
-define double @constant_fold_fdiv_by_zero(double* %p) {
+define double @constant_fold_fdiv_by_zero(ptr %p) {
 ; CHECK-LABEL: constant_fold_fdiv_by_zero:
 ; CHECK:       // %bb.0:
 ; CHECK-NEXT:    mov x8, #9218868437227405312
@@ -15,7 +15,7 @@ define double @constant_fold_fdiv_by_zero(double* %p) {
 
 ; frem by 0.0 --> NaN
 
-define double @constant_fold_frem_by_zero(double* %p) {
+define double @constant_fold_frem_by_zero(ptr %p) {
 ; CHECK-LABEL: constant_fold_frem_by_zero:
 ; CHECK:       // %bb.0:
 ; CHECK-NEXT:    mov x8, #9221120237041090560
@@ -27,7 +27,7 @@ define double @constant_fold_frem_by_zero(double* %p) {
 
 ; Inf * 0.0 --> NaN
 
-define double @constant_fold_fmul_nan(double* %p) {
+define double @constant_fold_fmul_nan(ptr %p) {
 ; CHECK-LABEL: constant_fold_fmul_nan:
 ; CHECK:       // %bb.0:
 ; CHECK-NEXT:    mov x8, #9221120237041090560
@@ -39,7 +39,7 @@ define double @constant_fold_fmul_nan(double* %p) {
 
 ; Inf + -Inf --> NaN
 
-define double @constant_fold_fadd_nan(double* %p) {
+define double @constant_fold_fadd_nan(ptr %p) {
 ; CHECK-LABEL: constant_fold_fadd_nan:
 ; CHECK:       // %bb.0:
 ; CHECK-NEXT:    mov x8, #9221120237041090560
@@ -51,7 +51,7 @@ define double @constant_fold_fadd_nan(double* %p) {
 
 ; Inf - Inf --> NaN
 
-define double @constant_fold_fsub_nan(double* %p) {
+define double @constant_fold_fsub_nan(ptr %p) {
 ; CHECK-LABEL: constant_fold_fsub_nan:
 ; CHECK:       // %bb.0:
 ; CHECK-NEXT:    mov x8, #9221120237041090560
@@ -63,7 +63,7 @@ define double @constant_fold_fsub_nan(double* %p) {
 
 ; Inf * 0.0 + ? --> NaN
 
-define double @constant_fold_fma_nan(double* %p) {
+define double @constant_fold_fma_nan(ptr %p) {
 ; CHECK-LABEL: constant_fold_fma_nan:
 ; CHECK:       // %bb.0:
 ; CHECK-NEXT:    mov x8, #9221120237041090560
@@ -161,49 +161,33 @@ define double @fmul_nnan_inf_op1(double %x) {
   ret double %r
 }
 
-; TODO: Should simplify to undef
-
 define double @fdiv_nnan_undef_op0(double %x) {
 ; CHECK-LABEL: fdiv_nnan_undef_op0:
 ; CHECK:       // %bb.0:
-; CHECK-NEXT:    mov x8, #9221120237041090560
-; CHECK-NEXT:    fmov d0, x8
 ; CHECK-NEXT:    ret
   %r = fdiv nnan double undef, %x
   ret double %r
 }
 
-; TODO: Should simplify to undef
-
 define double @fdiv_nnan_undef_op1(double %x) {
 ; CHECK-LABEL: fdiv_nnan_undef_op1:
 ; CHECK:       // %bb.0:
-; CHECK-NEXT:    mov x8, #9221120237041090560
-; CHECK-NEXT:    fmov d0, x8
 ; CHECK-NEXT:    ret
   %r = fdiv nnan double %x, undef
   ret double %r
 }
 
-; TODO: Should simplify to undef
-
 define double @fdiv_ninf_undef_op0(double %x) {
 ; CHECK-LABEL: fdiv_ninf_undef_op0:
 ; CHECK:       // %bb.0:
-; CHECK-NEXT:    mov x8, #9221120237041090560
-; CHECK-NEXT:    fmov d0, x8
 ; CHECK-NEXT:    ret
   %r = fdiv ninf double undef, %x
   ret double %r
 }
 
-; TODO: Should simplify to undef
-
 define double @fdiv_ninf_undef_op1(double %x) {
 ; CHECK-LABEL: fdiv_ninf_undef_op1:
 ; CHECK:       // %bb.0:
-; CHECK-NEXT:    mov x8, #9221120237041090560
-; CHECK-NEXT:    fmov d0, x8
 ; CHECK-NEXT:    ret
   %r = fdiv ninf double %x, undef
   ret double %r

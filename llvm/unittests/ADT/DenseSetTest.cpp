@@ -7,6 +7,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/ADT/DenseSet.h"
+#include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include <type_traits>
 
@@ -14,12 +15,14 @@ using namespace llvm;
 
 namespace {
 
-static_assert(std::is_const<std::remove_pointer<
-                  DenseSet<int>::const_iterator::pointer>::type>::value,
-              "Iterator pointer type should be const");
-static_assert(std::is_const<std::remove_reference<
-                  DenseSet<int>::const_iterator::reference>::type>::value,
-              "Iterator reference type should be const");
+static_assert(
+    std::is_const_v<
+        std::remove_pointer_t<DenseSet<int>::const_iterator::pointer>>,
+    "Iterator pointer type should be const");
+static_assert(
+    std::is_const_v<
+        std::remove_reference_t<DenseSet<int>::const_iterator::reference>>,
+    "Iterator reference type should be const");
 
 // Test hashing with a set of only two entries.
 TEST(DenseSetTest, DoubleEntrySetTest) {
@@ -28,6 +31,38 @@ TEST(DenseSetTest, DoubleEntrySetTest) {
   set.insert(1);
   // Original failure was an infinite loop in this call:
   EXPECT_EQ(0u, set.count(2));
+}
+
+TEST(DenseSetTest, CtorRange) {
+  constexpr unsigned Args[] = {3, 1, 2};
+  llvm::DenseSet<unsigned> set(llvm::from_range, Args);
+  EXPECT_THAT(set, ::testing::UnorderedElementsAre(1, 2, 3));
+}
+
+TEST(DenseSetTest, CtorRangeImplicitConversion) {
+  constexpr char Args[] = {3, 1, 2};
+  llvm::DenseSet<unsigned> set(llvm::from_range, Args);
+  EXPECT_THAT(set, ::testing::UnorderedElementsAre(1, 2, 3));
+}
+
+TEST(SmallDenseSetTest, CtorRange) {
+  constexpr unsigned Args[] = {9, 7, 8};
+  llvm::SmallDenseSet<unsigned> set(llvm::from_range, Args);
+  EXPECT_THAT(set, ::testing::UnorderedElementsAre(7, 8, 9));
+}
+
+TEST(DenseSetTest, InsertRange) {
+  llvm::DenseSet<unsigned> set;
+  constexpr unsigned Args[] = {3, 1, 2};
+  set.insert_range(Args);
+  EXPECT_THAT(set, ::testing::UnorderedElementsAre(1, 2, 3));
+}
+
+TEST(SmallDenseSetTest, InsertRange) {
+  llvm::SmallDenseSet<unsigned> set;
+  constexpr unsigned Args[] = {9, 7, 8};
+  set.insert_range(Args);
+  EXPECT_THAT(set, ::testing::UnorderedElementsAre(7, 8, 9));
 }
 
 struct TestDenseSetInfo {
@@ -68,7 +103,7 @@ typedef ::testing::Types<DenseSet<unsigned, TestDenseSetInfo>,
                          const SmallDenseSet<unsigned, 4, TestDenseSetInfo>,
                          SmallDenseSet<unsigned, 64, TestDenseSetInfo>>
     DenseSetTestTypes;
-TYPED_TEST_CASE(DenseSetTest, DenseSetTestTypes);
+TYPED_TEST_SUITE(DenseSetTest, DenseSetTestTypes, );
 
 TYPED_TEST(DenseSetTest, Constructor) {
   constexpr unsigned a[] = {1, 2, 4};
@@ -227,7 +262,7 @@ TEST(DenseSetCustomTest, ConstTest) {
   Map.insert(B);
   EXPECT_EQ(Map.count(B), 1u);
   EXPECT_EQ(Map.count(C), 1u);
-  EXPECT_NE(Map.find(B), Map.end());
-  EXPECT_NE(Map.find(C), Map.end());
+  EXPECT_TRUE(Map.contains(B));
+  EXPECT_TRUE(Map.contains(C));
 }
 }

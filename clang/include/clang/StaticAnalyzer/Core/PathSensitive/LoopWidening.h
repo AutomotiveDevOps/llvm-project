@@ -5,7 +5,7 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
-///
+/// \file
 /// This header contains the declarations of functions which are used to widen
 /// loops which do not otherwise exit. The widening is done by invalidating
 /// anything which might be modified by the body of the loop.
@@ -27,7 +27,8 @@ namespace ento {
 /// by the loop body in any iteration.
 ProgramStateRef getWidenedLoopState(ProgramStateRef PrevState,
                                     const LocationContext *LCtx,
-                                    unsigned BlockCount, const Stmt *LoopStmt);
+                                    unsigned BlockCount,
+                                    ConstCFGElementRef Elem);
 
 } // end namespace ento
 } // end namespace clang

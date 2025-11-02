@@ -9,10 +9,11 @@
 // This file defines the common interface used by the various execution engine
 // subclasses.
 //
+// FIXME: This file needs to be updated to support scalable vectors
+//
 //===----------------------------------------------------------------------===//
 
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
-#include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/ExecutionEngine/GenericValue.h"
@@ -26,15 +27,15 @@
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Operator.h"
 #include "llvm/IR/ValueHandle.h"
+#include "llvm/MC/TargetRegistry.h"
 #include "llvm/Object/Archive.h"
 #include "llvm/Object/ObjectFile.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/DynamicLibrary.h"
 #include "llvm/Support/ErrorHandling.h"
-#include "llvm/Support/Host.h"
-#include "llvm/Support/TargetRegistry.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Target/TargetMachine.h"
+#include "llvm/TargetParser/Host.h"
 #include <cmath>
 #include <cstring>
 #include <mutex>
@@ -48,11 +49,6 @@ STATISTIC(NumGlobals  , "Number of global vars initialized");
 ExecutionEngine *(*ExecutionEngine::MCJITCtor)(
     std::unique_ptr<Module> M, std::string *ErrorStr,
     std::shared_ptr<MCJITMemoryManager> MemMgr,
-    std::shared_ptr<LegacyJITSymbolResolver> Resolver,
-    std::unique_ptr<TargetMachine> TM) = nullptr;
-
-ExecutionEngine *(*ExecutionEngine::OrcMCJITReplacementCtor)(
-    std::string *ErrorStr, std::shared_ptr<MCJITMemoryManager> MemMgr,
     std::shared_ptr<LegacyJITSymbolResolver> Resolver,
     std::unique_ptr<TargetMachine> TM) = nullptr;
 
@@ -108,7 +104,7 @@ public:
     Type *ElTy = GV->getValueType();
     size_t GVSize = (size_t)TD.getTypeAllocSize(ElTy);
     void *RawMemory = ::operator new(
-        alignTo(sizeof(GVMemoryBlock), TD.getPreferredAlignment(GV)) + GVSize);
+        alignTo(sizeof(GVMemoryBlock), TD.getPreferredAlign(GV)) + GVSize);
     new(RawMemory) GVMemoryBlock(GV);
     return static_cast<char*>(RawMemory) + sizeof(GVMemoryBlock);
   }
@@ -154,8 +150,8 @@ bool ExecutionEngine::removeModule(Module *M) {
 }
 
 Function *ExecutionEngine::FindFunctionNamed(StringRef FnName) {
-  for (unsigned i = 0, e = Modules.size(); i != e; ++i) {
-    Function *F = Modules[i]->getFunction(FnName);
+  for (const auto &M : Modules) {
+    Function *F = M->getFunction(FnName);
     if (F && !F->isDeclaration())
       return F;
   }
@@ -163,8 +159,8 @@ Function *ExecutionEngine::FindFunctionNamed(StringRef FnName) {
 }
 
 GlobalVariable *ExecutionEngine::FindGlobalVariableNamed(StringRef Name, bool AllowInternal) {
-  for (unsigned i = 0, e = Modules.size(); i != e; ++i) {
-    GlobalVariable *GV = Modules[i]->getGlobalVariable(Name,AllowInternal);
+  for (const auto &M : Modules) {
+    GlobalVariable *GV = M->getGlobalVariable(Name, AllowInternal);
     if (GV && !GV->isDeclaration())
       return GV;
   }
@@ -195,12 +191,12 @@ std::string ExecutionEngine::getMangledName(const GlobalValue *GV) {
   SmallString<128> FullName;
 
   const DataLayout &DL =
-    GV->getParent()->getDataLayout().isDefault()
+    GV->getDataLayout().isDefault()
       ? getDataLayout()
-      : GV->getParent()->getDataLayout();
+      : GV->getDataLayout();
 
   Mangler::getNameWithPrefix(FullName, GV->getName(), DL);
-  return std::string(FullName.str());
+  return std::string(FullName);
 }
 
 void ExecutionEngine::addGlobalMapping(const GlobalValue *GV, void *Addr) {
@@ -317,8 +313,8 @@ const GlobalValue *ExecutionEngine::getGlobalValueAtAddress(void *Addr) {
 
   if (I != EEState.getGlobalAddressReverseMap().end()) {
     StringRef Name = I->second;
-    for (unsigned i = 0, e = Modules.size(); i != e; ++i)
-      if (GlobalValue *GV = Modules[i]->getNamedValue(Name))
+    for (const auto &M : Modules)
+      if (GlobalValue *GV = M->getNamedValue(Name))
         return GV;
   }
   return nullptr;
@@ -343,7 +339,7 @@ void *ArgvArray::reset(LLVMContext &C, ExecutionEngine *EE,
   Array = std::make_unique<char[]>((InputArgv.size()+1)*PtrSize);
 
   LLVM_DEBUG(dbgs() << "JIT: ARGV = " << (void *)Array.get() << "\n");
-  Type *SBytePtr = Type::getInt8PtrTy(C);
+  Type *SBytePtr = PointerType::getUnqual(C);
 
   for (unsigned i = 0; i != InputArgv.size(); ++i) {
     unsigned Size = InputArgv[i].size()+1;
@@ -351,7 +347,7 @@ void *ArgvArray::reset(LLVMContext &C, ExecutionEngine *EE,
     LLVM_DEBUG(dbgs() << "JIT: ARGV[" << i << "] = " << (void *)Dest.get()
                       << "\n");
 
-    std::copy(InputArgv[i].begin(), InputArgv[i].end(), Dest.get());
+    llvm::copy(InputArgv[i], Dest.get());
     Dest[Size-1] = 0;
 
     // Endian safe: Array[i] = (PointerTy)Dest;
@@ -389,7 +385,7 @@ void ExecutionEngine::runStaticConstructorsDestructors(Module &module,
 
     Constant *FP = CS->getOperand(1);
     if (FP->isNullValue())
-      continue;  // Found a sentinal value, ignore.
+      continue;  // Found a sentinel value, ignore.
 
     // Strip off constant expression casts.
     if (ConstantExpr *CE = dyn_cast<ConstantExpr>(FP))
@@ -398,7 +394,7 @@ void ExecutionEngine::runStaticConstructorsDestructors(Module &module,
 
     // Execute the ctor/dtor function!
     if (Function *F = dyn_cast<Function>(FP))
-      runFunction(F, None);
+      runFunction(F, {});
 
     // FIXME: It is marginally lame that we just do nothing here if we see an
     // entry we don't recognize. It might not be unreasonable for the verifier
@@ -433,7 +429,7 @@ int ExecutionEngine::runFunctionAsMain(Function *Fn,
   // Check main() type
   unsigned NumArgs = Fn->getFunctionType()->getNumParams();
   FunctionType *FTy = Fn->getFunctionType();
-  Type* PPInt8Ty = Type::getInt8PtrTy(Fn->getContext())->getPointerTo();
+  Type *PPInt8Ty = PointerType::get(Fn->getContext(), 0);
 
   // Check the argument types.
   if (NumArgs > 3)
@@ -474,8 +470,7 @@ EngineBuilder::EngineBuilder() : EngineBuilder(nullptr) {}
 
 EngineBuilder::EngineBuilder(std::unique_ptr<Module> M)
     : M(std::move(M)), WhichEngine(EngineKind::Either), ErrorStr(nullptr),
-      OptLevel(CodeGenOpt::Default), MemMgr(nullptr), Resolver(nullptr),
-      UseOrcMCJITReplacement(false) {
+      OptLevel(CodeGenOptLevel::Default), MemMgr(nullptr), Resolver(nullptr) {
 // IR module verification is enabled by default in debug builds, and disabled
 // by default in release builds.
 #ifndef NDEBUG
@@ -538,12 +533,7 @@ ExecutionEngine *EngineBuilder::create(TargetMachine *TM) {
     }
 
     ExecutionEngine *EE = nullptr;
-    if (ExecutionEngine::OrcMCJITReplacementCtor && UseOrcMCJITReplacement) {
-      EE = ExecutionEngine::OrcMCJITReplacementCtor(ErrorStr, std::move(MemMgr),
-                                                    std::move(Resolver),
-                                                    std::move(TheTM));
-      EE->addModule(std::move(M));
-    } else if (ExecutionEngine::MCJITCtor)
+    if (ExecutionEngine::MCJITCtor)
       EE = ExecutionEngine::MCJITCtor(std::move(M), ErrorStr, std::move(MemMgr),
                                       std::move(Resolver), std::move(TheTM));
 
@@ -624,10 +614,23 @@ GenericValue ExecutionEngine::getConstantValue(const Constant *C) {
         }
       }
       break;
-      case Type::FixedVectorTyID:
       case Type::ScalableVectorTyID:
+        report_fatal_error(
+            "Scalable vector support not yet implemented in ExecutionEngine");
+      case Type::ArrayTyID: {
+        auto *ArrTy = cast<ArrayType>(C->getType());
+        Type *ElemTy = ArrTy->getElementType();
+        unsigned int elemNum = ArrTy->getNumElements();
+        Result.AggregateVal.resize(elemNum);
+        if (ElemTy->isIntegerTy())
+          for (unsigned int i = 0; i < elemNum; ++i)
+            Result.AggregateVal[i].IntVal =
+                APInt(ElemTy->getPrimitiveSizeInBits(), 0);
+        break;
+      }
+      case Type::FixedVectorTyID: {
         // if the whole vector is 'undef' just reserve memory for the value.
-        auto *VTy = cast<VectorType>(C->getType());
+        auto *VTy = cast<FixedVectorType>(C->getType());
         Type *ElemTy = VTy->getElementType();
         unsigned int elemNum = VTy->getNumElements();
         Result.AggregateVal.resize(elemNum);
@@ -636,6 +639,7 @@ GenericValue ExecutionEngine::getConstantValue(const Constant *C) {
             Result.AggregateVal[i].IntVal =
                 APInt(ElemTy->getPrimitiveSizeInBits(), 0);
         break;
+      }
     }
     return Result;
   }
@@ -726,7 +730,7 @@ GenericValue ExecutionEngine::getConstantValue(const Constant *C) {
         APFloat apf = APFloat(APFloat::x87DoubleExtended(), GV.IntVal);
         uint64_t v;
         bool ignored;
-        (void)apf.convertToInteger(makeMutableArrayRef(v), BitWidth,
+        (void)apf.convertToInteger(MutableArrayRef(v), BitWidth,
                                    CE->getOpcode()==Instruction::FPToSI,
                                    APFloat::rmTowardZero, &ignored);
         GV.IntVal = v; // endian?
@@ -885,6 +889,12 @@ GenericValue ExecutionEngine::getConstantValue(const Constant *C) {
     report_fatal_error(OS.str());
   }
 
+  if (auto *TETy = dyn_cast<TargetExtType>(C->getType())) {
+    assert(TETy->hasProperty(TargetExtType::HasZeroInit) && C->isNullValue() &&
+           "TargetExtType only supports null constant value");
+    C = Constant::getNullValue(TETy->getLayoutType());
+  }
+
   // Otherwise, we have a simple constant.
   GenericValue Result;
   switch (C->getType()->getTypeID()) {
@@ -915,8 +925,10 @@ GenericValue ExecutionEngine::getConstantValue(const Constant *C) {
     else
       llvm_unreachable("Unknown constant pointer type!");
     break;
-  case Type::FixedVectorTyID:
-  case Type::ScalableVectorTyID: {
+  case Type::ScalableVectorTyID:
+    report_fatal_error(
+        "Scalable vector support not yet implemented in ExecutionEngine");
+  case Type::FixedVectorTyID: {
     unsigned elemNum;
     Type* ElemTy;
     const ConstantDataVector *CDV = dyn_cast<ConstantDataVector>(C);
@@ -927,9 +939,9 @@ GenericValue ExecutionEngine::getConstantValue(const Constant *C) {
         elemNum = CDV->getNumElements();
         ElemTy = CDV->getElementType();
     } else if (CV || CAZ) {
-        auto* VTy = cast<VectorType>(C->getType());
-        elemNum = VTy->getNumElements();
-        ElemTy = VTy->getElementType();
+      auto *VTy = cast<FixedVectorType>(C->getType());
+      elemNum = VTy->getNumElements();
+      ElemTy = VTy->getElementType();
     } else {
         llvm_unreachable("Unknown constant vector type!");
     }
@@ -940,8 +952,7 @@ GenericValue ExecutionEngine::getConstantValue(const Constant *C) {
       if (CAZ) {
         GenericValue floatZero;
         floatZero.FloatVal = 0.f;
-        std::fill(Result.AggregateVal.begin(), Result.AggregateVal.end(),
-                  floatZero);
+        llvm::fill(Result.AggregateVal, floatZero);
         break;
       }
       if(CV) {
@@ -962,8 +973,7 @@ GenericValue ExecutionEngine::getConstantValue(const Constant *C) {
       if (CAZ) {
         GenericValue doubleZero;
         doubleZero.DoubleVal = 0.0;
-        std::fill(Result.AggregateVal.begin(), Result.AggregateVal.end(),
-                  doubleZero);
+        llvm::fill(Result.AggregateVal, doubleZero);
         break;
       }
       if(CV) {
@@ -984,8 +994,7 @@ GenericValue ExecutionEngine::getConstantValue(const Constant *C) {
       if (CAZ) {
         GenericValue intZero;
         intZero.IntVal = APInt(ElemTy->getScalarSizeInBits(), 0ull);
-        std::fill(Result.AggregateVal.begin(), Result.AggregateVal.end(),
-                  intZero);
+        llvm::fill(Result.AggregateVal, intZero);
         break;
       }
       if(CV) {
@@ -1022,6 +1031,11 @@ GenericValue ExecutionEngine::getConstantValue(const Constant *C) {
 
 void ExecutionEngine::StoreValueToMemory(const GenericValue &Val,
                                          GenericValue *Ptr, Type *Ty) {
+  // It is safe to treat TargetExtType as its layout type since the underlying
+  // bits are only copied and are not inspected.
+  if (auto *TETy = dyn_cast<TargetExtType>(Ty))
+    Ty = TETy->getLayoutType();
+
   const unsigned StoreBytes = getDataLayout().getTypeStoreSize(Ty);
 
   switch (Ty->getTypeID()) {
@@ -1038,7 +1052,7 @@ void ExecutionEngine::StoreValueToMemory(const GenericValue &Val,
     *((double*)Ptr) = Val.DoubleVal;
     break;
   case Type::X86_FP80TyID:
-    memcpy(Ptr, Val.IntVal.getRawData(), 10);
+    memcpy(static_cast<void *>(Ptr), Val.IntVal.getRawData(), 10);
     break;
   case Type::PointerTyID:
     // Ensure 64 bit target pointers are fully initialized on 32 bit hosts.
@@ -1073,6 +1087,9 @@ void ExecutionEngine::StoreValueToMemory(const GenericValue &Val,
 void ExecutionEngine::LoadValueFromMemory(GenericValue &Result,
                                           GenericValue *Ptr,
                                           Type *Ty) {
+  if (auto *TETy = dyn_cast<TargetExtType>(Ty))
+    Ty = TETy->getLayoutType();
+
   const unsigned LoadBytes = getDataLayout().getTypeStoreSize(Ty);
 
   switch (Ty->getTypeID()) {
@@ -1098,9 +1115,11 @@ void ExecutionEngine::LoadValueFromMemory(GenericValue &Result,
     Result.IntVal = APInt(80, y);
     break;
   }
-  case Type::FixedVectorTyID:
-  case Type::ScalableVectorTyID: {
-    auto *VT = cast<VectorType>(Ty);
+  case Type::ScalableVectorTyID:
+    report_fatal_error(
+        "Scalable vector support not yet implemented in ExecutionEngine");
+  case Type::FixedVectorTyID: {
+    auto *VT = cast<FixedVectorType>(Ty);
     Type *ElemT = VT->getElementType();
     const unsigned numElems = VT->getNumElements();
     if (ElemT->isFloatTy()) {
@@ -1196,9 +1215,8 @@ void ExecutionEngine::emitGlobals() {
            const GlobalValue*> LinkedGlobalsMap;
 
   if (Modules.size() != 1) {
-    for (unsigned m = 0, e = Modules.size(); m != e; ++m) {
-      Module &M = *Modules[m];
-      for (const auto &GV : M.globals()) {
+    for (const auto &M : Modules) {
+      for (const auto &GV : M->globals()) {
         if (GV.hasLocalLinkage() || GV.isDeclaration() ||
             GV.hasAppendingLinkage() || !GV.hasName())
           continue;// Ignore external globals and globals with internal linkage.
@@ -1226,9 +1244,8 @@ void ExecutionEngine::emitGlobals() {
   }
 
   std::vector<const GlobalValue*> NonCanonicalGlobals;
-  for (unsigned m = 0, e = Modules.size(); m != e; ++m) {
-    Module &M = *Modules[m];
-    for (const auto &GV : M.globals()) {
+  for (const auto &M : Modules) {
+    for (const auto &GV : M->globals()) {
       // In the multi-module case, see what this global maps to.
       if (!LinkedGlobalsMap.empty()) {
         if (const GlobalValue *GVEntry = LinkedGlobalsMap[std::make_pair(
@@ -1259,8 +1276,7 @@ void ExecutionEngine::emitGlobals() {
     // If there are multiple modules, map the non-canonical globals to their
     // canonical location.
     if (!NonCanonicalGlobals.empty()) {
-      for (unsigned i = 0, e = NonCanonicalGlobals.size(); i != e; ++i) {
-        const GlobalValue *GV = NonCanonicalGlobals[i];
+      for (const GlobalValue *GV : NonCanonicalGlobals) {
         const GlobalValue *CGV = LinkedGlobalsMap[std::make_pair(
             std::string(GV->getName()), GV->getType())];
         void *Ptr = getPointerToGlobalIfAvailable(CGV);
@@ -1271,7 +1287,7 @@ void ExecutionEngine::emitGlobals() {
 
     // Now that all of the globals are set up in memory, loop through them all
     // and initialize their contents.
-    for (const auto &GV : M.globals()) {
+    for (const auto &GV : M->globals()) {
       if (!GV.isDeclaration()) {
         if (!LinkedGlobalsMap.empty()) {
           if (const GlobalValue *GVEntry = LinkedGlobalsMap[std::make_pair(

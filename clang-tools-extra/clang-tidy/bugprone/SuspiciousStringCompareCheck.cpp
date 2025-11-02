@@ -1,4 +1,4 @@
-//===--- SuspiciousStringCompareCheck.cpp - clang-tidy---------------------===//
+//===----------------------------------------------------------------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -7,7 +7,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "SuspiciousStringCompareCheck.h"
-#include "../utils/Matchers.h"
 #include "../utils/OptionsUtils.h"
 #include "clang/AST/ASTContext.h"
 #include "clang/ASTMatchers/ASTMatchFinder.h"
@@ -15,9 +14,7 @@
 
 using namespace clang::ast_matchers;
 
-namespace clang {
-namespace tidy {
-namespace bugprone {
+namespace clang::tidy::bugprone {
 
 // Semicolon separated list of known string compare-like functions. The list
 // must ends with a semicolon.
@@ -91,15 +88,12 @@ void SuspiciousStringCompareCheck::registerMatchers(MatchFinder *Finder) {
 
   // Add the list of known string compare-like functions and add user-defined
   // functions.
-  std::vector<std::string> FunctionNames = utils::options::parseStringList(
-      (llvm::Twine(KnownStringCompareFunctions) + StringCompareLikeFunctions)
-          .str());
+  std::vector<StringRef> FunctionNames = utils::options::parseListPair(
+      KnownStringCompareFunctions, StringCompareLikeFunctions);
 
   // Match a call to a string compare functions.
   const auto FunctionCompareDecl =
-      functionDecl(hasAnyName(std::vector<StringRef>(FunctionNames.begin(),
-                                                     FunctionNames.end())))
-          .bind("decl");
+      functionDecl(hasAnyName(FunctionNames)).bind("decl");
   const auto DirectStringCompareCallExpr =
       callExpr(hasDeclaration(FunctionCompareDecl)).bind("call");
   const auto MacroStringCompareCallExpr = conditionalOperator(anyOf(
@@ -113,10 +107,8 @@ void SuspiciousStringCompareCheck::registerMatchers(MatchFinder *Finder) {
     // Detect suspicious calls to string compare:
     //     'if (strcmp())'  ->  'if (strcmp() != 0)'
     Finder->addMatcher(
-        stmt(anyOf(ifStmt(hasCondition(StringCompareCallExpr)),
-                   whileStmt(hasCondition(StringCompareCallExpr)),
-                   doStmt(hasCondition(StringCompareCallExpr)),
-                   forStmt(hasCondition(StringCompareCallExpr)),
+        stmt(anyOf(mapAnyOf(ifStmt, whileStmt, doStmt, forStmt)
+                       .with(hasCondition(StringCompareCallExpr)),
                    binaryOperator(hasAnyOperatorName("&&", "||"),
                                   hasEitherOperand(StringCompareCallExpr))))
             .bind("missing-comparison"),
@@ -133,9 +125,9 @@ void SuspiciousStringCompareCheck::registerMatchers(MatchFinder *Finder) {
                        this);
   }
 
-  // Detect suspicious cast to an inconsistant type (i.e. not integer type).
+  // Detect suspicious cast to an inconsistent type (i.e. not integer type).
   Finder->addMatcher(
-      traverse(ast_type_traits::TK_AsIs,
+      traverse(TK_AsIs,
                implicitCastExpr(unless(hasType(isInteger())),
                                 hasSourceExpression(StringCompareCallExpr))
                    .bind("invalid-conversion")),
@@ -212,6 +204,4 @@ void SuspiciousStringCompareCheck::check(
   }
 }
 
-} // namespace bugprone
-} // namespace tidy
-} // namespace clang
+} // namespace clang::tidy::bugprone

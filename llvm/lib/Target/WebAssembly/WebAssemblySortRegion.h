@@ -35,7 +35,11 @@ public:
   virtual MachineBasicBlock *getHeader() const = 0;
   virtual bool contains(const MachineBasicBlock *MBB) const = 0;
   virtual unsigned getNumBlocks() const = 0;
+<<<<<<< HEAD
   using block_iterator = typename ArrayRef<MachineBasicBlock *>::const_iterator;
+=======
+  using block_iterator = ArrayRef<MachineBasicBlock *>::const_iterator;
+>>>>>>> upstream/main
   virtual iterator_range<block_iterator> blocks() const = 0;
   virtual bool isLoop() const = 0;
 };

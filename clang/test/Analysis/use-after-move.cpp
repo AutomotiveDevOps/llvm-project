@@ -1,36 +1,36 @@
 // RUN: %clang_analyze_cc1 -analyzer-checker=cplusplus.Move %s\
 // RUN:  -std=c++11 -analyzer-output=text -analyzer-config eagerly-assume=false\
 // RUN:  -analyzer-config exploration_strategy=unexplored_first_queue\
-// RUN:  -analyzer-checker core,cplusplus.SmartPtr,debug.ExprInspection\
+// RUN:  -analyzer-checker core,cplusplus.SmartPtrModeling,debug.ExprInspection\
 // RUN:  -verify=expected,peaceful,non-aggressive
 // RUN: %clang_analyze_cc1 -analyzer-checker=cplusplus.Move %s\
 // RUN:  -std=c++11 -analyzer-output=text -analyzer-config eagerly-assume=false\
 // RUN:  -analyzer-config exploration_strategy=dfs -DDFS\
-// RUN:  -analyzer-checker core,cplusplus.SmartPtr,debug.ExprInspection\
+// RUN:  -analyzer-checker core,cplusplus.SmartPtrModeling,debug.ExprInspection\
 // RUN:  -verify=expected,peaceful,non-aggressive
 // RUN: %clang_analyze_cc1 -analyzer-checker=cplusplus.Move %s\
 // RUN:  -std=c++11 -analyzer-output=text -analyzer-config eagerly-assume=false\
 // RUN:  -analyzer-config exploration_strategy=unexplored_first_queue\
 // RUN:  -analyzer-config cplusplus.Move:WarnOn=KnownsOnly\
-// RUN:  -analyzer-checker core,cplusplus.SmartPtr,debug.ExprInspection\
+// RUN:  -analyzer-checker core,cplusplus.SmartPtrModeling,debug.ExprInspection\
 // RUN:  -verify=expected,non-aggressive
 // RUN: %clang_analyze_cc1 -analyzer-checker=cplusplus.Move -verify %s\
 // RUN:  -std=c++11 -analyzer-output=text -analyzer-config eagerly-assume=false\
 // RUN:  -analyzer-config exploration_strategy=dfs -DDFS\
 // RUN:  -analyzer-config cplusplus.Move:WarnOn=KnownsOnly\
-// RUN:  -analyzer-checker core,cplusplus.SmartPtr,debug.ExprInspection\
+// RUN:  -analyzer-checker core,cplusplus.SmartPtrModeling,debug.ExprInspection\
 // RUN:  -verify=expected,non-aggressive
 // RUN: %clang_analyze_cc1 -analyzer-checker=cplusplus.Move %s\
 // RUN:  -std=c++11 -analyzer-output=text -analyzer-config eagerly-assume=false\
 // RUN:  -analyzer-config exploration_strategy=unexplored_first_queue\
 // RUN:  -analyzer-config cplusplus.Move:WarnOn=All\
-// RUN:  -analyzer-checker core,cplusplus.SmartPtr,debug.ExprInspection\
+// RUN:  -analyzer-checker core,cplusplus.SmartPtrModeling,debug.ExprInspection\
 // RUN:  -verify=expected,peaceful,aggressive
 // RUN: %clang_analyze_cc1 -analyzer-checker=cplusplus.Move %s\
 // RUN:  -std=c++11 -analyzer-output=text -analyzer-config eagerly-assume=false\
 // RUN:  -analyzer-config exploration_strategy=dfs -DDFS\
 // RUN:  -analyzer-config cplusplus.Move:WarnOn=All\
-// RUN:  -analyzer-checker core,cplusplus.SmartPtr,debug.ExprInspection\
+// RUN:  -analyzer-checker core,cplusplus.SmartPtrModeling,debug.ExprInspection\
 // RUN:  -verify=expected,peaceful,aggressive
 
 // RUN: not %clang_analyze_cc1 -verify %s \
@@ -49,7 +49,7 @@
 // RUN:  -std=c++11 -analyzer-output=text -analyzer-config eagerly-assume=false\
 // RUN:  -analyzer-config exploration_strategy=dfs -DDFS\
 // RUN:  -analyzer-config cplusplus.Move:WarnOn=All -DAGGRESSIVE_DFS\
-// RUN:  -analyzer-checker core,cplusplus.SmartPtr,debug.ExprInspection\
+// RUN:  -analyzer-checker core,cplusplus.SmartPtrModeling,debug.ExprInspection\
 // RUN:  -verify=expected,peaceful,aggressive %s 2>&1 | FileCheck %s
 
 #include "Inputs/system-header-simulator-cxx.h"
@@ -244,7 +244,7 @@ void reinitializationTest(int i) {
     A a;
     if (i == 1) { // peaceful-note 2 {{'i' is not equal to 1}}
                   // peaceful-note@-1 2 {{Taking false branch}}
-      std::move(a);
+      (void)std::move(a);
     }
     if (i == 2) { // peaceful-note 2 {{'i' is not equal to 2}}
                   // peaceful-note@-1 2 {{Taking false branch}}
@@ -494,7 +494,7 @@ void templateArgIsNotUseTest() {
 // Moves of global variables are not reported.
 A global_a;
 void globalVariablesTest() {
-  std::move(global_a);
+  (void)std::move(global_a);
   global_a.foo(); // no-warning
 }
 
@@ -570,13 +570,8 @@ void differentBranchesTest(int i) {
   {
     A a;
     a.foo() > 0 ? a.foo() : A(std::move(a)).foo();
-#ifdef DFS
-    // peaceful-note@-2 {{Assuming the condition is false}}
-    // peaceful-note@-3 {{'?' condition is false}}
-#else
-    // peaceful-note@-5 {{Assuming the condition is true}}
-    // peaceful-note@-6 {{'?' condition is true}}
-#endif
+    // peaceful-note@-1 {{Assuming the condition is true}}
+    // peaceful-note@-2 {{'?' condition is true}}
   }
   // Same thing, but with a switch statement.
   {
@@ -611,6 +606,14 @@ void tempTest() {
   for (int i = 0; i < bignum(); i++) {
     A::get().foo(); // no-warning
   }
+}
+
+void lifeTimeExtendTest() {
+  A&& a = A{};
+  A b = std::move(a); // peaceful-note {{Object is moved}}
+
+  a.foo(); // peaceful-warning {{Method called on moved-from object}}
+           // peaceful-note@-1 {{Method called on moved-from object}}
 }
 
 void interFunTest1(A &a) {
@@ -900,6 +903,28 @@ void checkMoreLoopZombies4(bool flag) {
   }
 }
 
+void checkExplicitDestructorCalls() {
+  // The below code segments invoke the destructor twice (explicit and 
+  // implicit). While this is not a desired code behavior, it is 
+  // not the use-after-move checker's responsibility to issue such a warning.
+  {
+     B* b = new B;
+     B a = std::move(*b);
+     b->~B(); // no-warning 
+     delete b;
+  }
+  {
+    B a, b;
+    new (&a) B(reinterpret_cast<B &&>(b));
+    (&b)->~B(); // no-warning
+  }
+  {
+    B b;
+    B a  = std::move(b);
+    b.~B(); // no-warning 
+  }
+}
+
 struct MoveOnlyWithDestructor {
   MoveOnlyWithDestructor();
   ~MoveOnlyWithDestructor();
@@ -974,3 +999,19 @@ void getAfterMove(std::unique_ptr<A> P) {
   // TODO: Warn on a null dereference here.
   a->foo();
 }
+
+struct OtherMoveSafeClasses {
+  std::packaged_task<int(void)> Task;
+
+  void test() {
+    // Test the suppression caused by use-after-move semantics of
+    // std::package_task being different from other standard classes.
+    // Only warn in aggressive mode. Don't say that the object
+    // is left in unspecified state after move.
+    std::packaged_task<int(void)> Task2 = std::move(Task);
+    // aggressive-note@-1   {{Object 'Task' is moved}}
+    std::packaged_task<int(void)> Task3 = std::move(Task);
+    // aggressive-warning@-1{{Moved-from object 'Task' is moved}}
+    // aggressive-note@-2   {{Moved-from object 'Task' is moved}}
+  }
+};

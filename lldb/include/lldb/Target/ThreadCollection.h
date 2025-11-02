@@ -20,15 +20,14 @@ namespace lldb_private {
 class ThreadCollection {
 public:
   typedef std::vector<lldb::ThreadSP> collection;
-  typedef LockingAdaptedIterable<collection, lldb::ThreadSP, vector_adapter,
-                                 std::recursive_mutex>
+  typedef LockingAdaptedIterable<std::recursive_mutex, collection>
       ThreadIterable;
 
   ThreadCollection();
 
   ThreadCollection(collection threads);
 
-  virtual ~ThreadCollection() {}
+  virtual ~ThreadCollection() = default;
 
   uint32_t GetSize();
 

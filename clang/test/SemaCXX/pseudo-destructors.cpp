@@ -22,21 +22,21 @@ void cv_test(const volatile T* cvt) {
 void f(A* a, Foo *f, int *i, double *d, int ii) {
   a->~A();
   a->A::~A();
-  
+
   a->~foo(); // expected-error{{undeclared identifier 'foo' in destructor name}}
-  
+
   a->~Bar(); // expected-error{{destructor type 'Bar' (aka 'Foo') in object destruction expression does not match the type 'A' of the object being destroyed}}
-  
+
   f->~Bar();
   f->~Foo();
   i->~Bar(); // expected-error{{does not match}}
-  
+
   g().~Bar(); // expected-error{{non-scalar}}
-  
+
   f->::~Bar(); // expected-error {{not a structure or union}}
   f->::Bar::~Bar();
   f->N::~Wibble(); // expected-error{{'N' does not refer to a type}} expected-error{{'Wibble' does not refer to a type}}
-  
+
   f->Bar::~Bar(17, 42); // expected-error{{cannot have any arguments}}
 
   i->~Integer();
@@ -108,15 +108,15 @@ struct Derived : Base {
 
 void test() {
   Derived d;
-  static_cast<Base *>(&d).~Base(); // expected-error {{member reference type 'dotPointerAccess::Base *' is a pointer; did you mean to use '->'}}
-  d->~Derived(); // expected-error {{member reference type 'dotPointerAccess::Derived' is not a pointer; did you mean to use '.'}}
+  static_cast<Base *>(&d).~Base(); // expected-error {{member reference type 'Base *' is a pointer; did you mean to use '->'}}
+  d->~Derived(); // expected-error {{member reference type 'Derived' is not a pointer; did you mean to use '.'}}
 }
 
 typedef Derived *Foo;
 
 void test2(Foo d) {
   d.~Foo(); // This is ok
-  d.~Derived(); // expected-error {{member reference type 'dotPointerAccess::Foo' (aka 'dotPointerAccess::Derived *') is a pointer; did you mean to use '->'}}
+  d.~Derived(); // expected-error {{member reference type 'Foo' (aka 'Derived *') is a pointer; did you mean to use '->'}}
 }
 }
 
@@ -182,4 +182,15 @@ namespace TwoPhaseLookup {
     template<typename T> void f5(int *p) { p->TemplateNamesNonTemplate::C::~B<int>(); } // expected-error {{template name refers to non-type template 'TemplateNamesNonTemplate::B'}}
     template<typename T> void f6(int *p) { p->TemplateNamesNonTemplate::C::~C<int>(); } // expected-error {{'C' does not refer to a template}}
   }
+}
+
+void destroy_array_element() {
+  int arr[5];
+  using T = int;
+  arr->~T(); // ok, destroy arr[0].
+}
+
+void destroy_function() {
+  using T = void();
+  destroy_function->~T(); // expected-error {{object expression of non-scalar type 'void ()' cannot be used in a pseudo-destructor expression}}
 }

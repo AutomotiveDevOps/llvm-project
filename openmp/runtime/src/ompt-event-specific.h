@@ -55,16 +55,18 @@
 
 #define ompt_callback_implicit_task_implemented ompt_event_MAY_ALWAYS
 
-#define ompt_callback_target_implemented ompt_event_UNIMPLEMENTED
-#define ompt_callback_target_data_op_implemented ompt_event_UNIMPLEMENTED
-#define ompt_callback_target_submit_implemented ompt_event_UNIMPLEMENTED
-
+#define ompt_callback_target_implemented ompt_event_MAY_ALWAYS
+#define ompt_callback_target_emi_implemented ompt_event_MAY_ALWAYS
+#define ompt_callback_target_data_op_implemented ompt_event_MAY_ALWAYS
+#define ompt_callback_target_data_op_emi_implemented ompt_event_MAY_ALWAYS
+#define ompt_callback_target_submit_implemented ompt_event_MAY_ALWAYS
+#define ompt_callback_target_submit_emi_implemented ompt_event_MAY_ALWAYS
 #define ompt_callback_control_tool_implemented ompt_event_MAY_ALWAYS
 
-#define ompt_callback_device_initialize_implemented ompt_event_UNIMPLEMENTED
-#define ompt_callback_device_finalize_implemented ompt_event_UNIMPLEMENTED
+#define ompt_callback_device_initialize_implemented ompt_event_MAY_ALWAYS
+#define ompt_callback_device_finalize_implemented ompt_event_MAY_ALWAYS
 
-#define ompt_callback_device_load_implemented ompt_event_UNIMPLEMENTED
+#define ompt_callback_device_load_implemented ompt_event_MAY_ALWAYS
 #define ompt_callback_device_unload_implemented ompt_event_UNIMPLEMENTED
 
 /*----------------------------------------------------------------------------
@@ -76,15 +78,15 @@
 
 #define ompt_callback_mutex_released_implemented ompt_event_MAY_ALWAYS_OPTIONAL
 
-#define ompt_callback_dependences_implemented                             \
-  ompt_event_MAY_ALWAYS_OPTIONAL
+#define ompt_callback_dependences_implemented ompt_event_MAY_ALWAYS_OPTIONAL
 #define ompt_callback_task_dependence_implemented ompt_event_MAY_ALWAYS_OPTIONAL
 
 #define ompt_callback_work_implemented ompt_event_MAY_ALWAYS_OPTIONAL
 
-#define ompt_callback_master_implemented ompt_event_MAY_ALWAYS_OPTIONAL
+#define ompt_callback_masked_implemented ompt_event_MAY_ALWAYS_OPTIONAL
 
 #define ompt_callback_target_map_implemented ompt_event_UNIMPLEMENTED
+#define ompt_callback_target_map_emi_implemented ompt_event_UNIMPLEMENTED
 
 #define ompt_callback_sync_region_implemented ompt_event_MAY_ALWAYS_OPTIONAL
 
@@ -101,6 +103,8 @@
 
 #define ompt_callback_reduction_implemented ompt_event_MAY_ALWAYS_OPTIONAL
 
-#define ompt_callback_dispatch_implemented ompt_event_UNIMPLEMENTED
+#define ompt_callback_dispatch_implemented ompt_event_MAY_ALWAYS_OPTIONAL
+
+#define ompt_callback_error_implemented ompt_event_MAY_ALWAYS_OPTIONAL
 
 #endif

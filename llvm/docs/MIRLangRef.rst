@@ -12,7 +12,7 @@ Introduction
 ============
 
 This document is a reference manual for the Machine IR (MIR) serialization
-format. MIR is a human readable serialization format that is used to represent
+format. MIR is a human-readable serialization format that is used to represent
 LLVM's :ref:`machine specific intermediate representation
 <machine code representation>`.
 
@@ -27,7 +27,7 @@ data serialization language, and the full YAML language spec can be read at
 `yaml.org
 <http://www.yaml.org/spec/1.2/spec.html#Introduction>`_.
 
-A MIR file is split up into a series of `YAML documents`_. The first document
+A MIR file is split into a series of `YAML documents`_. The first document
 can contain an optional embedded LLVM IR module, and the rest of the documents
 contain the serialized machine functions.
 
@@ -58,29 +58,29 @@ for the post register allocation pseudo instruction expansion pass, you can
 specify the machine copy propagation pass in the ``-stop-after`` option, as it
 runs just before the pass that we are trying to test:
 
-   ``llc -stop-after=machine-cp bug-trigger.ll > test.mir``
+   ``llc -stop-after=machine-cp bug-trigger.ll -o test.mir``
 
 If the same pass is run multiple times, a run index can be included
 after the name with a comma.
 
-   ``llc -stop-after=dead-mi-elimination,1 bug-trigger.ll > test.mir``
+   ``llc -stop-after=dead-mi-elimination,1 bug-trigger.ll -o test.mir``
 
-After generating the input MIR file, you'll have to add a run line that uses
+After generating the input MIR file, you'll have to add a ``RUN`` line that uses
 the ``-run-pass`` option to it. In order to test the post register allocation
 pseudo instruction expansion pass on X86-64, a run line like the one shown
 below can be used:
 
     ``# RUN: llc -o - %s -mtriple=x86_64-- -run-pass=postrapseudos | FileCheck %s``
 
-The MIR files are target dependent, so they have to be placed in the target
-specific test directories (``lib/CodeGen/TARGETNAME``). They also need to
-specify a target triple or a target architecture either in the run line or in
+The MIR files are target dependent, so they have to be placed in the
+target-specific test directories (``lib/CodeGen/TARGETNAME``). They also need to
+specify a target triple or a target architecture either in the ``RUN`` line or in
 the embedded LLVM IR module.
 
 Simplifying MIR files
 ^^^^^^^^^^^^^^^^^^^^^
 
-The MIR code coming out of ``-stop-after``/``-stop-before`` is very verbose;
+The MIR code coming out of ``-stop-after``/``-stop-before`` is very verbose.
 Tests are more accessible and future proof when simplified:
 
 - Use the ``-simplify-mir`` option with llc.
@@ -113,12 +113,12 @@ Tests are more accessible and future proof when simplified:
   If the test doesn't depend on (good) alias analysis the references can be
   dropped: `:: (load 8)`
 
-- MIR blocks can reference IR blocks for debug printing, profile information
+- MIR blocks can reference IR blocks for debug printing, profile information,
   or debug locations. Example: `bb.42.myblock` in MIR references the IR block
   `myblock`. It is usually possible to drop the `.myblock` reference and simply
   use `bb.42`.
 
-- If there are no memory operands or blocks referencing the IR then the
+- If there are no memory operands or blocks referencing the IR, then the
   IR function can be replaced by a parameterless dummy function like
   `define @func() { ret void }`.
 
@@ -143,7 +143,7 @@ can serialize:
 - The ``MCSymbol`` machine operands don't support temporary or local symbols.
 
 - A lot of the state in ``MachineModuleInfo`` isn't serialized - only the CFI
-  instructions and the variable debug information from MMI is serialized right
+  instructions and the variable debug information from MMI are serialized right
   now.
 
 These limitations impose restrictions on what you can test with the MIR format.
@@ -168,11 +168,11 @@ Here is an example of a YAML document that contains an LLVM module:
 
 .. code-block:: llvm
 
-       define i32 @inc(i32* %x) {
+       define i32 @inc(ptr %x) {
        entry:
-         %0 = load i32, i32* %x
+         %0 = load i32, ptr %x
          %1 = add i32 %0, 1
-         store i32 %1, i32* %x
+         store i32 %1, ptr %x
          ret i32 %1
        }
 
@@ -182,7 +182,7 @@ Machine Functions
 -----------------
 
 The remaining YAML documents contain the machine functions. This is an example
-of such YAML document:
+of such a YAML document:
 
 .. code-block:: text
 
@@ -221,7 +221,7 @@ Machine Instructions Format Reference
 =====================================
 
 The machine basic blocks and their instructions are represented using a custom,
-human readable serialization language. This language is used in the
+human-readable serialization language. This language is used in the
 `YAML block literal string`_ that corresponds to the machine function's body.
 
 A source string that uses this language contains a list of machine basic
@@ -299,7 +299,7 @@ instructions:
     bb.2.else:
       <instructions>
 
-The branch weights can be specified in brackets after the successor blocks.
+The branch weights can be specified in parentheses after the successor blocks.
 The example below defines a block that has two successors with branch weights
 of 32 and 16:
 
@@ -314,7 +314,7 @@ Live In Registers
 ^^^^^^^^^^^^^^^^^
 
 The machine basic block's live in registers have to be specified before any of
-the instructions:
+its instructions:
 
 .. code-block:: text
 
@@ -322,14 +322,15 @@ the instructions:
       liveins: $edi, $esi
 
 The list of live in registers and successors can be empty. The language also
-allows multiple live in register and successor lists - they are combined into
+allows multiple live in register and successor lists; they are combined into
 one list by the parser.
 
 Miscellaneous Attributes
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
-The attributes ``IsAddressTaken``, ``IsLandingPad`` and ``Alignment`` can be
-specified in brackets after the block's definition:
+The attributes ``IsAddressTaken``, ``IsLandingPad``,
+``IsInlineAsmBrIndirectTarget`` and ``Alignment`` can be specified in parentheses
+after the block's definition:
 
 .. code-block:: text
 
@@ -338,6 +339,8 @@ specified in brackets after the block's definition:
     bb.2.else (align 4):
       <instructions>
     bb.3(landing-pad, align 4):
+      <instructions>
+    bb.4 (inlineasm-br-indirect-target):
       <instructions>
 
 .. TODO: Describe the way the reference to an unnamed LLVM IR block can be
@@ -414,7 +417,7 @@ and ``}`` are bundled with the first instruction.
 Registers
 ---------
 
-Registers are one of the key primitives in the machine instructions
+Registers are one of the key primitives in the machine instruction
 serialization language. They are primarily used in the
 :ref:`register machine operands <register-operands>`,
 but they can also be used in a number of other places, like the
@@ -457,7 +460,7 @@ is preferred.
 Machine Operands
 ----------------
 
-There are seventeen different kinds of machine operands, and all of them can be
+There are eighteen different kinds of machine operands, and all of them can be
 serialized.
 
 Immediate Operands
@@ -500,9 +503,9 @@ will be printed as ``%subreg.sub_32``:
 
     %1:gpr64 = SUBREG_TO_REG 0, %0, %subreg.sub_32
 
-For integers > 64bit, we use a special machine operand, ``MO_CImmediate``,
+For integers > 64 bits, we use a special machine operand, ``MO_CImmediate``,
 which stores the immediate in a ``ConstantInt`` using an ``APInt`` (LLVM's
-arbitrary precision integers).
+arbitrary-precision integers).
 
 .. TODO: Describe the FPIMM immediate operands.
 
@@ -537,41 +540,55 @@ Register Flags
 The table below shows all of the possible register flags along with the
 corresponding internal ``llvm::RegState`` representation:
 
+..
+   Keep this in sync with MachineInstrBuilder.h
+
 .. list-table::
    :header-rows: 1
 
    * - Flag
      - Internal Value
+     - Meaning
 
    * - ``implicit``
      - ``RegState::Implicit``
+     - Not emitted register (e.g. carry, or temporary result).
 
    * - ``implicit-def``
      - ``RegState::ImplicitDefine``
+     - ``implicit`` and ``def``
 
    * - ``def``
      - ``RegState::Define``
+     - Register definition.
 
    * - ``dead``
      - ``RegState::Dead``
+     - Unused definition.
 
    * - ``killed``
      - ``RegState::Kill``
+     - The last use of a register.
 
    * - ``undef``
      - ``RegState::Undef``
+     - Value of the register doesn't matter.
 
    * - ``internal``
      - ``RegState::InternalRead``
+     - Register reads a value that is defined inside the same instruction or bundle.
 
    * - ``early-clobber``
      - ``RegState::EarlyClobber``
+     - Register definition happens before uses.
 
    * - ``debug-use``
      - ``RegState::Debug``
+     - Register 'use' is for debugging purpose.
 
    * - ``renamable``
      - ``RegState::Renamable``
+     - Register that may be renamed.
 
 .. _subregister-indices:
 
@@ -609,7 +626,7 @@ For a CPI with the index 0 and offset -12:
     %1:gr64 = MOV64ri %const.0 - 12
 
 A constant pool entry is bound to a LLVM IR ``Constant`` or a target-specific
-``MachineConstantPoolValue``. When serializing all the function's constants the
+``MachineConstantPoolValue``. When serializing all the function's constants, the
 following format is used:
 
 .. code-block:: text
@@ -678,7 +695,7 @@ and the offset 8:
 Jump-table Index Operands
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
-A jump-table index operand with the index 0 is printed as following:
+A jump-table index operand with the index 0 is printed as follows:
 
 .. code-block:: text
 
@@ -694,7 +711,7 @@ A machine jump-table entry contains a list of ``MachineBasicBlocks``. When seria
         - id:             <index>
           blocks:         [ <bbreference>, <bbreference>, ... ]
 
-where ``<kind>`` is describing how the jump table is represented and emitted (plain address, relocations, PIC, etc.), and each ``<index>`` is a 32-bit unsigned integer and ``blocks`` contains a list of :ref:`machine basic block references <block-references>`.
+where ``<kind>`` describes how the jump table is represented and emitted (plain address, relocations, PIC, etc.), and each ``<index>`` is a 32-bit unsigned integer and ``blocks`` contains a list of :ref:`machine basic block references <block-references>`.
 
 Example:
 
@@ -724,7 +741,7 @@ Example:
 MCSymbol Operands
 ^^^^^^^^^^^^^^^^^
 
-A MCSymbol operand is holding a pointer to a ``MCSymbol``. For the limitations
+A MCSymbol operand holds a pointer to a ``MCSymbol``. For the limitations
 of this operand in MIR, see :ref:`limitations <limitations>`.
 
 The syntax is:
@@ -733,10 +750,23 @@ The syntax is:
 
     EH_LABEL <mcsymbol Ltmp1>
 
+Debug Instruction Reference Operands
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+A debug instruction reference operand is a pair of indices, referring to an
+instruction and an operand within that instruction, respectively; see
+:ref:`Instruction referencing locations <instruction-referencing-locations>`.
+
+The example below uses a reference to Instruction 1, Operand 0:
+
+.. code-block:: text
+
+    DBG_INSTR_REF !123, !DIExpression(DW_OP_LLVM_arg, 0), dbg-instr-ref(1, 0), debug-location !456
+
 CFIIndex Operands
 ^^^^^^^^^^^^^^^^^
 
-A CFI Index operand is holding an index into a per-function side-table,
+A CFI Index operand holds an index into a per-function side-table,
 ``MachineFunction::getFrameInstructions()``, which references all the frame
 instructions in a ``MachineFunction``. A ``CFI_INSTRUCTION`` may look like it
 contains multiple operands, but the only operand it contains is the CFI Index.
@@ -790,3 +820,126 @@ For an int eq predicate ``ICMP_EQ``, the syntax is:
    instructions debug location attribute.
 .. TODO: Describe the syntax of the register live out machine operands.
 .. TODO: Describe the syntax of the machine memory operands.
+
+Comments
+^^^^^^^^
+
+Machine operands can have C/C++ style comments, which are annotations enclosed
+between ``/*`` and ``*/`` to improve readability of e.g. immediate operands.
+In the example below, ARM instructions EOR and BCC and immediate operands
+``14`` and ``0`` have been annotated with their condition codes (CC)
+definitions, i.e. the ``always`` and ``eq`` condition codes:
+
+.. code-block:: text
+
+  dead renamable $r2, $cpsr = tEOR killed renamable $r2, renamable $r1, 14 /* CC::always */, $noreg
+  t2Bcc %bb.4, 0 /* CC:eq */, killed $cpsr
+
+As these annotations are comments, they are ignored by the MI parser.
+Comments can be added or customized by overriding InstrInfo's hook
+``createMIROperandComment()``.
+
+Debug-Info constructs
+---------------------
+
+Most of the debugging information in a MIR file is found in the metadata
+of the embedded module. Within a machine function, that metadata is referred to
+by various constructs to describe source locations and variable locations.
+
+Source locations
+^^^^^^^^^^^^^^^^
+
+Every MIR instruction may optionally have a trailing reference to a
+``DILocation`` metadata node, after all operands and symbols, but before
+memory operands:
+
+.. code-block:: text
+
+   $rbp = MOV64rr $rdi, debug-location !12
+
+The source location attachment is synonymous with the ``!dbg`` metadata
+attachment in LLVM-IR. The absence of a source location attachment will be
+represented by an empty ``DebugLoc`` object in the machine instruction.
+
+Fixed variable locations
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+There are several ways of specifying variable locations. The simplest is
+describing a variable that is permanently located on the stack. In the stack
+or fixedStack attribute of the machine function, the variable, scope, and
+any qualifying location modifier are provided:
+
+.. code-block:: text
+
+    - { id: 0, name: offset.addr, offset: -24, size: 8, alignment: 8, stack-id: default,
+     4  debug-info-variable: '!1', debug-info-expression: '!DIExpression()',
+        debug-info-location: '!2' }
+
+Where:
+
+- ``debug-info-variable`` identifies a DILocalVariable metadata node,
+
+- ``debug-info-expression`` adds qualifiers to the variable location,
+
+- ``debug-info-location`` identifies a DILocation metadata node.
+
+These metadata attributes correspond to the operands of a ``#dbg_declare``
+IR debug record, see the :ref:`source level
+debugging<debug_records>` documentation.
+
+Varying variable locations
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Variables that are not always on the stack or change location are specified
+with the ``DBG_VALUE``  meta machine instruction. It is synonymous with the
+``#dbg_value`` IR record, and is written:
+
+.. code-block:: text
+
+    DBG_VALUE $rax, $noreg, !123, !DIExpression(), debug-location !456
+
+The operands to which respectively:
+
+1. Identifies a machine location such as a register, immediate, or frame index,
+
+2. Is either $noreg, or immediate value zero if an extra level of indirection is to be added to the first operand,
+
+3. Identifies a ``DILocalVariable`` metadata node,
+
+4. Specifies an expression qualifying the variable location, either inline or as a metadata node reference,
+
+While the source location identifies the ``DILocation`` for the scope of the
+variable. The second operand (``IsIndirect``) is deprecated and to be deleted.
+All additional qualifiers for the variable location should be made through the
+expression metadata.
+
+.. _instruction-referencing-locations:
+
+Instruction referencing locations
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+This experimental feature aims to separate the specification of variable
+*values* from the program point where a variable takes on that value. Changes
+in variable value occur in the same manner as ``DBG_VALUE`` meta instructions
+but using ``DBG_INSTR_REF``. Variable values are identified by a pair of
+instruction number and operand number. Consider the example below:
+
+.. code-block:: text
+
+    $rbp = MOV64ri 0, debug-instr-number 1, debug-location !12
+    DBG_INSTR_REF !123, !DIExpression(DW_OP_LLVM_arg, 0), dbg-instr-ref(1, 0), debug-location !456
+
+Instruction numbers are directly attached to machine instructions with an
+optional ``debug-instr-number`` attachment, before the optional
+``debug-location`` attachment. The value defined in ``$rbp`` in the code
+above would be identified by the pair ``<1, 0>``.
+
+The 3rd operand of the ``DBG_INSTR_REF`` above records the instruction
+and operand number ``<1, 0>``, identifying the value defined by the ``MOV64ri``.
+The first two operands to ``DBG_INSTR_REF`` are identical to ``DBG_VALUE_LIST``,
+and the ``DBG_INSTR_REF`` s position records where the variable takes on the
+designated value in the same way.
+
+More information about how these constructs are used is available in
+:doc:`InstrRefDebugInfo`. The related documents :doc:`SourceLevelDebugging` and
+:doc:`HowToUpdateDebugInfo` may be useful as well.

@@ -1,4 +1,4 @@
-## Check that the sanity check for an inconsistent header works.
+## Check that the error for an inconsistent header works.
 ## The first word contains the bad value for CodeWords, 0xf, which indicates
 ## that we need 0x11110 << 2 =  120 bytes of space for the unwind codes.
 ## It follows that the .xdata section is badly formed as only 8 bytes are
@@ -6,7 +6,7 @@
 
 // REQUIRES: aarch64-registered-target
 // RUN: llvm-mc -filetype=obj -triple aarch64-windows %s -o - \
-// RUN:   | not --crash llvm-readobj --unwind - 2>&1 | FileCheck %s
+// RUN:   | not llvm-readobj --unwind - 2>&1 | FileCheck %s
 
 // CHECK: LLVM ERROR: Malformed unwind data
 

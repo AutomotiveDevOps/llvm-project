@@ -10,111 +10,105 @@ define i128 @foo(i128 %t, i128 %u) {
 ; X64-NEXT:    imulq %rdi, %rcx
 ; X64-NEXT:    mulq %rdx
 ; X64-NEXT:    addq %rcx, %rdx
-; X64-NEXT:    imulq %r8, %rsi
-; X64-NEXT:    addq %rsi, %rdx
+; X64-NEXT:    imulq %rsi, %r8
+; X64-NEXT:    addq %r8, %rdx
 ; X64-NEXT:    retq
 ;
 ; X86-LABEL: foo:
 ; X86:       # %bb.0:
 ; X86-NEXT:    pushl %ebp
 ; X86-NEXT:    .cfi_def_cfa_offset 8
+; X86-NEXT:    .cfi_offset %ebp, -8
+; X86-NEXT:    movl %esp, %ebp
+; X86-NEXT:    .cfi_def_cfa_register %ebp
 ; X86-NEXT:    pushl %ebx
-; X86-NEXT:    .cfi_def_cfa_offset 12
 ; X86-NEXT:    pushl %edi
-; X86-NEXT:    .cfi_def_cfa_offset 16
 ; X86-NEXT:    pushl %esi
-; X86-NEXT:    .cfi_def_cfa_offset 20
-; X86-NEXT:    subl $8, %esp
-; X86-NEXT:    .cfi_def_cfa_offset 28
+; X86-NEXT:    andl $-16, %esp
+; X86-NEXT:    subl $16, %esp
 ; X86-NEXT:    .cfi_offset %esi, -20
 ; X86-NEXT:    .cfi_offset %edi, -16
 ; X86-NEXT:    .cfi_offset %ebx, -12
-; X86-NEXT:    .cfi_offset %ebp, -8
-; X86-NEXT:    movl {{[0-9]+}}(%esp), %edx
-; X86-NEXT:    movl {{[0-9]+}}(%esp), %edi
-; X86-NEXT:    movl {{[0-9]+}}(%esp), %esi
-; X86-NEXT:    imull %edx, %esi
+; X86-NEXT:    movl 32(%ebp), %ecx
+; X86-NEXT:    movl 40(%ebp), %edi
+; X86-NEXT:    movl 44(%ebp), %esi
+; X86-NEXT:    imull %ecx, %esi
 ; X86-NEXT:    movl %edi, %eax
-; X86-NEXT:    mull %edx
-; X86-NEXT:    movl %eax, %ebx
-; X86-NEXT:    movl {{[0-9]+}}(%esp), %ecx
-; X86-NEXT:    imull %edi, %ecx
-; X86-NEXT:    addl %edx, %ecx
-; X86-NEXT:    movl {{[0-9]+}}(%esp), %eax
-; X86-NEXT:    addl %esi, %ecx
-; X86-NEXT:    movl %eax, %esi
-; X86-NEXT:    imull {{[0-9]+}}(%esp), %esi
-; X86-NEXT:    movl {{[0-9]+}}(%esp), %ebp
-; X86-NEXT:    mull %ebp
-; X86-NEXT:    addl %esi, %edx
-; X86-NEXT:    movl {{[0-9]+}}(%esp), %edi
-; X86-NEXT:    imull %ebp, %edi
-; X86-NEXT:    addl %edx, %edi
-; X86-NEXT:    addl %ebx, %eax
-; X86-NEXT:    movl %eax, {{[-0-9]+}}(%e{{[sb]}}p) # 4-byte Spill
-; X86-NEXT:    adcl %ecx, %edi
-; X86-NEXT:    movl %ebp, %eax
-; X86-NEXT:    movl {{[0-9]+}}(%esp), %ecx
+; X86-NEXT:    mull %ecx
+; X86-NEXT:    movl %eax, (%esp) # 4-byte Spill
+; X86-NEXT:    movl %edx, %ebx
+; X86-NEXT:    addl %esi, %ebx
+; X86-NEXT:    movl 36(%ebp), %eax
+; X86-NEXT:    imull %edi, %eax
+; X86-NEXT:    addl %eax, %ebx
+; X86-NEXT:    movl 48(%ebp), %eax
+; X86-NEXT:    movl %eax, %ecx
+; X86-NEXT:    imull 28(%ebp), %ecx
+; X86-NEXT:    movl 24(%ebp), %edi
+; X86-NEXT:    mull %edi
+; X86-NEXT:    addl %ecx, %edx
+; X86-NEXT:    movl 52(%ebp), %esi
+; X86-NEXT:    imull %edi, %esi
+; X86-NEXT:    addl %edx, %esi
+; X86-NEXT:    addl (%esp), %eax # 4-byte Folded Reload
+; X86-NEXT:    movl %eax, (%esp) # 4-byte Spill
+; X86-NEXT:    adcl %ebx, %esi
+; X86-NEXT:    movl %edi, %eax
+; X86-NEXT:    movl 40(%ebp), %ecx
 ; X86-NEXT:    mull %ecx
 ; X86-NEXT:    movl %edx, %ebx
-; X86-NEXT:    movl %eax, (%esp) # 4-byte Spill
-; X86-NEXT:    movl {{[0-9]+}}(%esp), %eax
+; X86-NEXT:    movl %eax, {{[-0-9]+}}(%e{{[sb]}}p) # 4-byte Spill
+; X86-NEXT:    movl 28(%ebp), %eax
 ; X86-NEXT:    mull %ecx
-; X86-NEXT:    movl %edx, %esi
+; X86-NEXT:    movl %edx, %edi
 ; X86-NEXT:    movl %eax, %ecx
 ; X86-NEXT:    addl %ebx, %ecx
-; X86-NEXT:    adcl $0, %esi
-; X86-NEXT:    movl %ebp, %eax
-; X86-NEXT:    mull {{[0-9]+}}(%esp)
+; X86-NEXT:    adcl $0, %edi
+; X86-NEXT:    movl 24(%ebp), %eax
+; X86-NEXT:    mull 44(%ebp)
 ; X86-NEXT:    movl %edx, %ebx
-; X86-NEXT:    movl %eax, %ebp
-; X86-NEXT:    addl %ecx, %ebp
-; X86-NEXT:    adcl %esi, %ebx
+; X86-NEXT:    addl %ecx, %eax
+; X86-NEXT:    movl %eax, {{[-0-9]+}}(%e{{[sb]}}p) # 4-byte Spill
+; X86-NEXT:    adcl %edi, %ebx
 ; X86-NEXT:    setb %cl
-; X86-NEXT:    movl {{[0-9]+}}(%esp), %eax
-; X86-NEXT:    mull {{[0-9]+}}(%esp)
+; X86-NEXT:    movl 28(%ebp), %eax
+; X86-NEXT:    mull 44(%ebp)
 ; X86-NEXT:    addl %ebx, %eax
 ; X86-NEXT:    movzbl %cl, %ecx
 ; X86-NEXT:    adcl %ecx, %edx
-; X86-NEXT:    addl {{[-0-9]+}}(%e{{[sb]}}p), %eax # 4-byte Folded Reload
-; X86-NEXT:    adcl %edi, %edx
-; X86-NEXT:    movl {{[0-9]+}}(%esp), %ecx
-; X86-NEXT:    movl (%esp), %esi # 4-byte Reload
+; X86-NEXT:    addl (%esp), %eax # 4-byte Folded Reload
+; X86-NEXT:    adcl %esi, %edx
+; X86-NEXT:    movl 8(%ebp), %ecx
+; X86-NEXT:    movl {{[-0-9]+}}(%e{{[sb]}}p), %esi # 4-byte Reload
+; X86-NEXT:    movl %esi, 4(%ecx)
+; X86-NEXT:    movl {{[-0-9]+}}(%e{{[sb]}}p), %esi # 4-byte Reload
 ; X86-NEXT:    movl %esi, (%ecx)
-; X86-NEXT:    movl %ebp, 4(%ecx)
 ; X86-NEXT:    movl %eax, 8(%ecx)
 ; X86-NEXT:    movl %edx, 12(%ecx)
 ; X86-NEXT:    movl %ecx, %eax
-; X86-NEXT:    addl $8, %esp
-; X86-NEXT:    .cfi_def_cfa_offset 20
+; X86-NEXT:    leal -12(%ebp), %esp
 ; X86-NEXT:    popl %esi
-; X86-NEXT:    .cfi_def_cfa_offset 16
 ; X86-NEXT:    popl %edi
-; X86-NEXT:    .cfi_def_cfa_offset 12
 ; X86-NEXT:    popl %ebx
-; X86-NEXT:    .cfi_def_cfa_offset 8
 ; X86-NEXT:    popl %ebp
-; X86-NEXT:    .cfi_def_cfa_offset 4
+; X86-NEXT:    .cfi_def_cfa %esp, 4
 ; X86-NEXT:    retl $4
   %k = mul i128 %t, %u
   ret i128 %k
 }
 
-@aaa = external global i128
-@bbb = external global i128
+@aaa = external dso_local global i128
+@bbb = external dso_local global i128
 
 define void @PR13897() nounwind {
 ; X64-LABEL: PR13897:
 ; X64:       # %bb.0: # %"0x0"
-; X64-NEXT:    movl {{.*}}(%rip), %ecx
-; X64-NEXT:    movabsq $4294967297, %rdx # imm = 0x100000001
-; X64-NEXT:    movq %rcx, %rax
-; X64-NEXT:    mulq %rdx
-; X64-NEXT:    addq %rcx, %rdx
-; X64-NEXT:    shlq $32, %rcx
-; X64-NEXT:    addq %rcx, %rdx
-; X64-NEXT:    movq %rax, {{.*}}(%rip)
-; X64-NEXT:    movq %rdx, aaa+{{.*}}(%rip)
+; X64-NEXT:    movq bbb(%rip), %rax
+; X64-NEXT:    movl %eax, %ecx
+; X64-NEXT:    shlq $32, %rax
+; X64-NEXT:    orq %rcx, %rax
+; X64-NEXT:    movq %rax, aaa+8(%rip)
+; X64-NEXT:    movq %rax, aaa(%rip)
 ; X64-NEXT:    retq
 ;
 ; X86-LABEL: PR13897:
@@ -126,11 +120,11 @@ define void @PR13897() nounwind {
 ; X86-NEXT:    movl %eax, aaa
 ; X86-NEXT:    retl
 "0x0":
-  %0 = load i128, i128* @bbb
+  %0 = load i128, ptr @bbb
   %1 = and i128 %0, 4294967295
   %2 = shl i128 %0, 96
   %3 = mul i128 %1, 18446744078004518913
   %4 = add i128 %3, %2
-  store i128 %4, i128* @aaa
+  store i128 %4, ptr @aaa
   ret void
 }

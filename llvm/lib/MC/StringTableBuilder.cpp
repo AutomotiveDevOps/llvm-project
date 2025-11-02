@@ -7,6 +7,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/MC/StringTableBuilder.h"
+#include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/CachedHashString.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/StringRef.h"
@@ -33,8 +34,14 @@ void StringTableBuilder::initSize() {
   case DWARF:
     Size = 0;
     break;
+  case MachOLinked:
+  case MachO64Linked:
+    Size = 2;
+    break;
   case MachO:
+  case MachO64:
   case ELF:
+  case DXContainer:
     // Start the table with a NUL byte.
     Size = 1;
     break;
@@ -46,7 +53,7 @@ void StringTableBuilder::initSize() {
   }
 }
 
-StringTableBuilder::StringTableBuilder(Kind K, unsigned Alignment)
+StringTableBuilder::StringTableBuilder(Kind K, Align Alignment)
     : K(K), Alignment(Alignment) {
   initSize();
 }
@@ -131,21 +138,39 @@ void StringTableBuilder::finalizeInOrder() {
 void StringTableBuilder::finalizeStringTable(bool Optimize) {
   Finalized = true;
 
-  if (Optimize) {
+  if (Optimize && StringIndexMap.size()) {
     std::vector<StringPair *> Strings;
     Strings.reserve(StringIndexMap.size());
     for (StringPair &P : StringIndexMap)
       Strings.push_back(&P);
 
-    multikeySort(Strings, 0);
+    size_t RangeBegin = 0;
+    MutableArrayRef<StringPair *> StringsRef(Strings);
+    if (StringPriorityMap.size()) {
+      llvm::sort(Strings,
+                 [&](const StringPair *LHS, const StringPair *RHS) -> bool {
+                   return StringPriorityMap.lookup(LHS->first) >
+                          StringPriorityMap.lookup(RHS->first);
+                 });
+      uint8_t RangePriority = StringPriorityMap.lookup(Strings[0]->first);
+      for (size_t I = 1, E = Strings.size(); I != E && RangePriority; ++I) {
+        uint8_t Priority = StringPriorityMap.lookup(Strings[I]->first);
+        if (Priority != RangePriority) {
+          multikeySort(StringsRef.slice(RangeBegin, I - RangeBegin), 0);
+          RangePriority = Priority;
+          RangeBegin = I;
+        }
+      }
+    }
+    multikeySort(StringsRef.slice(RangeBegin), 0);
     initSize();
 
     StringRef Previous;
     for (StringPair *P : Strings) {
       StringRef S = P->first.val();
-      if (Previous.endswith(S)) {
+      if (Previous.ends_with(S)) {
         size_t Pos = Size - S.size() - (K != RAW);
-        if (!(Pos & (Alignment - 1))) {
+        if (isAligned(Alignment, Pos)) {
           P->second = Pos;
           continue;
         }
@@ -161,8 +186,16 @@ void StringTableBuilder::finalizeStringTable(bool Optimize) {
     }
   }
 
-  if (K == MachO)
+  if (K == MachO || K == MachOLinked || K == DXContainer)
     Size = alignTo(Size, 4); // Pad to multiple of 4.
+  if (K == MachO64 || K == MachO64Linked)
+    Size = alignTo(Size, 8); // Pad to multiple of 8.
+
+  // According to ld64 the string table of a final linked Mach-O binary starts
+  // with " ", i.e. the first byte is ' ' and the second byte is zero. In
+  // 'initSize()' we reserved the first two bytes for holding this string.
+  if (K == MachOLinked || K == MachO64Linked)
+    StringIndexMap[CachedHashStringRef(" ")] = 0;
 
   // The first byte in an ELF string table must be null, according to the ELF
   // specification. In 'initSize()' we reserved the first byte to hold null for
@@ -184,12 +217,15 @@ size_t StringTableBuilder::getOffset(CachedHashStringRef S) const {
   return I->second;
 }
 
-size_t StringTableBuilder::add(CachedHashStringRef S) {
+size_t StringTableBuilder::add(CachedHashStringRef S, uint8_t Priority) {
   if (K == WinCOFF)
     assert(S.size() > COFF::NameSize && "Short string in COFF string table!");
 
   assert(!isFinalized());
-  auto P = StringIndexMap.insert(std::make_pair(S, 0));
+  if (Priority)
+    StringPriorityMap[S] = std::max(Priority, StringPriorityMap[S]);
+
+  auto P = StringIndexMap.try_emplace(S);
   if (P.second) {
     size_t Start = alignTo(Size, Alignment);
     P.first->second = Start;

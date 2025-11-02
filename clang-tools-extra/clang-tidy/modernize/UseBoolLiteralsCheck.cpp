@@ -1,4 +1,4 @@
-//===--- UseBoolLiteralsCheck.cpp - clang-tidy-----------------------------===//
+//===----------------------------------------------------------------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -13,28 +13,29 @@
 
 using namespace clang::ast_matchers;
 
-namespace clang {
-namespace tidy {
-namespace modernize {
+namespace clang::tidy::modernize {
 
 UseBoolLiteralsCheck::UseBoolLiteralsCheck(StringRef Name,
                                            ClangTidyContext *Context)
     : ClangTidyCheck(Name, Context),
-      IgnoreMacros(Options.getLocalOrGlobal("IgnoreMacros", true)) {}
+      IgnoreMacros(Options.get("IgnoreMacros", true)) {}
+
+void UseBoolLiteralsCheck::storeOptions(ClangTidyOptions::OptionMap &Opts) {
+  Options.store(Opts, "IgnoreMacros", IgnoreMacros);
+}
 
 void UseBoolLiteralsCheck::registerMatchers(MatchFinder *Finder) {
   Finder->addMatcher(
-      traverse(
-          ast_type_traits::TK_AsIs,
-          implicitCastExpr(
-              has(ignoringParenImpCasts(integerLiteral().bind("literal"))),
-              hasImplicitDestinationType(qualType(booleanType())),
-              unless(isInTemplateInstantiation()),
-              anyOf(hasParent(explicitCastExpr().bind("cast")), anything()))),
+      traverse(TK_AsIs,
+               implicitCastExpr(
+                   has(ignoringParenImpCasts(integerLiteral().bind("literal"))),
+                   hasImplicitDestinationType(qualType(booleanType())),
+                   unless(isInTemplateInstantiation()),
+                   optionally(hasParent(explicitCastExpr().bind("cast"))))),
       this);
 
   Finder->addMatcher(
-      traverse(ast_type_traits::TK_AsIs,
+      traverse(TK_AsIs,
                conditionalOperator(
                    hasParent(implicitCastExpr(
                        hasImplicitDestinationType(qualType(booleanType())),
@@ -70,6 +71,4 @@ void UseBoolLiteralsCheck::check(const MatchFinder::MatchResult &Result) {
         Expression->getSourceRange(), LiteralBooleanValue ? "true" : "false");
 }
 
-} // namespace modernize
-} // namespace tidy
-} // namespace clang
+} // namespace clang::tidy::modernize

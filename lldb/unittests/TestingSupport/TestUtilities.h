@@ -9,10 +9,13 @@
 #ifndef LLDB_UNITTESTS_TESTINGSUPPORT_TESTUTILITIES_H
 #define LLDB_UNITTESTS_TESTINGSUPPORT_TESTUTILITIES_H
 
-#include "llvm/ADT/SmallString.h"
+#include "lldb/Core/ModuleSpec.h"
+#include "lldb/Utility/DataBuffer.h"
 #include "llvm/ADT/Twine.h"
 #include "llvm/Support/Error.h"
-#include "llvm/Support/FileUtilities.h"
+#include "llvm/Support/FileSystem.h"
+#include "llvm/Support/JSON.h"
+#include "llvm/Support/raw_ostream.h"
 #include <string>
 
 #define ASSERT_NO_ERROR(x)                                                     \
@@ -29,28 +32,40 @@
 namespace lldb_private {
 std::string GetInputFilePath(const llvm::Twine &name);
 
+class TestUtilities {
+public:
+  static std::once_flag g_debugger_initialize_flag;
+};
+
 class TestFile {
 public:
   static llvm::Expected<TestFile> fromYaml(llvm::StringRef Yaml);
   static llvm::Expected<TestFile> fromYamlFile(const llvm::Twine &Name);
 
-  TestFile(TestFile &&RHS) : Name(std::move(RHS.Name)) {
-    RHS.Name = llvm::None;
+  ModuleSpec moduleSpec() {
+    return ModuleSpec(FileSpec(), UUID(), dataBuffer());
   }
 
-  ~TestFile();
-
-  llvm::StringRef name() { return *Name; }
+  llvm::Expected<llvm::sys::fs::TempFile> writeToTemporaryFile();
 
 private:
-  TestFile(llvm::StringRef Name, llvm::FileRemover &&Remover)
-      : Name(std::string(Name)) {
-    Remover.releaseFile();
-  }
-  void operator=(const TestFile &) = delete;
+  TestFile(std::string &&Buffer) : Buffer(std::move(Buffer)) {}
 
-  llvm::Optional<std::string> Name;
+  lldb::DataBufferSP dataBuffer() {
+    auto *Data = reinterpret_cast<const uint8_t *>(Buffer.data());
+    return std::make_shared<DataBufferUnowned>(const_cast<uint8_t *>(Data),
+                                               Buffer.size());
+  }
+
+  std::string Buffer;
 };
+
+template <typename T> static llvm::Expected<T> roundtripJSON(const T &input) {
+  std::string encoded;
+  llvm::raw_string_ostream OS(encoded);
+  OS << toJSON(input);
+  return llvm::json::parse<T>(encoded);
 }
+} // namespace lldb_private
 
 #endif

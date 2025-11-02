@@ -4,7 +4,7 @@
 // RUN: %clangxx -DUSING_%tool_name %s -o %t
 
 // Intentionally don't inherit the default options.
-// RUN: env %tool_options='' not --crash %run %t 2>&1
+// RUN: env %tool_options='' TSAN_OPTIONS=ignore_interceptors_accesses=0 not --crash %run %t 2>&1
 
 // When we use lit's default options, we shouldn't crash.
 // RUN: not %run %t 2>&1
@@ -16,8 +16,8 @@ int global;
 
 int main() {
 #if defined(USING_ubsan)
-  int value = 5;
-  int computation = value / 0; // Division by zero.
+  volatile int *null = 0;
+  *null = 0;
 #else
   volatile int *a = new int[100];
   delete[] a;

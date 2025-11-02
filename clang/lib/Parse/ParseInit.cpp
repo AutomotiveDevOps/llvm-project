@@ -10,21 +10,18 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "clang/Basic/DiagnosticParse.h"
 #include "clang/Basic/TokenKinds.h"
-#include "clang/Parse/ParseDiagnostic.h"
 #include "clang/Parse/Parser.h"
 #include "clang/Parse/RAIIObjectsForParser.h"
 #include "clang/Sema/Designator.h"
+#include "clang/Sema/EnterExpressionEvaluationContext.h"
 #include "clang/Sema/Ownership.h"
 #include "clang/Sema/Scope.h"
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/ADT/SmallString.h"
+#include "clang/Sema/SemaCodeCompletion.h"
+#include "clang/Sema/SemaObjC.h"
 using namespace clang;
 
-
-/// MayBeDesignationStart - Return true if the current token might be the start
-/// of a designator.  If we can tell it is impossible that it is a designator,
-/// return false.
 bool Parser::MayBeDesignationStart() {
   switch (Tok.getKind()) {
   default:
@@ -34,7 +31,7 @@ bool Parser::MayBeDesignationStart() {
     return true;
 
   case tok::l_square: {  // designator: array-designator
-    if (!PP.getLangOpts().CPlusPlus11)
+    if (!PP.getLangOpts().CPlusPlus)
       return true;
 
     // C++11 lambda expressions and C99 designators can be ambiguous all the
@@ -116,51 +113,8 @@ static void CheckArrayDesignatorSyntax(Parser &P, SourceLocation Loc,
     P.Diag(Loc, diag::err_expected_equal_designator);
 }
 
-/// ParseInitializerWithPotentialDesignator - Parse the 'initializer' production
-/// checking to see if the token stream starts with a designator.
-///
-/// C99:
-///
-///       designation:
-///         designator-list '='
-/// [GNU]   array-designator
-/// [GNU]   identifier ':'
-///
-///       designator-list:
-///         designator
-///         designator-list designator
-///
-///       designator:
-///         array-designator
-///         '.' identifier
-///
-///       array-designator:
-///         '[' constant-expression ']'
-/// [GNU]   '[' constant-expression '...' constant-expression ']'
-///
-/// C++20:
-///
-///       designated-initializer-list:
-///         designated-initializer-clause
-///         designated-initializer-list ',' designated-initializer-clause
-///
-///       designated-initializer-clause:
-///         designator brace-or-equal-initializer
-///
-///       designator:
-///         '.' identifier
-///
-/// We allow the C99 syntax extensions in C++20, but do not allow the C++20
-/// extension (a braced-init-list after the designator with no '=') in C99.
-///
-/// NOTE: [OBC] allows '[ objc-receiver objc-message-args ]' as an
-/// initializer (because it is an expression).  We need to consider this case
-/// when parsing array designators.
-///
-/// \p CodeCompleteCB is called with Designation parsed so far.
 ExprResult Parser::ParseInitializerWithPotentialDesignator(
-    llvm::function_ref<void(const Designation &)> CodeCompleteCB) {
-
+    DesignatorCompletionInfo DesignatorCompletion) {
   // If this is the old-style GNU extension:
   //   designation ::= identifier ':'
   // Handle it as a field designator.  Otherwise, this must be the start of a
@@ -182,7 +136,10 @@ ExprResult Parser::ParseInitializerWithPotentialDesignator(
                                       NewSyntax);
 
     Designation D;
-    D.AddDesignator(Designator::getField(FieldName, SourceLocation(), NameLoc));
+    D.AddDesignator(Designator::CreateFieldDesignator(
+        FieldName, SourceLocation(), NameLoc));
+    PreferredType.enterDesignatedInitializer(
+        Tok.getLocation(), DesignatorCompletion.PreferredBaseType, D);
     return Actions.ActOnDesignatedInitializer(D, ColonLoc, true,
                                               ParseInitializer());
   }
@@ -199,8 +156,10 @@ ExprResult Parser::ParseInitializerWithPotentialDesignator(
       SourceLocation DotLoc = ConsumeToken();
 
       if (Tok.is(tok::code_completion)) {
-        CodeCompleteCB(Desig);
         cutOffParsing();
+        Actions.CodeCompletion().CodeCompleteDesignator(
+            DesignatorCompletion.PreferredBaseType,
+            DesignatorCompletion.InitExprs, Desig);
         return ExprError();
       }
       if (Tok.isNot(tok::identifier)) {
@@ -208,8 +167,8 @@ ExprResult Parser::ParseInitializerWithPotentialDesignator(
         return ExprError();
       }
 
-      Desig.AddDesignator(Designator::getField(Tok.getIdentifierInfo(), DotLoc,
-                                               Tok.getLocation()));
+      Desig.AddDesignator(Designator::CreateFieldDesignator(
+          Tok.getIdentifierInfo(), DotLoc, Tok.getLocation()));
       ConsumeToken(); // Eat the identifier.
       continue;
     }
@@ -286,15 +245,15 @@ ExprResult Parser::ParseInitializerWithPotentialDesignator(
       // Three cases. This is a message send to a type: [type foo]
       // This is a message send to super:  [super foo]
       // This is a message sent to an expr:  [super.bar foo]
-      switch (Actions.getObjCMessageKind(
+      switch (Actions.ObjC().getObjCMessageKind(
           getCurScope(), II, IILoc, II == Ident_super,
           NextToken().is(tok::period), ReceiverType)) {
-      case Sema::ObjCSuperMessage:
+      case SemaObjC::ObjCSuperMessage:
         CheckArrayDesignatorSyntax(*this, StartLoc, Desig);
         return ParseAssignmentExprWithObjCMessageExprStart(
             StartLoc, ConsumeToken(), nullptr, nullptr);
 
-      case Sema::ObjCClassMessage:
+      case SemaObjC::ObjCClassMessage:
         CheckArrayDesignatorSyntax(*this, StartLoc, Desig);
         ConsumeToken(); // the identifier
         if (!ReceiverType) {
@@ -322,7 +281,7 @@ ExprResult Parser::ParseInitializerWithPotentialDesignator(
                                                            ReceiverType,
                                                            nullptr);
 
-      case Sema::ObjCInstanceMessage:
+      case SemaObjC::ObjCInstanceMessage:
         // Fall through; we'll just parse the expression and
         // (possibly) treat this like an Objective-C message send
         // later.
@@ -358,7 +317,8 @@ ExprResult Parser::ParseInitializerWithPotentialDesignator(
 
     // If this is a normal array designator, remember it.
     if (Tok.isNot(tok::ellipsis)) {
-      Desig.AddDesignator(Designator::getArray(Idx.get(), StartLoc));
+      Desig.AddDesignator(Designator::CreateArrayDesignator(Idx.get(),
+                                                            StartLoc));
     } else {
       // Handle the gnu array range extension.
       Diag(Tok, diag::ext_gnu_array_range);
@@ -369,9 +329,8 @@ ExprResult Parser::ParseInitializerWithPotentialDesignator(
         SkipUntil(tok::r_square, StopAtSemi);
         return RHS;
       }
-      Desig.AddDesignator(Designator::getArrayRange(Idx.get(),
-                                                    RHS.get(),
-                                                    StartLoc, EllipsisLoc));
+      Desig.AddDesignator(Designator::CreateArrayRangeDesignator(
+          Idx.get(), RHS.get(), StartLoc, EllipsisLoc));
     }
 
     T.consumeClose();
@@ -388,6 +347,8 @@ ExprResult Parser::ParseInitializerWithPotentialDesignator(
   // Handle a normal designator sequence end, which is an equal.
   if (Tok.is(tok::equal)) {
     SourceLocation EqualLoc = ConsumeToken();
+    PreferredType.enterDesignatedInitializer(
+        Tok.getLocation(), DesignatorCompletion.PreferredBaseType, Desig);
     return Actions.ActOnDesignatedInitializer(Desig, EqualLoc, false,
                                               ParseInitializer());
   }
@@ -396,6 +357,8 @@ ExprResult Parser::ParseInitializerWithPotentialDesignator(
   // direct-list-initialization of the aggregate element. We allow this as an
   // extension from C++11 onwards (when direct-list-initialization was added).
   if (Tok.is(tok::l_brace) && getLangOpts().CPlusPlus11) {
+    PreferredType.enterDesignatedInitializer(
+        Tok.getLocation(), DesignatorCompletion.PreferredBaseType, Desig);
     return Actions.ActOnDesignatedInitializer(Desig, SourceLocation(), false,
                                               ParseBraceInitializer());
   }
@@ -417,18 +380,34 @@ ExprResult Parser::ParseInitializerWithPotentialDesignator(
   return ExprError();
 }
 
-/// ParseBraceInitializer - Called when parsing an initializer that has a
-/// leading open brace.
-///
-///       initializer: [C99 6.7.8]
-///         '{' initializer-list '}'
-///         '{' initializer-list ',' '}'
-/// [GNU]   '{' '}'
-///
-///       initializer-list:
-///         designation[opt] initializer ...[opt]
-///         initializer-list ',' designation[opt] initializer ...[opt]
-///
+ExprResult Parser::createEmbedExpr() {
+  assert(Tok.getKind() == tok::annot_embed);
+  EmbedAnnotationData *Data =
+      reinterpret_cast<EmbedAnnotationData *>(Tok.getAnnotationValue());
+  ExprResult Res;
+  ASTContext &Context = Actions.getASTContext();
+  SourceLocation StartLoc = ConsumeAnnotationToken();
+  if (Data->BinaryData.size() == 1) {
+    Res = IntegerLiteral::Create(
+        Context, llvm::APInt(CHAR_BIT, (unsigned char)Data->BinaryData.back()),
+        Context.UnsignedCharTy, StartLoc);
+  } else {
+    auto CreateStringLiteralFromStringRef = [&](StringRef Str, QualType Ty) {
+      llvm::APSInt ArraySize =
+          Context.MakeIntValue(Str.size(), Context.getSizeType());
+      QualType ArrayTy = Context.getConstantArrayType(
+          Ty, ArraySize, nullptr, ArraySizeModifier::Normal, 0);
+      return StringLiteral::Create(Context, Str, StringLiteralKind::Binary,
+                                   false, ArrayTy, StartLoc);
+    };
+
+    StringLiteral *BinaryDataArg = CreateStringLiteralFromStringRef(
+        Data->BinaryData, Context.UnsignedCharTy);
+    Res = Actions.ActOnEmbedExpr(StartLoc, BinaryDataArg, Data->FileName);
+  }
+  return Res;
+}
+
 ExprResult Parser::ParseBraceInitializer() {
   InMessageExpressionRAIIObject InMessage(*this, false);
 
@@ -441,11 +420,14 @@ ExprResult Parser::ParseBraceInitializer() {
   ExprVector InitExprs;
 
   if (Tok.is(tok::r_brace)) {
-    // Empty initializers are a C++ feature and a GNU extension to C.
-    if (!getLangOpts().CPlusPlus)
-      Diag(LBraceLoc, diag::ext_gnu_empty_initializer);
+    // Empty initializers are a C++ feature and a GNU extension to C before C23.
+    if (!getLangOpts().CPlusPlus) {
+      Diag(LBraceLoc, getLangOpts().C23
+                          ? diag::warn_c23_compat_empty_initializer
+                          : diag::ext_c_empty_initializer);
+    }
     // Match the '}'.
-    return Actions.ActOnInitList(LBraceLoc, None, ConsumeBrace());
+    return Actions.ActOnInitList(LBraceLoc, {}, ConsumeBrace());
   }
 
   // Enter an appropriate expression evaluation context for an initializer list.
@@ -453,12 +435,22 @@ ExprResult Parser::ParseBraceInitializer() {
       Actions, EnterExpressionEvaluationContext::InitList);
 
   bool InitExprsOk = true;
-  auto CodeCompleteDesignation = [&](const Designation &D) {
-    Actions.CodeCompleteDesignator(PreferredType.get(T.getOpenLocation()),
-                                   InitExprs, D);
+  QualType LikelyType = PreferredType.get(T.getOpenLocation());
+  DesignatorCompletionInfo DesignatorCompletion{InitExprs, LikelyType};
+  bool CalledSignatureHelp = false;
+  auto RunSignatureHelp = [&] {
+    QualType PreferredType;
+    if (!LikelyType.isNull())
+      PreferredType = Actions.CodeCompletion().ProduceConstructorSignatureHelp(
+          LikelyType->getCanonicalTypeInternal(), T.getOpenLocation(),
+          InitExprs, T.getOpenLocation(), /*Braced=*/true);
+    CalledSignatureHelp = true;
+    return PreferredType;
   };
 
-  while (1) {
+  while (true) {
+    PreferredType.enterFunctionArgument(Tok.getLocation(), RunSignatureHelp);
+
     // Handle Microsoft __if_exists/if_not_exists if necessary.
     if (getLangOpts().MicrosoftExt && (Tok.is(tok::kw___if_exists) ||
         Tok.is(tok::kw___if_not_exists))) {
@@ -476,14 +468,14 @@ ExprResult Parser::ParseBraceInitializer() {
     // initializer directly.
     ExprResult SubElt;
     if (MayBeDesignationStart())
-      SubElt = ParseInitializerWithPotentialDesignator(CodeCompleteDesignation);
+      SubElt = ParseInitializerWithPotentialDesignator(DesignatorCompletion);
+    else if (Tok.getKind() == tok::annot_embed)
+      SubElt = createEmbedExpr();
     else
       SubElt = ParseInitializer();
 
     if (Tok.is(tok::ellipsis))
       SubElt = Actions.ActOnPackExpansion(SubElt.get(), ConsumeToken());
-
-    SubElt = Actions.CorrectDelayedTyposInExpr(SubElt.get());
 
     // If we couldn't parse the subelement, bail out.
     if (SubElt.isUsable()) {
@@ -524,9 +516,6 @@ ExprResult Parser::ParseBraceInitializer() {
   return ExprError(); // an error occurred.
 }
 
-
-// Return true if a comma (or closing brace) is necessary after the
-// __if_exists/if_not_exists statement.
 bool Parser::ParseMicrosoftIfExistsBraceInitializer(ExprVector &InitExprs,
                                                     bool &InitExprsOk) {
   bool trailingComma = false;
@@ -541,24 +530,24 @@ bool Parser::ParseMicrosoftIfExistsBraceInitializer(ExprVector &InitExprs,
   }
 
   switch (Result.Behavior) {
-  case IEB_Parse:
+  case IfExistsBehavior::Parse:
     // Parse the declarations below.
     break;
 
-  case IEB_Dependent:
+  case IfExistsBehavior::Dependent:
     Diag(Result.KeywordLoc, diag::warn_microsoft_dependent_exists)
       << Result.IsIfExists;
     // Fall through to skip.
-    LLVM_FALLTHROUGH;
+    [[fallthrough]];
 
-  case IEB_Skip:
+  case IfExistsBehavior::Skip:
     Braces.skipToEnd();
     return false;
   }
 
-  auto CodeCompleteDesignation = [&](const Designation &D) {
-    Actions.CodeCompleteDesignator(PreferredType.get(Braces.getOpenLocation()),
-                                   InitExprs, D);
+  DesignatorCompletionInfo DesignatorCompletion{
+      InitExprs,
+      PreferredType.get(Braces.getOpenLocation()),
   };
   while (!isEofOrEom()) {
     trailingComma = false;
@@ -566,7 +555,7 @@ bool Parser::ParseMicrosoftIfExistsBraceInitializer(ExprVector &InitExprs,
     // initializer directly.
     ExprResult SubElt;
     if (MayBeDesignationStart())
-      SubElt = ParseInitializerWithPotentialDesignator(CodeCompleteDesignation);
+      SubElt = ParseInitializerWithPotentialDesignator(DesignatorCompletion);
     else
       SubElt = ParseInitializer();
 

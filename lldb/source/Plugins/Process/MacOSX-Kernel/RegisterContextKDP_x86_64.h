@@ -17,20 +17,20 @@ class RegisterContextKDP_x86_64 : public RegisterContextDarwin_x86_64 {
 public:
   RegisterContextKDP_x86_64(ThreadKDP &thread, uint32_t concrete_frame_idx);
 
-  virtual ~RegisterContextKDP_x86_64();
+  ~RegisterContextKDP_x86_64() override;
 
 protected:
-  virtual int DoReadGPR(lldb::tid_t tid, int flavor, GPR &gpr);
+  int DoReadGPR(lldb::tid_t tid, int flavor, GPR &gpr) override;
 
-  int DoReadFPU(lldb::tid_t tid, int flavor, FPU &fpu);
+  int DoReadFPU(lldb::tid_t tid, int flavor, FPU &fpu) override;
 
-  int DoReadEXC(lldb::tid_t tid, int flavor, EXC &exc);
+  int DoReadEXC(lldb::tid_t tid, int flavor, EXC &exc) override;
 
-  int DoWriteGPR(lldb::tid_t tid, int flavor, const GPR &gpr);
+  int DoWriteGPR(lldb::tid_t tid, int flavor, const GPR &gpr) override;
 
-  int DoWriteFPU(lldb::tid_t tid, int flavor, const FPU &fpu);
+  int DoWriteFPU(lldb::tid_t tid, int flavor, const FPU &fpu) override;
 
-  int DoWriteEXC(lldb::tid_t tid, int flavor, const EXC &exc);
+  int DoWriteEXC(lldb::tid_t tid, int flavor, const EXC &exc) override;
 
   ThreadKDP &m_kdp_thread;
 };

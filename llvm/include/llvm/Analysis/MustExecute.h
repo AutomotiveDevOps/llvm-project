@@ -25,9 +25,10 @@
 
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/DenseSet.h"
-#include "llvm/Analysis/EHPersonalities.h"
 #include "llvm/Analysis/InstructionPrecedenceTracking.h"
-#include "llvm/IR/Instruction.h"
+#include "llvm/IR/EHPersonalities.h"
+#include "llvm/IR/PassManager.h"
+#include "llvm/Support/Compiler.h"
 
 namespace llvm {
 
@@ -37,10 +38,10 @@ template <typename T> using GetterTy = std::function<T *(const Function &F)>;
 
 class BasicBlock;
 class DominatorTree;
-class Instruction;
 class Loop;
 class LoopInfo;
 class PostDominatorTree;
+class raw_ostream;
 
 /// Captures loop safety information.
 /// It keep information for loop blocks may throw exception or otherwise
@@ -62,14 +63,14 @@ class LoopSafetyInfo {
 
 protected:
   /// Computes block colors.
-  void computeBlockColors(const Loop *CurLoop);
+  LLVM_ABI void computeBlockColors(const Loop *CurLoop);
 
 public:
   /// Returns block colors map that is used to update funclet operand bundles.
-  const DenseMap<BasicBlock *, ColorVector> &getBlockColors() const;
+  LLVM_ABI const DenseMap<BasicBlock *, ColorVector> &getBlockColors() const;
 
   /// Copy colors of block \p Old into the block \p New.
-  void copyColors(BasicBlock *New, BasicBlock *Old);
+  LLVM_ABI void copyColors(BasicBlock *New, BasicBlock *Old);
 
   /// Returns true iff the block \p BB potentially may throw exception. It can
   /// be false-positive in cases when we want to avoid complex analysis.
@@ -81,8 +82,9 @@ public:
 
   /// Return true if we must reach the block \p BB under assumption that the
   /// loop \p CurLoop is entered.
-  bool allLoopPathsLeadToBlock(const Loop *CurLoop, const BasicBlock *BB,
-                               const DominatorTree *DT) const;
+  LLVM_ABI bool allLoopPathsLeadToBlock(const Loop *CurLoop,
+                                        const BasicBlock *BB,
+                                        const DominatorTree *DT) const;
 
   /// Computes safety information for a loop checks loop body & header for
   /// the possibility of may throw exception, it takes LoopSafetyInfo and loop
@@ -106,23 +108,21 @@ public:
 /// Simple and conservative implementation of LoopSafetyInfo that can give
 /// false-positive answers to its queries in order to avoid complicated
 /// analysis.
-class SimpleLoopSafetyInfo: public LoopSafetyInfo {
+class LLVM_ABI SimpleLoopSafetyInfo : public LoopSafetyInfo {
   bool MayThrow = false;       // The current loop contains an instruction which
                                // may throw.
   bool HeaderMayThrow = false; // Same as previous, but specific to loop header
 
 public:
-  virtual bool blockMayThrow(const BasicBlock *BB) const;
+  bool blockMayThrow(const BasicBlock *BB) const override;
 
-  virtual bool anyBlockMayThrow() const;
+  bool anyBlockMayThrow() const override;
 
-  virtual void computeLoopSafetyInfo(const Loop *CurLoop);
+  void computeLoopSafetyInfo(const Loop *CurLoop) override;
 
-  virtual bool isGuaranteedToExecute(const Instruction &Inst,
-                                     const DominatorTree *DT,
-                                     const Loop *CurLoop) const;
-
-  virtual ~SimpleLoopSafetyInfo() {};
+  bool isGuaranteedToExecute(const Instruction &Inst,
+                             const DominatorTree *DT,
+                             const Loop *CurLoop) const override;
 };
 
 /// This implementation of LoopSafetyInfo use ImplicitControlFlowTracking to
@@ -130,7 +130,7 @@ public:
 /// that should be invalidated by calling the methods insertInstructionTo and
 /// removeInstruction whenever we modify a basic block's contents by adding or
 /// removing instructions.
-class ICFLoopSafetyInfo: public LoopSafetyInfo {
+class LLVM_ABI ICFLoopSafetyInfo : public LoopSafetyInfo {
   bool MayThrow = false;       // The current loop contains an instruction which
                                // may throw.
   // Contains information about implicit control flow in this loop's blocks.
@@ -139,15 +139,15 @@ class ICFLoopSafetyInfo: public LoopSafetyInfo {
   mutable MemoryWriteTracking MW;
 
 public:
-  virtual bool blockMayThrow(const BasicBlock *BB) const;
+  bool blockMayThrow(const BasicBlock *BB) const override;
 
-  virtual bool anyBlockMayThrow() const;
+  bool anyBlockMayThrow() const override;
 
-  virtual void computeLoopSafetyInfo(const Loop *CurLoop);
+  void computeLoopSafetyInfo(const Loop *CurLoop) override;
 
-  virtual bool isGuaranteedToExecute(const Instruction &Inst,
-                                     const DominatorTree *DT,
-                                     const Loop *CurLoop) const;
+  bool isGuaranteedToExecute(const Instruction &Inst,
+                             const DominatorTree *DT,
+                             const Loop *CurLoop) const override;
 
   /// Returns true if we could not execute a memory-modifying instruction before
   /// we enter \p BB under assumption that \p CurLoop is entered.
@@ -168,11 +168,10 @@ public:
   /// from its block. It will make all cache updates to keep it correct after
   /// this removal.
   void removeInstruction(const Instruction *Inst);
-
-  virtual ~ICFLoopSafetyInfo() {};
 };
 
-bool mayContainIrreducibleControl(const Function &F, const LoopInfo *LI);
+LLVM_ABI bool mayContainIrreducibleControl(const Function &F,
+                                           const LoopInfo *LI);
 
 struct MustBeExecutedContextExplorer;
 
@@ -284,9 +283,7 @@ struct MustBeExecutedIterator {
 
   using ExplorerTy = MustBeExecutedContextExplorer;
 
-  MustBeExecutedIterator(const MustBeExecutedIterator &Other)
-      : Visited(Other.Visited), Explorer(Other.Explorer),
-        CurInst(Other.CurInst), Head(Other.Head), Tail(Other.Tail) {}
+  MustBeExecutedIterator(const MustBeExecutedIterator &Other) = default;
 
   MustBeExecutedIterator(MustBeExecutedIterator &&Other)
       : Visited(std::move(Other.Visited)), Explorer(Other.Explorer),
@@ -302,7 +299,7 @@ struct MustBeExecutedIterator {
     return *this;
   }
 
-  ~MustBeExecutedIterator() {}
+  ~MustBeExecutedIterator() = default;
 
   /// Pre- and post-increment operators.
   ///{
@@ -344,7 +341,7 @@ private:
       DenseSet<PointerIntPair<const Instruction *, 1, ExplorationDirection>>;
 
   /// Private constructors.
-  MustBeExecutedIterator(ExplorerTy &Explorer, const Instruction *I);
+  LLVM_ABI MustBeExecutedIterator(ExplorerTy &Explorer, const Instruction *I);
 
   /// Reset the iterator to its initial state pointing at \p I.
   void reset(const Instruction *I);
@@ -356,7 +353,7 @@ private:
   ///
   /// \return The next instruction in the must be executed context, or nullptr
   ///         if none was found.
-  const Instruction *advance();
+  LLVM_ABI const Instruction *advance();
 
   /// A set to track the visited instructions in order to deal with endless
   /// loops and recursion.
@@ -496,7 +493,7 @@ struct MustBeExecutedContextExplorer {
   ///                        executed context.
   /// \param PP              The program point for which the next instruction
   ///                        that is guaranteed to execute is determined.
-  const Instruction *
+  LLVM_ABI const Instruction *
   getMustBeExecutedNextInstruction(MustBeExecutedIterator &It,
                                    const Instruction *PP);
   /// Return the previous instr. that is guaranteed to be executed before \p PP.
@@ -505,15 +502,15 @@ struct MustBeExecutedContextExplorer {
   ///                        executed context.
   /// \param PP              The program point for which the previous instr.
   ///                        that is guaranteed to execute is determined.
-  const Instruction *
+  LLVM_ABI const Instruction *
   getMustBeExecutedPrevInstruction(MustBeExecutedIterator &It,
                                    const Instruction *PP);
 
   /// Find the next join point from \p InitBB in forward direction.
-  const BasicBlock *findForwardJoinPoint(const BasicBlock *InitBB);
+  LLVM_ABI const BasicBlock *findForwardJoinPoint(const BasicBlock *InitBB);
 
   /// Find the next join point from \p InitBB in backward direction.
-  const BasicBlock *findBackwardJoinPoint(const BasicBlock *InitBB);
+  LLVM_ABI const BasicBlock *findBackwardJoinPoint(const BasicBlock *InitBB);
 
   /// Parameter that limit the performed exploration. See the constructor for
   /// their meaning.
@@ -533,10 +530,10 @@ private:
   ///}
 
   /// Map to cache isGuaranteedToTransferExecutionToSuccessor results.
-  DenseMap<const BasicBlock *, Optional<bool>> BlockTransferMap;
+  DenseMap<const BasicBlock *, std::optional<bool>> BlockTransferMap;
 
   /// Map to cache containsIrreducibleCFG results.
-  DenseMap<const Function*, Optional<bool>> IrreducibleControlMap;
+  DenseMap<const Function *, std::optional<bool>> IrreducibleControlMap;
 
   /// Map from instructions to associated must be executed iterators.
   DenseMap<const Instruction *, std::unique_ptr<MustBeExecutedIterator>>
@@ -544,6 +541,25 @@ private:
 
   /// A unique end iterator.
   MustBeExecutedIterator EndIterator;
+};
+
+class MustExecutePrinterPass : public PassInfoMixin<MustExecutePrinterPass> {
+  raw_ostream &OS;
+
+public:
+  MustExecutePrinterPass(raw_ostream &OS) : OS(OS) {}
+  LLVM_ABI PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
+  static bool isRequired() { return true; }
+};
+
+class MustBeExecutedContextPrinterPass
+    : public PassInfoMixin<MustBeExecutedContextPrinterPass> {
+  raw_ostream &OS;
+
+public:
+  MustBeExecutedContextPrinterPass(raw_ostream &OS) : OS(OS) {}
+  LLVM_ABI PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
+  static bool isRequired() { return true; }
 };
 
 } // namespace llvm

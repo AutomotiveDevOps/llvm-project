@@ -9,17 +9,17 @@ and results of a single test run.
 
 # System modules
 import os
+import traceback
 
 # Third-party modules
-import unittest2
+import unittest
 
 # LLDB Modules
 from . import configuration
-from lldbsuite.test_event.event_builder import EventBuilder
 from lldbsuite.test_event import build_exception
 
 
-class LLDBTestResult(unittest2.TextTestResult):
+class LLDBTestResult(unittest.TextTestResult):
     """
     Enforce a singleton pattern to allow introspection of test progress.
 
@@ -28,12 +28,14 @@ class LLDBTestResult(unittest2.TextTestResult):
     is used in the LLDB test framework to emit detailed trace messages
     to a log file for easier human inspection of test failures/errors.
     """
+
     __singleton__ = None
     __ignore_singleton__ = False
 
     @staticmethod
     def getTerminalSize():
         import os
+
         env = os.environ
 
         def ioctl_GWINSZ(fd):
@@ -41,11 +43,12 @@ class LLDBTestResult(unittest2.TextTestResult):
                 import fcntl
                 import termios
                 import struct
-                cr = struct.unpack('hh', fcntl.ioctl(fd, termios.TIOCGWINSZ,
-                                                     '1234'))
+
+                cr = struct.unpack("hh", fcntl.ioctl(fd, termios.TIOCGWINSZ, "1234"))
             except:
                 return
             return cr
+
         cr = ioctl_GWINSZ(0) or ioctl_GWINSZ(1) or ioctl_GWINSZ(2)
         if not cr:
             try:
@@ -55,7 +58,7 @@ class LLDBTestResult(unittest2.TextTestResult):
             except:
                 pass
         if not cr:
-            cr = (env.get('LINES', 25), env.get('COLUMNS', 80))
+            cr = (env.get("LINES", 25), env.get("COLUMNS", 80))
         return int(cr[1]), int(cr[0])
 
     def __init__(self, *args):
@@ -68,34 +71,32 @@ class LLDBTestResult(unittest2.TextTestResult):
         # Computes the format string for displaying the counter.
         counterWidth = len(str(configuration.suite.countTestCases()))
         self.fmt = "%" + str(counterWidth) + "d: "
-        self.indentation = ' ' * (counterWidth + 2)
+        self.indentation = " " * (counterWidth + 2)
         # This counts from 1 .. suite.countTestCases().
         self.counter = 0
         (width, height) = LLDBTestResult.getTerminalSize()
-        self.results_formatter = configuration.results_formatter_object
 
     def _config_string(self, test):
         compiler = getattr(test, "getCompiler", None)
         arch = getattr(test, "getArchitecture", None)
-        return "%s-%s" % (compiler() if compiler else "",
-                          arch() if arch else "")
+        return "%s-%s" % (compiler() if compiler else "", arch() if arch else "")
 
     def _exc_info_to_string(self, err, test):
         """Overrides superclass TestResult's method in order to append
         our test config info string to the exception info string."""
         if hasattr(test, "getArchitecture") and hasattr(test, "getCompiler"):
-            return '%sConfig=%s-%s' % (super(LLDBTestResult,
-                                             self)._exc_info_to_string(err,
-                                                                       test),
-                                       test.getArchitecture(),
-                                       test.getCompiler())
+            return "%sConfig=%s-%s" % (
+                super(LLDBTestResult, self)._exc_info_to_string(err, test),
+                test.getArchitecture(),
+                test.getCompiler(),
+            )
         else:
             return super(LLDBTestResult, self)._exc_info_to_string(err, test)
 
     def getDescription(self, test):
         doc_first_line = test.shortDescription()
         if self.descriptions and doc_first_line:
-            return '\n'.join((str(test), self.indentation + doc_first_line))
+            return "\n".join((str(test), self.indentation + doc_first_line))
         else:
             return str(test)
 
@@ -108,31 +109,36 @@ class LLDBTestResult(unittest2.TextTestResult):
             return test.test_filename
         else:
             import inspect
+
             return inspect.getsourcefile(test.__class__)
 
     def _getFileBasedCategories(self, test):
         """
         Returns the list of categories to which this test case belongs by
-        collecting values of ".categories" files. We start at the folder the test is in
+        collecting values of "categories" files. We start at the folder the test is in
         and traverse the hierarchy upwards until the test-suite root directory.
         """
         start_path = self._getTestPath(test)
 
         import os.path
+
         folder = os.path.dirname(start_path)
 
         from lldbsuite import lldb_test_root as test_root
+
         if test_root != os.path.commonprefix([folder, test_root]):
-            raise Exception("The test file %s is outside the test root directory" % start_path)
+            raise Exception(
+                "The test file %s is outside the test root directory" % start_path
+            )
 
         categories = set()
         while not os.path.samefile(folder, test_root):
-            categories_file_name = os.path.join(folder, ".categories")
+            categories_file_name = os.path.join(folder, "categories")
             if os.path.exists(categories_file_name):
-                categories_file = open(categories_file_name, 'r')
+                categories_file = open(categories_file_name, "r")
                 categories_str = categories_file.readline().strip()
                 categories_file.close()
-                categories.update(categories_str.split(','))
+                categories.update(categories_str.split(","))
             folder = os.path.dirname(folder)
 
         return list(categories)
@@ -142,9 +148,11 @@ class LLDBTestResult(unittest2.TextTestResult):
         Gets all the categories for the currently running test method in test case
         """
         test_categories = []
+        test_categories.extend(getattr(test, "categories", []))
+
         test_method = getattr(test, test._testMethodName)
-        if test_method is not None and hasattr(test_method, "categories"):
-            test_categories.extend(test_method.categories)
+        if test_method is not None:
+            test_categories.extend(getattr(test_method, "categories", []))
 
         test_categories.extend(self._getFileBasedCategories(test))
 
@@ -153,27 +161,27 @@ class LLDBTestResult(unittest2.TextTestResult):
     def hardMarkAsSkipped(self, test):
         getattr(test, test._testMethodName).__func__.__unittest_skip__ = True
         getattr(
-            test,
-            test._testMethodName).__func__.__unittest_skip_why__ = "test case does not fall in any category of interest for this run"
+            test, test._testMethodName
+        ).__func__.__unittest_skip_why__ = (
+            "test case does not fall in any category of interest for this run"
+        )
 
     def checkExclusion(self, exclusion_list, name):
         if exclusion_list:
             import re
+
             for item in exclusion_list:
                 if re.search(item, name):
                     return True
         return False
 
     def checkCategoryExclusion(self, exclusion_list, test):
-        return not set(exclusion_list).isdisjoint(
-            self.getCategoriesForTest(test))
+        return not set(exclusion_list).isdisjoint(self.getCategoriesForTest(test))
 
     def startTest(self, test):
-        if configuration.shouldSkipBecauseOfCategories(
-                self.getCategoriesForTest(test)):
+        if configuration.shouldSkipBecauseOfCategories(self.getCategoriesForTest(test)):
             self.hardMarkAsSkipped(test)
-        if self.checkExclusion(
-                configuration.skip_tests, test.id()):
+        if self.checkExclusion(configuration.skip_tests, test.id()):
             self.hardMarkAsSkipped(test)
 
         self.counter += 1
@@ -181,25 +189,18 @@ class LLDBTestResult(unittest2.TextTestResult):
         if self.showAll:
             self.stream.write(self.fmt % self.counter)
         super(LLDBTestResult, self).startTest(test)
-        if self.results_formatter:
-            self.results_formatter.handle_event(
-                EventBuilder.event_for_start(test))
 
     def addSuccess(self, test):
-        if (self.checkExclusion(
-                configuration.xfail_tests, test.id()) or
-            self.checkCategoryExclusion(
-                configuration.xfail_categories, test)):
+        if self.checkExclusion(
+            configuration.xfail_tests, test.id()
+        ) or self.checkCategoryExclusion(configuration.xfail_categories, test):
             self.addUnexpectedSuccess(test, None)
             return
 
         super(LLDBTestResult, self).addSuccess(test)
         self.stream.write(
-            "PASS: LLDB (%s) :: %s\n" %
-            (self._config_string(test), str(test)))
-        if self.results_formatter:
-            self.results_formatter.handle_event(
-                EventBuilder.event_for_success(test))
+            "PASS: LLDB (%s) :: %s\n" % (self._config_string(test), str(test))
+        )
 
     def _isBuildError(self, err_tuple):
         exception = err_tuple[1]
@@ -210,8 +211,8 @@ class LLDBTestResult(unittest2.TextTestResult):
         # rather than an uninformative Python backtrace.
         build_error = err[1]
         error_description = "{}\nTest Directory:\n{}".format(
-            str(build_error),
-            os.path.dirname(self._getTestPath(test)))
+            str(build_error), os.path.dirname(self._getTestPath(test))
+        )
         self.errors.append((test, error_description))
         self._mirrorOutput = True
 
@@ -226,15 +227,8 @@ class LLDBTestResult(unittest2.TextTestResult):
         if method:
             method()
         self.stream.write(
-            "FAIL: LLDB (%s) :: %s\n" %
-            (self._config_string(test), str(test)))
-        if self.results_formatter:
-            # Handle build errors as a separate event type
-            if self._isBuildError(err):
-                error_event = EventBuilder.event_for_build_error(test, err)
-            else:
-                error_event = EventBuilder.event_for_error(test, err)
-            self.results_formatter.handle_event(error_event)
+            "FAIL: LLDB (%s) :: %s\n" % (self._config_string(test), str(test))
+        )
 
     def addCleanupError(self, test, err):
         configuration.sdir_has_content = True
@@ -243,19 +237,15 @@ class LLDBTestResult(unittest2.TextTestResult):
         if method:
             method()
         self.stream.write(
-            "CLEANUP ERROR: LLDB (%s) :: %s\n" %
-            (self._config_string(test), str(test)))
-        if self.results_formatter:
-            self.results_formatter.handle_event(
-                EventBuilder.event_for_cleanup_error(
-                    test, err))
+            "CLEANUP ERROR: LLDB (%s) :: %s\n%s\n"
+            % (self._config_string(test), str(test), traceback.format_exc())
+        )
 
     def addFailure(self, test, err):
-        if (self.checkExclusion(
-                configuration.xfail_tests, test.id()) or
-            self.checkCategoryExclusion(
-                configuration.xfail_categories, test)):
-            self.addExpectedFailure(test, err, None)
+        if self.checkExclusion(
+            configuration.xfail_tests, test.id()
+        ) or self.checkCategoryExclusion(configuration.xfail_categories, test):
+            self.addExpectedFailure(test, err)
             return
 
         configuration.sdir_has_content = True
@@ -264,33 +254,27 @@ class LLDBTestResult(unittest2.TextTestResult):
         if method:
             method()
         self.stream.write(
-            "FAIL: LLDB (%s) :: %s\n" %
-            (self._config_string(test), str(test)))
+            "FAIL: LLDB (%s) :: %s\n" % (self._config_string(test), str(test))
+        )
         if configuration.use_categories:
             test_categories = self.getCategoriesForTest(test)
             for category in test_categories:
                 if category in configuration.failures_per_category:
-                    configuration.failures_per_category[
-                        category] = configuration.failures_per_category[category] + 1
+                    configuration.failures_per_category[category] = (
+                        configuration.failures_per_category[category] + 1
+                    )
                 else:
                     configuration.failures_per_category[category] = 1
-        if self.results_formatter:
-            self.results_formatter.handle_event(
-                EventBuilder.event_for_failure(test, err))
 
-    def addExpectedFailure(self, test, err, bugnumber):
+    def addExpectedFailure(self, test, err):
         configuration.sdir_has_content = True
-        super(LLDBTestResult, self).addExpectedFailure(test, err, bugnumber)
+        super(LLDBTestResult, self).addExpectedFailure(test, err)
         method = getattr(test, "markExpectedFailure", None)
         if method:
-            method(err, bugnumber)
+            method(err)
         self.stream.write(
-            "XFAIL: LLDB (%s) :: %s\n" %
-            (self._config_string(test), str(test)))
-        if self.results_formatter:
-            self.results_formatter.handle_event(
-                EventBuilder.event_for_expected_failure(
-                    test, err, bugnumber))
+            "XFAIL: LLDB (%s) :: %s\n" % (self._config_string(test), str(test))
+        )
 
     def addSkip(self, test, reason):
         configuration.sdir_has_content = True
@@ -299,22 +283,16 @@ class LLDBTestResult(unittest2.TextTestResult):
         if method:
             method()
         self.stream.write(
-            "UNSUPPORTED: LLDB (%s) :: %s (%s) \n" %
-            (self._config_string(test), str(test), reason))
-        if self.results_formatter:
-            self.results_formatter.handle_event(
-                EventBuilder.event_for_skip(test, reason))
+            "UNSUPPORTED: LLDB (%s) :: %s (%s) \n"
+            % (self._config_string(test), str(test), reason)
+        )
 
-    def addUnexpectedSuccess(self, test, bugnumber):
+    def addUnexpectedSuccess(self, test):
         configuration.sdir_has_content = True
-        super(LLDBTestResult, self).addUnexpectedSuccess(test, bugnumber)
+        super(LLDBTestResult, self).addUnexpectedSuccess(test)
         method = getattr(test, "markUnexpectedSuccess", None)
         if method:
-            method(bugnumber)
+            method()
         self.stream.write(
-            "XPASS: LLDB (%s) :: %s\n" %
-            (self._config_string(test), str(test)))
-        if self.results_formatter:
-            self.results_formatter.handle_event(
-                EventBuilder.event_for_unexpected_success(
-                    test, bugnumber))
+            "XPASS: LLDB (%s) :: %s\n" % (self._config_string(test), str(test))
+        )

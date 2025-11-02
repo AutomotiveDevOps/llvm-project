@@ -1,6 +1,6 @@
 // This test ensures functions in custom sections get unwind info emitted in a
 // distinct .xdata section.
-// RUN: llvm-mc -filetype=obj -triple x86_64-pc-win32 %s | llvm-readobj -S --sd | FileCheck %s
+// RUN: llvm-mc -filetype=obj -triple x86_64-pc-win32 %s | llvm-readobj -S --sd - | FileCheck %s
 
 // CHECK:      Name: .xdata
 // CHECK-NEXT: VirtualSize
@@ -68,8 +68,10 @@ foo:
     pushq %rbp
     .seh_pushreg %rbp
     .seh_endprologue
+    .seh_startepilogue
     popq %rbp
     addq $8, %rsp
+    .seh_endepilogue
     ret
     .seh_endproc
 
@@ -83,8 +85,10 @@ bar:
     pushq %rbp
     .seh_pushreg %rbp
     .seh_endprologue
+    .seh_startepilogue
     popq %rbp
     addq $8, %rsp
+    .seh_endepilogue
     ret
     .seh_endproc
 
@@ -98,8 +102,10 @@ baz:
     pushq %rbp
     .seh_pushreg %rbp
     .seh_endprologue
+    .seh_startepilogue
     popq %rbp
     addq $8, %rsp
+    .seh_endepilogue
     ret
     .seh_endproc
 

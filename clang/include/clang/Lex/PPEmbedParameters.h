@@ -6,7 +6,11 @@
 //
 //===----------------------------------------------------------------------===//
 //
+<<<<<<< HEAD
 // Defines all of the preprocessor directive parmeters for #embed
+=======
+// Defines all of the preprocessor directive parameters for #embed
+>>>>>>> upstream/main
 //
 //===----------------------------------------------------------------------===//
 

@@ -1,9 +1,8 @@
-//===--- ConvertMemberFunctionsToStatic.cpp - clang-tidy ------------------===//
+//===----------------------------------------------------------------------===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 
@@ -13,12 +12,13 @@
 #include "clang/AST/RecursiveASTVisitor.h"
 #include "clang/ASTMatchers/ASTMatchFinder.h"
 #include "clang/Basic/SourceLocation.h"
+#include "clang/Lex/Lexer.h"
 
 using namespace clang::ast_matchers;
 
-namespace clang {
-namespace tidy {
-namespace readability {
+namespace clang::tidy::readability {
+
+namespace {
 
 AST_MATCHER(CXXMethodDecl, isStatic) { return Node.isStatic(); }
 
@@ -63,13 +63,20 @@ AST_MATCHER(CXXMethodDecl, usesThis) {
       Used = true;
       return false; // Stop traversal.
     }
+
+    // If we enter a class declaration, don't traverse into it as any usages of
+    // `this` will correspond to the nested class.
+    bool TraverseCXXRecordDecl(CXXRecordDecl *RD) { return true; }
+
   } UsageOfThis;
 
   // TraverseStmt does not modify its argument.
-  UsageOfThis.TraverseStmt(const_cast<Stmt *>(Node.getBody()));
+  UsageOfThis.TraverseStmt(Node.getBody());
 
   return UsageOfThis.Used;
 }
+
+} // namespace
 
 void ConvertMemberFunctionsToStatic::registerMatchers(MatchFinder *Finder) {
   Finder->addMatcher(
@@ -78,7 +85,8 @@ void ConvertMemberFunctionsToStatic::registerMatchers(MatchFinder *Finder) {
           unless(anyOf(
               isExpansionInSystemHeader(), isVirtual(), isStatic(),
               hasTrivialBody(), isOverloadedOperator(), cxxConstructorDecl(),
-              cxxDestructorDecl(), cxxConversionDecl(), isTemplate(),
+              cxxDestructorDecl(), cxxConversionDecl(),
+              isExplicitObjectMemberFunction(), isTemplate(),
               isDependentContext(),
               ofClass(anyOf(
                   isLambda(),
@@ -167,6 +175,4 @@ void ConvertMemberFunctionsToStatic::check(
   Diag << FixItHint::CreateInsertion(Declaration->getBeginLoc(), "static ");
 }
 
-} // namespace readability
-} // namespace tidy
-} // namespace clang
+} // namespace clang::tidy::readability

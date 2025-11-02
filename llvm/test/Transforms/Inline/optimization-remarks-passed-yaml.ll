@@ -1,17 +1,29 @@
-; RUN: opt < %s -S -inline -pass-remarks-output=%t -pass-remarks=inline \
+; RUN: opt < %s -S -passes=inline -pass-remarks-output=%t -pass-remarks=inline \
 ; RUN:    -pass-remarks-missed=inline -pass-remarks-analysis=inline \
 ; RUN:    -pass-remarks-with-hotness 2>&1 | FileCheck %s
-; RUN: cat %t | FileCheck -check-prefix=YAML %s
+; RUN: cat %t | FileCheck -check-prefixes=YAML,YAML-NO-ANNOTATE %s
 
 ; RUN: opt < %s -S -passes=inline -pass-remarks-output=%t -pass-remarks=inline \
 ; RUN:    -pass-remarks-missed=inline -pass-remarks-analysis=inline \
 ; RUN:    -pass-remarks-with-hotness 2>&1 | FileCheck %s
-; RUN: cat %t | FileCheck -check-prefix=YAML %s
+; RUN: cat %t | FileCheck -check-prefixes=YAML,YAML-NO-ANNOTATE %s
+
+; RUN: opt < %s -S -passes=inline -pass-remarks-output=%t.bitstream -pass-remarks=inline \
+; RUN:    -pass-remarks-missed=inline -pass-remarks-analysis=inline \
+; RUN:    -pass-remarks-with-hotness -pass-remarks-format=bitstream 2>&1 | FileCheck %s
+; RUN: llvm-remarkutil bitstream2yaml %t.bitstream | FileCheck -check-prefixes=YAML,YAML-NO-ANNOTATE %s
 
 ; RUN: opt < %s -S -passes=inliner-wrapper -pass-remarks-output=%t -pass-remarks=inline \
 ; RUN:    -pass-remarks-missed=inline -pass-remarks-analysis=inline \
+; RUN:    -annotate-inline-phase=false \
 ; RUN:    -pass-remarks-with-hotness 2>&1 | FileCheck %s
-; RUN: cat %t | FileCheck -check-prefix=YAML %s
+; RUN: cat %t | FileCheck -check-prefixes=YAML,YAML-NO-ANNOTATE %s
+
+; RUN: opt < %s -S -passes=inliner-wrapper -pass-remarks-output=%t -pass-remarks=inline \
+; RUN:    -pass-remarks-missed=inline -pass-remarks-analysis=inline \
+; RUN:    -annotate-inline-phase \
+; RUN:    -pass-remarks-with-hotness 2>&1 | FileCheck %s
+; RUN: cat %t | FileCheck -check-prefixes=YAML,YAML-ANNOTATE %s
 
 ; Check the YAML file for inliner-generated passed and analysis remarks.  This
 ; is the input:
@@ -22,26 +34,36 @@
 ;  4       return foo();
 ;  5     }
 
-; CHECK: remark: /tmp/s.c:4:10: foo inlined into bar with (cost={{[0-9\-]+}}, threshold={{[0-9]+}}) (hotness: 30)
+; CHECK: remark: /tmp/s.c:4:10: 'foo' inlined into 'bar' with (cost={{[0-9\-]+}}, threshold={{[0-9]+}}) at callsite bar:1:10; (hotness: 30)
 
 ; YAML:      --- !Passed
-; YAML-NEXT: Pass:            inline
+; YAML-NO-ANNOTATE-NEXT: Pass:            inline
+; YAML-ANNOTATE-NEXT: Pass:            main-always-inline
 ; YAML-NEXT: Name:            Inlined
 ; YAML-NEXT: DebugLoc:        { File: '/tmp/s.c', Line: 4, Column: 10 }
 ; YAML-NEXT: Function:        bar
 ; YAML-NEXT: Hotness:         30
 ; YAML-NEXT: Args:
+; YAML-NEXT:   - String: ''''
 ; YAML-NEXT:   - Callee: foo
 ; YAML-NEXT:     DebugLoc:        { File: '/tmp/s.c', Line: 1, Column: 0 }
-; YAML-NEXT:   - String: ' inlined into '
+; YAML-NEXT:   - String: ''' inlined into '''
 ; YAML-NEXT:   - Caller: bar
 ; YAML-NEXT:     DebugLoc:        { File: '/tmp/s.c', Line: 3, Column: 0 }
+; YAML-NEXT:   - String: ''''
 ; YAML-NEXT:   - String: ' with '
 ; YAML-NEXT:   - String: '(cost='
 ; YAML-NEXT:   - Cost: '{{[0-9\-]+}}'
 ; YAML-NEXT:   - String: ', threshold='
 ; YAML-NEXT:   - Threshold: '{{[0-9]+}}'
 ; YAML-NEXT:   - String: ')'
+; YAML-NEXT:   - String:          ' at callsite '
+; YAML-NEXT:   - String:          bar
+; YAML-NEXT:   - String:          ':'
+; YAML-NEXT:   - Line:            '1'
+; YAML-NEXT:   - String:          ':'
+; YAML-NEXT:   - Column:          '10'
+; YAML-NEXT:   - String:          ';'
 ; YAML-NEXT: ...
 
 ; ModuleID = '/tmp/s.c'
@@ -50,19 +72,17 @@ target datalayout = "e-m:o-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-apple-macosx10.11.0"
 
 ; Function Attrs: nounwind ssp uwtable
-define i32 @foo() #0 !dbg !7 {
+define i32 @foo() !dbg !7 {
 entry:
   ret i32 1, !dbg !9
 }
 
 ; Function Attrs: nounwind ssp uwtable
-define i32 @bar() #0 !dbg !10 !prof !13 {
+define i32 @bar() !dbg !10 !prof !13 {
 entry:
   %call = call i32 @foo(), !dbg !11
   ret i32 %call, !dbg !12
 }
-
-attributes #0 = { nounwind ssp uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "frame-pointer"="all" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="core2" "target-features"="+cx16,+fxsr,+mmx,+sse,+sse2,+sse3,+ssse3,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
 
 !llvm.dbg.cu = !{!0}
 !llvm.module.flags = !{!3, !4, !5}

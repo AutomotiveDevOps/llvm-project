@@ -11,8 +11,8 @@
 
 #include "formatting.h"
 #include "type.h"
-#include "flang/Common/default-kinds.h"
 #include "flang/Common/reference.h"
+#include "flang/Support/default-kinds.h"
 #include <map>
 #include <vector>
 
@@ -32,9 +32,9 @@ using SymbolRef = common::Reference<const Symbol>;
 // Wraps a constant value in a class templated by its resolved type.
 // This Constant<> template class should be instantiated only for
 // concrete intrinsic types and SomeDerived.  There is no instance
-// Constant<Expr<SomeType>> since there is no way to constrain each
+// Constant<SomeType> since there is no way to constrain each
 // element of its array to hold the same type.  To represent a generic
-// constants, use a generic expression like Expr<SomeInteger> &
+// constant, use a generic expression like Expr<SomeInteger> or
 // Expr<SomeType>) to wrap the appropriate instantiation of Constant<>.
 
 template <typename> class Constant;
@@ -46,15 +46,16 @@ inline int GetRank(const ConstantSubscripts &s) {
   return static_cast<int>(s.size());
 }
 
-std::size_t TotalElementCount(const ConstantSubscripts &);
+// Returns the number of elements of shape, if no overflow occurs.
+std::optional<uint64_t> TotalElementCount(const ConstantSubscripts &shape);
 
 // Validate dimension re-ordering like ORDER in RESHAPE.
 // On success, return a vector that can be used as dimOrder in
-// ConstantBound::IncrementSubscripts.
+// ConstantBounds::IncrementSubscripts().
 std::optional<std::vector<int>> ValidateDimensionOrder(
     int rank, const std::vector<int> &order);
 
-bool IsValidShape(const ConstantSubscripts &);
+bool HasNegativeExtent(const ConstantSubscripts &);
 
 class ConstantBounds {
 public:
@@ -63,16 +64,30 @@ public:
   explicit ConstantBounds(ConstantSubscripts &&shape);
   ~ConstantBounds();
   const ConstantSubscripts &shape() const { return shape_; }
-  const ConstantSubscripts &lbounds() const { return lbounds_; }
-  void set_lbounds(ConstantSubscripts &&);
   int Rank() const { return GetRank(shape_); }
+  static constexpr int Corank() { return 0; }
   Constant<SubscriptInteger> SHAPE() const;
+
+  // It is possible in this representation for a constant array to have
+  // lower bounds other than 1, which is of course not expressible in
+  // Fortran.  This case arises only from definitions of named constant
+  // arrays with such bounds, as in:
+  //   REAL, PARAMETER :: NAMED(0:1) = [1.,2.]
+  // Bundling the lower bounds of the named constant with its
+  // constant value allows folding of subscripted array element
+  // references, LBOUND, and UBOUND without having to thread the named
+  // constant or its bounds throughout folding.
+  const ConstantSubscripts &lbounds() const { return lbounds_; }
+  ConstantSubscripts ComputeUbounds(std::optional<int> dim) const;
+  void set_lbounds(ConstantSubscripts &&);
+  void SetLowerBoundsToOne();
+  bool HasNonDefaultLowerBound() const;
 
   // If no optional dimension order argument is passed, increments a vector of
   // subscripts in Fortran array order (first dimension varying most quickly).
   // Otherwise, increments the vector of subscripts according to the given
-  // dimension order (dimension dimOrder[0] varying most quickly. Dimensions
-  // indexing is zero based here.) Returns false when last element was visited.
+  // dimension order (dimension dimOrder[0] varying most quickly; dimension
+  // indexing is zero based here). Returns false when last element was visited.
   bool IncrementSubscripts(
       ConstantSubscripts &, const std::vector<int> *dimOrder = nullptr) const;
 
@@ -95,10 +110,13 @@ public:
   using Result = RESULT;
   using Element = ELEMENT;
 
-  template <typename A>
+  // Constructor for creating ConstantBase from an actual value (i.e.
+  // literals, etc.)
+  template <typename A,
+      typename = std::enable_if_t<std::is_convertible_v<A, Element>>>
   ConstantBase(const A &x, Result res = Result{}) : result_{res}, values_{x} {}
-  template <typename A, typename = common::NoLvalue<A>>
-  ConstantBase(A &&x, Result res = Result{})
+
+  ConstantBase(ELEMENT &&x, Result res = Result{})
       : result_{res}, values_{std::move(x)} {}
   ConstantBase(
       std::vector<Element> &&, ConstantSubscripts &&, Result = Result{});
@@ -110,17 +128,19 @@ public:
   bool empty() const { return values_.empty(); }
   std::size_t size() const { return values_.size(); }
   const std::vector<Element> &values() const { return values_; }
-  constexpr Result result() const { return result_; }
+  Result &result() { return result_; }
+  const Result &result() const { return result_; }
 
   constexpr DynamicType GetType() const { return result_.GetType(); }
   llvm::raw_ostream &AsFortran(llvm::raw_ostream &) const;
+  std::string AsFortran() const;
 
 protected:
   std::vector<Element> Reshape(const ConstantSubscripts &) const;
   std::size_t CopyFrom(const ConstantBase &source, std::size_t count,
       ConstantSubscripts &resultSubscripts, const std::vector<int> *dimOrder);
 
-  Result result_;
+  Result result_; // usually empty except for Real & Complex
   std::vector<Element> values_;
 };
 
@@ -141,7 +161,8 @@ public:
     }
   }
 
-  // Apply subscripts.
+  // Apply subscripts.  Excess subscripts are ignored, including the
+  // case of a scalar.
   Element At(const ConstantSubscripts &) const;
 
   Constant Reshape(ConstantSubscripts &&) const;
@@ -158,16 +179,21 @@ public:
   CLASS_BOILERPLATE(Constant)
   explicit Constant(const Scalar<Result> &);
   explicit Constant(Scalar<Result> &&);
-  Constant(ConstantSubscript, std::vector<Element> &&, ConstantSubscripts &&);
+  Constant(
+      ConstantSubscript length, std::vector<Element> &&, ConstantSubscripts &&);
   ~Constant();
 
   bool operator==(const Constant &that) const {
-    return shape() == that.shape() && values_ == that.values_;
+    return LEN() == that.LEN() && shape() == that.shape() &&
+        values_ == that.values_;
   }
   bool empty() const;
   std::size_t size() const;
 
+  const Scalar<Result> &values() const { return values_; }
   ConstantSubscript LEN() const { return length_; }
+  bool wasHollerith() const { return wasHollerith_; }
+  void set_wasHollerith(bool yes = true) { wasHollerith_ = yes; }
 
   std::optional<Scalar<Result>> GetScalarValue() const {
     if (Rank() == 0) {
@@ -177,27 +203,31 @@ public:
     }
   }
 
-  // Apply subscripts
+  // Apply subscripts, if any.
   Scalar<Result> At(const ConstantSubscripts &) const;
+
+  // Extract substring(s); returns nullopt for errors.
+  std::optional<Constant> Substring(ConstantSubscript, ConstantSubscript) const;
 
   Constant Reshape(ConstantSubscripts &&) const;
   llvm::raw_ostream &AsFortran(llvm::raw_ostream &) const;
-  static constexpr DynamicType GetType() {
-    return {TypeCategory::Character, KIND};
-  }
+  std::string AsFortran() const;
+  DynamicType GetType() const { return {KIND, length_}; }
   std::size_t CopyFrom(const Constant &source, std::size_t count,
       ConstantSubscripts &resultSubscripts, const std::vector<int> *dimOrder);
 
 private:
   Scalar<Result> values_; // one contiguous string
   ConstantSubscript length_;
-  ConstantSubscripts shape_;
-  ConstantSubscripts lbounds_;
+  bool wasHollerith_{false};
 };
 
 class StructureConstructor;
-using StructureConstructorValues =
-    std::map<SymbolRef, common::CopyableIndirection<Expr<SomeType>>>;
+struct ComponentCompare {
+  bool operator()(SymbolRef x, SymbolRef y) const;
+};
+using StructureConstructorValues = std::map<SymbolRef,
+    common::CopyableIndirection<Expr<SomeType>>, ComponentCompare>;
 
 template <>
 class Constant<SomeDerived>
@@ -218,6 +248,7 @@ public:
   std::optional<StructureConstructor> GetScalarValue() const;
   StructureConstructor At(const ConstantSubscripts &) const;
 
+  bool operator==(const Constant &) const;
   Constant Reshape(ConstantSubscripts &&) const;
   std::size_t CopyFrom(const Constant &source, std::size_t count,
       ConstantSubscripts &resultSubscripts, const std::vector<int> *dimOrder);

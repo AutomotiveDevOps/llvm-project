@@ -10,9 +10,10 @@
 #define FORTRAN_COMMON_CONSTEXPR_BITSET_H_
 
 // Implements a replacement for std::bitset<> that is suitable for use
-// in constexpr expressions.  Limited to elements in [0..63].
+// in constexpr expressions.  Limited to elements in [0..127].
 
 #include "bit-population-count.h"
+#include "uint128.h"
 #include <cstddef>
 #include <cstdint>
 #include <initializer_list>
@@ -20,13 +21,12 @@
 #include <type_traits>
 
 namespace Fortran::common {
-
+RT_OFFLOAD_VAR_GROUP_BEGIN
 template <int BITS> class BitSet {
-  static_assert(BITS > 0 && BITS <= 64);
-  static constexpr bool partialWord{BITS != 32 && BITS != 64};
-  using Word = std::conditional_t<(BITS > 32), std::uint64_t, std::uint32_t>;
+  static_assert(BITS > 0 && BITS <= 128);
+  using Word = HostUnsignedIntType<(BITS <= 32 ? 32 : BITS)>;
   static constexpr Word allBits{
-      partialWord ? (static_cast<Word>(1) << BITS) - 1 : ~static_cast<Word>(0)};
+      ~static_cast<Word>(0) >> (8 * sizeof(Word) - BITS)};
 
   constexpr BitSet(Word b) : bits_{b} {}
 
@@ -143,5 +143,6 @@ public:
 private:
   Word bits_{0};
 };
+RT_OFFLOAD_VAR_GROUP_END
 } // namespace Fortran::common
 #endif // FORTRAN_COMMON_CONSTEXPR_BITSET_H_

@@ -23,6 +23,7 @@
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
+#include "llvm/Support/VirtualFileSystem.h"
 #include <memory>
 
 using namespace clang;
@@ -32,9 +33,10 @@ namespace {
   class CodeGeneratorImpl : public CodeGenerator {
     DiagnosticsEngine &Diags;
     ASTContext *Ctx;
+    IntrusiveRefCntPtr<llvm::vfs::FileSystem> FS; // Only used for debug info.
     const HeaderSearchOptions &HeaderSearchOpts; // Only used for debug info.
     const PreprocessorOptions &PreprocessorOpts; // Only used for debug info.
-    const CodeGenOptions CodeGenOpts;  // Intentionally copied in.
+    const CodeGenOptions &CodeGenOpts;
 
     unsigned HandlingTopLevelDecls;
 
@@ -74,11 +76,12 @@ namespace {
 
   public:
     CodeGeneratorImpl(DiagnosticsEngine &diags, llvm::StringRef ModuleName,
+                      IntrusiveRefCntPtr<llvm::vfs::FileSystem> FS,
                       const HeaderSearchOptions &HSO,
                       const PreprocessorOptions &PPO, const CodeGenOptions &CGO,
                       llvm::LLVMContext &C,
                       CoverageSourceInfo *CoverageInfo = nullptr)
-        : Diags(diags), Ctx(nullptr), HeaderSearchOpts(HSO),
+        : Diags(diags), Ctx(nullptr), FS(std::move(FS)), HeaderSearchOpts(HSO),
           PreprocessorOpts(PPO), CodeGenOpts(CGO), HandlingTopLevelDecls(0),
           CoverageInfo(CoverageInfo),
           M(new llvm::Module(ExpandModuleName(ModuleName, CGO), C)) {
@@ -122,6 +125,10 @@ namespace {
       return D;
     }
 
+    llvm::StringRef GetMangledName(GlobalDecl GD) {
+      return Builder->getMangledName(GD);
+    }
+
     llvm::Constant *GetAddrOfGlobal(GlobalDecl global, bool isForDefinition) {
       return Builder->GetAddrOfGlobal(global, ForDefinition_t(isForDefinition));
     }
@@ -130,19 +137,33 @@ namespace {
                               llvm::LLVMContext &C) {
       assert(!M && "Replacing existing Module?");
       M.reset(new llvm::Module(ExpandModuleName(ModuleName, CodeGenOpts), C));
+
+      IRGenFinished = false;
+
+      std::unique_ptr<CodeGenModule> OldBuilder = std::move(Builder);
+
       Initialize(*Ctx);
+
+      if (OldBuilder)
+        OldBuilder->moveLazyEmissionStates(Builder.get());
+
       return M.get();
     }
 
     void Initialize(ASTContext &Context) override {
       Ctx = &Context;
 
-      M->setTargetTriple(Ctx->getTargetInfo().getTriple().getTriple());
-      M->setDataLayout(Ctx->getTargetInfo().getDataLayout());
+      M->setTargetTriple(Ctx->getTargetInfo().getTriple());
+      M->setDataLayout(Ctx->getTargetInfo().getDataLayoutString());
       const auto &SDKVersion = Ctx->getTargetInfo().getSDKVersion();
       if (!SDKVersion.empty())
         M->setSDKVersion(SDKVersion);
-      Builder.reset(new CodeGen::CodeGenModule(Context, HeaderSearchOpts,
+      if (const auto *TVT = Ctx->getTargetInfo().getDarwinTargetVariantTriple())
+        M->setDarwinTargetVariantTriple(TVT->getTriple());
+      if (auto TVSDKVersion =
+              Ctx->getTargetInfo().getDarwinTargetVariantSDKVersion())
+        M->setDarwinTargetVariantSDKVersion(*TVSDKVersion);
+      Builder.reset(new CodeGen::CodeGenModule(Context, FS, HeaderSearchOpts,
                                                PreprocessorOpts, CodeGenOpts,
                                                *M, Diags, CoverageInfo));
 
@@ -160,14 +181,19 @@ namespace {
     }
 
     bool HandleTopLevelDecl(DeclGroupRef DG) override {
-      if (Diags.hasErrorOccurred())
+      // Ignore interesting decls from the AST reader after IRGen is finished.
+      if (IRGenFinished)
+        return true; // We can't CodeGen more but pass to other consumers.
+
+      // FIXME: Why not return false and abort parsing?
+      if (Diags.hasUnrecoverableErrorOccurred())
         return true;
 
       HandlingTopLevelDeclRAII HandlingDecl(*this);
 
       // Make sure to emit all elements of a Decl.
-      for (DeclGroupRef::iterator I = DG.begin(), E = DG.end(); I != E; ++I)
-        Builder->EmitTopLevelDecl(*I);
+      for (auto &I : DG)
+        Builder->EmitTopLevelDecl(I);
 
       return true;
     }
@@ -186,7 +212,7 @@ namespace {
     }
 
     void HandleInlineFunctionDefinition(FunctionDecl *D) override {
-      if (Diags.hasErrorOccurred())
+      if (Diags.hasUnrecoverableErrorOccurred())
         return;
 
       assert(D->doesThisDeclarationHaveABody());
@@ -213,7 +239,7 @@ namespace {
     /// client hack on the type, which can occur at any point in the file
     /// (because these can be defined in declspecs).
     void HandleTagDeclDefinition(TagDecl *D) override {
-      if (Diags.hasErrorOccurred())
+      if (Diags.hasUnrecoverableErrorOccurred())
         return;
 
       // Don't allow re-entrant calls to CodeGen triggered by PCH
@@ -249,7 +275,7 @@ namespace {
     }
 
     void HandleTagDeclRequiredDefinition(const TagDecl *D) override {
-      if (Diags.hasErrorOccurred())
+      if (Diags.hasUnrecoverableErrorOccurred())
         return;
 
       // Don't allow re-entrant calls to CodeGen triggered by PCH
@@ -263,7 +289,7 @@ namespace {
 
     void HandleTranslationUnit(ASTContext &Ctx) override {
       // Release the Builder when there is no error.
-      if (!Diags.hasErrorOccurred() && Builder)
+      if (!Diags.hasUnrecoverableErrorOccurred() && Builder)
         Builder->Release();
 
       // If there are errors before or when releasing the Builder, reset
@@ -272,30 +298,31 @@ namespace {
         if (Builder)
           Builder->clear();
         M.reset();
-        return;
       }
+
+      IRGenFinished = true;
     }
 
     void AssignInheritanceModel(CXXRecordDecl *RD) override {
-      if (Diags.hasErrorOccurred())
+      if (Diags.hasUnrecoverableErrorOccurred())
         return;
 
       Builder->RefreshTypeCacheForClass(RD);
     }
 
     void CompleteTentativeDefinition(VarDecl *D) override {
-      if (Diags.hasErrorOccurred())
+      if (Diags.hasUnrecoverableErrorOccurred())
         return;
 
       Builder->EmitTentativeDefinition(D);
     }
 
-    void CompleteExternalDeclaration(VarDecl *D) override {
+    void CompleteExternalDeclaration(DeclaratorDecl *D) override {
       Builder->EmitExternalDeclaration(D);
     }
 
     void HandleVTable(CXXRecordDecl *RD) override {
-      if (Diags.hasErrorOccurred())
+      if (Diags.hasUnrecoverableErrorOccurred())
         return;
 
       Builder->EmitVTable(RD);
@@ -325,6 +352,10 @@ const Decl *CodeGenerator::GetDeclForMangledName(llvm::StringRef name) {
   return static_cast<CodeGeneratorImpl*>(this)->GetDeclForMangledName(name);
 }
 
+llvm::StringRef CodeGenerator::GetMangledName(GlobalDecl GD) {
+  return static_cast<CodeGeneratorImpl *>(this)->GetMangledName(GD);
+}
+
 llvm::Constant *CodeGenerator::GetAddrOfGlobal(GlobalDecl global,
                                                bool isForDefinition) {
   return static_cast<CodeGeneratorImpl*>(this)
@@ -336,11 +367,14 @@ llvm::Module *CodeGenerator::StartModule(llvm::StringRef ModuleName,
   return static_cast<CodeGeneratorImpl*>(this)->StartModule(ModuleName, C);
 }
 
-CodeGenerator *clang::CreateLLVMCodeGen(
-    DiagnosticsEngine &Diags, llvm::StringRef ModuleName,
-    const HeaderSearchOptions &HeaderSearchOpts,
-    const PreprocessorOptions &PreprocessorOpts, const CodeGenOptions &CGO,
-    llvm::LLVMContext &C, CoverageSourceInfo *CoverageInfo) {
-  return new CodeGeneratorImpl(Diags, ModuleName, HeaderSearchOpts,
-                               PreprocessorOpts, CGO, C, CoverageInfo);
+CodeGenerator *
+clang::CreateLLVMCodeGen(DiagnosticsEngine &Diags, llvm::StringRef ModuleName,
+                         IntrusiveRefCntPtr<llvm::vfs::FileSystem> FS,
+                         const HeaderSearchOptions &HeaderSearchOpts,
+                         const PreprocessorOptions &PreprocessorOpts,
+                         const CodeGenOptions &CGO, llvm::LLVMContext &C,
+                         CoverageSourceInfo *CoverageInfo) {
+  return new CodeGeneratorImpl(Diags, ModuleName, std::move(FS),
+                               HeaderSearchOpts, PreprocessorOpts, CGO, C,
+                               CoverageInfo);
 }

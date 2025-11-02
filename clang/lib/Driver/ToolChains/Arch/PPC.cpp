@@ -7,19 +7,19 @@
 //===----------------------------------------------------------------------===//
 
 #include "PPC.h"
-#include "ToolChains/CommonArgs.h"
+#include "clang/Driver/CommonArgs.h"
 #include "clang/Driver/Driver.h"
-#include "clang/Driver/DriverDiagnostic.h"
 #include "clang/Driver/Options.h"
 #include "llvm/ADT/StringSwitch.h"
 #include "llvm/Option/ArgList.h"
-#include "llvm/Support/Host.h"
+#include "llvm/TargetParser/Host.h"
 
 using namespace clang::driver;
 using namespace clang::driver::tools;
 using namespace clang;
 using namespace llvm::opt;
 
+<<<<<<< HEAD
 /// getPPCTargetCPU - Get the (LLVM) name of the PowerPC cpu we are targeting.
 std::string ppc::getPPCTargetCPU(const ArgList &Args) {
   if (Arg *A = Args.getLastArg(clang::driver::options::OPT_mcpu_EQ)) {
@@ -96,6 +96,8 @@ std::string ppc::getPPCTargetCPU(const ArgList &Args) {
   return "";
 }
 
+=======
+>>>>>>> upstream/main
 const char *ppc::getPPCAsmModeForCPU(StringRef Name) {
   return llvm::StringSwitch<const char *>(Name)
       .Case("pwr7", "-mpower7")
@@ -107,6 +109,8 @@ const char *ppc::getPPCAsmModeForCPU(StringRef Name) {
       .Case("power9", "-mpower9")
       .Case("pwr10", "-mpower10")
       .Case("power10", "-mpower10")
+      .Case("pwr11", "-mpower11")
+      .Case("power11", "-mpower11")
       .Default("-many");
 }
 
@@ -134,11 +138,16 @@ void ppc::getPPCTargetFeatures(const Driver &D, const llvm::Triple &Triple,
   if (Triple.getSubArch() == llvm::Triple::PPCSubArch_spe)
     Features.push_back("+spe");
 
+<<<<<<< HEAD
   // Process VLE mode for embedded PowerPC e200 targets.
   // VLE is enabled by default for powerpc-none-eabivle triples, or explicitly
   // via -mvle flag. The feature is handled by handleTargetFeaturesGroup which
   // processes options::OPT_m_ppc_Features_Group (including -mvle).
   handleTargetFeaturesGroup(Args, Features, options::OPT_m_ppc_Features_Group);
+=======
+  handleTargetFeaturesGroup(D, Triple, Args, Features,
+                            options::OPT_m_ppc_Features_Group);
+>>>>>>> upstream/main
 
   ppc::FloatABI FloatABI = ppc::getPPCFloatABI(D, Args);
   if (FloatABI == ppc::FloatABI::Soft)
@@ -147,14 +156,38 @@ void ppc::getPPCTargetFeatures(const Driver &D, const llvm::Triple &Triple,
   ppc::ReadGOTPtrMode ReadGOT = ppc::getPPCReadGOTPtrMode(D, Triple, Args);
   if (ReadGOT == ppc::ReadGOTPtrMode::SecurePlt)
     Features.push_back("+secure-plt");
+
+  bool UseSeparateSections = isUseSeparateSections(Triple);
+  bool HasDefaultDataSections = Triple.isOSBinFormatXCOFF();
+  if (Args.hasArg(options::OPT_maix_small_local_exec_tls) ||
+      Args.hasArg(options::OPT_maix_small_local_dynamic_tls)) {
+    if (!Triple.isOSAIX() || !Triple.isArch64Bit())
+      D.Diag(diag::err_opt_not_valid_on_target)
+          << "-maix-small-local-[exec|dynamic]-tls";
+
+    // The -maix-small-local-[exec|dynamic]-tls option should only be used with
+    // -fdata-sections, as having data sections turned off with this option
+    // is not ideal for performance. Moreover, the
+    // small-local-[exec|dynamic]-tls region is a limited resource, and should
+    // not be used for variables that may be replaced.
+    if (!Args.hasFlag(options::OPT_fdata_sections,
+                      options::OPT_fno_data_sections,
+                      UseSeparateSections || HasDefaultDataSections))
+      D.Diag(diag::err_drv_argument_only_allowed_with)
+          << "-maix-small-local-[exec|dynamic]-tls" << "-fdata-sections";
+  }
+
+  if (Args.hasArg(options::OPT_maix_shared_lib_tls_model_opt) &&
+      !(Triple.isOSAIX() && Triple.isArch64Bit()))
+    D.Diag(diag::err_opt_not_valid_on_target)
+        << "-maix-shared-lib-tls-model-opt";
 }
 
 ppc::ReadGOTPtrMode ppc::getPPCReadGOTPtrMode(const Driver &D, const llvm::Triple &Triple,
                                               const ArgList &Args) {
   if (Args.getLastArg(options::OPT_msecure_plt))
     return ppc::ReadGOTPtrMode::SecurePlt;
-  if ((Triple.isOSFreeBSD() && Triple.getOSMajorVersion() >= 13) ||
-      Triple.isOSNetBSD() || Triple.isOSOpenBSD() || Triple.isMusl())
+  if (Triple.isPPC32SecurePlt())
     return ppc::ReadGOTPtrMode::SecurePlt;
   else
     return ppc::ReadGOTPtrMode::Bss;

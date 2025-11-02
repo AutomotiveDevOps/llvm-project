@@ -3,7 +3,7 @@ set(LLVM_LINK_COMPONENTS
   FrontendOpenMP
   )
 
-add_clang_library(clangTidyAndroidModule
+add_clang_library(clangTidyAndroidModule STATIC
   AndroidTidyModule.cpp
   CloexecAccept4Check.cpp
   CloexecAcceptCheck.cpp
@@ -23,10 +23,18 @@ add_clang_library(clangTidyAndroidModule
   ComparisonInTempFailureRetryCheck.cpp
 
   LINK_LIBS
+  clangTidy
+  clangTidyUtils
+
+  DEPENDS
+  omp_gen
+  ClangDriverOptions
+  )
+
+clang_target_link_libraries(clangTidyAndroidModule
+  PRIVATE
   clangAST
   clangASTMatchers
   clangBasic
   clangLex
-  clangTidy
-  clangTidyUtils
   )

@@ -2,7 +2,7 @@ set(LLVM_LINK_COMPONENTS
   support
   )
 
-add_clang_library(clangIncludeFixer
+add_clang_library(clangIncludeFixer STATIC
   IncludeFixer.cpp
   IncludeFixerContext.cpp
   InMemorySymbolIndex.cpp
@@ -11,6 +11,15 @@ add_clang_library(clangIncludeFixer
   YamlSymbolIndex.cpp
 
   LINK_LIBS
+  findAllSymbols
+
+  DEPENDS
+  omp_gen
+  ClangDriverOptions
+  )
+
+clang_target_link_libraries(clangIncludeFixer
+  PRIVATE
   clangAST
   clangBasic
   clangFormat
@@ -21,7 +30,6 @@ add_clang_library(clangIncludeFixer
   clangSerialization
   clangTooling
   clangToolingCore
-  findAllSymbols
   )
 
 add_subdirectory(plugin)

@@ -1,4 +1,4 @@
-//===--- InefficientVectorOperationCheck.cpp - clang-tidy------------------===//
+//===----------------------------------------------------------------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -7,19 +7,15 @@
 //===----------------------------------------------------------------------===//
 
 #include "InefficientVectorOperationCheck.h"
+#include "../utils/DeclRefExprUtils.h"
+#include "../utils/OptionsUtils.h"
 #include "clang/AST/ASTContext.h"
 #include "clang/ASTMatchers/ASTMatchFinder.h"
 #include "clang/Lex/Lexer.h"
-#include "../utils/DeclRefExprUtils.h"
-#include "../utils/OptionsUtils.h"
 
 using namespace clang::ast_matchers;
 
-namespace clang {
-namespace tidy {
-namespace performance {
-
-namespace {
+namespace clang::tidy::performance {
 
 // Matcher names. Given the code:
 //
@@ -41,7 +37,7 @@ namespace {
 //   - LoopCounterName: The entire for loop (as ForStmt).
 //   - LoopParentName: The body of function f (as CompoundStmt).
 //   - VectorVarDeclName: 'v' (as VarDecl).
-//   - VectorVarDeclStmatName: The entire 'std::vector<T> v;' statement (as
+//   - VectorVarDeclStmtName: The entire 'std::vector<T> v;' statement (as
 //     DeclStmt).
 //   - PushBackOrEmplaceBackCallName: 'v.push_back(i)' (as cxxMemberCallExpr).
 //   - LoopInitVarName: 'i' (as VarDecl).
@@ -62,10 +58,16 @@ static const char LoopInitVarName[] = "loop_init_var";
 static const char LoopEndExprName[] = "loop_end_expr";
 static const char RangeLoopName[] = "for_range_loop";
 
-ast_matchers::internal::Matcher<Expr> supportedContainerTypesMatcher() {
+static ast_matchers::internal::Matcher<Expr> supportedContainerTypesMatcher() {
   return hasType(cxxRecordDecl(hasAnyName(
       "::std::vector", "::std::set", "::std::unordered_set", "::std::map",
       "::std::unordered_map", "::std::array", "::std::deque")));
+}
+
+namespace {
+
+AST_MATCHER(Expr, hasSideEffects) {
+  return Node.HasSideEffects(Finder->getASTContext());
 }
 
 } // namespace
@@ -75,7 +77,7 @@ InefficientVectorOperationCheck::InefficientVectorOperationCheck(
     : ClangTidyCheck(Name, Context),
       VectorLikeClasses(utils::options::parseStringList(
           Options.get("VectorLikeClasses", "::std::vector"))),
-      EnableProto(Options.getLocalOrGlobal("EnableProto", false)) {}
+      EnableProto(Options.get("EnableProto", false)) {}
 
 void InefficientVectorOperationCheck::storeOptions(
     ClangTidyOptions::OptionMap &Opts) {
@@ -84,7 +86,7 @@ void InefficientVectorOperationCheck::storeOptions(
   Options.store(Opts, "EnableProto", EnableProto);
 }
 
-void InefficientVectorOperationCheck::AddMatcher(
+void InefficientVectorOperationCheck::addMatcher(
     const DeclarationMatcher &TargetRecordDecl, StringRef VarDeclName,
     StringRef VarDeclStmtName, const DeclarationMatcher &AppendMethodDecl,
     StringRef AppendCallName, MatchFinder *Finder) {
@@ -103,9 +105,9 @@ void InefficientVectorOperationCheck::AddMatcher(
           onImplicitObjectArgument(declRefExpr(to(TargetVarDecl))))
           .bind(AppendCallName);
   const auto AppendCall = expr(ignoringImplicit(AppendCallExpr));
-  const auto LoopVarInit =
-      declStmt(hasSingleDecl(varDecl(hasInitializer(integerLiteral(equals(0))))
-                                 .bind(LoopInitVarName)));
+  const auto LoopVarInit = declStmt(hasSingleDecl(
+      varDecl(hasInitializer(ignoringParenImpCasts(integerLiteral(equals(0)))))
+          .bind(LoopInitVarName)));
   const auto RefersToLoopVar = ignoringParenImpCasts(
       declRefExpr(to(varDecl(equalsBoundNode(LoopInitVarName)))));
 
@@ -124,15 +126,14 @@ void InefficientVectorOperationCheck::AddMatcher(
   //
   // FIXME: Support more types of counter-based loops like decrement loops.
   Finder->addMatcher(
-      forStmt(
-          hasLoopInit(LoopVarInit),
-          hasCondition(binaryOperator(
-              hasOperatorName("<"), hasLHS(RefersToLoopVar),
-              hasRHS(expr(unless(hasDescendant(expr(RefersToLoopVar))))
-                         .bind(LoopEndExprName)))),
-          hasIncrement(unaryOperator(hasOperatorName("++"),
-                                     hasUnaryOperand(RefersToLoopVar))),
-          HasInterestingLoopBody, InInterestingCompoundStmt)
+      forStmt(hasLoopInit(LoopVarInit),
+              hasCondition(binaryOperator(
+                  hasOperatorName("<"), hasLHS(RefersToLoopVar),
+                  hasRHS(expr(unless(hasDescendant(expr(RefersToLoopVar))))
+                             .bind(LoopEndExprName)))),
+              hasIncrement(unaryOperator(hasOperatorName("++"),
+                                         hasUnaryOperand(RefersToLoopVar))),
+              HasInterestingLoopBody, InInterestingCompoundStmt)
           .bind(LoopCounterName),
       this);
 
@@ -145,18 +146,20 @@ void InefficientVectorOperationCheck::AddMatcher(
   // FIXME: Support more complex range-expressions.
   Finder->addMatcher(
       cxxForRangeStmt(
-          hasRangeInit(declRefExpr(supportedContainerTypesMatcher())),
+          hasRangeInit(
+              anyOf(declRefExpr(supportedContainerTypesMatcher()),
+                    memberExpr(hasObjectExpression(unless(hasSideEffects())),
+                               supportedContainerTypesMatcher()))),
           HasInterestingLoopBody, InInterestingCompoundStmt)
           .bind(RangeLoopName),
       this);
 }
 
 void InefficientVectorOperationCheck::registerMatchers(MatchFinder *Finder) {
-  const auto VectorDecl = cxxRecordDecl(hasAnyName(SmallVector<StringRef, 5>(
-      VectorLikeClasses.begin(), VectorLikeClasses.end())));
+  const auto VectorDecl = cxxRecordDecl(hasAnyName(VectorLikeClasses));
   const auto AppendMethodDecl =
       cxxMethodDecl(hasAnyName("push_back", "emplace_back"));
-  AddMatcher(VectorDecl, VectorVarDeclName, VectorVarDeclStmtName,
+  addMatcher(VectorDecl, VectorVarDeclName, VectorVarDeclStmtName,
              AppendMethodDecl, PushBackOrEmplaceBackCallName, Finder);
 
   if (EnableProto) {
@@ -168,14 +171,14 @@ void InefficientVectorOperationCheck::registerMatchers(MatchFinder *Finder) {
     // with "add_". So we exclude const methods.
     const auto AddFieldMethodDecl =
         cxxMethodDecl(matchesName("::add_"), unless(isConst()));
-    AddMatcher(ProtoDecl, ProtoVarDeclName, ProtoVarDeclStmtName,
+    addMatcher(ProtoDecl, ProtoVarDeclName, ProtoVarDeclStmtName,
                AddFieldMethodDecl, ProtoAddFieldCallName, Finder);
   }
 }
 
 void InefficientVectorOperationCheck::check(
     const MatchFinder::MatchResult &Result) {
-  auto* Context = Result.Context;
+  auto *Context = Result.Context;
   if (Context->getDiagnostics().hasUncompilableErrorOccurred())
     return;
 
@@ -267,6 +270,4 @@ void InefficientVectorOperationCheck::check(
   }
 }
 
-} // namespace performance
-} // namespace tidy
-} // namespace clang
+} // namespace clang::tidy::performance

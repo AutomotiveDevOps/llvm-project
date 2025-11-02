@@ -16,13 +16,13 @@ void diagnosticTest(int in) {
     in++; // expected-warning {{leak}}
 }
 
-void myArrayAllocation() {
+void myArrayAllocation(void) {
     int **A;
     A = malloc(2*sizeof(int*));
     A[0] = 0;
 }//expected-warning{{Potential leak}}
 
-void reallocDiagnostics() {
+void reallocDiagnostics(void) {
     char * buf = malloc(100);
     char * tmp;
     tmp = (char*)realloc(buf, 0x1000000);
@@ -33,7 +33,7 @@ void reallocDiagnostics() {
     free(buf);
 }
 
-void *wrapper() {
+void *wrapper(void) {
   void *x = malloc(100);
   // This is intentionally done to test diagnostic emission.
   if (x)
@@ -41,12 +41,12 @@ void *wrapper() {
   return 0;
 }
 
-void test_wrapper() {
+void test_wrapper(void) {
   void *buf = wrapper();
   (void) buf;
 }//expected-warning{{Potential leak}}
 
-// Test what happens when the same call frees and allocated memory.
+// Test what happens when the same call releases and allocated memory.
 // Also tests the stack hint for parameters, when they are passed directly or via pointer.
 void my_free(void *x) {
     free(x);
@@ -57,10 +57,10 @@ void my_malloc_and_free(void **x) {
       my_free(*x);
     return;
 }
-void *test_double_action_call() {
+void *test_double_action_call(void) {
     void *buf;
     my_malloc_and_free(&buf);
-    return buf; //expected-warning{{Use of memory after it is freed}}
+    return buf; //expected-warning{{Use of memory after it is released}}
 }
 
 // Test stack hint for 'reallocation failed'.
@@ -72,34 +72,33 @@ char *my_realloc(char *buf) {
     }
     return tmp;
 }
-void reallocIntra() {
+void reallocIntra(void) {
     char *buf = (char *)malloc(100);
     buf = my_realloc(buf);
     free(buf);//expected-warning{{Potential leak}}
 }
 
 // Test stack hint when returning a result.
-static char *malloc_wrapper_ret() {
+static char *malloc_wrapper_ret(void) {
     return (char*)malloc(12);
 }
-void use_ret() {
+void use_ret(void) {
     char *v;
     v = malloc_wrapper_ret();
 }//expected-warning{{Potential leak}}
 
 // Passing a block as a parameter to an inlined call for which we generate
 // a stack hint message caused crashes.
-// rdar://problem/21291971
 void myfree_takingblock(void (^ignored)(void), int *p) {
   free(p);
 }
 
-void call_myfree_takingblock() {
+void call_myfree_takingblock(void) {
   void (^some_block)(void) = ^void(void) { };
 
   int *p = malloc(sizeof(int));
   myfree_takingblock(some_block, p);
-  *p = 3;//expected-warning{{Use of memory after it is freed}}
+  *p = 3;//expected-warning{{Use of memory after it is released}}
 }
 
 // Test that we refer to the last symbol used in the leak diagnostic.
@@ -116,19 +115,19 @@ void LeakedSymbol(int in) {
 }
 
 // Tests that exercise running remove dead bindings at Call exit.
-static void function_with_leak1() {
+static void function_with_leak1(void) {
     char *x = (char*)malloc(12);
 } //expected-warning{{Potential leak}}
-void use_function_with_leak1() {
+void use_function_with_leak1(void) {
     function_with_leak1();
     int y = 0;
 }
 
-static void function_with_leak2() {
+static void function_with_leak2(void) {
     char *x = (char*)malloc(12);
     int m = 0; //expected-warning{{Potential leak}}
 }
-void use_function_with_leak2() {
+void use_function_with_leak2(void) {
     function_with_leak2();
 }
 
@@ -152,58 +151,58 @@ void use_function_with_leak4(int y) {
     function_with_leak4(y);
 }
 
-int anotherFunction5() {
+int anotherFunction5(void) {
     return 5;
 }
-static int function_with_leak5() {
+static int function_with_leak5(void) {
     char *x = (char*)malloc(12);
     return anotherFunction5();//expected-warning{{Potential leak}}
 }
-void use_function_with_leak5() {
+void use_function_with_leak5(void) {
     function_with_leak5();
 }
 
 void anotherFunction6(int m) {
     m++;
 }
-static void function_with_leak6() {
+static void function_with_leak6(void) {
     char *x = (char*)malloc(12);
     anotherFunction6(3);//expected-warning{{Potential leak}}
 }
-void use_function_with_leak6() {
+void use_function_with_leak6(void) {
     function_with_leak6();
 }
 
-static void empty_function(){
+static void empty_function(void){
 }
-void use_empty_function() {
+void use_empty_function(void) {
     empty_function();
 }
-static char *function_with_leak7() {
+static char *function_with_leak7(void) {
     return (char*)malloc(12);
 }
-void use_function_with_leak7() {
+void use_function_with_leak7(void) {
     function_with_leak7();
 }//expected-warning{{Potential memory leak}}
 
 // Test that we do not print the name of a variable not visible from where
 // the issue is reported.
-int *my_malloc() {
+int *my_malloc(void) {
   int *p = malloc(12);
   return p;
 }
-void testOnlyRefferToVisibleVariables() {
+void testOnlyRefferToVisibleVariables(void) {
   my_malloc();
 } // expected-warning{{Potential memory leak}}
 
 struct PointerWrapper{
   int*p;
 };
-int *my_malloc_into_struct() {
+int *my_malloc_into_struct(void) {
   struct PointerWrapper w;
   w.p = malloc(12);
   return w.p;
 }
-void testMyMalloc() {
+void testMyMalloc(void) {
   my_malloc_into_struct();
 } // expected-warning{{Potential memory leak}}

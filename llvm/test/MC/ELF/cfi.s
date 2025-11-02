@@ -1,28 +1,35 @@
-// RUN: llvm-mc -filetype=obj -triple x86_64-pc-linux-gnu %s -o - | llvm-readobj -S --sr --sd | FileCheck %s
+// RUN: llvm-mc -triple x86_64 %s | FileCheck %s --check-prefix=ASM
+// RUN: llvm-mc -filetype=obj -triple x86_64-pc-linux-gnu %s -o - | llvm-readobj -S --sr --sd - | FileCheck %s
+// RUN: not llvm-mc -triple=x86_64 -o - -defsym=ERR=1 %s 2>&1 | FileCheck %s --check-prefix=ERR
+
+// ASM:      .cfi_lsda 3, bar
+// ASM-NEXT: nop
+// ASM:      .cfi_personality 0, foo
+// ASM-NEXT: .cfi_lsda 3, bar
 
 f1:
         .cfi_startproc
-	.cfi_lsda 0x3, bar
+        .cfi_lsda 0x3, bar
         nop
         .cfi_endproc
 
 f2:
         .cfi_startproc
         .cfi_personality 0x00, foo
-	.cfi_lsda 0x3, bar
+        .cfi_lsda 0x3, bar
         nop
         .cfi_endproc
 
 f3:
         .cfi_startproc
-	.cfi_lsda 0x3, bar
+        .cfi_lsda 0x3, bar
         nop
         .cfi_endproc
 
 f4:
         .cfi_startproc
         .cfi_personality 0x00, foo
-	.cfi_lsda 0x2, bar
+        .cfi_lsda 0x2, bar
         nop
         .cfi_endproc
 
@@ -351,6 +358,7 @@ f37:
 // CHECK:          Name: .rela.eh_frame
 // CHECK-NEXT:     Type: SHT_RELA
 // CHECK-NEXT:     Flags [
+// CHECK-NEXT:       SHF_INFO_LINK
 // CHECK-NEXT:     ]
 // CHECK-NEXT:     Address: 0x0
 // CHECK-NEXT:     Offset:
@@ -435,3 +443,22 @@ f37:
 // CHECK-NEXT:       0x6E4 R_X86_64_PC32 .text 0x21
 // CHECK-NEXT:     ]
 // CHECK:        }
+
+.ifdef ERR
+// ERR: [[#@LINE+1]]:15: error: expected .eh_frame, .debug_frame, or .sframe
+.cfi_sections $
+// ERR: [[#@LINE+1]]:28: error: expected comma
+.cfi_sections .debug_frame $
+// ERR: [[#@LINE+1]]:39: error: expected comma
+.cfi_sections .debug_frame, .eh_frame $
+// ERR: [[#@LINE+1]]:48: error: expected comma
+.cfi_sections .debug_frame, .eh_frame, .sframe $
+
+// ERR: [[#@LINE+1]]:16: error: unexpected token
+.cfi_startproc $
+// ERR: [[#@LINE+1]]:23: error: expected newline
+.cfi_startproc simple $
+
+// ERR: [[#@LINE+1]]:14: error: expected newline
+.cfi_endproc $
+.endif

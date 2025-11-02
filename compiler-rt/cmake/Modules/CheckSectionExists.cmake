@@ -1,9 +1,16 @@
+<<<<<<< HEAD
 add_compiler_rt_component(crt)
 
 function(check_cxx_section_exists section output)
   cmake_parse_arguments(ARG "" "" "SOURCE;FLAGS" ${ARGN})
   if(NOT ARG_SOURCE)
     set(ARG_SOURCE "int main() { return 0; }\n")
+=======
+function(check_section_exists section output)
+  cmake_parse_arguments(ARG "" "" "SOURCE;FLAGS" ${ARGN})
+  if(NOT ARG_SOURCE)
+    set(ARG_SOURCE "int main(void) { return 0; }\n")
+>>>>>>> upstream/main
   endif()
 
   string(RANDOM TARGET_NAME)
@@ -26,8 +33,16 @@ function(check_cxx_section_exists section output)
     endif()
     if(LLVM_BUILD_INSTRUMENTED MATCHES IR AND COMPILER_RT_HAS_FNO_PROFILE_GENERATE_FLAG)
       list(APPEND try_compile_flags "-fno-profile-generate")
+<<<<<<< HEAD
     elseif(LLVM_BUILD_INSTRUMENTED AND COMPILER_RT_HAS_FNO_PROFILE_INSTR_GENERATE_FLAG)
       list(APPEND try_compile_flags "-fno-profile-instr-generate")
+=======
+    elseif((LLVM_BUILD_INSTRUMENTED OR LLVM_BUILD_INSTRUMENTED_COVERAGE) AND COMPILER_RT_HAS_FNO_PROFILE_INSTR_GENERATE_FLAG)
+      list(APPEND try_compile_flags "-fno-profile-instr-generate")
+      if(LLVM_BUILD_INSTRUMENTED_COVERAGE AND COMPILER_RT_HAS_FNO_COVERAGE_MAPPING_FLAG)
+        list(APPEND try_compile_flags "-fno-coverage-mapping")
+      endif()
+>>>>>>> upstream/main
     endif()
   endif()
 
@@ -88,6 +103,10 @@ function(check_cxx_section_exists section output)
 
   file(REMOVE_RECURSE ${TARGET_NAME})
 endfunction()
+<<<<<<< HEAD
+=======
+<<<<<<<< HEAD:compiler-rt/lib/crt/CMakeLists.txt
+>>>>>>> upstream/main
 
 check_cxx_section_exists(".init_array" COMPILER_RT_HAS_INITFINI_ARRAY
   SOURCE "volatile int x;\n__attribute__((constructor)) void f() {x = 0;}\nint main() { return 0; }\n")
@@ -137,3 +156,8 @@ if(COMPILER_RT_DEFAULT_TARGET_TRIPLE MATCHES "powerpc.*-none-.*")
     PARENT_TARGET crt
     OUTPUT_NAME clang_rt.crt0-vle)
 endif()
+<<<<<<< HEAD
+=======
+========
+>>>>>>>> upstream/main:compiler-rt/cmake/Modules/CheckSectionExists.cmake
+>>>>>>> upstream/main

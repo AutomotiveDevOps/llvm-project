@@ -76,11 +76,10 @@ HelperDeclRefGraph::getReachableNodes(const Decl *Root) const {
   llvm::DenseSet<const CallGraphNode *> ConnectedNodes;
   std::function<void(const CallGraphNode *)> VisitNode =
       [&](const CallGraphNode *Node) {
-        if (ConnectedNodes.count(Node))
+        if (!ConnectedNodes.insert(Node).second)
           return;
-        ConnectedNodes.insert(Node);
-        for (auto It = Node->begin(), End = Node->end(); It != End; ++It)
-          VisitNode(*It);
+        for (const CallGraphNode::CallRecord &Callee : *Node)
+          VisitNode(Callee);
       };
 
   VisitNode(RootNode);
@@ -116,7 +115,7 @@ void HelperDeclRGBuilder::run(
     const auto *DC = Result.Nodes.getNodeAs<Decl>("dc");
     assert(DC);
     LLVM_DEBUG(llvm::dbgs() << "Find helper function usage: "
-                            << FuncRef->getDecl()->getNameAsString() << " ("
+                            << FuncRef->getDecl()->getDeclName() << " ("
                             << FuncRef->getDecl() << ")\n");
     RG->addEdge(
         getOutmostClassOrFunDecl(DC->getCanonicalDecl()),
@@ -126,7 +125,7 @@ void HelperDeclRGBuilder::run(
     const auto *DC = Result.Nodes.getNodeAs<Decl>("dc");
     assert(DC);
     LLVM_DEBUG(llvm::dbgs()
-               << "Find helper class usage: " << UsedClass->getNameAsString()
+               << "Find helper class usage: " << UsedClass->getDeclName()
                << " (" << UsedClass << ")\n");
     RG->addEdge(getOutmostClassOrFunDecl(DC->getCanonicalDecl()), UsedClass);
   }

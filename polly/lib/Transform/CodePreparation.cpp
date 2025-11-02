@@ -27,16 +27,33 @@
 using namespace llvm;
 using namespace polly;
 
+static bool runCodePreprationImpl(Function &F, DominatorTree *DT, LoopInfo *LI,
+                                  RegionInfo *RI) {
+  // Find first non-alloca instruction. Every basic block has a non-alloca
+  // instruction, as every well formed basic block has a terminator.
+  auto &EntryBlock = F.getEntryBlock();
+  BasicBlock::iterator I = EntryBlock.begin();
+  while (isa<AllocaInst>(I))
+    ++I;
+
+  // Abort if not necessary to split
+  if (I->isTerminator() && isa<BranchInst>(I) &&
+      cast<BranchInst>(I)->isUnconditional())
+    return false;
+
+  // splitBlock updates DT, LI and RI.
+  splitEntryBlockForAlloca(&EntryBlock, DT, LI, RI);
+
+  return true;
+}
+
 namespace {
 
 /// Prepare the IR for the scop detection.
 ///
-class CodePreparation : public FunctionPass {
+class CodePreparation final : public FunctionPass {
   CodePreparation(const CodePreparation &) = delete;
   const CodePreparation &operator=(const CodePreparation &) = delete;
-
-  LoopInfo *LI;
-  ScalarEvolution *SE;
 
   void clear();
 
@@ -48,29 +65,21 @@ public:
 
   /// @name FunctionPass interface.
   //@{
-  virtual void getAnalysisUsage(AnalysisUsage &AU) const;
-  virtual void releaseMemory();
-  virtual bool runOnFunction(Function &F);
-  virtual void print(raw_ostream &OS, const Module *) const;
+  void getAnalysisUsage(AnalysisUsage &AU) const override;
+  void releaseMemory() override;
+  bool runOnFunction(Function &F) override;
+  void print(raw_ostream &OS, const Module *) const override;
   //@}
 };
 } // namespace
 
 PreservedAnalyses CodePreparationPass::run(Function &F,
                                            FunctionAnalysisManager &FAM) {
-
-  // Find first non-alloca instruction. Every basic block has a non-alloca
-  // instruction, as every well formed basic block has a terminator.
-  auto &EntryBlock = F.getEntryBlock();
-  BasicBlock::iterator I = EntryBlock.begin();
-  while (isa<AllocaInst>(I))
-    ++I;
-
   auto &DT = FAM.getResult<DominatorTreeAnalysis>(F);
   auto &LI = FAM.getResult<LoopAnalysis>(F);
-
-  // splitBlock updates DT, LI and RI.
-  splitEntryBlockForAlloca(&EntryBlock, &DT, &LI, nullptr);
+  bool Changed = runCodePreprationImpl(F, &DT, &LI, nullptr);
+  if (!Changed)
+    return PreservedAnalyses::all();
 
   PreservedAnalyses PA;
   PA.preserve<DominatorTreeAnalysis>();
@@ -84,7 +93,6 @@ CodePreparation::~CodePreparation() { clear(); }
 
 void CodePreparation::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.addRequired<LoopInfoWrapperPass>();
-  AU.addRequired<ScalarEvolutionWrapperPass>();
 
   AU.addPreserved<LoopInfoWrapperPass>();
   AU.addPreserved<RegionInfoPass>();
@@ -96,10 +104,11 @@ bool CodePreparation::runOnFunction(Function &F) {
   if (skipFunction(F))
     return false;
 
-  LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
-  SE = &getAnalysis<ScalarEvolutionWrapperPass>().getSE();
+  DominatorTree *DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
+  LoopInfo *LI = &getAnalysis<LoopInfoWrapperPass>().getLoopInfo();
+  RegionInfo *RI = &getAnalysis<RegionInfoPass>().getRegionInfo();
 
-  splitEntryBlockForAlloca(&F.getEntryBlock(), this);
+  runCodePreprationImpl(F, DT, LI, RI);
 
   return true;
 }

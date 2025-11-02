@@ -13,7 +13,7 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/CodeGen/MachineInstr.h"
 #include "llvm/IR/CallingConv.h"
-#include "llvm/MC/MCSymbol.h"
+#include "llvm/Support/Compiler.h"
 #include "llvm/Support/Debug.h"
 #include <algorithm>
 #include <cassert>
@@ -23,6 +23,7 @@
 namespace llvm {
 
 class AsmPrinter;
+class MCSymbol;
 class MCExpr;
 class MCStreamer;
 class raw_ostream;
@@ -41,7 +42,7 @@ private:
   const MachineInstr* MI;
 
 public:
-  explicit StackMapOpers(const MachineInstr *MI);
+  LLVM_ABI explicit StackMapOpers(const MachineInstr *MI);
 
   /// Return the ID for the given stackmap
   uint64_t getID() const { return MI->getOperand(IDPos).getImm(); }
@@ -92,7 +93,7 @@ private:
   }
 
 public:
-  explicit PatchPointOpers(const MachineInstr *MI);
+  LLVM_ABI explicit PatchPointOpers(const MachineInstr *MI);
 
   bool isAnyReg() const { return (getCallingConv() == CallingConv::AnyReg); }
   bool hasDef() const { return HasDef; }
@@ -137,7 +138,7 @@ public:
   }
 
   /// Get the next scratch register operand index.
-  unsigned getNextScratchIdx(unsigned StartIdx = 0) const;
+  LLVM_ABI unsigned getNextScratchIdx(unsigned StartIdx = 0) const;
 };
 
 /// MI-level Statepoint operands
@@ -148,9 +149,13 @@ public:
 ///   <StackMaps::ConstantOp>, <calling convention>,
 ///   <StackMaps::ConstantOp>, <statepoint flags>,
 ///   <StackMaps::ConstantOp>, <num deopt args>, [deopt args...],
-///   <gc base/derived pairs...> <gc allocas...>
-/// Note that the last two sets of arguments are not currently length
-///   prefixed.
+///   <StackMaps::ConstantOp>, <num gc pointer args>, [gc pointer args...],
+///   <StackMaps::ConstantOp>, <num gc allocas>, [gc allocas args...],
+///   <StackMaps::ConstantOp>, <num  entries in gc map>, [base/derived pairs]
+///   base/derived pairs in gc map are logical indices into <gc pointer args>
+///   section.
+///   All gc pointers assigned to VRegs produce new value (in form of MI Def
+///   operand) and are tied to it.
 class StatepointOpers {
   // TODO:: we should change the STATEPOINT representation so that CC and
   // Flags should be part of meta operands, with args and deopt operands, and
@@ -166,21 +171,23 @@ class StatepointOpers {
   enum { CCOffset = 1, FlagsOffset = 3, NumDeoptOperandsOffset = 5 };
 
 public:
-  explicit StatepointOpers(const MachineInstr *MI) : MI(MI) {}
+  explicit StatepointOpers(const MachineInstr *MI) : MI(MI) {
+    NumDefs = MI->getNumDefs();
+  }
 
   /// Get index of statepoint ID operand.
-  unsigned getIDPos() const { return IDPos; }
+  unsigned getIDPos() const { return NumDefs + IDPos; }
 
   /// Get index of Num Patch Bytes operand.
-  unsigned getNBytesPos() const { return NBytesPos; }
+  unsigned getNBytesPos() const { return NumDefs + NBytesPos; }
 
   /// Get index of Num Call Arguments operand.
-  unsigned getNCallArgsPos() const { return NCallArgsPos; }
+  unsigned getNCallArgsPos() const { return NumDefs + NCallArgsPos; }
 
   /// Get starting index of non call related arguments
   /// (calling convention, statepoint flags, vm state and gc state).
   unsigned getVarIdx() const {
-    return MI->getOperand(NCallArgsPos).getImm() + MetaEnd;
+    return MI->getOperand(NumDefs + NCallArgsPos).getImm() + MetaEnd + NumDefs;
   }
 
   /// Get index of Calling Convention operand.
@@ -195,16 +202,16 @@ public:
   }
 
   /// Return the ID for the given statepoint.
-  uint64_t getID() const { return MI->getOperand(IDPos).getImm(); }
+  uint64_t getID() const { return MI->getOperand(NumDefs + IDPos).getImm(); }
 
   /// Return the number of patchable bytes the given statepoint should emit.
   uint32_t getNumPatchBytes() const {
-    return MI->getOperand(NBytesPos).getImm();
+    return MI->getOperand(NumDefs + NBytesPos).getImm();
   }
 
   /// Return the target of the underlying call.
   const MachineOperand &getCallTarget() const {
-    return MI->getOperand(CallTargetPos);
+    return MI->getOperand(NumDefs + CallTargetPos);
   }
 
   /// Return the calling convention.
@@ -215,14 +222,45 @@ public:
   /// Return the statepoint flags.
   uint64_t getFlags() const { return MI->getOperand(getFlagsIdx()).getImm(); }
 
+  uint64_t getNumDeoptArgs() const {
+    return MI->getOperand(getNumDeoptArgsIdx()).getImm();
+  }
+
+  /// Get index of number of gc map entries.
+  LLVM_ABI unsigned getNumGcMapEntriesIdx();
+
+  /// Get index of number of gc allocas.
+  LLVM_ABI unsigned getNumAllocaIdx();
+
+  /// Get index of number of GC pointers.
+  LLVM_ABI unsigned getNumGCPtrIdx();
+
+  /// Get index of first GC pointer operand of -1 if there are none.
+  LLVM_ABI int getFirstGCPtrIdx();
+
+  /// Get vector of base/derived pairs from statepoint.
+  /// Elements are indices into GC Pointer operand list (logical).
+  /// Returns number of elements in GCMap.
+  LLVM_ABI unsigned
+  getGCPointerMap(SmallVectorImpl<std::pair<unsigned, unsigned>> &GCMap);
+
+  /// Return true if Reg is used only in operands which can be folded to
+  /// stack usage.
+  LLVM_ABI bool isFoldableReg(Register Reg) const;
+
+  /// Return true if Reg is used only in operands of MI which can be folded to
+  /// stack usage and MI is a statepoint instruction.
+  LLVM_ABI static bool isFoldableReg(const MachineInstr *MI, Register Reg);
+
 private:
   const MachineInstr *MI;
+  unsigned NumDefs;
 };
 
 class StackMaps {
 public:
   struct Location {
-    enum LocationType {
+    enum LocationType : uint16_t {
       Unprocessed,
       Register,
       Direct,
@@ -231,23 +269,22 @@ public:
       ConstantIndex
     };
     LocationType Type = Unprocessed;
-    unsigned Size = 0;
-    unsigned Reg = 0;
-    int64_t Offset = 0;
+    uint16_t Size = 0;
+    uint16_t Reg = 0;
+    int32_t Offset = 0;
 
     Location() = default;
-    Location(LocationType Type, unsigned Size, unsigned Reg, int64_t Offset)
+    Location(LocationType Type, uint16_t Size, uint16_t Reg, int32_t Offset)
         : Type(Type), Size(Size), Reg(Reg), Offset(Offset) {}
   };
 
   struct LiveOutReg {
-    unsigned short Reg = 0;
-    unsigned short DwarfRegNum = 0;
-    unsigned short Size = 0;
+    uint16_t Reg = 0;
+    uint16_t DwarfRegNum = 0;
+    uint16_t Size = 0;
 
     LiveOutReg() = default;
-    LiveOutReg(unsigned short Reg, unsigned short DwarfRegNum,
-               unsigned short Size)
+    LiveOutReg(uint16_t Reg, uint16_t DwarfRegNum, uint16_t Size)
         : Reg(Reg), DwarfRegNum(DwarfRegNum), Size(Size) {}
   };
 
@@ -256,7 +293,12 @@ public:
   // OpParser.
   using OpType = enum { DirectMemRefOp, IndirectMemRefOp, ConstantOp };
 
-  StackMaps(AsmPrinter &AP);
+  LLVM_ABI StackMaps(AsmPrinter &AP);
+
+  /// Get index of next meta operand.
+  /// Similar to parseOperand, but does not actually parses operand meaning.
+  LLVM_ABI static unsigned getNextMetaArgIdx(const MachineInstr *MI,
+                                             unsigned CurIdx);
 
   void reset() {
     CSInfos.clear();
@@ -295,21 +337,18 @@ public:
   /// Generate a stackmap record for a stackmap instruction.
   ///
   /// MI must be a raw STACKMAP, not a PATCHPOINT.
-  void recordStackMap(const MCSymbol &L,
-                      const MachineInstr &MI);
+  LLVM_ABI void recordStackMap(const MCSymbol &L, const MachineInstr &MI);
 
   /// Generate a stackmap record for a patchpoint instruction.
-  void recordPatchPoint(const MCSymbol &L,
-                        const MachineInstr &MI);
+  LLVM_ABI void recordPatchPoint(const MCSymbol &L, const MachineInstr &MI);
 
   /// Generate a stackmap record for a statepoint instruction.
-  void recordStatepoint(const MCSymbol &L,
-                        const MachineInstr &MI);
+  LLVM_ABI void recordStatepoint(const MCSymbol &L, const MachineInstr &MI);
 
   /// If there is any stack map data, create a stack map section and serialize
   /// the map info into it. This clears the stack map data structures
   /// afterwards.
-  void serializeToStackMapSection();
+  LLVM_ABI void serializeToStackMapSection();
 
   /// Get call site info.
   CallsiteInfoList &getCSInfos() { return CSInfos; }
@@ -328,7 +367,14 @@ private:
   MachineInstr::const_mop_iterator
   parseOperand(MachineInstr::const_mop_iterator MOI,
                MachineInstr::const_mop_iterator MOE, LocationVec &Locs,
-               LiveOutVec &LiveOuts) const;
+               LiveOutVec &LiveOuts);
+
+  /// Specialized parser of statepoint operands.
+  /// They do not directly correspond to StackMap record entries.
+  void parseStatepointOpers(const MachineInstr &MI,
+                            MachineInstr::const_mop_iterator MOI,
+                            MachineInstr::const_mop_iterator MOE,
+                            LocationVec &Locations, LiveOutVec &LiveOuts);
 
   /// Create a live-out register record for the given register @p Reg.
   LiveOutReg createLiveOutReg(unsigned Reg,
@@ -363,7 +409,7 @@ private:
   /// Emit the callsite info for each stackmap/patchpoint intrinsic call.
   void emitCallsiteEntries(MCStreamer &OS);
 
-  void print(raw_ostream &OS);
+  LLVM_ABI void print(raw_ostream &OS);
   void debug() { print(dbgs()); }
 };
 

@@ -12,7 +12,7 @@ void f() {
   T(a)->m = 7;
   int(a)++; // expected-error {{assignment to cast is illegal}}
   __extension__ int(a)++; // expected-error {{assignment to cast is illegal}}
-  __typeof(int)(a,5)<<a; // expected-error {{excess elements in scalar initializer}}
+  __typeof(int)(a,5)<<a; // expected-error {{excess elements in scalar initializer}} expected-warning {{expression result unused}}
   void(a), ++a;
   if (int(a)+1) {}
   for (int(a)+1;;) {} // expected-warning {{expression result unused}}
@@ -35,7 +35,7 @@ void f() {
   extern T f3();
   __typeof(*T()) f4(); // expected-warning {{empty parentheses interpreted as a function declaration}} expected-note {{replace parentheses with an initializer}}
   typedef void *V;
-  __typeof(*V()) f5(); // expected-error {{ISO C++ does not allow indirection on operand of type 'V' (aka 'void *')}}
+  __typeof(*V()) f5(); // expected-error {{indirection not permitted on operand of type 'V' (aka 'void *')}}
   T multi1,
     multi2(); // expected-warning {{empty parentheses interpreted as a function declaration}} expected-note {{replace parentheses with an initializer}}
   T(d)[5]; // expected-error {{redefinition of 'd'}}

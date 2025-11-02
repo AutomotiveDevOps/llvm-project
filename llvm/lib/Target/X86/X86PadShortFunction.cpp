@@ -25,8 +25,6 @@
 #include "llvm/CodeGen/Passes.h"
 #include "llvm/CodeGen/TargetSchedule.h"
 #include "llvm/IR/Function.h"
-#include "llvm/Support/Debug.h"
-#include "llvm/Support/raw_ostream.h"
 
 using namespace llvm;
 
@@ -37,33 +35,32 @@ STATISTIC(NumBBsPadded, "Number of basic blocks padded");
 namespace {
   struct VisitedBBInfo {
     // HasReturn - Whether the BB contains a return instruction
-    bool HasReturn;
+    bool HasReturn = false;
 
     // Cycles - Number of cycles until return if HasReturn is true, otherwise
     // number of cycles until end of the BB
-    unsigned int Cycles;
+    unsigned int Cycles = 0;
 
-    VisitedBBInfo() : HasReturn(false), Cycles(0) {}
+    VisitedBBInfo() = default;
     VisitedBBInfo(bool HasReturn, unsigned int Cycles)
       : HasReturn(HasReturn), Cycles(Cycles) {}
   };
 
   struct PadShortFunc : public MachineFunctionPass {
     static char ID;
-    PadShortFunc() : MachineFunctionPass(ID)
-                   , Threshold(4) {}
+    PadShortFunc() : MachineFunctionPass(ID) {}
 
     bool runOnMachineFunction(MachineFunction &MF) override;
 
     void getAnalysisUsage(AnalysisUsage &AU) const override {
       AU.addRequired<ProfileSummaryInfoWrapperPass>();
       AU.addRequired<LazyMachineBlockFrequencyInfoPass>();
+      AU.addPreserved<LazyMachineBlockFrequencyInfoPass>();
       MachineFunctionPass::getAnalysisUsage(AU);
     }
 
     MachineFunctionProperties getRequiredProperties() const override {
-      return MachineFunctionProperties().set(
-          MachineFunctionProperties::Property::NoVRegs);
+      return MachineFunctionProperties().setNoVRegs();
     }
 
     StringRef getPassName() const override {
@@ -81,7 +78,7 @@ namespace {
                     MachineBasicBlock::iterator &MBBI,
                     unsigned int NOOPsToAdd);
 
-    const unsigned int Threshold;
+    const unsigned int Threshold = 4;
 
     // ReturnBBs - Maps basic blocks that return to the minimum number of
     // cycles until the return, starting from the entry block.
@@ -103,6 +100,7 @@ FunctionPass *llvm::createX86PadShortFunctions() {
 /// runOnMachineFunction - Loop over all of the basic blocks, inserting
 /// NOOP instructions before early exits.
 bool PadShortFunc::runOnMachineFunction(MachineFunction &MF) {
+  LLVM_DEBUG(dbgs() << "Start X86PadShortFunctionPass\n";);
   if (skipFunction(MF.getFunction()))
     return false;
 
@@ -128,14 +126,11 @@ bool PadShortFunc::runOnMachineFunction(MachineFunction &MF) {
   bool MadeChange = false;
 
   // Pad the identified basic blocks with NOOPs
-  for (DenseMap<MachineBasicBlock*, unsigned int>::iterator I = ReturnBBs.begin();
-       I != ReturnBBs.end(); ++I) {
-    MachineBasicBlock *MBB = I->first;
-    unsigned Cycles = I->second;
+  for (const auto &ReturnBB : ReturnBBs) {
+    MachineBasicBlock *MBB = ReturnBB.first;
+    unsigned Cycles = ReturnBB.second;
 
-    // Function::hasOptSize is already checked above.
-    bool OptForSize = llvm::shouldOptimizeForSize(MBB, PSI, MBFI);
-    if (OptForSize)
+    if (llvm::shouldOptimizeForSize(MBB, PSI, MBFI))
       continue;
 
     if (Cycles < Threshold) {
@@ -155,7 +150,7 @@ bool PadShortFunc::runOnMachineFunction(MachineFunction &MF) {
       MadeChange = true;
     }
   }
-
+  LLVM_DEBUG(dbgs() << "End X86PadShortFunctionPass\n";);
   return MadeChange;
 }
 
@@ -168,17 +163,15 @@ void PadShortFunc::findReturns(MachineBasicBlock *MBB, unsigned int Cycles) {
     return;
 
   if (hasReturn) {
-    ReturnBBs[MBB] = std::max(ReturnBBs[MBB], Cycles);
+    unsigned int &NumCycles = ReturnBBs[MBB];
+    NumCycles = std::max(NumCycles, Cycles);
     return;
   }
 
   // Follow branches in BB and look for returns
-  for (MachineBasicBlock::succ_iterator I = MBB->succ_begin();
-       I != MBB->succ_end(); ++I) {
-    if (*I == MBB)
-      continue;
-    findReturns(*I, Cycles);
-  }
+  for (MachineBasicBlock *Succ : MBB->successors())
+    if (Succ != MBB)
+      findReturns(Succ, Cycles);
 }
 
 /// cyclesUntilReturn - return true if the MBB has a return instruction,
@@ -188,10 +181,9 @@ void PadShortFunc::findReturns(MachineBasicBlock *MBB, unsigned int Cycles) {
 bool PadShortFunc::cyclesUntilReturn(MachineBasicBlock *MBB,
                                      unsigned int &Cycles) {
   // Return cached result if BB was previously visited
-  DenseMap<MachineBasicBlock*, VisitedBBInfo>::iterator it
-    = VisitedBBs.find(MBB);
-  if (it != VisitedBBs.end()) {
-    VisitedBBInfo BBInfo = it->second;
+  auto [It, Inserted] = VisitedBBs.try_emplace(MBB);
+  if (!Inserted) {
+    VisitedBBInfo BBInfo = It->second;
     Cycles += BBInfo.Cycles;
     return BBInfo.HasReturn;
   }
@@ -203,7 +195,7 @@ bool PadShortFunc::cyclesUntilReturn(MachineBasicBlock *MBB,
     // functions do not count because the called function will be padded,
     // if necessary.
     if (MI.isReturn() && !MI.isCall()) {
-      VisitedBBs[MBB] = VisitedBBInfo(true, CyclesToEnd);
+      It->second = VisitedBBInfo(true, CyclesToEnd);
       Cycles += CyclesToEnd;
       return true;
     }
@@ -211,7 +203,7 @@ bool PadShortFunc::cyclesUntilReturn(MachineBasicBlock *MBB,
     CyclesToEnd += TSM.computeInstrLatency(&MI);
   }
 
-  VisitedBBs[MBB] = VisitedBBInfo(false, CyclesToEnd);
+  It->second = VisitedBBInfo(false, CyclesToEnd);
   Cycles += CyclesToEnd;
   return false;
 }
@@ -221,7 +213,7 @@ bool PadShortFunc::cyclesUntilReturn(MachineBasicBlock *MBB,
 void PadShortFunc::addPadding(MachineBasicBlock *MBB,
                               MachineBasicBlock::iterator &MBBI,
                               unsigned int NOOPsToAdd) {
-  DebugLoc DL = MBBI->getDebugLoc();
+  const DebugLoc &DL = MBBI->getDebugLoc();
   unsigned IssueWidth = TSM.getIssueWidth();
 
   for (unsigned i = 0, e = IssueWidth * NOOPsToAdd; i != e; ++i)

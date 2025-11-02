@@ -3,7 +3,7 @@
 int invalid;
 
 class Base {
-  void baseFunction();
+  void baseFunction() const;
 
   int baseField;
 
@@ -13,7 +13,7 @@ class Base {
 template<typename T>
 class BaseTemplate {
 public:
-  T baseTemplateFunction();
+  T baseTemplateFunction() const;
 
   T baseTemplateField;
 
@@ -25,7 +25,7 @@ class TemplateClass: public Base , public BaseTemplate<T> {
 public:
   ~TemplateClass();
 
-  T function() { }
+  T function() const { }
 
   static void staticFunction() { }
 
@@ -48,27 +48,27 @@ template<typename T, typename S>
 void indexSimpleDependentDeclarations(const TemplateClass<T, S> &object) {
   // Valid instance members:
   object.function();
-// CHECK: [[@LINE-1]]:10 | instance-method/C++ | function | c:@ST>2#T#T@TemplateClass@F@function# | <no-cgname> | Ref,Call,RelCall,RelCont | rel: 1
+// CHECK: [[@LINE-1]]:10 | instance-method/C++ | function | c:@ST>2#T#T@TemplateClass@F@function#1 | <no-cgname> | Ref,Call,RelCall,RelCont | rel: 1
   object.field;
 // CHECK: [[@LINE-1]]:10 | field/C++ | field | c:@ST>2#T#T@TemplateClass@FI@field | <no-cgname> | Ref,RelCont | rel: 1
   object.baseFunction();
-// CHECK: [[@LINE-1]]:10 | instance-method/C++ | baseFunction | c:@S@Base@F@baseFunction# | __ZN4Base12baseFunctionEv | Ref,Call,RelCall,RelCont | rel: 1
+// CHECK: [[@LINE-1]]:10 | instance-method/C++ | baseFunction | c:@S@Base@F@baseFunction#1 | __ZNK4Base12baseFunctionEv | Ref,Call,RelCall,RelCont | rel: 1
   object.baseField;
 // CHECK: [[@LINE-1]]:10 | field/C++ | baseField | c:@S@Base@FI@baseField | <no-cgname> | Ref,RelCont | rel: 1
   object.baseTemplateFunction();
-// CHECK: [[@LINE-1]]:10 | instance-method/C++ | baseTemplateFunction | c:@ST>1#T@BaseTemplate@F@baseTemplateFunction# | <no-cgname> | Ref,Call,RelCall,RelCont | rel: 1
+// CHECK: [[@LINE-1]]:10 | instance-method/C++ | baseTemplateFunction | c:@ST>1#T@BaseTemplate@F@baseTemplateFunction#1 | <no-cgname> | Ref,Call,RelCall,RelCont | rel: 1
   object.baseTemplateField;
 // CHECK: [[@LINE-1]]:10 | field/C++ | baseTemplateField | c:@ST>1#T@BaseTemplate@FI@baseTemplateField | <no-cgname> | Ref,RelCont | rel: 1
 
-  // Invalid instance members:
+  // Static members (these are still valid to access via an instance):
   object.variable;
-// CHECK-NOT: [[@LINE-1]]:10
+// CHECK: [[@LINE-1]]:10 | static-property/C++ | variable | c:@ST>2#T#T@TemplateClass@variable | __ZN13TemplateClass8variableE | Ref,RelCont | rel: 1
   object.staticFunction();
-// CHECK-NOT: [[@LINE-1]]:10
+// CHECK: [[@LINE-1]]:10 | static-method/C++ | staticFunction | c:@ST>2#T#T@TemplateClass@F@staticFunction#S | <no-cgname> | Ref,Call,RelCall,RelCont | rel: 1
   object.Struct;
-// CHECK-NOT: [[@LINE-1]]:10
+// CHECK: [[@LINE-1]]:10 | struct/C | Struct | c:@ST>2#T#T@TemplateClass@S@Struct | <no-cgname> | Ref,RelCont | rel: 1
   object.EnumValue;
-// CHECK-NOT: [[@LINE-1]]:10
+// CHECK: [[@LINE-1]]:10 | enumerator/C | EnumValue | c:@ST>2#T#T@TemplateClass@E@Enum@EnumValue | <no-cgname> | Ref,RelCont | rel: 1
 
   // Valid static members:
   TemplateClass<T, S>::staticFunction();
@@ -224,3 +224,19 @@ struct UsingE : public UsingD<T>, public UsingD<U> {
 // CHECK: [[@LINE+1]]:9 | struct(Gen)/C++ | UsingD | c:@ST>1#T@UsingD | <no-cgname> | Ref,RelCont | rel: 1
   using UsingD<U>::foo;
 };
+
+template <typename T> void foo();
+// CHECK: [[@LINE-1]]:28 | function/C | foo | c:@FT@>1#Tfoo#v# | <no-cgname> | Decl | rel: 0
+template <typename T> void bar() {
+  foo<T>();
+// CHECK: [[@LINE-1]]:3 | function/C | foo | c:@FT@>1#Tfoo#v# | <no-cgname> | Ref,Call,RelCall,RelCont | rel: 1
+}
+
+struct Foo {
+  template <typename T> void bar();
+  // CHECK: [[@LINE-1]]:30 | instance-method/C++ | bar | c:@S@Foo@FT@>1#Tbar#v# | <no-cgname> | Decl,RelChild | rel: 1
+};
+template <typename T> void baz(Foo f) {
+  f.bar<T>();
+  // CHECK: [[@LINE-1]]:5 | instance-method/C++ | bar | c:@S@Foo@FT@>1#Tbar#v# | <no-cgname> | Ref,Call,RelCall,RelCont | rel: 1
+}

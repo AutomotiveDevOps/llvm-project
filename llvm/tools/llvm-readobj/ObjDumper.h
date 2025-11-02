@@ -9,18 +9,26 @@
 #ifndef LLVM_TOOLS_LLVM_READOBJ_OBJDUMPER_H
 #define LLVM_TOOLS_LLVM_READOBJ_OBJDUMPER_H
 
+#include <functional>
 #include <memory>
 #include <system_error>
 
+#include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Object/ObjectFile.h"
+#include "llvm/Object/OffloadBinary.h"
 #include "llvm/Support/CommandLine.h"
+
+#include <unordered_set>
 
 namespace llvm {
 namespace object {
+class Archive;
 class COFFImportFile;
 class ObjectFile;
-}
+class XCOFFObjectFile;
+class ELFObjectFileBase;
+} // namespace object
 namespace codeview {
 class GlobalTypeTableBuilder;
 class MergingTypeTableBuilder;
@@ -28,19 +36,64 @@ class MergingTypeTableBuilder;
 
 class ScopedPrinter;
 
+// Comparator to compare symbols.
+// Usage: the caller registers predicates (i.e., how to compare the symbols) by
+// calling addPredicate(). The order in which predicates are registered is also
+// their priority.
+class SymbolComparator {
+public:
+  using CompPredicate =
+      std::function<bool(object::SymbolRef, object::SymbolRef)>;
+
+  // Each Obj format has a slightly different way of retrieving a symbol's info
+  // So we defer the predicate's impl to each format.
+  void addPredicate(CompPredicate Pred) { Predicates.push_back(Pred); }
+
+  bool operator()(object::SymbolRef LHS, object::SymbolRef RHS) {
+    for (CompPredicate Pred : Predicates) {
+      if (Pred(LHS, RHS))
+        return true;
+      if (Pred(RHS, LHS))
+        return false;
+    }
+    return false;
+  }
+
+private:
+  SmallVector<CompPredicate, 2> Predicates;
+};
+
 class ObjDumper {
 public:
-  ObjDumper(ScopedPrinter &Writer);
+  ObjDumper(ScopedPrinter &Writer, StringRef ObjName);
   virtual ~ObjDumper();
 
+  virtual bool canDumpContent() { return true; }
+
+  virtual void printFileSummary(StringRef FileStr, object::ObjectFile &Obj,
+                                ArrayRef<std::string> InputFilenames,
+                                const object::Archive *A);
   virtual void printFileHeaders() = 0;
   virtual void printSectionHeaders() = 0;
   virtual void printRelocations() = 0;
-  virtual void printSymbols(bool PrintSymbols, bool PrintDynamicSymbols) {
+  virtual void printSymbols(bool PrintSymbols, bool PrintDynamicSymbols,
+                            bool ExtraSymInfo) {
     if (PrintSymbols)
-      printSymbols();
+      printSymbols(ExtraSymInfo);
     if (PrintDynamicSymbols)
       printDynamicSymbols();
+  }
+  virtual void printSymbols(bool PrintSymbols, bool PrintDynamicSymbols,
+                            bool ExtraSymInfo,
+                            std::optional<SymbolComparator> SymComp) {
+    if (SymComp) {
+      if (PrintSymbols)
+        printSymbols(SymComp);
+      if (PrintDynamicSymbols)
+        printDynamicSymbols(SymComp);
+    } else {
+      printSymbols(PrintSymbols, PrintDynamicSymbols, ExtraSymInfo);
+    }
   }
   virtual void printProgramHeaders(bool PrintProgramHeaders,
                                    cl::boolOrDefault PrintSectionMapping) {
@@ -52,6 +105,17 @@ public:
 
   virtual void printUnwindInfo() = 0;
 
+  // Symbol comparison functions.
+  virtual bool canCompareSymbols() const { return false; }
+  virtual bool compareSymbolsByName(object::SymbolRef LHS,
+                                    object::SymbolRef RHS) const {
+    return true;
+  }
+  virtual bool compareSymbolsByType(object::SymbolRef LHS,
+                                    object::SymbolRef RHS) const {
+    return true;
+  }
+
   // Only implemented for ELF at this time.
   virtual void printDependentLibs() {}
   virtual void printDynamicRelocations() { }
@@ -59,25 +123,33 @@ public:
   virtual void printNeededLibraries() { }
   virtual void printSectionAsHex(StringRef SectionName) {}
   virtual void printHashTable() { }
-  virtual void printGnuHashTable(const object::ObjectFile *Obj) {}
+  virtual void printGnuHashTable() {}
   virtual void printHashSymbols() {}
   virtual void printLoadName() {}
   virtual void printVersionInfo() {}
   virtual void printGroupSections() {}
   virtual void printHashHistograms() {}
   virtual void printCGProfile() {}
+  // If PrettyPGOAnalysis is true, prints BFI as relative frequency and BPI as
+  // percentage. Otherwise raw values are displayed.
+  virtual void printBBAddrMaps(bool PrettyPGOAnalysis) {}
   virtual void printAddrsig() {}
   virtual void printNotes() {}
   virtual void printELFLinkerOptions() {}
   virtual void printStackSizes() {}
-  virtual void printArchSpecificInfo() { }
+  virtual void printSectionDetails() {}
+  virtual void printArchSpecificInfo() {}
+  virtual void printMemtag() {}
+  virtual void printSectionsAsSFrame(ArrayRef<std::string> Sections) {}
 
   // Only implemented for PE/COFF.
   virtual void printCOFFImports() { }
   virtual void printCOFFExports() { }
   virtual void printCOFFDirectives() { }
   virtual void printCOFFBaseReloc() { }
+  virtual void printCOFFPseudoReloc() {}
   virtual void printCOFFDebugDirectory() { }
+  virtual void printCOFFTLSDirectory() {}
   virtual void printCOFFResources() {}
   virtual void printCOFFLoadConfig() { }
   virtual void printCodeViewDebugInfo() { }
@@ -87,6 +159,15 @@ public:
                      llvm::codeview::GlobalTypeTableBuilder &GlobalCVIDs,
                      llvm::codeview::GlobalTypeTableBuilder &GlobalCVTypes,
                      bool GHash) {}
+
+  // Only implemented for XCOFF/COFF.
+  virtual void printStringTable() {}
+
+  // Only implemented for XCOFF.
+  virtual void printAuxiliaryHeader() {}
+  virtual void printExceptionSection() {}
+  virtual void printLoaderSection(bool PrintHeader, bool PrintSymbols,
+                                  bool PrintRelocations) {}
 
   // Only implemented for MachO.
   virtual void printMachODataInCode() { }
@@ -98,40 +179,50 @@ public:
 
   virtual void printStackMap() const = 0;
 
-  void printSectionsAsString(const object::ObjectFile *Obj,
-                             ArrayRef<std::string> Sections);
-  void printSectionsAsHex(const object::ObjectFile *Obj,
-                          ArrayRef<std::string> Sections);
+  void printAsStringList(StringRef StringContent, size_t StringDataOffset = 0);
+
+  void printSectionsAsString(const object::ObjectFile &Obj,
+                             ArrayRef<std::string> Sections, bool Decompress);
+  void printSectionsAsHex(const object::ObjectFile &Obj,
+                          ArrayRef<std::string> Sections, bool Decompress);
+
+  std::function<Error(const Twine &Msg)> WarningHandler;
+  void reportUniqueWarning(Error Err) const;
+  void reportUniqueWarning(const Twine &Msg) const;
+  void printOffloading(const object::ObjectFile &Obj);
 
 protected:
   ScopedPrinter &W;
 
+  static std::vector<object::SectionRef>
+  getSectionRefsByNameOrIndex(const object::ObjectFile &Obj,
+                              ArrayRef<std::string> Sections);
+
 private:
-  virtual void printSymbols() {}
+  virtual void printSymbols(bool ExtraSymInfo) {}
+  virtual void printSymbols(std::optional<SymbolComparator> Comp) {}
   virtual void printDynamicSymbols() {}
+  virtual void printDynamicSymbols(std::optional<SymbolComparator> Comp) {}
   virtual void printProgramHeaders() {}
   virtual void printSectionMapping() {}
+
+  std::unordered_set<std::string> Warnings;
 };
 
-std::error_code createCOFFDumper(const object::ObjectFile *Obj,
-                                 ScopedPrinter &Writer,
-                                 std::unique_ptr<ObjDumper> &Result);
+std::unique_ptr<ObjDumper> createCOFFDumper(const object::COFFObjectFile &Obj,
+                                            ScopedPrinter &Writer);
 
-std::error_code createELFDumper(const object::ObjectFile *Obj,
-                                ScopedPrinter &Writer,
-                                std::unique_ptr<ObjDumper> &Result);
+std::unique_ptr<ObjDumper> createELFDumper(const object::ELFObjectFileBase &Obj,
+                                           ScopedPrinter &Writer);
 
-std::error_code createMachODumper(const object::ObjectFile *Obj,
-                                  ScopedPrinter &Writer,
-                                  std::unique_ptr<ObjDumper> &Result);
+std::unique_ptr<ObjDumper> createMachODumper(const object::MachOObjectFile &Obj,
+                                             ScopedPrinter &Writer);
 
-std::error_code createWasmDumper(const object::ObjectFile *Obj,
-                                 ScopedPrinter &Writer,
-                                 std::unique_ptr<ObjDumper> &Result);
+std::unique_ptr<ObjDumper> createWasmDumper(const object::WasmObjectFile &Obj,
+                                            ScopedPrinter &Writer);
 
-std::error_code createXCOFFDumper(const object::ObjectFile *Obj,
-                                  ScopedPrinter &Writer,
-                                  std::unique_ptr<ObjDumper> &Result);
+std::unique_ptr<ObjDumper> createXCOFFDumper(const object::XCOFFObjectFile &Obj,
+                                             ScopedPrinter &Writer);
 
 void dumpCOFFImportFile(const object::COFFImportFile *File,
                         ScopedPrinter &Writer);

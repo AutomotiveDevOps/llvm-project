@@ -1,4 +1,4 @@
-//==--- AbstractBasiceReader.h - Abstract basic value deserialization -----===//
+//==--- AbstractBasicReader.h - Abstract basic value deserialization -----===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -6,22 +6,22 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef CLANG_AST_ABSTRACTBASICREADER_H
-#define CLANG_AST_ABSTRACTBASICREADER_H
+#ifndef LLVM_CLANG_AST_ABSTRACTBASICREADER_H
+#define LLVM_CLANG_AST_ABSTRACTBASICREADER_H
 
 #include "clang/AST/DeclTemplate.h"
+#include <optional>
 
 namespace clang {
 namespace serialization {
 
 template <class T>
-inline T makeNullableFromOptional(const Optional<T> &value) {
+inline T makeNullableFromOptional(const std::optional<T> &value) {
   return (value ? *value : T());
 }
 
-template <class T>
-inline T *makePointerFromOptional(Optional<T *> value) {
-  return (value ? *value : nullptr);
+template <class T> inline T *makePointerFromOptional(std::optional<T *> value) {
+  return value.value_or(nullptr);
 }
 
 // PropertyReader is a class concept that requires the following method:
@@ -49,7 +49,7 @@ inline T *makePointerFromOptional(Optional<T *> value) {
 //     type-specific readers for all the enum types.
 //
 //   template <class ValueType>
-//   Optional<ValueType> writeOptional();
+//   std::optional<ValueType> writeOptional();
 //
 //     Reads an optional value from the current property.
 //
@@ -143,8 +143,7 @@ public:
   // structure into a single data stream.
   Impl &readObject() { return asImpl(); }
 
-  template <class T>
-  llvm::ArrayRef<T> readArray(llvm::SmallVectorImpl<T> &buffer) {
+  template <class T> ArrayRef<T> readArray(llvm::SmallVectorImpl<T> &buffer) {
     assert(buffer.empty());
 
     uint32_t size = asImpl().readUInt32();
@@ -157,7 +156,7 @@ public:
   }
 
   template <class T, class... Args>
-  llvm::Optional<T> readOptional(Args &&...args) {
+  std::optional<T> readOptional(Args &&...args) {
     return UnpackOptionalValue<T>::unpack(
              ReadDispatcher<T>::read(asImpl(), std::forward<Args>(args)...));
   }
@@ -177,10 +176,45 @@ public:
     return llvm::APInt(bitWidth, numWords, &data[0]);
   }
 
+  llvm::FixedPointSemantics readFixedPointSemantics() {
+    unsigned width = asImpl().readUInt32();
+    unsigned scale = asImpl().readUInt32();
+    unsigned tmp = asImpl().readUInt32();
+    bool isSigned = tmp & 0x1;
+    bool isSaturated = tmp & 0x2;
+    bool hasUnsignedPadding = tmp & 0x4;
+    return llvm::FixedPointSemantics(width, scale, isSigned, isSaturated,
+                                     hasUnsignedPadding);
+  }
+
+  APValue::LValuePathSerializationHelper readLValuePathSerializationHelper(
+      SmallVectorImpl<APValue::LValuePathEntry> &path) {
+    auto origTy = asImpl().readQualType();
+    auto elemTy = origTy;
+    unsigned pathLength = asImpl().readUInt32();
+    for (unsigned i = 0; i < pathLength; ++i) {
+      if (elemTy->isRecordType()) {
+        unsigned int_ = asImpl().readUInt32();
+        Decl *decl = asImpl().template readDeclAs<Decl>();
+        if (auto *recordDecl = dyn_cast<CXXRecordDecl>(decl))
+          elemTy = getASTContext().getCanonicalTagType(recordDecl);
+        else
+          elemTy = cast<ValueDecl>(decl)->getType();
+        path.push_back(
+            APValue::LValuePathEntry(APValue::BaseOrMemberType(decl, int_)));
+      } else {
+        elemTy = getASTContext().getAsArrayType(elemTy)->getElementType();
+        path.push_back(
+            APValue::LValuePathEntry::ArrayIndex(asImpl().readUInt32()));
+      }
+    }
+    return APValue::LValuePathSerializationHelper(path, origTy);
+  }
+
   Qualifiers readQualifiers() {
-    static_assert(sizeof(Qualifiers().getAsOpaqueValue()) <= sizeof(uint32_t),
+    static_assert(sizeof(Qualifiers().getAsOpaqueValue()) <= sizeof(uint64_t),
                   "update this if the value size changes");
-    uint32_t value = asImpl().readUInt32();
+    uint64_t value = asImpl().readUInt64();
     return Qualifiers::fromOpaqueValue(value);
   }
 
@@ -209,46 +243,43 @@ public:
     return FunctionProtoType::ExtParameterInfo::getFromOpaqueValue(value);
   }
 
-  NestedNameSpecifier *readNestedNameSpecifier() {
+  FunctionEffect readFunctionEffect() {
+    uint32_t value = asImpl().readUInt32();
+    return FunctionEffect::fromOpaqueInt32(value);
+  }
+
+  EffectConditionExpr readEffectConditionExpr() {
+    return EffectConditionExpr{asImpl().readExprRef()};
+  }
+
+  NestedNameSpecifier readNestedNameSpecifier() {
     auto &ctx = getASTContext();
 
     // We build this up iteratively.
-    NestedNameSpecifier *cur = nullptr;
+    NestedNameSpecifier cur = std::nullopt;
 
     uint32_t depth = asImpl().readUInt32();
     for (uint32_t i = 0; i != depth; ++i) {
       auto kind = asImpl().readNestedNameSpecifierKind();
       switch (kind) {
-      case NestedNameSpecifier::Identifier:
-        cur = NestedNameSpecifier::Create(ctx, cur,
-                                          asImpl().readIdentifier());
+      case NestedNameSpecifier::Kind::Namespace:
+        cur =
+            NestedNameSpecifier(ctx, asImpl().readNamespaceBaseDeclRef(), cur);
         continue;
-
-      case NestedNameSpecifier::Namespace:
-        cur = NestedNameSpecifier::Create(ctx, cur,
-                                          asImpl().readNamespaceDeclRef());
+      case NestedNameSpecifier::Kind::Type:
+        assert(!cur);
+        cur = NestedNameSpecifier(asImpl().readQualType().getTypePtr());
         continue;
-
-      case NestedNameSpecifier::NamespaceAlias:
-        cur = NestedNameSpecifier::Create(ctx, cur,
-                                     asImpl().readNamespaceAliasDeclRef());
+      case NestedNameSpecifier::Kind::Global:
+        assert(!cur);
+        cur = NestedNameSpecifier::getGlobal();
         continue;
-
-      case NestedNameSpecifier::TypeSpec:
-      case NestedNameSpecifier::TypeSpecWithTemplate:
-        cur = NestedNameSpecifier::Create(ctx, cur,
-                          kind == NestedNameSpecifier::TypeSpecWithTemplate,
-                          asImpl().readQualType().getTypePtr());
+      case NestedNameSpecifier::Kind::MicrosoftSuper:
+        assert(!cur);
+        cur = NestedNameSpecifier(asImpl().readCXXRecordDeclRef());
         continue;
-
-      case NestedNameSpecifier::Global:
-        cur = NestedNameSpecifier::GlobalSpecifier(ctx);
-        continue;
-
-      case NestedNameSpecifier::Super:
-        cur = NestedNameSpecifier::SuperSpecifier(ctx,
-                                            asImpl().readCXXRecordDeclRef());
-        continue;
+      case NestedNameSpecifier::Kind::Null:
+        llvm_unreachable("unexpected null nested name specifier");
       }
       llvm_unreachable("bad nested name specifier kind");
     }

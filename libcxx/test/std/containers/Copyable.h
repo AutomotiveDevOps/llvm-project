@@ -9,9 +9,8 @@
 #ifndef COPYABLE_H
 #define COPYABLE_H
 
-class Copyable
-{
+class Copyable {
 public:
 };
 
-#endif  // COPYABLE_H
+#endif // COPYABLE_H

@@ -14,19 +14,16 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/Twine.h"
+#include "regex_impl.h"
+
 #include <cassert>
 #include <string>
-
-// Important this comes last because it defines "_REGEX_H_". At least on
-// Darwin, if included before any header that (transitively) includes
-// xlocale.h, this will cause trouble, because of missing regex-related types.
-#include "regex_impl.h"
 
 using namespace llvm;
 
 Regex::Regex() : preg(nullptr), error(REG_BADPAT) {}
 
-Regex::Regex(StringRef regex, unsigned Flags) {
+Regex::Regex(StringRef regex, RegexFlags Flags) {
   unsigned flags = 0;
   preg = new llvm_regex();
   preg->re_endp = regex.end();
@@ -38,6 +35,9 @@ Regex::Regex(StringRef regex, unsigned Flags) {
     flags |= REG_EXTENDED;
   error = llvm_regcomp(preg, regex.data(), flags|REG_PEND);
 }
+
+Regex::Regex(StringRef regex, unsigned Flags)
+    : Regex(regex, static_cast<RegexFlags>(Flags)) {}
 
 Regex::Regex(Regex &&regex) {
   preg = regex.preg;
@@ -91,6 +91,10 @@ bool Regex::match(StringRef String, SmallVectorImpl<StringRef> *Matches,
     return false;
 
   unsigned nmatch = Matches ? preg->re_nsub+1 : 0;
+
+  // Update null string to empty string.
+  if (String.data() == nullptr)
+    String = "";
 
   // pmatch needs to have at least one element.
   SmallVector<llvm_regmatch_t, 8> pm;
@@ -163,6 +167,25 @@ std::string Regex::sub(StringRef Repl, StringRef String,
 
     // FIXME: We should have a StringExtras function for mapping C99 escapes.
     switch (Repl[0]) {
+
+      // Backreference with the "\g<ref>" syntax
+    case 'g':
+      if (Repl.size() >= 4 && Repl[1] == '<') {
+        size_t End = Repl.find('>');
+        StringRef Ref = Repl.slice(2, End);
+        unsigned RefValue;
+        if (End != StringRef::npos && !Ref.getAsInteger(10, RefValue)) {
+          Repl = Repl.substr(End + 1);
+          if (RefValue < Matches.size())
+            Res += Matches[RefValue];
+          else if (Error && Error->empty())
+            *Error =
+                ("invalid backreference string 'g<" + Twine(Ref) + ">'").str();
+          break;
+        }
+      }
+      [[fallthrough]];
+
       // Treat all unrecognized characters as self-quoting.
     default:
       Res += Repl[0];
@@ -215,10 +238,10 @@ bool Regex::isLiteralERE(StringRef Str) {
 
 std::string Regex::escape(StringRef String) {
   std::string RegexStr;
-  for (unsigned i = 0, e = String.size(); i != e; ++i) {
-    if (strchr(RegexMetachars, String[i]))
+  for (char C : String) {
+    if (strchr(RegexMetachars, C))
       RegexStr += '\\';
-    RegexStr += String[i];
+    RegexStr += C;
   }
 
   return RegexStr;

@@ -11,15 +11,12 @@
 //===----------------------------------------------------------------------===//
 
 #include "MSP430RegisterInfo.h"
-#include "MSP430.h"
-#include "MSP430MachineFunctionInfo.h"
 #include "MSP430TargetMachine.h"
 #include "llvm/ADT/BitVector.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
 #include "llvm/CodeGen/MachineFunction.h"
 #include "llvm/CodeGen/MachineInstrBuilder.h"
 #include "llvm/IR/Function.h"
-#include "llvm/Support/ErrorHandling.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Target/TargetOptions.h"
 
@@ -39,7 +36,7 @@ MSP430RegisterInfo::getCalleeSavedRegs(const MachineFunction *MF) const {
   const MSP430FrameLowering *TFI = getFrameLowering(*MF);
   const Function* F = &MF->getFunction();
   static const MCPhysReg CalleeSavedRegs[] = {
-    MSP430::FP, MSP430::R5, MSP430::R6, MSP430::R7,
+    MSP430::R4, MSP430::R5, MSP430::R6, MSP430::R7,
     MSP430::R8, MSP430::R9, MSP430::R10,
     0
   };
@@ -49,7 +46,7 @@ MSP430RegisterInfo::getCalleeSavedRegs(const MachineFunction *MF) const {
     0
   };
   static const MCPhysReg CalleeSavedRegsIntr[] = {
-    MSP430::FP,  MSP430::R5,  MSP430::R6,  MSP430::R7,
+    MSP430::R4,  MSP430::R5,  MSP430::R6,  MSP430::R7,
     MSP430::R8,  MSP430::R9,  MSP430::R10, MSP430::R11,
     MSP430::R12, MSP430::R13, MSP430::R14, MSP430::R15,
     0
@@ -86,20 +83,19 @@ BitVector MSP430RegisterInfo::getReservedRegs(const MachineFunction &MF) const {
 
   // Mark frame pointer as reserved if needed.
   if (TFI->hasFP(MF)) {
-    Reserved.set(MSP430::FPB);
-    Reserved.set(MSP430::FP);
+    Reserved.set(MSP430::R4B);
+    Reserved.set(MSP430::R4);
   }
 
   return Reserved;
 }
 
 const TargetRegisterClass *
-MSP430RegisterInfo::getPointerRegClass(const MachineFunction &MF, unsigned Kind)
-                                                                         const {
+MSP430RegisterInfo::getPointerRegClass(unsigned Kind) const {
   return &MSP430::GR16RegClass;
 }
 
-void
+bool
 MSP430RegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
                                         int SPAdj, unsigned FIOperandNum,
                                         RegScavenger *RS) const {
@@ -112,7 +108,7 @@ MSP430RegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
   DebugLoc dl = MI.getDebugLoc();
   int FrameIndex = MI.getOperand(FIOperandNum).getIndex();
 
-  unsigned BasePtr = (TFI->hasFP(MF) ? MSP430::FP : MSP430::SP);
+  unsigned BasePtr = (TFI->hasFP(MF) ? MSP430::R4 : MSP430::SP);
   int Offset = MF.getFrameInfo().getObjectOffset(FrameIndex);
 
   // Skip the saved PC
@@ -135,8 +131,11 @@ MSP430RegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
     MI.setDesc(TII.get(MSP430::MOV16rr));
     MI.getOperand(FIOperandNum).ChangeToRegister(BasePtr, false);
 
+    // Remove the now unused Offset operand.
+    MI.removeOperand(FIOperandNum + 1);
+
     if (Offset == 0)
-      return;
+      return false;
 
     // We need to materialize the offset via add instruction.
     Register DstReg = MI.getOperand(0).getReg();
@@ -147,14 +146,15 @@ MSP430RegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
       BuildMI(MBB, std::next(II), dl, TII.get(MSP430::ADD16ri), DstReg)
         .addReg(DstReg).addImm(Offset);
 
-    return;
+    return false;
   }
 
   MI.getOperand(FIOperandNum).ChangeToRegister(BasePtr, false);
   MI.getOperand(FIOperandNum + 1).ChangeToImmediate(Offset);
+  return false;
 }
 
 Register MSP430RegisterInfo::getFrameRegister(const MachineFunction &MF) const {
   const MSP430FrameLowering *TFI = getFrameLowering(MF);
-  return TFI->hasFP(MF) ? MSP430::FP : MSP430::SP;
+  return TFI->hasFP(MF) ? MSP430::R4 : MSP430::SP;
 }

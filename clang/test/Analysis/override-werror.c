@@ -1,13 +1,13 @@
-// RUN: %clang_analyze_cc1 -analyzer-checker=core,alpha.core -Werror %s -analyzer-store=region -verify
-// RUN: %clang_analyze_cc1 -analyzer-checker=core,alpha.core -Werror %s -analyzer-store=region -analyzer-werror -verify=werror
+// RUN: %clang_analyze_cc1 -analyzer-checker=core,alpha.core -Werror %s -verify
+// RUN: %clang_analyze_cc1 -analyzer-checker=core,alpha.core -Werror %s -analyzer-werror -verify=werror
 
 // This test case illustrates that using '-analyze' overrides the effect of
 // -Werror.  This allows basic warnings not to interfere with producing
 // analyzer results.
 
-char* f(int *p) {
-  return p; // expected-warning{{incompatible pointer types}} \
-               werror-warning{{incompatible pointer types}}
+void f(int *p) {
+  int; // expected-warning{{declaration does not declare anything}} \
+          werror-warning{{declaration does not declare anything}}
 }
 
 void g(int *p) {

@@ -4,7 +4,7 @@
 # RUN: llvm-mc -filetype=obj -triple=x86_64-unknown-linux %p/Inputs/x86-64-split-stack-main.s -o %t3.o
 
 # RUN: ld.lld --defsym __morestack=0x100 --defsym __morestack_non_split=0x200 %t1.o %t2.o %t3.o -o %t -z notext
-# RUN: llvm-objdump -d %t | FileCheck %s
+# RUN: llvm-objdump --no-print-imm-hex -d %t | FileCheck %s
 
 # Avoid duplicating the prologue for every test via macros.
 
@@ -45,12 +45,12 @@ prologue2_calls_\function_to_call\register:
 	.size	prologue2_calls_\function_to_call\register,. - prologue2_calls_\function_to_call\register
 .endm
 
+	.section .text,"ax",@progbits,unique,0
 	.local foo
 foo:
-	.section .text,"ax",@progbits
 	.quad foo
 
-	.text
+	.section .text,"ax",@progbits,unique,1
 
 # For split-stack code calling split-stack code, ensure prologue v1 still
 # calls plain __morestack, and that any raw bytes written to the prologue
@@ -110,6 +110,14 @@ prologue2 non_split r10 0x100
 # CHECK-NEXT: callq{{.*}}<__morestack_non_split>
 
 prologue2 non_split r11 0x200
+
+# CHECK: <prologue2_calls_non_split_hiddenr11>:
+# CHECK-NEXT: lea{{.*}} -16896(%rsp),{{.*}}%r11
+# CHECK: cmp{{.*}}%fs:{{[^,]*}},{{.*}}%r11
+# CHECK: jae{{.*$}}
+# CHECK-NEXT: callq{{.*}}<__morestack_non_split>
+
+prologue2 non_split_hidden r11 0x200
 
 	.section	.note.GNU-stack,"",@progbits
 	.section	.note.GNU-split-stack,"",@progbits

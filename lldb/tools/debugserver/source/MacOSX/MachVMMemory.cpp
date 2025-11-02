@@ -13,6 +13,7 @@
 #include "MachVMMemory.h"
 #include "DNBLog.h"
 #include "MachVMRegion.h"
+#include <cassert>
 #include <dlfcn.h>
 #include <mach/mach_vm.h>
 #include <mach/shared_region.h>
@@ -28,7 +29,7 @@ static const vm_size_t kInvalidPageSize = ~0;
 
 MachVMMemory::MachVMMemory() : m_page_size(kInvalidPageSize), m_err(0) {}
 
-MachVMMemory::~MachVMMemory() {}
+MachVMMemory::~MachVMMemory() = default;
 
 nub_size_t MachVMMemory::PageSize(task_t task) {
   if (m_page_size == kInvalidPageSize) {
@@ -72,6 +73,49 @@ nub_size_t MachVMMemory::MaxBytesLeftInPage(task_t task, nub_addr_t addr,
   return count;
 }
 
+#define MAX_STACK_ALLOC_DISPOSITIONS                                           \
+  (16 * 1024 / sizeof(int)) // 16K of allocations
+
+std::vector<nub_addr_t> get_dirty_pages(task_t task, mach_vm_address_t addr,
+                                        mach_vm_size_t size) {
+  std::vector<nub_addr_t> dirty_pages;
+
+  int pages_to_query = size / vm_page_size;
+  // Don't try to fetch too many pages' dispositions in a single call or we
+  // could blow our stack out.
+  mach_vm_size_t dispositions_size =
+      std::min(pages_to_query, (int)MAX_STACK_ALLOC_DISPOSITIONS);
+  int dispositions[dispositions_size];
+
+  mach_vm_size_t chunk_count =
+      ((pages_to_query + MAX_STACK_ALLOC_DISPOSITIONS - 1) /
+       MAX_STACK_ALLOC_DISPOSITIONS);
+
+  for (mach_vm_size_t cur_disposition_chunk = 0;
+       cur_disposition_chunk < chunk_count; cur_disposition_chunk++) {
+    mach_vm_size_t dispositions_already_queried =
+        cur_disposition_chunk * MAX_STACK_ALLOC_DISPOSITIONS;
+
+    mach_vm_size_t chunk_pages_to_query = std::min(
+        pages_to_query - dispositions_already_queried, dispositions_size);
+    mach_vm_address_t chunk_page_aligned_start_addr =
+        addr + (dispositions_already_queried * vm_page_size);
+
+    kern_return_t kr = mach_vm_page_range_query(
+        task, chunk_page_aligned_start_addr,
+        chunk_pages_to_query * vm_page_size, (mach_vm_address_t)dispositions,
+        &chunk_pages_to_query);
+    if (kr != KERN_SUCCESS)
+      return dirty_pages;
+    for (mach_vm_size_t i = 0; i < chunk_pages_to_query; i++) {
+      uint64_t dirty_addr = chunk_page_aligned_start_addr + (i * vm_page_size);
+      if (dispositions[i] & VM_PAGE_QUERY_PAGE_DIRTY)
+        dirty_pages.push_back(dirty_addr);
+    }
+  }
+  return dirty_pages;
+}
+
 nub_bool_t MachVMMemory::GetMemoryRegionInfo(task_t task, nub_addr_t address,
                                              DNBRegionInfo *region_info) {
   MachVMRegion vmRegion(task);
@@ -80,6 +124,10 @@ nub_bool_t MachVMMemory::GetMemoryRegionInfo(task_t task, nub_addr_t address,
     region_info->addr = vmRegion.StartAddress();
     region_info->size = vmRegion.GetByteSize();
     region_info->permissions = vmRegion.GetDNBPermissions();
+    region_info->flags = vmRegion.GetFlags();
+    region_info->dirty_pages =
+        get_dirty_pages(task, vmRegion.StartAddress(), vmRegion.GetByteSize());
+    region_info->vm_types = vmRegion.GetMemoryTypes();
   } else {
     region_info->addr = address;
     region_info->size = 0;
@@ -101,6 +149,63 @@ nub_bool_t MachVMMemory::GetMemoryRegionInfo(task_t task, nub_addr_t address,
     // Not readable, writeable or executable
     region_info->permissions = 0;
   }
+  return true;
+}
+
+// API availability:
+//  mach_vm_update_pointers_with_remote_tags() - 26.0
+//  VM_OFFSET_LIST_MAX macro - 26.1
+#ifndef VM_OFFSET_LIST_MAX
+#define VM_OFFSET_LIST_MAX 512
+#endif
+using mach_vm_offset_list_t = mach_vm_offset_t *;
+using mach_vm_update_pointers_with_remote_tags_t = kern_return_t(
+    mach_port_name_t target, mach_vm_offset_list_t in_pointer_list,
+    mach_msg_type_number_t in_pointer_listCnt,
+    mach_vm_offset_list_t out_pointer_list,
+    mach_msg_type_number_t *out_pointer_listCnt);
+
+nub_bool_t MachVMMemory::GetMemoryTags(task_t task, nub_addr_t address,
+                                       nub_size_t size,
+                                       std::vector<uint8_t> &tags) {
+  static auto mach_vm_update_pointers_with_remote_tags =
+      (mach_vm_update_pointers_with_remote_tags_t *)dlsym(
+          RTLD_DEFAULT, "mach_vm_update_pointers_with_remote_tags");
+  assert(mach_vm_update_pointers_with_remote_tags);
+
+  // Max batch size supported by mach_vm_update_pointers_with_remote_tags.
+  constexpr uint32_t max_ptr_count = VM_OFFSET_LIST_MAX;
+  constexpr uint32_t tag_shift = 56;
+  constexpr nub_addr_t tag_mask =
+      ((nub_addr_t)0x0f << tag_shift); // Lower half of top byte.
+  constexpr uint32_t tag_granule = 16;
+
+  mach_msg_type_number_t ptr_count =
+      (size / tag_granule) + ((size % tag_granule > 0) ? 1 : 0);
+  ptr_count = std::min(ptr_count, max_ptr_count);
+
+  auto ptr_arr = std::make_unique<mach_vm_offset_t[]>(ptr_count);
+  for (size_t i = 0; i < ptr_count; i++)
+    ptr_arr[i] = (address + i * tag_granule);
+
+  mach_msg_type_number_t ptr_count_out = ptr_count;
+  m_err = mach_vm_update_pointers_with_remote_tags(
+      task, ptr_arr.get(), ptr_count, ptr_arr.get(), &ptr_count_out);
+
+  const bool failed = (m_err.Fail() || (ptr_count != ptr_count_out));
+  if (failed || DNBLogCheckLogBit(LOG_MEMORY))
+    m_err.LogThreaded("::mach_vm_update_pointers_with_remote_tags ( task = "
+                      "0x%4.4x, ptr_count = %d ) => %i ( ptr_count_out = %d)",
+                      task, ptr_count, m_err.Status(), ptr_count_out);
+  if (failed)
+    return false;
+
+  tags.reserve(ptr_count);
+  for (size_t i = 0; i < ptr_count; i++) {
+    nub_addr_t tag = (ptr_arr[i] & tag_mask) >> tag_shift;
+    tags.push_back(tag);
+  }
+
   return true;
 }
 

@@ -16,8 +16,16 @@
 
 #include "llvm-c/ExternC.h"
 #include "llvm-c/Types.h"
+#include "llvm-c/Visibility.h"
 
 LLVM_C_EXTERN_C_BEGIN
+
+/**
+ * @defgroup LLVMCCoreIRReader IR Reader
+ * @ingroup LLVMCCore
+ *
+ * @{
+ */
 
 /**
  * Read LLVM IR from a memory buffer and convert it into an in-memory Module
@@ -28,9 +36,14 @@ LLVM_C_EXTERN_C_BEGIN
  *
  * @see llvm::ParseIR()
  */
-LLVMBool LLVMParseIRInContext(LLVMContextRef ContextRef,
-                              LLVMMemoryBufferRef MemBuf, LLVMModuleRef *OutM,
-                              char **OutMessage);
+LLVM_C_ABI LLVMBool LLVMParseIRInContext(LLVMContextRef ContextRef,
+                                         LLVMMemoryBufferRef MemBuf,
+                                         LLVMModuleRef *OutM,
+                                         char **OutMessage);
+
+/**
+ * @}
+ */
 
 LLVM_C_EXTERN_C_END
 

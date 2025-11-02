@@ -28,7 +28,7 @@
 @i64_align4 = common global i64 0, align 4
 @i64_align8 = common global i64 0, align 8
 
-define void @store3align1(%struct.MemSize3_Align1* %S, i32 signext %a) {
+define void @store3align1(ptr %S, i32 signext %a) {
 ; MIPS32-LABEL: store3align1:
 ; MIPS32:       # %bb.0: # %entry
 ; MIPS32-NEXT:    sb $5, 0($4)
@@ -46,13 +46,12 @@ define void @store3align1(%struct.MemSize3_Align1* %S, i32 signext %a) {
 ; MIPS32R6-NEXT:    sb $1, 2($4)
 ; MIPS32R6-NEXT:    jrc $ra
 entry:
-  %0 = bitcast %struct.MemSize3_Align1* %S to i24*
-  %1 = trunc i32 %a to i24
-  store i24 %1, i24* %0, align 1
+  %0 = trunc i32 %a to i24
+  store i24 %0, ptr %S, align 1
   ret void
 }
 
-define void @store3align2(%struct.MemSize3_Align2* %S, i32 signext %a) {
+define void @store3align2(ptr %S, i32 signext %a) {
 ; MIPS32-LABEL: store3align2:
 ; MIPS32:       # %bb.0: # %entry
 ; MIPS32-NEXT:    sh $5, 0($4)
@@ -68,13 +67,12 @@ define void @store3align2(%struct.MemSize3_Align2* %S, i32 signext %a) {
 ; MIPS32R6-NEXT:    sb $1, 2($4)
 ; MIPS32R6-NEXT:    jrc $ra
 entry:
-  %0 = bitcast %struct.MemSize3_Align2* %S to i24*
-  %1 = trunc i32 %a to i24
-  store i24 %1, i24* %0, align 2
+  %0 = trunc i32 %a to i24
+  store i24 %0, ptr %S, align 2
   ret void
 }
 
-define void @store3align4(%struct.MemSize3_Align4* %S, i32 signext %a) {
+define void @store3align4(ptr %S, i32 signext %a) {
 ; MIPS32-LABEL: store3align4:
 ; MIPS32:       # %bb.0: # %entry
 ; MIPS32-NEXT:    sh $5, 0($4)
@@ -90,13 +88,12 @@ define void @store3align4(%struct.MemSize3_Align4* %S, i32 signext %a) {
 ; MIPS32R6-NEXT:    sb $1, 2($4)
 ; MIPS32R6-NEXT:    jrc $ra
 entry:
-  %0 = bitcast %struct.MemSize3_Align4* %S to i24*
-  %1 = trunc i32 %a to i24
-  store i24 %1, i24* %0, align 4
+  %0 = trunc i32 %a to i24
+  store i24 %0, ptr %S, align 4
   ret void
 }
 
-define void @store3align8(%struct.MemSize3_Align8* %S, i32 signext %a) {
+define void @store3align8(ptr %S, i32 signext %a) {
 ; MIPS32-LABEL: store3align8:
 ; MIPS32:       # %bb.0: # %entry
 ; MIPS32-NEXT:    sh $5, 0($4)
@@ -112,13 +109,12 @@ define void @store3align8(%struct.MemSize3_Align8* %S, i32 signext %a) {
 ; MIPS32R6-NEXT:    sb $1, 2($4)
 ; MIPS32R6-NEXT:    jrc $ra
 entry:
-  %0 = bitcast %struct.MemSize3_Align8* %S to i24*
-  %1 = trunc i32 %a to i24
-  store i24 %1, i24* %0, align 8
+  %0 = trunc i32 %a to i24
+  store i24 %0, ptr %S, align 8
   ret void
 }
 
-define void @store5align1(%struct.MemSize5_Align1* %S, i64 %a) {
+define void @store5align1(ptr %S, i64 %a) {
 ; MIPS32-LABEL: store5align1:
 ; MIPS32:       # %bb.0: # %entry
 ; MIPS32-NEXT:    swl $6, 3($4)
@@ -133,13 +129,12 @@ define void @store5align1(%struct.MemSize5_Align1* %S, i64 %a) {
 ; MIPS32R6-NEXT:    sb $7, 4($4)
 ; MIPS32R6-NEXT:    jrc $ra
 entry:
-  %0 = bitcast %struct.MemSize5_Align1* %S to i40*
-  %1 = trunc i64 %a to i40
-  store i40 %1, i40* %0, align 1
+  %0 = trunc i64 %a to i40
+  store i40 %0, ptr %S, align 1
   ret void
 }
 
-define void @store5align2(%struct.MemSize5_Align2* %S, i64 %a) {
+define void @store5align2(ptr %S, i64 %a) {
 ; MIPS32-LABEL: store5align2:
 ; MIPS32:       # %bb.0: # %entry
 ; MIPS32-NEXT:    swl $6, 3($4)
@@ -154,13 +149,12 @@ define void @store5align2(%struct.MemSize5_Align2* %S, i64 %a) {
 ; MIPS32R6-NEXT:    sb $7, 4($4)
 ; MIPS32R6-NEXT:    jrc $ra
 entry:
-  %0 = bitcast %struct.MemSize5_Align2* %S to i40*
-  %1 = trunc i64 %a to i40
-  store i40 %1, i40* %0, align 2
+  %0 = trunc i64 %a to i40
+  store i40 %0, ptr %S, align 2
   ret void
 }
 
-define void @store5align4(%struct.MemSize5_Align4* %S, i64 %a) {
+define void @store5align4(ptr %S, i64 %a) {
 ; MIPS32-LABEL: store5align4:
 ; MIPS32:       # %bb.0: # %entry
 ; MIPS32-NEXT:    sw $6, 0($4)
@@ -174,13 +168,12 @@ define void @store5align4(%struct.MemSize5_Align4* %S, i64 %a) {
 ; MIPS32R6-NEXT:    sb $7, 4($4)
 ; MIPS32R6-NEXT:    jrc $ra
 entry:
-  %0 = bitcast %struct.MemSize5_Align4* %S to i40*
-  %1 = trunc i64 %a to i40
-  store i40 %1, i40* %0, align 4
+  %0 = trunc i64 %a to i40
+  store i40 %0, ptr %S, align 4
   ret void
 }
 
-define void @store5align8(%struct.MemSize5_Align8* %S, i64 %a) {
+define void @store5align8(ptr %S, i64 %a) {
 ; MIPS32-LABEL: store5align8:
 ; MIPS32:       # %bb.0: # %entry
 ; MIPS32-NEXT:    sw $6, 0($4)
@@ -194,22 +187,21 @@ define void @store5align8(%struct.MemSize5_Align8* %S, i64 %a) {
 ; MIPS32R6-NEXT:    sb $7, 4($4)
 ; MIPS32R6-NEXT:    jrc $ra
 entry:
-  %0 = bitcast %struct.MemSize5_Align8* %S to i40*
-  %1 = trunc i64 %a to i40
-  store i40 %1, i40* %0, align 8
+  %0 = trunc i64 %a to i40
+  store i40 %0, ptr %S, align 8
   ret void
 }
 
-define void @store6align1(%struct.MemSize6_Align1* %S, i64 %a) {
+define void @store6align1(ptr %S, i64 %a) {
 ; MIPS32-LABEL: store6align1:
 ; MIPS32:       # %bb.0: # %entry
 ; MIPS32-NEXT:    ori $1, $zero, 4
-; MIPS32-NEXT:    addu $1, $4, $1
+; MIPS32-NEXT:    addu $2, $4, $1
 ; MIPS32-NEXT:    swl $6, 3($4)
 ; MIPS32-NEXT:    swr $6, 0($4)
 ; MIPS32-NEXT:    sb $7, 4($4)
-; MIPS32-NEXT:    srl $2, $7, 8
-; MIPS32-NEXT:    sb $2, 1($1)
+; MIPS32-NEXT:    srl $1, $7, 8
+; MIPS32-NEXT:    sb $1, 1($2)
 ; MIPS32-NEXT:    jr $ra
 ; MIPS32-NEXT:    nop
 ;
@@ -219,13 +211,12 @@ define void @store6align1(%struct.MemSize6_Align1* %S, i64 %a) {
 ; MIPS32R6-NEXT:    sh $7, 4($4)
 ; MIPS32R6-NEXT:    jrc $ra
 entry:
-  %0 = bitcast %struct.MemSize6_Align1* %S to i48*
-  %1 = trunc i64 %a to i48
-  store i48 %1, i48* %0, align 1
+  %0 = trunc i64 %a to i48
+  store i48 %0, ptr %S, align 1
   ret void
 }
 
-define void @store6align2(%struct.MemSize6_Align2* %S, i64 %a) {
+define void @store6align2(ptr %S, i64 %a) {
 ; MIPS32-LABEL: store6align2:
 ; MIPS32:       # %bb.0: # %entry
 ; MIPS32-NEXT:    swl $6, 3($4)
@@ -240,13 +231,12 @@ define void @store6align2(%struct.MemSize6_Align2* %S, i64 %a) {
 ; MIPS32R6-NEXT:    sh $7, 4($4)
 ; MIPS32R6-NEXT:    jrc $ra
 entry:
-  %0 = bitcast %struct.MemSize6_Align2* %S to i48*
-  %1 = trunc i64 %a to i48
-  store i48 %1, i48* %0, align 2
+  %0 = trunc i64 %a to i48
+  store i48 %0, ptr %S, align 2
   ret void
 }
 
-define void @store6align4(%struct.MemSize6_Align4* %S, i64 %a) {
+define void @store6align4(ptr %S, i64 %a) {
 ; MIPS32-LABEL: store6align4:
 ; MIPS32:       # %bb.0: # %entry
 ; MIPS32-NEXT:    sw $6, 0($4)
@@ -260,13 +250,12 @@ define void @store6align4(%struct.MemSize6_Align4* %S, i64 %a) {
 ; MIPS32R6-NEXT:    sh $7, 4($4)
 ; MIPS32R6-NEXT:    jrc $ra
 entry:
-  %0 = bitcast %struct.MemSize6_Align4* %S to i48*
-  %1 = trunc i64 %a to i48
-  store i48 %1, i48* %0, align 4
+  %0 = trunc i64 %a to i48
+  store i48 %0, ptr %S, align 4
   ret void
 }
 
-define void @store6align8(%struct.MemSize6_Align8* %S, i64 %a) {
+define void @store6align8(ptr %S, i64 %a) {
 ; MIPS32-LABEL: store6align8:
 ; MIPS32:       # %bb.0: # %entry
 ; MIPS32-NEXT:    sw $6, 0($4)
@@ -280,125 +269,120 @@ define void @store6align8(%struct.MemSize6_Align8* %S, i64 %a) {
 ; MIPS32R6-NEXT:    sh $7, 4($4)
 ; MIPS32R6-NEXT:    jrc $ra
 entry:
-  %0 = bitcast %struct.MemSize6_Align8* %S to i48*
-  %1 = trunc i64 %a to i48
-  store i48 %1, i48* %0, align 8
+  %0 = trunc i64 %a to i48
+  store i48 %0, ptr %S, align 8
   ret void
 }
 
-define void @store7align1(%struct.MemSize7_Align1* %S, i64 %a) {
+define void @store7align1(ptr %S, i64 %a) {
 ; MIPS32-LABEL: store7align1:
 ; MIPS32:       # %bb.0: # %entry
 ; MIPS32-NEXT:    ori $1, $zero, 4
-; MIPS32-NEXT:    addu $1, $4, $1
+; MIPS32-NEXT:    addu $2, $4, $1
 ; MIPS32-NEXT:    swl $6, 3($4)
 ; MIPS32-NEXT:    swr $6, 0($4)
 ; MIPS32-NEXT:    sb $7, 4($4)
-; MIPS32-NEXT:    srl $2, $7, 8
-; MIPS32-NEXT:    sb $2, 1($1)
-; MIPS32-NEXT:    srl $2, $7, 16
-; MIPS32-NEXT:    sb $2, 2($1)
+; MIPS32-NEXT:    srl $1, $7, 8
+; MIPS32-NEXT:    sb $1, 1($2)
+; MIPS32-NEXT:    srl $1, $7, 16
+; MIPS32-NEXT:    sb $1, 2($2)
 ; MIPS32-NEXT:    jr $ra
 ; MIPS32-NEXT:    nop
 ;
 ; MIPS32R6-LABEL: store7align1:
 ; MIPS32R6:       # %bb.0: # %entry
 ; MIPS32R6-NEXT:    ori $1, $zero, 4
-; MIPS32R6-NEXT:    addu $1, $4, $1
+; MIPS32R6-NEXT:    addu $2, $4, $1
 ; MIPS32R6-NEXT:    sw $6, 0($4)
 ; MIPS32R6-NEXT:    sh $7, 4($4)
-; MIPS32R6-NEXT:    srl $2, $7, 16
-; MIPS32R6-NEXT:    sb $2, 2($1)
+; MIPS32R6-NEXT:    srl $1, $7, 16
+; MIPS32R6-NEXT:    sb $1, 2($2)
 ; MIPS32R6-NEXT:    jrc $ra
 entry:
-  %0 = bitcast %struct.MemSize7_Align1* %S to i56*
-  %1 = trunc i64 %a to i56
-  store i56 %1, i56* %0, align 1
+  %0 = trunc i64 %a to i56
+  store i56 %0, ptr %S, align 1
   ret void
 }
 
-define void @store7align2(%struct.MemSize7_Align2* %S, i64 %a) {
+define void @store7align2(ptr %S, i64 %a) {
 ; MIPS32-LABEL: store7align2:
 ; MIPS32:       # %bb.0: # %entry
 ; MIPS32-NEXT:    ori $1, $zero, 4
-; MIPS32-NEXT:    addu $1, $4, $1
+; MIPS32-NEXT:    addu $2, $4, $1
 ; MIPS32-NEXT:    swl $6, 3($4)
 ; MIPS32-NEXT:    swr $6, 0($4)
 ; MIPS32-NEXT:    sh $7, 4($4)
-; MIPS32-NEXT:    srl $2, $7, 16
-; MIPS32-NEXT:    sb $2, 2($1)
+; MIPS32-NEXT:    srl $1, $7, 16
+; MIPS32-NEXT:    sb $1, 2($2)
 ; MIPS32-NEXT:    jr $ra
 ; MIPS32-NEXT:    nop
 ;
 ; MIPS32R6-LABEL: store7align2:
 ; MIPS32R6:       # %bb.0: # %entry
 ; MIPS32R6-NEXT:    ori $1, $zero, 4
-; MIPS32R6-NEXT:    addu $1, $4, $1
+; MIPS32R6-NEXT:    addu $2, $4, $1
 ; MIPS32R6-NEXT:    sw $6, 0($4)
 ; MIPS32R6-NEXT:    sh $7, 4($4)
-; MIPS32R6-NEXT:    srl $2, $7, 16
-; MIPS32R6-NEXT:    sb $2, 2($1)
+; MIPS32R6-NEXT:    srl $1, $7, 16
+; MIPS32R6-NEXT:    sb $1, 2($2)
 ; MIPS32R6-NEXT:    jrc $ra
 entry:
-  %0 = bitcast %struct.MemSize7_Align2* %S to i56*
-  %1 = trunc i64 %a to i56
-  store i56 %1, i56* %0, align 2
+  %0 = trunc i64 %a to i56
+  store i56 %0, ptr %S, align 2
   ret void
 }
 
-define void @store7align4(%struct.MemSize7_Align4* %S, i64 %a) {
+define void @store7align4(ptr %S, i64 %a) {
 ; MIPS32-LABEL: store7align4:
 ; MIPS32:       # %bb.0: # %entry
 ; MIPS32-NEXT:    ori $1, $zero, 4
-; MIPS32-NEXT:    addu $1, $4, $1
+; MIPS32-NEXT:    addu $2, $4, $1
 ; MIPS32-NEXT:    sw $6, 0($4)
 ; MIPS32-NEXT:    sh $7, 4($4)
-; MIPS32-NEXT:    srl $2, $7, 16
-; MIPS32-NEXT:    sb $2, 2($1)
+; MIPS32-NEXT:    srl $1, $7, 16
+; MIPS32-NEXT:    sb $1, 2($2)
 ; MIPS32-NEXT:    jr $ra
 ; MIPS32-NEXT:    nop
 ;
 ; MIPS32R6-LABEL: store7align4:
 ; MIPS32R6:       # %bb.0: # %entry
 ; MIPS32R6-NEXT:    ori $1, $zero, 4
-; MIPS32R6-NEXT:    addu $1, $4, $1
+; MIPS32R6-NEXT:    addu $2, $4, $1
 ; MIPS32R6-NEXT:    sw $6, 0($4)
 ; MIPS32R6-NEXT:    sh $7, 4($4)
-; MIPS32R6-NEXT:    srl $2, $7, 16
-; MIPS32R6-NEXT:    sb $2, 2($1)
+; MIPS32R6-NEXT:    srl $1, $7, 16
+; MIPS32R6-NEXT:    sb $1, 2($2)
 ; MIPS32R6-NEXT:    jrc $ra
 entry:
-  %0 = bitcast %struct.MemSize7_Align4* %S to i56*
-  %1 = trunc i64 %a to i56
-  store i56 %1, i56* %0, align 4
+  %0 = trunc i64 %a to i56
+  store i56 %0, ptr %S, align 4
   ret void
 }
 
-define void @store7align8(%struct.MemSize7_Align8* %S, i64 %a) {
+define void @store7align8(ptr %S, i64 %a) {
 ; MIPS32-LABEL: store7align8:
 ; MIPS32:       # %bb.0: # %entry
 ; MIPS32-NEXT:    ori $1, $zero, 4
-; MIPS32-NEXT:    addu $1, $4, $1
+; MIPS32-NEXT:    addu $2, $4, $1
 ; MIPS32-NEXT:    sw $6, 0($4)
 ; MIPS32-NEXT:    sh $7, 4($4)
-; MIPS32-NEXT:    srl $2, $7, 16
-; MIPS32-NEXT:    sb $2, 2($1)
+; MIPS32-NEXT:    srl $1, $7, 16
+; MIPS32-NEXT:    sb $1, 2($2)
 ; MIPS32-NEXT:    jr $ra
 ; MIPS32-NEXT:    nop
 ;
 ; MIPS32R6-LABEL: store7align8:
 ; MIPS32R6:       # %bb.0: # %entry
 ; MIPS32R6-NEXT:    ori $1, $zero, 4
-; MIPS32R6-NEXT:    addu $1, $4, $1
+; MIPS32R6-NEXT:    addu $2, $4, $1
 ; MIPS32R6-NEXT:    sw $6, 0($4)
 ; MIPS32R6-NEXT:    sh $7, 4($4)
-; MIPS32R6-NEXT:    srl $2, $7, 16
-; MIPS32R6-NEXT:    sb $2, 2($1)
+; MIPS32R6-NEXT:    srl $1, $7, 16
+; MIPS32R6-NEXT:    sb $1, 2($2)
 ; MIPS32R6-NEXT:    jrc $ra
 entry:
-  %0 = bitcast %struct.MemSize7_Align8* %S to i56*
-  %1 = trunc i64 %a to i56
-  store i56 %1, i56* %0, align 8
+  %0 = trunc i64 %a to i56
+  store i56 %0, ptr %S, align 8
   ret void
 }
 
@@ -406,13 +390,13 @@ define void @store_double_align1(double %a) {
 ; MIPS32-LABEL: store_double_align1:
 ; MIPS32:       # %bb.0: # %entry
 ; MIPS32-NEXT:    lui $1, %hi(double_align1)
-; MIPS32-NEXT:    addiu $1, $1, %lo(double_align1)
-; MIPS32-NEXT:    mfc1 $2, $f12
-; MIPS32-NEXT:    mfc1 $3, $f13
-; MIPS32-NEXT:    swl $2, 3($1)
-; MIPS32-NEXT:    swr $2, 0($1)
-; MIPS32-NEXT:    swl $3, 7($1)
-; MIPS32-NEXT:    swr $3, 4($1)
+; MIPS32-NEXT:    addiu $2, $1, %lo(double_align1)
+; MIPS32-NEXT:    mfc1 $3, $f12
+; MIPS32-NEXT:    mfc1 $1, $f13
+; MIPS32-NEXT:    swl $3, 3($2)
+; MIPS32-NEXT:    swr $3, 0($2)
+; MIPS32-NEXT:    swl $1, 7($2)
+; MIPS32-NEXT:    swr $1, 4($2)
 ; MIPS32-NEXT:    jr $ra
 ; MIPS32-NEXT:    nop
 ;
@@ -423,7 +407,7 @@ define void @store_double_align1(double %a) {
 ; MIPS32R6-NEXT:    sdc1 $f12, 0($1)
 ; MIPS32R6-NEXT:    jrc $ra
 entry:
-  store double %a, double* @double_align1, align 1
+  store double %a, ptr @double_align1, align 1
   ret void
 }
 
@@ -431,13 +415,13 @@ define void @store_double_align2(double %a) {
 ; MIPS32-LABEL: store_double_align2:
 ; MIPS32:       # %bb.0: # %entry
 ; MIPS32-NEXT:    lui $1, %hi(double_align2)
-; MIPS32-NEXT:    addiu $1, $1, %lo(double_align2)
-; MIPS32-NEXT:    mfc1 $2, $f12
-; MIPS32-NEXT:    mfc1 $3, $f13
-; MIPS32-NEXT:    swl $2, 3($1)
-; MIPS32-NEXT:    swr $2, 0($1)
-; MIPS32-NEXT:    swl $3, 7($1)
-; MIPS32-NEXT:    swr $3, 4($1)
+; MIPS32-NEXT:    addiu $2, $1, %lo(double_align2)
+; MIPS32-NEXT:    mfc1 $3, $f12
+; MIPS32-NEXT:    mfc1 $1, $f13
+; MIPS32-NEXT:    swl $3, 3($2)
+; MIPS32-NEXT:    swr $3, 0($2)
+; MIPS32-NEXT:    swl $1, 7($2)
+; MIPS32-NEXT:    swr $1, 4($2)
 ; MIPS32-NEXT:    jr $ra
 ; MIPS32-NEXT:    nop
 ;
@@ -448,7 +432,7 @@ define void @store_double_align2(double %a) {
 ; MIPS32R6-NEXT:    sdc1 $f12, 0($1)
 ; MIPS32R6-NEXT:    jrc $ra
 entry:
-  store double %a, double* @double_align2, align 2
+  store double %a, ptr @double_align2, align 2
   ret void
 }
 
@@ -456,11 +440,11 @@ define void @store_double_align4(double %a) {
 ; MIPS32-LABEL: store_double_align4:
 ; MIPS32:       # %bb.0: # %entry
 ; MIPS32-NEXT:    lui $1, %hi(double_align4)
-; MIPS32-NEXT:    addiu $1, $1, %lo(double_align4)
-; MIPS32-NEXT:    mfc1 $2, $f12
-; MIPS32-NEXT:    mfc1 $3, $f13
-; MIPS32-NEXT:    sw $2, 0($1)
-; MIPS32-NEXT:    sw $3, 4($1)
+; MIPS32-NEXT:    addiu $2, $1, %lo(double_align4)
+; MIPS32-NEXT:    mfc1 $3, $f12
+; MIPS32-NEXT:    mfc1 $1, $f13
+; MIPS32-NEXT:    sw $3, 0($2)
+; MIPS32-NEXT:    sw $1, 4($2)
 ; MIPS32-NEXT:    jr $ra
 ; MIPS32-NEXT:    nop
 ;
@@ -471,7 +455,7 @@ define void @store_double_align4(double %a) {
 ; MIPS32R6-NEXT:    sdc1 $f12, 0($1)
 ; MIPS32R6-NEXT:    jrc $ra
 entry:
-  store double %a, double* @double_align4, align 4
+  store double %a, ptr @double_align4, align 4
   ret void
 }
 
@@ -491,7 +475,7 @@ define void @store_double_align8(double %a) {
 ; MIPS32R6-NEXT:    sdc1 $f12, 0($1)
 ; MIPS32R6-NEXT:    jrc $ra
 entry:
-  store double %a, double* @double_align8, align 8
+  store double %a, ptr @double_align8, align 8
   ret void
 }
 
@@ -515,7 +499,7 @@ define void @store_i64_align1(i64 %a) {
 ; MIPS32R6-NEXT:    sw $5, 4($1)
 ; MIPS32R6-NEXT:    jrc $ra
 entry:
-  store i64 %a, i64* @i64_align1, align 1
+  store i64 %a, ptr @i64_align1, align 1
   ret void
 }
 
@@ -539,7 +523,7 @@ define void @store_i64_align2(i64 signext %a) {
 ; MIPS32R6-NEXT:    sw $5, 4($1)
 ; MIPS32R6-NEXT:    jrc $ra
 entry:
-  store i64 %a, i64* @i64_align2, align 2
+  store i64 %a, ptr @i64_align2, align 2
   ret void
 }
 
@@ -561,7 +545,7 @@ define void @store_i64_align4(i64 %a) {
 ; MIPS32R6-NEXT:    sw $5, 4($1)
 ; MIPS32R6-NEXT:    jrc $ra
 entry:
-  store i64 %a, i64* @i64_align4, align 4
+  store i64 %a, ptr @i64_align4, align 4
   ret void
 }
 
@@ -583,6 +567,6 @@ define void @store_i64_align8(i64 signext %a) {
 ; MIPS32R6-NEXT:    sw $5, 4($1)
 ; MIPS32R6-NEXT:    jrc $ra
 entry:
-  store i64 %a, i64* @i64_align8, align 8
+  store i64 %a, ptr @i64_align8, align 8
   ret void
 }

@@ -43,7 +43,7 @@ public:
   bool WriteRegister(const lldb_private::RegisterInfo *reg_info,
                      const lldb_private::RegisterValue &value) override;
 
-  bool ReadAllRegisterValues(lldb::DataBufferSP &data_sp) override;
+  bool ReadAllRegisterValues(lldb::WritableDataBufferSP &data_sp) override;
 
   bool WriteAllRegisterValues(const lldb::DataBufferSP &data_sp) override;
 
@@ -58,7 +58,9 @@ private:
 
   lldb::addr_t m_pc_value;
 
-  DISALLOW_COPY_AND_ASSIGN(RegisterContextHistory);
+  RegisterContextHistory(const RegisterContextHistory &) = delete;
+  const RegisterContextHistory &
+  operator=(const RegisterContextHistory &) = delete;
 };
 } // namespace lldb_private
 

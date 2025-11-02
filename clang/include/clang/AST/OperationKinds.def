@@ -77,9 +77,11 @@ CAST_OPERATION(LValueToRValueBitCast)
 CAST_OPERATION(LValueToRValue)
 
 /// CK_NoOp - A conversion which does not affect the type other than
-/// (possibly) adding qualifiers.
+/// (possibly) adding qualifiers or removing noexcept.
 ///   int    -> int
 ///   char** -> const char * const *
+///   int[1] -> int[]
+///   void () noexcept -> void ()
 CAST_OPERATION(NoOp)
 
 /// CK_BaseToDerived - A conversion from a C++ class pointer/reference
@@ -117,7 +119,7 @@ CAST_OPERATION(ArrayToPointerDecay)
 CAST_OPERATION(FunctionToPointerDecay)
 
 /// CK_NullToPointer - Null pointer constant to pointer, ObjC
-/// pointer, or block pointer.
+/// pointer, block pointer, or std::nullptr_t.
 ///   (void*) 0
 ///   void (^block)() = 0;
 CAST_OPERATION(NullToPointer)
@@ -180,6 +182,9 @@ CAST_OPERATION(PointerToBoolean)
 ///    (void) malloc(2048)
 CAST_OPERATION(ToVoid)
 
+/// CK_MatrixCast - A cast between matrix types of the same dimensions.
+CAST_OPERATION(MatrixCast)
+
 /// CK_VectorSplat - A conversion from an arithmetic type to a
 /// vector of that element type.  Fills all elements ("splats") with
 /// the source value.
@@ -200,6 +205,14 @@ CAST_OPERATION(IntegralToBoolean)
 /// CK_IntegralToFloating - Integral to floating point.
 ///    float f = i;
 CAST_OPERATION(IntegralToFloating)
+
+/// CK_FloatingToFixedPoint - Floating to fixed point.
+///    _Accum a = f;
+CAST_OPERATION(FloatingToFixedPoint)
+
+/// CK_FixedPointToFloating - Fixed point to floating.
+///    (float) 2.5k
+CAST_OPERATION(FixedPointToFloating)
 
 /// CK_FixedPointCast - Fixed point to fixed point.
 ///    (_Accum) 0.5r
@@ -348,10 +361,22 @@ CAST_OPERATION(AddressSpaceConversion)
 // Convert an integer initializer to an OpenCL sampler.
 CAST_OPERATION(IntToOCLSampler)
 
+// Truncate a vector type by dropping elements from the end (HLSL only).
+CAST_OPERATION(HLSLVectorTruncation)
+
+// Non-decaying array RValue cast (HLSL only).
+CAST_OPERATION(HLSLArrayRValue)
+
+// Aggregate by Value cast (HLSL only).
+CAST_OPERATION(HLSLElementwiseCast)
+
+// Splat cast for Aggregates (HLSL only).
+CAST_OPERATION(HLSLAggregateSplatCast)
+
 //===- Binary Operations  -------------------------------------------------===//
 // Operators listed in order of precedence.
-// Note that additions to this should also update the StmtVisitor class and
-// BinaryOperator::getOverloadedOperator.
+// Note that additions to this should also update the StmtVisitor class,
+// BinaryOperator::getOverloadedOperator and CXBinaryOperatorKind enum.
 
 // [C++ 5.5] Pointer-to-member operators.
 BINARY_OPERATION(PtrMemD, ".*")
@@ -403,8 +428,8 @@ BINARY_OPERATION(Comma, ",")
 
 
 //===- Unary Operations ---------------------------------------------------===//
-// Note that additions to this should also update the StmtVisitor class and
-// UnaryOperator::getOverloadedOperator.
+// Note that additions to this should also update the StmtVisitor class,
+// UnaryOperator::getOverloadedOperator and CXUnaryOperatorKind enum.
 
 // [C99 6.5.2.4] Postfix increment and decrement
 UNARY_OPERATION(PostInc, "++")

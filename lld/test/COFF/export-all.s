@@ -4,13 +4,24 @@
 
 # RUN: lld-link -lldmingw -dll -out:%t.dll -entry:DllMainCRTStartup@12 %t.obj -implib:%t.lib
 # RUN: llvm-readobj --coff-exports %t.dll | grep Name: | FileCheck %s
+# RUN: llvm-readobj --coff-exports %t.dll | FileCheck %s --check-prefix=CHECK-RVA
 # RUN: llvm-readobj %t.lib | FileCheck -check-prefix=IMPLIB %s
 
-# CHECK: Name:
+# CHECK:      Name:
+# CHECK-SAME:       comdatFunc
 # CHECK-NEXT: Name: dataSym
 # CHECK-NEXT: Name: foobar
 # CHECK-EMPTY:
 
+# CHECK-RVA: Name: comdatFunc
+# CHECK-RVA-NEXT: RVA: 0x1003
+# CHECK-RVA: Name: dataSym
+# CHECK-RVA-NEXT: RVA: 0x3000
+# CHECK-RVA: Name: foobar
+# CHECK-RVA-NEXT: RVA: 0x1001
+
+# IMPLIB: Symbol: __imp__comdatFunc
+# IMPLIB: Symbol: _comdatFunc
 # IMPLIB: Symbol: __imp__dataSym
 # IMPLIB-NOT: Symbol: _dataSym
 # IMPLIB: Symbol: __imp__foobar
@@ -22,12 +33,16 @@
 .global _unexported
 .global __imp__unexported
 .global .refptr._foobar
+.global _comdatFunc
 .text
 _DllMainCRTStartup@12:
   ret
 _foobar:
   ret
 _unexported:
+  ret
+.section .text$_comdatFunc,"xr",one_only,_comdatFunc
+_comdatFunc:
   ret
 .data
 _dataSym:
@@ -40,10 +55,14 @@ __imp__unexported:
 # Test specifying -export-all-symbols, on an object file that contains
 # dllexport directive for some of the symbols.
 
-# RUN: yaml2obj < %p/Inputs/export.yaml > %t.obj
+# RUN: yaml2obj %p/Inputs/export.yaml -o %t.obj
 #
 # RUN: lld-link -safeseh:no -out:%t.dll -dll %t.obj -lldmingw -export-all-symbols -output-def:%t.def
 # RUN: llvm-readobj --coff-exports %t.dll | FileCheck -check-prefix=CHECK2 %s
+# RUN: cat %t.def | FileCheck -check-prefix=CHECK2-DEF %s
+
+# RUN: lld-link -safeseh:no -out:%t.exe %t.obj -lldmingw -export-all-symbols -output-def:%t.def -entry:_DllMainCRTStartup
+# RUN: llvm-readobj --coff-exports %t.exe | FileCheck -check-prefix=CHECK2 %s
 # RUN: cat %t.def | FileCheck -check-prefix=CHECK2-DEF %s
 
 # Note, this will actually export _DllMainCRTStartup as well, since
@@ -62,14 +81,14 @@ __imp__unexported:
 
 # RUN: echo -e ".global foobar\n.global DllMainCRTStartup\n.text\nDllMainCRTStartup:\nret\nfoobar:\ncall mingwfunc\ncall crtfunc\nret\n" > %t.main.s
 # RUN: llvm-mc -triple=x86_64-windows-gnu %t.main.s -filetype=obj -o %t.main.obj
-# RUN: mkdir -p %T/libs
-# RUN: echo -e ".global mingwfunc\n.text\nmingwfunc:\nret\n" > %T/libs/mingwfunc.s
-# RUN: llvm-mc -triple=x86_64-windows-gnu %T/libs/mingwfunc.s -filetype=obj -o %T/libs/mingwfunc.o
-# RUN: rm -f %T/libs/libmingwex.a
-# RUN: llvm-ar rcs %T/libs/libmingwex.a %T/libs/mingwfunc.o
-# RUN: echo -e ".global crtfunc\n.text\ncrtfunc:\nret\n" > %T/libs/crtfunc.s
-# RUN: llvm-mc -triple=x86_64-windows-gnu %T/libs/crtfunc.s -filetype=obj -o %T/libs/crt2.o
-# RUN: lld-link -safeseh:no -out:%t.dll -dll -entry:DllMainCRTStartup %t.main.obj -lldmingw %T/libs/crt2.o %T/libs/libmingwex.a -output-def:%t.def
+# RUN: mkdir -p %t.dir/libs
+# RUN: echo -e ".global mingwfunc\n.text\nmingwfunc:\nret\n" > %t.dir/libs/mingwfunc.s
+# RUN: llvm-mc -triple=x86_64-windows-gnu %t.dir/libs/mingwfunc.s -filetype=obj -o %t.dir/libs/mingwfunc.o
+# RUN: rm -f %t.dir/libs/libmingwex.a
+# RUN: llvm-ar rcs %t.dir/libs/libmingwex.a %t.dir/libs/mingwfunc.o
+# RUN: echo -e ".global crtfunc\n.text\ncrtfunc:\nret\n" > %t.dir/libs/crtfunc.s
+# RUN: llvm-mc -triple=x86_64-windows-gnu %t.dir/libs/crtfunc.s -filetype=obj -o %t.dir/libs/crt2.o
+# RUN: lld-link -safeseh:no -out:%t.dll -dll -entry:DllMainCRTStartup %t.main.obj -lldmingw %t.dir/libs/crt2.o %t.dir/libs/libmingwex.a -output-def:%t.def
 # RUN: echo "EOF" >> %t.def
 # RUN: cat %t.def | FileCheck -check-prefix=CHECK-EXCLUDE %s
 
@@ -80,7 +99,7 @@ __imp__unexported:
 # Test that libraries included with -wholearchive: are autoexported, even if
 # they are in a library that otherwise normally would be excluded.
 
-# RUN: lld-link -safeseh:no -out:%t.dll -dll -entry:DllMainCRTStartup %t.main.obj -lldmingw %T/libs/crt2.o -wholearchive:%T/libs/libmingwex.a -output-def:%t.def
+# RUN: lld-link -safeseh:no -out:%t.dll -dll -entry:DllMainCRTStartup %t.main.obj -lldmingw %t.dir/libs/crt2.o -wholearchive:%t.dir/libs/libmingwex.a -output-def:%t.def
 # RUN: echo "EOF" >> %t.def
 # RUN: cat %t.def | FileCheck -check-prefix=CHECK-WHOLEARCHIVE %s
 
@@ -91,7 +110,7 @@ __imp__unexported:
 
 # Test that we handle import libraries together with -opt:noref.
 
-# RUN: yaml2obj < %p/Inputs/hello32.yaml > %t.obj
+# RUN: yaml2obj %p/Inputs/hello32.yaml -o %t.obj
 # RUN: lld-link -lldmingw -dll -out:%t.dll -entry:main@0 %t.obj -implib:%t.lib -opt:noref %p/Inputs/std32.lib -output-def:%t.def
 # RUN: echo "EOF" >> %t.def
 # RUN: cat %t.def | FileCheck -check-prefix=CHECK-IMPLIB %s

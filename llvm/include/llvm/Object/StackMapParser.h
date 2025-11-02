@@ -6,11 +6,12 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_CODEGEN_STACKMAPPARSER_H
-#define LLVM_CODEGEN_STACKMAPPARSER_H
+#ifndef LLVM_OBJECT_STACKMAPPARSER_H
+#define LLVM_OBJECT_STACKMAPPARSER_H
 
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/iterator_range.h"
+#include "llvm/Object/ELF.h"
 #include "llvm/Support/Endian.h"
 #include <cassert>
 #include <cstddef>
@@ -20,8 +21,7 @@
 namespace llvm {
 
 /// A parser for the latest stackmap format.  At the moment, latest=V3.
-template <support::endianness Endianness>
-class StackMapParser {
+template <llvm::endianness Endianness> class StackMapParser {
 public:
   template <typename AccessorT>
   class AccessorIterator {
@@ -35,11 +35,13 @@ public:
       return tmp;
     }
 
-    bool operator==(const AccessorIterator &Other) {
+    bool operator==(const AccessorIterator &Other) const {
       return A.P == Other.A.P;
     }
 
-    bool operator!=(const AccessorIterator &Other) { return !(*this == Other); }
+    bool operator!=(const AccessorIterator &Other) const {
+      return !(*this == Other);
+    }
 
     AccessorT& operator*() { return A; }
     AccessorT* operator->() { return &A; }
@@ -318,6 +320,23 @@ public:
     }
   }
 
+  /// Validates the header of the specified stack map section.
+  static Error validateHeader(ArrayRef<uint8_t> StackMapSection) {
+    // See the comment for StackMaps::emitStackmapHeader().
+    if (StackMapSection.size() < 16)
+      return object::createError(
+          "the stack map section size (" + Twine(StackMapSection.size()) +
+          ") is less than the minimum possible size of its header (16)");
+
+    unsigned Version = StackMapSection[0];
+    if (Version != 3)
+      return object::createError(
+          "the version (" + Twine(Version) +
+          ") of the stack map section is unsupported, the "
+          "supported version is 3");
+    return Error::success();
+  }
+
   using function_iterator = AccessorIterator<FunctionAccessor>;
   using constant_iterator = AccessorIterator<ConstantAccessor>;
   using record_iterator = AccessorIterator<RecordAccessor>;
@@ -417,7 +436,7 @@ public:
 private:
   template <typename T>
   static T read(const uint8_t *P) {
-    return support::endian::read<T, Endianness, 1>(P);
+    return support::endian::read<T, Endianness>(P);
   }
 
   static const unsigned HeaderOffset = 0;
@@ -444,4 +463,4 @@ private:
 
 } // end namespace llvm
 
-#endif // LLVM_CODEGEN_STACKMAPPARSER_H
+#endif // LLVM_OBJECT_STACKMAPPARSER_H

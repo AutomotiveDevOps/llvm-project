@@ -6,7 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-// UNSUPPORTED: c++98, c++03, c++11, c++14
+// UNSUPPORTED: c++03, c++11, c++14
 // <optional>
 
 // template <class T, class U> constexpr bool operator==(const optional<T>& x, const optional<U>& y);
@@ -15,7 +15,21 @@
 #include <type_traits>
 #include <cassert>
 
+#include "test_comparisons.h"
 #include "test_macros.h"
+
+#if TEST_STD_VER >= 26
+
+// Test SFINAE.
+
+static_assert(HasOperatorEqual<std::optional<int>>);
+static_assert(HasOperatorEqual<std::optional<EqualityComparable>>);
+static_assert(HasOperatorEqual<std::optional<EqualityComparable>, std::optional<int>>);
+
+static_assert(!HasOperatorEqual<std::optional<NonComparable>>);
+static_assert(!HasOperatorEqual<std::optional<EqualityComparable>, std::optional<NonComparable>>);
+
+#endif
 
 using std::optional;
 

@@ -23,12 +23,15 @@ class InputArgList;
 namespace lld {
 namespace args {
 
-llvm::CodeGenOpt::Level getCGOptLevel(int optLevelLTO);
+int getCGOptLevel(int optLevelLTO);
 
 int64_t getInteger(llvm::opt::InputArgList &args, unsigned key,
                    int64_t Default);
 
-std::vector<StringRef> getStrings(llvm::opt::InputArgList &args, int id);
+int64_t getHex(llvm::opt::InputArgList &args, unsigned key, int64_t Default);
+
+llvm::SmallVector<StringRef, 0> getStrings(llvm::opt::InputArgList &args,
+                                           int id);
 
 uint64_t getZOptionValue(llvm::opt::InputArgList &args, int id, StringRef key,
                          uint64_t Default);

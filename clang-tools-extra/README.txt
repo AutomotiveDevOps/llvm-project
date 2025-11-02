@@ -7,16 +7,14 @@ that are developed as part of the LLVM compiler infrastructure project and the
 Clang frontend.  These tools are kept in a separate "extra" repository to
 allow lighter weight checkouts of the core Clang codebase.
 
-This repository is only intended to be checked out inside of a full LLVM+Clang
-tree, and in the 'tools/extra' subdirectory of the Clang checkout.
-
 All discussion regarding Clang, Clang-based tools, and code in this repository
-should be held using the standard Clang mailing lists:
-  http://lists.llvm.org/mailman/listinfo/cfe-dev
+should be held using the standard Clang forums:
+  https://discourse.llvm.org/c/clang
+  https://discourse.llvm.org/c/clang/clang-tidy/71
+  https://discourse.llvm.org/c/clang/clangd/34
 
-Code review for this tree should take place on the standard Clang patch and
-commit lists:
-  http://lists.llvm.org/mailman/listinfo/cfe-commits
+Code review for this tree should take place on Github:
+  https://github.com/llvm/llvm-project/pulls?q=label%3Aclang-tools-extra
 
 If you find a bug in these tools, please file it in the LLVM bug tracker:
-  http://llvm.org/bugs/
+  https://github.com/llvm/llvm-project/issues/

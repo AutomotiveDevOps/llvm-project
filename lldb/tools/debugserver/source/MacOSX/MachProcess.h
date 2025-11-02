@@ -16,6 +16,7 @@
 #include <CoreFoundation/CoreFoundation.h>
 #include <mach-o/loader.h>
 #include <mach/mach.h>
+#include <optional>
 #include <pthread.h>
 #include <sys/signal.h>
 #include <uuid/uuid.h>
@@ -33,7 +34,7 @@
 #include "MachVMMemory.h"
 #include "PThreadCondition.h"
 #include "PThreadEvent.h"
-#include "PThreadMutex.h"
+#include "RNBContext.h"
 #include "ThreadInfo.h"
 
 class DNBThreadResumeActions;
@@ -70,31 +71,39 @@ public:
   struct binary_image_information {
     std::string filename;
     uint64_t load_address;
-    uint64_t mod_date; // may not be available - 0 if so
     struct mach_o_information macho_info;
+    bool is_valid_mach_header;
 
     binary_image_information()
-        : filename(), load_address(INVALID_NUB_ADDRESS), mod_date(0) {}
+        : filename(), load_address(INVALID_NUB_ADDRESS),
+          is_valid_mach_header(false) {}
   };
 
   // Child process control
-  pid_t AttachForDebug(pid_t pid, char *err_str, size_t err_len);
+  pid_t AttachForDebug(pid_t pid,
+                       const RNBContext::IgnoredExceptions &ignored_exceptions,
+                       char *err_str,
+                       size_t err_len);
   pid_t LaunchForDebug(const char *path, char const *argv[], char const *envp[],
                        const char *working_directory, const char *stdin_path,
                        const char *stdout_path, const char *stderr_path,
                        bool no_stdio, nub_launch_flavor_t launch_flavor,
-                       int disable_aslr, const char *event_data, DNBError &err);
+                       int disable_aslr, const char *event_data,
+                       const RNBContext::IgnoredExceptions &ignored_exceptions,
+                       DNBError &err);
 
   static uint32_t GetCPUTypeForLocalProcess(pid_t pid);
   static pid_t ForkChildForPTraceDebugging(const char *path, char const *argv[],
                                            char const *envp[],
                                            MachProcess *process, DNBError &err);
   static pid_t PosixSpawnChildForPTraceDebugging(
-      const char *path, cpu_type_t cpu_type, char const *argv[],
-      char const *envp[], const char *working_directory, const char *stdin_path,
-      const char *stdout_path, const char *stderr_path, bool no_stdio,
-      MachProcess *process, int disable_aslr, DNBError &err);
+      const char *path, cpu_type_t cpu_type, cpu_subtype_t cpu_subtype,
+      char const *argv[], char const *envp[], const char *working_directory,
+      const char *stdin_path, const char *stdout_path, const char *stderr_path,
+      bool no_stdio, MachProcess *process, int disable_aslr, DNBError &err);
   nub_addr_t GetDYLDAllImageInfosAddress();
+  std::optional<std::pair<cpu_type_t, cpu_subtype_t>>
+  GetMainBinaryCPUTypes(nub_process_t pid);
   static const void *PrepareForAttach(const char *path,
                                       nub_launch_flavor_t launch_flavor,
                                       bool waitfor, DNBError &err_str);
@@ -108,6 +117,7 @@ public:
                                    char const *argv[], char const *envp[],
                                    bool no_stdio, bool disable_aslr,
                                    const char *event_data,
+                                   const RNBContext::IgnoredExceptions &ignored_exceptions,
                                    DNBError &launch_err);
   pid_t BoardServiceForkChildForPTraceDebugging(
       const char *path, char const *argv[], char const *envp[], bool no_stdio,
@@ -117,6 +127,11 @@ public:
   static bool GetOSVersionNumbers(uint64_t *major, uint64_t *minor,
                                   uint64_t *patch);
   static std::string GetMacCatalystVersionString();
+
+  static nub_process_t GetParentProcessID(nub_process_t child_pid);
+
+  static bool ProcessIsBeingDebugged(nub_process_t pid);
+
 #ifdef WITH_BKS
   static void BKSCleanupAfterAttach(const void *attach_token,
                                     DNBError &err_str);
@@ -128,7 +143,7 @@ public:
 #ifdef WITH_SPRINGBOARD
   pid_t SBLaunchForDebug(const char *app_bundle_path, char const *argv[],
                          char const *envp[], bool no_stdio, bool disable_aslr,
-                         DNBError &launch_err);
+                         bool unmask_signals, DNBError &launch_err);
   static pid_t SBForkChildForPTraceDebugging(const char *path,
                                              char const *argv[],
                                              char const *envp[], bool no_stdio,
@@ -230,24 +245,44 @@ public:
                          uint64_t plo_pthread_tsd_base_address_offset,
                          uint64_t plo_pthread_tsd_base_offset,
                          uint64_t plo_pthread_tsd_entry_size);
-  const char *
-  GetDeploymentInfo(const struct load_command&, uint64_t load_command_address,
-                    uint32_t& major_version, uint32_t& minor_version,
-                    uint32_t& patch_version);
+
+  struct DeploymentInfo {
+    DeploymentInfo() = default;
+    operator bool() { return platform > 0; }
+    /// The Mach-O platform type;
+    unsigned char platform = 0;
+    uint32_t major_version = 0;
+    uint32_t minor_version = 0;
+    uint32_t patch_version = 0;
+  };
+  DeploymentInfo GetDeploymentInfo(const struct load_command &,
+                                   uint64_t load_command_address,
+                                   bool is_executable);
+  static std::optional<std::string> GetPlatformString(unsigned char platform);
   bool GetMachOInformationFromMemory(uint32_t platform,
                                      nub_addr_t mach_o_header_addr,
                                      int wordsize,
                                      struct mach_o_information &inf);
   JSONGenerator::ObjectSP FormatDynamicLibrariesIntoJSON(
-      const std::vector<struct binary_image_information> &image_infos);
-  uint32_t GetAllLoadedBinariesViaDYLDSPI(
+      const std::vector<struct binary_image_information> &image_infos,
+      bool report_load_commands);
+  uint32_t GetPlatform();
+  /// Get the runtime platform from DYLD via SPI.
+  uint32_t GetProcessPlatformViaDYLDSPI();
+  /// Use the dyld SPI present in macOS 10.12, iOS 10, tvOS 10,
+  /// watchOS 3 and newer to get the load address, uuid, and filenames
+  /// of all the libraries.  This only fills in those three fields in
+  /// the 'struct binary_image_information' - call
+  /// GetMachOInformationFromMemory to fill in the mach-o header/load
+  /// command details.
+  void GetAllLoadedBinariesViaDYLDSPI(
       std::vector<struct binary_image_information> &image_infos);
-  JSONGenerator::ObjectSP GetLoadedDynamicLibrariesInfos(
-      nub_process_t pid, nub_addr_t image_list_address, nub_addr_t image_count);
   JSONGenerator::ObjectSP
   GetLibrariesInfoForAddresses(nub_process_t pid,
                                std::vector<uint64_t> &macho_addresses);
-  JSONGenerator::ObjectSP GetAllLoadedLibrariesInfos(nub_process_t pid);
+  JSONGenerator::ObjectSP
+  GetAllLoadedLibrariesInfos(nub_process_t pid,
+                             bool fetch_report_load_commands);
   JSONGenerator::ObjectSP GetSharedCacheInfo(nub_process_t pid);
 
   nub_size_t GetNumThreads() const;
@@ -323,12 +358,17 @@ public:
 
   bool ProcessUsingFrontBoard();
 
+  // Size of addresses in the inferior process (4 or 8).
+  int GetInferiorAddrSize(pid_t pid);
+
   Genealogy::ThreadActivitySP GetGenealogyInfoForThread(nub_thread_t tid,
                                                         bool &timed_out);
 
   Genealogy::ProcessExecutableInfoSP GetGenealogyImageInfo(size_t idx);
 
   DNBProfileDataScanType GetProfileScanType() { return m_profile_scan_type; }
+
+  JSONGenerator::ObjectSP GetDyldProcessState();
 
 private:
   enum {
@@ -349,12 +389,16 @@ private:
   void PrivateResume();
   void StopProfileThread();
 
+  void RefineWatchpointStopInfo(nub_thread_t tid,
+                                struct DNBThreadStopInfo *stop_info);
+
   uint32_t Flags() const { return m_flags; }
   nub_state_t DoSIGSTOP(bool clear_bps_and_wps, bool allow_running,
                         uint32_t *thread_idx_ptr);
 
   pid_t m_pid;           // Process ID of child process
   cpu_type_t m_cpu_type; // The CPU type of this process
+  uint32_t m_platform;   // The platform of this process
   int m_child_stdin;
   int m_child_stdout;
   int m_child_stderr;
@@ -368,7 +412,7 @@ private:
   uint32_t m_stop_count; // A count of many times have we stopped
   pthread_t m_stdio_thread;   // Thread ID for the thread that watches for child
                               // process stdio
-  PThreadMutex m_stdio_mutex; // Multithreaded protection for stdio
+  std::recursive_mutex m_stdio_mutex; // Multithreaded protection for stdio
   std::string m_stdout_data;
 
   bool m_profile_enabled; // A flag to indicate if profiling is enabled
@@ -378,11 +422,11 @@ private:
       m_profile_scan_type; // Indicates what needs to be profiled
   pthread_t
       m_profile_thread; // Thread ID for the thread that profiles the inferior
-  PThreadMutex
+  std::recursive_mutex
       m_profile_data_mutex; // Multithreaded protection for profile info data
   std::vector<std::string>
       m_profile_data; // Profile data, must be protected by m_profile_data_mutex
-  PThreadEvent m_profile_events; // Used for the profile thread cancellable wait  
+  PThreadEvent m_profile_events; // Used for the profile thread cancellable wait
   DNBThreadResumeActions m_thread_actions; // The thread actions for the current
                                            // MachProcess::Resume() call
   MachException::Message::collection m_exception_messages; // A collection of
@@ -390,15 +434,16 @@ private:
                                                            // caught when
                                                            // listening to the
                                                            // exception port
-  PThreadMutex m_exception_messages_mutex; // Multithreaded protection for
-                                           // m_exception_messages
+  std::recursive_mutex
+      m_exception_and_signal_mutex; // Multithreaded protection for
+                                    // exceptions and signals.
 
   MachThreadList m_thread_list; // A list of threads that is maintained/updated
                                 // after each stop
   Genealogy m_activities; // A list of activities that is updated after every
                           // stop lazily
   nub_state_t m_state;    // The state of our process
-  PThreadMutex m_state_mutex; // Multithreaded protection for m_state
+  std::recursive_mutex m_state_mutex; // Multithreaded protection for m_state
   PThreadEvent m_events;      // Process related events in the child processes
                               // lifetime can be waited upon
   PThreadEvent m_private_events; // Used to coordinate running and stopping the
@@ -435,6 +480,7 @@ private:
   void (*m_dyld_process_info_release)(void *info);
   void (*m_dyld_process_info_get_cache)(void *info, void *cacheInfo);
   uint32_t (*m_dyld_process_info_get_platform)(void *info);
+  void (*m_dyld_process_info_get_state)(void *info, void *stateInfo);
 };
 
 #endif // LLDB_TOOLS_DEBUGSERVER_SOURCE_MACOSX_MACHPROCESS_H

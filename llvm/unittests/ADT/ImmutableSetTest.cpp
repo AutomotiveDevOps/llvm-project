@@ -136,41 +136,6 @@ TEST_F(ImmutableSetTest, RemoveIntSetTest) {
   EXPECT_TRUE(S4.contains(5));
 }
 
-TEST_F(ImmutableSetTest, CallbackCharSetTest) {
-  ImmutableSet<char>::Factory f;
-  ImmutableSet<char> S = f.getEmptySet();
-
-  ImmutableSet<char> S2 = f.add(f.add(f.add(S, 'a'), 'e'), 'i');
-  ImmutableSet<char> S3 = f.add(f.add(S2, 'o'), 'u');
-
-  S3.foreach<MyIter>();
-
-  ASSERT_STREQ("aeiou", buffer);
-}
-
-TEST_F(ImmutableSetTest, Callback2CharSetTest) {
-  ImmutableSet<char>::Factory f;
-  ImmutableSet<char> S = f.getEmptySet();
-
-  ImmutableSet<char> S2 = f.add(f.add(f.add(S, 'b'), 'c'), 'd');
-  ImmutableSet<char> S3 = f.add(f.add(f.add(S2, 'f'), 'g'), 'h');
-
-  MyIter obj;
-  S3.foreach<MyIter>(obj);
-  ASSERT_STREQ("bcdfgh", buffer);
-  ASSERT_EQ(6, obj.counter);
-
-  MyIter obj2;
-  S2.foreach<MyIter>(obj2);
-  ASSERT_STREQ("bcd", buffer);
-  ASSERT_EQ(3, obj2.counter);
-
-  MyIter obj3;
-  S.foreach<MyIter>(obj);
-  ASSERT_STREQ("", buffer);
-  ASSERT_EQ(0, obj3.counter);
-}
-
 TEST_F(ImmutableSetTest, IterLongSetTest) {
   ImmutableSet<long>::Factory f;
   ImmutableSet<long> S = f.getEmptySet();
@@ -180,7 +145,6 @@ TEST_F(ImmutableSetTest, IterLongSetTest) {
 
   int i = 0;
   for (ImmutableSet<long>::iterator I = S.begin(), E = S.end(); I != E; ++I) {
-    ASSERT_EQ(i, *I);
     i++;
   }
   ASSERT_EQ(0, i);
@@ -200,4 +164,35 @@ TEST_F(ImmutableSetTest, IterLongSetTest) {
   ASSERT_EQ(6, i);
 }
 
+TEST_F(ImmutableSetTest, AddIfNotFoundTest) {
+  ImmutableSet<long>::Factory f(/*canonicalize=*/false);
+  ImmutableSet<long> S = f.getEmptySet();
+  S = f.add(S, 1);
+  S = f.add(S, 2);
+  S = f.add(S, 3);
+
+  ImmutableSet<long> T1 = f.add(S, 1);
+  ImmutableSet<long> T2 = f.add(S, 2);
+  ImmutableSet<long> T3 = f.add(S, 3);
+  EXPECT_EQ(S.getRoot(), T1.getRoot());
+  EXPECT_EQ(S.getRoot(), T2.getRoot());
+  EXPECT_EQ(S.getRoot(), T3.getRoot());
+
+  ImmutableSet<long> U = f.add(S, 4);
+  EXPECT_NE(S.getRoot(), U.getRoot());
 }
+
+TEST_F(ImmutableSetTest, RemoveIfNotFoundTest) {
+  ImmutableSet<long>::Factory f(/*canonicalize=*/false);
+  ImmutableSet<long> S = f.getEmptySet();
+  S = f.add(S, 1);
+  S = f.add(S, 2);
+  S = f.add(S, 3);
+
+  ImmutableSet<long> T = f.remove(S, 4);
+  EXPECT_EQ(S.getRoot(), T.getRoot());
+
+  ImmutableSet<long> U = f.remove(S, 3);
+  EXPECT_NE(S.getRoot(), U.getRoot());
+}
+} // namespace

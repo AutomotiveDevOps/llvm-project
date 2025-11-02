@@ -54,8 +54,15 @@ C
 -
 
 **CFI**
+    This abbreviation has two meanings.
+    Either:
     Call Frame Information. Used in DWARF debug info and in C++ unwind info
     to show how the function prolog lays out the stack frame.
+
+    Or:
+    Control Flow Integrity. A general term for computer security techniques
+    that prevent a wide variety of malware attacks from redirecting the flow
+    of execution (the control flow) of a program.
 
 **CIE**
     Common Information Entry.  A kind of CFI used to reduce the size of FDEs.
@@ -91,6 +98,19 @@ D
 
 **DSE**
     Dead Store Elimination
+
+E
+-
+
+**ento**
+    This namespace houses the
+    `Clang Static Analyzer <https://clang.llvm.org/docs/ClangStaticAnalyzer.html>`_.
+    It is an abbreviation of `entomology <https://en.wikipedia.org/wiki/Entomology>`_.
+
+      *"Entomology is the scientific study of insects."*
+
+    In the past, this namespace had not only the name `GR` (aka. Graph Reachability)
+    but also `entoSA`.
 
 F
 -
@@ -139,6 +159,12 @@ I
     if a valid C++ source program were to trigger an assert in Clang when
     compiled, that could be referred to as an "ICE".
 
+**ICF**
+    Identical Code Folding
+
+**ICP**
+    Indirect Call Promotion
+
 **IPA**
     Inter-Procedural Analysis. Refers to any variety of code analysis that
     occurs between procedures, functions or compilation units (modules).
@@ -166,7 +192,7 @@ L
 **LSDA**
     Language Specific Data Area.  C++ "zero cost" unwinding is built on top a
     generic unwinding mechanism.  As the unwinder walks each frame, it calls
-    a "personality" function to do language specific analysis.  Each function's
+    a "personality" function to do language-specific analysis.  Each function's
     FDE points to an optional LSDA which is passed to the personality function.
     For C++, the LSDA contain info about the type and location of catch
     statements in that function.
@@ -205,6 +231,9 @@ O
 
 P
 -
+
+**PGO**
+    Profile-Guided Optimization
 
 **PR**
     Problem report. A bug filed on `the LLVM Bug Tracking System
@@ -245,6 +274,9 @@ R
 
 **RPO**
     Reverse postorder
+
+**RTTI**
+    Run-time Type Information
 
 S
 -
@@ -295,4 +327,11 @@ T
 
 **TBAA**
     Type-Based Alias Analysis
+
+
+W
+-
+
+**WPD**
+    Whole Program Devirtualization
 

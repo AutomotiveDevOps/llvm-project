@@ -9,6 +9,15 @@ add_llvm_component_library(LLVMAVRDesc
   AVRMCExpr.cpp
   AVRMCTargetDesc.cpp
   AVRTargetStreamer.cpp
+
+  LINK_COMPONENTS
+  MC
+  AVRInfo
+  Support
+  TargetParser
+
+  ADD_TO_COMPONENT
+  AVR
 )
 
 add_dependencies(LLVMAVRDesc AVRCommonTableGen)

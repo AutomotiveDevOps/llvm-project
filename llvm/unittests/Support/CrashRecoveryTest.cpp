@@ -6,16 +6,27 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/Config/config.h"
+#include "llvm/Config/llvm-config.h" // for LLVM_ON_UNIX
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/CrashRecoveryContext.h"
 #include "llvm/Support/FileSystem.h"
+#include "llvm/Support/Program.h"
 #include "llvm/Support/Signals.h"
+#include "llvm/Support/raw_ostream.h"
+#include "llvm/TargetParser/Host.h"
+#include "llvm/TargetParser/Triple.h"
 #include "gtest/gtest.h"
 
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
 #define NOGDI
 #include <windows.h>
+#endif
+
+#ifdef LLVM_ON_UNIX
+#include <signal.h>
 #endif
 
 using namespace llvm;
@@ -39,7 +50,7 @@ TEST(CrashRecoveryTest, Basic) {
 struct IncrementGlobalCleanup : CrashRecoveryContextCleanup {
   IncrementGlobalCleanup(CrashRecoveryContext *CRC)
       : CrashRecoveryContextCleanup(CRC) {}
-  virtual void recoverResources() { ++GlobalInt; }
+  void recoverResources() override { ++GlobalInt; }
 };
 
 static void noop() {}
@@ -90,6 +101,17 @@ TEST(CrashRecoveryTest, DumpStackCleanup) {
   llvm::CrashRecoveryContext::Disable();
 }
 
+TEST(CrashRecoveryTest, LimitedStackTrace) {
+  // FIXME: Handle "Depth" parameter in PrintStackTrace() function
+  // to print stack trace upto a specified Depth.
+  if (Triple(sys::getProcessTriple()).isOSWindows())
+    GTEST_SKIP();
+  std::string Res;
+  llvm::raw_string_ostream RawStream(Res);
+  PrintStackTrace(RawStream, 1);
+  EXPECT_EQ(std::string::npos, Res.find("#1"));
+}
+
 #ifdef _WIN32
 static void raiseIt() {
   RaiseException(123, EXCEPTION_NONCONTINUABLE, 0, NULL);
@@ -109,4 +131,60 @@ TEST(CrashRecoveryTest, CallOutputDebugString) {
   EXPECT_TRUE(CrashRecoveryContext().RunSafely(outputString));
 }
 
+TEST(CrashRecoveryTest, Abort) {
+  llvm::CrashRecoveryContext::Enable();
+  auto A = []() { abort(); };
+  EXPECT_FALSE(CrashRecoveryContext().RunSafely(A));
+  // Test a second time to ensure we reinstall the abort signal handler.
+  EXPECT_FALSE(CrashRecoveryContext().RunSafely(A));
+}
+#endif
+
+// Specifically ensure that programs that signal() or abort() through the
+// CrashRecoveryContext can re-throw again their signal, so that `not --crash`
+// succeeds.
+#ifdef LLVM_ON_UNIX
+// See llvm/utils/unittest/UnitTestMain/TestMain.cpp
+extern const char *TestMainArgv0;
+
+// Just a reachable symbol to ease resolving of the executable's path.
+static cl::opt<std::string> CrashTestStringArg1("crash-test-string-arg1");
+
+TEST(CrashRecoveryTest, UnixCRCReturnCode) {
+  using namespace llvm::sys;
+  if (getenv("LLVM_CRC_UNIXCRCRETURNCODE")) {
+    llvm::CrashRecoveryContext::Enable();
+    CrashRecoveryContext CRC;
+    // This path runs in a subprocess that exits by signalling, so don't use
+    // the googletest macros to verify things as they won't report properly.
+    if (CRC.RunSafely(abort))
+      llvm_unreachable("RunSafely returned true!");
+    if (CRC.RetCode != 128 + SIGABRT)
+      llvm_unreachable("Unexpected RetCode!");
+    // re-throw signal
+    llvm::sys::unregisterHandlers();
+    raise(CRC.RetCode - 128);
+    llvm_unreachable("Should have exited already!");
+  }
+
+  std::string Executable =
+      sys::fs::getMainExecutable(TestMainArgv0, &CrashTestStringArg1);
+  StringRef argv[] = {
+      Executable, "--gtest_filter=CrashRecoveryTest.UnixCRCReturnCode"};
+
+  // Add LLVM_CRC_UNIXCRCRETURNCODE to the environment of the child process.
+  int Res = setenv("LLVM_CRC_UNIXCRCRETURNCODE", "1", 0);
+  ASSERT_EQ(Res, 0);
+
+  Res = unsetenv("GTEST_SHARD_INDEX");
+  ASSERT_EQ(Res, 0);
+  Res = unsetenv("GTEST_TOTAL_SHARDS");
+  ASSERT_EQ(Res, 0);
+
+  std::string Error;
+  bool ExecutionFailed;
+  int RetCode = ExecuteAndWait(Executable, argv, {}, {}, 0, 0, &Error,
+                               &ExecutionFailed);
+  ASSERT_EQ(-2, RetCode);
+}
 #endif

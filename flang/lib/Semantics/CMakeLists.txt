@@ -1,14 +1,17 @@
-
 add_flang_library(FortranSemantics
   assignment.cpp
   attr.cpp
+  canonicalize-acc.cpp
+  canonicalize-directives.cpp
   canonicalize-do.cpp
   canonicalize-omp.cpp
+  check-acc-structure.cpp
   check-allocate.cpp
   check-arithmeticif.cpp
   check-call.cpp
   check-case.cpp
   check-coarray.cpp
+  check-cuda.cpp
   check-data.cpp
   check-deallocate.cpp
   check-declarations.cpp
@@ -17,20 +20,32 @@ add_flang_library(FortranSemantics
   check-io.cpp
   check-namelist.cpp
   check-nullify.cpp
+  check-omp-atomic.cpp
+  check-omp-loop.cpp
+  check-omp-metadirective.cpp
   check-omp-structure.cpp
   check-purity.cpp
   check-return.cpp
   check-select-rank.cpp
+  check-select-type.cpp
   check-stop.cpp
   compute-offsets.cpp
+  data-to-inits.cpp
+  definable.cpp
+  dump-expr.cpp
   expression.cpp
   mod-file.cpp
+  openmp-dsa.cpp
+  openmp-modifiers.cpp
+  openmp-utils.cpp
   pointer-assignment.cpp
   program-tree.cpp
+  resolve-directives.cpp
   resolve-labels.cpp
   resolve-names.cpp
   resolve-names-utils.cpp
   rewrite-parse-tree.cpp
+  runtime-type-info.cpp
   scope.cpp
   semantics.cpp
   symbol.cpp
@@ -38,10 +53,27 @@ add_flang_library(FortranSemantics
   type.cpp
   unparse-with-symbols.cpp
 
+  DEPENDS
+  acc_gen
+  omp_gen
+
   LINK_LIBS
-  FortranCommon
+  FortranSupport
+  FortranParser
   FortranEvaluate
 
   LINK_COMPONENTS
   Support
+  FrontendOpenMP
+  FrontendOpenACC
+  TargetParser
+)
+
+target_precompile_headers(FortranSemantics PRIVATE
+  [["flang/Semantics/semantics.h"]]
+  [["flang/Semantics/type.h"]]
+  [["flang/Semantics/openmp-modifiers.h"]]
+  [["flang/Semantics/expression.h"]]
+  [["flang/Semantics/tools.h"]]
+  [["flang/Semantics/symbol.h"]]
 )

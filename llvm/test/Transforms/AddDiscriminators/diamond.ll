@@ -1,4 +1,3 @@
-; RUN: opt < %s -add-discriminators -S | FileCheck %s
 ; RUN: opt < %s -passes=add-discriminators -S | FileCheck %s
 
 ; Discriminator support for diamond-shaped CFG.:
@@ -13,11 +12,11 @@
 ; bar(3):     discriminator 2
 
 ; Function Attrs: uwtable
-define void @_Z3fooi(i32 %i) #0 !dbg !4 {
+define void @_Z3fooi(i32 %i) !dbg !4 {
   %1 = alloca i32, align 4
-  store i32 %i, i32* %1, align 4
-  call void @llvm.dbg.declare(metadata i32* %1, metadata !11, metadata !12), !dbg !13
-  %2 = load i32, i32* %1, align 4, !dbg !14
+  store i32 %i, ptr %1, align 4
+  call void @llvm.dbg.declare(metadata ptr %1, metadata !11, metadata !12), !dbg !13
+  %2 = load i32, ptr %1, align 4, !dbg !14
   %3 = icmp sgt i32 %2, 10, !dbg !16
   br i1 %3, label %4, label %5, !dbg !17
 
@@ -35,13 +34,9 @@ define void @_Z3fooi(i32 %i) #0 !dbg !4 {
 }
 
 ; Function Attrs: nounwind readnone
-declare void @llvm.dbg.declare(metadata, metadata, metadata) #1
+declare void @llvm.dbg.declare(metadata, metadata, metadata)
 
-declare void @_Z3bari(i32) #2
-
-attributes #0 = { uwtable "disable-tail-calls"="false" "less-precise-fpmad"="false" "frame-pointer"="all" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2" "unsafe-fp-math"="false" "use-soft-float"="false" }
-attributes #1 = { nounwind readnone }
-attributes #2 = { "disable-tail-calls"="false" "less-precise-fpmad"="false" "frame-pointer"="all" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+fxsr,+mmx,+sse,+sse2" "unsafe-fp-math"="false" "use-soft-float"="false" }
+declare void @_Z3bari(i32)
 
 !llvm.dbg.cu = !{!0}
 !llvm.module.flags = !{!8, !9}

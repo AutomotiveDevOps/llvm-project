@@ -14,11 +14,14 @@
 #define LLVM_FUZZER_FUZZED_DATA_PROVIDER_H_
 
 #include <algorithm>
+#include <array>
 #include <climits>
 #include <cstddef>
 #include <cstdint>
+#include <cstdlib>
 #include <cstring>
 #include <initializer_list>
+#include <limits>
 #include <string>
 #include <type_traits>
 #include <utility>
@@ -71,6 +74,8 @@ class FuzzedDataProvider {
 
   // Returns a value from the given array.
   template <typename T, size_t size> T PickValueInArray(const T (&array)[size]);
+  template <typename T, size_t size>
+  T PickValueInArray(const std::array<T, size> &array);
   template <typename T> T PickValueInArray(std::initializer_list<const T> list);
 
   // Writes data to the given destination and returns number of bytes written.
@@ -154,7 +159,7 @@ FuzzedDataProvider::ConsumeRandomLengthString(size_t max_length) {
   // picking its contents.
   std::string result;
 
-  // Reserve the anticipated capaticity to prevent several reallocations.
+  // Reserve the anticipated capacity to prevent several reallocations.
   result.reserve(std::min(max_length, remaining_bytes_));
   for (size_t i = 0; i < max_length && remaining_bytes_ != 0; ++i) {
     char next = ConvertUnsignedToSigned<char>(data_ptr_[0]);
@@ -198,14 +203,14 @@ template <typename T> T FuzzedDataProvider::ConsumeIntegral() {
 // be less than or equal to |max|.
 template <typename T>
 T FuzzedDataProvider::ConsumeIntegralInRange(T min, T max) {
-  static_assert(std::is_integral<T>::value, "An integral type is required.");
+  static_assert(std::is_integral_v<T>, "An integral type is required.");
   static_assert(sizeof(T) <= sizeof(uint64_t), "Unsupported integral type.");
 
   if (min > max)
     abort();
 
   // Use the biggest type possible to hold the range and the result.
-  uint64_t range = static_cast<uint64_t>(max) - min;
+  uint64_t range = static_cast<uint64_t>(max) - static_cast<uint64_t>(min);
   uint64_t result = 0;
   size_t offset = 0;
 
@@ -226,7 +231,7 @@ T FuzzedDataProvider::ConsumeIntegralInRange(T min, T max) {
   if (range != std::numeric_limits<decltype(range)>::max())
     result = result % (range + 1);
 
-  return static_cast<T>(min + result);
+  return static_cast<T>(static_cast<uint64_t>(min) + result);
 }
 
 // Returns a floating point value in the range [Type's lowest, Type's max] by
@@ -266,14 +271,14 @@ T FuzzedDataProvider::ConsumeFloatingPointInRange(T min, T max) {
 // Returns a floating point number in the range [0.0, 1.0]. If there's no
 // input data left, always returns 0.
 template <typename T> T FuzzedDataProvider::ConsumeProbability() {
-  static_assert(std::is_floating_point<T>::value,
+  static_assert(std::is_floating_point_v<T>,
                 "A floating point type is required.");
 
   // Use different integral types for different floating point types in order
   // to provide better density of the resulting values.
   using IntegralType =
-      typename std::conditional<(sizeof(T) <= sizeof(uint32_t)), uint32_t,
-                                uint64_t>::type;
+      typename std::conditional_t<(sizeof(T) <= sizeof(uint32_t)), uint32_t,
+                                  uint64_t>;
 
   T result = static_cast<T>(ConsumeIntegral<IntegralType>());
   result /= static_cast<T>(std::numeric_limits<IntegralType>::max());
@@ -289,7 +294,7 @@ inline bool FuzzedDataProvider::ConsumeBool() {
 // also contain |kMaxValue| aliased to its largest (inclusive) value. Such as:
 // enum class Foo { SomeValue, OtherValue, kMaxValue = OtherValue };
 template <typename T> T FuzzedDataProvider::ConsumeEnum() {
-  static_assert(std::is_enum<T>::value, "|T| must be an enum type.");
+  static_assert(std::is_enum_v<T>, "|T| must be an enum type.");
   return static_cast<T>(
       ConsumeIntegralInRange<uint32_t>(0, static_cast<uint32_t>(T::kMaxValue)));
 }
@@ -301,9 +306,14 @@ T FuzzedDataProvider::PickValueInArray(const T (&array)[size]) {
   return array[ConsumeIntegralInRange<size_t>(0, size - 1)];
 }
 
+template <typename T, size_t size>
+T FuzzedDataProvider::PickValueInArray(const std::array<T, size> &array) {
+  static_assert(size > 0, "The array must be non empty.");
+  return array[ConsumeIntegralInRange<size_t>(0, size - 1)];
+}
+
 template <typename T>
 T FuzzedDataProvider::PickValueInArray(std::initializer_list<const T> list) {
-  // TODO(Dor1s): switch to static_assert once C++14 is allowed.
   if (!list.size())
     abort();
 
@@ -380,7 +390,7 @@ TS FuzzedDataProvider::ConvertUnsignedToSigned(TU value) {
     return static_cast<TS>(value);
   } else {
     constexpr auto TS_min = std::numeric_limits<TS>::min();
-    return TS_min + static_cast<char>(value - TS_min);
+    return TS_min + static_cast<TS>(value - TS_min);
   }
 }
 

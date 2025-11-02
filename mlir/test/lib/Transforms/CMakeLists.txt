@@ -1,27 +1,38 @@
+set(LLVM_TARGET_DEFINITIONS TestTransformsOps.td)
+mlir_tablegen(TestTransformsOps.h.inc -gen-op-decls)
+mlir_tablegen(TestTransformsOps.cpp.inc -gen-op-defs)
+add_public_tablegen_target(MLIRTestTransformsOpsIncGen)
+
+set(LLVM_OPTIONAL_SOURCES 
+  TestDialectConversion.cpp)
+set(MLIRTestTransformsPDLDep)
+set(MLIRTestTransformsPDLSrc)
+if(MLIR_ENABLE_PDL_IN_PATTERNMATCH)
+add_mlir_pdll_library(MLIRTestDialectConversionPDLLPatternsIncGen
+  TestDialectConversion.pdll
+  TestDialectConversionPDLLPatterns.h.inc
+
+  EXTRA_INCLUDES
+  ${CMAKE_CURRENT_SOURCE_DIR}/../Dialect/Test
+  ${CMAKE_CURRENT_BINARY_DIR}/../Dialect/Test
+  )
+  set(MLIRTestTransformsPDLSrc
+    TestDialectConversion.cpp)
+  set(MLIRTestTransformsPDLDep
+    MLIRTestDialectConversionPDLLPatternsIncGen)
+endif()
+
 # Exclude tests from libMLIR.so
 add_mlir_library(MLIRTestTransforms
-  TestAllReduceLowering.cpp
-  TestBufferPlacement.cpp
-  TestCallGraph.cpp
-  TestConstantFold.cpp
-  TestConvertGPUKernelToCubin.cpp
-  TestConvertGPUKernelToHsaco.cpp
-  TestDominance.cpp
-  TestLoopFusion.cpp
-  TestGpuMemoryPromotion.cpp
-  TestGpuParallelLoopMapping.cpp
+  TestCommutativityUtils.cpp
+  TestCompositePass.cpp
+  TestControlFlowSink.cpp
   TestInlining.cpp
-  TestLinalgTransforms.cpp
-  TestLiveness.cpp
-  TestLoopMapping.cpp
-  TestLoopParametricTiling.cpp
-  TestLoopUnrolling.cpp
-  TestOpaqueLoc.cpp
-  TestMemRefBoundCheck.cpp
-  TestMemRefDependenceCheck.cpp
-  TestMemRefStrideCalculation.cpp
-  TestSCFUtils.cpp
-  TestVectorTransforms.cpp
+  TestInliningCallback.cpp
+  TestMakeIsolatedFromAbove.cpp
+  TestSingleFold.cpp
+  TestTransformsOps.cpp
+  ${MLIRTestTransformsPDLSrc}
 
   EXCLUDE_FROM_LIBMLIR
 
@@ -29,33 +40,22 @@ add_mlir_library(MLIRTestTransforms
   ${MLIR_MAIN_INCLUDE_DIR}/mlir/Transforms
 
   DEPENDS
-  MLIRStandardOpsIncGen
-  MLIRTestVectorTransformPatternsIncGen
+  ${MLIRTestTransformsPDLDep}
+  MLIRTestTransformsOpsIncGen
 
   LINK_LIBS PUBLIC
-  MLIRAffineOps
-  MLIRAnalysis
-  MLIREDSC
-  MLIRGPU
-  MLIRGPUtoGPURuntimeTransforms
-  MLIRLinalgOps
-  MLIRLinalgTransforms
-  MLIRNVVMIR
-  MLIRSCF
-  MLIRSCFTransforms
-  MLIRGPU
-  MLIRPass
-  MLIRROCDLIR
-  MLIRStandardOpsTransforms
-  MLIRTargetNVVMIR
-  MLIRTargetROCDLIR
   MLIRTestDialect
-  MLIRTransformUtils
-  MLIRVectorToSCF
-  MLIRVector
+  )
+mlir_target_link_libraries(MLIRTestTransforms PUBLIC
+  MLIRAnalysis
+  MLIRFuncDialect
+  MLIRInferIntRangeInterface
+  MLIRTransforms
+  MLIRTransformDialect
   )
 
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../Dialect/Test)
-include_directories(${CMAKE_CURRENT_BINARY_DIR}/../Dialect/Test)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../DeclarativeTransforms)
-include_directories(${CMAKE_CURRENT_BINARY_DIR}/../DeclarativeTransforms)
+target_include_directories(MLIRTestTransforms
+  PRIVATE
+  ${CMAKE_CURRENT_SOURCE_DIR}/../Dialect/Test
+  ${CMAKE_CURRENT_BINARY_DIR}/../Dialect/Test
+  )

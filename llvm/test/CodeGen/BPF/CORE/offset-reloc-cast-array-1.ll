@@ -1,7 +1,6 @@
-; RUN: llc -march=bpfel -filetype=asm -o - %s | FileCheck -check-prefixes=CHECK %s
-; RUN: llc -march=bpfeb -filetype=asm -o - %s | FileCheck -check-prefixes=CHECK %s
-; RUN: llc -march=bpfel -mattr=+alu32 -filetype=asm -o - %s | FileCheck -check-prefixes=CHECK %s
-; RUN: llc -march=bpfeb -mattr=+alu32 -filetype=asm -o - %s | FileCheck -check-prefixes=CHECK %s
+; RUN: opt -O2 %s | llvm-dis > %t1
+; RUN: llc -filetype=asm -o - %t1 | FileCheck -check-prefixes=CHECK %s
+; RUN: llc -mattr=+alu32 -filetype=asm -o - %t1 | FileCheck -check-prefixes=CHECK %s
 ; Source code:
 ;   struct v1 {int a; int b;};
 ;   typedef struct v1 __v1;
@@ -14,22 +13,24 @@
 ;     return get_value(_(&cast_to_arr(&arg->d[0])[0][2].b));
 ;   }
 ; Compilation flag:
-;   clang -target bpf -O2 -g -S -emit-llvm test.c
+;   clang -target bpf -O2 -g -S -emit-llvm -Xclang -disable-llvm-passes test.c
+
+target triple = "bpf"
 
 %struct.v3 = type { i8, [100 x i32] }
 %struct.v1 = type { i32, i32 }
 
 ; Function Attrs: nounwind
-define dso_local i32 @test(%struct.v3* %arg) local_unnamed_addr #0 !dbg !22 {
+define dso_local i32 @test(ptr %arg) local_unnamed_addr !dbg !22 {
 entry:
-  call void @llvm.dbg.value(metadata %struct.v3* %arg, metadata !32, metadata !DIExpression()), !dbg !33
-  %0 = tail call [100 x i32]* @llvm.preserve.struct.access.index.p0a100i32.p0s_struct.v3s(%struct.v3* %arg, i32 1, i32 1), !dbg !34, !llvm.preserve.access.index !26
-  %1 = tail call i32* @llvm.preserve.array.access.index.p0i32.p0a100i32([100 x i32]* %0, i32 1, i32 0), !dbg !34, !llvm.preserve.access.index !15
-  %2 = bitcast i32* %1 to [4 x %struct.v1]*, !dbg !34
-  %3 = tail call [4 x %struct.v1]* @llvm.preserve.array.access.index.p0a4s_struct.v1s.p0a4s_struct.v1s([4 x %struct.v1]* %2, i32 0, i32 0), !dbg !34, !llvm.preserve.access.index !4
-  %4 = tail call %struct.v1* @llvm.preserve.array.access.index.p0s_struct.v1s.p0a4s_struct.v1s([4 x %struct.v1]* %3, i32 1, i32 2), !dbg !34, !llvm.preserve.access.index !5
-  %5 = tail call i32* @llvm.preserve.struct.access.index.p0i32.p0s_struct.v1s(%struct.v1* %4, i32 1, i32 1), !dbg !34, !llvm.preserve.access.index !8
-  %call = tail call i32 @get_value(i32* %5) #4, !dbg !35
+  call void @llvm.dbg.value(metadata ptr %arg, metadata !32, metadata !DIExpression()), !dbg !33
+  %0 = tail call ptr @llvm.preserve.struct.access.index.p0.p0(ptr elementtype(%struct.v3) %arg, i32 1, i32 1), !dbg !34, !llvm.preserve.access.index !26
+  %1 = tail call ptr @llvm.preserve.array.access.index.p0.p0(ptr elementtype([100 x i32]) %0, i32 1, i32 0), !dbg !34, !llvm.preserve.access.index !15
+  %2 = bitcast ptr %1 to ptr, !dbg !34
+  %3 = tail call ptr @llvm.preserve.array.access.index.p0.p0(ptr elementtype([4 x %struct.v1]) %2, i32 0, i32 0), !dbg !34, !llvm.preserve.access.index !4
+  %4 = tail call ptr @llvm.preserve.array.access.index.p0.p0(ptr elementtype([4 x %struct.v1]) %3, i32 1, i32 2), !dbg !34, !llvm.preserve.access.index !5
+  %5 = tail call ptr @llvm.preserve.struct.access.index.p0.p0(ptr elementtype(%struct.v1) %4, i32 1, i32 1), !dbg !34, !llvm.preserve.access.index !8
+  %call = tail call i32 @get_value(ptr %5), !dbg !35
   ret i32 %call, !dbg !36
 }
 
@@ -59,31 +60,22 @@ entry:
 ; CHECK-NEXT:         .long   107
 ; CHECK-NEXT:         .long   0
 
-declare dso_local i32 @get_value(i32*) local_unnamed_addr #1
+declare dso_local i32 @get_value(ptr) local_unnamed_addr
 
 ; Function Attrs: nounwind readnone
-declare [100 x i32]* @llvm.preserve.struct.access.index.p0a100i32.p0s_struct.v3s(%struct.v3*, i32, i32) #2
+declare ptr @llvm.preserve.struct.access.index.p0.p0(ptr, i32, i32)
 
 ; Function Attrs: nounwind readnone
-declare i32* @llvm.preserve.array.access.index.p0i32.p0a100i32([100 x i32]*, i32, i32) #2
+declare ptr @llvm.preserve.array.access.index.p0.p0(ptr, i32, i32)
 
 ; Function Attrs: nounwind readnone
-declare [4 x %struct.v1]* @llvm.preserve.array.access.index.p0a4s_struct.v1s.p0a4s_struct.v1s([4 x %struct.v1]*, i32, i32) #2
 
 ; Function Attrs: nounwind readnone
-declare %struct.v1* @llvm.preserve.array.access.index.p0s_struct.v1s.p0a4s_struct.v1s([4 x %struct.v1]*, i32, i32) #2
 
 ; Function Attrs: nounwind readnone
-declare i32* @llvm.preserve.struct.access.index.p0i32.p0s_struct.v1s(%struct.v1*, i32, i32) #2
 
 ; Function Attrs: nounwind readnone speculatable willreturn
-declare void @llvm.dbg.value(metadata, metadata, metadata) #3
-
-attributes #0 = { nounwind "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "frame-pointer"="all" "less-precise-fpmad"="false" "min-legal-vector-width"="0" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "unsafe-fp-math"="false" "use-soft-float"="false" }
-attributes #1 = { "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "frame-pointer"="all" "less-precise-fpmad"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "unsafe-fp-math"="false" "use-soft-float"="false" }
-attributes #2 = { nounwind readnone }
-attributes #3 = { nounwind readnone speculatable willreturn }
-attributes #4 = { nounwind }
+declare void @llvm.dbg.value(metadata, metadata, metadata)
 
 !llvm.dbg.cu = !{!0}
 !llvm.module.flags = !{!18, !19, !20}

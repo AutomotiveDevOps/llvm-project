@@ -15,10 +15,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "BPF.h"
-#include "BPFInstrInfo.h"
 #include "BPFTargetMachine.h"
-#include "llvm/CodeGen/MachineInstrBuilder.h"
-#include "llvm/CodeGen/MachineRegisterInfo.h"
+#include "llvm/CodeGen/MachineFunctionPass.h"
+#include "llvm/IR/DiagnosticInfo.h"
 #include "llvm/Support/Debug.h"
 
 using namespace llvm;
@@ -33,23 +32,20 @@ struct BPFMIPreEmitChecking : public MachineFunctionPass {
   MachineFunction *MF;
   const TargetRegisterInfo *TRI;
 
-  BPFMIPreEmitChecking() : MachineFunctionPass(ID) {
-    initializeBPFMIPreEmitCheckingPass(*PassRegistry::getPassRegistry());
-  }
+  BPFMIPreEmitChecking() : MachineFunctionPass(ID) {}
 
 private:
   // Initialize class variables.
   void initialize(MachineFunction &MFParm);
 
-  void checkingIllegalXADD(void);
+  void processAtomicInsts();
 
 public:
-
   // Main entry point for this pass.
   bool runOnMachineFunction(MachineFunction &MF) override {
     if (!skipFunction(MF.getFunction())) {
       initialize(MF);
-      checkingIllegalXADD();
+      processAtomicInsts();
     }
     return false;
   }
@@ -105,7 +101,7 @@ void BPFMIPreEmitChecking::initialize(MachineFunction &MFParm) {
 // Dead correctly, and it is safe to use such information or our purpose.
 static bool hasLiveDefs(const MachineInstr &MI, const TargetRegisterInfo *TRI) {
   const MCRegisterClass *GPR64RegClass =
-    &BPFMCRegisterClasses[BPF::GPRRegClassID];
+      &BPFMCRegisterClasses[BPF::GPRRegClassID];
   std::vector<unsigned> GPR32LiveDefs;
   std::vector<unsigned> GPR64DeadDefs;
 
@@ -117,7 +113,7 @@ static bool hasLiveDefs(const MachineInstr &MI, const TargetRegisterInfo *TRI) {
 
     RegIsGPR64 = GPR64RegClass->contains(MO.getReg());
     if (!MO.isDead()) {
-      // It is a GPR64 live Def, we are sure it is live. */
+      // It is a GPR64 live Def, we are sure it is live.
       if (RegIsGPR64)
         return true;
       // It is a GPR32 live Def, we are unsure whether it is really dead due to
@@ -143,47 +139,41 @@ static bool hasLiveDefs(const MachineInstr &MI, const TargetRegisterInfo *TRI) {
     return true;
 
   // Otherwise, return true if any aliased SuperReg of GPR32 is not dead.
-  std::vector<unsigned>::iterator search_begin = GPR64DeadDefs.begin();
-  std::vector<unsigned>::iterator search_end = GPR64DeadDefs.end();
   for (auto I : GPR32LiveDefs)
-    for (MCSuperRegIterator SR(I, TRI); SR.isValid(); ++SR)
-       if (std::find(search_begin, search_end, *SR) == search_end)
-         return true;
+    for (MCPhysReg SR : TRI->superregs(I))
+      if (!llvm::is_contained(GPR64DeadDefs, SR))
+        return true;
 
   return false;
 }
 
-void BPFMIPreEmitChecking::checkingIllegalXADD(void) {
+void BPFMIPreEmitChecking::processAtomicInsts() {
+  if (MF->getSubtarget<BPFSubtarget>().getHasJmp32())
+    return;
+
+  // Only check for cpu version 1 and 2.
   for (MachineBasicBlock &MBB : *MF) {
     for (MachineInstr &MI : MBB) {
-      if (MI.getOpcode() != BPF::XADDW &&
-          MI.getOpcode() != BPF::XADDD &&
-          MI.getOpcode() != BPF::XADDW32)
+      if (MI.getOpcode() != BPF::XADDW && MI.getOpcode() != BPF::XADDD)
         continue;
 
       LLVM_DEBUG(MI.dump());
       if (hasLiveDefs(MI, TRI)) {
-        DebugLoc Empty;
         const DebugLoc &DL = MI.getDebugLoc();
-        if (DL != Empty)
-          report_fatal_error("line " + std::to_string(DL.getLine()) +
-                             ": Invalid usage of the XADD return value", false);
-        else
-          report_fatal_error("Invalid usage of the XADD return value", false);
+        const Function &F = MF->getFunction();
+        F.getContext().diagnose(DiagnosticInfoUnsupported{
+            F, "Invalid usage of the XADD return value", DL});
       }
     }
   }
-
-  return;
 }
 
-} // end default namespace
+} // namespace
 
 INITIALIZE_PASS(BPFMIPreEmitChecking, "bpf-mi-pemit-checking",
                 "BPF PreEmit Checking", false, false)
 
 char BPFMIPreEmitChecking::ID = 0;
-FunctionPass* llvm::createBPFMIPreEmitCheckingPass()
-{
+FunctionPass *llvm::createBPFMIPreEmitCheckingPass() {
   return new BPFMIPreEmitChecking();
 }

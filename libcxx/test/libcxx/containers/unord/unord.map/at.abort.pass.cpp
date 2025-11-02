@@ -16,7 +16,7 @@
 // is not in the map.
 
 // REQUIRES: no-exceptions
-// UNSUPPORTED: c++98, c++03
+// UNSUPPORTED: c++03
 
 #include <csignal>
 #include <cstdlib>
@@ -24,10 +24,9 @@
 
 #include "test_macros.h"
 
-
 int main(int, char**) {
-    std::signal(SIGABRT, [](int) { std::_Exit(EXIT_SUCCESS); });
-    std::unordered_map<int, int> map;
-    map.at(1);
-    return EXIT_FAILURE;
+  std::signal(SIGABRT, [](int) { std::_Exit(EXIT_SUCCESS); });
+  std::unordered_map<int, int> map;
+  map.at(1);
+  return EXIT_FAILURE;
 }

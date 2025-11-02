@@ -8,16 +8,16 @@
 
 #include "OutputSection.h"
 #include "OutputSegment.h"
-#include "lld/Common/ErrorHandler.h"
 
 using namespace llvm;
 using namespace lld;
 using namespace lld::macho;
 
-uint64_t OutputSection::getSegmentOffset() const {
-  return addr - parent->firstSection()->addr;
-}
+uint64_t OutputSection::getSegmentOffset() const { return addr - parent->addr; }
 
-void OutputSection::mergeInput(InputSection *input) {
-  llvm_unreachable("Cannot merge input section into unmergable output section");
+void OutputSection::assignAddressesToStartEndSymbols() {
+  for (Defined *d : sectionStartSymbols)
+    d->value = addr;
+  for (Defined *d : sectionEndSymbols)
+    d->value = addr + getSize();
 }

@@ -25,6 +25,7 @@
 #include "lldb/Target/Target.h"
 #include "lldb/Target/Thread.h"
 #include "lldb/Utility/ConstString.h"
+#include "lldb/Utility/LLDBLog.h"
 #include "lldb/Utility/Log.h"
 #include "lldb/Utility/Scalar.h"
 #include "lldb/Utility/Status.h"
@@ -47,14 +48,14 @@ AppleObjCRuntimeV1::AppleObjCRuntimeV1(Process *process)
 bool AppleObjCRuntimeV1::GetDynamicTypeAndAddress(
     ValueObject &in_value, lldb::DynamicValueType use_dynamic,
     TypeAndOrName &class_type_or_name, Address &address,
-    Value::ValueType &value_type) {
+    Value::ValueType &value_type, llvm::ArrayRef<uint8_t> &local_buffer) {
   class_type_or_name.Clear();
-  value_type = Value::ValueType::eValueTypeScalar;
+  value_type = Value::ValueType::Scalar;
   if (CouldHaveDynamicValue(in_value)) {
     auto class_descriptor(GetClassDescriptor(in_value));
     if (class_descriptor && class_descriptor->IsValid() &&
         class_descriptor->GetClassName()) {
-      const addr_t object_ptr = in_value.GetPointerValue();
+      const addr_t object_ptr = in_value.GetPointerValue().address;
       address.SetRawAddress(object_ptr);
       class_type_or_name.SetName(class_descriptor->GetClassName());
     }
@@ -92,18 +93,6 @@ void AppleObjCRuntimeV1::Terminate() {
   PluginManager::UnregisterPlugin(CreateInstance);
 }
 
-lldb_private::ConstString AppleObjCRuntimeV1::GetPluginNameStatic() {
-  static ConstString g_name("apple-objc-v1");
-  return g_name;
-}
-
-// PluginInterface protocol
-ConstString AppleObjCRuntimeV1::GetPluginName() {
-  return GetPluginNameStatic();
-}
-
-uint32_t AppleObjCRuntimeV1::GetPluginVersion() { return 1; }
-
 BreakpointResolverSP
 AppleObjCRuntimeV1::CreateExceptionResolver(const BreakpointSP &bkpt,
                                             bool catch_bp, bool throw_bp) {
@@ -113,7 +102,7 @@ AppleObjCRuntimeV1::CreateExceptionResolver(const BreakpointSP &bkpt,
     resolver_sp = std::make_shared<BreakpointResolverName>(
         bkpt, std::get<1>(GetExceptionThrowLocation()).AsCString(),
         eFunctionNameTypeBase, eLanguageTypeUnknown, Breakpoint::Exact, 0,
-        eLazyBoolNo);
+        /*offset_is_insn_count = */ false, eLazyBoolNo);
   // FIXME: don't do catch yet.
   return resolver_sp;
 }
@@ -122,58 +111,60 @@ struct BufStruct {
   char contents[2048];
 };
 
-UtilityFunction *AppleObjCRuntimeV1::CreateObjectChecker(const char *name) {
+llvm::Expected<std::unique_ptr<UtilityFunction>>
+AppleObjCRuntimeV1::CreateObjectChecker(std::string name,
+                                        ExecutionContext &exe_ctx) {
   std::unique_ptr<BufStruct> buf(new BufStruct);
 
-  int strformatsize = snprintf(&buf->contents[0], sizeof(buf->contents),
-                  "struct __objc_class                                         "
-                  "           \n"
-                  "{                                                           "
-                  "           \n"
-                  "   struct __objc_class *isa;                                "
-                  "           \n"
-                  "   struct __objc_class *super_class;                        "
-                  "           \n"
-                  "   const char *name;                                        "
-                  "           \n"
-                  "   // rest of struct elided because unused                  "
-                  "           \n"
-                  "};                                                          "
-                  "           \n"
-                  "                                                            "
-                  "           \n"
-                  "struct __objc_object                                        "
-                  "           \n"
-                  "{                                                           "
-                  "           \n"
-                  "   struct __objc_class *isa;                                "
-                  "           \n"
-                  "};                                                          "
-                  "           \n"
-                  "                                                            "
-                  "           \n"
-                  "extern \"C\" void                                           "
-                  "           \n"
-                  "%s(void *$__lldb_arg_obj, void *$__lldb_arg_selector)       "
-                  "           \n"
-                  "{                                                           "
-                  "           \n"
-                  "   struct __objc_object *obj = (struct "
-                  "__objc_object*)$__lldb_arg_obj; \n"
-                  "   if ($__lldb_arg_obj == (void *)0)                     "
-                  "                                \n"
-                  "       return; // nil is ok                              "
-                  "   (int)strlen(obj->isa->name);                             "
-                  "           \n"
-                  "}                                                           "
-                  "           \n",
-                  name);
+  int strformatsize =
+      snprintf(&buf->contents[0], sizeof(buf->contents),
+               "struct __objc_class                                         "
+               "           \n"
+               "{                                                           "
+               "           \n"
+               "   struct __objc_class *isa;                                "
+               "           \n"
+               "   struct __objc_class *super_class;                        "
+               "           \n"
+               "   const char *name;                                        "
+               "           \n"
+               "   // rest of struct elided because unused                  "
+               "           \n"
+               "};                                                          "
+               "           \n"
+               "                                                            "
+               "           \n"
+               "struct __objc_object                                        "
+               "           \n"
+               "{                                                           "
+               "           \n"
+               "   struct __objc_class *isa;                                "
+               "           \n"
+               "};                                                          "
+               "           \n"
+               "                                                            "
+               "           \n"
+               "extern \"C\" void                                           "
+               "           \n"
+               "%s(void *$__lldb_arg_obj, void *$__lldb_arg_selector)       "
+               "           \n"
+               "{                                                           "
+               "           \n"
+               "   struct __objc_object *obj = (struct "
+               "__objc_object*)$__lldb_arg_obj; \n"
+               "   if ($__lldb_arg_obj == (void *)0)                     "
+               "                                \n"
+               "       return; // nil is ok                              "
+               "   (int)strlen(obj->isa->name);                             "
+               "           \n"
+               "}                                                           "
+               "           \n",
+               name.c_str());
   assert(strformatsize < (int)sizeof(buf->contents));
-  (void)strformatsize;
+  UNUSED_IF_ASSERT_DISABLED(strformatsize);
 
-  Status error;
-  return GetTargetRef().GetUtilityFunctionForLanguage(
-      buf->contents, eLanguageTypeObjC, name, error);
+  return GetTargetRef().CreateUtilityFunction(buf->contents, std::move(name),
+                                              eLanguageTypeC, exe_ctx);
 }
 
 AppleObjCRuntimeV1::ClassDescriptorV1::ClassDescriptorV1(
@@ -231,7 +222,7 @@ void AppleObjCRuntimeV1::ClassDescriptorV1::Initialize(
     return;
   }
 
-  lldb::DataBufferSP buffer_sp(new DataBufferHeap(1024, 0));
+  lldb::WritableDataBufferSP buffer_sp(new DataBufferHeap(1024, 0));
 
   size_t count = process_sp->ReadCStringFromMemory(
       name_ptr, (char *)buffer_sp->GetBytes(), 1024, error);
@@ -242,7 +233,7 @@ void AppleObjCRuntimeV1::ClassDescriptorV1::Initialize(
   }
 
   if (count)
-    m_name = ConstString((char *)buffer_sp->GetBytes());
+    m_name = ConstString(reinterpret_cast<const char *>(buffer_sp->GetBytes()));
   else
     m_name = ConstString();
 
@@ -328,7 +319,7 @@ void AppleObjCRuntimeV1::UpdateISAToDescriptorMapIfNeeded() {
     // map, whether it was successful or not.
     m_isa_to_descriptor_stop_id = process->GetStopID();
 
-    Log *log(GetLogIfAllCategoriesSet(LIBLLDB_LOG_PROCESS));
+    Log *log = GetLog(LLDBLog::Process);
 
     ProcessSP process_sp = process->shared_from_this();
 
@@ -336,8 +327,6 @@ void AppleObjCRuntimeV1::UpdateISAToDescriptorMapIfNeeded() {
 
     if (!objc_module_sp)
       return;
-
-    uint32_t isa_count = 0;
 
     lldb::addr_t hash_table_ptr = GetISAHashTablePointer();
     if (hash_table_ptr != LLDB_INVALID_ADDRESS) {
@@ -380,8 +369,6 @@ void AppleObjCRuntimeV1::UpdateISAToDescriptorMapIfNeeded() {
 
               if (bucket_isa_count == 0)
                 continue;
-
-              isa_count += bucket_isa_count;
 
               ObjCISA isa;
               if (bucket_isa_count == 1) {

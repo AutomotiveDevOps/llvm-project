@@ -87,9 +87,9 @@ Fixed Width Integers
 ^^^^^^^^^^^^^^^^^^^^
 
 Fixed-width integer values have their low bits emitted directly to the file.
-For example, a 3-bit integer value encodes 1 as 001.  Fixed width integers are
+For example, a 3-bit integer value encodes 1 as 001.  Fixed-width integers are
 used when there are a well-known number of options for a field.  For example,
-boolean values are usually encoded with a 1-bit wide integer.
+boolean values are usually encoded with a 1-bit-wide integer.
 
 .. _Variable Width Integers:
 .. _Variable Width Integer:
@@ -104,11 +104,11 @@ value (0 through 7) is encoded directly, with the high bit set to zero.  Values
 larger than N-1 bits emit their bits in a series of N-1 bit chunks, where all
 but the last set the high bit.
 
-For example, the value 27 (0x1B) is encoded as 1011 0011 when emitted as a vbr4
-value.  The first set of four bits indicates the value 3 (011) with a
-continuation piece (indicated by a high bit of 1).  The next word indicates a
-value of 24 (011 << 3) with no continuation.  The sum (3+24) yields the value
-27.
+For example, the value 30 (0x1E) is encoded as 62 (0b0011'1110) when emitted as
+a vbr4 value.  The first set of four bits starting from the least significant
+indicates the value 6 (110) with a continuation piece (indicated by a high bit
+of 1).  The next set of four bits indicates a value of 24 (011 << 3) with no
+continuation.  The sum (6+24) yields the value 30.
 
 .. _char6-encoded value:
 
@@ -229,7 +229,7 @@ Data Records
 ------------
 
 Data records consist of a record code and a number of (up to) 64-bit integer
-values.  The interpretation of the code and values is application specific and
+values.  The interpretation of the code and values is application-specific and
 may vary between different block types.  Records can be encoded either using an
 unabbrev record, or with an abbreviation.  In the LLVM IR format, for example,
 there is a record which encodes the target triple of a module.  The code is
@@ -264,7 +264,7 @@ Abbreviated Record Encoding
 
 ``[<abbrevid>, fields...]``
 
-An abbreviated record is a abbreviation id followed by a set of fields that are
+An abbreviated record is an abbreviation id followed by a set of fields that are
 encoded according to the `abbreviation definition`_.  This allows records to be
 encoded significantly more densely than records encoded with the
 `UNABBREV_RECORD`_ type, and allows the abbreviation types to be specified in
@@ -469,13 +469,19 @@ Native Object File Wrapper Format
 =================================
 
 Bitcode files for LLVM IR may also be wrapped in a native object file
-(i.e. ELF, COFF, Mach-O).  The bitcode must be stored in a section of the object
-file named ``__LLVM,__bitcode`` for MachO and ``.llvmbc`` for the other object
-formats.  This wrapper format is useful for accommodating LTO in compilation
-pipelines where intermediate objects must be native object files which contain
-metadata in other sections.
+(i.e., ELF, COFF, Mach-O).  The bitcode must be stored in a section of the object
+file named ``__LLVM,__bitcode`` for Mach-O or ``.llvmbc`` for the other object
+formats. ELF objects additionally support a ``.llvm.lto`` section for
+:doc:`FatLTO`, which contains bitcode suitable for LTO compilation (i.e., bitcode
+that has gone through a pre-link LTO pipeline).  The ``.llvmbc`` section
+predates FatLTO support in LLVM, and may not always contain bitcode that is
+suitable for LTO (i.e., from ``-fembed-bitcode``).  The wrapper format is useful
+for accommodating LTO in compilation pipelines where intermediate objects must
+be native object files which contain metadata in other sections.
 
-Not all tools support this format.
+Not all tools support this format.  For example, lld and the gold plugin will
+ignore the ``.llvmbc`` section when linking object files, but can use
+``.llvm.lto`` sections when passed the correct command-line options.
 
 .. _encoding of LLVM IR:
 
@@ -557,9 +563,10 @@ MODULE_BLOCK Contents
 ---------------------
 
 The ``MODULE_BLOCK`` block (id 8) is the top-level block for LLVM bitcode files,
-and each bitcode file must contain exactly one. In addition to records
-(described below) containing information about the module, a ``MODULE_BLOCK``
-block may contain the following sub-blocks:
+and each module in a bitcode file must contain exactly one. A bitcode file with
+multi-module bitcode is valid. In addition to records (described below)
+containing information about the module, a ``MODULE_BLOCK`` block may contain
+the following sub-blocks:
 
 * `BLOCKINFO`_
 * `PARAMATTR_BLOCK`_
@@ -578,7 +585,7 @@ MODULE_CODE_VERSION Record
 ``[VERSION, version#]``
 
 The ``VERSION`` record (code 1) contains a single value indicating the format
-version. Versions 0, 1 and 2 are supported at this time. The difference between
+version. Versions 0, 1, and 2 are supported at this time. The difference between
 version 0 and 1 is in the encoding of instruction operands in
 each `FUNCTION_BLOCK`_.
 
@@ -788,13 +795,14 @@ function. The operand fields are:
   * ``ccc``: code 0
   * ``fastcc``: code 8
   * ``coldcc``: code 9
-  * ``webkit_jscc``: code 12
   * ``anyregcc``: code 13
   * ``preserve_mostcc``: code 14
   * ``preserve_allcc``: code 15
   * ``swiftcc`` : code 16
   * ``cxx_fast_tlscc``: code 17
   * ``tailcc`` : code 18
+  * ``cfguard_checkcc`` : code 19
+  * ``swifttailcc`` : code 20
   * ``x86_stdcallcc``: code 64
   * ``x86_fastcallcc``: code 65
   * ``arm_apcscc``: code 66
@@ -838,7 +846,7 @@ function. The operand fields are:
   plus 1.
 
 * *preemptionspecifier*: If present, an encoding of the :ref:`runtime preemption specifier<bcpreemptionspecifier>`  of this function.
- 
+
 MODULE_CODE_ALIAS Record
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -998,73 +1006,41 @@ number of values representing the bytes of a null-terminated string. For
 attributes with a string argument (code 4), the *value* value is similarly a
 variable number of values representing the bytes of a null-terminated string.
 
-The integer codes are mapped to well-known attributes as follows.
+The integer codes are mapped to attributes as described in the
+``AttributeKindCodes`` enumeration in the file `LLVMBitCodes.h
+<https://github.com/llvm/llvm-project/blob/main/llvm/include/llvm/Bitcode/LLVMBitCodes.h>`_.
+
+For example:
+
+::
+
+  enum AttributeKindCodes {
+    // = 0 is unused
+    ATTR_KIND_ALIGNMENT = 1,
+    ATTR_KIND_ALWAYS_INLINE = 2,
+    ...
+    }
+
+Correspond to:
 
 * code 1: ``align(<n>)``
 * code 2: ``alwaysinline``
-* code 3: ``byval``
-* code 4: ``inlinehint``
-* code 5: ``inreg``
-* code 6: ``minsize``
-* code 7: ``naked``
-* code 8: ``nest``
-* code 9: ``noalias``
-* code 10: ``nobuiltin``
-* code 11: ``nocapture``
-* code 12: ``noduplicates``
-* code 13: ``noimplicitfloat``
-* code 14: ``noinline``
-* code 15: ``nonlazybind``
-* code 16: ``noredzone``
-* code 17: ``noreturn``
-* code 18: ``nounwind``
-* code 19: ``optsize``
-* code 20: ``readnone``
-* code 21: ``readonly``
-* code 22: ``returned``
-* code 23: ``returns_twice``
-* code 24: ``signext``
-* code 25: ``alignstack(<n>)``
-* code 26: ``ssp``
-* code 27: ``sspreq``
-* code 28: ``sspstrong``
-* code 29: ``sret``
-* code 30: ``sanitize_address``
-* code 31: ``sanitize_thread``
-* code 32: ``sanitize_memory``
-* code 33: ``uwtable``
-* code 34: ``zeroext``
-* code 35: ``builtin``
-* code 36: ``cold``
-* code 37: ``optnone``
-* code 38: ``inalloca``
-* code 39: ``nonnull``
-* code 40: ``jumptable``
-* code 41: ``dereferenceable(<n>)``
-* code 42: ``dereferenceable_or_null(<n>)``
-* code 43: ``convergent``
-* code 44: ``safestack``
-* code 45: ``argmemonly``
-* code 46: ``swiftself``
-* code 47: ``swifterror``
-* code 48: ``norecurse``
-* code 49: ``inaccessiblememonly``
-* code 50: ``inaccessiblememonly_or_argmemonly``
-* code 51: ``allocsize(<EltSizeParam>[, <NumEltsParam>])``
-* code 52: ``writeonly``
-* code 53: ``speculatable``
-* code 54: ``strictfp``
-* code 55: ``sanitize_hwaddress``
-* code 56: ``nocf_check``
-* code 57: ``optforfuzzing``
-* code 58: ``shadowcallstack``
-* code 64: ``sanitize_memtag``
+
+The mappings between the enumeration and the attribute name string may be found
+in the file `Attributes.td
+<https://github.com/llvm/llvm-project/blob/main/llvm/include/llvm/IR/Attributes.td>`_.
 
 .. note::
   The ``allocsize`` attribute has a special encoding for its arguments. Its two
   arguments, which are 32-bit integers, are packed into one 64-bit integer value
-  (i.e. ``(EltSizeParam << 32) | NumEltsParam``), with ``NumEltsParam`` taking on
+  (i.e., ``(EltSizeParam << 32) | NumEltsParam``), with ``NumEltsParam`` taking on
   the sentinel value -1 if it is not specified.
+
+.. note::
+  The ``vscale_range`` attribute has a special encoding for its arguments. Its two
+  arguments, which are 32-bit integers, are packed into one 64-bit integer value
+  (i.e., ``(Min << 32) | Max``), with ``Max`` taking on the value of ``Min`` if
+  it is not specified.
 
 .. _TYPE_BLOCK:
 
@@ -1161,7 +1137,7 @@ TYPE_CODE_POINTER Record
 ``[POINTER, pointee type, address space]``
 
 The ``POINTER`` record (code 8) adds a pointer type to the type table. The
-operand fields are
+operand fields are:
 
 * *pointee type*: The type index of the pointed-to type
 
@@ -1179,7 +1155,7 @@ TYPE_CODE_FUNCTION_OLD Record
 ``[FUNCTION_OLD, vararg, ignored, retty, ...paramty... ]``
 
 The ``FUNCTION_OLD`` record (code 9) adds a function type to the type table.
-The operand fields are
+The operand fields are:
 
 * *vararg*: Non-zero if the type represents a varargs function
 
@@ -1197,7 +1173,7 @@ TYPE_CODE_ARRAY Record
 ``[ARRAY, numelts, eltty]``
 
 The ``ARRAY`` record (code 11) adds an array type to the type table.  The
-operand fields are
+operand fields are:
 
 * *numelts*: The number of elements in arrays of this type
 
@@ -1209,7 +1185,7 @@ TYPE_CODE_VECTOR Record
 ``[VECTOR, numelts, eltty]``
 
 The ``VECTOR`` record (code 12) adds a vector type to the type table.  The
-operand fields are
+operand fields are:
 
 * *numelts*: The number of elements in vectors of this type
 
@@ -1251,7 +1227,7 @@ TYPE_CODE_X86_MMX Record
 
 ``[X86_MMX]``
 
-The ``X86_MMX`` record (code 17) adds an ``x86_mmx`` type to the type table.
+The ``X86_MMX`` record (code 17) is deprecated, and imported as a <1 x i64> vector.
 
 TYPE_CODE_STRUCT_ANON Record
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -1259,7 +1235,7 @@ TYPE_CODE_STRUCT_ANON Record
 ``[STRUCT_ANON, ispacked, ...eltty...]``
 
 The ``STRUCT_ANON`` record (code 18) adds a literal struct type to the type
-table. The operand fields are
+table. The operand fields are:
 
 * *ispacked*: Non-zero if the type represents a packed structure
 
@@ -1282,7 +1258,7 @@ TYPE_CODE_STRUCT_NAMED Record
 
 The ``STRUCT_NAMED`` record (code 20) adds an identified struct type to the
 type table, with a name defined by a previously encountered ``STRUCT_NAME``
-record. The operand fields are
+record. The operand fields are:
 
 * *ispacked*: Non-zero if the type represents a packed structure
 
@@ -1295,7 +1271,7 @@ TYPE_CODE_FUNCTION Record
 ``[FUNCTION, vararg, retty, ...paramty... ]``
 
 The ``FUNCTION`` record (code 21) adds a function type to the type table. The
-operand fields are
+operand fields are:
 
 * *vararg*: Non-zero if the type represents a varargs function
 
@@ -1303,6 +1279,28 @@ operand fields are
 
 * *paramty*: Zero or more type indices representing the parameter types of the
   function
+
+TYPE_CODE_X86_AMX Record
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+``[X86_AMX]``
+
+The ``X86_AMX`` record (code 24) adds an ``x86_amx`` type to the type table.
+
+TYPE_CODE_TARGET_TYPE Record
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+``[TARGET_TYPE, num_tys, ...ty_params..., ...int_params... ]``
+
+The ``TARGET_TYPE`` record (code 26) adds a target extension type to the type
+table, with a name defined by a previously encountered ``STRUCT_NAME`` record.
+The operand fields are:
+
+* *num_tys*: The number of parameters that are types (as opposed to integers)
+
+* *ty_params*: Type indices that represent type parameters
+
+* *int_params*: Numbers that correspond to the integer parameters.
 
 .. _CONSTANTS_BLOCK:
 

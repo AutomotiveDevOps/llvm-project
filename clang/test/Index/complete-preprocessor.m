@@ -35,6 +35,8 @@ FOO(in,t) value;
 // CHECK-CC2: NotImplemented:{TypedText define}{HorizontalSpace  }{Placeholder macro} (40)
 // CHECK-CC2-NEXT: NotImplemented:{TypedText define}{HorizontalSpace  }{Placeholder macro}{LeftParen (}{Placeholder args}{RightParen )} (40)
 // CHECK-CC2-NEXT: NotImplemented:{TypedText elif}{HorizontalSpace  }{Placeholder condition} (40)
+// CHECK-CC2-NEXT: NotImplemented:{TypedText elifdef}{HorizontalSpace  }{Placeholder macro} (40)
+// CHECK-CC2-NEXT: NotImplemented:{TypedText elifndef}{HorizontalSpace  }{Placeholder macro} (40)
 // CHECK-CC2-NEXT: NotImplemented:{TypedText else} (40)
 // CHECK-CC2-NEXT: NotImplemented:{TypedText endif} (40)
 // CHECK-CC2-NEXT: NotImplemented:{TypedText error}{HorizontalSpace  }{Placeholder message} (40)
@@ -78,3 +80,8 @@ FOO(in,t) value;
 // RUN: env CINDEXTEST_EDITING=1 CINDEXTEST_COMPLETION_CACHING=1 c-index-test -code-completion-at=%s:9:8 %s | FileCheck -check-prefix=CHECK-CC3 %s
 // RUN: env CINDEXTEST_EDITING=1 CINDEXTEST_COMPLETION_CACHING=1 c-index-test -code-completion-at=%s:11:5 %s | FileCheck -check-prefix=CHECK-CC4 %s
 // RUN: env CINDEXTEST_EDITING=1 CINDEXTEST_COMPLETION_CACHING=1 c-index-test -code-completion-at=%s:14:5 %s | FileCheck -check-prefix=CHECK-CC5 %s
+
+// Test #embed completion in C23 mode
+// RUN: c-index-test -code-completion-at=%s:4:2 %s -std=c23 | FileCheck -check-prefix=CHECK-EMBED %s
+// CHECK-EMBED: NotImplemented:{TypedText embed}{HorizontalSpace  }{Text "}{Placeholder file}{Text "} (40)
+// CHECK-EMBED: NotImplemented:{TypedText embed}{HorizontalSpace  }{Text <}{Placeholder file}{Text >} (40)

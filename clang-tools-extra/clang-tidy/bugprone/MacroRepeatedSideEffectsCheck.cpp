@@ -1,4 +1,4 @@
-//===--- MacroRepeatedSideEffectsCheck.cpp - clang-tidy--------------------===//
+//===----------------------------------------------------------------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -12,10 +12,9 @@
 #include "clang/Lex/MacroArgs.h"
 #include "clang/Lex/PPCallbacks.h"
 #include "clang/Lex/Preprocessor.h"
+#include <stack>
 
-namespace clang {
-namespace tidy {
-namespace bugprone {
+namespace clang::tidy::bugprone {
 
 namespace {
 class MacroRepeatedPPCallbacks : public PPCallbacks {
@@ -49,13 +48,11 @@ void MacroRepeatedPPCallbacks::MacroExpands(const Token &MacroNameTok,
 
   // Bail out if the contents of the macro are containing keywords that are
   // making the macro too complex.
-  if (std::find_if(
-          MI->tokens().begin(), MI->tokens().end(), [](const Token &T) {
-            return T.isOneOf(tok::kw_if, tok::kw_else, tok::kw_switch,
-                             tok::kw_case, tok::kw_break, tok::kw_while,
-                             tok::kw_do, tok::kw_for, tok::kw_continue,
-                             tok::kw_goto, tok::kw_return);
-          }) != MI->tokens().end())
+  if (llvm::any_of(MI->tokens(), [](const Token &T) {
+        return T.isOneOf(tok::kw_if, tok::kw_else, tok::kw_switch, tok::kw_case,
+                         tok::kw_break, tok::kw_while, tok::kw_do, tok::kw_for,
+                         tok::kw_continue, tok::kw_goto, tok::kw_return);
+      }))
     return;
 
   for (unsigned ArgNo = 0U; ArgNo < MI->getNumParams(); ++ArgNo) {
@@ -156,8 +153,7 @@ unsigned MacroRepeatedPPCallbacks::countArgumentExpansions(
     // Count argument.
     if (TII == Arg) {
       Current++;
-      if (Current > Max)
-        Max = Current;
+      Max = std::max(Max, Current);
     }
   }
   return Max;
@@ -177,6 +173,4 @@ void MacroRepeatedSideEffectsCheck::registerPPCallbacks(
   PP->addPPCallbacks(::std::make_unique<MacroRepeatedPPCallbacks>(*this, *PP));
 }
 
-} // namespace bugprone
-} // namespace tidy
-} // namespace clang
+} // namespace clang::tidy::bugprone

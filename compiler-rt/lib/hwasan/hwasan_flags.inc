@@ -23,6 +23,9 @@ HWASAN_FLAG(bool, tag_in_free, true, "")
 HWASAN_FLAG(bool, print_stats, false, "")
 HWASAN_FLAG(bool, halt_on_error, true, "")
 HWASAN_FLAG(bool, atexit, false, "")
+HWASAN_FLAG(
+    bool, print_live_threads_info, true,
+    "If set, prints the remaining threads in report as an extra information.")
 
 // Test only flag to disable malloc/realloc/free memory tagging on startup.
 // Tagging can be reenabled with __hwasan_enable_allocator_tagging().
@@ -33,13 +36,13 @@ HWASAN_FLAG(bool, disable_allocator_tagging, false, "")
 HWASAN_FLAG(bool, random_tags, true, "")
 
 HWASAN_FLAG(
-    int, max_malloc_fill_size, 0x1000,  // By default, fill only the first 4K.
+    int, max_malloc_fill_size, 0,
     "HWASan allocator flag. max_malloc_fill_size is the maximal amount of "
     "bytes that will be filled with malloc_fill_byte on malloc.")
 
 HWASAN_FLAG(bool, free_checks_tail_magic, 1,
     "If set, free() will check the magic values "
-    "to the right of the allocated object "
+    "after the allocated object "
     "if the allocation size is not a divident of the granule size")
 HWASAN_FLAG(
     int, max_free_fill_size, 0,
@@ -72,3 +75,19 @@ HWASAN_FLAG(uptr, malloc_bisect_right, 0,
 HWASAN_FLAG(bool, malloc_bisect_dump, false,
             "Print all allocations within [malloc_bisect_left, "
             "malloc_bisect_right] range ")
+
+
+// Exit if we fail to enable the AArch64 kernel ABI relaxation which allows
+// tagged pointers in syscalls.  This is the default, but being able to disable
+// that behaviour is useful for running the testsuite on more platforms (the
+// testsuite can run since we manually ensure any pointer arguments to syscalls
+// are untagged before the call.
+HWASAN_FLAG(bool, fail_without_syscall_abi, true,
+            "Exit if fail to request relaxed syscall ABI.")
+
+HWASAN_FLAG(
+    uptr, fixed_shadow_base, -1,
+    "If not -1, HWASan will attempt to allocate the shadow at this address, "
+    "instead of choosing one dynamically."
+    "Tip: this can be combined with the compiler option, "
+    "-hwasan-mapping-offset, to optimize the instrumentation.")

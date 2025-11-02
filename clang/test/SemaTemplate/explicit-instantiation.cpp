@@ -1,5 +1,4 @@
-// RUN: %clang_cc1 -fsyntax-only -verify -fexceptions -fcxx-exceptions %s
-// RUN: %clang_cc1 -fsyntax-only -verify -fexceptions -fcxx-exceptions -std=c++11 %s
+// RUN: %clang_cc1 -fsyntax-only -verify -fexceptions -fcxx-exceptions -Wno-dynamic-exception-spec -pedantic %std_cxx11- %s
 
 template void *; // expected-error{{expected unqualified-id}}
 
@@ -11,7 +10,7 @@ template int v0; // expected-error{{does not refer}}
 template<typename T>
 struct X0 {
   static T value;
-  
+
   T f0(T x) {
     return x + 1;  // expected-error{{invalid operands}}
   }
@@ -46,7 +45,7 @@ template MemPtr X0<MemPtr>::f0(MemPtr); // expected-note{{requested here}}
 
 struct X2 {
   int f0(int); // expected-note{{refers here}}
-  
+
   template<typename T> T f1(T) { return T(); }
   template<typename T> T* f1(T*) { return 0; }
 
@@ -179,4 +178,19 @@ struct B : A<0> {
   virtual void foo() override; // expected-error{{declaration of 'foo' overrides a 'final' function}}
 };
 }
+
+template<typename T> struct LambdaInDefaultMemberInitInExplicitInstantiation {
+  int a = [this] { return a; }();
+};
+template struct LambdaInDefaultMemberInitInExplicitInstantiation<int>;
+LambdaInDefaultMemberInitInExplicitInstantiation<float> x;
 #endif
+
+namespace Qualified {
+  template <class> struct C {
+    struct D {
+      void f();
+    };
+  };
+  extern template void C<int>::D::f();
+}

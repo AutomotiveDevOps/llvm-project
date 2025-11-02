@@ -2,7 +2,7 @@
 
 #define nil (void *)0;
 
-extern void foo();
+extern void foo(void);
 
 @protocol MyProtocol
 - (void) method;
@@ -18,7 +18,7 @@ extern void foo();
 @interface MyOtherClass : MyClass
 @end
 
-int main()
+int main(void)
 {
   id <MyProtocol> obj_id_p = nil;
   MyClass *obj_c_cat_p = nil;
@@ -38,7 +38,7 @@ int main()
 
   obj_c_cat_p = obj_c_super_p; // ok.
   obj_c_cat_p = obj_c_super_p_q; // ok.
-  obj_c_super_p = obj_c_cat_p_q; // expected-warning {{incompatible pointer types}}
+  obj_c_super_p = obj_c_cat_p_q; // expected-error {{incompatible pointer types}}
   obj_c_cat_p_q = obj_c_super_p;
   return 0;
 }

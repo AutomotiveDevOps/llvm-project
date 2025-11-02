@@ -9,9 +9,14 @@
 #include "llvm/DebugInfo/CodeView/RecordName.h"
 
 #include "llvm/ADT/SmallString.h"
-#include "llvm/DebugInfo/CodeView/CVSymbolVisitor.h"
+#include "llvm/ADT/StringExtras.h"
 #include "llvm/DebugInfo/CodeView/CVTypeVisitor.h"
+#include "llvm/DebugInfo/CodeView/CodeView.h"
+#include "llvm/DebugInfo/CodeView/SymbolRecord.h"
 #include "llvm/DebugInfo/CodeView/SymbolRecordMapping.h"
+#include "llvm/DebugInfo/CodeView/TypeCollection.h"
+#include "llvm/DebugInfo/CodeView/TypeIndex.h"
+#include "llvm/DebugInfo/CodeView/TypeRecord.h"
 #include "llvm/DebugInfo/CodeView/TypeVisitorCallbacks.h"
 #include "llvm/Support/FormatVariadic.h"
 
@@ -77,9 +82,10 @@ Error TypeNameComputer::visitKnownRecord(CVType &CVR, ArgListRecord &Args) {
   uint32_t Size = Indices.size();
   Name = "(";
   for (uint32_t I = 0; I < Size; ++I) {
-    assert(Indices[I] < CurrentTypeIndex);
-
-    Name.append(Types.getTypeName(Indices[I]));
+    if (Indices[I] < CurrentTypeIndex)
+      Name.append(Types.getTypeName(Indices[I]));
+    else
+      Name.append("<unknown 0x" + utohexstr(Indices[I].getIndex()) + ">");
     if (I + 1 != Size)
       Name.append(", ");
   }
@@ -318,7 +324,7 @@ StringRef llvm::codeview::getSymbolName(CVSymbol Sym) {
   if (Sym.kind() == SymbolKind::S_CONSTANT) {
     // S_CONSTANT is preceded by an APSInt, which has a variable length.  So we
     // have to do a full deserialization.
-    BinaryStreamReader Reader(Sym.content(), llvm::support::little);
+    BinaryStreamReader Reader(Sym.content(), llvm::endianness::little);
     // The container doesn't matter for single records.
     SymbolRecordMapping Mapping(Reader, CodeViewContainer::ObjectFile);
     ConstantSym Const(SymbolKind::S_CONSTANT);

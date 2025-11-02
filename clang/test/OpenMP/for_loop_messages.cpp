@@ -1,8 +1,8 @@
-// RUN: %clang_cc1 -fsyntax-only -fopenmp -x c++ -std=c++11 -fexceptions -fcxx-exceptions -verify=expected,omp4 %s -Wuninitialized
-// RUN: %clang_cc1 -fsyntax-only -fopenmp -fopenmp-version=50 -x c++ -std=c++11 -fexceptions -fcxx-exceptions -verify=expected,omp5 %s -Wuninitialized
+// RUN: %clang_cc1 -fsyntax-only -fopenmp -fopenmp-version=45 -x c++ -std=c++11 -fexceptions -fcxx-exceptions -fnamed-loops -verify=expected,omp4 %s -Wuninitialized
+// RUN: %clang_cc1 -fsyntax-only -fopenmp -x c++ -std=c++11 -fexceptions -fcxx-exceptions -fnamed-loops -verify=expected,omp5 %s -Wuninitialized
 
-// RUN: %clang_cc1 -fsyntax-only -fopenmp-simd -x c++ -std=c++11 -fexceptions -fcxx-exceptions -verify=expected,omp4 %s -Wuninitialized
-// RUN: %clang_cc1 -fsyntax-only -fopenmp-simd -fopenmp-version=50 -x c++ -std=c++11 -fexceptions -fcxx-exceptions -verify=expected,omp5 %s -Wuninitialized
+// RUN: %clang_cc1 -fsyntax-only -fopenmp-simd -fopenmp-version=45 -x c++ -std=c++11 -fexceptions -fcxx-exceptions -fnamed-loops -verify=expected,omp4 %s -Wuninitialized
+// RUN: %clang_cc1 -fsyntax-only -fopenmp-simd -x c++ -std=c++11 -fexceptions -fcxx-exceptions -fnamed-loops -verify=expected,omp5 %s -Wuninitialized
 
 class S {
   int a;
@@ -653,9 +653,10 @@ public:
         ;
 
 #pragma omp parallel
-// expected-error@+5 2 {{expected loop invariant expression or '<invariant1> * ii + <invariant2>' kind of expression}}
-// expected-error@+4 {{expected loop invariant expression or '<invariant1> * TC::ii + <invariant2>' kind of expression}}
-// expected-error@+4 {{expected loop invariant expression or '<invariant1> * TC::ii + <invariant2>' kind of expression}}
+// expected-error@+6 {{expected loop invariant expression or '<invariant1> * TC::ii + <invariant2>' kind of expression}}
+// expected-error@+6 {{expected loop invariant expression or '<invariant1> * TC::ii + <invariant2>' kind of expression}}
+// expected-error@+4 2 {{expected loop invariant expression or '<invariant1> * ii + <invariant2>' kind of expression}}
+// expected-error@+4 2 {{expected loop invariant expression or '<invariant1> * ii + <invariant2>' kind of expression}}
 #pragma omp for collapse(3)
     for (ii = 10 + 25; ii < 1000; ii += 1)
       for (iii = ii * 10 + 25; iii < ii / ii - 23; iii += 1)
@@ -839,5 +840,24 @@ void test_static_data_member() {
     class X {
       static int x; // expected-error {{static data member 'x' not allowed in local class 'X'}}
     };
+  }
+}
+
+void test_labeled_break() {
+#pragma omp parallel
+#pragma omp for
+  a: // expected-error {{statement after '#pragma omp for' must be a for loop}}
+  for (int i = 0; i < 16; ++i) {
+    break a; // expected-error {{'break' statement cannot be used in OpenMP for loop}}
+    continue a;
+  }
+
+  b: while (1) {
+#pragma omp parallel
+#pragma omp for
+    for (int i = 0; i < 16; ++i) {
+      break b; // expected-error {{'break' label does not name an enclosing loop or 'switch'}}
+      continue b; // expected-error {{'continue' label does not name an enclosing loop}}
+    }
   }
 }

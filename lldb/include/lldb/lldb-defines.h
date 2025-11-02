@@ -11,18 +11,6 @@
 
 #include "lldb/lldb-types.h"
 
-#if defined(_WIN32)
-#if defined(EXPORT_LIBLLDB)
-#define LLDB_API __declspec(dllexport)
-#elif defined(IMPORT_LIBLLDB)
-#define LLDB_API __declspec(dllimport)
-#else
-#define LLDB_API
-#endif
-#else // defined (_WIN32)
-#define LLDB_API
-#endif
-
 #if !defined(INT32_MAX)
 #define INT32_MAX 2147483647
 #endif
@@ -56,8 +44,13 @@
 #define LLDB_WATCH_ID_IS_VALID(uid) ((uid) != (LLDB_INVALID_WATCH_ID))
 #define LLDB_WATCH_TYPE_READ (1u << 0)
 #define LLDB_WATCH_TYPE_WRITE (1u << 1)
+#define LLDB_WATCH_TYPE_MODIFY (1u << 2)
 #define LLDB_WATCH_TYPE_IS_VALID(type)                                         \
-  ((type | LLDB_WATCH_TYPE_READ) || (type | LLDB_WATCH_TYPE_WRITE))
+  ((type & LLDB_WATCH_TYPE_READ) || (type & LLDB_WATCH_TYPE_WRITE) ||          \
+   (type & LLDB_WATCH_TYPE_MODIFY))
+
+// StopPointSites
+#define LLDB_INVALID_SITE_ID UINT32_MAX
 
 // Generic Register Numbers
 #define LLDB_REGNUM_GENERIC_PC 0    // Program Counter
@@ -81,7 +74,11 @@
   11 // The register that would contain pointer size or less argument 7 (if any)
 #define LLDB_REGNUM_GENERIC_ARG8                                               \
   12 // The register that would contain pointer size or less argument 8 (if any)
+#define LLDB_REGNUM_GENERIC_TP                                                 \
+  13 // The register that would contain thread specific data, like TLS data and
+     // thread control block pointer
 /// Invalid value definitions
+#define LLDB_INVALID_STOP_ID 0
 #define LLDB_INVALID_ADDRESS UINT64_MAX
 #define LLDB_INVALID_INDEX32 UINT32_MAX
 #define LLDB_INVALID_IVAR_OFFSET UINT32_MAX
@@ -95,7 +92,11 @@
 #define LLDB_INVALID_SIGNAL_NUMBER INT32_MAX
 #define LLDB_INVALID_OFFSET UINT64_MAX // Must match max of lldb::offset_t
 #define LLDB_INVALID_LINE_NUMBER UINT32_MAX
+#define LLDB_INVALID_COLUMN_NUMBER 0
 #define LLDB_INVALID_QUEUE_ID 0
+#define LLDB_INVALID_CPU_ID UINT32_MAX
+#define LLDB_INVALID_WATCHPOINT_RESOURCE_ID UINT32_MAX
+#define LLDB_INVALID_GLOBALLY_UNIQUE_TARGET_ID 0
 
 /// CPU Type definitions
 #define LLDB_ARCH_DEFAULT "systemArch"
@@ -119,12 +120,18 @@
 #define LLDB_OPT_SET_9 (1U << 8)
 #define LLDB_OPT_SET_10 (1U << 9)
 #define LLDB_OPT_SET_11 (1U << 10)
+#define LLDB_OPT_SET_12 (1U << 11)
 #define LLDB_OPT_SET_FROM_TO(A, B)                                             \
   (((1U << (B)) - 1) ^ (((1U << (A)) - 1) >> 1))
 
 #if defined(_WIN32) && !defined(MAX_PATH)
 #define MAX_PATH 260
 #endif
+
+/// Address Mask
+/// Bits not used for addressing are set to 1 in the mask;
+/// all mask bits set is an invalid value.
+#define LLDB_INVALID_ADDRESS_MASK UINT64_MAX
 
 // ignore GCC function attributes
 #if defined(_MSC_VER) && !defined(__clang__)
@@ -133,15 +140,13 @@
 
 #define UNUSED_IF_ASSERT_DISABLED(x) ((void)(x))
 
-#if defined(__cplusplus)
+#define LLDB_DEPRECATED(MSG)                                                   \
+  [[deprecated("This method is no longer supported: " MSG)]]
 
-/// \def DISALLOW_COPY_AND_ASSIGN(TypeName)
-///     Macro definition for easily disallowing copy constructor and
-///     assignment operators in C++ classes.
-#define DISALLOW_COPY_AND_ASSIGN(TypeName)                                     \
-  TypeName(const TypeName &) = delete;                                         \
-  const TypeName &operator=(const TypeName &) = delete
-
-#endif // #if defined(__cplusplus)
+#if defined(__clang__)
+#define LLDB_DEPRECATED_FIXME(MSG, FIX) __attribute__((deprecated(MSG, FIX)))
+#else
+#define LLDB_DEPRECATED_FIXME(MSG, FIX) LLDB_DEPRECATED(MSG)
+#endif
 
 #endif // LLDB_LLDB_DEFINES_H

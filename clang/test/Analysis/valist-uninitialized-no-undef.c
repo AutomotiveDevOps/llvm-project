@@ -1,4 +1,4 @@
-// RUN: %clang_analyze_cc1 -triple x86_64-pc-linux-gnu -analyzer-checker=core,valist.Uninitialized,valist.CopyToSelf -analyzer-output=text -analyzer-store=region -verify %s
+// RUN: %clang_analyze_cc1 -triple x86_64-pc-linux-gnu -analyzer-checker=core,security.VAList -analyzer-output=text -verify %s
 
 #include "Inputs/system-header-simulator-for-valist.h"
 
@@ -14,13 +14,16 @@ void call_inlined_uses_arg(int fst, ...) {
   inlined_uses_arg(va); // expected-note{{Calling 'inlined_uses_arg'}}
 }
 
-void f6(va_list *fst, ...) {
-  va_start(*fst, fst);
-  // FIXME: There should be no warning for this.
-  (void)va_arg(*fst, int); // expected-warning{{va_arg() is called on an uninitialized va_list}}
-  // expected-note@-1{{va_arg() is called on an uninitialized va_list}}
-  va_end(*fst);
-} 
+int va_list_get_int(va_list *va) {
+  return va_arg(*va, int); // no-warning
+}
+
+struct MyVaList {
+  va_list l;
+};
+int va_list_get_int2(struct MyVaList *va) {
+  return va_arg(va->l, int); // no-warning
+}
 
 void call_vprintf_bad(int isstring, ...) {
   va_list va;
@@ -34,7 +37,7 @@ void call_vsprintf_bad(char *buffer, ...) {
   va_list va;
   va_start(va, buffer); // expected-note{{Initialized va_list}}
   va_end(va); // expected-note{{Ended va_list}}
-  vsprintf(buffer, "%s %d %d %lf %03d", va); // expected-warning{{Function 'vsprintf' is called with an uninitialized va_list argument}}
-  // expected-note@-1{{Function 'vsprintf' is called with an uninitialized va_list argument}}
+  vsprintf(buffer, "%s %d %d %lf %03d", va); // expected-warning{{Function 'vsprintf' is called with an already released va_list argument}}
+  // expected-note@-1{{Function 'vsprintf' is called with an already released va_list argument}}
 }
 

@@ -8,6 +8,7 @@
 # CHECK-NEXT: debug_line[0x00000000]
 # CHECK-NEXT: Line table prologue:
 # CHECK-NEXT:     total_length: 0x00000069
+# CHECK-NEXT:           format: DWARF32
 # CHECK-NEXT:          version: 5
 # CHECK-NEXT:     address_size: 8
 # CHECK-NEXT:  seg_select_size: 0
@@ -38,15 +39,16 @@
 # CHECK-NEXT:        mod_time: 0x12345678
 # CHECK-NEXT:          length: 0x00000010
 # CHECK-EMPTY:
-# CHECK-NEXT: Address            Line   Column File   ISA Discriminator Flags
-# CHECK-NEXT: ------------------ ------ ------ ------ --- ------------- -------------
-# CHECK-NEXT: 0x0000000000000002      1      0      1   0             0  is_stmt
-# CHECK-NEXT: 0x0000000000000002      1      4      3   0             0  is_stmt
-# CHECK-NEXT: 0x0000000000000024      1      4      3   5             6  basic_block prologue_end epilogue_begin end_sequence
+# CHECK-NEXT: Address            Line   Column File   ISA Discriminator OpIndex Flags
+# CHECK-NEXT: ------------------ ------ ------ ------ --- ------------- ------- -------------
+# CHECK-NEXT: 0x0000000000000002      1      0      1   0             0       0  is_stmt
+# CHECK-NEXT: 0x0000000000000002      1      4      3   0             0       0  is_stmt
+# CHECK-NEXT: 0x0000000000000024      1      4      3   5             6       0  basic_block prologue_end epilogue_begin end_sequence
 # CHECK-EMPTY:
 # CHECK-NEXT: debug_line[0x0000006d]
 # CHECK-NEXT: Line table prologue:
 # CHECK-NEXT:     total_length: 0x0000001b
+# CHECK-NEXT:           format: DWARF32
 # CHECK-NEXT:          version: 4
 # CHECK-NEXT:  prologue_length: 0x00000015
 # CHECK-NEXT:  min_inst_length: 2

@@ -27,13 +27,14 @@ namespace {
 class Action : public clang::ASTFrontendAction {
 public:
   explicit Action(SymbolIndexManager &SymbolIndexMgr, bool MinimizeIncludePaths)
-      : SemaSource(SymbolIndexMgr, MinimizeIncludePaths,
-                   /*GenerateDiagnostics=*/false) {}
+      : SemaSource(new IncludeFixerSemaSource(SymbolIndexMgr,
+                                              MinimizeIncludePaths,
+                                              /*GenerateDiagnostics=*/false)) {}
 
   std::unique_ptr<clang::ASTConsumer>
   CreateASTConsumer(clang::CompilerInstance &Compiler,
                     StringRef InFile) override {
-    SemaSource.setFilePath(InFile);
+    SemaSource->setFilePath(InFile);
     return std::make_unique<clang::ASTConsumer>();
   }
 
@@ -51,8 +52,8 @@ public:
       CompletionConsumer = &Compiler->getCodeCompletionConsumer();
 
     Compiler->createSema(getTranslationUnitKind(), CompletionConsumer);
-    SemaSource.setCompilerInstance(Compiler);
-    Compiler->getSema().addExternalSource(&SemaSource);
+    SemaSource->setCompilerInstance(Compiler);
+    Compiler->getSema().addExternalSource(SemaSource);
 
     clang::ParseAST(Compiler->getSema(), Compiler->getFrontendOpts().ShowStats,
                     Compiler->getFrontendOpts().SkipFunctionBodies);
@@ -61,12 +62,12 @@ public:
   IncludeFixerContext
   getIncludeFixerContext(const clang::SourceManager &SourceManager,
                          clang::HeaderSearch &HeaderSearch) const {
-    return SemaSource.getIncludeFixerContext(SourceManager, HeaderSearch,
-                                             SemaSource.getMatchedSymbols());
+    return SemaSource->getIncludeFixerContext(SourceManager, HeaderSearch,
+                                              SemaSource->getMatchedSymbols());
   }
 
 private:
-  IncludeFixerSemaSource SemaSource;
+  IntrusiveRefCntPtr<IncludeFixerSemaSource> SemaSource;
 };
 
 } // namespace
@@ -88,15 +89,15 @@ bool IncludeFixerActionFactory::runInvocation(
   assert(Invocation->getFrontendOpts().Inputs.size() == 1);
 
   // Set up Clang.
-  clang::CompilerInstance Compiler(PCHContainerOps);
-  Compiler.setInvocation(std::move(Invocation));
+  CompilerInstance Compiler(std::move(Invocation), std::move(PCHContainerOps));
+  Compiler.setVirtualFileSystem(Files->getVirtualFileSystemPtr());
   Compiler.setFileManager(Files);
 
   // Create the compiler's actual diagnostics engine. We want to drop all
   // diagnostics here.
   Compiler.createDiagnostics(new clang::IgnoringDiagConsumer,
                              /*ShouldOwnClient=*/true);
-  Compiler.createSourceManager(*Files);
+  Compiler.createSourceManager();
 
   // We abort on fatal errors so don't let a large number of errors become
   // fatal. A missing #include can cause thousands of errors.
@@ -245,7 +246,7 @@ clang::TypoCorrection IncludeFixerSemaSource::CorrectTypo(
     // parent_path.
     // FIXME: Don't rely on source text.
     const char *End = Source.end();
-    while (isIdentifierBody(*End) || *End == ':')
+    while (isAsciiIdentifierContinue(*End) || *End == ':')
       ++End;
 
     return std::string(Source.begin(), End);
@@ -306,18 +307,19 @@ std::string IncludeFixerSemaSource::minimizeInclude(
 
   // Get the FileEntry for the include.
   StringRef StrippedInclude = Include.trim("\"<>");
-  auto Entry = SourceManager.getFileManager().getFile(StrippedInclude);
+  auto Entry =
+      SourceManager.getFileManager().getOptionalFileRef(StrippedInclude);
 
   // If the file doesn't exist return the path from the database.
   // FIXME: This should never happen.
   if (!Entry)
     return std::string(Include);
 
-  bool IsSystem = false;
+  bool IsAngled = false;
   std::string Suggestion =
-      HeaderSearch.suggestPathToFileForDiagnostics(*Entry, "", &IsSystem);
+      HeaderSearch.suggestPathToFileForDiagnostics(*Entry, "", &IsAngled);
 
-  return IsSystem ? '<' + Suggestion + '>' : '"' + Suggestion + '"';
+  return IsAngled ? '<' + Suggestion + '>' : '"' + Suggestion + '"';
 }
 
 /// Get the include fixer context for the queried symbol.

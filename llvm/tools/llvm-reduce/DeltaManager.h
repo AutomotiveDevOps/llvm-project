@@ -1,4 +1,4 @@
-//===- DeltaManager.h - Runs Delta Passes to reduce Input -----------------===//
+//===- DeltaManager.h - Runs Delta Passes to reduce Input -------*- C++ -*-===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -11,26 +11,15 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "TestRunner.h"
-#include "deltas/Delta.h"
-#include "deltas/ReduceArguments.h"
-#include "deltas/ReduceBasicBlocks.h"
-#include "deltas/ReduceFunctions.h"
-#include "deltas/ReduceGlobalVars.h"
-#include "deltas/ReduceMetadata.h"
-#include "deltas/ReduceInstructions.h"
+#ifndef LLVM_TOOLS_LLVM_REDUCE_DELTAMANAGER_H
+#define LLVM_TOOLS_LLVM_REDUCE_DELTAMANAGER_H
 
 namespace llvm {
+class raw_ostream;
+class TestRunner;
 
-// TODO: Add CLI option to run only specified Passes (for unit tests)
-inline void runDeltaPasses(TestRunner &Tester) {
-  reduceFunctionsDeltaPass(Tester);
-  reduceBasicBlocksDeltaPass(Tester);
-  reduceGlobalsDeltaPass(Tester);
-  reduceMetadataDeltaPass(Tester);
-  reduceArgumentsDeltaPass(Tester);
-  reduceInstructionsDeltaPass(Tester);
-  // TODO: Implement the remaining Delta Passes
-}
-
+void printDeltaPasses(raw_ostream &OS);
+void runDeltaPasses(TestRunner &Tester, int MaxPassIterations);
 } // namespace llvm
+
+#endif

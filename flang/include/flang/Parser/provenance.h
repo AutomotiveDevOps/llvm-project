@@ -17,6 +17,7 @@
 #include "flang/Common/interval.h"
 #include "llvm/Support/raw_ostream.h"
 #include <cstddef>
+#include <list>
 #include <map>
 #include <memory>
 #include <optional>
@@ -29,7 +30,7 @@ namespace Fortran::parser {
 
 // Each character in the contiguous source stream built by the
 // prescanner corresponds to a particular character in a source file,
-// include file, macro expansion, or compiler-inserted padding.
+// include file, macro expansion, or compiler-inserted text.
 // The location of this original character to which a parsable character
 // corresponds is its provenance.
 //
@@ -46,6 +47,7 @@ namespace Fortran::parser {
 // necessary.)
 
 class AllSources;
+class AllCookedSources;
 
 class Provenance {
 public:
@@ -147,9 +149,11 @@ public:
     return *this;
   }
 
-  void PushSearchPathDirectory(std::string);
-  std::string PopSearchPathDirectory();
-  const SourceFile *Open(std::string path, llvm::raw_ostream &error);
+  void ClearSearchPath();
+  void AppendSearchPathDirectory(std::string); // new last directory
+  const SourceFile *OpenPath(std::string path, llvm::raw_ostream &error);
+  const SourceFile *Open(std::string path, llvm::raw_ostream &error,
+      std::optional<std::string> &&prependPath = std::nullopt);
   const SourceFile *ReadStandardInput(llvm::raw_ostream &error);
 
   ProvenanceRange AddIncludedFile(
@@ -158,20 +162,29 @@ public:
       ProvenanceRange def, ProvenanceRange use, const std::string &expansion);
   ProvenanceRange AddCompilerInsertion(std::string);
 
+  // If provenance is in an expanded macro, return the starting provenance of
+  // the replaced macro. Otherwise, return the input provenance.
+  Provenance GetReplacedProvenance(Provenance) const;
+
   bool IsValid(Provenance at) const { return range_.Contains(at); }
   bool IsValid(ProvenanceRange range) const {
     return range.size() > 0 && range_.Contains(range);
   }
+  void setShowColors(bool showColors) { showColors_ = showColors; }
+  bool getShowColors() const { return showColors_; }
+  std::optional<ProvenanceRange> GetInclusionInfo(
+      const std::optional<ProvenanceRange> &) const;
   void EmitMessage(llvm::raw_ostream &, const std::optional<ProvenanceRange> &,
-      const std::string &message, bool echoSourceLine = false) const;
+      const std::string &message, const std::string &prefix,
+      llvm::raw_ostream::Colors color, bool echoSourceLine = false) const;
   const SourceFile *GetSourceFile(
-      Provenance, std::size_t *offset = nullptr) const;
+      Provenance, std::size_t *offset = nullptr, bool topLevel = false) const;
+  const char *GetSource(ProvenanceRange) const;
   std::optional<SourcePosition> GetSourcePosition(Provenance) const;
   std::optional<ProvenanceRange> GetFirstFileProvenance() const;
-  std::string GetPath(Provenance) const; // __FILE__
+  std::string GetPath(Provenance, bool topLevel = false) const; // __FILE__
   int GetLineNumber(Provenance) const; // __LINE__
   Provenance CompilerInsertionProvenance(char ch);
-  Provenance CompilerInsertionProvenance(const char *, std::size_t);
   ProvenanceRange IntersectionWithSourceFiles(ProvenanceRange) const;
   llvm::raw_ostream &Dump(llvm::raw_ostream &) const;
 
@@ -209,32 +222,23 @@ private:
   ProvenanceRange range_;
   std::map<char, Provenance> compilerInsertionProvenance_;
   std::vector<std::unique_ptr<SourceFile>> ownedSourceFiles_;
-  std::vector<std::string> searchPath_;
+  std::list<std::string> searchPath_;
   Encoding encoding_{Encoding::UTF_8};
+  bool showColors_{false};
 };
 
+// Represents the result of preprocessing and prescanning a single source
+// file (and all its inclusions) or module file.  Parsers operate within
+// single instances of CookedSource.
 class CookedSource {
 public:
-  explicit CookedSource(AllSources &);
-  ~CookedSource();
+  explicit CookedSource(AllSources &allSources) : allSources_{allSources} {};
 
-  AllSources &allSources() { return allSources_; }
-  const AllSources &allSources() const { return allSources_; }
-  const std::string &data() const { return data_; }
+  int number() const { return number_; }
+  void set_number(int n) { number_ = n; }
 
-  bool IsValid(const char *p) const {
-    return p >= &data_.front() && p <= &data_.back() + 1;
-  }
-  bool IsValid(CharBlock range) const {
-    return !range.empty() && IsValid(range.begin()) && IsValid(range.end() - 1);
-  }
-  bool IsValid(ProvenanceRange r) const { return allSources_.IsValid(r); }
-
+  CharBlock AsCharBlock() const { return CharBlock{data_}; }
   std::optional<ProvenanceRange> GetProvenanceRange(CharBlock) const;
-  std::optional<CharBlock> GetCharBlockFromLineAndColumns(
-      int line, int startColumn, int endColumn) const;
-  std::optional<std::pair<SourcePosition, SourcePosition>>
-      GetSourcePositionRange(CharBlock) const;
   std::optional<CharBlock> GetCharBlock(ProvenanceRange) const;
 
   // The result of a Put() is the offset that the new data
@@ -255,18 +259,59 @@ public:
     provenanceMap_.Put(pm);
   }
 
+  void MarkPossibleFixedFormContinuation() {
+    possibleFixedFormContinuations_.push_back(BufferedBytes());
+  }
+
   std::size_t BufferedBytes() const;
-  void Marshal(); // marshals text into one contiguous block
-  void CompileProvenanceRangeToOffsetMappings();
-  std::string AcquireData() { return std::move(data_); }
+  void Marshal(AllCookedSources &); // marshals text into one contiguous block
+  void CompileProvenanceRangeToOffsetMappings(AllSources &);
   llvm::raw_ostream &Dump(llvm::raw_ostream &) const;
 
 private:
   AllSources &allSources_;
+  int number_{0}; // for sorting purposes
   CharBuffer buffer_; // before Marshal()
   std::string data_; // all of it, prescanned and preprocessed
   OffsetToProvenanceMappings provenanceMap_;
   ProvenanceRangeToOffsetMappings invertedMap_;
+  std::list<std::size_t> possibleFixedFormContinuations_;
 };
+
+class AllCookedSources {
+public:
+  explicit AllCookedSources(AllSources &);
+  ~AllCookedSources();
+
+  AllSources &allSources() { return allSources_; }
+  const AllSources &allSources() const { return allSources_; }
+
+  CookedSource &NewCookedSource();
+
+  const CookedSource *Find(CharBlock) const;
+  const CookedSource *Find(const char *p) const { return Find(CharBlock{p}); }
+
+  bool IsValid(ProvenanceRange r) const { return allSources_.IsValid(r); }
+
+  std::optional<ProvenanceRange> GetProvenanceRange(CharBlock) const;
+  std::optional<CharBlock> GetCharBlockFromLineAndColumns(
+      int line, int startColumn, int endColumn) const;
+  std::optional<std::pair<SourcePosition, SourcePosition>>
+      GetSourcePositionRange(CharBlock) const;
+  std::optional<CharBlock> GetCharBlock(ProvenanceRange) const;
+  void Dump(llvm::raw_ostream &) const;
+
+  // For sorting symbol names without being dependent on pointer values
+  bool Precedes(CharBlock, CharBlock) const;
+
+  // Once a CookedSource is complete, add it to index_ and assign its number_
+  void Register(CookedSource &);
+
+private:
+  AllSources &allSources_;
+  std::list<CookedSource> cooked_; // owns all CookedSource instances
+  std::map<CharBlock, const CookedSource &, CharBlockPointerComparator> index_;
+};
+
 } // namespace Fortran::parser
 #endif // FORTRAN_PARSER_PROVENANCE_H_

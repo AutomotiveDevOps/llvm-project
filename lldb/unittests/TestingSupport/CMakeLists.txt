@@ -3,14 +3,13 @@ add_lldb_library(lldbUtilityHelpers
   MockTildeExpressionResolver.cpp
   TestUtilities.cpp
 
-  LINK_LIBS
-    lldbUtility
-    lldbSymbolHelpers
-
   LINK_COMPONENTS
     Support
     ObjectYAML
+  LINK_LIBS
+    lldbUtility
+    llvm_gtest
   )
-include_directories(${LLVM_MAIN_SRC_DIR}/utils/unittest/googletest/include)
 
+add_subdirectory(Host)
 add_subdirectory(Symbol)

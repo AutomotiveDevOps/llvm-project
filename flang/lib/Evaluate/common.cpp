@@ -13,19 +13,28 @@ using namespace Fortran::parser::literals;
 
 namespace Fortran::evaluate {
 
-void RealFlagWarnings(
-    FoldingContext &context, const RealFlags &flags, const char *operation) {
+void FoldingContext::RealFlagWarnings(
+    const RealFlags &flags, const char *operation) {
+  static constexpr auto warning{common::UsageWarning::FoldingException};
   if (flags.test(RealFlag::Overflow)) {
-    context.messages().Say("overflow on %s"_en_US, operation);
+    Warn(warning, "overflow on %s%s"_warn_en_US, operation,
+        realFlagWarningContext_);
   }
   if (flags.test(RealFlag::DivideByZero)) {
-    context.messages().Say("division by zero on %s"_en_US, operation);
+    if (std::strcmp(operation, "division") == 0) {
+      Warn(warning, "division by zero%s"_warn_en_US, realFlagWarningContext_);
+    } else {
+      Warn(warning, "division by zero on %s%s"_warn_en_US, operation,
+          realFlagWarningContext_);
+    }
   }
   if (flags.test(RealFlag::InvalidArgument)) {
-    context.messages().Say("invalid argument on %s"_en_US, operation);
+    Warn(warning, "invalid argument on %s%s"_warn_en_US, operation,
+        realFlagWarningContext_);
   }
   if (flags.test(RealFlag::Underflow)) {
-    context.messages().Say("underflow on %s"_en_US, operation);
+    Warn(warning, "underflow on %s%s"_warn_en_US, operation,
+        realFlagWarningContext_);
   }
 }
 

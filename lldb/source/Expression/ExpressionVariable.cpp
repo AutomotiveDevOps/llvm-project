@@ -9,17 +9,22 @@
 #include "lldb/Expression/ExpressionVariable.h"
 #include "lldb/Expression/IRExecutionUnit.h"
 #include "lldb/Target/Target.h"
+#include "lldb/Utility/LLDBLog.h"
 #include "lldb/Utility/Log.h"
+#include <optional>
 
 using namespace lldb_private;
 
-ExpressionVariable::~ExpressionVariable() {}
+char ExpressionVariable::ID;
+
+ExpressionVariable::ExpressionVariable() : m_flags(0) {}
 
 uint8_t *ExpressionVariable::GetValueBytes() {
-  const size_t byte_size = m_frozen_sp->GetByteSize();
-  if (byte_size > 0) {
-    if (m_frozen_sp->GetDataExtractor().GetByteSize() < byte_size) {
-      m_frozen_sp->GetValue().ResizeData(byte_size);
+  std::optional<uint64_t> byte_size =
+      llvm::expectedToOptional(m_frozen_sp->GetByteSize());
+  if (byte_size && *byte_size) {
+    if (m_frozen_sp->GetDataExtractor().GetByteSize() < *byte_size) {
+      m_frozen_sp->GetValue().ResizeData(*byte_size);
       m_frozen_sp->GetValue().GetData(m_frozen_sp->GetDataExtractor());
     }
     return const_cast<uint8_t *>(
@@ -28,7 +33,11 @@ uint8_t *ExpressionVariable::GetValueBytes() {
   return nullptr;
 }
 
-PersistentExpressionState::~PersistentExpressionState() {}
+char PersistentExpressionState::ID;
+
+PersistentExpressionState::PersistentExpressionState() = default;
+
+PersistentExpressionState::~PersistentExpressionState() = default;
 
 lldb::addr_t PersistentExpressionState::LookupSymbol(ConstString name) {
   SymbolMap::iterator si = m_symbol_map.find(name.GetCString());
@@ -41,7 +50,7 @@ lldb::addr_t PersistentExpressionState::LookupSymbol(ConstString name) {
 
 void PersistentExpressionState::RegisterExecutionUnit(
     lldb::IRExecutionUnitSP &execution_unit_sp) {
-  Log *log(lldb_private::GetLogIfAllCategoriesSet(LIBLLDB_LOG_EXPRESSIONS));
+  Log *log = GetLog(LLDBLog::Expressions);
 
   m_execution_units.insert(execution_unit_sp);
 

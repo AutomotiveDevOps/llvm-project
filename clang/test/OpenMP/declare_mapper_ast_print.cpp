@@ -1,10 +1,10 @@
 // RUN: %clang_cc1 -verify -fopenmp -ast-print %s | FileCheck %s
 // RUN: %clang_cc1 -fopenmp -x c++ -std=c++11 -emit-pch -o %t %s
-// RUN: %clang_cc1 -fopenmp -std=c++11 -include-pch %t -fsyntax-only -verify %s -ast-print | FileCheck %s
+// RUN: %clang_cc1 -fopenmp -std=c++11 -include-pch %t -verify %s -ast-print | FileCheck %s
 
 // RUN: %clang_cc1 -verify -fopenmp-simd -ast-print %s | FileCheck %s
 // RUN: %clang_cc1 -fopenmp-simd -x c++ -std=c++11 -emit-pch -o %t %s
-// RUN: %clang_cc1 -fopenmp-simd -std=c++11 -include-pch %t -fsyntax-only -verify %s -ast-print | FileCheck %s
+// RUN: %clang_cc1 -fopenmp-simd -std=c++11 -include-pch %t -verify %s -ast-print | FileCheck %s
 // expected-no-diagnostics
 
 #ifndef HEADER
@@ -21,7 +21,7 @@ public:
 };
 // CHECK: };
 
-// CHECK: class vecchild : public N1::vec {
+// CHECK: class vecchild : public vec {
 class vecchild : public vec {
 public:
   int lenc;
@@ -29,10 +29,32 @@ public:
 // CHECK: };
 
 #pragma omp declare mapper(id: vec v) map(v.len)
-// CHECK: #pragma omp declare mapper (id : N1::vec v) map(tofrom: v.len){{$}}
+// CHECK: #pragma omp declare mapper (id : vec v) map(tofrom: v.len){{$}}
 };
 // CHECK: }
 // CHECK: ;
+
+// Verify that nested default mappers do not lead to a crash during parsing / sema.
+// CHECK: namespace N2 {
+namespace N2
+{
+// CHECK: struct inner {
+struct inner {
+  int size;
+  int *data;
+};
+#pragma omp declare mapper(struct inner i) map(i, i.data[0 : i.size])
+// CHECK: #pragma omp declare mapper (default : struct inner i) map(tofrom: N2::default::i,i.data[0:i.size]){{$}}
+
+// CHECK: struct outer {
+struct outer {
+  int a;
+  struct inner i;
+};
+#pragma omp declare mapper(struct outer o) map(o)
+// CHECK: #pragma omp declare mapper (default : struct outer o) map(tofrom: N2::default::o) map(tofrom: o.i){{$}}
+} // namespace N2
+// CHECK: }
 
 template <class T>
 class dat {
@@ -49,15 +71,16 @@ public:
 
 // CHECK: template <class T> class dat {
 // CHECK: #pragma omp declare mapper (id : N1::vec v) map(tofrom: v.len){{$}}
-// CHECK: #pragma omp declare mapper (id : dat::datin v) map(tofrom: v.in){{$}}
+// CHECK: #pragma omp declare mapper (id : datin v) map(tofrom: v.in){{$}}
 // CHECK: };
 // CHECK: template<> class dat<double> {
 // CHECK: #pragma omp declare mapper (id : N1::vec v) map(tofrom: v.len){{$}}
-// CHECK: #pragma omp declare mapper (id : dat<double>::datin v) map(tofrom: v.in){{$}}
+// CHECK: #pragma omp declare mapper (id : datin v) map(tofrom: v.in){{$}}
 // CHECK: };
 
-#pragma omp declare mapper(default : N1::vec kk) map(kk.len) map(kk.data[0:2])
-// CHECK: #pragma omp declare mapper (default : N1::vec kk) map(tofrom: kk.len) map(tofrom: kk.data[0:2]){{$}}
+constexpr int N = 2;
+#pragma omp declare mapper(default : N1::vec kk) map(kk.len) map(kk.data[0:N])
+// CHECK: #pragma omp declare mapper (default : N1::vec kk) map(tofrom: kk.len) map(tofrom: kk.data[0:N]){{$}}
 #pragma omp declare mapper(dat<double> d) map(to: d.d)
 // CHECK: #pragma omp declare mapper (default : dat<double> d) map(to: d.d){{$}}
 
@@ -121,6 +144,7 @@ T foo(T a) {
 int main() {
   N1::vec vv, vvv;
   N1::vecchild vc;
+  N2::outer outer;
   dat<double> dd;
 #pragma omp target map(mapper(N1::id) tofrom: vv) map(mapper(dat<double>::id) alloc: vvv)
 // CHECK: #pragma omp target map(mapper(N1::id),tofrom: vv) map(mapper(dat<double>::id),alloc: vvv)
@@ -131,6 +155,9 @@ int main() {
 #pragma omp target map(mapper(default) tofrom: dd)
 // CHECK: #pragma omp target map(mapper(default),tofrom: dd)
   { dd.d++; }
+#pragma omp target map(outer)
+// CHECK: #pragma omp target map(tofrom: outer)
+  { }
 
 #pragma omp target update to(mapper(N1::id) : vc)
 // CHECK: #pragma omp target update to(mapper(N1::id): vc)

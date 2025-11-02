@@ -1,4 +1,4 @@
-! RUN: %S/test_errors.sh %s %t %f18
+! RUN: %python %S/test_errors.py %s %flang_fc1 -pedantic
 subroutine s1
   integer x
   block
@@ -23,19 +23,24 @@ subroutine s3
     import, none
     !ERROR: No explicit type declared for 'i'
     real :: a(16) = [(i, i=1, 16)]
+    real :: b(16)
     !ERROR: No explicit type declared for 'j'
-    data(a(j), j=1, 16) / 16 * 0.0 /
+    data(b(j), j=1, 16) / 16 * 0.0 /
   end block
 end
 
 subroutine s4
-  real :: i, j
+  real :: j
   !ERROR: Must have INTEGER type, but is REAL(4)
-  real :: a(16) = [(i, i=1, 16)]
-  data(
-    !ERROR: Must have INTEGER type, but is REAL(4)
-    a(j), &
-    !ERROR: Must have INTEGER type, but is REAL(4)
-    j=1, 16 &
-  ) / 16 * 0.0 /
+  real :: a(16) = [(x, x=1, 16)]
+  real :: b(16)
+  !ERROR: Must have INTEGER type, but is REAL(4)
+  data(b(j), j=1, 16) / 16 * 0.0 /
+end
+
+subroutine s5
+  implicit none
+  data x/1./
+  !PORTABILITY: 'x' appeared in a DATA statement before its type was declared under IMPLICIT NONE(TYPE) [-Wforward-ref-implicit-none-data]
+  real x
 end

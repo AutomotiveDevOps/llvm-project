@@ -15,7 +15,7 @@
 #define LLVM_LIB_TARGET_WEBASSEMBLY_WEBASSEMBLYEXCEPTIONINFO_H
 
 #include "WebAssembly.h"
-#include "llvm/ADT/SetVector.h"
+#include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/CodeGen/MachineFunctionPass.h"
 
 namespace llvm {
@@ -45,7 +45,7 @@ class WebAssemblyException {
   WebAssemblyException *ParentException = nullptr;
   std::vector<std::unique_ptr<WebAssemblyException>> SubExceptions;
   std::vector<MachineBasicBlock *> Blocks;
-  SmallPtrSet<const MachineBasicBlock *, 8> BlockSet;
+  SmallPtrSet<MachineBasicBlock *, 8> BlockSet;
 
 public:
   WebAssemblyException(MachineBasicBlock *EHPad) : EHPad(EHPad) {}
@@ -68,12 +68,15 @@ public:
     return BlockSet.count(MBB);
   }
 
+  void addToBlocksSet(MachineBasicBlock *MBB) { BlockSet.insert(MBB); }
+  void removeFromBlocksSet(MachineBasicBlock *MBB) { BlockSet.erase(MBB); }
+  void addToBlocksVector(MachineBasicBlock *MBB) { Blocks.push_back(MBB); }
   void addBlock(MachineBasicBlock *MBB) {
     Blocks.push_back(MBB);
     BlockSet.insert(MBB);
   }
   ArrayRef<MachineBasicBlock *> getBlocks() const { return Blocks; }
-  using block_iterator = typename ArrayRef<MachineBasicBlock *>::const_iterator;
+  using block_iterator = ArrayRef<MachineBasicBlock *>::const_iterator;
   block_iterator block_begin() const { return getBlocks().begin(); }
   block_iterator block_end() const { return getBlocks().end(); }
   inline iterator_range<block_iterator> blocks() const {
@@ -81,8 +84,10 @@ public:
   }
   unsigned getNumBlocks() const { return Blocks.size(); }
   std::vector<MachineBasicBlock *> &getBlocksVector() { return Blocks; }
+  SmallPtrSetImpl<MachineBasicBlock *> &getBlocksSet() { return BlockSet; }
 
-  const std::vector<std::unique_ptr<WebAssemblyException>> &getSubExceptions() const {
+  const std::vector<std::unique_ptr<WebAssemblyException>> &
+  getSubExceptions() const {
     return SubExceptions;
   }
   std::vector<std::unique_ptr<WebAssemblyException>> &getSubExceptions() {
@@ -91,7 +96,7 @@ public:
   void addSubException(std::unique_ptr<WebAssemblyException> E) {
     SubExceptions.push_back(std::move(E));
   }
-  using iterator = typename decltype(SubExceptions)::const_iterator;
+  using iterator = decltype(SubExceptions)::const_iterator;
   iterator begin() const { return SubExceptions.begin(); }
   iterator end() const { return SubExceptions.end(); }
 
@@ -127,9 +132,7 @@ class WebAssemblyExceptionInfo final : public MachineFunctionPass {
 
 public:
   static char ID;
-  WebAssemblyExceptionInfo() : MachineFunctionPass(ID) {
-    initializeWebAssemblyExceptionInfoPass(*PassRegistry::getPassRegistry());
-  }
+  WebAssemblyExceptionInfo() : MachineFunctionPass(ID) {}
   ~WebAssemblyExceptionInfo() override { releaseMemory(); }
   WebAssemblyExceptionInfo(const WebAssemblyExceptionInfo &) = delete;
   WebAssemblyExceptionInfo &
@@ -137,7 +140,7 @@ public:
 
   bool runOnMachineFunction(MachineFunction &) override;
   void releaseMemory() override;
-  void recalculate(MachineDominatorTree &MDT,
+  void recalculate(MachineFunction &MF, MachineDominatorTree &MDT,
                    const MachineDominanceFrontier &MDF);
   void getAnalysisUsage(AnalysisUsage &AU) const override;
 
@@ -149,7 +152,8 @@ public:
     return BBMap.lookup(MBB);
   }
 
-  void changeExceptionFor(MachineBasicBlock *MBB, WebAssemblyException *WE) {
+  void changeExceptionFor(const MachineBasicBlock *MBB,
+                          WebAssemblyException *WE) {
     if (!WE) {
       BBMap.erase(MBB);
       return;

@@ -2,6 +2,7 @@ set(LLVM_LINK_COMPONENTS
   Option
   FrontendOpenMP
   Support
+  TargetParser
   )
 
 add_subdirectory(Core)
@@ -24,6 +25,7 @@ add_clang_library(clangTooling
   GuessTargetAndModeCompilationDatabase.cpp
   InterpolatingCompilationDatabase.cpp
   JSONCompilationDatabase.cpp
+  LocateToolCompilationDatabase.cpp
   Refactoring.cpp
   RefactoringCallbacks.cpp
   StandaloneExecution.cpp
@@ -31,6 +33,7 @@ add_clang_library(clangTooling
 
   DEPENDS
   ClangDriverOptions
+  omp_gen
 
   LINK_LIBS
   clangAST
@@ -43,4 +46,5 @@ add_clang_library(clangTooling
   clangRewrite
   clangSerialization
   clangToolingCore
+  ${LLVM_PTHREAD_LIB}
   )

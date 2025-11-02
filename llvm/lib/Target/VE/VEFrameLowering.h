@@ -15,6 +15,7 @@
 
 #include "VE.h"
 #include "llvm/CodeGen/TargetFrameLowering.h"
+#include "llvm/Support/TypeSize.h"
 
 namespace llvm {
 
@@ -39,7 +40,8 @@ public:
                                 MachineBasicBlock::iterator I) const override;
 
   bool hasBP(const MachineFunction &MF) const;
-  bool hasFP(const MachineFunction &MF) const override;
+  bool hasGOT(const MachineFunction &MF) const;
+
   // VE reserves argument space always for call sites in the function
   // immediately on entry of the current function.
   bool hasReservedCallFrame(const MachineFunction &MF) const override {
@@ -48,8 +50,8 @@ public:
   void determineCalleeSaves(MachineFunction &MF, BitVector &SavedRegs,
                             RegScavenger *RS = nullptr) const override;
 
-  int getFrameIndexReference(const MachineFunction &MF, int FI,
-                             Register &FrameReg) const override;
+  StackOffset getFrameIndexReference(const MachineFunction &MF, int FI,
+                                     Register &FrameReg) const override;
 
   const SpillSlot *
   getCalleeSavedSpillSlots(unsigned &NumEntries) const override {
@@ -59,12 +61,14 @@ public:
         {VE::SX25, 104}, {VE::SX26, 112}, {VE::SX27, 120}, {VE::SX28, 128},
         {VE::SX29, 136}, {VE::SX30, 144}, {VE::SX31, 152}, {VE::SX32, 160},
         {VE::SX33, 168}};
-    NumEntries = array_lengthof(Offsets);
+    NumEntries = std::size(Offsets);
     return Offsets;
   }
 
 protected:
   const VESubtarget &STI;
+
+  bool hasFPImpl(const MachineFunction &MF) const override;
 
 private:
   // Returns true if MF is a leaf procedure.

@@ -1,4 +1,4 @@
-//===--- TriviallyDestructibleCheck.cpp - clang-tidy ----------------------===//
+//===----------------------------------------------------------------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -16,9 +16,7 @@ using namespace clang::ast_matchers;
 using namespace clang::ast_matchers::internal;
 using namespace clang::tidy::matchers;
 
-namespace clang {
-namespace tidy {
-namespace performance {
+namespace clang::tidy::performance {
 
 namespace {
 
@@ -74,6 +72,4 @@ void TriviallyDestructibleCheck::check(const MatchFinder::MatchResult &Result) {
        DiagnosticIDs::Note);
 }
 
-} // namespace performance
-} // namespace tidy
-} // namespace clang
+} // namespace clang::tidy::performance

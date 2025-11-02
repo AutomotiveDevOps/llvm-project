@@ -55,6 +55,7 @@
 // - When (i' - i) is constant but i and i' are not, we could still perform
 //   SLSR.
 
+#include "llvm/Transforms/Scalar/StraightLineStrengthReduce.h"
 #include "llvm/ADT/APInt.h"
 #include "llvm/ADT/DepthFirstIterator.h"
 #include "llvm/ADT/SmallVector.h"
@@ -67,7 +68,6 @@
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/GetElementPtrTypeIterator.h"
 #include "llvm/IR/IRBuilder.h"
-#include "llvm/IR/InstrTypes.h"
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
@@ -78,6 +78,7 @@
 #include "llvm/InitializePasses.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/Casting.h"
+#include "llvm/Support/DebugCounter.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Utils/Local.h"
@@ -93,10 +94,44 @@ using namespace PatternMatch;
 static const unsigned UnknownAddressSpace =
     std::numeric_limits<unsigned>::max();
 
+DEBUG_COUNTER(StraightLineStrengthReduceCounter, "slsr-counter",
+              "Controls whether rewriteCandidateWithBasis is executed.");
+
 namespace {
 
-class StraightLineStrengthReduce : public FunctionPass {
+class StraightLineStrengthReduceLegacyPass : public FunctionPass {
+  const DataLayout *DL = nullptr;
+
 public:
+  static char ID;
+
+  StraightLineStrengthReduceLegacyPass() : FunctionPass(ID) {
+    initializeStraightLineStrengthReduceLegacyPassPass(
+        *PassRegistry::getPassRegistry());
+  }
+
+  void getAnalysisUsage(AnalysisUsage &AU) const override {
+    AU.addRequired<DominatorTreeWrapperPass>();
+    AU.addRequired<ScalarEvolutionWrapperPass>();
+    AU.addRequired<TargetTransformInfoWrapperPass>();
+    // We do not modify the shape of the CFG.
+    AU.setPreservesCFG();
+  }
+
+  bool doInitialization(Module &M) override {
+    DL = &M.getDataLayout();
+    return false;
+  }
+
+  bool runOnFunction(Function &F) override;
+};
+
+class StraightLineStrengthReduce {
+public:
+  StraightLineStrengthReduce(const DataLayout *DL, DominatorTree *DT,
+                             ScalarEvolution *SE, TargetTransformInfo *TTI)
+      : DL(DL), DT(DT), SE(SE), TTI(TTI) {}
+
   // SLSR candidate. Such a candidate must be in one of the forms described in
   // the header comments.
   struct Candidate {
@@ -144,26 +179,7 @@ public:
     Candidate *Basis = nullptr;
   };
 
-  static char ID;
-
-  StraightLineStrengthReduce() : FunctionPass(ID) {
-    initializeStraightLineStrengthReducePass(*PassRegistry::getPassRegistry());
-  }
-
-  void getAnalysisUsage(AnalysisUsage &AU) const override {
-    AU.addRequired<DominatorTreeWrapperPass>();
-    AU.addRequired<ScalarEvolutionWrapperPass>();
-    AU.addRequired<TargetTransformInfoWrapperPass>();
-    // We do not modify the shape of the CFG.
-    AU.setPreservesCFG();
-  }
-
-  bool doInitialization(Module &M) override {
-    DL = &M.getDataLayout();
-    return false;
-  }
-
-  bool runOnFunction(Function &F) override;
+  bool runOnFunction(Function &F);
 
 private:
   // Returns true if Basis is a basis for C, i.e., Basis dominates C and they
@@ -221,13 +237,9 @@ private:
   void factorArrayIndex(Value *ArrayIdx, const SCEV *Base, uint64_t ElementSize,
                         GetElementPtrInst *GEP);
 
-  // Emit code that computes the "bump" from Basis to C. If the candidate is a
-  // GEP and the bump is not divisible by the element size of the GEP, this
-  // function sets the BumpWithUglyGEP flag to notify its caller to bump the
-  // basis using an ugly GEP.
+  // Emit code that computes the "bump" from Basis to C.
   static Value *emitBump(const Candidate &Basis, const Candidate &C,
-                         IRBuilder<> &Builder, const DataLayout *DL,
-                         bool &BumpWithUglyGEP);
+                         IRBuilder<> &Builder, const DataLayout *DL);
 
   const DataLayout *DL = nullptr;
   DominatorTree *DT = nullptr;
@@ -243,25 +255,25 @@ private:
 
 } // end anonymous namespace
 
-char StraightLineStrengthReduce::ID = 0;
+char StraightLineStrengthReduceLegacyPass::ID = 0;
 
-INITIALIZE_PASS_BEGIN(StraightLineStrengthReduce, "slsr",
+INITIALIZE_PASS_BEGIN(StraightLineStrengthReduceLegacyPass, "slsr",
                       "Straight line strength reduction", false, false)
 INITIALIZE_PASS_DEPENDENCY(DominatorTreeWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(ScalarEvolutionWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(TargetTransformInfoWrapperPass)
-INITIALIZE_PASS_END(StraightLineStrengthReduce, "slsr",
+INITIALIZE_PASS_END(StraightLineStrengthReduceLegacyPass, "slsr",
                     "Straight line strength reduction", false, false)
 
 FunctionPass *llvm::createStraightLineStrengthReducePass() {
-  return new StraightLineStrengthReduce();
+  return new StraightLineStrengthReduceLegacyPass();
 }
 
 bool StraightLineStrengthReduce::isBasisFor(const Candidate &Basis,
                                             const Candidate &C) {
   return (Basis.Ins != C.Ins && // skip the same instruction
-          // They must have the same type too. Basis.Base == C.Base doesn't
-          // guarantee their types are the same (PR23975).
+          // They must have the same type too. Basis.Base == C.Base
+          // doesn't guarantee their types are the same (PR23975).
           Basis.Ins->getType() == C.Ins->getType() &&
           // Basis must dominate C in order to rewrite C with respect to Basis.
           DT->dominates(Basis.Ins->getParent(), C.Ins->getParent()) &&
@@ -272,9 +284,7 @@ bool StraightLineStrengthReduce::isBasisFor(const Candidate &Basis,
 
 static bool isGEPFoldable(GetElementPtrInst *GEP,
                           const TargetTransformInfo *TTI) {
-  SmallVector<const Value*, 4> Indices;
-  for (auto I = GEP->idx_begin(); I != GEP->idx_end(); ++I)
-    Indices.push_back(*I);
+  SmallVector<const Value *, 4> Indices(GEP->indices());
   return TTI->getGEPCost(GEP->getSourceElementType(), GEP->getPointerOperand(),
                          Indices) == TargetTransformInfo::TCC_Free;
 }
@@ -301,8 +311,8 @@ bool StraightLineStrengthReduce::isFoldable(const Candidate &C,
 // Returns true if GEP has zero or one non-zero index.
 static bool hasOnlyOneNonZeroIndex(GetElementPtrInst *GEP) {
   unsigned NumNonZeroIndices = 0;
-  for (auto I = GEP->idx_begin(); I != GEP->idx_end(); ++I) {
-    ConstantInt *ConstIdx = dyn_cast<ConstantInt>(*I);
+  for (Use &Idx : GEP->indices()) {
+    ConstantInt *ConstIdx = dyn_cast<ConstantInt>(Idx);
     if (ConstIdx == nullptr || !ConstIdx->isZero())
       ++NumNonZeroIndices;
   }
@@ -419,14 +429,12 @@ void StraightLineStrengthReduce::allocateCandidatesAndFindBasisForAdd(
 
 // Returns true if A matches B + C where C is constant.
 static bool matchesAdd(Value *A, Value *&B, ConstantInt *&C) {
-  return (match(A, m_Add(m_Value(B), m_ConstantInt(C))) ||
-          match(A, m_Add(m_ConstantInt(C), m_Value(B))));
+  return match(A, m_c_Add(m_Value(B), m_ConstantInt(C)));
 }
 
 // Returns true if A matches B | C where C is constant.
 static bool matchesOr(Value *A, Value *&B, ConstantInt *&C) {
-  return (match(A, m_Or(m_Value(B), m_ConstantInt(C))) ||
-          match(A, m_Or(m_ConstantInt(C), m_Value(B))));
+  return match(A, m_c_Or(m_Value(B), m_ConstantInt(C)));
 }
 
 void StraightLineStrengthReduce::allocateCandidatesAndFindBasisForMul(
@@ -474,9 +482,9 @@ void StraightLineStrengthReduce::allocateCandidatesAndFindBasisForGEP(
   //   = B + (sext(Idx) * sext(S)) * ElementSize
   //   = B + (sext(Idx) * ElementSize) * sext(S)
   // Casting to IntegerType is safe because we skipped vector GEPs.
-  IntegerType *IntPtrTy = cast<IntegerType>(DL->getIntPtrType(I->getType()));
+  IntegerType *PtrIdxTy = cast<IntegerType>(DL->getIndexType(I->getType()));
   ConstantInt *ScaledIdx = ConstantInt::get(
-      IntPtrTy, Idx->getSExtValue() * (int64_t)ElementSize, true);
+      PtrIdxTy, Idx->getSExtValue() * (int64_t)ElementSize, true);
   allocateCandidatesAndFindBasis(Candidate::GEP, B, ScaledIdx, S, I);
 }
 
@@ -522,8 +530,8 @@ void StraightLineStrengthReduce::allocateCandidatesAndFindBasisForGEP(
     return;
 
   SmallVector<const SCEV *, 4> IndexExprs;
-  for (auto I = GEP->idx_begin(); I != GEP->idx_end(); ++I)
-    IndexExprs.push_back(SE->getSCEV(*I));
+  for (Use &Idx : GEP->indices())
+    IndexExprs.push_back(SE->getSCEV(Idx));
 
   gep_type_iterator GTI = gep_type_begin(GEP);
   for (unsigned I = 1, E = GEP->getNumOperands(); I != E; ++I, ++GTI) {
@@ -537,20 +545,20 @@ void StraightLineStrengthReduce::allocateCandidatesAndFindBasisForGEP(
     // indices except this current one.
     const SCEV *BaseExpr = SE->getGEPExpr(cast<GEPOperator>(GEP), IndexExprs);
     Value *ArrayIdx = GEP->getOperand(I);
-    uint64_t ElementSize = DL->getTypeAllocSize(GTI.getIndexedType());
+    uint64_t ElementSize = GTI.getSequentialElementStride(*DL);
     if (ArrayIdx->getType()->getIntegerBitWidth() <=
-        DL->getPointerSizeInBits(GEP->getAddressSpace())) {
-      // Skip factoring if ArrayIdx is wider than the pointer size, because
-      // ArrayIdx is implicitly truncated to the pointer size.
+        DL->getIndexSizeInBits(GEP->getAddressSpace())) {
+      // Skip factoring if ArrayIdx is wider than the index size, because
+      // ArrayIdx is implicitly truncated to the index size.
       factorArrayIndex(ArrayIdx, BaseExpr, ElementSize, GEP);
     }
     // When ArrayIdx is the sext of a value, we try to factor that value as
     // well.  Handling this case is important because array indices are
-    // typically sign-extended to the pointer size.
+    // typically sign-extended to the pointer index size.
     Value *TruncatedArrayIdx = nullptr;
     if (match(ArrayIdx, m_SExt(m_Value(TruncatedArrayIdx))) &&
         TruncatedArrayIdx->getType()->getIntegerBitWidth() <=
-            DL->getPointerSizeInBits(GEP->getAddressSpace())) {
+            DL->getIndexSizeInBits(GEP->getAddressSpace())) {
       // Skip factoring if TruncatedArrayIdx is wider than the pointer size,
       // because TruncatedArrayIdx is implicitly truncated to the pointer size.
       factorArrayIndex(TruncatedArrayIdx, BaseExpr, ElementSize, GEP);
@@ -571,32 +579,17 @@ static void unifyBitWidth(APInt &A, APInt &B) {
 Value *StraightLineStrengthReduce::emitBump(const Candidate &Basis,
                                             const Candidate &C,
                                             IRBuilder<> &Builder,
-                                            const DataLayout *DL,
-                                            bool &BumpWithUglyGEP) {
+                                            const DataLayout *DL) {
   APInt Idx = C.Index->getValue(), BasisIdx = Basis.Index->getValue();
   unifyBitWidth(Idx, BasisIdx);
   APInt IndexOffset = Idx - BasisIdx;
-
-  BumpWithUglyGEP = false;
-  if (Basis.CandidateKind == Candidate::GEP) {
-    APInt ElementSize(
-        IndexOffset.getBitWidth(),
-        DL->getTypeAllocSize(
-            cast<GetElementPtrInst>(Basis.Ins)->getResultElementType()));
-    APInt Q, R;
-    APInt::sdivrem(IndexOffset, ElementSize, Q, R);
-    if (R == 0)
-      IndexOffset = Q;
-    else
-      BumpWithUglyGEP = true;
-  }
 
   // Compute Bump = C - Basis = (i' - i) * S.
   // Common case 1: if (i' - i) is 1, Bump = S.
   if (IndexOffset == 1)
     return C.Stride;
   // Common case 2: if (i' - i) is -1, Bump = -S.
-  if (IndexOffset.isAllOnesValue())
+  if (IndexOffset.isAllOnes())
     return Builder.CreateNeg(C.Stride);
 
   // Otherwise, Bump = (i' - i) * sext/trunc(S). Note that (i' - i) and S may
@@ -609,7 +602,7 @@ Value *StraightLineStrengthReduce::emitBump(const Candidate &Basis,
     ConstantInt *Exponent = ConstantInt::get(DeltaType, IndexOffset.logBase2());
     return Builder.CreateShl(ExtendedStride, Exponent);
   }
-  if ((-IndexOffset).isPowerOf2()) {
+  if (IndexOffset.isNegatedPowerOf2()) {
     // If (i - i') is a power of 2, Bump = -sext/trunc(S) << log(i' - i).
     ConstantInt *Exponent =
         ConstantInt::get(DeltaType, (-IndexOffset).logBase2());
@@ -621,6 +614,9 @@ Value *StraightLineStrengthReduce::emitBump(const Candidate &Basis,
 
 void StraightLineStrengthReduce::rewriteCandidateWithBasis(
     const Candidate &C, const Candidate &Basis) {
+  if (!DebugCounter::shouldExecute(StraightLineStrengthReduceCounter))
+    return;
+
   assert(C.CandidateKind == Basis.CandidateKind && C.Base == Basis.Base &&
          C.Stride == Basis.Stride);
   // We run rewriteCandidateWithBasis on all candidates in a post-order, so the
@@ -635,8 +631,7 @@ void StraightLineStrengthReduce::rewriteCandidateWithBasis(
     return;
 
   IRBuilder<> Builder(C.Ins);
-  bool BumpWithUglyGEP;
-  Value *Bump = emitBump(Basis, C, Builder, DL, BumpWithUglyGEP);
+  Value *Bump = emitBump(Basis, C, Builder, DL);
   Value *Reduced = nullptr; // equivalent to but weaker than C.Ins
   switch (C.CandidateKind) {
   case Candidate::Add:
@@ -663,36 +658,12 @@ void StraightLineStrengthReduce::rewriteCandidateWithBasis(
     }
     break;
   }
-  case Candidate::GEP:
-    {
-      Type *IntPtrTy = DL->getIntPtrType(C.Ins->getType());
-      bool InBounds = cast<GetElementPtrInst>(C.Ins)->isInBounds();
-      if (BumpWithUglyGEP) {
-        // C = (char *)Basis + Bump
-        unsigned AS = Basis.Ins->getType()->getPointerAddressSpace();
-        Type *CharTy = Type::getInt8PtrTy(Basis.Ins->getContext(), AS);
-        Reduced = Builder.CreateBitCast(Basis.Ins, CharTy);
-        if (InBounds)
-          Reduced =
-              Builder.CreateInBoundsGEP(Builder.getInt8Ty(), Reduced, Bump);
-        else
-          Reduced = Builder.CreateGEP(Builder.getInt8Ty(), Reduced, Bump);
-        Reduced = Builder.CreateBitCast(Reduced, C.Ins->getType());
-      } else {
-        // C = gep Basis, Bump
-        // Canonicalize bump to pointer size.
-        Bump = Builder.CreateSExtOrTrunc(Bump, IntPtrTy);
-        if (InBounds)
-          Reduced = Builder.CreateInBoundsGEP(
-              cast<GetElementPtrInst>(Basis.Ins)->getResultElementType(),
-              Basis.Ins, Bump);
-        else
-          Reduced = Builder.CreateGEP(
-              cast<GetElementPtrInst>(Basis.Ins)->getResultElementType(),
-              Basis.Ins, Bump);
-      }
-      break;
-    }
+  case Candidate::GEP: {
+    bool InBounds = cast<GetElementPtrInst>(C.Ins)->isInBounds();
+    // C = (char *)Basis + Bump
+    Reduced = Builder.CreatePtrAdd(Basis.Ins, Bump, "", InBounds);
+    break;
+  }
   default:
     llvm_unreachable("C.CandidateKind is invalid");
   };
@@ -704,13 +675,17 @@ void StraightLineStrengthReduce::rewriteCandidateWithBasis(
   UnlinkedInstructions.push_back(C.Ins);
 }
 
-bool StraightLineStrengthReduce::runOnFunction(Function &F) {
+bool StraightLineStrengthReduceLegacyPass::runOnFunction(Function &F) {
   if (skipFunction(F))
     return false;
 
-  TTI = &getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F);
-  DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
-  SE = &getAnalysis<ScalarEvolutionWrapperPass>().getSE();
+  auto *TTI = &getAnalysis<TargetTransformInfoWrapperPass>().getTTI(F);
+  auto *DT = &getAnalysis<DominatorTreeWrapperPass>().getDomTree();
+  auto *SE = &getAnalysis<ScalarEvolutionWrapperPass>().getSE();
+  return StraightLineStrengthReduce(DL, DT, SE, TTI).runOnFunction(F);
+}
+
+bool StraightLineStrengthReduce::runOnFunction(Function &F) {
   // Traverse the dominator tree in the depth-first order. This order makes sure
   // all bases of a candidate are in Candidates when we process it.
   for (const auto Node : depth_first(DT))
@@ -739,4 +714,22 @@ bool StraightLineStrengthReduce::runOnFunction(Function &F) {
   bool Ret = !UnlinkedInstructions.empty();
   UnlinkedInstructions.clear();
   return Ret;
+}
+
+PreservedAnalyses
+StraightLineStrengthReducePass::run(Function &F, FunctionAnalysisManager &AM) {
+  const DataLayout *DL = &F.getDataLayout();
+  auto *DT = &AM.getResult<DominatorTreeAnalysis>(F);
+  auto *SE = &AM.getResult<ScalarEvolutionAnalysis>(F);
+  auto *TTI = &AM.getResult<TargetIRAnalysis>(F);
+
+  if (!StraightLineStrengthReduce(DL, DT, SE, TTI).runOnFunction(F))
+    return PreservedAnalyses::all();
+
+  PreservedAnalyses PA;
+  PA.preserveSet<CFGAnalyses>();
+  PA.preserve<DominatorTreeAnalysis>();
+  PA.preserve<ScalarEvolutionAnalysis>();
+  PA.preserve<TargetIRAnalysis>();
+  return PA;
 }

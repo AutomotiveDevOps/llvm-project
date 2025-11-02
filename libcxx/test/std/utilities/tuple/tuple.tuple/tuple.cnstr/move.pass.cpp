@@ -12,11 +12,12 @@
 
 // tuple(tuple&& u);
 
-// UNSUPPORTED: c++98, c++03
+// UNSUPPORTED: c++03
 
 #include <tuple>
 #include <utility>
 #include <cassert>
+#include <memory>
 
 #include "test_macros.h"
 #include "MoveOnly.h"

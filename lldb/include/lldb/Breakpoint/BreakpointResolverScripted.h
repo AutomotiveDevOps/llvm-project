@@ -1,4 +1,4 @@
-//===-- BreakpointResolverScripted.h -----------------------------*- C++ -*-===//
+//===-- BreakpointResolverScripted.h ----------------------------*- C++ -*-===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -9,10 +9,11 @@
 #ifndef LLDB_BREAKPOINT_BREAKPOINTRESOLVERSCRIPTED_H
 #define LLDB_BREAKPOINT_BREAKPOINTRESOLVERSCRIPTED_H
 
-#include "lldb/lldb-forward.h"
 #include "lldb/Breakpoint/BreakpointResolver.h"
 #include "lldb/Core/ModuleSpec.h"
-
+#include "lldb/Core/StructuredDataImpl.h"
+#include "lldb/Interpreter/Interfaces/ScriptedBreakpointInterface.h"
+#include "lldb/lldb-forward.h"
 
 namespace lldb_private {
 
@@ -26,13 +27,12 @@ public:
   BreakpointResolverScripted(const lldb::BreakpointSP &bkpt,
                              const llvm::StringRef class_name,
                              lldb::SearchDepth depth,
-                             StructuredDataImpl *args_data);
+                             const StructuredDataImpl &args_data);
 
   ~BreakpointResolverScripted() override = default;
 
-  static BreakpointResolver *
-  CreateFromStructuredData(const lldb::BreakpointSP &bkpt,
-                           const StructuredData::Dictionary &options_dict,
+  static lldb::BreakpointResolverSP
+  CreateFromStructuredData(const StructuredData::Dictionary &options_dict,
                            Status &error);
 
   StructuredData::ObjectSP SerializeToStructuredData() override;
@@ -44,6 +44,13 @@ public:
   lldb::SearchDepth GetDepth() override;
 
   void GetDescription(Stream *s) override;
+
+  lldb::BreakpointLocationSP WasHit(lldb::StackFrameSP frame_sp,
+                                    lldb::BreakpointLocationSP bp_loc_sp);
+
+  std::optional<std::string>
+  GetLocationDescription(lldb::BreakpointLocationSP bp_loc_sp,
+                         lldb::DescriptionLevel level);
 
   void Dump(Stream *s) const override;
 
@@ -61,16 +68,16 @@ protected:
 private:
   void CreateImplementationIfNeeded(lldb::BreakpointSP bkpt);
   ScriptInterpreter *GetScriptInterpreter();
-  
+
   std::string m_class_name;
   lldb::SearchDepth m_depth;
-  StructuredDataImpl *m_args_ptr; // We own this, but the implementation
-                                  // has to manage the UP (since that is
-                                  // how it gets stored in the
-                                  // SBStructuredData).
-  StructuredData::GenericSP m_implementation_sp;
+  StructuredDataImpl m_args;
+  Status m_error;
+  lldb::ScriptedBreakpointInterfaceSP m_interface_sp;
 
-  DISALLOW_COPY_AND_ASSIGN(BreakpointResolverScripted);
+  BreakpointResolverScripted(const BreakpointResolverScripted &) = delete;
+  const BreakpointResolverScripted &
+  operator=(const BreakpointResolverScripted &) = delete;
 };
 
 } // namespace lldb_private

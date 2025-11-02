@@ -12,10 +12,8 @@
 
 #include "llvm/XRay/InstrumentationMap.h"
 #include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/None.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/StringRef.h"
-#include "llvm/ADT/Triple.h"
 #include "llvm/ADT/Twine.h"
 #include "llvm/Object/Binary.h"
 #include "llvm/Object/ELFObjectFile.h"
@@ -25,7 +23,7 @@
 #include "llvm/Support/Error.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/YAMLTraits.h"
-#include <algorithm>
+#include "llvm/TargetParser/Triple.h"
 #include <cstddef>
 #include <cstdint>
 #include <system_error>
@@ -34,18 +32,19 @@
 using namespace llvm;
 using namespace xray;
 
-Optional<int32_t> InstrumentationMap::getFunctionId(uint64_t Addr) const {
+std::optional<int32_t> InstrumentationMap::getFunctionId(uint64_t Addr) const {
   auto I = FunctionIds.find(Addr);
   if (I != FunctionIds.end())
     return I->second;
-  return None;
+  return std::nullopt;
 }
 
-Optional<uint64_t> InstrumentationMap::getFunctionAddr(int32_t FuncId) const {
+std::optional<uint64_t>
+InstrumentationMap::getFunctionAddr(int32_t FuncId) const {
   auto I = FunctionAddresses.find(FuncId);
   if (I != FunctionAddresses.end())
     return I->second;
-  return None;
+  return std::nullopt;
 }
 
 using RelocMap = DenseMap<uint64_t, uint64_t>;
@@ -60,9 +59,11 @@ loadObj(StringRef Filename, object::OwningBinary<object::ObjectFile> &ObjFile,
   // Find the section named "xray_instr_map".
   if ((!ObjFile.getBinary()->isELF() && !ObjFile.getBinary()->isMachO()) ||
       !(ObjFile.getBinary()->getArch() == Triple::x86_64 ||
+        ObjFile.getBinary()->getArch() == Triple::loongarch64 ||
         ObjFile.getBinary()->getArch() == Triple::ppc64le ||
         ObjFile.getBinary()->getArch() == Triple::arm ||
-        ObjFile.getBinary()->getArch() == Triple::aarch64))
+        ObjFile.getBinary()->getArch() == Triple::aarch64 ||
+        ObjFile.getBinary()->getArch() == Triple::riscv64))
     return make_error<StringError>(
         "File format not supported (only does ELF and Mach-O little endian "
         "64-bit).",
@@ -86,51 +87,53 @@ loadObj(StringRef Filename, object::OwningBinary<object::ObjectFile> &ObjFile,
         "Failed to find XRay instrumentation map.",
         std::make_error_code(std::errc::executable_format_error));
 
-  if (Expected<StringRef> E = I->getContents())
-    Contents = *E;
-  else
-    return E.takeError();
+  if (Error E = I->getContents().moveInto(Contents))
+    return E;
 
   RelocMap Relocs;
   if (ObjFile.getBinary()->isELF()) {
     uint32_t RelativeRelocation = [](object::ObjectFile *ObjFile) {
       if (const auto *ELFObj = dyn_cast<object::ELF32LEObjectFile>(ObjFile))
-        return ELFObj->getELFFile()->getRelativeRelocationType();
+        return ELFObj->getELFFile().getRelativeRelocationType();
       else if (const auto *ELFObj =
                    dyn_cast<object::ELF32BEObjectFile>(ObjFile))
-        return ELFObj->getELFFile()->getRelativeRelocationType();
+        return ELFObj->getELFFile().getRelativeRelocationType();
       else if (const auto *ELFObj =
                    dyn_cast<object::ELF64LEObjectFile>(ObjFile))
-        return ELFObj->getELFFile()->getRelativeRelocationType();
+        return ELFObj->getELFFile().getRelativeRelocationType();
       else if (const auto *ELFObj =
                    dyn_cast<object::ELF64BEObjectFile>(ObjFile))
-        return ELFObj->getELFFile()->getRelativeRelocationType();
+        return ELFObj->getELFFile().getRelativeRelocationType();
       else
         return static_cast<uint32_t>(0);
     }(ObjFile.getBinary());
 
-    bool (*SupportsRelocation)(uint64_t);
+    object::SupportsRelocation Supports;
     object::RelocationResolver Resolver;
-    std::tie(SupportsRelocation, Resolver) =
+    std::tie(Supports, Resolver) =
         object::getRelocationResolver(*ObjFile.getBinary());
 
     for (const object::SectionRef &Section : Sections) {
       for (const object::RelocationRef &Reloc : Section.relocations()) {
         if (ObjFile.getBinary()->getArch() == Triple::arm) {
-          if (SupportsRelocation && SupportsRelocation(Reloc.getType())) {
+          if (Supports && Supports(Reloc.getType())) {
             Expected<uint64_t> ValueOrErr = Reloc.getSymbol()->getValue();
             if (!ValueOrErr)
               return ValueOrErr.takeError();
-            Relocs.insert({Reloc.getOffset(), Resolver(Reloc, *ValueOrErr, 0)});
+            Relocs.insert(
+                {Reloc.getOffset(),
+                 object::resolveRelocation(Resolver, Reloc, *ValueOrErr, 0)});
           }
-        } else if (SupportsRelocation && SupportsRelocation(Reloc.getType())) {
+        } else if (Supports && Supports(Reloc.getType())) {
           auto AddendOrErr = object::ELFRelocationRef(Reloc).getAddend();
           auto A = AddendOrErr ? *AddendOrErr : 0;
           Expected<uint64_t> ValueOrErr = Reloc.getSymbol()->getValue();
           if (!ValueOrErr)
             // TODO: Test this error.
             return ValueOrErr.takeError();
-          Relocs.insert({Reloc.getOffset(), Resolver(Reloc, *ValueOrErr, A)});
+          Relocs.insert(
+              {Reloc.getOffset(),
+               object::resolveRelocation(Resolver, Reloc, *ValueOrErr, A)});
         } else if (Reloc.getType() == RelativeRelocation) {
           if (auto AddendOrErr = object::ELFRelocationRef(Reloc).getAddend())
             Relocs.insert({Reloc.getOffset(), *AddendOrErr});
@@ -186,7 +189,7 @@ loadObj(StringRef Filename, object::OwningBinary<object::ObjectFile> &ObjFile,
         SledEntry::FunctionKinds::TAIL,
         SledEntry::FunctionKinds::LOG_ARGS_ENTER,
         SledEntry::FunctionKinds::CUSTOM_EVENT};
-    if (Kind >= sizeof(Kinds))
+    if (Kind >= std::size(Kinds))
       return errorCodeToError(
           std::make_error_code(std::errc::executable_format_error));
     Entry.Kind = Kinds[Kind];

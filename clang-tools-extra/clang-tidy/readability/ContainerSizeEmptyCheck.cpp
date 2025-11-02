@@ -1,4 +1,4 @@
-//===--- ContainerSizeEmptyCheck.cpp - clang-tidy -------------------------===//
+//===----------------------------------------------------------------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -8,6 +8,7 @@
 #include "ContainerSizeEmptyCheck.h"
 #include "../utils/ASTUtils.h"
 #include "../utils/Matchers.h"
+#include "../utils/OptionsUtils.h"
 #include "clang/AST/ASTContext.h"
 #include "clang/ASTMatchers/ASTMatchers.h"
 #include "clang/Lex/Lexer.h"
@@ -15,69 +16,199 @@
 
 using namespace clang::ast_matchers;
 
-namespace clang {
-namespace tidy {
-namespace readability {
+namespace clang::tidy::readability {
 
-using utils::IsBinaryOrTernary;
+namespace {
+
+AST_POLYMORPHIC_MATCHER_P2(hasAnyArgumentWithParam,
+                           AST_POLYMORPHIC_SUPPORTED_TYPES(CallExpr,
+                                                           CXXConstructExpr),
+                           ast_matchers::internal::Matcher<Expr>, ArgMatcher,
+                           ast_matchers::internal::Matcher<ParmVarDecl>,
+                           ParamMatcher) {
+  ast_matchers::internal::BoundNodesTreeBuilder Result;
+  // The first argument of an overloaded member operator is the implicit object
+  // argument of the method which should not be matched against a parameter, so
+  // we skip over it here.
+  ast_matchers::internal::BoundNodesTreeBuilder Matches;
+  unsigned ArgIndex = cxxOperatorCallExpr(callee(cxxMethodDecl()))
+                              .matches(Node, Finder, &Matches)
+                          ? 1
+                          : 0;
+  int ParamIndex = 0;
+  for (; ArgIndex < Node.getNumArgs(); ++ArgIndex) {
+    ast_matchers::internal::BoundNodesTreeBuilder ArgMatches(*Builder);
+    if (ArgMatcher.matches(*(Node.getArg(ArgIndex)->IgnoreParenCasts()), Finder,
+                           &ArgMatches)) {
+      ast_matchers::internal::BoundNodesTreeBuilder ParamMatches(ArgMatches);
+      if (expr(anyOf(cxxConstructExpr(hasDeclaration(cxxConstructorDecl(
+                         hasParameter(ParamIndex, ParamMatcher)))),
+                     callExpr(callee(functionDecl(
+                         hasParameter(ParamIndex, ParamMatcher))))))
+              .matches(Node, Finder, &ParamMatches)) {
+        Result.addMatch(ParamMatches);
+        *Builder = std::move(Result);
+        return true;
+      }
+    }
+    ++ParamIndex;
+  }
+  return false;
+}
+
+AST_MATCHER(Expr, usedInBooleanContext) {
+  const char *ExprName = "__booleanContextExpr";
+  auto Result =
+      expr(expr().bind(ExprName),
+           anyOf(hasParent(
+                     mapAnyOf(varDecl, fieldDecl).with(hasType(booleanType()))),
+                 hasParent(cxxConstructorDecl(
+                     hasAnyConstructorInitializer(cxxCtorInitializer(
+                         withInitializer(expr(equalsBoundNode(ExprName))),
+                         forField(hasType(booleanType())))))),
+                 hasParent(stmt(anyOf(
+                     explicitCastExpr(hasDestinationType(booleanType())),
+                     mapAnyOf(ifStmt, doStmt, whileStmt, forStmt,
+                              conditionalOperator)
+                         .with(hasCondition(expr(equalsBoundNode(ExprName)))),
+                     parenListExpr(hasParent(varDecl(hasType(booleanType())))),
+                     parenExpr(hasParent(
+                         explicitCastExpr(hasDestinationType(booleanType())))),
+                     returnStmt(forFunction(returns(booleanType()))),
+                     cxxUnresolvedConstructExpr(hasType(booleanType())),
+                     invocation(hasAnyArgumentWithParam(
+                         expr(equalsBoundNode(ExprName)),
+                         parmVarDecl(hasType(booleanType())))),
+                     binaryOperator(hasAnyOperatorName("&&", "||")),
+                     unaryOperator(hasOperatorName("!")).bind("NegOnSize"))))))
+          .matches(Node, Finder, Builder);
+  Builder->removeBindings(
+      [ExprName](const ast_matchers::internal::BoundNodesMap &Nodes) {
+        return Nodes.getNode(ExprName).getNodeKind().isNone();
+      });
+  return Result;
+}
+
+AST_MATCHER(QualType, isIntegralType) {
+  return Node->isIntegralType(Finder->getASTContext());
+}
+
+AST_MATCHER_P(UserDefinedLiteral, hasLiteral,
+              clang::ast_matchers::internal::Matcher<Expr>, InnerMatcher) {
+  const UserDefinedLiteral::LiteralOperatorKind LOK =
+      Node.getLiteralOperatorKind();
+  if (LOK == UserDefinedLiteral::LOK_Template ||
+      LOK == UserDefinedLiteral::LOK_Raw)
+    return false;
+
+  if (const Expr *CookedLiteral = Node.getCookedLiteral())
+    return InnerMatcher.matches(*CookedLiteral, Finder, Builder);
+  return false;
+}
+
+AST_MATCHER_P(CXXMethodDecl, hasCanonicalDecl,
+              clang::ast_matchers::internal::Matcher<CXXMethodDecl>,
+              InnerMatcher) {
+  return InnerMatcher.matches(*Node.getCanonicalDecl(), Finder, Builder);
+}
+
+AST_POLYMORPHIC_MATCHER_P(
+    matchMemberName,
+    AST_POLYMORPHIC_SUPPORTED_TYPES(MemberExpr, CXXDependentScopeMemberExpr),
+    std::string, MemberName) {
+  if (const auto *E = dyn_cast<MemberExpr>(&Node))
+    return E->getMemberDecl()->getName() == MemberName;
+
+  if (const auto *E = dyn_cast<CXXDependentScopeMemberExpr>(&Node))
+    return E->getMember().getAsString() == MemberName;
+
+  return false;
+}
+
+} // namespace
+
+using utils::isBinaryOrTernary;
 
 ContainerSizeEmptyCheck::ContainerSizeEmptyCheck(StringRef Name,
                                                  ClangTidyContext *Context)
-    : ClangTidyCheck(Name, Context) {}
+    : ClangTidyCheck(Name, Context),
+      ExcludedComparisonTypes(utils::options::parseStringList(
+          Options.get("ExcludedComparisonTypes", "::std::array"))) {}
+
+void ContainerSizeEmptyCheck::storeOptions(ClangTidyOptions::OptionMap &Opts) {
+  Options.store(Opts, "ExcludedComparisonTypes",
+                utils::options::serializeStringList(ExcludedComparisonTypes));
+}
 
 void ContainerSizeEmptyCheck::registerMatchers(MatchFinder *Finder) {
-  const auto ValidContainer = qualType(hasUnqualifiedDesugaredType(
-      recordType(hasDeclaration(cxxRecordDecl(isSameOrDerivedFrom(
-          namedDecl(
-              has(cxxMethodDecl(
-                      isConst(), parameterCountIs(0), isPublic(),
-                      hasName("size"),
-                      returns(qualType(isInteger(), unless(booleanType()))))
-                      .bind("size")),
-              has(cxxMethodDecl(isConst(), parameterCountIs(0), isPublic(),
-                                hasName("empty"), returns(booleanType()))
-                      .bind("empty")))
-              .bind("container")))))));
+  const auto ValidContainerRecord = cxxRecordDecl(isSameOrDerivedFrom(
+      namedDecl(has(cxxMethodDecl(isConst(), parameterCountIs(0), isPublic(),
+                                  hasAnyName("size", "length"),
+                                  returns(qualType(isIntegralType(),
+                                                   unless(booleanType()))))
+                        .bind("size")),
+                has(cxxMethodDecl(isConst(), parameterCountIs(0), isPublic(),
+                                  hasName("empty"), returns(booleanType()))
+                        .bind("empty")))
+          .bind("container")));
 
-  const auto WrongUse = traverse(
-      ast_type_traits::TK_AsIs,
-      anyOf(
-          hasParent(binaryOperator(isComparisonOperator(),
-                                   hasEitherOperand(ignoringImpCasts(
-                                       anyOf(integerLiteral(equals(1)),
-                                             integerLiteral(equals(0))))))
-                        .bind("SizeBinaryOp")),
-          hasParent(implicitCastExpr(
-              hasImplicitDestinationType(booleanType()),
-              anyOf(hasParent(
-                        unaryOperator(hasOperatorName("!")).bind("NegOnSize")),
-                    anything()))),
-          hasParent(explicitCastExpr(hasDestinationType(booleanType())))));
+  const auto ValidContainerNonTemplateType =
+      qualType(hasUnqualifiedDesugaredType(
+          recordType(hasDeclaration(ValidContainerRecord))));
+  const auto ValidContainerTemplateType = qualType(hasUnqualifiedDesugaredType(
+      anyOf(templateSpecializationType(
+                hasDeclaration(classTemplateDecl(has(ValidContainerRecord)))),
+            injectedClassNameType(hasDeclaration(ValidContainerRecord)))));
+
+  const auto ValidContainer = qualType(
+      anyOf(ValidContainerNonTemplateType, ValidContainerTemplateType));
+
+  const auto WrongUse =
+      anyOf(hasParent(binaryOperator(
+                          isComparisonOperator(),
+                          hasEitherOperand(anyOf(integerLiteral(equals(1)),
+                                                 integerLiteral(equals(0)))))
+                          .bind("SizeBinaryOp")),
+            usedInBooleanContext());
+
+  const auto NotInEmptyMethodOfContainer = unless(
+      forCallable(cxxMethodDecl(hasCanonicalDecl(equalsBoundNode("empty")))));
 
   Finder->addMatcher(
-      cxxMemberCallExpr(on(expr(anyOf(hasType(ValidContainer),
-                                      hasType(pointsTo(ValidContainer)),
-                                      hasType(references(ValidContainer))))),
-                        callee(cxxMethodDecl(hasName("size"))), WrongUse,
-                        unless(hasAncestor(cxxMethodDecl(
-                            ofClass(equalsBoundNode("container"))))))
+      cxxMemberCallExpr(
+          argumentCountIs(0),
+          on(expr(anyOf(hasType(ValidContainer),
+                        hasType(pointsTo(ValidContainer)),
+                        hasType(references(ValidContainer))))
+                 .bind("MemberCallObject")),
+          callee(
+              cxxMethodDecl(hasAnyName("size", "length")).bind("SizeMethod")),
+          WrongUse, NotInEmptyMethodOfContainer)
           .bind("SizeCallExpr"),
       this);
 
-  // Empty constructor matcher.
-  const auto DefaultConstructor = cxxConstructExpr(
-          hasDeclaration(cxxConstructorDecl(isDefaultConstructor())));
+  Finder->addMatcher(
+      callExpr(
+          argumentCountIs(0),
+          has(mapAnyOf(memberExpr, cxxDependentScopeMemberExpr)
+                  .with(
+                      hasObjectExpression(
+                          expr(anyOf(hasType(ValidContainer),
+                                     hasType(pointsTo(ValidContainer)),
+                                     hasType(references(ValidContainer))))
+                              .bind("MemberCallObject")),
+                      anyOf(matchMemberName("size"), matchMemberName("length")))
+                  .bind("MemberExpr")),
+          WrongUse, NotInEmptyMethodOfContainer)
+          .bind("SizeCallExpr"),
+      this);
+
   // Comparison to empty string or empty constructor.
-  const auto WrongComparend = anyOf(
-      ignoringImpCasts(stringLiteral(hasSize(0))),
-      ignoringImpCasts(cxxBindTemporaryExpr(has(DefaultConstructor))),
-      ignoringImplicit(DefaultConstructor),
-      cxxConstructExpr(
-          hasDeclaration(cxxConstructorDecl(isCopyConstructor())),
-          has(expr(ignoringImpCasts(DefaultConstructor)))),
-      cxxConstructExpr(
-          hasDeclaration(cxxConstructorDecl(isMoveConstructor())),
-          has(expr(ignoringImpCasts(DefaultConstructor)))));
+  const auto WrongComparend =
+      anyOf(stringLiteral(hasSize(0)),
+            userDefinedLiteral(hasLiteral(stringLiteral(hasSize(0)))),
+            cxxConstructExpr(argumentCountIs(0)),
+            cxxUnresolvedConstructExpr(argumentCountIs(0)));
   // Match the object being compared.
   const auto STLArg =
       anyOf(unaryOperator(
@@ -85,36 +216,63 @@ void ContainerSizeEmptyCheck::registerMatchers(MatchFinder *Finder) {
                 hasUnaryOperand(
                     expr(hasType(pointsTo(ValidContainer))).bind("Pointee"))),
             expr(hasType(ValidContainer)).bind("STLObject"));
+
+  const auto ExcludedComparisonTypesMatcher = qualType(anyOf(
+      hasDeclaration(
+          cxxRecordDecl(matchers::matchesAnyListedName(ExcludedComparisonTypes))
+              .bind("excluded")),
+      hasCanonicalType(hasDeclaration(
+          cxxRecordDecl(matchers::matchesAnyListedName(ExcludedComparisonTypes))
+              .bind("excluded")))));
+  const auto SameExcludedComparisonTypesMatcher =
+      qualType(anyOf(hasDeclaration(cxxRecordDecl(equalsBoundNode("excluded"))),
+                     hasCanonicalType(hasDeclaration(
+                         cxxRecordDecl(equalsBoundNode("excluded"))))));
+
   Finder->addMatcher(
-      cxxOperatorCallExpr(
-          hasAnyOverloadedOperatorName("==", "!="),
-          anyOf(allOf(hasArgument(0, WrongComparend), hasArgument(1, STLArg)),
-                allOf(hasArgument(0, STLArg), hasArgument(1, WrongComparend))),
-          unless(hasAncestor(
-              cxxMethodDecl(ofClass(equalsBoundNode("container"))))))
+      binaryOperation(
+          hasAnyOperatorName("==", "!="), hasOperands(WrongComparend, STLArg),
+          unless(allOf(hasLHS(hasType(ExcludedComparisonTypesMatcher)),
+                       hasRHS(hasType(SameExcludedComparisonTypesMatcher)))),
+          NotInEmptyMethodOfContainer)
           .bind("BinCmp"),
       this);
 }
 
 void ContainerSizeEmptyCheck::check(const MatchFinder::MatchResult &Result) {
-  const auto *MemberCall =
-      Result.Nodes.getNodeAs<CXXMemberCallExpr>("SizeCallExpr");
+  const auto *MemberCall = Result.Nodes.getNodeAs<Expr>("SizeCallExpr");
+  const auto *MemberCallObject =
+      Result.Nodes.getNodeAs<Expr>("MemberCallObject");
   const auto *BinCmp = Result.Nodes.getNodeAs<CXXOperatorCallExpr>("BinCmp");
+  const auto *BinCmpTempl = Result.Nodes.getNodeAs<BinaryOperator>("BinCmp");
+  const auto *BinCmpRewritten =
+      Result.Nodes.getNodeAs<CXXRewrittenBinaryOperator>("BinCmp");
   const auto *BinaryOp = Result.Nodes.getNodeAs<BinaryOperator>("SizeBinaryOp");
   const auto *Pointee = Result.Nodes.getNodeAs<Expr>("Pointee");
   const auto *E =
-      MemberCall
-          ? MemberCall->getImplicitObjectArgument()
+      MemberCallObject
+          ? MemberCallObject
           : (Pointee ? Pointee : Result.Nodes.getNodeAs<Expr>("STLObject"));
   FixItHint Hint;
-  std::string ReplacementText = std::string(
-      Lexer::getSourceText(CharSourceRange::getTokenRange(E->getSourceRange()),
-                           *Result.SourceManager, getLangOpts()));
-  if (BinCmp && IsBinaryOrTernary(E)) {
-    // Not just a DeclRefExpr, so parenthesize to be on the safe side.
+  std::string ReplacementText =
+      E->isImplicitCXXThis()
+          ? ""
+          : std::string(Lexer::getSourceText(
+                CharSourceRange::getTokenRange(E->getSourceRange()),
+                *Result.SourceManager, getLangOpts()));
+  const auto *OpCallExpr = dyn_cast<CXXOperatorCallExpr>(E);
+  if (isBinaryOrTernary(E) || isa<UnaryOperator>(E) ||
+      (OpCallExpr && (OpCallExpr->getOperator() == OO_Star))) {
     ReplacementText = "(" + ReplacementText + ")";
   }
-  if (E->getType()->isPointerType())
+  if (OpCallExpr &&
+      OpCallExpr->getOperator() == OverloadedOperatorKind::OO_Arrow) {
+    // This can happen if the object is a smart pointer. Don't add anything
+    // because a '->' is already there (PR#51776), just call the method.
+    ReplacementText += "empty()";
+  } else if (E->isImplicitCXXThis()) {
+    ReplacementText += "empty()";
+  } else if (E->getType()->isPointerType())
     ReplacementText += "->empty()";
   else
     ReplacementText += ".empty()";
@@ -125,24 +283,35 @@ void ContainerSizeEmptyCheck::check(const MatchFinder::MatchResult &Result) {
     }
     Hint =
         FixItHint::CreateReplacement(BinCmp->getSourceRange(), ReplacementText);
-  } else if (BinaryOp) {  // Determine the correct transformation.
-    bool Negation = false;
-    const bool ContainerIsLHS =
-        !llvm::isa<IntegerLiteral>(BinaryOp->getLHS()->IgnoreImpCasts());
-    const auto OpCode = BinaryOp->getOpcode();
-    uint64_t Value = 0;
-    if (ContainerIsLHS) {
-      if (const auto *Literal = llvm::dyn_cast<IntegerLiteral>(
-              BinaryOp->getRHS()->IgnoreImpCasts()))
-        Value = Literal->getValue().getLimitedValue();
-      else
-        return;
-    } else {
-      Value =
-          llvm::dyn_cast<IntegerLiteral>(BinaryOp->getLHS()->IgnoreImpCasts())
-              ->getValue()
-              .getLimitedValue();
+  } else if (BinCmpTempl) {
+    if (BinCmpTempl->getOpcode() == BinaryOperatorKind::BO_NE) {
+      ReplacementText = "!" + ReplacementText;
     }
+    Hint = FixItHint::CreateReplacement(BinCmpTempl->getSourceRange(),
+                                        ReplacementText);
+  } else if (BinCmpRewritten) {
+    if (BinCmpRewritten->getOpcode() == BinaryOperatorKind::BO_NE) {
+      ReplacementText = "!" + ReplacementText;
+    }
+    Hint = FixItHint::CreateReplacement(BinCmpRewritten->getSourceRange(),
+                                        ReplacementText);
+  } else if (BinaryOp) { // Determine the correct transformation.
+    const auto *LiteralLHS =
+        llvm::dyn_cast<IntegerLiteral>(BinaryOp->getLHS()->IgnoreImpCasts());
+    const auto *LiteralRHS =
+        llvm::dyn_cast<IntegerLiteral>(BinaryOp->getRHS()->IgnoreImpCasts());
+    const bool ContainerIsLHS = !LiteralLHS;
+
+    uint64_t Value = 0;
+    if (LiteralLHS)
+      Value = LiteralLHS->getValue().getLimitedValue();
+    else if (LiteralRHS)
+      Value = LiteralRHS->getValue().getLimitedValue();
+    else
+      return;
+
+    bool Negation = false;
+    const auto OpCode = BinaryOp->getOpcode();
 
     // Constant that is not handled.
     if (Value > 1)
@@ -152,10 +321,14 @@ void ContainerSizeEmptyCheck::check(const MatchFinder::MatchResult &Result) {
                        OpCode == BinaryOperatorKind::BO_NE))
       return;
 
-    // Always true, no warnings for that.
-    if ((OpCode == BinaryOperatorKind::BO_GE && Value == 0 && ContainerIsLHS) ||
-        (OpCode == BinaryOperatorKind::BO_LE && Value == 0 && !ContainerIsLHS))
-      return;
+    // Always true/false, no warnings for that.
+    if (Value == 0) {
+      if ((OpCode == BinaryOperatorKind::BO_GT && !ContainerIsLHS) ||
+          (OpCode == BinaryOperatorKind::BO_LT && ContainerIsLHS) ||
+          (OpCode == BinaryOperatorKind::BO_LE && !ContainerIsLHS) ||
+          (OpCode == BinaryOperatorKind::BO_GE && ContainerIsLHS))
+        return;
+    }
 
     // Do not warn for size > 1, 1 < size, size <= 1, 1 >= size.
     if (Value == 1) {
@@ -167,12 +340,32 @@ void ContainerSizeEmptyCheck::check(const MatchFinder::MatchResult &Result) {
         return;
     }
 
+    // Do not warn for size < 1, 1 > size, size <= 0, 0 >= size for non signed
+    // types
+    if ((OpCode == BinaryOperatorKind::BO_GT && Value == 1 &&
+         !ContainerIsLHS) ||
+        (OpCode == BinaryOperatorKind::BO_LT && Value == 1 && ContainerIsLHS) ||
+        (OpCode == BinaryOperatorKind::BO_GE && Value == 0 &&
+         !ContainerIsLHS) ||
+        (OpCode == BinaryOperatorKind::BO_LE && Value == 0 && ContainerIsLHS)) {
+      const Expr *Container = ContainerIsLHS
+                                  ? BinaryOp->getLHS()->IgnoreImpCasts()
+                                  : BinaryOp->getRHS()->IgnoreImpCasts();
+      if (Container->getType()
+              .getCanonicalType()
+              .getNonReferenceType()
+              ->isSignedIntegerType())
+        return;
+    }
+
     if (OpCode == BinaryOperatorKind::BO_NE && Value == 0)
       Negation = true;
+
     if ((OpCode == BinaryOperatorKind::BO_GT ||
          OpCode == BinaryOperatorKind::BO_GE) &&
         ContainerIsLHS)
       Negation = true;
+
     if ((OpCode == BinaryOperatorKind::BO_LT ||
          OpCode == BinaryOperatorKind::BO_LE) &&
         !ContainerIsLHS)
@@ -195,15 +388,32 @@ void ContainerSizeEmptyCheck::check(const MatchFinder::MatchResult &Result) {
                                           "!" + ReplacementText);
   }
 
-  if (MemberCall) {
-    diag(MemberCall->getBeginLoc(),
-         "the 'empty' method should be used to check "
-         "for emptiness instead of 'size'")
-        << Hint;
+  auto WarnLoc = MemberCall ? MemberCall->getBeginLoc() : SourceLocation{};
+
+  if (WarnLoc.isValid()) {
+    auto Diag = diag(WarnLoc, "the 'empty' method should be used to check "
+                              "for emptiness instead of %0");
+    if (const auto *SizeMethod =
+            Result.Nodes.getNodeAs<NamedDecl>("SizeMethod"))
+      Diag << SizeMethod;
+    else if (const auto *DependentExpr =
+                 Result.Nodes.getNodeAs<CXXDependentScopeMemberExpr>(
+                     "MemberExpr"))
+      Diag << DependentExpr->getMember();
+    else if (const auto *ME =
+                 Result.Nodes.getNodeAs<MemberExpr>("MemberExpr")) {
+      Diag << ME->getMemberNameInfo().getName();
+    } else
+      Diag << "unknown method";
+    Diag << Hint;
   } else {
-    diag(BinCmp->getBeginLoc(),
-         "the 'empty' method should be used to check "
-         "for emptiness instead of comparing to an empty object")
+    WarnLoc = BinCmpTempl
+                  ? BinCmpTempl->getBeginLoc()
+                  : (BinCmp ? BinCmp->getBeginLoc()
+                            : (BinCmpRewritten ? BinCmpRewritten->getBeginLoc()
+                                               : SourceLocation{}));
+    diag(WarnLoc, "the 'empty' method should be used to check "
+                  "for emptiness instead of comparing to an empty object")
         << Hint;
   }
 
@@ -223,6 +433,4 @@ void ContainerSizeEmptyCheck::check(const MatchFinder::MatchResult &Result) {
       << Container;
 }
 
-} // namespace readability
-} // namespace tidy
-} // namespace clang
+} // namespace clang::tidy::readability

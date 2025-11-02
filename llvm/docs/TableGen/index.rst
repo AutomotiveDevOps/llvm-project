@@ -1,6 +1,6 @@
-========
-TableGen
-========
+=================
+TableGen Overview
+=================
 
 .. contents::
    :local:
@@ -9,9 +9,8 @@ TableGen
    :hidden:
 
    BackEnds
-   LangRef
-   LangIntro
-   Deficiencies
+   BackGuide
+   ProgRef
 
 Introduction
 ============
@@ -21,18 +20,23 @@ domain-specific information.  Because there may be a large number of these
 records, it is specifically designed to allow writing flexible descriptions and
 for common features of these records to be factored out.  This reduces the
 amount of duplication in the description, reduces the chance of error, and makes
-it easier to structure domain specific information.
+it easier to structure domain-specific information.
 
-The core part of TableGen parses a file, instantiates the declarations, and
-hands the result off to a domain-specific `backend`_ for processing.
+The TableGen front end parses a file, instantiates the declarations, and
+hands the result off to a domain-specific `backend`_ for processing.  See
+the :doc:`TableGen Programmer's Reference <./ProgRef>` for an in-depth
+description of TableGen. See :doc:`tblgen - Description to C++ Code
+<../CommandGuide/tblgen>` for details on the ``*-tblgen`` commands
+that run the various flavors of TableGen.
 
-The current major users of TableGen are :doc:`../CodeGenerator`
-and the
-`Clang diagnostics and attributes <https://clang.llvm.org/docs/UsersManual.html#controlling-errors-and-warnings>`_.
+The current major users of TableGen are :doc:`The LLVM Target-Independent
+Code Generator <../CodeGenerator>` and the `Clang diagnostics and attributes
+<https://clang.llvm.org/docs/UsersManual.html#controlling-errors-and-warnings>`_.
 
-Note that if you work on TableGen much, and use emacs or vim, that you can find
-an emacs "TableGen mode" and a vim language file in the ``llvm/utils/emacs`` and
-``llvm/utils/vim`` directories of your LLVM distribution, respectively.
+Note that if you work with TableGen frequently and use emacs or vim,
+you can find an emacs "TableGen mode" and a vim language file in the
+``llvm/utils/emacs`` and ``llvm/utils/vim`` directories of your LLVM
+distribution, respectively.
 
 .. _intro:
 
@@ -40,8 +44,8 @@ an emacs "TableGen mode" and a vim language file in the ``llvm/utils/emacs`` and
 The TableGen program
 ====================
 
-TableGen files are interpreted by the TableGen program: `llvm-tblgen` available
-on your build directory under `bin`. It is not installed in the system (or where
+TableGen files are interpreted by the TableGen program: ``llvm-tblgen`` available
+in your build directory under ``bin``. It is not installed in the system (or where
 your sysroot is set to), since it has no use beyond LLVM's build process.
 
 Running TableGen
@@ -69,7 +73,7 @@ example, to get a list of all of the definitions that subclass a particular type
   XMM0, XMM1, XMM10, XMM11, XMM12, XMM13, XMM14, XMM15, XMM2, XMM3, XMM4, XMM5,
   XMM6, XMM7, XMM8, XMM9,
 
-  $ llvm-tblgen X86.td -print-enums -class=Instruction 
+  $ llvm-tblgen X86.td -print-enums -class=Instruction
   ABS_F, ABS_Fp32, ABS_Fp64, ABS_Fp80, ADC32mi, ADC32mi8, ADC32mr, ADC32ri,
   ADC32ri8, ADC32rm, ADC32rr, ADC64mi32, ADC64mi8, ADC64mr, ADC64ri32, ADC64ri8,
   ADC64rm, ADC64rr, ADD16mi, ADD16mi8, ADD16mr, ADD16ri, ADD16ri8, ADD16rm,
@@ -82,7 +86,7 @@ the `-dump-json` option.
 
 If you plan to use TableGen, you will most likely have to write a `backend`_
 that extracts the information specific to what you need and formats it in the
-appropriate way. You can do this by extending TableGen itself in C++, or by
+appropriate way. You can do this by extending TableGen itself in C++ or by
 writing a script in any language that can consume the JSON output.
 
 Example
@@ -148,7 +152,7 @@ of the x86 architecture.  ``def ADD32rr`` defines a record named
 ``ADD32rr``, and the comment at the end of the line indicates the superclasses
 of the definition.  The body of the record contains all of the data that
 TableGen assembled for the record, indicating that the instruction is part of
-the "X86" namespace, the pattern indicating how the instruction is selected by
+the ``X86`` namespace, the pattern indicating how the instruction is selected by
 the code generator, that it is a two-address instruction, has a particular
 encoding, etc.  The contents and semantics of the information in the record are
 specific to the needs of the X86 backend, and are only shown as an example.
@@ -171,13 +175,13 @@ TableGen, all of the information was derived from the following definition:
 This definition makes use of the custom class ``I`` (extended from the custom
 class ``X86Inst``), which is defined in the X86-specific TableGen file, to
 factor out the common features that instructions of its class share.  A key
-feature of TableGen is that it allows the end-user to define the abstractions
+feature of TableGen is that it allows the end user to define the abstractions
 they prefer to use when describing their information.
 
 Syntax
 ======
 
-TableGen has a syntax that is loosely based on C++ templates, with built-in
+TableGen has a syntax loosely based on C++ templates, with built-in
 types and specification. In addition, TableGen's syntax introduces some
 automation concepts like multiclass, foreach, let, etc.
 
@@ -189,41 +193,41 @@ which are considered 'records'.
 
 **TableGen records** have a unique name, a list of values, and a list of
 superclasses.  The list of values is the main data that TableGen builds for each
-record; it is this that holds the domain specific information for the
+record; it is this that holds the domain-specific information for the
 application.  The interpretation of this data is left to a specific `backend`_,
-but the structure and format rules are taken care of and are fixed by
+but the structure and format rules are taken care of and fixed by
 TableGen.
 
 **TableGen definitions** are the concrete form of 'records'.  These generally do
-not have any undefined values, and are marked with the '``def``' keyword.
+not have any undefined values and are marked with the '``def``' keyword.
 
 .. code-block:: text
 
   def FeatureFPARMv8 : SubtargetFeature<"fp-armv8", "HasFPARMv8", "true",
                                         "Enable ARMv8 FP">;
 
-In this example, FeatureFPARMv8 is ``SubtargetFeature`` record initialised
+In this example, ``FeatureFPARMv8`` is ``SubtargetFeature`` record initialised
 with some values. The names of the classes are defined via the
-keyword `class` either on the same file or some other included. Most target
+keyword `class` either in the same file or some other included. Most target
 TableGen files include the generic ones in ``include/llvm/Target``.
 
 **TableGen classes** are abstract records that are used to build and describe
 other records.  These classes allow the end-user to build abstractions for
-either the domain they are targeting (such as "Register", "RegisterClass", and
-"Instruction" in the LLVM code generator) or for the implementor to help factor
-out common properties of records (such as "FPInst", which is used to represent
+either the domain they are targeting (such as ``Register``, ``RegisterClass``, and
+``Instruction`` in the LLVM code generator) or for the implementor to help factor
+out common properties of records (such as ``FPInst``, which is used to represent
 floating point instructions in the X86 backend).  TableGen keeps track of all of
 the classes that are used to build up a definition, so the backend can find all
-definitions of a particular class, such as "Instruction".
+definitions of a particular class, such as ``Instruction``.
 
 .. code-block:: text
 
  class ProcNoItin<string Name, list<SubtargetFeature> Features>
        : Processor<Name, NoItineraries, Features>;
 
-Here, the class ProcNoItin, receiving parameters `Name` of type `string` and
-a list of target features is specializing the class Processor by passing the
-arguments down as well as hard-coding NoItineraries.
+Here, the class ``ProcNoItin``, receiving parameters ``Name`` of type ``string`` and
+a list of target features is specializing the class ``Processor`` by passing the
+arguments down as well as hard-coding ``NoItineraries``.
 
 **TableGen multiclasses** are groups of abstract records that are instantiated
 all at once.  Each instantiation can result in multiple TableGen definitions.
@@ -249,12 +253,9 @@ in the current multiclass.
                                  !subst(SHIFT, imm_eq0, decls.pattern)),
                         i8>;
 
+See the :doc:`TableGen Programmer's Reference <./ProgRef>` for an in-depth
+description of TableGen.
 
-
-See the :doc:`TableGen Language Introduction <LangIntro>` for more generic
-information on the usage of the language, and the
-:doc:`TableGen Language Reference <LangRef>` for more in-depth description
-of the formal language specification.
 
 .. _backend:
 .. _backends:
@@ -262,43 +263,48 @@ of the formal language specification.
 TableGen backends
 =================
 
-TableGen files have no real meaning without a back-end. The default operation
-of running ``llvm-tblgen`` is to print the information in a textual format, but
-that's only useful for debugging of the TableGen files themselves. The power
-in TableGen is, however, to interpret the source files into an internal 
+TableGen files have no real meaning without a backend. The default operation
+when running ``*-tblgen`` is to print the information in a textual format, but
+that's only useful for debugging the TableGen files themselves. The power
+in TableGen is, however, to interpret the source files into an internal
 representation that can be generated into anything you want.
 
 Current usage of TableGen is to create huge include files with tables that you
 can either include directly (if the output is in the language you're coding),
 or be used in pre-processing via macros surrounding the include of the file.
 
-Direct output can be used if the back-end already prints a table in C format
+Direct output can be used if the backend already prints a table in C format
 or if the output is just a list of strings (for error and warning messages).
 Pre-processed output should be used if the same information needs to be used
-in different contexts (like Instruction names), so your back-end should print
+in different contexts (like Instruction names), so your backend should print
 a meta-information list that can be shaped into different compile-time formats.
 
-See the `TableGen BackEnds <BackEnds.html>`_ for more information.
+See :doc:`TableGen BackEnds <./BackEnds>` for a list of available
+backends, and see the :doc:`TableGen Backend Developer's Guide <./BackGuide>`
+for information on how to write and debug a new backend.
+
+Tools and Resources
+===================
+
+In addition to this documentation, a list of tools and resources for TableGen
+can be found in TableGen's
+`README <https://github.com/llvm/llvm-project/blob/main/llvm/utils/TableGen/README.md>`_.
 
 TableGen Deficiencies
 =====================
 
 Despite being very generic, TableGen has some deficiencies that have been
 pointed out numerous times. The common theme is that, while TableGen allows
-you to build Domain-Specific-Languages, the final languages that you create
-lack the power of other DSLs, which in turn increase considerably the size
+you to build domain-specific languages, the final languages that you create
+lack the power of other DSLs, which in turn considerably increases the size
 and complexity of TableGen files.
 
 At the same time, TableGen allows you to create virtually any meaning of
-the basic concepts via custom-made back-ends, which can pervert the original
+the basic concepts via custom-made backends, which can pervert the original
 design and make it very hard for newcomers to understand the evil TableGen
 file.
 
-There are some in favour of extending the semantics even more, but making sure
-back-ends adhere to strict rules. Others are suggesting we should move to less,
-more powerful DSLs designed with specific purposes, or even re-using existing
+There are some in favor of extending the semantics even more, but making sure
+backends adhere to strict rules. Others suggest moving to fewer,
+more powerful DSLs designed with specific purposes, or even reusing existing
 DSLs.
-
-Either way, this is a discussion that will likely span across several years,
-if not decades. You can read more in the `TableGen Deficiencies <Deficiencies.html>`_
-document.

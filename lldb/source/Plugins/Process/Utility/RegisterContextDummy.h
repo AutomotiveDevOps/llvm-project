@@ -43,7 +43,7 @@ public:
   bool WriteRegister(const lldb_private::RegisterInfo *reg_info,
                      const lldb_private::RegisterValue &value) override;
 
-  bool ReadAllRegisterValues(lldb::DataBufferSP &data_sp) override;
+  bool ReadAllRegisterValues(lldb::WritableDataBufferSP &data_sp) override;
 
   bool WriteAllRegisterValues(const lldb::DataBufferSP &data_sp) override;
 
@@ -56,7 +56,8 @@ private:
   lldb_private::RegisterSet m_reg_set0; // register set 0 (PC only)
   lldb_private::RegisterInfo m_pc_reg_info;
 
-  DISALLOW_COPY_AND_ASSIGN(RegisterContextDummy);
+  RegisterContextDummy(const RegisterContextDummy &) = delete;
+  const RegisterContextDummy &operator=(const RegisterContextDummy &) = delete;
 };
 
 } // namespace lldb_private

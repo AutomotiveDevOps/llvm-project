@@ -46,7 +46,7 @@ template <typename T, typename Ptr, typename Ref> struct __vector_iterator {
 
   __vector_iterator(const Ptr p = 0) : ptr(p) {}
   __vector_iterator(const iterator &rhs): ptr(rhs.base()) {}
-  __vector_iterator<T, Ptr, Ref> operator++() { ++ ptr; return *this; }
+  __vector_iterator<T, Ptr, Ref>& operator++() { ++ ptr; return *this; }
   __vector_iterator<T, Ptr, Ref> operator++(int) {
     auto tmp = *this;
     ++ ptr;
@@ -59,6 +59,11 @@ template <typename T, typename Ptr, typename Ref> struct __vector_iterator {
   }
   __vector_iterator<T, Ptr, Ref> operator+(difference_type n) {
     return ptr + n;
+  }
+  friend __vector_iterator<T, Ptr, Ref> operator+(
+      difference_type n,
+      const __vector_iterator<T, Ptr, Ref> &iter) {
+    return n + iter.ptr;
   }
   __vector_iterator<T, Ptr, Ref> operator-(difference_type n) {
     return ptr - n;
@@ -104,7 +109,7 @@ template <typename T, typename Ptr, typename Ref> struct __deque_iterator {
 
   __deque_iterator(const Ptr p = 0) : ptr(p) {}
   __deque_iterator(const iterator &rhs): ptr(rhs.base()) {}
-  __deque_iterator<T, Ptr, Ref> operator++() { ++ ptr; return *this; }
+  __deque_iterator<T, Ptr, Ref>& operator++() { ++ ptr; return *this; }
   __deque_iterator<T, Ptr, Ref> operator++(int) {
     auto tmp = *this;
     ++ ptr;
@@ -117,6 +122,11 @@ template <typename T, typename Ptr, typename Ref> struct __deque_iterator {
   }
   __deque_iterator<T, Ptr, Ref> operator+(difference_type n) {
     return ptr + n;
+  }
+  friend __deque_iterator<T, Ptr, Ref> operator+(
+      difference_type n,
+      const __deque_iterator<T, Ptr, Ref> &iter) {
+    return n + iter.ptr;
   }
   __deque_iterator<T, Ptr, Ref> operator-(difference_type n) {
     return ptr - n;
@@ -159,7 +169,7 @@ template <typename T, typename Ptr, typename Ref> struct __list_iterator {
 
   __list_iterator(T* it = 0) : item(it) {}
   __list_iterator(const iterator &rhs): item(rhs.item) {}
-  __list_iterator<T, Ptr, Ref> operator++() { item = item->next; return *this; }
+  __list_iterator<T, Ptr, Ref>& operator++() { item = item->next; return *this; }
   __list_iterator<T, Ptr, Ref> operator++(int) {
     auto tmp = *this;
     item = item->next;
@@ -202,7 +212,7 @@ template <typename T, typename Ptr, typename Ref> struct __fwdl_iterator {
 
   __fwdl_iterator(T* it = 0) : item(it) {}
   __fwdl_iterator(const iterator &rhs): item(rhs.item) {}
-  __fwdl_iterator<T, Ptr, Ref> operator++() { item = item->next; return *this; }
+  __fwdl_iterator<T, Ptr, Ref>& operator++() { item = item->next; return *this; }
   __fwdl_iterator<T, Ptr, Ref> operator++(int) {
     auto tmp = *this;
     item = item->next;
@@ -239,6 +249,11 @@ namespace std {
     pair(const pair<U1, U2> &other) : first(other.first),
                                       second(other.second) {}
   };
+
+  template<class T2, class T1>
+  T2& get(pair<T1, T2>& p) ;
+  template<class T1, class T2>
+  T1& get(const pair<T1, T2>& p) ;
   
   typedef __typeof__(sizeof(int)) size_t;
 
@@ -248,11 +263,16 @@ namespace std {
   template< class T > struct remove_reference<T&>  {typedef T type;};
   template< class T > struct remove_reference<T&&> {typedef T type;};
 
-  template<class T> 
-  typename remove_reference<T>::type&& move(T&& a) {
-    typedef typename remove_reference<T>::type&& RvalRef;
-    return static_cast<RvalRef>(a);
-  }
+  template<typename T> typename remove_reference<T>::type&& move(T&& a);
+  template <typename T> T *__addressof(T &x);
+  template <typename T> T *addressof(T &x);
+  template <typename T> const T& as_const(T& x);
+  template <typename T> T&& forward(T&& x);
+  // FIXME: Declare forward_like
+  // FIXME: Declare move_if_noexcept
+
+  template< class T >
+  using remove_reference_t = typename remove_reference<T>::type;
 
   template <class T>
   void swap(T &a, T &b) {
@@ -554,9 +574,38 @@ namespace std {
 
   template <typename CharT>
   class basic_string {
+    class Allocator {};
+
   public:
-    basic_string();
-    basic_string(const CharT *s);
+    basic_string() : basic_string(Allocator()) {}
+    explicit basic_string(const Allocator &alloc);
+    basic_string(size_type count, CharT ch,
+                 const Allocator &alloc = Allocator());
+    basic_string(const basic_string &other,
+                 size_type pos,
+                 const Allocator &alloc = Allocator());
+    basic_string(const basic_string &other,
+                 size_type pos, size_type count,
+                 const Allocator &alloc = Allocator());
+    basic_string(const CharT *s, size_type count,
+                 const Allocator &alloc = Allocator());
+    basic_string(const CharT *s,
+                 const Allocator &alloc = Allocator());
+    template <class InputIt>
+    basic_string(InputIt first, InputIt last,
+                 const Allocator &alloc = Allocator());
+    basic_string(const basic_string &other);
+    basic_string(const basic_string &other,
+                 const Allocator &alloc);
+    basic_string(basic_string &&other);
+    basic_string(basic_string &&other,
+                 const Allocator &alloc);
+    basic_string(std::initializer_list<CharT> ilist,
+                 const Allocator &alloc = Allocator());
+    template <class T>
+    basic_string(const T &t, size_type pos, size_type n,
+                 const Allocator &alloc = Allocator());
+    // basic_string(std::nullptr_t) = delete;
 
     ~basic_string();
     void clear();
@@ -567,6 +616,9 @@ namespace std {
     const CharT *c_str() const;
     const CharT *data() const;
     CharT *data();
+
+    const char *begin() const;
+    const char *end() const;
 
     basic_string &append(size_type count, CharT ch);
     basic_string &assign(size_type count, CharT ch);
@@ -676,6 +728,11 @@ namespace std {
   template <class _Tp, class _Up> struct  is_same           : public false_type {};
   template <class _Tp>            struct  is_same<_Tp, _Tp> : public true_type {};
 
+  #if __cplusplus >= 201703L
+  template< class T, class U >
+  inline constexpr bool is_same_v = is_same<T, U>::value;
+  #endif
+
   template <class _Tp, bool = is_const<_Tp>::value || is_reference<_Tp>::value    >
   struct __add_const             {typedef _Tp type;};
 
@@ -687,6 +744,9 @@ namespace std {
   template <class _Tp> struct  remove_const            {typedef _Tp type;};
   template <class _Tp> struct  remove_const<const _Tp> {typedef _Tp type;};
 
+  template< class T >
+  using remove_const_t = typename remove_const<T>::type;
+
   template <class _Tp> struct  add_lvalue_reference    {typedef _Tp& type;};
 
   template <class _Tp> struct is_trivially_copy_assignable
@@ -696,7 +756,7 @@ namespace std {
     template<class InputIter, class OutputIter>
     OutputIter __copy(InputIter II, InputIter IE, OutputIter OI) {
       while (II != IE)
-        *OI++ = *II++;
+        *OI++ = *II++; // #system_header_simulator_cxx_std_copy_impl_loop
 
       return OI;
     }
@@ -750,6 +810,9 @@ namespace std {
     }
     return __result;
   }
+
+  template< bool B, class T = void >
+  using enable_if_t = typename enable_if<B,T>::type;
 
   template<class InputIter, class OutputIter>
   OutputIter copy_backward(InputIter II, InputIter IE, OutputIter OI) {
@@ -943,26 +1006,131 @@ next(ForwardIterator it,
 
 #if __cplusplus >= 201103L
 namespace std {
-  template <typename T> // TODO: Implement the stub for deleter.
-  class unique_ptr {
-  public:
-    unique_ptr(const unique_ptr &) = delete;
-    unique_ptr(unique_ptr &&);
+template <typename T> // TODO: Implement the stub for deleter.
+class unique_ptr {
+public:
+  unique_ptr() noexcept {}
+  unique_ptr(T *) noexcept {}
+  unique_ptr(const unique_ptr &) noexcept = delete;
+  unique_ptr(unique_ptr &&) noexcept;
 
-    T *get() const;
+  T *get() const noexcept;
+  T *release() noexcept;
+  void reset(T *p = nullptr) noexcept;
+  void swap(unique_ptr<T> &p) noexcept;
 
-    typename std::add_lvalue_reference<T>::type operator*() const;
-    T *operator->() const;
-    operator bool() const;
-  };
+  typename std::add_lvalue_reference<T>::type operator*() const;
+  T *operator->() const noexcept;
+  operator bool() const noexcept;
+  unique_ptr<T> &operator=(unique_ptr<T> &&p) noexcept;
+  unique_ptr<T> &operator=(nullptr_t) noexcept;
+};
+
+// TODO :: Once the deleter parameter is added update with additional template parameter.
+template <typename T>
+void swap(unique_ptr<T> &x, unique_ptr<T> &y) noexcept {
+  x.swap(y);
 }
+
+template <typename T1, typename T2>
+bool operator==(const unique_ptr<T1> &x, const unique_ptr<T2> &y);
+
+template <typename T1, typename T2>
+bool operator!=(const unique_ptr<T1> &x, const unique_ptr<T2> &y);
+
+template <typename T1, typename T2>
+bool operator<(const unique_ptr<T1> &x, const unique_ptr<T2> &y);
+
+template <typename T1, typename T2>
+bool operator>(const unique_ptr<T1> &x, const unique_ptr<T2> &y);
+
+template <typename T1, typename T2>
+bool operator<=(const unique_ptr<T1> &x, const unique_ptr<T2> &y);
+
+template <typename T1, typename T2>
+bool operator>=(const unique_ptr<T1> &x, const unique_ptr<T2> &y);
+
+template <typename T>
+bool operator==(const unique_ptr<T> &x, nullptr_t y);
+
+template <typename T>
+bool operator!=(const unique_ptr<T> &x, nullptr_t y);
+
+template <typename T>
+bool operator<(const unique_ptr<T> &x, nullptr_t y);
+
+template <typename T>
+bool operator>(const unique_ptr<T> &x, nullptr_t y);
+
+template <typename T>
+bool operator<=(const unique_ptr<T> &x, nullptr_t y);
+
+template <typename T>
+bool operator>=(const unique_ptr<T> &x, nullptr_t y);
+
+template <typename T>
+bool operator==(nullptr_t x, const unique_ptr<T> &y);
+
+template <typename T>
+bool operator!=(nullptr_t x, const unique_ptr<T> &y);
+
+template <typename T>
+bool operator>(nullptr_t x, const unique_ptr<T> &y);
+
+template <typename T>
+bool operator<(nullptr_t x, const unique_ptr<T> &y);
+
+template <typename T>
+bool operator>=(nullptr_t x, const unique_ptr<T> &y);
+
+template <typename T>
+bool operator<=(nullptr_t x, const unique_ptr<T> &y);
+
+template <class T, class... Args>
+unique_ptr<T> make_unique(Args &&...args);
+
+#if __cplusplus >= 202002L
+
+template <class T>
+unique_ptr<T> make_unique_for_overwrite();
+
 #endif
 
-#ifdef TEST_INLINABLE_ALLOCATORS
+} // namespace std
+#endif
+
+namespace std {
+template <class CharT>
+class basic_ostream;
+
+using ostream = basic_ostream<char>;
+
+extern std::ostream cout;
+
+ostream &operator<<(ostream &, const string &);
+
+#if __cplusplus >= 202002L
+template <class T>
+ostream &operator<<(ostream &, const std::unique_ptr<T> &);
+#endif
+
+template <class CharT>
+class basic_istream;
+
+using istream = basic_istream<char>;
+
+extern std::istream cin;
+
+istream &getline(istream &, string &, char);
+istream &getline(istream &, string &);
+} // namespace std
+
 namespace std {
   void *malloc(size_t);
   void free(void *);
-}
+} // namespace std
+
+#ifdef TEST_INLINABLE_ALLOCATORS
 void* operator new(std::size_t size, const std::nothrow_t&) throw() { return std::malloc(size); }
 void* operator new[](std::size_t size, const std::nothrow_t&) throw() { return std::malloc(size); }
 void operator delete(void* ptr, const std::nothrow_t&) throw() { std::free(ptr); }
@@ -1056,7 +1224,7 @@ template<
     class iterator {
     public:
       iterator(Key *key): ptr(key) {}
-      iterator operator++() { ++ptr; return *this; }
+      iterator& operator++() { ++ptr; return *this; }
       bool operator!=(const iterator &other) const { return ptr != other.ptr; }
       const Key &operator*() const { return *ptr; }
     private:
@@ -1076,12 +1244,13 @@ template<
   class Alloc = std::allocator<Key>
 > class unordered_set {
   public:
+    unordered_set() {}
     unordered_set(initializer_list<Key> __list) {}
 
     class iterator {
     public:
       iterator(Key *key): ptr(key) {}
-      iterator operator++() { ++ptr; return *this; }
+      iterator& operator++() { ++ptr; return *this; }
       bool operator!=(const iterator &other) const { return ptr != other.ptr; }
       const Key &operator*() const { return *ptr; }
     private:
@@ -1092,6 +1261,16 @@ template<
     Key *val;
     iterator begin() const { return iterator(val); }
     iterator end() const { return iterator(val + 1); }
+
+    template< class InputIt >
+    void insert( InputIt first, InputIt last );
+};
+
+template <typename T>
+class atomic {
+public:
+  T operator++();
+  T operator--();
 };
 
 namespace execution {
@@ -1111,4 +1290,112 @@ public:
   operator()( ForwardIt2 first, ForwardIt2 last ) const;
 };
 
-}
+template <typename> class packaged_task;
+template <typename Ret, typename... Args> class packaged_task<Ret(Args...)> {
+  // TODO: Add some actual implementation.
+};
+
+  #if __cplusplus >= 201703L
+
+  namespace detail
+  {
+    template<class T>
+    struct type_identity { using type = T; }; // or use std::type_identity (since C++20)
+ 
+    template<class T>
+    auto try_add_pointer(int) -> type_identity<typename std::remove_reference<T>::type*>;
+    template<class T>
+    auto try_add_pointer(...) -> type_identity<T>;
+  } // namespace detail
+ 
+  template<class T>
+  struct add_pointer : decltype(detail::try_add_pointer<T>(0)) {};
+
+  template< class T >
+  using add_pointer_t = typename add_pointer<T>::type;
+
+  template<class T> struct remove_cv { typedef T type; };
+  template<class T> struct remove_cv<const T> { typedef T type; };
+  template<class T> struct remove_cv<volatile T> { typedef T type; };
+  template<class T> struct remove_cv<const volatile T> { typedef T type; };
+
+  template< class T >
+  using remove_cv_t = typename remove_cv<T>::type;
+
+  // This decay does not behave exactly like std::decay, but this is enough
+  // for testing the std::variant checker
+  template<class T>
+  struct decay{typedef remove_cv_t<remove_reference_t<T>> type;};
+  template<class T>
+  using decay_t = typename decay<T>::type;
+  
+  // variant
+  template <class... Types> class variant;
+  // variant helper classes
+  template <class T> struct variant_size;
+  template <class T> struct variant_size<const T>;
+  template <class T> struct variant_size<volatile T>;
+  template <class T> struct variant_size<const volatile T>;
+  template <class T> inline constexpr size_t variant_size_v = variant_size<T>::value;
+  template <class... Types>
+  struct variant_size<variant<Types...>>;
+  template <size_t I, class T> struct variant_alternative;
+  template <size_t I, class T> struct variant_alternative<I, const T>;
+  template <size_t I, class T> struct variant_alternative<I, volatile T>;
+  template <size_t I, class T> struct variant_alternative<I, const volatile T>;
+  template <size_t I, class T>
+  using variant_alternative_t = typename variant_alternative<I, T>::type;
+  template <size_t I, class... Types>
+  struct variant_alternative<I, variant<Types...>>;
+  inline constexpr size_t variant_npos = -1;
+  template <size_t I, class... Types>
+  constexpr variant_alternative_t<I, variant<Types...>>&
+    get(variant<Types...>&);
+  template <size_t I, class... Types>
+  constexpr variant_alternative_t<I, variant<Types...>>&&
+    get(variant<Types...>&&);
+  template <size_t I, class... Types>
+  constexpr const variant_alternative_t<I, variant<Types...>>&
+    get(const variant<Types...>&);
+  template <size_t I, class... Types>
+  constexpr const variant_alternative_t<I, variant<Types...>>&&
+    get(const variant<Types...>&&);
+  template <class T, class... Types>
+  constexpr T& get(variant<Types...>&);
+  template <class T, class... Types>
+  constexpr T&& get(variant<Types...>&&);
+  template <class T, class... Types>
+  constexpr const T& get(const variant<Types...>&);
+  template <class T, class... Types>
+  constexpr const T&& get(const variant<Types...>&&);
+  template <size_t I, class... Types>
+  constexpr add_pointer_t<variant_alternative_t<I, variant<Types...>>>
+    get_if(variant<Types...>*) noexcept;
+  template <size_t I, class... Types>
+  constexpr add_pointer_t<const variant_alternative_t<I, variant<Types...>>>
+    get_if(const variant<Types...>*) noexcept;
+  template <class T, class... Types>
+  constexpr add_pointer_t<T> get_if(variant<Types...>*) noexcept;
+  template <class T, class... Types>
+  constexpr add_pointer_t<const T> get_if(const variant<Types...>*) noexcept;
+
+  template <class... Types>
+  class variant {
+  public:
+    // constructors
+    constexpr variant()= default ;
+    constexpr variant(const variant&);
+    constexpr variant(variant&&);
+    template<typename T,
+            typename = std::enable_if_t<!is_same_v<std::variant<Types...>, decay_t<T>>>>
+	  constexpr variant(T&&);
+    // assignment
+    variant& operator=(const variant&);
+    variant& operator=(variant&&) ;
+    template<typename T,
+            typename = std::enable_if_t<!is_same_v<std::variant<Types...>, decay_t<T>>>>
+    variant& operator=(T&&);
+  };
+  #endif
+
+} // namespace std

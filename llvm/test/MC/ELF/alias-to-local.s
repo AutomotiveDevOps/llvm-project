@@ -1,4 +1,4 @@
-// RUN: llvm-mc -filetype=obj -triple x86_64-pc-linux-gnu < %s | llvm-readobj -r | FileCheck %s
+// RUN: llvm-mc -filetype=obj -triple x86_64-pc-linux-gnu < %s | llvm-readobj -r - | FileCheck %s
 
 // CHECK:      Relocations [
 // CHECK-NEXT:   Section {{.*}} .rela.text {
@@ -10,7 +10,7 @@ foo:
 	movl	$zed, %eax
 
 
-	.section	.data.bar,"aGw",@progbits,zed,comdat
+	.section	.data.bar,"awG",@progbits,zed,comdat
 bar:
 	.byte	42
 

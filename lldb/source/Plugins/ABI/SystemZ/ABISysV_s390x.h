@@ -34,16 +34,16 @@ public:
   GetReturnValueObjectImpl(lldb_private::Thread &thread,
                            lldb_private::CompilerType &type) const override;
 
-  bool
-  CreateFunctionEntryUnwindPlan(lldb_private::UnwindPlan &unwind_plan) override;
+  lldb::UnwindPlanSP CreateFunctionEntryUnwindPlan() override;
 
-  bool CreateDefaultUnwindPlan(lldb_private::UnwindPlan &unwind_plan) override;
+  lldb::UnwindPlanSP CreateDefaultUnwindPlan() override;
 
   bool RegisterIsVolatile(const lldb_private::RegisterInfo *reg_info) override;
 
   bool GetFallbackRegisterLocation(
       const lldb_private::RegisterInfo *reg_info,
-      lldb_private::UnwindPlan::Row::RegisterLocation &unwind_regloc) override;
+      lldb_private::UnwindPlan::Row::AbstractRegisterLocation &unwind_regloc)
+      override;
 
   bool CallFrameAddressIsValid(lldb::addr_t cfa) override {
     // Make sure the stack call frame addresses are 8 byte aligned
@@ -70,13 +70,11 @@ public:
 
   static lldb::ABISP CreateInstance(lldb::ProcessSP process_sp, const lldb_private::ArchSpec &arch);
 
-  static lldb_private::ConstString GetPluginNameStatic();
+  static llvm::StringRef GetPluginNameStatic() { return "sysv-s390x"; }
 
   // PluginInterface protocol
 
-  lldb_private::ConstString GetPluginName() override;
-
-  uint32_t GetPluginVersion() override;
+  llvm::StringRef GetPluginName() override { return GetPluginNameStatic(); }
 
 protected:
   void CreateRegisterMapIfNeeded();

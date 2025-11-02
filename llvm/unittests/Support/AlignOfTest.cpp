@@ -30,7 +30,7 @@ namespace {
 #ifdef __clang__
 #pragma clang diagnostic ignored "-Wunknown-pragmas"
 #pragma clang diagnostic ignored "-Winaccessible-base"
-#elif ((__GNUC__ * 100) + __GNUC_MINOR__) >= 402
+#elif defined(__GNUC__)
 // Pragma based warning suppression was introduced in GGC 4.2.  Additionally
 // this warning is "enabled by default".  The warning still appears if -Wall is
 // suppressed.  Apparently GCC suppresses it when -w is specifed, which is odd.
@@ -79,14 +79,14 @@ struct V8 : V5, virtual V6, V7 { double zz;
 
 double S6::f() { return 0.0; }
 float D2::g() { return 0.0f; }
-V1::~V1() {}
-V2::~V2() {}
-V3::~V3() {}
-V4::~V4() {}
-V5::~V5() {}
-V6::~V6() {}
-V7::~V7() {}
-V8::~V8() {}
+V1::~V1() = default;
+V2::~V2() = default;
+V3::~V3() = default;
+V4::~V4() = default;
+V5::~V5() = default;
+V6::~V6() = default;
+V7::~V7() = default;
+V8::~V8() = default;
 
 template <typename M> struct T { M m; };
 
@@ -131,9 +131,17 @@ TEST(AlignOfTest, BasicAlignedArray) {
   EXPECT_EQ(alignof(T<long>), alignof(AlignedCharArrayUnion<long>));
   EXPECT_EQ(alignof(T<long long>), alignof(AlignedCharArrayUnion<long long>));
   EXPECT_EQ(alignof(T<float>), alignof(AlignedCharArrayUnion<float>));
+#ifdef _AIX
+  EXPECT_LE(alignof(T<double>), alignof(AlignedCharArrayUnion<double>));
+  EXPECT_LE(alignof(T<long double>),
+            alignof(AlignedCharArrayUnion<long double>));
+  EXPECT_LE(alignof(S4), alignof(AlignedCharArrayUnion<S4>));
+#else
   EXPECT_EQ(alignof(T<double>), alignof(AlignedCharArrayUnion<double>));
   EXPECT_EQ(alignof(T<long double>),
             alignof(AlignedCharArrayUnion<long double>));
+  EXPECT_EQ(alignof(S4), alignof(AlignedCharArrayUnion<S4>));
+#endif
   EXPECT_EQ(alignof(T<void *>), alignof(AlignedCharArrayUnion<void *>));
   EXPECT_EQ(alignof(T<int *>), alignof(AlignedCharArrayUnion<int *>));
   EXPECT_EQ(alignof(T<double (*)(double)>),
@@ -143,7 +151,6 @@ TEST(AlignOfTest, BasicAlignedArray) {
   EXPECT_EQ(alignof(S1), alignof(AlignedCharArrayUnion<S1>));
   EXPECT_EQ(alignof(S2), alignof(AlignedCharArrayUnion<S2>));
   EXPECT_EQ(alignof(S3), alignof(AlignedCharArrayUnion<S3>));
-  EXPECT_EQ(alignof(S4), alignof(AlignedCharArrayUnion<S4>));
   EXPECT_EQ(alignof(S5), alignof(AlignedCharArrayUnion<S5>));
   EXPECT_EQ(alignof(S6), alignof(AlignedCharArrayUnion<S6>));
   EXPECT_EQ(alignof(D1), alignof(AlignedCharArrayUnion<D1>));

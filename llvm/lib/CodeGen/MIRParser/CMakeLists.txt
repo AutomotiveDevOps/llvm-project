@@ -8,4 +8,14 @@ add_llvm_component_library(LLVMMIRParser
 
   DEPENDS
   intrinsics_gen
+
+  LINK_COMPONENTS
+  AsmParser
+  BinaryFormat
+  CodeGen
+  CodeGenTypes
+  Core
+  MC
+  Support
+  Target
   )

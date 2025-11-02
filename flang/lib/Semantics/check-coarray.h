@@ -12,28 +12,28 @@
 #include "flang/Semantics/semantics.h"
 #include <list>
 
-namespace Fortran::parser {
-class CharBlock;
-class MessageFixedText;
-struct ChangeTeamStmt;
-struct CoarrayAssociation;
-struct FormTeamStmt;
-struct ImageSelectorSpec;
-struct SyncTeamStmt;
-struct TeamValue;
-} // namespace Fortran::parser
-
 namespace Fortran::semantics {
 
 class CoarrayChecker : public virtual BaseChecker {
 public:
   CoarrayChecker(SemanticsContext &context) : context_{context} {}
   void Leave(const parser::ChangeTeamStmt &);
+  void Leave(const parser::EndChangeTeamStmt &);
+  void Leave(const parser::SyncAllStmt &);
+  void Leave(const parser::SyncImagesStmt &);
+  void Leave(const parser::SyncMemoryStmt &);
   void Leave(const parser::SyncTeamStmt &);
-  void Leave(const parser::ImageSelectorSpec &);
+  void Leave(const parser::NotifyWaitStmt &);
+  void Leave(const parser::EventPostStmt &);
+  void Leave(const parser::EventWaitStmt &);
+  void Leave(const parser::LockStmt &);
+  void Leave(const parser::UnlockStmt &);
+  void Leave(const parser::CriticalStmt &);
+  void Leave(const parser::ImageSelector &);
   void Leave(const parser::FormTeamStmt &);
 
   void Enter(const parser::CriticalConstruct &);
+  void Enter(const parser::ChangeTeamConstruct &);
 
 private:
   SemanticsContext &context_;

@@ -1,6 +1,5 @@
-// RUN: %clang_cc1 -fsyntax-only -verify %s
-// RUN: %clang_cc1 -fsyntax-only -verify -std=c++98 %s
-// RUN: %clang_cc1 -fsyntax-only -verify -std=c++11 %s
+// RUN: %clang_cc1 -fsyntax-only -verify=expected,precxx17 %std_cxx98-14 %s
+// RUN: %clang_cc1 -fsyntax-only -verify -std=c++17 %s
 
 struct X0 { // expected-note {{candidate constructor (the implicit copy constructor) not viable}}
 #if __cplusplus >= 201103L // C++11 or later
@@ -58,23 +57,23 @@ template <> struct A<int>{A(const A<int>&);};
 struct B { A<int> x; B(B& a) : x(a.x) {} };
 
 struct X2 {
-  X2(); // expected-note{{candidate constructor}}
-  X2(X2&);	// expected-note {{candidate constructor}}
-  template<typename T> X2(T); // expected-note {{candidate template ignored: instantiation would take its own class type by value}}
+  X2(); // precxx17-note{{candidate constructor}}
+  X2(X2&);	// precxx17-note {{candidate constructor}}
+  template<typename T> X2(T); // precxx17-note {{candidate template ignored: instantiation would take its own class type by value}}
 };
 
 X2 test(bool Cond, X2 x2) {
   if (Cond)
     return x2; // okay, uses copy constructor
   
-  return X2(); // expected-error{{no matching constructor}}
+  return X2(); // precxx17-error{{no matching constructor}}
 }
 
 struct X3 {
   template<typename T> X3(T);
 };
 
-template<> X3::X3(X3); // expected-error{{must pass its first argument by reference}}
+template<> X3::X3(X3); // No error (template constructor)
 
 struct X4 {
   X4();
@@ -136,18 +135,16 @@ namespace PR8182 {
 // Don't blow out the stack trying to call an illegal constructor
 // instantiation.  We intentionally allow implicit instantiations to
 // exist, so make sure they're unusable.
-//
-// rdar://19199836
 namespace self_by_value {
   template <class T, class U> struct A {
     A() {}
     A(const A<T,U> &o) {}
-    A(A<T,T> o) {}
+    A(A<T,T> o) {} // expected-error{{copy constructor must pass its first argument by reference}}
   };
 
   void helper(A<int,float>);
 
-  void test1(A<int,int> a) {
+  void test1(A<int,int> a) { // expected-note{{in instantiation of template class 'self_by_value::A<int, int>'}}
     helper(a);
   }
   void test2() {
@@ -157,14 +154,15 @@ namespace self_by_value {
 
 namespace self_by_value_2 {
   template <class T, class U> struct A {
-    A() {} // expected-note {{not viable: requires 0 arguments}}
-    A(A<T,U> &o) {} // expected-note {{not viable: expects an l-value}}
-    A(A<T,T> o) {} // expected-note {{ignored: instantiation takes its own class type by value}}
+    A() {} // precxx17-note {{not viable: requires 0 arguments}}
+    A(A<T,U> &o) {} // precxx17-note {{not viable: expects an lvalue}}
+    A(A<T,T> o) {} // expected-error{{copy constructor must pass its first argument by reference}}
   };
 
-  void helper_A(A<int,int>); // expected-note {{passing argument to parameter here}}
+  void helper_A(A<int,int>); // precxx17-note {{passing argument to parameter here}}
   void test_A() {
-    helper_A(A<int,int>()); // expected-error {{no matching constructor}}
+    helper_A(A<int,int>()); // precxx17-error {{no matching constructor}} \
+                            // expected-note{{in instantiation of template class 'self_by_value_2::A<int, int>'}}
   }
 }
 
@@ -172,11 +170,11 @@ namespace self_by_value_3 {
   template <class T, class U> struct A {
     A() {}
     A(A<T,U> &o) {}
-    A(A<T,T> o) {}
+    A(A<T,T> o) {} // expected-error{{copy constructor must pass its first argument by reference}}
   };
 
   void helper_A(A<int,int>);
-  void test_A(A<int,int> b) {
+  void test_A(A<int,int> b) { // expected-note{{in instantiation of template class 'self_by_value_3::A<int, int>'}}
     helper_A(b);
   }
 }

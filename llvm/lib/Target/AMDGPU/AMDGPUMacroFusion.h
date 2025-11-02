@@ -6,13 +6,19 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "llvm/CodeGen/MachineScheduler.h"
+#ifndef LLVM_LIB_TARGET_AMDGPU_AMDGPUMACROFUSION_H
+#define LLVM_LIB_TARGET_AMDGPU_AMDGPUMACROFUSION_H
+
+#include "llvm/CodeGen/ScheduleDAGMutation.h"
+#include <memory>
 
 namespace llvm {
 
 /// Note that you have to add:
 ///   DAG.addMutation(createAMDGPUMacroFusionDAGMutation());
-/// to AMDGPUPassConfig::createMachineScheduler() to have an effect.
+/// to AMDGPUTargetMachine::createMachineScheduler() to have an effect.
 std::unique_ptr<ScheduleDAGMutation> createAMDGPUMacroFusionDAGMutation();
 
 } // llvm
+
+#endif // LLVM_LIB_TARGET_AMDGPU_AMDGPUMACROFUSION_H

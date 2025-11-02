@@ -1,3 +1,9 @@
+# This chapter depends on JIT support enabled.
+if(NOT MLIR_ENABLE_EXECUTION_ENGINE)
+  return()
+endif()
+
+
 # For a better template to copy, see examples/standalone
 include_directories(include)
 add_subdirectory(include)
@@ -31,21 +37,26 @@ add_toy_chapter(toyc-ch6
 
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
 include_directories(${CMAKE_CURRENT_BINARY_DIR}/include/)
-get_property(dialect_libs GLOBAL PROPERTY MLIR_DIALECT_LIBS)
-get_property(conversion_libs GLOBAL PROPERTY MLIR_CONVERSION_LIBS)
 target_link_libraries(toyc-ch6
   PRIVATE
-    ${dialect_libs}
-    ${conversion_libs}
     MLIRAnalysis
+    MLIRBuiltinToLLVMIRTranslation
     MLIRCallInterfaces
+    MLIRCastInterfaces
     MLIRExecutionEngine
+    MLIRFunctionInterfaces
     MLIRIR
-    MLIRLLVMIR
+    MLIRLLVMCommonConversion
+    MLIRLLVMDialect
+    MLIRLLVMToLLVMIRTranslation
+    MLIRMemRefDialect
     MLIRParser
     MLIRPass
+    MLIRRegisterAllDialects
+    MLIRRegisterAllExtensions
+    MLIRRegisterAllPasses
     MLIRSideEffectInterfaces
     MLIRSupport
-    MLIRTargetLLVMIR
+    MLIRTargetLLVMIRExport
     MLIRTransforms
-    )
+  )

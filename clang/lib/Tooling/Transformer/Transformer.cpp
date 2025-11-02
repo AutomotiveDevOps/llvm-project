@@ -14,15 +14,61 @@
 #include "llvm/Support/Error.h"
 #include <map>
 #include <utility>
-#include <vector>
 
-using namespace clang;
-using namespace tooling;
+namespace clang {
+namespace tooling {
 
-using ast_matchers::MatchFinder;
+using ::clang::ast_matchers::MatchFinder;
+
+namespace detail {
+
+void TransformerImpl::onMatch(
+    const ast_matchers::MatchFinder::MatchResult &Result) {
+  if (Result.Context->getDiagnostics().hasErrorOccurred())
+    return;
+
+  onMatchImpl(Result);
+}
+
+llvm::Expected<llvm::SmallVector<AtomicChange, 1>>
+TransformerImpl::convertToAtomicChanges(
+    const llvm::SmallVectorImpl<transformer::Edit> &Edits,
+    const MatchFinder::MatchResult &Result) {
+  // Group the transformations, by file, into AtomicChanges, each anchored by
+  // the location of the first change in that file.
+  std::map<FileID, AtomicChange> ChangesByFileID;
+  for (const auto &T : Edits) {
+    auto ID = Result.SourceManager->getFileID(T.Range.getBegin());
+    auto Iter = ChangesByFileID
+                    .emplace(ID, AtomicChange(*Result.SourceManager,
+                                              T.Range.getBegin(), T.Metadata))
+                    .first;
+    auto &AC = Iter->second;
+    switch (T.Kind) {
+    case transformer::EditKind::Range:
+      if (auto Err =
+              AC.replace(*Result.SourceManager, T.Range, T.Replacement)) {
+        return std::move(Err);
+      }
+      break;
+    case transformer::EditKind::AddInclude:
+      AC.addHeader(T.Replacement);
+      break;
+    }
+  }
+
+  llvm::SmallVector<AtomicChange, 1> Changes;
+  Changes.reserve(ChangesByFileID.size());
+  for (auto &IDChangePair : ChangesByFileID)
+    Changes.push_back(std::move(IDChangePair.second));
+
+  return Changes;
+}
+
+} // namespace detail
 
 void Transformer::registerMatchers(MatchFinder *MatchFinder) {
-  for (auto &Matcher : transformer::detail::buildMatchers(Rule))
+  for (auto &Matcher : Impl->buildMatchers())
     MatchFinder->addDynamicMatcher(Matcher, this);
 }
 
@@ -30,55 +76,8 @@ void Transformer::run(const MatchFinder::MatchResult &Result) {
   if (Result.Context->getDiagnostics().hasErrorOccurred())
     return;
 
-  transformer::RewriteRule::Case Case =
-      transformer::detail::findSelectedCase(Result, Rule);
-  auto Transformations = Case.Edits(Result);
-  if (!Transformations) {
-    Consumer(Transformations.takeError());
-    return;
-  }
-
-  if (Transformations->empty()) {
-    // No rewrite applied (but no error encountered either).
-    transformer::detail::getRuleMatchLoc(Result).print(
-        llvm::errs() << "note: skipping match at loc ", *Result.SourceManager);
-    llvm::errs() << "\n";
-    return;
-  }
-
-  // Group the transformations, by file, into AtomicChanges, each anchored by
-  // the location of the first change in that file.
-  std::map<FileID, AtomicChange> ChangesByFileID;
-  for (const auto &T : *Transformations) {
-    auto ID = Result.SourceManager->getFileID(T.Range.getBegin());
-    auto Iter = ChangesByFileID
-                    .emplace(ID, AtomicChange(*Result.SourceManager,
-                                              T.Range.getBegin()))
-                    .first;
-    auto &AC = Iter->second;
-    if (auto Err = AC.replace(*Result.SourceManager, T.Range, T.Replacement)) {
-      Consumer(std::move(Err));
-      return;
-    }
-  }
-
-  for (auto &IDChangePair : ChangesByFileID) {
-    auto &AC = IDChangePair.second;
-    // FIXME: this will add includes to *all* changed files, which may not be
-    // the intent. We should upgrade the representation to allow associating
-    // headers with specific edits.
-    for (const auto &I : Case.AddedIncludes) {
-      auto &Header = I.first;
-      switch (I.second) {
-      case transformer::IncludeFormat::Quoted:
-        AC.addHeader(Header);
-        break;
-      case transformer::IncludeFormat::Angled:
-        AC.addHeader((llvm::Twine("<") + Header + ">").str());
-        break;
-      }
-    }
-
-    Consumer(std::move(AC));
-  }
+  Impl->onMatch(Result);
 }
+
+} // namespace tooling
+} // namespace clang

@@ -10,15 +10,14 @@
 // from a sequence of FDR mode records in arrival order into a collection.
 //
 //===----------------------------------------------------------------------===//
-#ifndef INCLUDE_LLVM_XRAY_FDRTRACEEXPANDER_H_
-#define INCLUDE_LLVM_XRAY_FDRTRACEEXPANDER_H_
+#ifndef LLVM_XRAY_FDRTRACEEXPANDER_H
+#define LLVM_XRAY_FDRTRACEEXPANDER_H
 
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/XRay/FDRRecords.h"
 #include "llvm/XRay/XRayRecord.h"
 
-namespace llvm {
-namespace xray {
+namespace llvm::xray {
 
 class TraceExpander : public RecordVisitor {
   // Type-erased callback for handling individual XRayRecord instances.
@@ -36,7 +35,7 @@ class TraceExpander : public RecordVisitor {
 
 public:
   explicit TraceExpander(function_ref<void(const XRayRecord &)> F, uint16_t L)
-      : RecordVisitor(), C(std::move(F)), LogVersion(L) {}
+      : C(std::move(F)), LogVersion(L) {}
 
   Error visit(BufferExtents &) override;
   Error visit(WallclockRecord &) override;
@@ -56,7 +55,6 @@ public:
   Error flush();
 };
 
-} // namespace xray
-} // namespace llvm
+} // namespace llvm::xray
 
-#endif // INCLUDE_LLVM_XRAY_FDRTRACEEXPANDER_H_
+#endif // LLVM_XRAY_FDRTRACEEXPANDER_H

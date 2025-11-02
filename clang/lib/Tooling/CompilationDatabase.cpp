@@ -22,26 +22,20 @@
 #include "clang/Driver/Action.h"
 #include "clang/Driver/Compilation.h"
 #include "clang/Driver/Driver.h"
-#include "clang/Driver/DriverDiagnostic.h"
 #include "clang/Driver/Job.h"
 #include "clang/Frontend/TextDiagnosticPrinter.h"
 #include "clang/Tooling/CompilationDatabasePluginRegistry.h"
 #include "clang/Tooling/Tooling.h"
-#include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/IntrusiveRefCntPtr.h"
 #include "llvm/ADT/STLExtras.h"
-#include "llvm/ADT/SmallString.h"
-#include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Option/Arg.h"
-#include "llvm/Support/Casting.h"
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/ErrorOr.h"
-#include "llvm/Support/Host.h"
 #include "llvm/Support/LineIterator.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/TargetParser/Host.h"
 #include <algorithm>
 #include <cassert>
 #include <cstring>
@@ -64,16 +58,14 @@ std::unique_ptr<CompilationDatabase>
 CompilationDatabase::loadFromDirectory(StringRef BuildDirectory,
                                        std::string &ErrorMessage) {
   llvm::raw_string_ostream ErrorStream(ErrorMessage);
-  for (CompilationDatabasePluginRegistry::iterator
-       It = CompilationDatabasePluginRegistry::begin(),
-       Ie = CompilationDatabasePluginRegistry::end();
-       It != Ie; ++It) {
+  for (const CompilationDatabasePluginRegistry::entry &Database :
+       CompilationDatabasePluginRegistry::entries()) {
     std::string DatabaseErrorMessage;
-    std::unique_ptr<CompilationDatabasePlugin> Plugin(It->instantiate());
+    std::unique_ptr<CompilationDatabasePlugin> Plugin(Database.instantiate());
     if (std::unique_ptr<CompilationDatabase> DB =
             Plugin->loadFromDirectory(BuildDirectory, DatabaseErrorMessage))
       return DB;
-    ErrorStream << It->getName() << ": " << DatabaseErrorMessage << "\n";
+    ErrorStream << Database.getName() << ": " << DatabaseErrorMessage << "\n";
   }
   return nullptr;
 }
@@ -158,6 +150,7 @@ private:
     bool CollectChildren = Collect;
     switch (A->getKind()) {
     case driver::Action::CompileJobClass:
+    case driver::Action::PrecompileJobClass:
       CollectChildren = true;
       break;
 
@@ -201,28 +194,12 @@ public:
   SmallVector<std::string, 2> UnusedInputs;
 };
 
-// Unary functor for asking "Given a StringRef S1, does there exist a string
-// S2 in Arr where S1 == S2?"
-struct MatchesAny {
-  MatchesAny(ArrayRef<std::string> Arr) : Arr(Arr) {}
-
-  bool operator() (StringRef S) {
-    for (const std::string *I = Arr.begin(), *E = Arr.end(); I != E; ++I)
-      if (*I == S)
-        return true;
-    return false;
-  }
-
-private:
-  ArrayRef<std::string> Arr;
-};
-
 // Filter of tools unused flags such as -no-integrated-as and -Wa,*.
 // They are not used for syntax checking, and could confuse targets
 // which don't support these options.
 struct FilterUnusedFlags {
   bool operator() (StringRef S) {
-    return (S == "-no-integrated-as") || S.startswith("-Wa,");
+    return (S == "-no-integrated-as") || S.starts_with("-Wa,");
   }
 };
 
@@ -233,7 +210,7 @@ std::string GetClangToolCommand() {
   SmallString<128> ClangToolPath;
   ClangToolPath = llvm::sys::path::parent_path(ClangExecutable);
   llvm::sys::path::append(ClangToolPath, "clang-tool");
-  return std::string(ClangToolPath.str());
+  return std::string(ClangToolPath);
 }
 
 } // namespace
@@ -260,13 +237,12 @@ std::string GetClangToolCommand() {
 static bool stripPositionalArgs(std::vector<const char *> Args,
                                 std::vector<std::string> &Result,
                                 std::string &ErrorMsg) {
-  IntrusiveRefCntPtr<DiagnosticOptions> DiagOpts = new DiagnosticOptions();
+  DiagnosticOptions DiagOpts;
   llvm::raw_string_ostream Output(ErrorMsg);
-  TextDiagnosticPrinter DiagnosticPrinter(Output, &*DiagOpts);
+  TextDiagnosticPrinter DiagnosticPrinter(Output, DiagOpts);
   UnusedInputDiagConsumer DiagClient(DiagnosticPrinter);
-  DiagnosticsEngine Diagnostics(
-      IntrusiveRefCntPtr<DiagnosticIDs>(new DiagnosticIDs()),
-      &*DiagOpts, &DiagClient, false);
+  DiagnosticsEngine Diagnostics(DiagnosticIDs::create(), DiagOpts, &DiagClient,
+                                false);
 
   // The clang executable path isn't required since the jobs the driver builds
   // will not be executed.
@@ -294,8 +270,7 @@ static bool stripPositionalArgs(std::vector<const char *> Args,
   // up with no jobs but then this is the user's fault.
   Args.push_back("placeholder.cpp");
 
-  Args.erase(std::remove_if(Args.begin(), Args.end(), FilterUnusedFlags()),
-             Args.end());
+  llvm::erase_if(Args, FilterUnusedFlags());
 
   const std::unique_ptr<driver::Compilation> Compilation(
       NewDriver->BuildCompilation(Args));
@@ -312,7 +287,8 @@ static bool stripPositionalArgs(std::vector<const char *> Args,
     // -flto* flags make the BackendJobClass, which still needs analyzer.
     if (Cmd.getSource().getKind() == driver::Action::AssembleJobClass ||
         Cmd.getSource().getKind() == driver::Action::BackendJobClass ||
-        Cmd.getSource().getKind() == driver::Action::CompileJobClass) {
+        Cmd.getSource().getKind() == driver::Action::CompileJobClass ||
+        Cmd.getSource().getKind() == driver::Action::PrecompileJobClass) {
       CompileAnalyzer.run(&Cmd.getSource());
     }
   }
@@ -322,15 +298,14 @@ static bool stripPositionalArgs(std::vector<const char *> Args,
     return false;
   }
 
-  // Remove all compilation input files from the command line. This is
-  // necessary so that getCompileCommands() can construct a command line for
-  // each file.
-  std::vector<const char *>::iterator End = std::remove_if(
-      Args.begin(), Args.end(), MatchesAny(CompileAnalyzer.Inputs));
-
-  // Remove all inputs deemed unused for compilation.
-  End = std::remove_if(Args.begin(), End, MatchesAny(DiagClient.UnusedInputs));
-
+  // Remove all compilation input files from the command line and inputs deemed
+  // unused for compilation. This is necessary so that getCompileCommands() can
+  // construct a command line for each file.
+  std::vector<const char *>::iterator End =
+      llvm::remove_if(Args, [&](StringRef S) {
+        return llvm::is_contained(CompileAnalyzer.Inputs, S) ||
+               llvm::is_contained(DiagClient.UnusedInputs, S);
+      });
   // Remove the -c add above as well. It will be at the end right now.
   assert(strcmp(*(End - 1), "-c") == 0);
   --End;
@@ -343,7 +318,7 @@ std::unique_ptr<FixedCompilationDatabase>
 FixedCompilationDatabase::loadFromCommandLine(int &Argc,
                                               const char *const *Argv,
                                               std::string &ErrorMsg,
-                                              Twine Directory) {
+                                              const Twine &Directory) {
   ErrorMsg.clear();
   if (Argc == 0)
     return nullptr;
@@ -368,20 +343,28 @@ FixedCompilationDatabase::loadFromFile(StringRef Path, std::string &ErrorMsg) {
     ErrorMsg = "Error while opening fixed database: " + Result.message();
     return nullptr;
   }
+  return loadFromBuffer(llvm::sys::path::parent_path(Path),
+                        (*File)->getBuffer(), ErrorMsg);
+}
+
+std::unique_ptr<FixedCompilationDatabase>
+FixedCompilationDatabase::loadFromBuffer(StringRef Directory, StringRef Data,
+                                         std::string &ErrorMsg) {
+  ErrorMsg.clear();
   std::vector<std::string> Args;
-  for (llvm::StringRef Line :
-       llvm::make_range(llvm::line_iterator(**File), llvm::line_iterator())) {
+  StringRef Line;
+  while (!Data.empty()) {
+    std::tie(Line, Data) = Data.split('\n');
     // Stray whitespace is almost certainly unintended.
     Line = Line.trim();
     if (!Line.empty())
       Args.push_back(Line.str());
   }
-  return std::make_unique<FixedCompilationDatabase>(
-      llvm::sys::path::parent_path(Path), std::move(Args));
+  return std::make_unique<FixedCompilationDatabase>(Directory, std::move(Args));
 }
 
-FixedCompilationDatabase::
-FixedCompilationDatabase(Twine Directory, ArrayRef<std::string> CommandLine) {
+FixedCompilationDatabase::FixedCompilationDatabase(
+    const Twine &Directory, ArrayRef<std::string> CommandLine) {
   std::vector<std::string> ToolCommandLine(1, GetClangToolCommand());
   ToolCommandLine.insert(ToolCommandLine.end(),
                          CommandLine.begin(), CommandLine.end());
@@ -420,7 +403,7 @@ namespace tooling {
 // This anchor is used to force the linker to link in the generated object file
 // and thus register the JSONCompilationDatabasePlugin.
 extern volatile int JSONAnchorSource;
-static int LLVM_ATTRIBUTE_UNUSED JSONAnchorDest = JSONAnchorSource;
+[[maybe_unused]] static int JSONAnchorDest = JSONAnchorSource;
 
 } // namespace tooling
 } // namespace clang

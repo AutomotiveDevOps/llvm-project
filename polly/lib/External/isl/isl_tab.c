@@ -292,7 +292,7 @@ struct isl_tab *isl_tab_dup(struct isl_tab *tab)
 	dup->need_undo = 0;
 	dup->in_undo = 0;
 	dup->M = tab->M;
-	tab->cone = tab->cone;
+	dup->cone = tab->cone;
 	dup->bottom.type = isl_tab_undo_bottom;
 	dup->bottom.next = NULL;
 	dup->top = &dup->bottom;
@@ -320,8 +320,8 @@ error:
  * The order of the rows and columns in the result is as explained
  * in isl_tab_product.
  */
-static struct isl_mat *tab_mat_product(struct isl_mat *mat1,
-	struct isl_mat *mat2, unsigned row1, unsigned row2,
+static __isl_give isl_mat *tab_mat_product(__isl_keep isl_mat *mat1,
+	__isl_keep isl_mat *mat2, unsigned row1, unsigned row2,
 	unsigned col1, unsigned col2,
 	unsigned off, unsigned r1, unsigned r2, unsigned d1, unsigned d2)
 {
@@ -1255,9 +1255,9 @@ static void check_table(struct isl_tab *tab)
  * the sample value will also be non-negative.
  *
  * If "var" is manifestly unbounded wrt positive values, we are done.
- * Otherwise, we pivot the variable up to a row if needed
- * Then we continue pivoting down until either
- *	- no more down pivots can be performed
+ * Otherwise, we pivot the variable up to a row if needed.
+ * Then we continue pivoting up until either
+ *	- no more up pivots can be performed
  *	- the sample value is positive
  *	- the variable is pivoted into a manifestly unbounded column
  */
@@ -1785,17 +1785,6 @@ int isl_tab_insert_var(struct isl_tab *tab, int r)
 		return -1;
 
 	return r;
-}
-
-/* Add a variable to the tableau and allocate a column for it.
- * Return the index into the variable array "var".
- */
-int isl_tab_allocate_var(struct isl_tab *tab)
-{
-	if (!tab)
-		return -1;
-
-	return isl_tab_insert_var(tab, tab->n_var);
 }
 
 /* Add a row to the tableau.  The row is given as an affine combination
@@ -2573,7 +2562,7 @@ static struct isl_vec *extract_integer_sample(struct isl_tab *tab)
 	return vec;
 }
 
-struct isl_vec *isl_tab_get_sample_value(struct isl_tab *tab)
+__isl_give isl_vec *isl_tab_get_sample_value(struct isl_tab *tab)
 {
 	int i;
 	struct isl_vec *vec;
@@ -2632,8 +2621,8 @@ static void get_rounded_sample_value(struct isl_tab *tab,
  * The tableau is assumed to have been created from "bmap" using
  * isl_tab_from_basic_map.
  */
-struct isl_basic_map *isl_basic_map_update_from_tab(struct isl_basic_map *bmap,
-	struct isl_tab *tab)
+__isl_give isl_basic_map *isl_basic_map_update_from_tab(
+	__isl_take isl_basic_map *bmap, struct isl_tab *tab)
 {
 	int i;
 	unsigned n_eq;
@@ -2661,8 +2650,8 @@ struct isl_basic_map *isl_basic_map_update_from_tab(struct isl_basic_map *bmap,
 	return bmap;
 }
 
-struct isl_basic_set *isl_basic_set_update_from_tab(struct isl_basic_set *bset,
-	struct isl_tab *tab)
+__isl_give isl_basic_set *isl_basic_set_update_from_tab(
+	__isl_take isl_basic_set *bset, struct isl_tab *tab)
 {
 	return bset_from_bmap(isl_basic_map_update_from_tab(bset_to_bmap(bset),
 								tab));
@@ -3884,7 +3873,8 @@ static isl_stat drop_bmap_div(struct isl_tab *tab, int pos)
 	if (n_div < 0)
 		return isl_stat_error;
 	off = tab->n_var - n_div;
-	if (isl_basic_map_drop_div(tab->bmap, pos - off) < 0)
+	tab->bmap = isl_basic_map_drop_div(tab->bmap, pos - off);
+	if (!tab->bmap)
 		return isl_stat_error;
 	if (tab->samples) {
 		tab->samples = isl_mat_drop_cols(tab->samples, 1 + pos, 1);

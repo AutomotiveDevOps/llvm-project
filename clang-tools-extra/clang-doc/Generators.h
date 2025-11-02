@@ -25,14 +25,22 @@ class Generator {
 public:
   virtual ~Generator() = default;
 
-  // Write out the decl info in the specified format.
-  virtual llvm::Error generateDocForInfo(Info *I, llvm::raw_ostream &OS,
-                                         const ClangDocContext &CDCtx) = 0;
+  // Write out the decl info for the objects in the given map in the specified
+  // format.
+  virtual llvm::Error
+  generateDocs(StringRef RootDir,
+               llvm::StringMap<std::unique_ptr<doc::Info>> Infos,
+               const ClangDocContext &CDCtx) = 0;
+
   // This function writes a file with the index previously constructed.
   // It can be overwritten by any of the inherited generators.
   // If the override method wants to run this it should call
   // Generator::createResources(CDCtx);
   virtual llvm::Error createResources(ClangDocContext &CDCtx);
+
+  // Write out one specific decl info to the destination stream.
+  virtual llvm::Error generateDocForInfo(Info *I, llvm::raw_ostream &OS,
+                                         const ClangDocContext &CDCtx) = 0;
 
   static void addInfoToIndex(Index &Idx, const doc::Info *Info);
 };
@@ -44,7 +52,19 @@ findGeneratorByName(llvm::StringRef Format);
 
 std::string getTagType(TagTypeKind AS);
 
+// This anchor is used to force the linker to link in the generated object file
+// and thus register the generators.
+extern volatile int YAMLGeneratorAnchorSource;
+extern volatile int MDGeneratorAnchorSource;
+extern volatile int HTMLGeneratorAnchorSource;
+extern volatile int MHTMLGeneratorAnchorSource;
+extern volatile int JSONGeneratorAnchorSource;
+
 } // namespace doc
 } // namespace clang
+
+namespace llvm {
+extern template class Registry<clang::doc::Generator>;
+} // namespace llvm
 
 #endif // LLVM_CLANG_TOOLS_EXTRA_CLANG_DOC_GENERATOR_H

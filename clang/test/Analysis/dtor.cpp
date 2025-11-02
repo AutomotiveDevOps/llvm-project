@@ -1,4 +1,4 @@
-// RUN: %clang_analyze_cc1 -analyzer-checker=core,unix.Malloc,debug.ExprInspection,cplusplus -analyzer-config c++-inlining=destructors -Wno-null-dereference -Wno-inaccessible-base -verify -analyzer-config eagerly-assume=false %s
+// RUN: %clang_analyze_cc1 -analyzer-checker=core,unix.Malloc,debug.ExprInspection,cplusplus -analyzer-disable-checker=core.FixedAddressDereference -analyzer-config c++-inlining=destructors -Wno-null-dereference -Wno-inaccessible-base -verify -analyzer-config eagerly-assume=false %s
 
 void clang_analyzer_eval(bool);
 void clang_analyzer_checkInlined(bool);
@@ -35,7 +35,7 @@ void testSmartPointer() {
     SmartPointer Deleter(mem);
     // destructor called here
   }
-  *mem = 0; // expected-warning{{Use of memory after it is freed}}
+  *mem = 0; // expected-warning{{Use of memory after it is released}}
 }
 
 
@@ -48,7 +48,7 @@ void testSmartPointer2() {
     doSomething();
     // destructor called here
   }
-  *mem = 0; // expected-warning{{Use of memory after it is freed}}
+  *mem = 0; // expected-warning{{Use of memory after it is released}}
 }
 
 
@@ -65,7 +65,7 @@ void testSubclassSmartPointer() {
     doSomething();
     // destructor called here
   }
-  *mem = 0; // expected-warning{{Use of memory after it is freed}}
+  *mem = 0; // expected-warning{{Use of memory after it is released}}
 }
 
 
@@ -82,7 +82,7 @@ void testMultipleInheritance1() {
     doSomething();
     // destructor called here
   }
-  *mem = 0; // expected-warning{{Use of memory after it is freed}}
+  *mem = 0; // expected-warning{{Use of memory after it is released}}
 }
 
 void testMultipleInheritance2() {
@@ -93,7 +93,7 @@ void testMultipleInheritance2() {
     doSomething();
     // destructor called here
   }
-  *mem = 0; // expected-warning{{Use of memory after it is freed}}
+  *mem = 0; // expected-warning{{Use of memory after it is released}}
 }
 
 void testMultipleInheritance3() {
@@ -103,7 +103,7 @@ void testMultipleInheritance3() {
     // Remove dead bindings...
     doSomething();
     // destructor called here
-    // expected-warning@28 {{Attempt to free released memory}}
+    // expected-warning@28 {{Attempt to release already released memory}}
   }
 }
 
@@ -122,7 +122,7 @@ void testSmartPointerMember() {
     doSomething();
     // destructor called here
   }
-  *mem = 0; // expected-warning{{Use of memory after it is freed}}
+  *mem = 0; // expected-warning{{Use of memory after it is release}}
 }
 
 
@@ -140,10 +140,8 @@ void testArrayInvalidation() {
     IntWrapper arr[2];
 
     // There should be no undefined value warnings here.
-    // Eventually these should be TRUE as well, but right now
-    // we can't handle array constructors.
-    clang_analyzer_eval(arr[0].x == 0); // expected-warning{{UNKNOWN}}
-    clang_analyzer_eval(arr[1].x == 0); // expected-warning{{UNKNOWN}}
+    clang_analyzer_eval(arr[0].x == 0); // expected-warning{{TRUE}}
+    clang_analyzer_eval(arr[1].x == 0); // expected-warning{{TRUE}}
 
     arr[0].x = &i;
     arr[1].x = &j;
@@ -214,7 +212,7 @@ namespace DestructorVirtualCalls {
       C obj;
       clang_analyzer_eval(obj.get() == 3); // expected-warning{{TRUE}}
 
-      // Sanity check for devirtualization.
+      // Correctness check for devirtualization.
       A *base = &obj;
       clang_analyzer_eval(base->get() == 3); // expected-warning{{TRUE}}
 
@@ -312,10 +310,8 @@ namespace MultidimensionalArrays {
       IntWrapper arr[2][2];
 
       // There should be no undefined value warnings here.
-      // Eventually these should be TRUE as well, but right now
-      // we can't handle array constructors.
-      clang_analyzer_eval(arr[0][0].x == 0); // expected-warning{{UNKNOWN}}
-      clang_analyzer_eval(arr[1][1].x == 0); // expected-warning{{UNKNOWN}}
+      clang_analyzer_eval(arr[0][0].x == 0); // expected-warning{{TRUE}}
+      clang_analyzer_eval(arr[1][1].x == 0); // expected-warning{{TRUE}}
 
       arr[0][0].x = &i;
       arr[1][1].x = &j;
@@ -528,7 +524,7 @@ struct NonTrivial {
     return *this;
   }
   ~NonTrivial() {
-    delete[] p; // expected-warning {{free released memory}}
+    delete[] p; // expected-warning {{release already released memory}}
   }
 };
 
@@ -570,3 +566,32 @@ void testAutoDtor() {
   // no-crash
 }
 } // namespace dtor_over_loc_concrete_int
+
+// Test overriden new/delete operators
+struct CustomOperators {
+  void *operator new(size_t count) {
+    return malloc(count);
+  }
+
+  void operator delete(void *addr) {
+    free(addr);
+  }
+
+private:
+  int i;
+};
+
+void compliant() {
+  auto *a = new CustomOperators();
+  delete a;
+}
+
+void overrideLeak() {
+  auto *a = new CustomOperators();
+} // expected-warning{{Potential leak of memory pointed to by 'a'}}
+
+void overrideDoubleDelete() {
+  auto *a = new CustomOperators();
+  delete a;
+  delete a; // expected-warning@577 {{Attempt to release already released memory}}
+}

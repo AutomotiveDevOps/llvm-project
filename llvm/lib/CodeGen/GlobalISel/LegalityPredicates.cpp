@@ -10,6 +10,17 @@
 //
 //===----------------------------------------------------------------------===//
 
+// Enable optimizations to work around MSVC debug mode bug in 32-bit:
+// https://developercommunity.visualstudio.com/content/problem/1179643/msvc-copies-overaligned-non-trivially-copyable-par.html
+// FIXME: Remove this when the issue is closed.
+#if defined(_MSC_VER) && !defined(__clang__) && defined(_M_IX86)
+// We have to disable runtime checks in order to enable optimizations. This is
+// done for the entire file because the problem is actually observed in STL
+// template functions.
+#pragma runtime_checks("", off)
+#pragma optimize("gs", on)
+#endif
+
 #include "llvm/CodeGen/GlobalISel/LegalizerInfo.h"
 
 using namespace llvm;
@@ -24,7 +35,7 @@ LegalityPredicates::typeInSet(unsigned TypeIdx,
                               std::initializer_list<LLT> TypesInit) {
   SmallVector<LLT, 4> Types = TypesInit;
   return [=](const LegalityQuery &Query) {
-    return std::find(Types.begin(), Types.end(), Query.Types[TypeIdx]) != Types.end();
+    return llvm::is_contained(Types, Query.Types[TypeIdx]);
   };
 }
 
@@ -34,7 +45,18 @@ LegalityPredicate LegalityPredicates::typePairInSet(
   SmallVector<std::pair<LLT, LLT>, 4> Types = TypesInit;
   return [=](const LegalityQuery &Query) {
     std::pair<LLT, LLT> Match = {Query.Types[TypeIdx0], Query.Types[TypeIdx1]};
-    return std::find(Types.begin(), Types.end(), Match) != Types.end();
+    return llvm::is_contained(Types, Match);
+  };
+}
+
+LegalityPredicate LegalityPredicates::typeTupleInSet(
+    unsigned TypeIdx0, unsigned TypeIdx1, unsigned TypeIdx2,
+    std::initializer_list<std::tuple<LLT, LLT, LLT>> TypesInit) {
+  SmallVector<std::tuple<LLT, LLT, LLT>, 4> Types = TypesInit;
+  return [=](const LegalityQuery &Query) {
+    std::tuple<LLT, LLT, LLT> Match = {
+        Query.Types[TypeIdx0], Query.Types[TypeIdx1], Query.Types[TypeIdx2]};
+    return llvm::is_contained(Types, Match);
   };
 }
 
@@ -44,13 +66,12 @@ LegalityPredicate LegalityPredicates::typePairAndMemDescInSet(
   SmallVector<TypePairAndMemDesc, 4> TypesAndMemDesc = TypesAndMemDescInit;
   return [=](const LegalityQuery &Query) {
     TypePairAndMemDesc Match = {Query.Types[TypeIdx0], Query.Types[TypeIdx1],
-                                Query.MMODescrs[MMOIdx].SizeInBits,
+                                Query.MMODescrs[MMOIdx].MemoryTy,
                                 Query.MMODescrs[MMOIdx].AlignInBits};
-    return std::find_if(
-      TypesAndMemDesc.begin(), TypesAndMemDesc.end(),
-      [=](const TypePairAndMemDesc &Entry) ->bool {
-        return Match.isCompatible(Entry);
-      }) != TypesAndMemDesc.end();
+    return llvm::any_of(TypesAndMemDesc,
+                        [=](const TypePairAndMemDesc &Entry) -> bool {
+                          return Match.isCompatible(Entry);
+                        });
   };
 }
 
@@ -77,6 +98,12 @@ LegalityPredicate LegalityPredicates::isPointer(unsigned TypeIdx,
   return [=](const LegalityQuery &Query) {
     LLT Ty = Query.Types[TypeIdx];
     return Ty.isPointer() && Ty.getAddressSpace() == AddrSpace;
+  };
+}
+
+LegalityPredicate LegalityPredicates::isPointerVector(unsigned TypeIdx) {
+  return [=](const LegalityQuery &Query) {
+    return Query.Types[TypeIdx].isPointerVector();
   };
 }
 
@@ -143,10 +170,19 @@ LegalityPredicate LegalityPredicates::scalarOrEltSizeNotPow2(unsigned TypeIdx) {
   };
 }
 
+LegalityPredicate LegalityPredicates::sizeNotMultipleOf(unsigned TypeIdx,
+                                                        unsigned Size) {
+  return [=](const LegalityQuery &Query) {
+    const LLT QueryTy = Query.Types[TypeIdx];
+    return QueryTy.isScalar() && QueryTy.getSizeInBits() % Size != 0;
+  };
+}
+
 LegalityPredicate LegalityPredicates::sizeNotPow2(unsigned TypeIdx) {
   return [=](const LegalityQuery &Query) {
     const LLT QueryTy = Query.Types[TypeIdx];
-    return QueryTy.isScalar() && !isPowerOf2_32(QueryTy.getSizeInBits());
+    return QueryTy.isScalar() &&
+           !llvm::has_single_bit<uint32_t>(QueryTy.getSizeInBits());
   };
 }
 
@@ -166,14 +202,24 @@ LegalityPredicate LegalityPredicates::sameSize(unsigned TypeIdx0,
 
 LegalityPredicate LegalityPredicates::memSizeInBytesNotPow2(unsigned MMOIdx) {
   return [=](const LegalityQuery &Query) {
-    return !isPowerOf2_32(Query.MMODescrs[MMOIdx].SizeInBits / 8);
+    return !llvm::has_single_bit<uint32_t>(
+        Query.MMODescrs[MMOIdx].MemoryTy.getSizeInBytes());
+  };
+}
+
+LegalityPredicate LegalityPredicates::memSizeNotByteSizePow2(unsigned MMOIdx) {
+  return [=](const LegalityQuery &Query) {
+    const LLT MemTy = Query.MMODescrs[MMOIdx].MemoryTy;
+    return !MemTy.isByteSized() ||
+           !llvm::has_single_bit<uint32_t>(
+               MemTy.getSizeInBytes().getKnownMinValue());
   };
 }
 
 LegalityPredicate LegalityPredicates::numElementsNotPow2(unsigned TypeIdx) {
   return [=](const LegalityQuery &Query) {
     const LLT QueryTy = Query.Types[TypeIdx];
-    return QueryTy.isVector() && !isPowerOf2_32(QueryTy.getNumElements());
+    return QueryTy.isFixedVector() && !isPowerOf2_32(QueryTy.getNumElements());
   };
 }
 

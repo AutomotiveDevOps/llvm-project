@@ -1,4 +1,4 @@
-//===- ReduceArguments.cpp - Specialized Delta Pass -----------------------===//
+//===- ReduceInstructions.cpp - Specialized Delta Pass ---------------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -7,59 +7,44 @@
 //===----------------------------------------------------------------------===//
 //
 // This file implements a function which calls the Generic Delta pass in order
-// to reduce uninteresting Arguments from defined functions.
+// to reduce uninteresting Instructions from defined functions.
 //
 //===----------------------------------------------------------------------===//
 
 #include "ReduceInstructions.h"
+#include "Utils.h"
+#include "llvm/IR/Constants.h"
+#include "llvm/IR/Instructions.h"
 
 using namespace llvm;
 
+/// Filter out cases where deleting the instruction will likely cause the
+/// user/def of the instruction to fail the verifier.
+//
+// TODO: Technically the verifier only enforces preallocated token usage and
+// there is a none token.
+static bool shouldAlwaysKeep(const Instruction &I) {
+  return I.isEHPad() || I.getType()->isTokenTy() || I.isSwiftError();
+}
+
 /// Removes out-of-chunk arguments from functions, and modifies their calls
 /// accordingly. It also removes allocations of out-of-chunk arguments.
-static void extractInstrFromModule(std::vector<Chunk> ChunksToKeep,
-                                   Module *Program) {
-  int I = 0, InstCount = 0;
-  std::set<Instruction *> InstToKeep;
+void llvm::reduceInstructionsDeltaPass(Oracle &O, ReducerWorkItem &WorkItem) {
+  Module &Program = WorkItem.getModule();
 
-  for (auto &F : *Program)
-    for (auto &BB : F)
-      for (auto &Inst : BB)
-        if (I < (int)ChunksToKeep.size()) {
-          if (ChunksToKeep[I].contains(++InstCount))
-            InstToKeep.insert(&Inst);
-          if (ChunksToKeep[I].end == InstCount)
-            ++I;
+  for (auto &F : Program) {
+    for (auto &BB : F) {
+      // Removing the terminator would make the block invalid. Only iterate over
+      // instructions before the terminator.
+      for (auto &Inst :
+           make_early_inc_range(make_range(BB.begin(), std::prev(BB.end())))) {
+        if (!shouldAlwaysKeep(Inst) && !O.shouldKeep()) {
+          Inst.replaceAllUsesWith(isa<AllocaInst>(Inst)
+                                      ? PoisonValue::get(Inst.getType())
+                                      : getDefaultValue(Inst.getType()));
+          Inst.eraseFromParent();
         }
-
-  std::vector<Instruction *> InstToDelete;
-  for (auto &F : *Program)
-    for (auto &BB : F)
-      for (auto &Inst : BB)
-        if (!InstToKeep.count(&Inst)) {
-          Inst.replaceAllUsesWith(UndefValue::get(Inst.getType()));
-          InstToDelete.push_back(&Inst);
-        }
-
-  for (auto &I : InstToDelete)
-    I->eraseFromParent();
-}
-
-/// Counts the amount of basic blocks and prints their name & respective index
-static unsigned countInstructions(Module *Program) {
-  // TODO: Silence index with --quiet flag
-  outs() << "----------------------------\n";
-  int InstCount = 0;
-  for (auto &F : *Program)
-    for (auto &BB : F)
-        InstCount += BB.getInstList().size();
-  outs() << "Number of instructions: " << InstCount << "\n";
-
-  return InstCount;
-}
-
-void llvm::reduceInstructionsDeltaPass(TestRunner &Test) {
-  outs() << "*** Reducing Insructions...\n";
-  unsigned InstCount = countInstructions(Test.getProgram());
-  runDeltaPass(Test, InstCount, extractInstrFromModule);
+      }
+    }
+  }
 }

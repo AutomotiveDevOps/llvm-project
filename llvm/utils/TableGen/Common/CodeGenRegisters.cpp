@@ -1651,8 +1651,12 @@ template <> struct llvm::GraphTraits<SubRegIndexCompositionGraph> {
   struct ChildIteratorType
       : public iterator_adaptor_base<
             ChildIteratorType, CompMapIt,
+<<<<<<< HEAD
             typename std::iterator_traits<CompMapIt>::iterator_category,
             NodeRef> {
+=======
+            std::iterator_traits<CompMapIt>::iterator_category, NodeRef> {
+>>>>>>> upstream/main
     ChildIteratorType(CompMapIt I)
         : ChildIteratorType::iterator_adaptor_base(I) {}
 

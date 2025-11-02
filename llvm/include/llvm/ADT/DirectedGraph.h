@@ -5,10 +5,11 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
-//
-// This file defines the interface and a base class implementation for a
-// directed graph.
-//
+///
+/// \file
+/// This file defines the interface and a base class implementation for a
+/// directed graph.
+///
 //===----------------------------------------------------------------------===//
 
 #ifndef LLVM_ADT_DIRECTEDGRAPH_H
@@ -38,8 +39,10 @@ public:
 
   /// Static polymorphism: delegate implementation (via isEqualTo) to the
   /// derived class.
-  bool operator==(const EdgeType &E) const { return getDerived().isEqualTo(E); }
-  bool operator!=(const EdgeType &E) const { return !operator==(E); }
+  bool operator==(const DGEdge &E) const {
+    return getDerived().isEqualTo(E.getDerived());
+  }
+  bool operator!=(const DGEdge &E) const { return !operator==(E); }
 
   /// Retrieve the target node this edge connects to.
   const NodeType &getTargetNode() const { return TargetNode; }
@@ -77,22 +80,14 @@ public:
   explicit DGNode(EdgeType &E) : Edges() { Edges.insert(&E); }
   DGNode() = default;
 
-  explicit DGNode(const DGNode<NodeType, EdgeType> &N) : Edges(N.Edges) {}
-  DGNode(DGNode<NodeType, EdgeType> &&N) : Edges(std::move(N.Edges)) {}
-
-  DGNode<NodeType, EdgeType> &operator=(const DGNode<NodeType, EdgeType> &N) {
-    Edges = N.Edges;
-    return *this;
-  }
-  DGNode<NodeType, EdgeType> &operator=(const DGNode<NodeType, EdgeType> &&N) {
-    Edges = std::move(N.Edges);
-    return *this;
-  }
-
   /// Static polymorphism: delegate implementation (via isEqualTo) to the
   /// derived class.
-  bool operator==(const NodeType &N) const { return getDerived().isEqualTo(N); }
-  bool operator!=(const NodeType &N) const { return !operator==(N); }
+  friend bool operator==(const NodeType &M, const NodeType &N) {
+    return M.isEqualTo(N);
+  }
+  friend bool operator!=(const NodeType &M, const NodeType &N) {
+    return !(M == N);
+  }
 
   const_iterator begin() const { return Edges.begin(); }
   const_iterator end() const { return Edges.end(); }
@@ -174,16 +169,6 @@ public:
 
   DirectedGraph() = default;
   explicit DirectedGraph(NodeType &N) : Nodes() { addNode(N); }
-  DirectedGraph(const DGraphType &G) : Nodes(G.Nodes) {}
-  DirectedGraph(DGraphType &&RHS) : Nodes(std::move(RHS.Nodes)) {}
-  DGraphType &operator=(const DGraphType &G) {
-    Nodes = G.Nodes;
-    return *this;
-  }
-  DGraphType &operator=(const DGraphType &&G) {
-    Nodes = std::move(G.Nodes);
-    return *this;
-  }
 
   const_iterator begin() const { return Nodes.begin(); }
   const_iterator end() const { return Nodes.end(); }
@@ -223,7 +208,7 @@ public:
       if (*Node == N)
         continue;
       Node->findEdgesTo(N, TempList);
-      EL.insert(EL.end(), TempList.begin(), TempList.end());
+      llvm::append_range(EL, TempList);
       TempList.clear();
     }
     return !EL.empty();

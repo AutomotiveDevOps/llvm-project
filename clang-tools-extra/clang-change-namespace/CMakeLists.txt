@@ -3,10 +3,16 @@ set(LLVM_LINK_COMPONENTS
   Support
   )
 
-add_clang_library(clangChangeNamespace
+add_clang_library(clangChangeNamespace STATIC
   ChangeNamespace.cpp
 
-  LINK_LIBS
+  DEPENDS
+  omp_gen
+  ClangDriverOptions
+)
+
+clang_target_link_libraries(clangChangeNamespace
+  PRIVATE
   clangAST
   clangASTMatchers
   clangBasic

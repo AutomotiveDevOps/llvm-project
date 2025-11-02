@@ -1,4 +1,5 @@
 # RUN: llc -run-pass mir-canonicalizer -verify-machineinstrs -mtriple aarch64-unknown-linux-gnu -o - %s | FileCheck %s
+# RUN: llc -run-pass mir-canonicalizer -mir-vreg-namer-use-stable-hash -verify-machineinstrs -mtriple aarch64-unknown-linux-gnu -o - %s | FileCheck %s
 ...
 ---
 name: foo
@@ -20,10 +21,10 @@ body:             |
   bb.2:
   bb.3:
   bb.7:
-    ;CHECK: %bb{{[0-9]+}}_{{[0-9]+}}__1:_(p0) = G_JUMP_TABLE %jump-table.0
-    ;CHECK: %bb{{[0-9]+}}_{{[0-9]+}}__1:_(p0) = G_JUMP_TABLE %jump-table.1
-    ;CHECK: %bb{{[0-9]+}}_{{[0-9]+}}__1:_(p0) = G_JUMP_TABLE %jump-table.2
-    ;CHECK: %bb{{[0-9]+}}_{{[0-9]+}}__1:_(p0) = G_JUMP_TABLE %jump-table.3
+    ;CHECK: %bb{{[0-9a-f]+}}_{{[0-9a-f]+}}__1:_(p0) = G_JUMP_TABLE %jump-table.0
+    ;CHECK: %bb{{[0-9a-f]+}}_{{[0-9a-f]+}}__1:_(p0) = G_JUMP_TABLE %jump-table.1
+    ;CHECK: %bb{{[0-9a-f]+}}_{{[0-9a-f]+}}__1:_(p0) = G_JUMP_TABLE %jump-table.2
+    ;CHECK: %bb{{[0-9a-f]+}}_{{[0-9a-f]+}}__1:_(p0) = G_JUMP_TABLE %jump-table.3
     %a:_(p0) = G_JUMP_TABLE %jump-table.0
     %b:_(p0) = G_JUMP_TABLE %jump-table.1
     %c:_(p0) = G_JUMP_TABLE %jump-table.2

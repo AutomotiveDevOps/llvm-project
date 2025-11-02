@@ -28,7 +28,7 @@ static u32 malloc_hash(StackTrace *stack, uptr orig_size) {
   return H.get();
 }
 
-static INLINE bool malloc_bisect(StackTrace *stack, uptr orig_size) {
+static inline bool malloc_bisect(StackTrace *stack, uptr orig_size) {
   uptr left = flags()->malloc_bisect_left;
   uptr right = flags()->malloc_bisect_right;
   if (LIKELY(left == 0 && right == 0))
@@ -41,7 +41,7 @@ static INLINE bool malloc_bisect(StackTrace *stack, uptr orig_size) {
   if (h < left || h > right)
     return false;
   if (flags()->malloc_bisect_dump) {
-    Printf("[alloc] %u %zu\n", h, orig_size);
+    Printf("[alloc] %u %zu\n", (u32)h, orig_size);
     stack->Print();
   }
   return true;

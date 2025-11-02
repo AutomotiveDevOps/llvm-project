@@ -5,12 +5,12 @@
 // Clang used to crash trying to recover while adding 'this->' before Work(x);
 
 template <typename> struct A {
-  static void Work(int);  // expected-note{{must qualify identifier}}
+  static void Work(int);  // expected-note{{here}}
 };
 
 template <typename T> struct B : public A<T> {
   template <typename T2> B(T2 x) {
-    Work(x);  // expected-error{{use of undeclared identifier}}
+    Work(x);  // expected-error{{explicit qualification required}}
   }
 };
 
@@ -32,6 +32,7 @@ namespace PR16225 {
     f<LocalStruct>();
 #if __cplusplus <= 199711L
     // expected-warning@-2 {{template argument uses local type 'LocalStruct'}}
+    // expected-note@-3 {{while substituting explicitly-specified template arguments}}
 #endif
     struct LocalStruct2 : UnknownBase<C> { };  // expected-error {{no template named 'UnknownBase'}}
   }
@@ -47,7 +48,7 @@ namespace PR16225 {
 namespace test1 {
   template <typename> class ArraySlice {};
   class Foo;
-  class NonTemplateClass {
+  class NonTemplateClass { // #defined-here
     void MemberFunction(ArraySlice<Foo>, int);
     template <class T> void MemberFuncTemplate(ArraySlice<T>, int);
   };
@@ -58,10 +59,22 @@ namespace test1 {
   }
   template <class T>
   void NonTemplateClass::MemberFuncTemplate(ArraySlice<T> resource_data, int) {
-    // expected-error@+1 {{use of undeclared identifier 'UndeclaredMethod'}}
+    // expected-error@+1 {{member 'UndeclaredMethod' used before its declaration}}
     UndeclaredMethod(resource_data);
   }
-  // expected-error@+2 {{out-of-line definition of 'UndeclaredMethod' does not match any declaration}}
-  // expected-note@+1 {{must qualify identifier to find this declaration in dependent base class}}
+  // expected-error@+3 {{out-of-line definition of 'UndeclaredMethod' does not match any declaration}}
+  // expected-note@+2 {{member is declared here}}
+  // expected-note@#defined-here {{defined here}}
   void NonTemplateClass::UndeclaredMethod() {}
 }
+
+namespace GH135621 {
+  template <class T> struct S {};
+  // expected-note@-1 {{class template declared here}}
+  template <class T2> void f() {
+    S<T2>::template S<int>;
+    // expected-error@-1 {{'S' is expected to be a non-type template, but instantiated to a class template}}
+  }
+  template void f<int>();
+  // expected-note@-1 {{requested here}}
+} // namespace GH135621

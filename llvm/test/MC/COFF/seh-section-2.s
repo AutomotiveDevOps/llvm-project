@@ -1,4 +1,4 @@
-# RUN: llvm-mc -filetype=obj -triple x86_64-pc-win32 %s | llvm-readobj --symbols | FileCheck %s
+# RUN: llvm-mc -filetype=obj -triple x86_64-pc-win32 %s | llvm-readobj --symbols - | FileCheck %s
 
 # This assembly should make an object with two .text sections, two .xdata
 # sections, and two .pdata sections.
@@ -21,7 +21,9 @@ f:                                      # @f
         .seh_endprologue
         callq   g
         nop
+        .seh_startepilogue
         addq    $40, %rsp
+        .seh_endepilogue
         retq
         .seh_handlerdata
         .section        .text,"xr",discard,f

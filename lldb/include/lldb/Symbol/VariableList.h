@@ -24,6 +24,9 @@ public:
   VariableList();
   virtual ~VariableList();
 
+  VariableList(VariableList &&) = default;
+  VariableList &operator=(VariableList &&) = default;
+
   void AddVariable(const lldb::VariableSP &var_sp);
 
   bool AddVariableIfUnique(const lldb::VariableSP &var_sp);
@@ -75,12 +78,17 @@ public:
   const_iterator begin() const { return m_variables.begin(); }
   const_iterator end() const { return m_variables.end(); }
 
+  llvm::ArrayRef<lldb::VariableSP> toArrayRef() {
+    return llvm::ArrayRef(m_variables);
+  }
+
 protected:
   collection m_variables;
 
 private:
   // For VariableList only
-  DISALLOW_COPY_AND_ASSIGN(VariableList);
+  VariableList(const VariableList &) = delete;
+  const VariableList &operator=(const VariableList &) = delete;
 };
 
 } // namespace lldb_private

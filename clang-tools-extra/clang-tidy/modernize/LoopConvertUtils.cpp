@@ -1,4 +1,4 @@
-//===--- LoopConvertUtils.cpp - clang-tidy --------------------------------===//
+//===----------------------------------------------------------------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -7,28 +7,26 @@
 //===----------------------------------------------------------------------===//
 
 #include "LoopConvertUtils.h"
+#include "../utils/ASTUtils.h"
 #include "clang/Basic/IdentifierTable.h"
 #include "clang/Basic/LLVM.h"
 #include "clang/Basic/Lambda.h"
-#include "clang/Basic/SourceManager.h"
 #include "clang/Basic/SourceLocation.h"
+#include "clang/Basic/SourceManager.h"
 #include "clang/Basic/TokenKinds.h"
 #include "clang/Lex/Lexer.h"
 #include "llvm/ADT/APSInt.h"
 #include "llvm/ADT/FoldingSet.h"
 #include "llvm/ADT/StringRef.h"
-#include "llvm/Support/Casting.h"
-#include <algorithm>
 #include <cassert>
 #include <cstddef>
+#include <optional>
 #include <string>
 #include <utility>
 
 using namespace clang::ast_matchers;
 
-namespace clang {
-namespace tidy {
-namespace modernize {
+namespace clang::tidy::modernize {
 
 /// Tracks a stack of parent statements during traversal.
 ///
@@ -49,10 +47,10 @@ bool StmtAncestorASTVisitor::TraverseStmt(Stmt *Statement) {
 /// Combined with StmtAncestors, this provides roughly the same information as
 /// Scope, as we can map a VarDecl to its DeclStmt, then walk up the parent tree
 /// using StmtAncestors.
-bool StmtAncestorASTVisitor::VisitDeclStmt(DeclStmt *Decls) {
-  for (const auto *decl : Decls->decls()) {
-    if (const auto *V = dyn_cast<VarDecl>(decl))
-      DeclParents.insert(std::make_pair(V, Decls));
+bool StmtAncestorASTVisitor::VisitDeclStmt(DeclStmt *Statement) {
+  for (const auto *Decl : Statement->decls()) {
+    if (const auto *V = dyn_cast<VarDecl>(Decl))
+      DeclParents.insert(std::make_pair(V, Statement));
   }
   return true;
 }
@@ -152,20 +150,21 @@ bool DeclFinderASTVisitor::VisitTypeLoc(TypeLoc TL) {
   return true;
 }
 
-/// Look through conversion/copy constructors to find the explicit
-/// initialization expression, returning it is found.
+/// Look through conversion/copy constructors and member functions to find the
+/// explicit initialization expression, returning it is found.
 ///
 /// The main idea is that given
 ///   vector<int> v;
 /// we consider either of these initializations
 ///   vector<int>::iterator it = v.begin();
 ///   vector<int>::iterator it(v.begin());
+///   vector<int>::const_iterator it(v.begin());
 /// and retrieve `v.begin()` as the expression used to initialize `it` but do
 /// not include
 ///   vector<int>::iterator it;
 ///   vector<int>::iterator it(v.begin(), 0); // if this constructor existed
 /// as being initialized from `v.begin()`
-const Expr *digThroughConstructors(const Expr *E) {
+const Expr *digThroughConstructorsConversions(const Expr *E) {
   if (!E)
     return nullptr;
   E = E->IgnoreImplicit();
@@ -173,25 +172,24 @@ const Expr *digThroughConstructors(const Expr *E) {
     // The initial constructor must take exactly one parameter, but base class
     // and deferred constructors can take more.
     if (ConstructExpr->getNumArgs() != 1 ||
-        ConstructExpr->getConstructionKind() != CXXConstructExpr::CK_Complete)
+        ConstructExpr->getConstructionKind() != CXXConstructionKind::Complete)
       return nullptr;
     E = ConstructExpr->getArg(0);
     if (const auto *Temp = dyn_cast<MaterializeTemporaryExpr>(E))
       E = Temp->getSubExpr();
-    return digThroughConstructors(E);
+    return digThroughConstructorsConversions(E);
   }
+  // If this is a conversion (as iterators commonly convert into their const
+  // iterator counterparts), dig through that as well.
+  if (const auto *ME = dyn_cast<CXXMemberCallExpr>(E))
+    if (isa<CXXConversionDecl>(ME->getMethodDecl()))
+      return digThroughConstructorsConversions(ME->getImplicitObjectArgument());
   return E;
 }
 
 /// Returns true when two Exprs are equivalent.
 bool areSameExpr(ASTContext *Context, const Expr *First, const Expr *Second) {
-  if (!First || !Second)
-    return false;
-
-  llvm::FoldingSetNodeID FirstID, SecondID;
-  First->Profile(FirstID, *Context, true);
-  Second->Profile(SecondID, *Context, true);
-  return FirstID == SecondID;
+  return utils::areStatementsIdentical(First, Second, *Context, true);
 }
 
 /// Returns the DeclRefExpr represented by E, or NULL if there isn't one.
@@ -356,8 +354,8 @@ static bool isAliasDecl(ASTContext *Context, const Decl *TheDecl,
 
   bool OnlyCasts = true;
   const Expr *Init = VDecl->getInit()->IgnoreParenImpCasts();
-  if (Init && isa<CXXConstructExpr>(Init)) {
-    Init = digThroughConstructors(Init);
+  if (isa_and_nonnull<CXXConstructExpr>(Init)) {
+    Init = digThroughConstructorsConversions(Init);
     OnlyCasts = false;
   }
   if (!Init)
@@ -372,7 +370,7 @@ static bool isAliasDecl(ASTContext *Context, const Decl *TheDecl,
       DeclarationType = DeclarationType.getNonReferenceType();
 
     if (InitType.isNull() || DeclarationType.isNull() ||
-        !Context->hasSameUnqualifiedType(DeclarationType, InitType))
+        !ASTContext::hasSameUnqualifiedType(DeclarationType, InitType))
       return false;
   }
 
@@ -392,8 +390,8 @@ static bool isAliasDecl(ASTContext *Context, const Decl *TheDecl,
     if (OpCall->getOperator() == OO_Star)
       return isDereferenceOfOpCall(OpCall, IndexVar);
     if (OpCall->getOperator() == OO_Subscript) {
-      assert(OpCall->getNumArgs() == 2);
-      return isIndexInSubscriptExpr(OpCall->getArg(1), IndexVar);
+      return OpCall->getNumArgs() == 2 &&
+             isIndexInSubscriptExpr(OpCall->getArg(1), IndexVar);
     }
     break;
   }
@@ -438,11 +436,12 @@ static bool arrayMatchesBoundExpr(ASTContext *Context,
       Context->getAsConstantArrayType(ArrayType);
   if (!ConstType)
     return false;
-  llvm::APSInt ConditionSize;
-  if (!ConditionExpr->isIntegerConstantExpr(ConditionSize, *Context))
+  std::optional<llvm::APSInt> ConditionSize =
+      ConditionExpr->getIntegerConstantExpr(*Context);
+  if (!ConditionSize)
     return false;
   llvm::APSInt ArraySize(ConstType->getSize());
-  return llvm::APSInt::isSameValue(ConditionSize, ArraySize);
+  return llvm::APSInt::isSameValue(*ConditionSize, ArraySize);
 }
 
 ForLoopIndexUseVisitor::ForLoopIndexUseVisitor(ASTContext *Context,
@@ -454,10 +453,8 @@ ForLoopIndexUseVisitor::ForLoopIndexUseVisitor(ASTContext *Context,
     : Context(Context), IndexVar(IndexVar), EndVar(EndVar),
       ContainerExpr(ContainerExpr), ArrayBoundExpr(ArrayBoundExpr),
       ContainerNeedsDereference(ContainerNeedsDereference),
-      OnlyUsedAsIndex(true), AliasDecl(nullptr),
-      ConfidenceLevel(Confidence::CL_Safe), NextStmtParent(nullptr),
-      CurrStmtParent(nullptr), ReplaceWithAliasUse(false),
-      AliasFromForInit(false) {
+
+      ConfidenceLevel(Confidence::CL_Safe) {
   if (ContainerExpr)
     addComponent(ContainerExpr);
 }
@@ -500,7 +497,7 @@ void ForLoopIndexUseVisitor::addUsage(const Usage &U) {
 ///     int k = *i + 2;
 ///   }
 /// \endcode
-bool ForLoopIndexUseVisitor::TraverseUnaryDeref(UnaryOperator *Uop) {
+bool ForLoopIndexUseVisitor::TraverseUnaryOperator(UnaryOperator *Uop) {
   // If we dereference an iterator that's actually a pointer, count the
   // occurrence.
   if (isDereferenceOfUop(Uop, IndexVar)) {
@@ -691,9 +688,8 @@ bool ForLoopIndexUseVisitor::TraverseArraySubscriptExpr(ArraySubscriptExpr *E) {
   if (!isIndexInSubscriptExpr(E->getIdx(), IndexVar))
     return VisitorBase::TraverseArraySubscriptExpr(E);
 
-  if ((ContainerExpr &&
-       !areSameExpr(Context, Arr->IgnoreParenImpCasts(),
-                    ContainerExpr->IgnoreParenImpCasts())) ||
+  if ((ContainerExpr && !areSameExpr(Context, Arr->IgnoreParenImpCasts(),
+                                     ContainerExpr->IgnoreParenImpCasts())) ||
       !arrayMatchesBoundExpr(Context, Arr->IgnoreImpCasts()->getType(),
                              ArrayBoundExpr)) {
     // If we have already discovered the array being indexed and this isn't it
@@ -712,7 +708,7 @@ bool ForLoopIndexUseVisitor::TraverseArraySubscriptExpr(ArraySubscriptExpr *E) {
 /// If we encounter a reference to IndexVar in an unpruned branch of the
 /// traversal, mark this loop as unconvertible.
 ///
-/// This implements the whitelist for convertible loops: any usages of IndexVar
+/// This determines the set of convertible loops: any usages of IndexVar
 /// not explicitly considered convertible by this traversal will be caught by
 /// this function.
 ///
@@ -778,8 +774,8 @@ bool ForLoopIndexUseVisitor::TraverseLambdaCapture(LambdaExpr *LE,
                                                    const LambdaCapture *C,
                                                    Expr *Init) {
   if (C->capturesVariable()) {
-    const VarDecl *VDecl = C->getCapturedVar();
-    if (areSameVariable(IndexVar, cast<ValueDecl>(VDecl))) {
+    ValueDecl *VDecl = C->getCapturedVar();
+    if (areSameVariable(IndexVar, VDecl)) {
       // FIXME: if the index is captured, it will count as an usage and the
       // alias (if any) won't work, because it is only used in case of having
       // exactly one usage.
@@ -788,6 +784,8 @@ bool ForLoopIndexUseVisitor::TraverseLambdaCapture(LambdaExpr *LE,
                                                        : Usage::UK_CaptureByRef,
                      C->getLocation()));
     }
+    if (VDecl->isInitCapture())
+      traverseStmtImpl(cast<VarDecl>(VDecl)->getInit());
   }
   return VisitorBase::TraverseLambdaCapture(LE, C, Init);
 }
@@ -817,6 +815,17 @@ bool ForLoopIndexUseVisitor::VisitDeclStmt(DeclStmt *S) {
   return true;
 }
 
+bool ForLoopIndexUseVisitor::traverseStmtImpl(Stmt *S) {
+  // All this pointer swapping is a mechanism for tracking immediate parentage
+  // of Stmts.
+  const Stmt *OldNextParent = NextStmtParent;
+  CurrStmtParent = NextStmtParent;
+  NextStmtParent = S;
+  bool Result = VisitorBase::TraverseStmt(S);
+  NextStmtParent = OldNextParent;
+  return Result;
+}
+
 bool ForLoopIndexUseVisitor::TraverseStmt(Stmt *S) {
   // If this is an initialization expression for a lambda capture, prune the
   // traversal so that we don't end up diagnosing the contained DeclRefExpr as
@@ -829,15 +838,7 @@ bool ForLoopIndexUseVisitor::TraverseStmt(Stmt *S) {
       return true;
     }
   }
-
-  // All this pointer swapping is a mechanism for tracking immediate parentage
-  // of Stmts.
-  const Stmt *OldNextParent = NextStmtParent;
-  CurrStmtParent = NextStmtParent;
-  NextStmtParent = S;
-  bool Result = VisitorBase::TraverseStmt(S);
-  NextStmtParent = OldNextParent;
-  return Result;
+  return traverseStmtImpl(S);
 }
 
 std::string VariableNamer::createIndexName() {
@@ -850,14 +851,14 @@ std::string VariableNamer::createIndexName() {
     ContainerName = TheContainer->getName();
 
   size_t Len = ContainerName.size();
-  if (Len > 1 && ContainerName.endswith(Style == NS_UpperCase ? "S" : "s")) {
+  if (Len > 1 && ContainerName.ends_with(Style == NS_UpperCase ? "S" : "s")) {
     IteratorName = std::string(ContainerName.substr(0, Len - 1));
     // E.g.: (auto thing : things)
     if (!declarationExists(IteratorName) || IteratorName == OldIndex->getName())
       return IteratorName;
   }
 
-  if (Len > 2 && ContainerName.endswith(Style == NS_UpperCase ? "S_" : "s_")) {
+  if (Len > 2 && ContainerName.ends_with(Style == NS_UpperCase ? "S_" : "s_")) {
     IteratorName = std::string(ContainerName.substr(0, Len - 2));
     // E.g.: (auto thing : things_)
     if (!declarationExists(IteratorName) || IteratorName == OldIndex->getName())
@@ -903,6 +904,4 @@ bool VariableNamer::declarationExists(StringRef Symbol) {
   return DeclFinder.findUsages(SourceStmt);
 }
 
-} // namespace modernize
-} // namespace tidy
-} // namespace clang
+} // namespace clang::tidy::modernize

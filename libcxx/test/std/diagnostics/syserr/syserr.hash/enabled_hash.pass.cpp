@@ -6,7 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-// UNSUPPORTED: c++98, c++03
+// UNSUPPORTED: c++03
 
 // <system_error>
 
@@ -22,8 +22,8 @@
 int main(int, char**) {
   test_library_hash_specializations_available();
   {
-    test_hash_enabled_for_type<std::error_code>();
-    test_hash_enabled_for_type<std::error_condition>();
+    test_hash_enabled<std::error_code>();
+    test_hash_enabled<std::error_condition>();
   }
 
   return 0;

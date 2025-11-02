@@ -11,7 +11,7 @@ refactoring, etc.
 Only a couple of the most basic and fundamental tools are kept in the
 primary Clang tree. The rest of the tools are kept in a separate
 directory tree, `clang-tools-extra
-<https://github.com/llvm/llvm-project/tree/master/clang-tools-extra>`_.
+<https://github.com/llvm/llvm-project/tree/main/clang-tools-extra>`_.
 
 This document describes a high-level overview of the organization of
 Clang Tools within the project as well as giving an introduction to some
@@ -89,13 +89,50 @@ they'll be tracked here. The focus of this documentation is on the scope
 and features of the tools for other tool developers; each tool should
 provide its own user-focused documentation.
 
-``clang-tidy``
+``Clang-Doc``
+-------------
+
+`Clang-Doc <https://clang.llvm.org/extra/clang-doc.html>`_ is a tool for
+generating C and C++ documentation from source code and comments.
+
+``Clang-Include-Fixer``
+-----------------------
+
+`Clang-Include-Fixer <https://clang.llvm.org/extra/clang-include-fixer.html>`_
+is a tool to automate the addition of missing ``#include`` directives in a C++
+file. It adds missing namespace qualifiers to unidentified symbols when
+necessary and also removes unused headers.
+
+``Clang-Tidy``
 --------------
 
-`clang-tidy <https://clang.llvm.org/extra/clang-tidy/>`_ is a clang-based C++
+`Clang-Tidy <https://clang.llvm.org/extra/clang-tidy/>`_ is a Clang-based C++
 linter tool. It provides an extensible framework for building compiler-based
 static analyses detecting and fixing bug-prone patterns, performance,
-portability and maintainability issues.
+portability and maintainability issues. It also has checks for modernizing code
+to newer language standards.
+
+``Clangd``
+----------
+
+`Clangd <https://clangd.llvm.org/>`_ is a language server that can work with
+many editors via a plugin. It understands your C++ code and adds smart
+features to your editor: code completion, compile errors, go-to-definition and
+more.
+
+``Modularize``
+--------------
+
+`Modularize <https://clang.llvm.org/extra/modularize.html>`_ is a standalone
+tool that checks whether a set of headers provides the consistent definitions
+required to use modules.
+
+``pp-trace``
+------------
+
+`pp-trace <https://clang.llvm.org/extra/pp-trace.html>`_ is a standalone tool
+that traces preprocessor activity. It’s also used as a test of Clang’s
+``PPCallbacks`` interface.
 
 
 Ideas for new Tools

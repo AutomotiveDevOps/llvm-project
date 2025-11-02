@@ -1,4 +1,4 @@
-//===--- AvoidUnderscoreInGoogletestNameCheck.cpp - clang-tidy --*- C++ -*-===//
+//===----------------------------------------------------------------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -10,22 +10,20 @@
 
 #include "AvoidUnderscoreInGoogletestNameCheck.h"
 #include "clang/AST/ASTContext.h"
-#include "clang/ASTMatchers/ASTMatchers.h"
 #include "clang/Frontend/CompilerInstance.h"
 #include "clang/Lex/MacroArgs.h"
+#include "clang/Lex/PPCallbacks.h"
+#include "clang/Lex/Preprocessor.h"
 
-namespace clang {
-namespace tidy {
-namespace google {
-namespace readability {
+namespace clang::tidy::google::readability {
 
-constexpr llvm::StringLiteral kDisabledTestPrefix = "DISABLED_";
+constexpr llvm::StringLiteral KDisabledTestPrefix = "DISABLED_";
 
 // Determines whether the macro is a Googletest test macro.
 static bool isGoogletestTestMacro(StringRef MacroName) {
   static const llvm::StringSet<> MacroNames = {"TEST", "TEST_F", "TEST_P",
                                                "TYPED_TEST", "TYPED_TEST_P"};
-  return MacroNames.find(MacroName) != MacroNames.end();
+  return MacroNames.contains(MacroName);
 }
 
 namespace {
@@ -48,20 +46,23 @@ public:
     if (!isGoogletestTestMacro(MacroName) || !Args ||
         Args->getNumMacroArguments() < 2)
       return;
-    const Token *TestCaseNameToken = Args->getUnexpArgument(0);
+    const Token *TestSuiteNameToken = Args->getUnexpArgument(0);
     const Token *TestNameToken = Args->getUnexpArgument(1);
-    if (!TestCaseNameToken || !TestNameToken)
+    if (!TestSuiteNameToken || !TestNameToken)
       return;
-    std::string TestCaseName = PP->getSpelling(*TestCaseNameToken);
-    if (TestCaseName.find('_') != std::string::npos)
-      Check->diag(TestCaseNameToken->getLocation(),
-                  "avoid using \"_\" in test case name \"%0\" according to "
+    std::string TestSuiteNameMaybeDisabled =
+        PP->getSpelling(*TestSuiteNameToken);
+    StringRef TestSuiteName = TestSuiteNameMaybeDisabled;
+    TestSuiteName.consume_front(KDisabledTestPrefix);
+    if (TestSuiteName.contains('_'))
+      Check->diag(TestSuiteNameToken->getLocation(),
+                  "avoid using \"_\" in test suite name \"%0\" according to "
                   "Googletest FAQ")
-          << TestCaseName;
+          << TestSuiteName;
 
     std::string TestNameMaybeDisabled = PP->getSpelling(*TestNameToken);
     StringRef TestName = TestNameMaybeDisabled;
-    TestName.consume_front(kDisabledTestPrefix);
+    TestName.consume_front(KDisabledTestPrefix);
     if (TestName.contains('_'))
       Check->diag(TestNameToken->getLocation(),
                   "avoid using \"_\" in test name \"%0\" according to "
@@ -82,7 +83,4 @@ void AvoidUnderscoreInGoogletestNameCheck::registerPPCallbacks(
       std::make_unique<AvoidUnderscoreInGoogletestNameCallback>(PP, this));
 }
 
-} // namespace readability
-} // namespace google
-} // namespace tidy
-} // namespace clang
+} // namespace clang::tidy::google::readability

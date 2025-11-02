@@ -6,6 +6,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include <memory>
+
 #include "llvm/ExecutionEngine/Orc/RTDyldObjectLinkingLayer.h"
 #include "llvm/Object/COFF.h"
 
@@ -16,9 +18,12 @@ using namespace llvm::orc;
 
 class JITDylibSearchOrderResolver : public JITSymbolResolver {
 public:
-  JITDylibSearchOrderResolver(MaterializationResponsibility &MR) : MR(MR) {}
+  JITDylibSearchOrderResolver(MaterializationResponsibility &MR,
+                              SymbolDependenceMap &Deps)
+      : MR(MR), Deps(Deps) {}
 
-  void lookup(const LookupSet &Symbols, OnResolvedFunction OnResolved) {
+  void lookup(const LookupSet &Symbols,
+              OnResolvedFunction OnResolved) override {
     auto &ES = MR.getTargetJITDylib().getExecutionSession();
     SymbolLookupSet InternedSymbols;
 
@@ -38,24 +43,21 @@ public:
 
           LookupResult Result;
           for (auto &KV : *InternedResult)
-            Result[*KV.first] = std::move(KV.second);
+            Result[*KV.first] = {KV.second.getAddress().getValue(),
+                                 KV.second.getFlags()};
           OnResolved(Result);
         };
-
-    // Register dependencies for all symbols contained in this set.
-    auto RegisterDependencies = [&](const SymbolDependenceMap &Deps) {
-      MR.addDependenciesForAll(Deps);
-    };
 
     JITDylibSearchOrder LinkOrder;
     MR.getTargetJITDylib().withLinkOrderDo(
         [&](const JITDylibSearchOrder &LO) { LinkOrder = LO; });
-    ES.lookup(LookupKind::Static, LinkOrder, InternedSymbols,
-              SymbolState::Resolved, std::move(OnResolvedWithUnwrap),
-              RegisterDependencies);
+    ES.lookup(
+        LookupKind::Static, LinkOrder, InternedSymbols, SymbolState::Resolved,
+        std::move(OnResolvedWithUnwrap),
+        [this](const SymbolDependenceMap &LookupDeps) { Deps = LookupDeps; });
   }
 
-  Expected<LookupSet> getResponsibilitySet(const LookupSet &Symbols) {
+  Expected<LookupSet> getResponsibilitySet(const LookupSet &Symbols) override {
     LookupSet Result;
 
     for (auto &KV : MR.getSymbols()) {
@@ -68,6 +70,7 @@ public:
 
 private:
   MaterializationResponsibility &MR;
+  SymbolDependenceMap &Deps;
 };
 
 } // end anonymous namespace
@@ -75,29 +78,27 @@ private:
 namespace llvm {
 namespace orc {
 
+char RTDyldObjectLinkingLayer::ID;
+
+using BaseT = RTTIExtends<RTDyldObjectLinkingLayer, ObjectLayer>;
+
 RTDyldObjectLinkingLayer::RTDyldObjectLinkingLayer(
     ExecutionSession &ES, GetMemoryManagerFunction GetMemoryManager)
-    : ObjectLayer(ES), GetMemoryManager(GetMemoryManager) {}
-
-RTDyldObjectLinkingLayer::~RTDyldObjectLinkingLayer() {
-  std::lock_guard<std::mutex> Lock(RTDyldLayerMutex);
-  for (auto &MemMgr : MemMgrs) {
-    for (auto *L : EventListeners)
-      L->notifyFreeingObject(
-          static_cast<uint64_t>(reinterpret_cast<uintptr_t>(MemMgr.get())));
-    MemMgr->deregisterEHFrames();
-  }
+    : BaseT(ES), GetMemoryManager(std::move(GetMemoryManager)) {
+  ES.registerResourceManager(*this);
 }
 
-void RTDyldObjectLinkingLayer::emit(MaterializationResponsibility R,
-                                    std::unique_ptr<MemoryBuffer> O) {
-  assert(O && "Object must not be null");
+RTDyldObjectLinkingLayer::~RTDyldObjectLinkingLayer() {
+  assert(MemMgrs.empty() &&
+         "Layer destroyed with resources still attached"
+         "(ExecutionSession::endSession() must be called prior to "
+         "destruction)");
+}
 
-  // This method launches an asynchronous link step that will fulfill our
-  // materialization responsibility. We need to switch R to be heap
-  // allocated before that happens so it can live as long as the asynchronous
-  // link needs it to (i.e. it must be able to outlive this method).
-  auto SharedR = std::make_shared<MaterializationResponsibility>(std::move(R));
+void RTDyldObjectLinkingLayer::emit(
+    std::unique_ptr<MaterializationResponsibility> R,
+    std::unique_ptr<MemoryBuffer> O) {
+  assert(O && "Object must not be null");
 
   auto &ES = getExecutionSession();
 
@@ -105,7 +106,7 @@ void RTDyldObjectLinkingLayer::emit(MaterializationResponsibility R,
 
   if (!Obj) {
     getExecutionSession().reportError(Obj.takeError());
-    SharedR->failMaterialization();
+    R->failMaterialization();
     return;
   }
 
@@ -113,6 +114,7 @@ void RTDyldObjectLinkingLayer::emit(MaterializationResponsibility R,
   // filter these later.
   auto InternalSymbols = std::make_shared<std::set<StringRef>>();
   {
+    SymbolFlagsMap ExtraSymbolsToClaim;
     for (auto &Sym : (*Obj)->symbols()) {
 
       // Skip file symbols.
@@ -121,7 +123,7 @@ void RTDyldObjectLinkingLayer::emit(MaterializationResponsibility R,
           continue;
       } else {
         ES.reportError(SymType.takeError());
-        R.failMaterialization();
+        R->failMaterialization();
         return;
       }
 
@@ -129,8 +131,35 @@ void RTDyldObjectLinkingLayer::emit(MaterializationResponsibility R,
       if (!SymFlagsOrErr) {
         // TODO: Test this error.
         ES.reportError(SymFlagsOrErr.takeError());
-        R.failMaterialization();
+        R->failMaterialization();
         return;
+      }
+
+      // Try to claim responsibility of weak symbols
+      // if AutoClaimObjectSymbols flag is set.
+      if (AutoClaimObjectSymbols &&
+          (*SymFlagsOrErr & object::BasicSymbolRef::SF_Weak)) {
+        auto SymName = Sym.getName();
+        if (!SymName) {
+          ES.reportError(SymName.takeError());
+          R->failMaterialization();
+          return;
+        }
+
+        // Already included in responsibility set, skip it
+        SymbolStringPtr SymbolName = ES.intern(*SymName);
+        if (R->getSymbols().count(SymbolName))
+          continue;
+
+        auto SymFlags = JITSymbolFlags::fromObjectSymbol(Sym);
+        if (!SymFlags) {
+          ES.reportError(SymFlags.takeError());
+          R->failMaterialization();
+          return;
+        }
+
+        ExtraSymbolsToClaim[SymbolName] = *SymFlags;
+        continue;
       }
 
       // Don't include symbols that aren't global.
@@ -139,46 +168,55 @@ void RTDyldObjectLinkingLayer::emit(MaterializationResponsibility R,
           InternalSymbols->insert(*SymName);
         else {
           ES.reportError(SymName.takeError());
-          R.failMaterialization();
+          R->failMaterialization();
           return;
         }
       }
     }
+
+    if (!ExtraSymbolsToClaim.empty()) {
+      if (auto Err = R->defineMaterializing(ExtraSymbolsToClaim)) {
+        ES.reportError(std::move(Err));
+        R->failMaterialization();
+      }
+    }
   }
 
-  auto K = R.getVModuleKey();
-  RuntimeDyld::MemoryManager *MemMgr = nullptr;
+  auto MemMgr = GetMemoryManager(*O);
+  auto &MemMgrRef = *MemMgr;
 
-  // Create a record a memory manager for this object.
-  {
-    auto Tmp = GetMemoryManager();
-    std::lock_guard<std::mutex> Lock(RTDyldLayerMutex);
-    MemMgrs.push_back(std::move(Tmp));
-    MemMgr = MemMgrs.back().get();
-  }
+  // Switch to shared ownership of MR so that it can be captured by both
+  // lambdas below.
+  std::shared_ptr<MaterializationResponsibility> SharedR(std::move(R));
+  auto Deps = std::make_unique<SymbolDependenceMap>();
 
-  JITDylibSearchOrderResolver Resolver(*SharedR);
+  auto Resolver =
+      std::make_unique<JITDylibSearchOrderResolver>(*SharedR, *Deps);
+  auto *ResolverPtr = Resolver.get();
 
   jitLinkForORC(
       object::OwningBinary<object::ObjectFile>(std::move(*Obj), std::move(O)),
-      *MemMgr, Resolver, ProcessAllSections,
-      [this, K, SharedR, MemMgr, InternalSymbols](
+      MemMgrRef, *ResolverPtr, ProcessAllSections,
+      [this, SharedR, &MemMgrRef, InternalSymbols](
           const object::ObjectFile &Obj,
-          std::unique_ptr<RuntimeDyld::LoadedObjectInfo> LoadedObjInfo,
+          RuntimeDyld::LoadedObjectInfo &LoadedObjInfo,
           std::map<StringRef, JITEvaluatedSymbol> ResolvedSymbols) {
-        return onObjLoad(K, *SharedR, Obj, MemMgr, std::move(LoadedObjInfo),
+        return onObjLoad(*SharedR, Obj, MemMgrRef, LoadedObjInfo,
                          ResolvedSymbols, *InternalSymbols);
       },
-      [this, K, SharedR, MemMgr](object::OwningBinary<object::ObjectFile> Obj,
-                                 Error Err) mutable {
-        onObjEmit(K, *SharedR, std::move(Obj), MemMgr, std::move(Err));
+      [this, SharedR, MemMgr = std::move(MemMgr), Deps = std::move(Deps),
+       Resolver = std::move(Resolver)](
+          object::OwningBinary<object::ObjectFile> Obj,
+          std::unique_ptr<RuntimeDyld::LoadedObjectInfo> LoadedObjInfo,
+          Error Err) mutable {
+        onObjEmit(*SharedR, std::move(Obj), std::move(MemMgr),
+                  std::move(LoadedObjInfo), std::move(Deps), std::move(Err));
       });
 }
 
 void RTDyldObjectLinkingLayer::registerJITEventListener(JITEventListener &L) {
   std::lock_guard<std::mutex> Lock(RTDyldLayerMutex);
-  assert(llvm::none_of(EventListeners,
-                       [&](JITEventListener *O) { return O == &L; }) &&
+  assert(!llvm::is_contained(EventListeners, &L) &&
          "Listener has already been registered");
   EventListeners.push_back(&L);
 }
@@ -191,9 +229,9 @@ void RTDyldObjectLinkingLayer::unregisterJITEventListener(JITEventListener &L) {
 }
 
 Error RTDyldObjectLinkingLayer::onObjLoad(
-    VModuleKey K, MaterializationResponsibility &R,
-    const object::ObjectFile &Obj, RuntimeDyld::MemoryManager *MemMgr,
-    std::unique_ptr<RuntimeDyld::LoadedObjectInfo> LoadedObjInfo,
+    MaterializationResponsibility &R, const object::ObjectFile &Obj,
+    RuntimeDyld::MemoryManager &MemMgr,
+    RuntimeDyld::LoadedObjectInfo &LoadedObjInfo,
     std::map<StringRef, JITEvaluatedSymbol> Resolved,
     std::set<StringRef> &InternalSymbols) {
   SymbolFlagsMap ExtraSymbolsToClaim;
@@ -204,7 +242,7 @@ Error RTDyldObjectLinkingLayer::onObjLoad(
   if (auto *COFFObj = dyn_cast<object::COFFObjectFile>(&Obj)) {
     auto &ES = getExecutionSession();
 
-    // For all resolved symbols that are not already in the responsibilty set:
+    // For all resolved symbols that are not already in the responsibility set:
     // check whether the symbol is in a comdat section and if so mark it as
     // weak.
     for (auto &Sym : COFFObj->symbols()) {
@@ -231,6 +269,46 @@ Error RTDyldObjectLinkingLayer::onObjLoad(
       if (COFFSec.Characteristics & COFF::IMAGE_SCN_LNK_COMDAT)
         I->second.setFlags(I->second.getFlags() | JITSymbolFlags::Weak);
     }
+
+    // Handle any aliases.
+    for (auto &Sym : COFFObj->symbols()) {
+      uint32_t SymFlags = cantFail(Sym.getFlags());
+      if (SymFlags & object::BasicSymbolRef::SF_Undefined)
+        continue;
+      auto Name = Sym.getName();
+      if (!Name)
+        return Name.takeError();
+      auto I = Resolved.find(*Name);
+
+      // Skip already-resolved symbols, and symbols that we're not responsible
+      // for.
+      if (I != Resolved.end() || !R.getSymbols().count(ES.intern(*Name)))
+        continue;
+
+      // Skip anything other than weak externals.
+      auto COFFSym = COFFObj->getCOFFSymbol(Sym);
+      if (!COFFSym.isWeakExternal())
+        continue;
+      auto *WeakExternal = COFFSym.getAux<object::coff_aux_weak_external>();
+      if (WeakExternal->Characteristics != COFF::IMAGE_WEAK_EXTERN_SEARCH_ALIAS)
+        continue;
+
+      // We found an alias. Reuse the resolution of the alias target for the
+      // alias itself.
+      Expected<object::COFFSymbolRef> TargetSymbol =
+          COFFObj->getSymbol(WeakExternal->TagIndex);
+      if (!TargetSymbol)
+        return TargetSymbol.takeError();
+      Expected<StringRef> TargetName = COFFObj->getSymbolName(*TargetSymbol);
+      if (!TargetName)
+        return TargetName.takeError();
+      auto J = Resolved.find(*TargetName);
+      if (J == Resolved.end())
+        return make_error<StringError>("Could alias target " + *TargetName +
+                                           " not resolved",
+                                       inconvertibleErrorCode());
+      Resolved[*Name] = J->second;
+    }
   }
 
   for (auto &KV : Resolved) {
@@ -242,19 +320,23 @@ Error RTDyldObjectLinkingLayer::onObjLoad(
 
     auto InternedName = getExecutionSession().intern(KV.first);
     auto Flags = KV.second.getFlags();
-
-    // Override object flags and claim responsibility for symbols if
-    // requested.
-    if (OverrideObjectFlags || AutoClaimObjectSymbols) {
-      auto I = R.getSymbols().find(InternedName);
-
-      if (OverrideObjectFlags && I != R.getSymbols().end())
+    auto I = R.getSymbols().find(InternedName);
+    if (I != R.getSymbols().end()) {
+      // Override object flags and claim responsibility for symbols if
+      // requested.
+      if (OverrideObjectFlags)
         Flags = I->second;
-      else if (AutoClaimObjectSymbols && I == R.getSymbols().end())
-        ExtraSymbolsToClaim[InternedName] = Flags;
-    }
+      else {
+        // RuntimeDyld/MCJIT's weak tracking isn't compatible with ORC's. Even
+        // if we're not overriding flags in general we should set the weak flag
+        // according to the MaterializationResponsibility object symbol table.
+        if (I->second.isWeak())
+          Flags |= JITSymbolFlags::Weak;
+      }
+    } else if (AutoClaimObjectSymbols)
+      ExtraSymbolsToClaim[InternedName] = Flags;
 
-    Symbols[InternedName] = JITEvaluatedSymbol(KV.second.getAddress(), Flags);
+    Symbols[InternedName] = {ExecutorAddr(KV.second.getAddress()), Flags};
   }
 
   if (!ExtraSymbolsToClaim.empty()) {
@@ -274,26 +356,29 @@ Error RTDyldObjectLinkingLayer::onObjLoad(
   }
 
   if (NotifyLoaded)
-    NotifyLoaded(K, Obj, *LoadedObjInfo);
-
-  std::lock_guard<std::mutex> Lock(RTDyldLayerMutex);
-  assert(!LoadedObjInfos.count(MemMgr) && "Duplicate loaded info for MemMgr");
-  LoadedObjInfos[MemMgr] = std::move(LoadedObjInfo);
+    NotifyLoaded(R, Obj, LoadedObjInfo);
 
   return Error::success();
 }
 
 void RTDyldObjectLinkingLayer::onObjEmit(
-    VModuleKey K, MaterializationResponsibility &R,
+    MaterializationResponsibility &R,
     object::OwningBinary<object::ObjectFile> O,
-    RuntimeDyld::MemoryManager *MemMgr, Error Err) {
+    std::unique_ptr<RuntimeDyld::MemoryManager> MemMgr,
+    std::unique_ptr<RuntimeDyld::LoadedObjectInfo> LoadedObjInfo,
+    std::unique_ptr<SymbolDependenceMap> Deps, Error Err) {
   if (Err) {
     getExecutionSession().reportError(std::move(Err));
     R.failMaterialization();
     return;
   }
 
-  if (auto Err = R.notifyEmitted()) {
+  SymbolDependenceGroup SDG;
+  for (auto &[Sym, Flags] : R.getSymbols())
+    SDG.Symbols.insert(Sym);
+  SDG.Dependencies = std::move(*Deps);
+
+  if (auto Err = R.notifyEmitted(SDG)) {
     getExecutionSession().reportError(std::move(Err));
     R.failMaterialization();
     return;
@@ -306,27 +391,61 @@ void RTDyldObjectLinkingLayer::onObjEmit(
   // Run EventListener notifyLoaded callbacks.
   {
     std::lock_guard<std::mutex> Lock(RTDyldLayerMutex);
-    auto LOIItr = LoadedObjInfos.find(MemMgr);
-    assert(LOIItr != LoadedObjInfos.end() && "LoadedObjInfo missing");
     for (auto *L : EventListeners)
-      L->notifyObjectLoaded(
-          static_cast<uint64_t>(reinterpret_cast<uintptr_t>(MemMgr)), *Obj,
-          *LOIItr->second);
-    LoadedObjInfos.erase(MemMgr);
+      L->notifyObjectLoaded(pointerToJITTargetAddress(MemMgr.get()), *Obj,
+                            *LoadedObjInfo);
   }
 
   if (NotifyEmitted)
-    NotifyEmitted(K, std::move(ObjBuffer));
+    NotifyEmitted(R, std::move(ObjBuffer));
+
+  if (auto Err = R.withResourceKeyDo(
+          [&](ResourceKey K) { MemMgrs[K].push_back(std::move(MemMgr)); })) {
+    getExecutionSession().reportError(std::move(Err));
+    R.failMaterialization();
+  }
 }
 
-LegacyRTDyldObjectLinkingLayer::LegacyRTDyldObjectLinkingLayer(
-    ExecutionSession &ES, ResourcesGetter GetResources,
-    NotifyLoadedFtor NotifyLoaded, NotifyFinalizedFtor NotifyFinalized,
-    NotifyFreedFtor NotifyFreed)
-    : ES(ES), GetResources(std::move(GetResources)),
-      NotifyLoaded(std::move(NotifyLoaded)),
-      NotifyFinalized(std::move(NotifyFinalized)),
-      NotifyFreed(std::move(NotifyFreed)), ProcessAllSections(false) {}
+Error RTDyldObjectLinkingLayer::handleRemoveResources(JITDylib &JD,
+                                                      ResourceKey K) {
+
+  std::vector<MemoryManagerUP> MemMgrsToRemove;
+
+  getExecutionSession().runSessionLocked([&] {
+    auto I = MemMgrs.find(K);
+    if (I != MemMgrs.end()) {
+      std::swap(MemMgrsToRemove, I->second);
+      MemMgrs.erase(I);
+    }
+  });
+
+  {
+    std::lock_guard<std::mutex> Lock(RTDyldLayerMutex);
+    for (auto &MemMgr : MemMgrsToRemove) {
+      for (auto *L : EventListeners)
+        L->notifyFreeingObject(pointerToJITTargetAddress(MemMgr.get()));
+      MemMgr->deregisterEHFrames();
+    }
+  }
+
+  return Error::success();
+}
+
+void RTDyldObjectLinkingLayer::handleTransferResources(JITDylib &JD,
+                                                       ResourceKey DstKey,
+                                                       ResourceKey SrcKey) {
+  if (MemMgrs.contains(SrcKey)) {
+    // DstKey may not be in the DenseMap yet, so the following line may resize
+    // the container and invalidate iterators and value references.
+    auto &DstMemMgrs = MemMgrs[DstKey];
+    auto &SrcMemMgrs = MemMgrs[SrcKey];
+    DstMemMgrs.reserve(DstMemMgrs.size() + SrcMemMgrs.size());
+    for (auto &MemMgr : SrcMemMgrs)
+      DstMemMgrs.push_back(std::move(MemMgr));
+
+    MemMgrs.erase(SrcKey);
+  }
+}
 
 } // End namespace orc.
 } // End namespace llvm.

@@ -1,4 +1,12 @@
-// RUN: %clang_cc1 -std=gnu11 -ast-dump %s | FileCheck -strict-whitespace %s
+// Test without serialization:
+// RUN: %clang_cc1 -std=gnu11 -ast-dump %s \
+// RUN: | FileCheck -strict-whitespace %s
+//
+// Test with serialization:
+// RUN: %clang_cc1 -std=gnu11 -emit-pch -o %t %s
+// RUN: %clang_cc1 -x c -std=gnu11 -include-pch %t -ast-dump-all /dev/null \
+// RUN: | sed -e "s/ <undeserialized declarations>//" -e "s/ imported//" \
+// RUN: | FileCheck -strict-whitespace %s
 
 int TestLocation = 0;
 // CHECK:      VarDecl{{.*}}TestLocation
@@ -11,7 +19,7 @@ int TestIndent = 1 + (1);
 // CHECK-NEXT: {{^}}|   `-ParenExpr{{.*0[^()]*$}}
 // CHECK-NEXT: {{^}}|     `-IntegerLiteral{{.*0[^()]*$}}
 
-void TestDeclStmt() {
+void TestDeclStmt(void) {
   int x = 0;
   int y, z;
 }
@@ -153,14 +161,18 @@ label2:
   // CHECK-NEXT: ImplicitCastExpr
   // CHECK-NEXT: ImplicitCastExpr
   // CHECK-NEXT: DeclRefExpr 0x{{[^ ]*}} <col:9> 'void *' lvalue Var 0x{{[^ ]*}} 'ptr' 'void *'
+
+label3:
+  // CHECK-NEXT: LabelStmt 0x{{[^ ]*}} <line:[[@LINE-1]]:1, col:7> 'label3'
+  // CHECK-NEXT: NullStmt 0x{{[^ ]*}} <col:7>
 }
 
 void TestSwitch(int i) {
   switch (i) {
-  // CHECK: SwitchStmt 0x{{[^ ]*}} <line:[[@LINE-1]]:3, line:[[@LINE+32]]:3>
+  // CHECK: SwitchStmt 0x{{[^ ]*}} <line:[[@LINE-1]]:3, line:[[@LINE+37]]:3>
   // CHECK-NEXT: ImplicitCastExpr
   // CHECK-NEXT: DeclRefExpr 0x{{[^ ]*}} <col:11> 'int' lvalue ParmVar 0x{{[^ ]*}} 'i' 'int'
-  // CHECK-NEXT: CompoundStmt 0x{{[^ ]*}} <col:14, line:[[@LINE+29]]:3>
+  // CHECK-NEXT: CompoundStmt 0x{{[^ ]*}} <col:14, line:[[@LINE+34]]:3>
   case 0:
     break;
   // CHECK-NEXT: CaseStmt 0x{{[^ ]*}} <line:[[@LINE-2]]:3, line:[[@LINE-1]]:5>
@@ -189,6 +201,21 @@ void TestSwitch(int i) {
   // CHECK-NEXT: ConstantExpr
   // CHECK-NEXT: IntegerLiteral 0x{{[^ ]*}} <col:14> 'int' 5
   // CHECK-NEXT: BreakStmt 0x{{[^ ]*}} <line:[[@LINE-6]]:5>
+  case 6:
+  // CHECK-NEXT: CaseStmt 0x{{[^ ]*}} <line:[[@LINE-1]]:3, col:9>
+  // CHECK-NEXT: ConstantExpr
+  // CHECK-NEXT: IntegerLiteral 0x{{[^ ]*}} <col:8> 'int' 6
+  // CHECK-NEXT: NullStmt 0x{{[^ ]*}} <col:9>
+  }
+
+  switch(i){
+  // CHECK: SwitchStmt 0x{{[^ ]*}} <line:[[@LINE-1]]:3, line:[[@LINE+7]]:3>
+  // CHECK-NEXT: ImplicitCastExpr
+  // CHECK-NEXT: DeclRefExpr 0x{{[^ ]*}} <col:10> 'int' lvalue ParmVar 0x{{[^ ]*}} 'i' 'int'
+  // CHECK-NEXT: CompoundStmt 0x{{[^ ]*}} <col:12, line:[[@LINE+4]]:3>
+  default:
+  // CHECK-NEXT: DefaultStmt 0x{{[^ ]*}} <line:[[@LINE-1]]:3, col:10>
+  // CHECK-NEXT: NullStmt 0x{{[^ ]*}} <col:10>
   }
 }
 

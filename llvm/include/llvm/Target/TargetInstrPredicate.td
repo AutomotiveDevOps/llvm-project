@@ -11,7 +11,7 @@
 // MCInstPredicate definitions are used by target scheduling models to describe
 // constraints on instructions.
 //
-// Here is an example of an MCInstPredicate definition in tablegen:
+// Here is an example of an MCInstPredicate definition in TableGen:
 //
 // def MCInstPredicateExample : CheckAll<[
 //    CheckOpcode<[BLR]>,
@@ -95,6 +95,12 @@ class MCOperandPredicate<int Index> : MCInstPredicate {
 // Return true if machine operand at position `Index` is a register operand.
 class CheckIsRegOperand<int Index> : MCOperandPredicate<Index>;
 
+// Return true if machine operand at position `Index` is a virtual register operand.
+class CheckIsVRegOperand<int Index> : MCOperandPredicate<Index>;
+
+// Return true if machine operand at position `Index` is not a virtual register operand.
+class CheckIsNotVRegOperand<int Index> : CheckNot<CheckIsVRegOperand<Index>>;
+
 // Return true if machine operand at position `Index` is an immediate operand.
 class CheckIsImmOperand<int Index> : MCOperandPredicate<Index>;
 
@@ -126,6 +132,11 @@ class CheckRegOperand<int Index, Register R> : CheckOperandBase<Index> {
 // Check if register operand at index `Index` is the invalid register.
 class CheckInvalidRegOperand<int Index> : CheckOperandBase<Index>;
 
+// Return true if machine operand at position `Index` is a valid
+// register operand.
+class CheckValidRegOperand<int Index> :
+  CheckNot<CheckInvalidRegOperand<Index>>;
+
 // Check that the operand at position `Index` is immediate `Imm`.
 // If field `FunctionMapper` is a non-empty string, then function
 // `FunctionMapper` is applied to the operand value, and the return value is then
@@ -140,6 +151,34 @@ class CheckImmOperand<int Index, int Imm> : CheckOperandBase<Index> {
 class CheckImmOperand_s<int Index, string Value> : CheckOperandBase<Index> {
   string ImmVal = Value;
 }
+
+// Check that the operand at position `Index` is less than `Imm`.
+// If field `FunctionMapper` is a non-empty string, then function
+// `FunctionMapper` is applied to the operand value, and the return value is then
+// compared against `Imm`.
+class CheckImmOperandLT<int Index, int Imm> : CheckOperandBase<Index> {
+  int ImmVal = Imm;
+}
+
+// Check that the operand at position `Index` is greater than `Imm`.
+// If field `FunctionMapper` is a non-empty string, then function
+// `FunctionMapper` is applied to the operand value, and the return value is then
+// compared against `Imm`.
+class CheckImmOperandGT<int Index, int Imm> : CheckOperandBase<Index> {
+  int ImmVal = Imm;
+}
+
+// Check that the operand at position `Index` is less than or equal to `Imm`.
+// If field `FunctionMapper` is a non-empty string, then function
+// `FunctionMapper` is applied to the operand value, and the return value is then
+// compared against `Imm`.
+class CheckImmOperandLE<int Index, int Imm> : CheckNot<CheckImmOperandGT<Index, Imm>>;
+
+// Check that the operand at position `Index` is greater than or equal to `Imm`.
+// If field `FunctionMapper` is a non-empty string, then function
+// `FunctionMapper` is applied to the operand value, and the return value is then
+// compared against `Imm`.
+class CheckImmOperandGE<int Index, int Imm> : CheckNot<CheckImmOperandLT<Index, Imm>>;
 
 // Expands to a call to `FunctionMapper` if field `FunctionMapper` is set.
 // Otherwise, it expands to a CheckNot<CheckInvalidRegOperand<Index>>.
@@ -192,6 +231,12 @@ class CheckAll<list<MCInstPredicate> Sequence>
 class CheckAny<list<MCInstPredicate> Sequence>
     : CheckPredicateSequence<Sequence>;
 
+// Check that the operand at position `Index` is in range [Start, End].
+// If field `FunctionMapper` is a non-empty string, then function
+// `FunctionMapper` is applied to the operand value, and the return value is then
+// compared against range [Start, End].
+class CheckImmOperandRange<int Index, int Start, int End>
+  : CheckAll<[CheckImmOperandGE<Index, Start>, CheckImmOperandLE<Index, End>]>;
 
 // Used to expand the body of a function predicate. See the definition of
 // TIIPredicate below.
@@ -254,6 +299,20 @@ class CheckFunctionPredicate<string MCInstFn, string MachineInstrFn> : MCInstPre
   string MachineInstrFnName = MachineInstrFn;
 }
 
+// Similar to CheckFunctionPredicate. However it assumes that MachineInstrFn is
+// a method in TargetInstrInfo, and MCInstrFn takes an extra pointer to
+// MCInstrInfo.
+//
+// It Expands to:
+//  - TIIPointer->MachineInstrFn(MI)
+//  - MCInstrFn(MI, MCII);
+class CheckFunctionPredicateWithTII<string MCInstFn, string MachineInstrFn, string
+TIIPointer = "TII"> : MCInstPredicate {
+  string MCInstFnName = MCInstFn;
+  string TIIPtrName = TIIPointer;
+  string MachineInstrFnName = MachineInstrFn;
+}
+
 // Used to classify machine instructions based on a machine instruction
 // predicate.
 //
@@ -300,8 +359,8 @@ class DepBreakingClass<list<Instruction> opcodes, MCInstPredicate pred,
 //  - A list of subtarget hooks (Delegates) that are called from this function.
 //
 class STIPredicateDecl<string name, MCInstPredicate default = FalsePred,
-                       bit overrides = 1, bit expandForMC = 1,
-                       bit updatesOpcodeMask = 0,
+                       bit overrides = true, bit expandForMC = true,
+                       bit updatesOpcodeMask = false,
                        list<STIPredicateDecl> delegates = []> {
   string Name = name;
 
@@ -336,7 +395,7 @@ class STIPredicate<STIPredicateDecl declaration,
 
 // Convenience classes and definitions used by processor scheduling models to
 // describe dependency breaking instructions and move elimination candidates.
-let UpdatesOpcodeMask = 1 in {
+let UpdatesOpcodeMask = true in {
 
 def IsZeroIdiomDecl : STIPredicateDecl<"isZeroIdiom">;
 

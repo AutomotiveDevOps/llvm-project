@@ -16,17 +16,13 @@ using namespace lldb;
 using namespace lldb_private;
 
 static void NotifyChange(const BreakpointSP &bp, BreakpointEventType event) {
-  Target &target = bp->GetTarget();
-  if (target.EventTypeHasListeners(Target::eBroadcastBitBreakpointChanged))
-    target.BroadcastEvent(Target::eBroadcastBitBreakpointChanged,
-                          new Breakpoint::BreakpointEventData(event, bp));
+  bp->GetTarget().NotifyBreakpointChanged(*bp, event);
 }
 
 BreakpointList::BreakpointList(bool is_internal)
-    : m_mutex(), m_breakpoints(), m_next_break_id(0),
-      m_is_internal(is_internal) {}
+    : m_next_break_id(0), m_is_internal(is_internal) {}
 
-BreakpointList::~BreakpointList() {}
+BreakpointList::~BreakpointList() = default;
 
 break_id_t BreakpointList::Add(BreakpointSP &bp_sp, bool notify) {
   std::lock_guard<std::recursive_mutex> guard(m_mutex);
@@ -45,9 +41,9 @@ break_id_t BreakpointList::Add(BreakpointSP &bp_sp, bool notify) {
 bool BreakpointList::Remove(break_id_t break_id, bool notify) {
   std::lock_guard<std::recursive_mutex> guard(m_mutex);
 
-  auto it = std::find_if(
-      m_breakpoints.begin(), m_breakpoints.end(),
-      [&](const BreakpointSP &bp) { return bp->GetID() == break_id; });
+  auto it = llvm::find_if(m_breakpoints, [&](const BreakpointSP &bp) {
+    return bp->GetID() == break_id;
+  });
 
   if (it == m_breakpoints.end())
     return false;
@@ -101,24 +97,22 @@ void BreakpointList::RemoveAllowed(bool notify) {
       NotifyChange(bp_sp, eBreakpointEventTypeRemoved);
   }
 
-  m_breakpoints.erase(
-      std::remove_if(m_breakpoints.begin(), m_breakpoints.end(),
-                     [&](const BreakpointSP &bp) { return bp->AllowDelete(); }),
-      m_breakpoints.end());
+  llvm::erase_if(m_breakpoints,
+                 [&](const BreakpointSP &bp) { return bp->AllowDelete(); });
 }
 
 BreakpointList::bp_collection::iterator
 BreakpointList::GetBreakpointIDIterator(break_id_t break_id) {
-  return std::find_if(
-      m_breakpoints.begin(), m_breakpoints.end(),
-      [&](const BreakpointSP &bp) { return bp->GetID() == break_id; });
+  return llvm::find_if(m_breakpoints, [&](const BreakpointSP &bp) {
+    return bp->GetID() == break_id;
+  });
 }
 
 BreakpointList::bp_collection::const_iterator
 BreakpointList::GetBreakpointIDConstIterator(break_id_t break_id) const {
-  return std::find_if(
-      m_breakpoints.begin(), m_breakpoints.end(),
-      [&](const BreakpointSP &bp) { return bp->GetID() == break_id; });
+  return llvm::find_if(m_breakpoints, [&](const BreakpointSP &bp) {
+    return bp->GetID() == break_id;
+  });
 }
 
 BreakpointSP BreakpointList::FindBreakpointByID(break_id_t break_id) const {
@@ -187,6 +181,12 @@ void BreakpointList::ClearAllBreakpointSites() {
   std::lock_guard<std::recursive_mutex> guard(m_mutex);
   for (const auto &bp_sp : m_breakpoints)
     bp_sp->ClearAllBreakpointSites();
+}
+
+void BreakpointList::ResetHitCounts() {
+  std::lock_guard<std::recursive_mutex> guard(m_mutex);
+  for (const auto &bp_sp : m_breakpoints)
+    bp_sp->ResetHitCount();
 }
 
 void BreakpointList::GetListMutex(

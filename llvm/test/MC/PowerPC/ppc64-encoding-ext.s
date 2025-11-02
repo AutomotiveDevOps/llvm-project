@@ -3419,12 +3419,24 @@
 # CHECK-BE: mfxer 2                         # encoding: [0x7c,0x41,0x02,0xa6]
 # CHECK-LE: mfxer 2                         # encoding: [0xa6,0x02,0x41,0x7c]
             mfxer 2
+# CHECK-BE: mtudscr 2                       # encoding: [0x7c,0x43,0x03,0xa6]
+# CHECK-LE: mtudscr 2                       # encoding: [0xa6,0x03,0x43,0x7c]
+            mtudscr 2
+# CHECK-BE: mfudscr 2                       # encoding: [0x7c,0x43,0x02,0xa6]
+# CHECK-LE: mfudscr 2                       # encoding: [0xa6,0x02,0x43,0x7c]
+            mfudscr 2
 # CHECK-BE: mfrtcu 2                        # encoding: [0x7c,0x44,0x02,0xa6]
 # CHECK-LE: mfrtcu 2                        # encoding: [0xa6,0x02,0x44,0x7c]
             mfrtcu 2
 # CHECK-BE: mfrtcl 2                        # encoding: [0x7c,0x45,0x02,0xa6]
 # CHECK-LE: mfrtcl 2                        # encoding: [0xa6,0x02,0x45,0x7c]
             mfrtcl 2
+# CHECK-BE: mtudscr 2                       # encoding: [0x7c,0x43,0x03,0xa6]
+# CHECK-LE: mtudscr 2                       # encoding: [0xa6,0x03,0x43,0x7c]
+            mtudscr 2
+# CHECK-BE: mfudscr 2                       # encoding: [0x7c,0x43,0x02,0xa6]
+# CHECK-LE: mfudscr 2                       # encoding: [0xa6,0x02,0x43,0x7c]
+            mfudscr 2
 # CHECK-BE: mtdscr 2                        # encoding: [0x7c,0x51,0x03,0xa6]
 # CHECK-LE: mtdscr 2                        # encoding: [0xa6,0x03,0x51,0x7c]
             mtdscr 2
@@ -3479,12 +3491,18 @@
 # CHECK-BE: mfamr 2                         # encoding: [0x7c,0x5d,0x02,0xa6]
 # CHECK-LE: mfamr 2                         # encoding: [0xa6,0x02,0x5d,0x7c]
             mfamr 2
-# CHECK-BE: mtpid 2                         # encoding: [0x7c,0x50,0x0b,0xa6]
-# CHECK-LE: mtpid 2                         # encoding: [0xa6,0x0b,0x50,0x7c]
+# CHECK-BE: mtspr 48, 2                     # encoding: [0x7c,0x50,0x0b,0xa6]
+# CHECK-LE: mtspr 48, 2                     # encoding: [0xa6,0x0b,0x50,0x7c]
             mtpid 2
-# CHECK-BE: mfpid 2                         # encoding: [0x7c,0x50,0x0a,0xa6]
-# CHECK-LE: mfpid 2                         # encoding: [0xa6,0x0a,0x50,0x7c]
+# CHECK-BE: mtspr 48, 2                     # encoding: [0x7c,0x50,0x0b,0xa6]
+# CHECK-LE: mtspr 48, 2                     # encoding: [0xa6,0x0b,0x50,0x7c]
+            mtpidr 2
+# CHECK-BE: mfspr 2, 48                     # encoding: [0x7c,0x50,0x0a,0xa6]
+# CHECK-LE: mfspr 2, 48                     # encoding: [0xa6,0x0a,0x50,0x7c]
             mfpid 2
+# CHECK-BE: mfspr 2, 48                     # encoding: [0x7c,0x50,0x0a,0xa6]
+# CHECK-LE: mfspr 2, 48                     # encoding: [0xa6,0x0a,0x50,0x7c]
+            mfpidr 2
 # CHECK-BE: mtlr 2                          # encoding: [0x7c,0x48,0x03,0xa6]
 # CHECK-LE: mtlr 2                          # encoding: [0xa6,0x03,0x48,0x7c]
             mtlr 2
@@ -3497,6 +3515,18 @@
 # CHECK-BE: mfctr 2                         # encoding: [0x7c,0x49,0x02,0xa6]
 # CHECK-LE: mfctr 2                         # encoding: [0xa6,0x02,0x49,0x7c]
             mfctr 2
+# CHECK-BE: mtuamr 2                        # encoding: [0x7c,0x4d,0x03,0xa6]
+# CHECK-LE: mtuamr 2                        # encoding: [0xa6,0x03,0x4d,0x7c]
+            mtuamr 2
+# CHECK-BE: mfuamr 2                        # encoding: [0x7c,0x4d,0x02,0xa6]
+# CHECK-LE: mfuamr 2                        # encoding: [0xa6,0x02,0x4d,0x7c]
+            mfuamr 2
+# CHECK-BE: mtppr 2                         # encoding: [0x7c,0x40,0xe3,0xa6]
+# CHECK-LE: mtppr 2                         # encoding: [0xa6,0xe3,0x40,0x7c]
+            mtppr 2
+# CHECK-BE: mfppr 2                         # encoding: [0x7c,0x40,0xe2,0xa6]
+# CHECK-LE: mfppr 2                         # encoding: [0xa6,0xe2,0x40,0x7c]
+            mfppr 2
 # CHECK-BE: mfvrsave 2                      # encoding: [0x7c,0x40,0x42,0xa6]
 # CHECK-LE: mfvrsave 2                      # encoding: [0xa6,0x42,0x40,0x7c]
             mfvrsave 2
@@ -3553,6 +3583,11 @@
 # CHECK-LE: mfspr 4, 275                    # encoding: [0xa6,0x42,0x93,0x7c]
             mfsprg %r4, 3
 
+# Bug PR47259
+# CHECK-BE: mfspr 2, 274                    # encoding: [0x7c,0x52,0x42,0xa6]
+# CHECK-LE: mfspr 2, 274                    # encoding: [0xa6,0x42,0x52,0x7c]
+            mfsprg 2, 2
+
 # CHECK-BE: mfspr 2, 272                    # encoding: [0x7c,0x50,0x42,0xa6]
 # CHECK-LE: mfspr 2, 272                    # encoding: [0xa6,0x42,0x50,0x7c]
             mfsprg0 %r2
@@ -3581,6 +3616,11 @@
 # CHECK-BE: mtspr 275, 4                    # encoding: [0x7c,0x93,0x43,0xa6]
 # CHECK-LE: mtspr 275, 4                    # encoding: [0xa6,0x43,0x93,0x7c]
             mtsprg 3, %r4
+
+# Bug PR47259
+# CHECK-BE: mtspr 274, 2                    # encoding: [0x7c,0x52,0x43,0xa6]
+# CHECK-LE: mtspr 274, 2                    # encoding: [0xa6,0x43,0x52,0x7c]
+            mtsprg 2, 2
 
 # CHECK-BE: mtspr 272, 4                    # encoding: [0x7c,0x90,0x43,0xa6]
 # CHECK-LE: mtspr 272, 4                    # encoding: [0xa6,0x43,0x90,0x7c]
@@ -3673,15 +3713,15 @@
             attn
 
 # Copy-Paste Facility (Extended Mnemonics):
-# CHECK-BE: copy 2, 19, 0                      # encoding: [0x7c,0x02,0x9e,0x0c]
-# CHECK-LE: copy 2, 19, 0                      # encoding: [0x0c,0x9e,0x02,0x7c]
+# CHECK-BE: copy 2, 19                       # encoding: [0x7c,0x22,0x9e,0x0c]
+# CHECK-LE: copy 2, 19                       # encoding: [0x0c,0x9e,0x22,0x7c]
             copy 2, 19
-# CHECK-BE: copy 2, 19, 1                      # encoding: [0x7c,0x22,0x9e,0x0c]
-# CHECK-LE: copy 2, 19, 1                      # encoding: [0x0c,0x9e,0x22,0x7c]
-            copy_first 2, 19
-# CHECK-BE: paste 17, 1, 0                     # encoding: [0x7c,0x11,0x0f,0x0c]
-# CHECK-LE: paste 17, 1, 0                     # encoding: [0x0c,0x0f,0x11,0x7c]
-            paste 17, 1
-# CHECK-BE: paste. 17, 1, 1                    # encoding: [0x7c,0x31,0x0f,0x0d]
-# CHECK-LE: paste. 17, 1, 1                    # encoding: [0x0d,0x0f,0x31,0x7c]
-            paste_last 17, 1
+# CHECK-BE: paste. 17, 1, 0                  # encoding: [0x7c,0x11,0x0f,0x0d]
+# CHECK-LE: paste. 17, 1, 0                  # encoding: [0x0d,0x0f,0x11,0x7c]
+            paste. 17, 1, 0
+# CHECK-BE: paste. 17, 1                     # encoding: [0x7c,0x31,0x0f,0x0d]
+# CHECK-LE: paste. 17, 1                     # encoding: [0x0d,0x0f,0x31,0x7c]
+            paste. 17, 1, 1
+# CHECK-BE: paste. 17, 1                     # encoding: [0x7c,0x31,0x0f,0x0d]
+# CHECK-LE: paste. 17, 1                     # encoding: [0x0d,0x0f,0x31,0x7c]
+            paste. 17, 1

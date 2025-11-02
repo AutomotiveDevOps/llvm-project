@@ -1,4 +1,4 @@
-//===--- ReplaceAutoPtrCheck.cpp - clang-tidy------------------------------===//
+//===----------------------------------------------------------------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -16,9 +16,7 @@
 using namespace clang;
 using namespace clang::ast_matchers;
 
-namespace clang {
-namespace tidy {
-namespace modernize {
+namespace clang::tidy::modernize {
 
 namespace {
 static const char AutoPtrTokenId[] = "AutoPrTokenId";
@@ -35,57 +33,22 @@ static const char AutoPtrOwnershipTransferId[] = "AutoPtrOwnershipTransferId";
 /// \endcode
 AST_MATCHER(Expr, isLValue) { return Node.getValueKind() == VK_LValue; }
 
-/// Matches declarations whose declaration context is the C++ standard library
-/// namespace std.
-///
-/// Note that inline namespaces are silently ignored during the lookup since
-/// both libstdc++ and libc++ are known to use them for versioning purposes.
-///
-/// Given:
-/// \code
-///   namespace ns {
-///     struct my_type {};
-///     using namespace std;
-///   }
-///
-///   using std::vector;
-///   using ns:my_type;
-///   using ns::list;
-/// \code
-///
-/// usingDecl(hasAnyUsingShadowDecl(hasTargetDecl(isFromStdNamespace())))
-/// matches "using std::vector" and "using ns::list".
-AST_MATCHER(Decl, isFromStdNamespace) {
-  const DeclContext *D = Node.getDeclContext();
-
-  while (D->isInlineNamespace())
-    D = D->getParent();
-
-  if (!D->isNamespace() || !D->getParent()->isTranslationUnit())
-    return false;
-
-  const IdentifierInfo *Info = cast<NamespaceDecl>(D)->getIdentifier();
-
-  return (Info && Info->isStr("std"));
-}
-
 } // namespace
 
 ReplaceAutoPtrCheck::ReplaceAutoPtrCheck(StringRef Name,
                                          ClangTidyContext *Context)
     : ClangTidyCheck(Name, Context),
-      IncludeStyle(Options.getLocalOrGlobal("IncludeStyle",
-                                            utils::IncludeSorter::getMapping(),
-                                            utils::IncludeSorter::IS_LLVM)) {}
+      Inserter(Options.getLocalOrGlobal("IncludeStyle",
+                                        utils::IncludeSorter::IS_LLVM),
+               areDiagsSelfContained()) {}
 
 void ReplaceAutoPtrCheck::storeOptions(ClangTidyOptions::OptionMap &Opts) {
-  Options.store(Opts, "IncludeStyle", IncludeStyle,
-                utils::IncludeSorter::getMapping());
+  Options.store(Opts, "IncludeStyle", Inserter.getStyle());
 }
 
 void ReplaceAutoPtrCheck::registerMatchers(MatchFinder *Finder) {
-  auto AutoPtrDecl = recordDecl(hasName("auto_ptr"), isFromStdNamespace());
-  auto AutoPtrType = qualType(hasDeclaration(AutoPtrDecl));
+  auto AutoPtrDecl = recordDecl(hasName("auto_ptr"), isInStdNamespace());
+  auto AutoPtrType = hasCanonicalType(recordType(hasDeclaration(AutoPtrDecl)));
 
   //   std::auto_ptr<int> a;
   //        ^~~~~~~~~~~~~
@@ -95,17 +58,13 @@ void ReplaceAutoPtrCheck::registerMatchers(MatchFinder *Finder) {
   //
   //   std::auto_ptr<int> fn(std::auto_ptr<int>);
   //        ^~~~~~~~~~~~~         ^~~~~~~~~~~~~
-  Finder->addMatcher(typeLoc(loc(qualType(AutoPtrType,
-                                          // Skip elaboratedType() as the named
-                                          // type will match soon thereafter.
-                                          unless(elaboratedType()))))
-                         .bind(AutoPtrTokenId),
+  Finder->addMatcher(typeLoc(loc(qualType(AutoPtrType))).bind(AutoPtrTokenId),
                      this);
 
   //   using std::auto_ptr;
   //   ^~~~~~~~~~~~~~~~~~~
   Finder->addMatcher(usingDecl(hasAnyUsingShadowDecl(hasTargetDecl(namedDecl(
-                                   hasName("auto_ptr"), isFromStdNamespace()))))
+                                   hasName("auto_ptr"), isInStdNamespace()))))
                          .bind(AutoPtrTokenId),
                      this);
 
@@ -124,7 +83,7 @@ void ReplaceAutoPtrCheck::registerMatchers(MatchFinder *Finder) {
                           hasArgument(1, MovableArgumentMatcher)),
       this);
   Finder->addMatcher(
-      traverse(ast_type_traits::TK_AsIs,
+      traverse(TK_AsIs,
                cxxConstructExpr(hasType(AutoPtrType), argumentCountIs(1),
                                 hasArgument(0, MovableArgumentMatcher))),
       this);
@@ -133,9 +92,7 @@ void ReplaceAutoPtrCheck::registerMatchers(MatchFinder *Finder) {
 void ReplaceAutoPtrCheck::registerPPCallbacks(const SourceManager &SM,
                                               Preprocessor *PP,
                                               Preprocessor *ModuleExpanderPP) {
-  Inserter = std::make_unique<utils::IncludeInserter>(SM, getLangOpts(),
-                                                       IncludeStyle);
-  PP->addPPCallbacks(Inserter->CreatePPCallbacks());
+  Inserter.registerPreprocessor(PP);
 }
 
 void ReplaceAutoPtrCheck::check(const MatchFinder::MatchResult &Result) {
@@ -150,21 +107,20 @@ void ReplaceAutoPtrCheck::check(const MatchFinder::MatchResult &Result) {
 
     auto Diag = diag(Range.getBegin(), "use std::move to transfer ownership")
                 << FixItHint::CreateInsertion(Range.getBegin(), "std::move(")
-                << FixItHint::CreateInsertion(Range.getEnd(), ")");
-
-    if (auto Fix =
-            Inserter->CreateIncludeInsertion(SM.getMainFileID(), "utility",
-                                             /*IsAngled=*/true))
-      Diag << *Fix;
+                << FixItHint::CreateInsertion(Range.getEnd(), ")")
+                << Inserter.createMainFileIncludeInsertion("<utility>");
 
     return;
   }
 
   SourceLocation AutoPtrLoc;
-  if (const auto *TL = Result.Nodes.getNodeAs<TypeLoc>(AutoPtrTokenId)) {
+  if (const auto *PTL = Result.Nodes.getNodeAs<TypeLoc>(AutoPtrTokenId)) {
+    auto TL = *PTL;
+    if (auto QTL = TL.getAs<QualifiedTypeLoc>())
+      TL = QTL.getUnqualifiedLoc();
     //   std::auto_ptr<int> i;
     //        ^
-    if (auto Loc = TL->getAs<TemplateSpecializationTypeLoc>())
+    if (auto Loc = TL.getAs<TemplateSpecializationTypeLoc>())
       AutoPtrLoc = Loc.getTemplateNameLoc();
   } else if (const auto *D =
                  Result.Nodes.getNodeAs<UsingDecl>(AutoPtrTokenId)) {
@@ -184,13 +140,10 @@ void ReplaceAutoPtrCheck::check(const MatchFinder::MatchResult &Result) {
       "auto_ptr")
     return;
 
-  SourceLocation EndLoc =
-      AutoPtrLoc.getLocWithOffset(strlen("auto_ptr") - 1);
+  SourceLocation EndLoc = AutoPtrLoc.getLocWithOffset(strlen("auto_ptr") - 1);
   diag(AutoPtrLoc, "auto_ptr is deprecated, use unique_ptr instead")
       << FixItHint::CreateReplacement(SourceRange(AutoPtrLoc, EndLoc),
                                       "unique_ptr");
 }
 
-} // namespace modernize
-} // namespace tidy
-} // namespace clang
+} // namespace clang::tidy::modernize

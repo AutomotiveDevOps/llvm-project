@@ -8,7 +8,6 @@
 
 #include "DwarfGenerator.h"
 #include "../lib/CodeGen/AsmPrinter/DwarfStringPool.h"
-#include "llvm/ADT/Triple.h"
 #include "llvm/BinaryFormat/Dwarf.h"
 #include "llvm/CodeGen/AsmPrinter.h"
 #include "llvm/CodeGen/DIE.h"
@@ -26,13 +25,15 @@
 #include "llvm/MC/MCStreamer.h"
 #include "llvm/MC/MCSubtargetInfo.h"
 #include "llvm/MC/MCTargetOptionsCommandFlags.h"
+#include "llvm/MC/TargetRegistry.h"
 #include "llvm/Pass.h"
+#include "llvm/Support/FileSystem.h"
 #include "llvm/Support/LEB128.h"
-#include "llvm/Support/TargetRegistry.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Target/TargetLoweringObjectFile.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Target/TargetOptions.h"
+#include "llvm/TargetParser/Triple.h"
 
 using namespace llvm;
 using namespace dwarf;
@@ -46,12 +47,23 @@ namespace {} // end anonymous namespace
 //===----------------------------------------------------------------------===//
 unsigned dwarfgen::DIE::computeSizeAndOffsets(unsigned Offset) {
   auto &DG = CU->getGenerator();
-  return Die->computeOffsetsAndAbbrevs(DG.getAsmPrinter(), DG.getAbbrevSet(),
-                                       Offset);
+  return Die->computeOffsetsAndAbbrevs(DG.getAsmPrinter()->getDwarfFormParams(),
+                                       DG.getAbbrevSet(), Offset);
 }
 
 void dwarfgen::DIE::addAttribute(uint16_t A, dwarf::Form Form, uint64_t U) {
   auto &DG = CU->getGenerator();
+  switch (Form) {
+  case DW_FORM_addrx:
+  case DW_FORM_addrx1:
+  case DW_FORM_addrx2:
+  case DW_FORM_addrx3:
+  case DW_FORM_addrx4:
+    U = DG.getAddressPool().getIndex(U);
+    break;
+  default:
+    break;
+  }
   Die->addValue(DG.getAllocator(), static_cast<dwarf::Attribute>(A), Form,
                 DIEInteger(U));
 }
@@ -111,7 +123,7 @@ void dwarfgen::DIE::addAttribute(uint16_t A, dwarf::Form Form, const void *P,
         DIEInteger(
             (const_cast<uint8_t *>(static_cast<const uint8_t *>(P)))[I]));
 
-  Block->ComputeSize(DG.getAsmPrinter());
+  Block->computeSize(DG.getAsmPrinter()->getDwarfFormParams());
   Die->addValue(DG.getAllocator(), static_cast<dwarf::Attribute>(A), Form,
                 Block);
 }
@@ -139,6 +151,24 @@ void dwarfgen::DIE::addStrOffsetsBaseAttribute() {
         Expr, MCSymbolRefExpr::create(SectionStart, MC), MC);
 
   addAttribute(dwarf::DW_AT_str_offsets_base, DW_FORM_sec_offset, *Expr);
+}
+
+// This is currently fixed to be the first address entry after the header.
+void dwarfgen::DIE::addAddrBaseAttribute() {
+  auto &DG = CU->getGenerator();
+  auto &MC = *DG.getMCContext();
+  AsmPrinter *Asm = DG.getAsmPrinter();
+
+  const MCSymbol *SectionStart =
+      Asm->getObjFileLowering().getDwarfAddrSection()->getBeginSymbol();
+
+  const MCExpr *Expr = MCSymbolRefExpr::create(DG.getAddrTableStartSym(), MC);
+
+  if (!Asm->MAI->doesDwarfUseRelocationsAcrossSections())
+    Expr = MCBinaryExpr::createSub(
+        Expr, MCSymbolRefExpr::create(SectionStart, MC), MC);
+
+  addAttribute(dwarf::DW_AT_addr_base, DW_FORM_sec_offset, *Expr);
 }
 
 dwarfgen::DIE dwarfgen::DIE::addChild(dwarf::Tag Tag) {
@@ -213,7 +243,7 @@ void dwarfgen::LineTable::addByte(uint8_t Value) {
 void dwarfgen::LineTable::addStandardOpcode(uint8_t Opcode,
                                             ArrayRef<ValueAndLength> Operands) {
   Contents.push_back({Opcode, Byte});
-  Contents.insert(Contents.end(), Operands.begin(), Operands.end());
+  llvm::append_range(Contents, Operands);
 }
 
 void dwarfgen::LineTable::addExtendedOpcode(uint64_t Length, uint8_t Opcode,
@@ -221,7 +251,7 @@ void dwarfgen::LineTable::addExtendedOpcode(uint64_t Length, uint8_t Opcode,
   Contents.push_back({0, Byte});
   Contents.push_back({Length, ULEB});
   Contents.push_back({Opcode, Byte});
-  Contents.insert(Contents.end(), Operands.begin(), Operands.end());
+  llvm::append_range(Contents, Operands);
 }
 
 void dwarfgen::LineTable::generate(MCContext &MC, AsmPrinter &Asm) const {
@@ -335,15 +365,13 @@ static void writeCString(StringRef Str, AsmPrinter &Asm) {
 
 static void writeV2IncludeAndFileTable(const DWARFDebugLine::Prologue &Prologue,
                                        AsmPrinter &Asm) {
-  for (auto Include : Prologue.IncludeDirectories) {
-    assert(Include.getAsCString() && "expected a string form for include dir");
-    writeCString(*Include.getAsCString(), Asm);
-  }
+  for (auto Include : Prologue.IncludeDirectories)
+    writeCString(*toString(Include), Asm);
+
   Asm.emitInt8(0);
 
   for (auto File : Prologue.FileNames) {
-    assert(File.Name.getAsCString() && "expected a string form for file name");
-    writeCString(*File.Name.getAsCString(), Asm);
+    writeCString(*toString(File.Name), Asm);
     Asm.emitULEB128(File.DirIdx);
     Asm.emitULEB128(File.ModTime);
     Asm.emitULEB128(File.Length);
@@ -359,10 +387,8 @@ static void writeV5IncludeAndFileTable(const DWARFDebugLine::Prologue &Prologue,
   Asm.emitULEB128(DW_LNCT_path);
   Asm.emitULEB128(DW_FORM_string);
   Asm.emitULEB128(Prologue.IncludeDirectories.size());
-  for (auto Include : Prologue.IncludeDirectories) {
-    assert(Include.getAsCString() && "expected a string form for include dir");
-    writeCString(*Include.getAsCString(), Asm);
-  }
+  for (auto Include : Prologue.IncludeDirectories)
+    writeCString(*toString(Include), Asm);
 
   Asm.emitInt8(2); // file_name_entry_format_count.
   Asm.emitULEB128(DW_LNCT_path);
@@ -371,8 +397,7 @@ static void writeV5IncludeAndFileTable(const DWARFDebugLine::Prologue &Prologue,
   Asm.emitULEB128(DW_FORM_data1);
   Asm.emitULEB128(Prologue.FileNames.size());
   for (auto File : Prologue.FileNames) {
-    assert(File.Name.getAsCString() && "expected a string form for file name");
-    writeCString(*File.Name.getAsCString(), Asm);
+    writeCString(*toString(File.Name), Asm);
     Asm.emitInt8(File.DirIdx);
   }
 }
@@ -429,19 +454,19 @@ llvm::Error dwarfgen::Generator::init(Triple TheTriple, uint16_t V) {
   TripleName = TheTriple.getTriple();
 
   // Create all the MC Objects.
-  MRI.reset(TheTarget->createMCRegInfo(TripleName));
+  MRI.reset(TheTarget->createMCRegInfo(TheTriple));
   if (!MRI)
     return make_error<StringError>(Twine("no register info for target ") +
                                        TripleName,
                                    inconvertibleErrorCode());
 
   MCTargetOptions MCOptions = mc::InitMCTargetOptionsFromFlags();
-  MAI.reset(TheTarget->createMCAsmInfo(*MRI, TripleName, MCOptions));
+  MAI.reset(TheTarget->createMCAsmInfo(*MRI, TheTriple, MCOptions));
   if (!MAI)
     return make_error<StringError>("no asm info for target " + TripleName,
                                    inconvertibleErrorCode());
 
-  MSTI.reset(TheTarget->createMCSubtargetInfo(TripleName, "", ""));
+  MSTI.reset(TheTarget->createMCSubtargetInfo(TheTriple, "", ""));
   if (!MSTI)
     return make_error<StringError>("no subtarget info for target " + TripleName,
                                    inconvertibleErrorCode());
@@ -457,17 +482,18 @@ llvm::Error dwarfgen::Generator::init(Triple TheTriple, uint16_t V) {
                                        TripleName,
                                    inconvertibleErrorCode());
 
-  TM.reset(TheTarget->createTargetMachine(TripleName, "", "", TargetOptions(),
-                                          None));
+  TM.reset(TheTarget->createTargetMachine(TheTriple, "", "", TargetOptions(),
+                                          std::nullopt));
   if (!TM)
     return make_error<StringError>("no target machine for target " + TripleName,
                                    inconvertibleErrorCode());
 
+  MC.reset(new MCContext(TheTriple, MAI.get(), MRI.get(), MSTI.get()));
   TLOF = TM->getObjFileLowering();
-  MC.reset(new MCContext(MAI.get(), MRI.get(), TLOF));
   TLOF->Initialize(*MC, *TM);
+  MC->setObjectFileInfo(TLOF);
 
-  MCE = TheTarget->createMCCodeEmitter(*MII, *MRI, *MC);
+  MCE = TheTarget->createMCCodeEmitter(*MII, *MC);
   if (!MCE)
     return make_error<StringError>("no code emitter for target " + TripleName,
                                    inconvertibleErrorCode());
@@ -477,8 +503,7 @@ llvm::Error dwarfgen::Generator::init(Triple TheTriple, uint16_t V) {
   MS = TheTarget->createMCObjectStreamer(
       TheTriple, *MC, std::unique_ptr<MCAsmBackend>(MAB),
       MAB->createObjectWriter(*Stream), std::unique_ptr<MCCodeEmitter>(MCE),
-      *MSTI, MCOptions.MCRelaxAll, MCOptions.MCIncrementalLinkerCompatible,
-      /*DWARFMustBeAtTheEnd*/ false);
+      *MSTI);
   if (!MS)
     return make_error<StringError>("no object streamer for target " +
                                        TripleName,
@@ -498,24 +523,64 @@ llvm::Error dwarfgen::Generator::init(Triple TheTriple, uint16_t V) {
   StringPool = std::make_unique<DwarfStringPool>(Allocator, *Asm, StringRef());
   StringOffsetsStartSym = Asm->createTempSymbol("str_offsets_base");
 
+  AddrTableStartSym = Asm->createTempSymbol("addr_table_base");
+
   return Error::success();
+}
+
+unsigned dwarfgen::Generator::DummyAddressPool::getIndex(uint64_t Address) {
+  AddressValues.push_back(Address);
+  return static_cast<unsigned>(AddressValues.size() - 1);
+}
+
+void dwarfgen::Generator::DummyAddressPool::emit(AsmPrinter &Asm,
+                                                 MCSection *AddrSection,
+                                                 MCSymbol *StartSym) {
+  const uint8_t AddrSize = Asm.getPointerSize();
+
+  // Switch to .debug_addr section
+  Asm.OutStreamer->switchSection(AddrSection);
+
+  if (Asm.getDwarfVersion() >= 5) {
+    // Emit header
+    Asm.emitDwarfUnitLength(AddrSize * AddressValues.size() + 4,
+                            "Length of contribution");
+    Asm.emitInt16(Asm.getDwarfVersion());
+    Asm.emitInt8(AddrSize);
+    Asm.emitInt8(0);
+  }
+
+  if (StartSym)
+    Asm.OutStreamer->emitLabel(StartSym);
+
+  // Emit addresses
+  for (uint64_t Addr : AddressValues)
+    Asm.OutStreamer->emitIntValue(Addr, AddrSize);
 }
 
 StringRef dwarfgen::Generator::generate() {
   // Offset from the first CU in the debug info section is 0 initially.
-  unsigned SecOffset = 0;
+  uint64_t SecOffset = 0;
 
   // Iterate over each compile unit and set the size and offsets for each
   // DIE within each compile unit. All offsets are CU relative.
   for (auto &CU : CompileUnits) {
     // Set the absolute .debug_info offset for this compile unit.
     CU->setOffset(SecOffset);
-    // The DIEs contain compile unit relative offsets.
-    unsigned CUOffset = 11;
+    // The DIEs contain compile unit relative offsets and the offset depends
+    // on the Dwarf version.
+    unsigned CUOffset = 4 + // Length
+                        2 + // Version
+                        4 + // Abbreviation offset
+                        1;  // Address size
+    if (Asm->getDwarfVersion() >= 5)
+      CUOffset += 1; // DW_UT_compile tag.
+
     CUOffset = CU->getUnitDIE().computeSizeAndOffsets(CUOffset);
     // Update our absolute .debug_info offset.
     SecOffset += CUOffset;
-    CU->setLength(CUOffset - 4);
+    unsigned CUOffsetUnitLength = 4;
+    CU->setLength(CUOffset - CUOffsetUnitLength);
   }
   Abbreviations.Emit(Asm.get(), TLOF->getDwarfAbbrevSection());
 
@@ -524,7 +589,10 @@ StringRef dwarfgen::Generator::generate() {
   StringPool->emit(*Asm, TLOF->getDwarfStrSection(),
                    TLOF->getDwarfStrOffSection());
 
-  MS->SwitchSection(TLOF->getDwarfInfoSection());
+  if (Asm->getDwarfVersion() >= 5)
+    AddressPool.emit(*Asm, TLOF->getDwarfAddrSection(), AddrTableStartSym);
+
+  MS->switchSection(TLOF->getDwarfInfoSection());
   for (auto &CU : CompileUnits) {
     uint16_t Version = CU->getVersion();
     auto Length = CU->getLength();
@@ -543,11 +611,11 @@ StringRef dwarfgen::Generator::generate() {
     Asm->emitDwarfDIE(*CU->getUnitDIE().Die);
   }
 
-  MS->SwitchSection(TLOF->getDwarfLineSection());
+  MS->switchSection(TLOF->getDwarfLineSection());
   for (auto &LT : LineTables)
     LT->generate(*MC, *Asm);
 
-  MS->Finish();
+  MS->finish();
   if (FileBytes.empty())
     return StringRef();
   return StringRef(FileBytes.data(), FileBytes.size());

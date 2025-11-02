@@ -10,31 +10,34 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "mlir/Target/LLVMIR.h"
-
-#include "mlir/Target/LLVMIR/ModuleTranslation.h"
-#include "mlir/Translation.h"
-
-#include "llvm/ADT/StringRef.h"
+#include "mlir/Dialect/DLTI/DLTI.h"
+#include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "mlir/Target/LLVMIR/Dialect/All.h"
+#include "mlir/Target/LLVMIR/Export.h"
+#include "mlir/Tools/mlir-translate/Translation.h"
+#include "llvm/IR/DebugProgramInstruction.h"
+#include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
-#include "llvm/Support/ToolOutputFile.h"
 
 using namespace mlir;
-
-std::unique_ptr<llvm::Module> mlir::translateModuleToLLVMIR(ModuleOp m) {
-  return LLVM::ModuleTranslation::translateModule<>(m);
-}
 
 namespace mlir {
 void registerToLLVMIRTranslation() {
   TranslateFromMLIRRegistration registration(
-      "mlir-to-llvmir", [](ModuleOp module, raw_ostream &output) {
-        auto llvmModule = LLVM::ModuleTranslation::translateModule<>(module);
+      "mlir-to-llvmir", "Translate MLIR to LLVMIR",
+      [](Operation *op, raw_ostream &output) {
+        llvm::LLVMContext llvmContext;
+        auto llvmModule = translateModuleToLLVMIR(op, llvmContext);
         if (!llvmModule)
           return failure();
 
+        llvmModule->removeDebugIntrinsicDeclarations();
         llvmModule->print(output, nullptr);
         return success();
+      },
+      [](DialectRegistry &registry) {
+        registry.insert<DLTIDialect, func::FuncDialect>();
+        registerAllToLLVMIRTranslations(registry);
       });
 }
 } // namespace mlir

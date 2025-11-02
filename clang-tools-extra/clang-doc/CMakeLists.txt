@@ -3,8 +3,9 @@ set(LLVM_LINK_COMPONENTS
   BitstreamReader
   FrontendOpenMP
   )
+add_subdirectory(support)
 
-add_clang_library(clangDoc
+add_clang_library(clangDoc STATIC
   BitcodeReader.cpp
   BitcodeWriter.cpp
   ClangDoc.cpp
@@ -15,8 +16,17 @@ add_clang_library(clangDoc
   Representation.cpp
   Serialize.cpp
   YAMLGenerator.cpp
+  HTMLMustacheGenerator.cpp
+  JSONGenerator.cpp
 
-  LINK_LIBS
+  DEPENDS
+  omp_gen
+  ClangDriverOptions
+)
+
+clang_target_link_libraries(clangDoc
+  PRIVATE
+  clangDocSupport
   clangAnalysis
   clangAST
   clangASTMatchers
@@ -26,6 +36,11 @@ add_clang_library(clangDoc
   clangLex
   clangTooling
   clangToolingCore
+  )
+
+target_link_libraries(clangDoc
+  PRIVATE
+  clangDocSupport      
   )
 
 add_subdirectory(tool)

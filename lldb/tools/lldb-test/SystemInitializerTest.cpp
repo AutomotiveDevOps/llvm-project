@@ -22,7 +22,8 @@
 
 using namespace lldb_private;
 
-SystemInitializerTest::SystemInitializerTest() = default;
+SystemInitializerTest::SystemInitializerTest()
+    : SystemInitializerCommon(nullptr) {}
 SystemInitializerTest::~SystemInitializerTest() = default;
 
 llvm::Error SystemInitializerTest::Initialize() {
@@ -50,12 +51,13 @@ llvm::Error SystemInitializerTest::Initialize() {
   // Settings must be initialized AFTER PluginManager::Initialize is called.
   Debugger::SettingsInitialize();
 
+  Debugger::Initialize(nullptr);
+
   return llvm::Error::success();
 }
 
 void SystemInitializerTest::Terminate() {
-  static Timer::Category func_cat(LLVM_PRETTY_FUNCTION);
-  Timer scoped_timer(func_cat, LLVM_PRETTY_FUNCTION);
+  Debugger::Terminate();
 
   Debugger::SettingsTerminate();
 

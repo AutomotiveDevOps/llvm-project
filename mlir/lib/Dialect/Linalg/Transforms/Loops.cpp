@@ -6,119 +6,93 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "PassDetail.h"
-#include "mlir/Dialect/Affine/EDSC/Intrinsics.h"
-#include "mlir/Dialect/Linalg/EDSC/FoldedIntrinsics.h"
-#include "mlir/Dialect/Linalg/IR/LinalgOps.h"
-#include "mlir/Dialect/Linalg/IR/LinalgTypes.h"
 #include "mlir/Dialect/Linalg/Passes.h"
+
+#include "mlir/Dialect/Affine/IR/AffineOps.h"
+#include "mlir/Dialect/Arith/IR/Arith.h"
+#include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "mlir/Dialect/Linalg/IR/Linalg.h"
 #include "mlir/Dialect/Linalg/Transforms/Transforms.h"
 #include "mlir/Dialect/Linalg/Utils/Utils.h"
-#include "mlir/Dialect/SCF/EDSC/Builders.h"
-#include "mlir/Dialect/StandardOps/EDSC/Intrinsics.h"
+#include "mlir/Dialect/SCF/Transforms/Transforms.h"
+#include "mlir/Dialect/SCF/Utils/AffineCanonicalizationUtils.h"
 #include "mlir/IR/AffineExpr.h"
 #include "mlir/IR/AffineMap.h"
-#include "mlir/IR/BlockAndValueMapping.h"
+#include "mlir/IR/IRMapping.h"
 #include "mlir/Support/LLVM.h"
 #include "mlir/Transforms/DialectConversion.h"
 #include "mlir/Transforms/FoldUtils.h"
+#include "mlir/Transforms/GreedyPatternRewriteDriver.h"
+#include "llvm/ADT/TypeSwitch.h"
+
+namespace mlir {
+#define GEN_PASS_DEF_CONVERTLINALGTOAFFINELOOPSPASS
+#define GEN_PASS_DEF_CONVERTLINALGTOLOOPSPASS
+#define GEN_PASS_DEF_CONVERTLINALGTOPARALLELLOOPSPASS
+#include "mlir/Dialect/Linalg/Passes.h.inc"
+} // namespace mlir
 
 using namespace mlir;
-using namespace mlir::edsc;
-using namespace mlir::edsc::intrinsics;
 using namespace mlir::linalg;
 
-using edsc::op::operator+;
-
-static SmallVector<Value, 8> makeCanonicalAffineApplies(OpBuilder &b,
-                                                        Location loc,
-                                                        AffineMap map,
-                                                        ArrayRef<Value> vals) {
+static SmallVector<Value> makeCanonicalAffineApplies(OpBuilder &b, Location loc,
+                                                     AffineMap map,
+                                                     ArrayRef<Value> vals) {
   if (map.isEmpty())
     return {};
-  assert(map.getNumSymbols() == 0);
+
   assert(map.getNumInputs() == vals.size());
-  SmallVector<Value, 8> res;
+  SmallVector<Value> res;
   res.reserve(map.getNumResults());
   auto dims = map.getNumDims();
   for (auto e : map.getResults()) {
-    auto exprMap = AffineMap::get(dims, 0, e);
-    SmallVector<Value, 4> operands(vals.begin(), vals.end());
-    canonicalizeMapAndOperands(&exprMap, &operands);
-    res.push_back(affine_apply(exprMap, operands));
+    auto exprMap = AffineMap::get(dims, map.getNumSymbols(), e);
+    SmallVector<Value> operands(vals);
+    affine::canonicalizeMapAndOperands(&exprMap, &operands);
+    res.push_back(affine::AffineApplyOp::create(b, loc, exprMap, operands));
   }
   return res;
 }
 
-static SmallVector<Value, 4> permuteIvs(ArrayRef<Value> ivs,
-                                        Optional<AffineMap> permutation) {
-  return permutation ? applyMapToValues(ScopedContext::getBuilderRef(),
-                                        ScopedContext::getLocation(),
-                                        permutation.getValue(), ivs)
-                     : SmallVector<Value, 4>(ivs.begin(), ivs.end());
-}
-
-// Creates a number of ranges equal to the number of results in `map`.
-// The returned ranges correspond to the loop ranges, in the proper order, for
-// which new loops will be created.
-static SmallVector<SubViewOp::Range, 4>
-emitLoopRanges(OpBuilder &b, Location loc, AffineMap map,
-               ArrayRef<Value> allViewSizes) {
-  // Apply `map` to get view sizes in loop order.
-  auto sizes = applyMapToValues(b, loc, map, allViewSizes);
-  // Create a new range with the applied tile sizes.
-  ScopedContext scope(b, loc);
-  SmallVector<SubViewOp::Range, 4> res;
-  for (unsigned idx = 0, e = map.getNumResults(); idx < e; ++idx) {
-    res.push_back(SubViewOp::Range{std_constant_index(0), sizes[idx],
-                                   std_constant_index(1)});
-  }
-  return res;
-}
-
-template <typename IndexedValueType, typename OpType>
-static void inlineRegionAndEmitStore(OpType op, ArrayRef<Value> indexedValues,
-                                     ArrayRef<SmallVector<Value, 8>> indexing,
+template <typename LoadOpTy, typename StoreOpTy, typename OpType>
+static void inlineRegionAndEmitStore(OpBuilder &b, Location loc, OpType op,
+                                     ArrayRef<Value> indexedValues,
+                                     ArrayRef<SmallVector<Value>> indexing,
                                      ArrayRef<Value> outputBuffers) {
-  auto &b = ScopedContext::getBuilderRef();
-  auto &block = op.region().front();
-  BlockAndValueMapping map;
+  auto &block = op->getRegion(0).front();
+  IRMapping map;
   map.map(block.getArguments(), indexedValues);
   for (auto &op : block.without_terminator()) {
-    assert(op.getNumRegions() == 0 && "expected a non-nested region");
     auto *newOp = b.clone(op, map);
     map.map(op.getResults(), newOp->getResults());
   }
 
-  Operation &terminator = block.back();
-  assert(isa<YieldOp>(terminator) &&
-         "expected a yield op in the end of the region");
-  for (unsigned i = 0, e = terminator.getNumOperands(); i < e; ++i) {
-    IndexedValueType O(outputBuffers[i]);
-    O(indexing[i]) = map.lookupOrDefault(terminator.getOperand(i));
+  Operation *terminator = block.getTerminator();
+  for (OpOperand &operand : terminator->getOpOperands()) {
+    Value toStore = map.lookupOrDefault(operand.get());
+    StoreOpTy::create(b, loc, toStore,
+                      outputBuffers[operand.getOperandNumber()],
+                      indexing[operand.getOperandNumber()]);
   }
 }
 
 // Returns a pair that contains input indices and output indices of a
 // SingleInputPoolingOp `op`.
 struct InputAndOutputIndices {
-  SmallVector<Value, 8> inputs;
-  SmallVector<Value, 8> outputs;
+  SmallVector<Value> inputs;
+  SmallVector<Value> outputs;
 };
 template <typename SingleInputPoolingOp>
-static InputAndOutputIndices getInputAndOutputIndices(ArrayRef<Value> allIvs,
-                                                      SingleInputPoolingOp op) {
-  auto &b = ScopedContext::getBuilderRef();
-  auto loc = ScopedContext::getLocation();
-  auto mapsRange = op.indexing_maps().template getAsRange<AffineMapAttr>();
+static InputAndOutputIndices
+getInputAndOutputIndices(OpBuilder &b, Location loc, ArrayRef<Value> allIvs,
+                         SingleInputPoolingOp op) {
+  auto mapsRange = op.getIndexingMapsArray();
   auto maps = llvm::to_vector<8>(
       llvm::map_range(mapsRange, [](AffineMapAttr a) { return a.getValue(); }));
   return InputAndOutputIndices{
       makeCanonicalAffineApplies(b, loc, maps[0], allIvs),
       makeCanonicalAffineApplies(b, loc, maps[2], allIvs)};
 }
-
-namespace {
 
 /// Emits the MLIR for the scalar part of the generic op by:
 ///   1. Emitting load ops for each input and output view in order. This is
@@ -150,442 +124,155 @@ namespace {
 ///      }
 ///    }
 /// ```
-template <typename IndexedValueType, typename LinalgOpType>
-class LinalgScopedEmitter {
-public:
-  static void emitScalarImplementation(ArrayRef<Value> allIvs,
-                                       LinalgOpType linalgOp) {
-    assert(linalgOp.hasBufferSemantics() &&
-           "expected linalg op with buffer semantics");
-    auto &b = ScopedContext::getBuilderRef();
-    auto loc = ScopedContext::getLocation();
-    unsigned nInputs = linalgOp.getNumInputs();
-    unsigned nOutputs = linalgOp.getNumOutputs();
-    SmallVector<Value, 4> indexedValues;
-    indexedValues.reserve(nInputs + nOutputs);
+template <typename LoadOpTy, typename StoreOpTy>
+static void emitScalarImplementation(OpBuilder &b, Location loc,
+                                     ArrayRef<Value> allIvs,
+                                     LinalgOp linalgOp) {
+  assert(linalgOp.hasPureBufferSemantics() &&
+         "expected linalg op with buffer semantics");
+  SmallVector<Value> indexedValues;
+  indexedValues.reserve(linalgOp->getNumOperands());
 
-    // TODO(mravishankar): Avoid the loads if the corresponding argument of the
-    // region has no uses.
-    // 1.a. Emit load from input views.
-    for (unsigned i = 0; i < nInputs; ++i) {
-      auto indexing = makeCanonicalAffineApplies(
-          b, loc, linalgOp.getInputIndexingMap(i), allIvs);
-      // Passing through IndexedValueType emits the proper load operation.
-      indexedValues.push_back(IndexedValueType(linalgOp.getInput(i))(indexing));
+  auto allIvsPlusDims = SmallVector<Value>(allIvs);
+
+  // TODO: Avoid the loads if the corresponding argument of the
+  // region has no uses.
+  // 1.a. Emit load from input operand or for scalars access the operand itself.
+  for (OpOperand *inputOperand : linalgOp.getDpsInputOperands()) {
+    if (linalgOp.isScalar(inputOperand)) {
+      indexedValues.push_back(inputOperand->get());
+      continue;
     }
-    // 1.b. Emit load from output views.
-    for (unsigned i = 0; i < nOutputs; ++i) {
-      auto indexing = makeCanonicalAffineApplies(
-          b, loc, linalgOp.getOutputIndexingMap(i), allIvs);
-      // Passing through IndexedValueType emits the proper load operation.
-      indexedValues.push_back(
-          IndexedValueType(linalgOp.getOutputBuffer(i))(indexing));
-    }
-
-    // TODO(ntv): When a region inliner exists, use it.
-    // 2. Inline region, currently only works for a single basic block.
-    // 3. Emit store.
-    SmallVector<SmallVector<Value, 8>, 8> indexing;
-    SmallVector<Value, 8> outputBuffers;
-    for (unsigned i = 0; i < nOutputs; ++i) {
-      indexing.push_back(makeCanonicalAffineApplies(
-          b, loc, linalgOp.getOutputIndexingMap(i), allIvs));
-      outputBuffers.push_back(linalgOp.getOutputBuffer(i));
-    }
-    inlineRegionAndEmitStore<IndexedValueType>(linalgOp, indexedValues,
-                                               indexing, outputBuffers);
+    auto indexing = makeCanonicalAffineApplies(
+        b, loc, linalgOp.getMatchingIndexingMap(inputOperand), allIvsPlusDims);
+    indexedValues.push_back(
+        LoadOpTy::create(b, loc, inputOperand->get(), indexing));
   }
-};
-
-template <typename IndexedValueType>
-class LinalgScopedEmitter<IndexedValueType, CopyOp> {
-public:
-  static void emitScalarImplementation(ArrayRef<Value> allIvs, CopyOp copyOp) {
-    assert(copyOp.hasBufferSemantics() &&
-           "expected linalg op with buffer semantics");
-    auto nPar = copyOp.getNumParallelLoops();
-    assert(nPar == allIvs.size());
-    auto inputIvs =
-        permuteIvs(allIvs.take_front(nPar), copyOp.inputPermutation());
-    auto outputIvs =
-        permuteIvs(allIvs.take_front(nPar), copyOp.outputPermutation());
-    SmallVector<Value, 8> iivs(inputIvs.begin(), inputIvs.end());
-    SmallVector<Value, 8> oivs(outputIvs.begin(), outputIvs.end());
-    IndexedValueType O(copyOp.getOutputBuffer(0)), I(copyOp.getInput(0));
-    // Emit the proper scalar assignment, whether we are dealing with a 0-D or
-    // an n-D loop nest; with or without permutations.
-    // clang-format off
-    nPar > 0 ? O(oivs) = I(iivs) :
-               O() = I();
-    // clang-format on
-  }
-};
-
-template <typename IndexedValueType>
-class LinalgScopedEmitter<IndexedValueType, FillOp> {
-public:
-  static void emitScalarImplementation(ArrayRef<Value> allIvs, FillOp fillOp) {
-    assert(fillOp.hasBufferSemantics() &&
-           "expected linalg op with buffer semantics");
-    auto nPar = fillOp.getNumParallelLoops();
-    assert(nPar == allIvs.size());
-    auto ivs = SmallVector<Value, 4>(allIvs.begin(), allIvs.begin() + nPar);
-    IndexedValueType O(fillOp.getOutputBuffer(0));
-    // Emit the proper scalar assignment, whether we are dealing with a 0-D or
-    // an n-D loop nest; with or without permutations.
-    nPar > 0 ? O(ivs) = fillOp.value() : O() = fillOp.value();
-  }
-};
-
-template <typename IndexedValueType>
-class LinalgScopedEmitter<IndexedValueType, DotOp> {
-public:
-  static void emitScalarImplementation(ArrayRef<Value> allIvs, DotOp dotOp) {
-    assert(dotOp.hasBufferSemantics() &&
-           "expected linalg op with buffer semantics");
-    assert(allIvs.size() == 1);
-    Value r_i(allIvs[0]);
-    IndexedValueType A(dotOp.getInput(0)), B(dotOp.getInput(1)),
-        C(dotOp.getOutputBuffer(0));
-    // Emit scalar form.
-    C() = C() + A(r_i) * B(r_i);
-  }
-};
-
-template <typename IndexedValueType>
-class LinalgScopedEmitter<IndexedValueType, MatvecOp> {
-public:
-  static void emitScalarImplementation(ArrayRef<Value> allIvs,
-                                       MatvecOp matvecOp) {
-    assert(matvecOp.hasBufferSemantics() &&
-           "expected linalg op with buffer semantics");
-    assert(allIvs.size() == 2);
-    Value i(allIvs[0]), r_j(allIvs[1]);
-    IndexedValueType A(matvecOp.getInput(0)), B(matvecOp.getInput(1)),
-        C(matvecOp.getOutputBuffer(0));
-    // Emit scalar form.
-    C(i) = C(i) + A(i, r_j) * B(r_j);
-  }
-};
-
-template <typename IndexedValueType>
-class LinalgScopedEmitter<IndexedValueType, MatmulOp> {
-public:
-  static void emitScalarImplementation(ArrayRef<Value> allIvs,
-                                       MatmulOp matmulOp) {
-    assert(matmulOp.hasBufferSemantics() &&
-           "expected linalg op with buffer semantics");
-    assert(allIvs.size() == 3);
-    Value i(allIvs[0]), j(allIvs[1]), r_k(allIvs[2]);
-    IndexedValueType A(matmulOp.getInput(0)), B(matmulOp.getInput(1)),
-        C(matmulOp.getOutputBuffer(0));
-    // Emit scalar form.
-    C(i, j) = C(i, j) + A(i, r_k) * B(r_k, j);
-  }
-};
-
-template <typename IndexedValueType>
-class LinalgScopedEmitter<IndexedValueType, ConvOp> {
-public:
-  /// Returns the input value of convOp. If the indices in `imIdx` is out of
-  /// boundary, returns 0 instead.
-  static Value getConvOpInput(ConvOp convOp, StdIndexedValue im,
-                              MutableArrayRef<Value> imIdx) {
-    // TODO(ntv): add a level of indirection to linalg.generic.
-    if (!convOp.padding())
-      return im(imIdx);
-
-    auto *context = ScopedContext::getContext();
-    Value zeroIndex = std_constant_index(0);
-    SmallVector<Value, 8> conds;
-    SmallVector<Value, 8> clampedImIdx;
-    for (auto iter : llvm::enumerate(imIdx)) {
-      int idx = iter.index();
-      auto dim = iter.value();
-      // Only need to iterate over the window dimensions.
-      if (idx == 0 || idx == static_cast<int>(imIdx.size()) - 1) {
-        clampedImIdx.push_back(dim);
-        continue;
-      }
-
-      using edsc::op::operator<;
-      using edsc::op::operator>=;
-      using edsc::op::operator||;
-      Value leftOutOfBound = dim < zeroIndex;
-      if (conds.empty())
-        conds.push_back(leftOutOfBound);
-      else
-        conds.push_back(conds.back() || leftOutOfBound);
-      Value rightBound = std_dim(convOp.input(), idx);
-      conds.push_back(conds.back() || (dim >= rightBound));
-
-      // When padding is involved, the indices will only be shifted to negative,
-      // so having a max op is enough.
-      auto maxMap = AffineMap::get(/*dimCount=*/1, 0,
-                                   {getAffineDimExpr(/*position=*/0, context),
-                                    getAffineConstantExpr(0, context)},
-                                   context);
-      clampedImIdx.push_back(
-          affine_max(dim.getType(), maxMap, ValueRange{dim}));
-    }
-
-    auto &b = ScopedContext::getBuilderRef();
-    Type type = convOp.input().getType().cast<MemRefType>().getElementType();
-    Value zero = std_constant(type, b.getZeroAttr(type));
-    Value readInput = im(clampedImIdx);
-    return conds.empty() ? readInput
-                         : (Value)std_select(conds.back(), zero, readInput);
+  // 1.b. Emit load from output views.
+  for (OpOperand &outputOperand : linalgOp.getDpsInitsMutable()) {
+    SmallVector<Value> indexing = makeCanonicalAffineApplies(
+        b, loc, linalgOp.getMatchingIndexingMap(&outputOperand),
+        allIvsPlusDims);
+    indexedValues.push_back(
+        LoadOpTy::create(b, loc, outputOperand.get(), indexing));
   }
 
-  static void emitScalarImplementation(ArrayRef<Value> allIvs, ConvOp convOp) {
-    assert(convOp.hasBufferSemantics() &&
-           "expected linalg op with buffer semantics");
-    auto &b = ScopedContext::getBuilderRef();
-    auto loc = ScopedContext::getLocation();
-    auto mapsRange = convOp.indexing_maps().getAsRange<AffineMapAttr>();
-    auto maps = llvm::to_vector<8>(llvm::map_range(
-        mapsRange, [](AffineMapAttr a) { return a.getValue(); }));
-    SmallVector<Value, 8> fIdx(
-        makeCanonicalAffineApplies(b, loc, maps[0], allIvs));
-    SmallVector<Value, 8> imIdx(
-        makeCanonicalAffineApplies(b, loc, maps[1], allIvs));
-    SmallVector<Value, 8> oIdx(
-        makeCanonicalAffineApplies(b, loc, maps[2], allIvs));
-
-    // Padded conv involves an affine.max in the memory access which is not
-    // allowed by affine.load. Override to always use an StdIndexedValue.
-    StdIndexedValue I(convOp.input());
-    IndexedValueType F(convOp.filter()), O(convOp.output());
-
-    // Emit scalar form.
-    Value paddedInput = getConvOpInput(convOp, I, imIdx);
-    O(oIdx) += F(fIdx) * paddedInput;
+  // TODO: When a region inliner exists, use it.
+  // 2. Inline region, currently only works for a single basic block.
+  // 3. Emit store.
+  SmallVector<SmallVector<Value>, 8> indexing;
+  SmallVector<Value> outputBuffers;
+  for (OpOperand &outputOperand : linalgOp.getDpsInitsMutable()) {
+    if (!isa<MemRefType>(outputOperand.get().getType()))
+      continue;
+    indexing.push_back(makeCanonicalAffineApplies(
+        b, loc, linalgOp.getMatchingIndexingMap(&outputOperand),
+        allIvsPlusDims));
+    outputBuffers.push_back(outputOperand.get());
   }
-};
+  inlineRegionAndEmitStore<LoadOpTy, StoreOpTy>(b, loc, linalgOp, indexedValues,
+                                                indexing, outputBuffers);
+}
 
-template <typename IndexedValueType>
-class LinalgScopedEmitter<IndexedValueType, PoolingMaxOp> {
-public:
-  static void emitScalarImplementation(ArrayRef<Value> allIvs,
-                                       PoolingMaxOp op) {
-    auto indices = getInputAndOutputIndices(allIvs, op);
-    // Emit scalar form.
-    Value lhs = std_load(op.output(), indices.outputs);
-    Value rhs = std_load(op.input(), indices.inputs);
-    using edsc::op::operator>;
-    Value maxValue = std_select(lhs > rhs, lhs, rhs);
-    std_store(maxValue, op.output(), indices.outputs);
+/// Replace the index operations in the body of the loop nest by the matching
+/// induction variables.
+static void replaceIndexOpsByInductionVariables(RewriterBase &rewriter,
+                                                LinalgOp linalgOp,
+                                                ArrayRef<Operation *> loopOps) {
+  // Extract the induction variables of the loop nest from outer to inner.
+  SmallVector<Value> allIvs;
+  for (Operation *loopOp : loopOps) {
+    llvm::TypeSwitch<Operation *>(loopOp)
+        .Case([&](scf::ParallelOp parallelOp) {
+          allIvs.append(parallelOp.getInductionVars());
+        })
+        .Case([&](scf::ForOp forOp) {
+          allIvs.push_back(forOp.getInductionVar());
+        })
+        .Case([&](affine::AffineForOp affineForOp) {
+          allIvs.push_back(affineForOp.getInductionVar());
+        })
+        .DefaultUnreachable("unexpected op");
   }
-};
-
-template <typename IndexedValueType>
-class LinalgScopedEmitter<IndexedValueType, PoolingMinOp> {
-public:
-  static void emitScalarImplementation(ArrayRef<Value> allIvs,
-                                       PoolingMinOp op) {
-    auto indices = getInputAndOutputIndices(allIvs, op);
-    // Emit scalar form.
-    Value lhs = std_load(op.output(), indices.outputs);
-    Value rhs = std_load(op.input(), indices.inputs);
-    using edsc::op::operator<;
-    Value minValue = std_select(lhs < rhs, lhs, rhs);
-    std_store(minValue, op.output(), indices.outputs);
+  assert(linalgOp.getNumLoops() == allIvs.size() &&
+         "expected the number of loops and induction variables to match");
+  // Replace the index operations in the body of the innermost loop op.
+  if (!loopOps.empty()) {
+    auto loopOp = cast<LoopLikeOpInterface>(loopOps.back());
+    for (Region *r : loopOp.getLoopRegions())
+      for (IndexOp indexOp : llvm::make_early_inc_range(r->getOps<IndexOp>()))
+        rewriter.replaceOp(indexOp, allIvs[indexOp.getDim()]);
   }
-};
+}
 
-template <typename IndexedValueType>
-class LinalgScopedEmitter<IndexedValueType, PoolingSumOp> {
-public:
-  static void emitScalarImplementation(ArrayRef<Value> allIvs,
-                                       PoolingSumOp op) {
-    auto indices = getInputAndOutputIndices(allIvs, op);
-    IndexedValueType input(op.input()), output(op.output());
-
-    // Emit scalar form.
-    output(indices.outputs) += input(indices.inputs);
-  }
-};
-
-/// Emits the MLIR for the scalar part of the indexed generic op by:
-///   1. Emitting load ops for each input and output view in order. This is
-///      achieved by applying the appropriate input or output map to the
-///      enclosing induction variables.
-///   2. Emitting a call to `op.fun()` that takes as arguments the induction
-///      variables and the scalars from point 1. above.
-///   3. Emitting store ops to store the results of 2. to the output views.
-///
-/// An example output may resemble:
-///
-/// ```
-///    scf.for %i = %c0 to %0 step %c1 {
-///      scf.for %j = %c0 to %1 step %c1 {
-///        scf.for %k = %c0 to %4 step %c1 {
-///          %11 = load %arg0[%i, %j] :
-///            memref<?x?xf32, stride_specification>
-///          %12 = load %arg1[%i, %j, %k] :
-///            memref<?x?x?xf32, stride_specification>
-///          %13 = load %arg2[%i, %k, %j] :
-///            memref<?x?x?xf32, stride_specification>
-///          %14:2 = call @foo(%i, %j, %k, %11, %12, %13) :
-///            (index, index, index, f32, f32, f32) -> (f32, f32)
-///          store %14#0, %arg1[%i, %j, %k] :
-///            memref<?x?x?Xf32, stride_specification>
-///          store %14#1, %arg2[%i, %k, %j] :
-///            memref<?x?x?Xf32, stride_specification>
-///       }
-///      }
-///    }
-/// ```
-template <typename IndexedValueType>
-class LinalgScopedEmitter<IndexedValueType, IndexedGenericOp> {
-public:
-  static void emitScalarImplementation(ArrayRef<Value> allIvs,
-                                       IndexedGenericOp indexedGenericOp) {
-    assert(indexedGenericOp.hasBufferSemantics() &&
-           "expected linalg op with buffer semantics");
-    auto &b = ScopedContext::getBuilderRef();
-    auto loc = ScopedContext::getLocation();
-    unsigned nInputs = indexedGenericOp.getNumInputs();
-    unsigned nOutputs = indexedGenericOp.getNumOutputs();
-    unsigned nLoops = allIvs.size();
-    SmallVector<Value, 4> indexedValues;
-    indexedValues.reserve(nLoops + nInputs + nOutputs);
-    for (unsigned i = 0; i < nLoops; ++i)
-      indexedValues.push_back(allIvs[i]);
-
-    // TODO(mravishankar): Avoid the loads if the corresponding argument of the
-    // region has no uses.
-    // 1.a. Emit load from input views.
-    for (unsigned i = 0; i < nInputs; ++i) {
-      auto indexing = makeCanonicalAffineApplies(
-          b, loc, indexedGenericOp.getInputIndexingMap(i), allIvs);
-      // Pass input i through IndexedValueType emits the proper load operation.
-      indexedValues.push_back(
-          IndexedValueType(indexedGenericOp.getInput(i))(indexing));
-    }
-    // 1.b. Emit load from output views.
-    for (unsigned i = 0; i < nOutputs; ++i) {
-      auto indexing = makeCanonicalAffineApplies(
-          b, loc, indexedGenericOp.getOutputIndexingMap(i), allIvs);
-      // Pass output i through IndexedValueType emits the proper load operation.
-      indexedValues.push_back(
-          IndexedValueType(indexedGenericOp.getOutputBuffer(i))(indexing));
-    }
-
-    // TODO(ntv): When a region inliner exists, use it.
-    // 2. Inline region, currently only works for a single basic block.
-    // 3. Emit store.
-    SmallVector<SmallVector<Value, 8>, 8> indexing;
-    SmallVector<Value, 8> outputBuffers;
-    for (unsigned i = 0; i < nOutputs; ++i) {
-      indexing.push_back(makeCanonicalAffineApplies(
-          b, loc, indexedGenericOp.getOutputIndexingMap(i), allIvs));
-      outputBuffers.push_back(indexedGenericOp.getOutputBuffer(i));
-    }
-    inlineRegionAndEmitStore<IndexedValueType>(indexedGenericOp, indexedValues,
-                                               indexing, outputBuffers);
-  }
-};
-
-template <typename LoopTy, typename ConcreteOpTy>
-Optional<LinalgLoops> linalgOpToLoopsImpl(Operation *op, OpBuilder &builder) {
-  using IndexedValueTy = typename GenerateLoopNest<LoopTy>::IndexedValueTy;
-
-  ScopedContext scope(builder, op->getLoc());
+template <typename LoopTy>
+static FailureOr<LinalgLoops> linalgOpToLoopsImpl(RewriterBase &rewriter,
+                                                  LinalgOp linalgOp) {
+  using LoadOpTy =
+      std::conditional_t<std::is_same<LoopTy, affine::AffineForOp>::value,
+                         affine::AffineLoadOp, memref::LoadOp>;
+  using StoreOpTy =
+      std::conditional_t<std::is_same<LoopTy, affine::AffineForOp>::value,
+                         affine::AffineStoreOp, memref::StoreOp>;
 
   // The flattened loopToOperandRangesMaps is expected to be an invertible
   // permutation map (which is asserted in the inverse calculation).
-  auto linalgOp = cast<ConcreteOpTy>(op);
-  assert(linalgOp.hasBufferSemantics() &&
+  assert(linalgOp.hasPureBufferSemantics() &&
          "expected linalg op with buffer semantics");
-  auto nPar = linalgOp.getNumParallelLoops();
-  auto nRed = linalgOp.getNumReductionLoops();
-  auto nWin = linalgOp.getNumWindowLoops();
-  auto nLoops = nPar + nRed + nWin;
-  auto mapsRange =
-      linalgOp.indexing_maps().template getAsRange<AffineMapAttr>();
-  auto maps = llvm::to_vector<8>(
-      llvm::map_range(mapsRange, [](AffineMapAttr a) { return a.getValue(); }));
-  AffineMap invertedMap = inversePermutation(concatAffineMaps(maps));
-  if (!invertedMap)
-    return {};
-  if (invertedMap.isEmpty()) {
-    LinalgScopedEmitter<IndexedValueTy, ConcreteOpTy>::emitScalarImplementation(
-        {}, linalgOp);
-    return LinalgLoops();
-  }
 
-  SmallVector<Value, 4> allIvs(nLoops);
-  auto loopRanges =
-      emitLoopRanges(scope.getBuilderRef(), scope.getLocation(), invertedMap,
-                     getViewSizes(builder, linalgOp));
-  assert(loopRanges.size() == allIvs.size());
+  auto loopRanges = linalgOp.createLoopRanges(rewriter, linalgOp.getLoc());
+  auto iteratorTypes = linalgOp.getIteratorTypesArray();
+
+  SmallVector<Value> allIvs;
   GenerateLoopNest<LoopTy>::doit(
-      allIvs, loopRanges, linalgOp.iterator_types().getValue(), [&] {
-        SmallVector<Value, 4> allIvValues(allIvs.begin(), allIvs.end());
-        LinalgScopedEmitter<IndexedValueTy,
-                            ConcreteOpTy>::emitScalarImplementation(allIvValues,
-                                                                    linalgOp);
+      rewriter, linalgOp.getLoc(), loopRanges, linalgOp, iteratorTypes,
+      [&](OpBuilder &b, Location loc, ValueRange ivs,
+          ValueRange operandValuesToUse) -> scf::ValueVector {
+        assert(operandValuesToUse == linalgOp->getOperands() &&
+               "expect operands are captured and not passed by loop argument");
+        allIvs.append(ivs.begin(), ivs.end());
+        emitScalarImplementation<LoadOpTy, StoreOpTy>(b, loc, allIvs, linalgOp);
+        return scf::ValueVector{};
       });
   // Number of loop ops might be different from the number of ivs since some
   // loops like affine.parallel and scf.parallel have multiple ivs.
-  llvm::SetVector<Operation *> loopSet;
+  SetVector<Operation *> loopSet;
   for (Value iv : allIvs) {
     if (!iv)
-      return {};
+      return failure();
     // The induction variable is a block argument of the entry block of the
     // loop operation.
-    BlockArgument ivVal = iv.dyn_cast<BlockArgument>();
+    BlockArgument ivVal = dyn_cast<BlockArgument>(iv);
     if (!ivVal)
-      return {};
+      return failure();
     loopSet.insert(ivVal.getOwner()->getParentOp());
   }
   LinalgLoops loops(loopSet.begin(), loopSet.end());
+  // Replace all index operations in the loop body.
+  replaceIndexOpsByInductionVariables(rewriter, linalgOp, loops);
   return loops;
 }
 
-template <typename LoopType, typename ConcreteOp>
+namespace {
+template <typename LoopType>
 class LinalgRewritePattern : public RewritePattern {
 public:
-  explicit LinalgRewritePattern(MLIRContext *context)
-      : RewritePattern(ConcreteOp::getOperationName(), 1, context) {}
+  LinalgRewritePattern(MLIRContext *context)
+      : RewritePattern(MatchAnyOpTypeTag(), /*benefit=*/1, context) {}
 
   LogicalResult matchAndRewrite(Operation *op,
                                 PatternRewriter &rewriter) const override {
-    if (!linalgOpToLoopsImpl<LoopType, ConcreteOp>(op, rewriter))
+    auto linalgOp = dyn_cast<LinalgOp>(op);
+    if (!isa<LinalgOp>(op) || !linalgOp.hasPureBufferSemantics()) {
+      return rewriter.notifyMatchFailure(
+          op, "expected linalg op with buffer semantics");
+    }
+    if (failed(linalgOpToLoopsImpl<LoopType>(rewriter, linalgOp)))
       return failure();
     rewriter.eraseOp(op);
     return success();
   }
 };
-
-/// Helper classes for type list expansion.
-template <typename LoopType, typename... LinalgOps>
-class RewritePatternList;
-
-template <typename LoopType>
-class RewritePatternList<LoopType> {
-public:
-  static void build(OwningRewritePatternList &patterns, MLIRContext *ctx) {}
-};
-
-template <typename LoopType, typename ConcreteOp, typename... LinalgOps>
-class RewritePatternList<LoopType, ConcreteOp, LinalgOps...> {
-public:
-  static void build(OwningRewritePatternList &patterns, MLIRContext *ctx) {
-    patterns.insert<LinalgRewritePattern<LoopType, ConcreteOp>>(ctx);
-    RewritePatternList<LoopType, LinalgOps...>::build(patterns, ctx);
-  }
-};
-
-/// Populate the given list with patterns that convert from Linalg to loops.
-template <typename LoopType>
-void FillRewritePatterns(OwningRewritePatternList &patterns, MLIRContext *ctx) {
-  RewritePatternList<LoopType,
-#define GET_OP_LIST
-#include "mlir/Dialect/Linalg/IR/LinalgStructuredOps.cpp.inc"
-                     >::build(patterns, ctx);
-}
 
 /// Local folding pattern for AffineApplyOp that we can apply greedily.
 /// This replaces AffineApplyOp by the proper value in cases where the
@@ -599,134 +286,93 @@ void FillRewritePatterns(OwningRewritePatternList &patterns, MLIRContext *ctx) {
 /// other cases, it is replaced by its unique operand.
 struct FoldAffineOp : public RewritePattern {
   FoldAffineOp(MLIRContext *context)
-      : RewritePattern(AffineApplyOp::getOperationName(), 0, context) {}
+      : RewritePattern(affine::AffineApplyOp::getOperationName(), 0, context) {}
 
   LogicalResult matchAndRewrite(Operation *op,
                                 PatternRewriter &rewriter) const override {
-    AffineApplyOp affineApplyOp = cast<AffineApplyOp>(op);
+    auto affineApplyOp = cast<affine::AffineApplyOp>(op);
     auto map = affineApplyOp.getAffineMap();
     if (map.getNumResults() != 1 || map.getNumInputs() > 1)
       return failure();
 
     AffineExpr expr = map.getResult(0);
     if (map.getNumInputs() == 0) {
-      if (auto val = expr.dyn_cast<AffineConstantExpr>()) {
-        rewriter.replaceOpWithNewOp<ConstantIndexOp>(op, val.getValue());
+      if (auto val = dyn_cast<AffineConstantExpr>(expr)) {
+        rewriter.replaceOpWithNewOp<arith::ConstantIndexOp>(op, val.getValue());
         return success();
       }
       return failure();
     }
-    if (expr.dyn_cast<AffineDimExpr>() || expr.dyn_cast<AffineSymbolExpr>()) {
+    if (isa<AffineDimExpr, AffineSymbolExpr>(expr)) {
       rewriter.replaceOp(op, op->getOperand(0));
       return success();
     }
     return failure();
   }
 };
-} // namespace
 
 template <typename LoopType>
-static void lowerLinalgToLoopsImpl(Operation *op, MLIRContext *context) {
-  OwningRewritePatternList patterns;
-  // Canonicalization and folding patterns applied greedily allow cleaning up
-  // the emitted IR on the fly.
-  // TODO(ntv) fold view and subview ops?
-  FillRewritePatterns<LoopType>(patterns, context);
-  DimOp::getCanonicalizationPatterns(patterns, context);
-  AffineApplyOp::getCanonicalizationPatterns(patterns, context);
-  patterns.insert<FoldAffineOp>(context);
+static void lowerLinalgToLoopsImpl(Operation *enclosingOp) {
+  MLIRContext *context = enclosingOp->getContext();
+  RewritePatternSet patterns(context);
+  patterns.add<LinalgRewritePattern<LoopType>>(context);
+  memref::DimOp::getCanonicalizationPatterns(patterns, context);
+  tensor::DimOp::getCanonicalizationPatterns(patterns, context);
+  affine::AffineApplyOp::getCanonicalizationPatterns(patterns, context);
+  patterns.add<FoldAffineOp>(context);
   // Just apply the patterns greedily.
-  applyPatternsAndFoldGreedily(op, patterns);
+  (void)applyPatternsGreedily(enclosingOp, std::move(patterns));
 }
 
-namespace {
 struct LowerToAffineLoops
-    : public LinalgLowerToAffineLoopsBase<LowerToAffineLoops> {
-  void runOnFunction() override {
-    lowerLinalgToLoopsImpl<AffineForOp>(getFunction(), &getContext());
+    : public impl::ConvertLinalgToAffineLoopsPassBase<LowerToAffineLoops> {
+  using impl::ConvertLinalgToAffineLoopsPassBase<
+      LowerToAffineLoops>::ConvertLinalgToAffineLoopsPassBase;
+  void getDependentDialects(DialectRegistry &registry) const override {
+    registry.insert<memref::MemRefDialect>();
+  }
+  void runOnOperation() override {
+    lowerLinalgToLoopsImpl<affine::AffineForOp>(getOperation());
   }
 };
-struct LowerToLoops : public LinalgLowerToLoopsBase<LowerToLoops> {
-  void runOnFunction() override {
-    lowerLinalgToLoopsImpl<scf::ForOp>(getFunction(), &getContext());
+
+struct LowerToLoops : public impl::ConvertLinalgToLoopsPassBase<LowerToLoops> {
+  using impl::ConvertLinalgToLoopsPassBase<
+      LowerToLoops>::ConvertLinalgToLoopsPassBase;
+  void getDependentDialects(DialectRegistry &registry) const override {
+    registry.insert<memref::MemRefDialect, scf::SCFDialect>();
+  }
+  void runOnOperation() override {
+    lowerLinalgToLoopsImpl<scf::ForOp>(getOperation());
   }
 };
+
 struct LowerToParallelLoops
-    : public LinalgLowerToParallelLoopsBase<LowerToParallelLoops> {
-  void runOnFunction() override {
-    lowerLinalgToLoopsImpl<scf::ParallelOp>(getFunction(), &getContext());
+    : public impl::ConvertLinalgToParallelLoopsPassBase<LowerToParallelLoops> {
+  using impl::ConvertLinalgToParallelLoopsPassBase<
+      LowerToParallelLoops>::ConvertLinalgToParallelLoopsPassBase;
+  void runOnOperation() override {
+    lowerLinalgToLoopsImpl<scf::ParallelOp>(getOperation());
   }
 };
+
 } // namespace
 
-std::unique_ptr<OperationPass<FuncOp>> mlir::createConvertLinalgToLoopsPass() {
-  return std::make_unique<LowerToLoops>();
+/// Emits a loop nest of `affine.for` with the proper body for `linalgOp`.
+FailureOr<LinalgLoops>
+mlir::linalg::linalgOpToAffineLoops(RewriterBase &rewriter, LinalgOp linalgOp) {
+  return linalgOpToLoopsImpl<affine::AffineForOp>(rewriter, linalgOp);
 }
 
-std::unique_ptr<OperationPass<FuncOp>>
-mlir::createConvertLinalgToParallelLoopsPass() {
-  return std::make_unique<LowerToParallelLoops>();
+/// Emits a loop nest of `scf.for` with the proper body for `linalgOp`.
+FailureOr<LinalgLoops> mlir::linalg::linalgOpToLoops(RewriterBase &rewriter,
+                                                     LinalgOp linalgOp) {
+  return linalgOpToLoopsImpl<scf::ForOp>(rewriter, linalgOp);
 }
 
-std::unique_ptr<OperationPass<FuncOp>>
-mlir::createConvertLinalgToAffineLoopsPass() {
-  return std::make_unique<LowerToAffineLoops>();
+/// Emits a loop nest of `scf.parallel` with the proper body for `linalgOp`.
+FailureOr<LinalgLoops>
+mlir::linalg::linalgOpToParallelLoops(RewriterBase &rewriter,
+                                      LinalgOp linalgOp) {
+  return linalgOpToLoopsImpl<scf::ParallelOp>(rewriter, linalgOp);
 }
-
-/// Emits a loop nest with the proper body for `op`.
-template <typename LoopTy, typename ConcreteOp>
-Optional<LinalgLoops> mlir::linalg::linalgLowerOpToLoops(OpBuilder &builder,
-                                                         Operation *op) {
-  return linalgOpToLoopsImpl<LoopTy, ConcreteOp>(op, builder);
-}
-
-/// Emits a loop nest of `scf.for` with the proper body for `op`.
-template <typename ConcreteOp>
-LogicalResult mlir::linalg::linalgOpToLoops(OpBuilder &builder, Operation *op) {
-  Optional<LinalgLoops> loops =
-      linalgLowerOpToLoops<scf::ForOp, ConcreteOp>(builder, op);
-  return loops ? success() : failure();
-}
-
-/// Emits a loop nest of `affine.for` with the proper body for `op`.
-template <typename ConcreteOp>
-LogicalResult mlir::linalg::linalgOpToAffineLoops(OpBuilder &builder,
-                                                  Operation *op) {
-  Optional<LinalgLoops> loops =
-      linalgLowerOpToLoops<AffineForOp, ConcreteOp>(builder, op);
-  return loops ? success() : failure();
-}
-
-/// Emits a loop nest of `scf.parallel` with the proper body for `op`.
-template <typename ConcreteOp>
-LogicalResult mlir::linalg::linalgOpToParallelLoops(OpBuilder &builder,
-                                                    Operation *op) {
-  Optional<LinalgLoops> loops =
-      linalgLowerOpToLoops<scf::ParallelOp, ConcreteOp>(builder, op);
-  return loops ? success() : failure();
-}
-
-// TODO Need to make these instantiations more future-proof to avoid the need to
-// update as soon as we add new ops.
-#define INSTANTIATE_LINALG_OP_TO_LOOPS(OP_TYPE)                                \
-  template LogicalResult mlir::linalg::linalgOpToLoops<OP_TYPE>(               \
-      OpBuilder & builder, Operation * op);                                    \
-  template LogicalResult mlir::linalg::linalgOpToAffineLoops<OP_TYPE>(         \
-      OpBuilder & builder, Operation * op);                                    \
-  template LogicalResult mlir::linalg::linalgOpToParallelLoops<OP_TYPE>(       \
-      OpBuilder & builder, Operation * op);                                    \
-  template Optional<LinalgLoops>                                               \
-      mlir::linalg::linalgLowerOpToLoops<scf::ParallelOp, OP_TYPE>(            \
-          OpBuilder & builder, Operation * op);
-
-INSTANTIATE_LINALG_OP_TO_LOOPS(CopyOp)
-INSTANTIATE_LINALG_OP_TO_LOOPS(FillOp)
-INSTANTIATE_LINALG_OP_TO_LOOPS(DotOp)
-INSTANTIATE_LINALG_OP_TO_LOOPS(MatvecOp)
-INSTANTIATE_LINALG_OP_TO_LOOPS(MatmulOp)
-INSTANTIATE_LINALG_OP_TO_LOOPS(ConvOp)
-INSTANTIATE_LINALG_OP_TO_LOOPS(PoolingMaxOp)
-INSTANTIATE_LINALG_OP_TO_LOOPS(PoolingMinOp)
-INSTANTIATE_LINALG_OP_TO_LOOPS(PoolingSumOp)
-INSTANTIATE_LINALG_OP_TO_LOOPS(GenericOp)
-INSTANTIATE_LINALG_OP_TO_LOOPS(IndexedGenericOp)

@@ -7,140 +7,360 @@
 //===----------------------------------------------------------------------===//
 
 #include "TestDialect.h"
-#include "mlir/Dialect/StandardOps/IR/Ops.h"
-#include "mlir/IR/Function.h"
-#include "mlir/IR/Module.h"
+#include "TestOps.h"
+#include "TestTypes.h"
+#include "mlir/Bytecode/BytecodeImplementation.h"
+#include "mlir/Dialect/Arith/IR/Arith.h"
+#include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "mlir/Dialect/Tensor/IR/Tensor.h"
+#include "mlir/IR/AsmState.h"
+#include "mlir/IR/BuiltinAttributes.h"
+#include "mlir/IR/BuiltinOps.h"
+#include "mlir/IR/Diagnostics.h"
+#include "mlir/IR/ExtensibleDialect.h"
+#include "mlir/IR/MLIRContext.h"
+#include "mlir/IR/ODSSupport.h"
+#include "mlir/IR/OperationSupport.h"
 #include "mlir/IR/PatternMatch.h"
 #include "mlir/IR/TypeUtilities.h"
+#include "mlir/IR/Verifier.h"
+#include "mlir/Interfaces/CallInterfaces.h"
+#include "mlir/Interfaces/FunctionImplementation.h"
+#include "mlir/Interfaces/InferIntRangeInterface.h"
+#include "mlir/Support/LLVM.h"
 #include "mlir/Transforms/FoldUtils.h"
 #include "mlir/Transforms/InliningUtils.h"
+#include "llvm/ADT/STLFunctionalExtras.h"
+#include "llvm/ADT/SmallString.h"
+#include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/StringSwitch.h"
+#include "llvm/Support/Base64.h"
+#include "llvm/Support/Casting.h"
+
+#include "mlir/Dialect/Arith/IR/Arith.h"
+#include "mlir/Dialect/DLTI/DLTI.h"
+#include "mlir/Interfaces/FoldInterfaces.h"
+#include "mlir/Reducer/ReductionPatternInterface.h"
+#include "mlir/Transforms/InliningUtils.h"
+#include <cstdint>
+#include <numeric>
+#include <optional>
+
+// Include this before the using namespace lines below to test that we don't
+// have namespace dependencies.
+#include "TestOpsDialect.cpp.inc"
 
 using namespace mlir;
+using namespace test;
 
 //===----------------------------------------------------------------------===//
-// TestDialect Interfaces
+// PropertiesWithCustomPrint
 //===----------------------------------------------------------------------===//
 
-namespace {
-
-// Test support for interacting with the AsmPrinter.
-struct TestOpAsmInterface : public OpAsmDialectInterface {
-  using OpAsmDialectInterface::OpAsmDialectInterface;
-
-  void getAsmResultNames(Operation *op,
-                         OpAsmSetValueNameFn setNameFn) const final {
-    if (auto asmOp = dyn_cast<AsmDialectInterfaceOp>(op))
-      setNameFn(asmOp, "result");
+LogicalResult
+test::setPropertiesFromAttribute(PropertiesWithCustomPrint &prop,
+                                 Attribute attr,
+                                 function_ref<InFlightDiagnostic()> emitError) {
+  DictionaryAttr dict = dyn_cast<DictionaryAttr>(attr);
+  if (!dict) {
+    emitError() << "expected DictionaryAttr to set TestProperties";
+    return failure();
+  }
+  auto label = dict.getAs<mlir::StringAttr>("label");
+  if (!label) {
+    emitError() << "expected StringAttr for key `label`";
+    return failure();
+  }
+  auto valueAttr = dict.getAs<IntegerAttr>("value");
+  if (!valueAttr) {
+    emitError() << "expected IntegerAttr for key `value`";
+    return failure();
   }
 
-  void getAsmBlockArgumentNames(Block *block,
-                                OpAsmSetValueNameFn setNameFn) const final {
-    auto op = block->getParentOp();
-    auto arrayAttr = op->getAttrOfType<ArrayAttr>("arg_names");
-    if (!arrayAttr)
-      return;
-    auto args = block->getArguments();
-    auto e = std::min(arrayAttr.size(), args.size());
-    for (unsigned i = 0; i < e; ++i) {
-      if (auto strAttr = arrayAttr[i].dyn_cast<StringAttr>())
-        setNameFn(args[i], strAttr.getValue());
-    }
+  prop.label = std::make_shared<std::string>(label.getValue());
+  prop.value = valueAttr.getValue().getSExtValue();
+  return success();
+}
+
+DictionaryAttr
+test::getPropertiesAsAttribute(MLIRContext *ctx,
+                               const PropertiesWithCustomPrint &prop) {
+  SmallVector<NamedAttribute> attrs;
+  Builder b{ctx};
+  attrs.push_back(b.getNamedAttr("label", b.getStringAttr(*prop.label)));
+  attrs.push_back(b.getNamedAttr("value", b.getI32IntegerAttr(prop.value)));
+  return b.getDictionaryAttr(attrs);
+}
+
+llvm::hash_code test::computeHash(const PropertiesWithCustomPrint &prop) {
+  return llvm::hash_combine(prop.value, StringRef(*prop.label));
+}
+
+void test::customPrintProperties(OpAsmPrinter &p,
+                                 const PropertiesWithCustomPrint &prop) {
+  p.printKeywordOrString(*prop.label);
+  p << " is " << prop.value;
+}
+
+ParseResult test::customParseProperties(OpAsmParser &parser,
+                                        PropertiesWithCustomPrint &prop) {
+  std::string label;
+  if (parser.parseKeywordOrString(&label) || parser.parseKeyword("is") ||
+      parser.parseInteger(prop.value))
+    return failure();
+  prop.label = std::make_shared<std::string>(std::move(label));
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
+// MyPropStruct
+//===----------------------------------------------------------------------===//
+
+Attribute MyPropStruct::asAttribute(MLIRContext *ctx) const {
+  return StringAttr::get(ctx, content);
+}
+
+LogicalResult
+MyPropStruct::setFromAttr(MyPropStruct &prop, Attribute attr,
+                          function_ref<InFlightDiagnostic()> emitError) {
+  StringAttr strAttr = dyn_cast<StringAttr>(attr);
+  if (!strAttr) {
+    emitError() << "Expect StringAttr but got " << attr;
+    return failure();
   }
-};
+  prop.content = strAttr.getValue();
+  return success();
+}
 
-struct TestOpFolderDialectInterface : public OpFolderDialectInterface {
-  using OpFolderDialectInterface::OpFolderDialectInterface;
+llvm::hash_code MyPropStruct::hash() const {
+  return hash_value(StringRef(content));
+}
 
-  /// Registered hook to check if the given region, which is attached to an
-  /// operation that is *not* isolated from above, should be used when
-  /// materializing constants.
-  bool shouldMaterializeInto(Region *region) const final {
-    // If this is a one region operation, then insert into it.
-    return isa<OneRegionOp>(region->getParentOp());
+LogicalResult test::readFromMlirBytecode(DialectBytecodeReader &reader,
+                                         MyPropStruct &prop) {
+  StringRef str;
+  if (failed(reader.readString(str)))
+    return failure();
+  prop.content = str.str();
+  return success();
+}
+
+void test::writeToMlirBytecode(DialectBytecodeWriter &writer,
+                               MyPropStruct &prop) {
+  writer.writeOwnedString(prop.content);
+}
+
+//===----------------------------------------------------------------------===//
+// VersionedProperties
+//===----------------------------------------------------------------------===//
+
+LogicalResult
+test::setPropertiesFromAttribute(VersionedProperties &prop, Attribute attr,
+                                 function_ref<InFlightDiagnostic()> emitError) {
+  DictionaryAttr dict = dyn_cast<DictionaryAttr>(attr);
+  if (!dict) {
+    emitError() << "expected DictionaryAttr to set VersionedProperties";
+    return failure();
   }
-};
-
-/// This class defines the interface for handling inlining with standard
-/// operations.
-struct TestInlinerInterface : public DialectInlinerInterface {
-  using DialectInlinerInterface::DialectInlinerInterface;
-
-  //===--------------------------------------------------------------------===//
-  // Analysis Hooks
-  //===--------------------------------------------------------------------===//
-
-  bool isLegalToInline(Region *, Region *, BlockAndValueMapping &) const final {
-    // Inlining into test dialect regions is legal.
-    return true;
+  auto value1Attr = dict.getAs<IntegerAttr>("value1");
+  if (!value1Attr) {
+    emitError() << "expected IntegerAttr for key `value1`";
+    return failure();
   }
-  bool isLegalToInline(Operation *, Region *,
-                       BlockAndValueMapping &) const final {
-    return true;
-  }
-
-  bool shouldAnalyzeRecursively(Operation *op) const final {
-    // Analyze recursively if this is not a functional region operation, it
-    // froms a separate functional scope.
-    return !isa<FunctionalRegionOp>(op);
-  }
-
-  //===--------------------------------------------------------------------===//
-  // Transformation Hooks
-  //===--------------------------------------------------------------------===//
-
-  /// Handle the given inlined terminator by replacing it with a new operation
-  /// as necessary.
-  void handleTerminator(Operation *op,
-                        ArrayRef<Value> valuesToRepl) const final {
-    // Only handle "test.return" here.
-    auto returnOp = dyn_cast<TestReturnOp>(op);
-    if (!returnOp)
-      return;
-
-    // Replace the values directly with the return operands.
-    assert(returnOp.getNumOperands() == valuesToRepl.size());
-    for (const auto &it : llvm::enumerate(returnOp.getOperands()))
-      valuesToRepl[it.index()].replaceAllUsesWith(it.value());
+  auto value2Attr = dict.getAs<IntegerAttr>("value2");
+  if (!value2Attr) {
+    emitError() << "expected IntegerAttr for key `value2`";
+    return failure();
   }
 
-  /// Attempt to materialize a conversion for a type mismatch between a call
-  /// from this dialect, and a callable region. This method should generate an
-  /// operation that takes 'input' as the only operand, and produces a single
-  /// result of 'resultType'. If a conversion can not be generated, nullptr
-  /// should be returned.
-  Operation *materializeCallConversion(OpBuilder &builder, Value input,
-                                       Type resultType,
-                                       Location conversionLoc) const final {
-    // Only allow conversion for i16/i32 types.
-    if (!(resultType.isSignlessInteger(16) ||
-          resultType.isSignlessInteger(32)) ||
-        !(input.getType().isSignlessInteger(16) ||
-          input.getType().isSignlessInteger(32)))
-      return nullptr;
-    return builder.create<TestCastOp>(conversionLoc, resultType, input);
+  prop.value1 = value1Attr.getValue().getSExtValue();
+  prop.value2 = value2Attr.getValue().getSExtValue();
+  return success();
+}
+
+DictionaryAttr test::getPropertiesAsAttribute(MLIRContext *ctx,
+                                              const VersionedProperties &prop) {
+  SmallVector<NamedAttribute> attrs;
+  Builder b{ctx};
+  attrs.push_back(b.getNamedAttr("value1", b.getI32IntegerAttr(prop.value1)));
+  attrs.push_back(b.getNamedAttr("value2", b.getI32IntegerAttr(prop.value2)));
+  return b.getDictionaryAttr(attrs);
+}
+
+llvm::hash_code test::computeHash(const VersionedProperties &prop) {
+  return llvm::hash_combine(prop.value1, prop.value2);
+}
+
+void test::customPrintProperties(OpAsmPrinter &p,
+                                 const VersionedProperties &prop) {
+  p << prop.value1 << " | " << prop.value2;
+}
+
+ParseResult test::customParseProperties(OpAsmParser &parser,
+                                        VersionedProperties &prop) {
+  if (parser.parseInteger(prop.value1) || parser.parseVerticalBar() ||
+      parser.parseInteger(prop.value2))
+    return failure();
+  return success();
+}
+
+//===----------------------------------------------------------------------===//
+// Bytecode Support
+//===----------------------------------------------------------------------===//
+
+LogicalResult test::readFromMlirBytecode(DialectBytecodeReader &reader,
+                                         MutableArrayRef<int64_t> prop) {
+  uint64_t size;
+  if (failed(reader.readVarInt(size)))
+    return failure();
+  if (size != prop.size())
+    return reader.emitError("array size mismach when reading properties: ")
+           << size << " vs expected " << prop.size();
+  for (auto &elt : prop) {
+    uint64_t value;
+    if (failed(reader.readVarInt(value)))
+      return failure();
+    elt = value;
   }
-};
-} // end anonymous namespace
+  return success();
+}
+
+void test::writeToMlirBytecode(DialectBytecodeWriter &writer,
+                               ArrayRef<int64_t> prop) {
+  writer.writeVarInt(prop.size());
+  for (auto elt : prop)
+    writer.writeVarInt(elt);
+}
+
+//===----------------------------------------------------------------------===//
+// Dynamic operations
+//===----------------------------------------------------------------------===//
+
+static std::unique_ptr<DynamicOpDefinition>
+getDynamicGenericOp(TestDialect *dialect) {
+  return DynamicOpDefinition::get(
+      "dynamic_generic", dialect, [](Operation *op) { return success(); },
+      [](Operation *op) { return success(); });
+}
+
+static std::unique_ptr<DynamicOpDefinition>
+getDynamicOneOperandTwoResultsOp(TestDialect *dialect) {
+  return DynamicOpDefinition::get(
+      "dynamic_one_operand_two_results", dialect,
+      [](Operation *op) {
+        if (op->getNumOperands() != 1) {
+          op->emitOpError()
+              << "expected 1 operand, but had " << op->getNumOperands();
+          return failure();
+        }
+        if (op->getNumResults() != 2) {
+          op->emitOpError()
+              << "expected 2 results, but had " << op->getNumResults();
+          return failure();
+        }
+        return success();
+      },
+      [](Operation *op) { return success(); });
+}
+
+static std::unique_ptr<DynamicOpDefinition>
+getDynamicCustomParserPrinterOp(TestDialect *dialect) {
+  auto verifier = [](Operation *op) {
+    if (op->getNumOperands() == 0 && op->getNumResults() == 0)
+      return success();
+    op->emitError() << "operation should have no operands and no results";
+    return failure();
+  };
+  auto regionVerifier = [](Operation *op) { return success(); };
+
+  auto parser = [](OpAsmParser &parser, OperationState &state) {
+    return parser.parseKeyword("custom_keyword");
+  };
+
+  auto printer = [](Operation *op, OpAsmPrinter &printer, llvm::StringRef) {
+    printer << op->getName() << " custom_keyword";
+  };
+
+  return DynamicOpDefinition::get("dynamic_custom_parser_printer", dialect,
+                                  verifier, regionVerifier, parser, printer);
+}
 
 //===----------------------------------------------------------------------===//
 // TestDialect
 //===----------------------------------------------------------------------===//
 
-TestDialect::TestDialect(MLIRContext *context)
-    : Dialect(getDialectNamespace(), context) {
-  addOperations<
-#define GET_OP_LIST
-#include "TestOps.cpp.inc"
-      >();
-  addInterfaces<TestOpAsmInterface, TestOpFolderDialectInterface,
-                TestInlinerInterface>();
+void test::registerTestDialect(DialectRegistry &registry) {
+  registry.insert<TestDialect>();
+}
+
+void test::testSideEffectOpGetEffect(
+    Operation *op,
+    SmallVectorImpl<SideEffects::EffectInstance<TestEffects::Effect>>
+        &effects) {
+  auto effectsAttr = op->getAttrOfType<AffineMapAttr>("effect_parameter");
+  if (!effectsAttr)
+    return;
+
+  effects.emplace_back(TestEffects::Concrete::get(), effectsAttr);
+}
+
+// This is the implementation of a dialect fallback for `TestEffectOpInterface`.
+struct TestOpEffectInterfaceFallback
+    : public TestEffectOpInterface::FallbackModel<
+          TestOpEffectInterfaceFallback> {
+  static bool classof(Operation *op) {
+    bool isSupportedOp =
+        op->getName().getStringRef() == "test.unregistered_side_effect_op";
+    assert(isSupportedOp && "Unexpected dispatch");
+    return isSupportedOp;
+  }
+
+  void
+  getEffects(Operation *op,
+             SmallVectorImpl<SideEffects::EffectInstance<TestEffects::Effect>>
+                 &effects) const {
+    testSideEffectOpGetEffect(op, effects);
+  }
+};
+
+void TestDialect::initialize() {
+  registerAttributes();
+  registerTypes();
+  registerOpsSyntax();
+  addOperations<ManualCppOpWithFold>();
+  registerTestDialectOperations(this);
+  registerDynamicOp(getDynamicGenericOp(this));
+  registerDynamicOp(getDynamicOneOperandTwoResultsOp(this));
+  registerDynamicOp(getDynamicCustomParserPrinterOp(this));
+  registerInterfaces();
   allowUnknownOperations();
+
+  // Instantiate our fallback op interface that we'll use on specific
+  // unregistered op.
+  fallbackEffectOpInterfaces = new TestOpEffectInterfaceFallback;
+}
+
+TestDialect::~TestDialect() {
+  delete static_cast<TestOpEffectInterfaceFallback *>(
+      fallbackEffectOpInterfaces);
+}
+
+Operation *TestDialect::materializeConstant(OpBuilder &builder, Attribute value,
+                                            Type type, Location loc) {
+  return TestOpConstant::create(builder, loc, type, value);
+}
+
+void *TestDialect::getRegisteredInterfaceForOp(TypeID typeID,
+                                               OperationName opName) {
+  if (opName.getIdentifier() == "test.unregistered_side_effect_op" &&
+      typeID == TypeID::get<TestEffectOpInterface>())
+    return fallbackEffectOpInterfaces;
+  return nullptr;
 }
 
 LogicalResult TestDialect::verifyOperationAttribute(Operation *op,
                                                     NamedAttribute namedAttr) {
-  if (namedAttr.first == "test.invalid_attr")
+  if (namedAttr.getName() == "test.invalid_attr")
     return op->emitError() << "invalid to use 'test.invalid_attr'";
   return success();
 }
@@ -149,7 +369,7 @@ LogicalResult TestDialect::verifyRegionArgAttribute(Operation *op,
                                                     unsigned regionIndex,
                                                     unsigned argIndex,
                                                     NamedAttribute namedAttr) {
-  if (namedAttr.first == "test.invalid_attr")
+  if (namedAttr.getName() == "test.invalid_attr")
     return op->emitError() << "invalid to use 'test.invalid_attr'";
   return success();
 }
@@ -158,353 +378,100 @@ LogicalResult
 TestDialect::verifyRegionResultAttribute(Operation *op, unsigned regionIndex,
                                          unsigned resultIndex,
                                          NamedAttribute namedAttr) {
-  if (namedAttr.first == "test.invalid_attr")
+  if (namedAttr.getName() == "test.invalid_attr")
     return op->emitError() << "invalid to use 'test.invalid_attr'";
   return success();
 }
 
-//===----------------------------------------------------------------------===//
-// TestBranchOp
-//===----------------------------------------------------------------------===//
-
-Optional<MutableOperandRange>
-TestBranchOp::getMutableSuccessorOperands(unsigned index) {
-  assert(index == 0 && "invalid successor index");
-  return targetOperandsMutable();
-}
-
-//===----------------------------------------------------------------------===//
-// Test IsolatedRegionOp - parse passthrough region arguments.
-//===----------------------------------------------------------------------===//
-
-static ParseResult parseIsolatedRegionOp(OpAsmParser &parser,
-                                         OperationState &result) {
-  OpAsmParser::OperandType argInfo;
-  Type argType = parser.getBuilder().getIndexType();
-
-  // Parse the input operand.
-  if (parser.parseOperand(argInfo) ||
-      parser.resolveOperand(argInfo, argType, result.operands))
-    return failure();
-
-  // Parse the body region, and reuse the operand info as the argument info.
-  Region *body = result.addRegion();
-  return parser.parseRegion(*body, argInfo, argType,
-                            /*enableNameShadowing=*/true);
-}
-
-static void print(OpAsmPrinter &p, IsolatedRegionOp op) {
-  p << "test.isolated_region ";
-  p.printOperand(op.getOperand());
-  p.shadowRegionArgs(op.region(), op.getOperand());
-  p.printRegion(op.region(), /*printEntryBlockArgs=*/false);
-}
-
-//===----------------------------------------------------------------------===//
-// Test AffineScopeOp
-//===----------------------------------------------------------------------===//
-
-static ParseResult parseAffineScopeOp(OpAsmParser &parser,
-                                      OperationState &result) {
-  // Parse the body region, and reuse the operand info as the argument info.
-  Region *body = result.addRegion();
-  return parser.parseRegion(*body, /*arguments=*/{}, /*argTypes=*/{});
-}
-
-static void print(OpAsmPrinter &p, AffineScopeOp op) {
-  p << "test.affine_scope ";
-  p.printRegion(op.region(), /*printEntryBlockArgs=*/false);
-}
-
-//===----------------------------------------------------------------------===//
-// Test parser.
-//===----------------------------------------------------------------------===//
-
-static ParseResult parseWrappedKeywordOp(OpAsmParser &parser,
-                                         OperationState &result) {
-  StringRef keyword;
-  if (parser.parseKeyword(&keyword))
-    return failure();
-  result.addAttribute("keyword", parser.getBuilder().getStringAttr(keyword));
-  return success();
-}
-
-static void print(OpAsmPrinter &p, WrappedKeywordOp op) {
-  p << WrappedKeywordOp::getOperationName() << " " << op.keyword();
-}
-
-//===----------------------------------------------------------------------===//
-// Test WrapRegionOp - wrapping op exercising `parseGenericOperation()`.
-
-static ParseResult parseWrappingRegionOp(OpAsmParser &parser,
-                                         OperationState &result) {
-  if (parser.parseKeyword("wraps"))
-    return failure();
-
-  // Parse the wrapped op in a region
-  Region &body = *result.addRegion();
-  body.push_back(new Block);
-  Block &block = body.back();
-  Operation *wrapped_op = parser.parseGenericOperation(&block, block.begin());
-  if (!wrapped_op)
-    return failure();
-
-  // Create a return terminator in the inner region, pass as operand to the
-  // terminator the returned values from the wrapped operation.
-  SmallVector<Value, 8> return_operands(wrapped_op->getResults());
-  OpBuilder builder(parser.getBuilder().getContext());
-  builder.setInsertionPointToEnd(&block);
-  builder.create<TestReturnOp>(wrapped_op->getLoc(), return_operands);
-
-  // Get the results type for the wrapping op from the terminator operands.
-  Operation &return_op = body.back().back();
-  result.types.append(return_op.operand_type_begin(),
-                      return_op.operand_type_end());
-
-  // Use the location of the wrapped op for the "test.wrapping_region" op.
-  result.location = wrapped_op->getLoc();
-
-  return success();
-}
-
-static void print(OpAsmPrinter &p, WrappingRegionOp op) {
-  p << op.getOperationName() << " wraps ";
-  p.printGenericOp(&op.region().front().front());
-}
-
-//===----------------------------------------------------------------------===//
-// Test PolyForOp - parse list of region arguments.
-//===----------------------------------------------------------------------===//
-
-static ParseResult parsePolyForOp(OpAsmParser &parser, OperationState &result) {
-  SmallVector<OpAsmParser::OperandType, 4> ivsInfo;
-  // Parse list of region arguments without a delimiter.
-  if (parser.parseRegionArgumentList(ivsInfo))
-    return failure();
-
-  // Parse the body region.
-  Region *body = result.addRegion();
-  auto &builder = parser.getBuilder();
-  SmallVector<Type, 4> argTypes(ivsInfo.size(), builder.getIndexType());
-  return parser.parseRegion(*body, ivsInfo, argTypes);
-}
-
-//===----------------------------------------------------------------------===//
-// Test removing op with inner ops.
-//===----------------------------------------------------------------------===//
-
-namespace {
-struct TestRemoveOpWithInnerOps
-    : public OpRewritePattern<TestOpWithRegionPattern> {
-  using OpRewritePattern<TestOpWithRegionPattern>::OpRewritePattern;
-
-  LogicalResult matchAndRewrite(TestOpWithRegionPattern op,
-                                PatternRewriter &rewriter) const override {
-    rewriter.eraseOp(op);
-    return success();
+std::optional<Dialect::ParseOpHook>
+TestDialect::getParseOperationHook(StringRef opName) const {
+  if (opName == "test.dialect_custom_printer") {
+    return ParseOpHook{[](OpAsmParser &parser, OperationState &state) {
+      return parser.parseKeyword("custom_format");
+    }};
   }
-};
-} // end anonymous namespace
-
-void TestOpWithRegionPattern::getCanonicalizationPatterns(
-    OwningRewritePatternList &results, MLIRContext *context) {
-  results.insert<TestRemoveOpWithInnerOps>(context);
-}
-
-OpFoldResult TestOpWithRegionFold::fold(ArrayRef<Attribute> operands) {
-  return operand();
-}
-
-LogicalResult TestOpWithVariadicResultsAndFolder::fold(
-    ArrayRef<Attribute> operands, SmallVectorImpl<OpFoldResult> &results) {
-  for (Value input : this->operands()) {
-    results.push_back(input);
+  if (opName == "test.dialect_custom_format_fallback") {
+    return ParseOpHook{[](OpAsmParser &parser, OperationState &state) {
+      return parser.parseKeyword("custom_format_fallback");
+    }};
   }
-  return success();
+  if (opName == "test.dialect_custom_printer.with.dot") {
+    return ParseOpHook{[](OpAsmParser &parser, OperationState &state) {
+      return ParseResult::success();
+    }};
+  }
+  return std::nullopt;
 }
 
-OpFoldResult TestOpInPlaceFold::fold(ArrayRef<Attribute> operands) {
-  assert(operands.size() == 1);
-  if (operands.front()) {
-    setAttr("attr", operands.front());
-    return getResult();
+llvm::unique_function<void(Operation *, OpAsmPrinter &)>
+TestDialect::getOperationPrinter(Operation *op) const {
+  StringRef opName = op->getName().getStringRef();
+  if (opName == "test.dialect_custom_printer") {
+    return [](Operation *op, OpAsmPrinter &printer) {
+      printer.getStream() << " custom_format";
+    };
+  }
+  if (opName == "test.dialect_custom_format_fallback") {
+    return [](Operation *op, OpAsmPrinter &printer) {
+      printer.getStream() << " custom_format_fallback";
+    };
   }
   return {};
 }
 
-LogicalResult mlir::OpWithInferTypeInterfaceOp::inferReturnTypes(
-    MLIRContext *, Optional<Location> location, ValueRange operands,
-    DictionaryAttr attributes, RegionRange regions,
-    SmallVectorImpl<Type> &inferredReturnTypes) {
-  if (operands[0].getType() != operands[1].getType()) {
-    return emitOptionalError(location, "operand type mismatch ",
-                             operands[0].getType(), " vs ",
-                             operands[1].getType());
-  }
-  inferredReturnTypes.assign({operands[0].getType()});
+static LogicalResult
+dialectCanonicalizationPattern(TestDialectCanonicalizerOp op,
+                               PatternRewriter &rewriter) {
+  rewriter.replaceOpWithNewOp<arith::ConstantOp>(
+      op, rewriter.getI32IntegerAttr(42));
   return success();
 }
 
-LogicalResult OpWithShapedTypeInferTypeInterfaceOp::inferReturnTypeComponents(
-    MLIRContext *context, Optional<Location> location, ValueRange operands,
-    DictionaryAttr attributes, RegionRange regions,
-    SmallVectorImpl<ShapedTypeComponents> &inferredReturnShapes) {
-  // Create return type consisting of the last element of the first operand.
-  auto operandType = *operands.getTypes().begin();
-  auto sval = operandType.dyn_cast<ShapedType>();
-  if (!sval) {
-    return emitOptionalError(location, "only shaped type operands allowed");
-  }
-  int64_t dim =
-      sval.hasRank() ? sval.getShape().front() : ShapedType::kDynamicSize;
-  auto type = IntegerType::get(17, context);
-  inferredReturnShapes.push_back(ShapedTypeComponents({dim}, type));
-  return success();
-}
-
-LogicalResult OpWithShapedTypeInferTypeInterfaceOp::reifyReturnTypeShapes(
-    OpBuilder &builder, llvm::SmallVectorImpl<Value> &shapes) {
-  shapes = SmallVector<Value, 1>{
-      builder.createOrFold<mlir::DimOp>(getLoc(), getOperand(0), 0)};
-  return success();
+void TestDialect::getCanonicalizationPatterns(
+    RewritePatternSet &results) const {
+  results.add(&dialectCanonicalizationPattern);
 }
 
 //===----------------------------------------------------------------------===//
-// Test SideEffect interfaces
+// TestCallWithSegmentsOp
 //===----------------------------------------------------------------------===//
+// The op `test.call_with_segments` models a call-like operation whose operands
+// are divided into 3 variadic segments: `prefix`, `args`, and `suffix`.
+// Only the middle segment represents the actual call arguments. The op uses
+// the AttrSizedOperandSegments trait, so we can derive segment boundaries from
+// the generated `operandSegmentSizes` attribute. We provide custom helpers to
+// expose the logical call arguments as both a read-only range and a mutable
+// range bound to the proper segment so that insertion/erasure updates the
+// attribute automatically.
 
-namespace {
-/// A test resource for side effects.
-struct TestResource : public SideEffects::Resource::Base<TestResource> {
-  StringRef getName() final { return "<Test>"; }
-};
-} // end anonymous namespace
+// Segment layout indices in the DenseI32ArrayAttr: [prefix, args, suffix].
+static constexpr unsigned kTestCallWithSegmentsArgsSegIndex = 1;
 
-void SideEffectOp::getEffects(
-    SmallVectorImpl<MemoryEffects::EffectInstance> &effects) {
-  // Check for an effects attribute on the op instance.
-  ArrayAttr effectsAttr = getAttrOfType<ArrayAttr>("effects");
-  if (!effectsAttr)
-    return;
-
-  // If there is one, it is an array of dictionary attributes that hold
-  // information on the effects of this operation.
-  for (Attribute element : effectsAttr) {
-    DictionaryAttr effectElement = element.cast<DictionaryAttr>();
-
-    // Get the specific memory effect.
-    MemoryEffects::Effect *effect =
-        llvm::StringSwitch<MemoryEffects::Effect *>(
-            effectElement.get("effect").cast<StringAttr>().getValue())
-            .Case("allocate", MemoryEffects::Allocate::get())
-            .Case("free", MemoryEffects::Free::get())
-            .Case("read", MemoryEffects::Read::get())
-            .Case("write", MemoryEffects::Write::get());
-
-    // Check for a result to affect.
-    Value value;
-    if (effectElement.get("on_result"))
-      value = getResult();
-
-    // Check for a non-default resource to use.
-    SideEffects::Resource *resource = SideEffects::DefaultResource::get();
-    if (effectElement.get("test_resource"))
-      resource = TestResource::get();
-
-    effects.emplace_back(effect, value, resource);
-  }
+Operation::operand_range CallWithSegmentsOp::getArgOperands() {
+  // Leverage generated getters for segment sizes: slice between prefix and
+  // suffix using current operand list.
+  return getOperation()->getOperands().slice(getPrefix().size(),
+                                             getArgs().size());
 }
 
-//===----------------------------------------------------------------------===//
-// StringAttrPrettyNameOp
-//===----------------------------------------------------------------------===//
+MutableOperandRange CallWithSegmentsOp::getArgOperandsMutable() {
+  Operation *op = getOperation();
 
-// This op has fancy handling of its SSA result name.
-static ParseResult parseStringAttrPrettyNameOp(OpAsmParser &parser,
-                                               OperationState &result) {
-  // Add the result types.
-  for (size_t i = 0, e = parser.getNumResults(); i != e; ++i)
-    result.addTypes(parser.getBuilder().getIntegerType(32));
+  // Obtain the canonical segment size attribute name for this op.
+  auto segName =
+      CallWithSegmentsOp::getOperandSegmentSizesAttrName(op->getName());
+  auto sizesAttr = op->getAttrOfType<DenseI32ArrayAttr>(segName);
+  assert(sizesAttr && "missing operandSegmentSizes attribute on op");
 
-  if (parser.parseOptionalAttrDictWithKeyword(result.attributes))
-    return failure();
+  // Compute the start and length of the args segment from the prefix size and
+  // args size stored in the attribute.
+  auto sizes = sizesAttr.asArrayRef();
+  unsigned start = static_cast<unsigned>(sizes[0]); // prefix size
+  unsigned len = static_cast<unsigned>(sizes[1]);   // args size
 
-  // If the attribute dictionary contains no 'names' attribute, infer it from
-  // the SSA name (if specified).
-  bool hadNames = llvm::any_of(result.attributes, [](NamedAttribute attr) {
-    return attr.first == "names";
-  });
+  NamedAttribute segNamed(segName, sizesAttr);
+  MutableOperandRange::OperandSegment binding{kTestCallWithSegmentsArgsSegIndex,
+                                              segNamed};
 
-  // If there was no name specified, check to see if there was a useful name
-  // specified in the asm file.
-  if (hadNames || parser.getNumResults() == 0)
-    return success();
-
-  SmallVector<StringRef, 4> names;
-  auto *context = result.getContext();
-
-  for (size_t i = 0, e = parser.getNumResults(); i != e; ++i) {
-    auto resultName = parser.getResultName(i);
-    StringRef nameStr;
-    if (!resultName.first.empty() && !isdigit(resultName.first[0]))
-      nameStr = resultName.first;
-
-    names.push_back(nameStr);
-  }
-
-  auto namesAttr = parser.getBuilder().getStrArrayAttr(names);
-  result.attributes.push_back({Identifier::get("names", context), namesAttr});
-  return success();
+  return MutableOperandRange(op, start, len, {binding});
 }
-
-static void print(OpAsmPrinter &p, StringAttrPrettyNameOp op) {
-  p << "test.string_attr_pretty_name";
-
-  // Note that we only need to print the "name" attribute if the asmprinter
-  // result name disagrees with it.  This can happen in strange cases, e.g.
-  // when there are conflicts.
-  bool namesDisagree = op.names().size() != op.getNumResults();
-
-  SmallString<32> resultNameStr;
-  for (size_t i = 0, e = op.getNumResults(); i != e && !namesDisagree; ++i) {
-    resultNameStr.clear();
-    llvm::raw_svector_ostream tmpStream(resultNameStr);
-    p.printOperand(op.getResult(i), tmpStream);
-
-    auto expectedName = op.names()[i].dyn_cast<StringAttr>();
-    if (!expectedName ||
-        tmpStream.str().drop_front() != expectedName.getValue()) {
-      namesDisagree = true;
-    }
-  }
-
-  if (namesDisagree)
-    p.printOptionalAttrDictWithKeyword(op.getAttrs());
-  else
-    p.printOptionalAttrDictWithKeyword(op.getAttrs(), {"names"});
-}
-
-// We set the SSA name in the asm syntax to the contents of the name
-// attribute.
-void StringAttrPrettyNameOp::getAsmResultNames(
-    function_ref<void(Value, StringRef)> setNameFn) {
-
-  auto value = names();
-  for (size_t i = 0, e = value.size(); i != e; ++i)
-    if (auto str = value[i].dyn_cast<StringAttr>())
-      if (!str.getValue().empty())
-        setNameFn(getResult(i), str.getValue());
-}
-
-//===----------------------------------------------------------------------===//
-// Dialect Registration
-//===----------------------------------------------------------------------===//
-
-// Static initialization for Test dialect registration.
-static mlir::DialectRegistration<mlir::TestDialect> testDialect;
-
-#include "TestOpEnums.cpp.inc"
-#include "TestOpStructs.cpp.inc"
-
-#define GET_OP_CLASSES
-#include "TestOps.cpp.inc"

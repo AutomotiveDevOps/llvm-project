@@ -3,6 +3,7 @@ file(GLOB_RECURSE SWIG_SOURCES *.swig)
 file(GLOB SWIG_HEADERS
   ${LLDB_SOURCE_DIR}/include/lldb/API/*.h
   ${LLDB_SOURCE_DIR}/include/lldb/*.h
+  ${LLDB_BINARY_DIR}/include/lldb/API/SBLanguages.h
 )
 file(GLOB SWIG_PRIVATE_HEADERS
   ${LLDB_SOURCE_DIR}/include/lldb/lldb-private*.h
@@ -23,55 +24,36 @@ endif()
 
 set(SWIG_COMMON_FLAGS
   -c++
+  # Ignored warnings:
+  # 361: operator! ignored.
+  # 362: operator= ignored.
+  # 509: Overloaded method declaration effectively ignored, shadowed by previous declaration.
+  -w361,362,509
   -features autodoc
   -I${LLDB_SOURCE_DIR}/include
+  -I${LLDB_BINARY_DIR}/include
   -I${CMAKE_CURRENT_SOURCE_DIR}
-  -D__STDC_LIMIT_MACROS
-  -D__STDC_CONSTANT_MACROS
   ${DARWIN_EXTRAS}
-  -outdir ${CMAKE_CURRENT_BINARY_DIR}
 )
 
-if (LLDB_ENABLE_PYTHON)
-  add_custom_command(
-    OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/LLDBWrapPython.cpp
-    OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/lldb.py
-    DEPENDS ${SWIG_SOURCES}
-    DEPENDS ${SWIG_INTERFACES}
-    DEPENDS ${SWIG_HEADERS}
-    COMMAND ${SWIG_EXECUTABLE}
-        ${SWIG_COMMON_FLAGS}
-        -c++
-        -shadow
-        -python
-        -threads
-        -o ${CMAKE_CURRENT_BINARY_DIR}/LLDBWrapPython.cpp
-        ${LLDB_SOURCE_DIR}/bindings/python.swig
-    VERBATIM
-    COMMENT "Builds LLDB Python wrapper")
+function(create_relative_symlink swig_target dest_file output_dir output_name)
+  get_filename_component(dest_file ${dest_file} ABSOLUTE)
+  get_filename_component(output_dir ${output_dir} ABSOLUTE)
+  file(RELATIVE_PATH rel_dest_file ${output_dir} ${dest_file})
+  if(CMAKE_HOST_UNIX)
+    set(LLVM_LINK_OR_COPY create_symlink)
+  else()
+    set(LLVM_LINK_OR_COPY copy)
+  endif()
+  add_custom_command(TARGET ${swig_target} POST_BUILD VERBATIM
+    COMMAND ${CMAKE_COMMAND} -E ${LLVM_LINK_OR_COPY} ${rel_dest_file} ${output_name}
+    WORKING_DIRECTORY ${output_dir})
+endfunction()
 
-  add_custom_target(swig_wrapper ALL DEPENDS
-    ${CMAKE_CURRENT_BINARY_DIR}/LLDBWrapPython.cpp
-    ${CMAKE_CURRENT_BINARY_DIR}/lldb.py
-  )
+if (LLDB_ENABLE_PYTHON)
+  add_subdirectory(python)
 endif()
 
 if (LLDB_ENABLE_LUA)
-  add_custom_command(
-    OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/LLDBWrapLua.cpp
-    DEPENDS ${SWIG_SOURCES}
-    DEPENDS ${SWIG_INTERFACES}
-    DEPENDS ${SWIG_HEADERS}
-    COMMAND ${SWIG_EXECUTABLE}
-        ${SWIG_COMMON_FLAGS}
-        -lua
-        -w503
-        -o ${CMAKE_CURRENT_BINARY_DIR}/LLDBWrapLua.cpp
-        ${LLDB_SOURCE_DIR}/bindings/lua.swig
-    VERBATIM
-    COMMENT "Builds LLDB Lua wrapper")
-
-  add_custom_target(swig_wrapper_lua ALL DEPENDS
-    ${CMAKE_CURRENT_BINARY_DIR}/LLDBWrapLua.cpp
-  )
+  add_subdirectory(lua)
 endif()

@@ -1,8 +1,11 @@
 // RUN: %clang_cc1 -std=c++11 %s -emit-pch -o %t.pch
 // RUN: %clang_cc1 -fsyntax-only -std=c++11 %s -include-pch %t.pch -verify
+
+// RUN: %clang_cc1 -std=c++11 %s -emit-pch -fpch-instantiate-templates -o %t.pch
+// RUN: %clang_cc1 -fsyntax-only -std=c++11 %s -include-pch %t.pch -verify
+
 // expected-no-diagnostics
 
-// rdar://12631281
 // This reduced test case exposed a use-after-free memory bug, which was reliable
 // reproduced only on guarded malloc (and probably valgrind).
 

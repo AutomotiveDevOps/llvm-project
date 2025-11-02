@@ -6,15 +6,14 @@
 //
 //===----------------------------------------------------------------------===//
 
+// UNSUPPORTED: c++03
+
 // <functional>
 
 // class function<R(ArgTypes...)>
 
 // template <MoveConstructible  R, MoveConstructible ... ArgTypes>
 //   void swap(function<R(ArgTypes...)>&, function<R(ArgTypes...)>&) noexcept;
-
-// This test runs in C++03, but we have deprecated using std::function in C++03.
-// ADDITIONAL_COMPILE_FLAGS: -D_LIBCPP_DISABLE_DEPRECATION_WARNINGS
 
 #include <functional>
 #include <cstdlib>
@@ -70,14 +69,14 @@ int main(int, char**)
     static_assert(noexcept(swap(f1, f2)), "" );
 #endif
     assert(A::count == 2);
-    assert(globalMemCounter.checkOutstandingNewEq(2));
-    assert(f1.target<A>()->id() == 1);
-    assert(f2.target<A>()->id() == 2);
+    assert(globalMemCounter.checkOutstandingNewLessThanOrEqual(2));
+    RTTI_ASSERT(f1.target<A>()->id() == 1);
+    RTTI_ASSERT(f2.target<A>()->id() == 2);
     swap(f1, f2);
     assert(A::count == 2);
-    assert(globalMemCounter.checkOutstandingNewEq(2));
-    assert(f1.target<A>()->id() == 2);
-    assert(f2.target<A>()->id() == 1);
+    assert(globalMemCounter.checkOutstandingNewLessThanOrEqual(2));
+    RTTI_ASSERT(f1.target<A>()->id() == 2);
+    RTTI_ASSERT(f2.target<A>()->id() == 1);
     }
     assert(A::count == 0);
     assert(globalMemCounter.checkOutstandingNewEq(0));
@@ -88,14 +87,14 @@ int main(int, char**)
     static_assert(noexcept(swap(f1, f2)), "" );
 #endif
     assert(A::count == 1);
-    assert(globalMemCounter.checkOutstandingNewEq(1));
-    assert(f1.target<A>()->id() == 1);
-    assert(*f2.target<int(*)(int)>() == g);
+    assert(globalMemCounter.checkOutstandingNewLessThanOrEqual(1));
+    RTTI_ASSERT(f1.target<A>()->id() == 1);
+    RTTI_ASSERT(*f2.target<int(*)(int)>() == g);
     swap(f1, f2);
     assert(A::count == 1);
-    assert(globalMemCounter.checkOutstandingNewEq(1));
-    assert(*f1.target<int(*)(int)>() == g);
-    assert(f2.target<A>()->id() == 1);
+    assert(globalMemCounter.checkOutstandingNewLessThanOrEqual(1));
+    RTTI_ASSERT(*f1.target<int(*)(int)>() == g);
+    RTTI_ASSERT(f2.target<A>()->id() == 1);
     }
     assert(A::count == 0);
     assert(globalMemCounter.checkOutstandingNewEq(0));
@@ -106,14 +105,14 @@ int main(int, char**)
     static_assert(noexcept(swap(f1, f2)), "" );
 #endif
     assert(A::count == 1);
-    assert(globalMemCounter.checkOutstandingNewEq(1));
-    assert(*f1.target<int(*)(int)>() == g);
-    assert(f2.target<A>()->id() == 1);
+    assert(globalMemCounter.checkOutstandingNewLessThanOrEqual(1));
+    RTTI_ASSERT(*f1.target<int(*)(int)>() == g);
+    RTTI_ASSERT(f2.target<A>()->id() == 1);
     swap(f1, f2);
     assert(A::count == 1);
-    assert(globalMemCounter.checkOutstandingNewEq(1));
-    assert(f1.target<A>()->id() == 1);
-    assert(*f2.target<int(*)(int)>() == g);
+    assert(globalMemCounter.checkOutstandingNewLessThanOrEqual(1));
+    RTTI_ASSERT(f1.target<A>()->id() == 1);
+    RTTI_ASSERT(*f2.target<int(*)(int)>() == g);
     }
     assert(A::count == 0);
     assert(globalMemCounter.checkOutstandingNewEq(0));
@@ -124,14 +123,14 @@ int main(int, char**)
     static_assert(noexcept(swap(f1, f2)), "" );
 #endif
     assert(A::count == 0);
-    assert(globalMemCounter.checkOutstandingNewEq(0));
-    assert(*f1.target<int(*)(int)>() == g);
-    assert(*f2.target<int(*)(int)>() == h);
+    assert(globalMemCounter.checkOutstandingNewLessThanOrEqual(0));
+    RTTI_ASSERT(*f1.target<int(*)(int)>() == g);
+    RTTI_ASSERT(*f2.target<int(*)(int)>() == h);
     swap(f1, f2);
     assert(A::count == 0);
-    assert(globalMemCounter.checkOutstandingNewEq(0));
-    assert(*f1.target<int(*)(int)>() == h);
-    assert(*f2.target<int(*)(int)>() == g);
+    assert(globalMemCounter.checkOutstandingNewLessThanOrEqual(0));
+    RTTI_ASSERT(*f1.target<int(*)(int)>() == h);
+    RTTI_ASSERT(*f2.target<int(*)(int)>() == g);
     }
     assert(A::count == 0);
     assert(globalMemCounter.checkOutstandingNewEq(0));

@@ -6,24 +6,23 @@
 //
 //===----------------------------------------------------------------------===//
 
-// UNSUPPORTED: c++98, c++03
+// REQUIRES: can-create-symlinks
+// UNSUPPORTED: c++03, c++11, c++14
+// UNSUPPORTED: no-filesystem
 
 // <filesystem>
 
 // uintmax_t remove_all(const path& p);
 // uintmax_t remove_all(const path& p, error_code& ec) noexcept;
 
-#include "filesystem_include.h"
+#include <filesystem>
 
 #include "test_macros.h"
-#include "rapid-cxx-test.h"
 #include "filesystem_test_helper.h"
-
+namespace fs = std::filesystem;
 using namespace fs;
 
-TEST_SUITE(filesystem_remove_all_test_suite)
-
-TEST_CASE(test_signatures)
+static void test_signatures()
 {
     const path p; ((void)p);
     std::error_code ec; ((void)ec);
@@ -34,8 +33,12 @@ TEST_CASE(test_signatures)
     ASSERT_NOT_NOEXCEPT(fs::remove_all(p, ec));
 }
 
-TEST_CASE(test_error_reporting)
+static void test_error_reporting()
 {
+    scoped_test_env env;
+    // Windows doesn't support setting perms::none to trigger failures
+    // reading directories.
+#ifndef TEST_WIN_NO_FILESYSTEM_PERMS_NONE
     auto checkThrow = [](path const& f, const std::error_code& ec)
     {
 #ifndef TEST_HAS_NO_EXCEPTIONS
@@ -52,7 +55,6 @@ TEST_CASE(test_error_reporting)
         return true;
 #endif
     };
-    scoped_test_env env;
     const path non_empty_dir = env.create_dir("dir");
     env.create_file(non_empty_dir / "file1", 42);
     const path bad_perms_dir = env.create_dir("bad_dir");
@@ -68,10 +70,11 @@ TEST_CASE(test_error_reporting)
     for (auto& p : testCases) {
         std::error_code ec;
 
-        TEST_CHECK(fs::remove_all(p, ec) == BadRet);
-        TEST_CHECK(ec);
-        TEST_CHECK(checkThrow(p, ec));
+        assert(fs::remove_all(p, ec) == BadRet);
+        assert(ec);
+        assert(checkThrow(p, ec));
     }
+#endif
 
     // PR#35780
     const path testCasesNonexistant[] = {
@@ -81,12 +84,12 @@ TEST_CASE(test_error_reporting)
     for (auto &p : testCasesNonexistant) {
         std::error_code ec;
 
-        TEST_CHECK(fs::remove_all(p, ec) == 0);
-        TEST_CHECK(!ec);
+        assert(fs::remove_all(p, ec) == 0);
+        assert(!ec);
     }
 }
 
-TEST_CASE(basic_remove_all_test)
+static void basic_remove_all_test()
 {
     scoped_test_env env;
     const path dne = env.make_env_path("dne");
@@ -101,31 +104,31 @@ TEST_CASE(basic_remove_all_test)
     };
     for (auto& p : testCases) {
         std::error_code ec = std::make_error_code(std::errc::address_in_use);
-        TEST_CHECK(remove(p, ec));
-        TEST_CHECK(!ec);
-        TEST_CHECK(!exists(symlink_status(p)));
+        assert(remove(p, ec));
+        assert(!ec);
+        assert(!exists(symlink_status(p)));
     }
 }
 
-TEST_CASE(symlink_to_dir)
+static void symlink_to_dir()
 {
     scoped_test_env env;
     const path dir = env.create_dir("dir");
     const path file = env.create_file(dir / "file", 42);
-    const path link = env.create_symlink(dir, "sym");
+    const path link = env.create_directory_symlink(dir, "sym");
 
     {
         std::error_code ec = std::make_error_code(std::errc::address_in_use);
-        TEST_CHECK(remove_all(link, ec) == 1);
-        TEST_CHECK(!ec);
-        TEST_CHECK(!exists(symlink_status(link)));
-        TEST_CHECK(exists(dir));
-        TEST_CHECK(exists(file));
+        assert(remove_all(link, ec) == 1);
+        assert(!ec);
+        assert(!exists(symlink_status(link)));
+        assert(exists(dir));
+        assert(exists(file));
     }
 }
 
 
-TEST_CASE(nested_dir)
+static void nested_dir()
 {
     scoped_test_env env;
     const path dir = env.create_dir("dir");
@@ -136,17 +139,25 @@ TEST_CASE(nested_dir)
         env.create_file(dir / "file1", 42),
         env.create_symlink(out_of_dir_file, dir / "sym1"),
         env.create_file(dir1 / "file2", 42),
-        env.create_symlink(dir, dir1 / "sym2")
+        env.create_directory_symlink(dir, dir1 / "sym2")
     };
     const std::size_t expected_count = sizeof(all_files) / sizeof(all_files[0]);
 
     std::error_code ec = std::make_error_code(std::errc::address_in_use);
-    TEST_CHECK(remove_all(dir, ec) == expected_count);
-    TEST_CHECK(!ec);
+    assert(remove_all(dir, ec) == expected_count);
+    assert(!ec);
     for (auto const& p : all_files) {
-        TEST_CHECK(!exists(symlink_status(p)));
+        assert(!exists(symlink_status(p)));
     }
-    TEST_CHECK(exists(out_of_dir_file));
+    assert(exists(out_of_dir_file));
 }
 
-TEST_SUITE_END()
+int main(int, char**) {
+    test_signatures();
+    test_error_reporting();
+    basic_remove_all_test();
+    symlink_to_dir();
+    nested_dir();
+
+    return 0;
+}

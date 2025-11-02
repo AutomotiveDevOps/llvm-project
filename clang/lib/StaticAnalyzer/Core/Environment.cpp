@@ -15,10 +15,10 @@
 #include "clang/AST/ExprCXX.h"
 #include "clang/AST/PrettyPrinter.h"
 #include "clang/AST/Stmt.h"
+#include "clang/AST/StmtObjC.h"
 #include "clang/Analysis/AnalysisDeclContext.h"
-#include "clang/Basic/LLVM.h"
-#include "clang/Basic/LangOptions.h"
 #include "clang/Basic/JsonSupport.h"
+#include "clang/Basic/LLVM.h"
 #include "clang/StaticAnalyzer/Core/PathSensitive/ProgramState.h"
 #include "clang/StaticAnalyzer/Core/PathSensitive/SValBuilder.h"
 #include "clang/StaticAnalyzer/Core/PathSensitive/SVals.h"
@@ -26,7 +26,6 @@
 #include "clang/StaticAnalyzer/Core/PathSensitive/SymbolManager.h"
 #include "llvm/ADT/ImmutableMap.h"
 #include "llvm/ADT/SmallPtrSet.h"
-#include "llvm/Support/Casting.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/raw_ostream.h"
 #include <cassert>
@@ -39,8 +38,11 @@ static const Expr *ignoreTransparentExprs(const Expr *E) {
 
   switch (E->getStmtClass()) {
   case Stmt::OpaqueValueExprClass:
-    E = cast<OpaqueValueExpr>(E)->getSourceExpr();
-    break;
+    if (const Expr *SE = cast<OpaqueValueExpr>(E)->getSourceExpr()) {
+      E = SE;
+      break;
+    }
+    return E;
   case Stmt::ExprWithCleanupsClass:
     E = cast<ExprWithCleanups>(E)->getSubExpr();
     break;
@@ -85,13 +87,18 @@ SVal Environment::lookupExpr(const EnvironmentEntry &E) const {
 SVal Environment::getSVal(const EnvironmentEntry &Entry,
                           SValBuilder& svalBuilder) const {
   const Stmt *S = Entry.getStmt();
+  assert(!isa<ObjCForCollectionStmt>(S) &&
+         "Use ExprEngine::hasMoreIteration()!");
+  assert((isa<Expr, ReturnStmt>(S)) &&
+         "Environment can only argue about Exprs, since only they express "
+         "a value! Any non-expression statement stored in Environment is a "
+         "result of a hack!");
   const LocationContext *LCtx = Entry.getLocationContext();
 
   switch (S->getStmtClass()) {
   case Stmt::CXXBindTemporaryExprClass:
   case Stmt::ExprWithCleanupsClass:
   case Stmt::GenericSelectionExprClass:
-  case Stmt::OpaqueValueExprClass:
   case Stmt::ConstantExprClass:
   case Stmt::ParenExprClass:
   case Stmt::SubstNonTypeTemplateParmExprClass:
@@ -109,8 +116,9 @@ SVal Environment::getSVal(const EnvironmentEntry &Entry,
   case Stmt::StringLiteralClass:
   case Stmt::TypeTraitExprClass:
   case Stmt::SizeOfPackExprClass:
+  case Stmt::PredefinedExprClass:
     // Known constants; defer to SValBuilder.
-    return svalBuilder.getConstantVal(cast<Expr>(S)).getValue();
+    return *svalBuilder.getConstantVal(cast<Expr>(S));
 
   case Stmt::ReturnStmtClass: {
     const auto *RS = cast<ReturnStmt>(S);
@@ -183,12 +191,15 @@ EnvironmentManager::removeDeadBindings(Environment Env,
              F.getTreeFactory());
 
   // Iterate over the block-expr bindings.
-  for (Environment::iterator I = Env.begin(), E = Env.end();
-       I != E; ++I) {
+  for (Environment::iterator I = Env.begin(), End = Env.end(); I != End; ++I) {
     const EnvironmentEntry &BlkExpr = I.getKey();
-    const SVal &X = I.getData();
+    SVal X = I.getData();
 
-    if (SymReaper.isLive(BlkExpr.getStmt(), BlkExpr.getLocationContext())) {
+    const Expr *E = dyn_cast<Expr>(BlkExpr.getStmt());
+    if (!E)
+      continue;
+
+    if (SymReaper.isLive(E, BlkExpr.getLocationContext())) {
       // Copy the binding to the new map.
       EBMapRef = EBMapRef.add(BlkExpr, X);
 
@@ -263,7 +274,8 @@ void Environment::printJson(raw_ostream &Out, const ASTContext &Ctx,
 
       const Stmt *S = I->first.getStmt();
       Indent(Out, InnerSpace, IsDot)
-          << "{ \"stmt_id\": " << S->getID(Ctx) << ", \"pretty\": ";
+          << "{ \"stmt_id\": " << S->getID(Ctx) << ", \"kind\": \""
+          << S->getStmtClassName() << "\", \"pretty\": ";
       S->printJson(Out, nullptr, PP, /*AddQuotes=*/true);
 
       Out << ", \"value\": ";

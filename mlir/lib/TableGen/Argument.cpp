@@ -7,18 +7,22 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir/TableGen/Argument.h"
-#include "llvm/TableGen/Record.h"
 
 using namespace mlir;
+using namespace mlir::tblgen;
 
-bool tblgen::NamedTypeConstraint::hasPredicate() const {
+//===----------------------------------------------------------------------===//
+// NamedTypeConstraint
+//===----------------------------------------------------------------------===//
+
+bool NamedTypeConstraint::hasPredicate() const {
   return !constraint.getPredicate().isNull();
 }
 
-bool tblgen::NamedTypeConstraint::isOptional() const {
-  return constraint.isOptional();
-}
+bool NamedTypeConstraint::isOptional() const { return constraint.isOptional(); }
 
-bool tblgen::NamedTypeConstraint::isVariadic() const {
-  return constraint.isVariadic();
+bool NamedTypeConstraint::isVariadic() const { return constraint.isVariadic(); }
+
+bool NamedTypeConstraint::isVariadicOfVariadic() const {
+  return constraint.isVariadicOfVariadic();
 }

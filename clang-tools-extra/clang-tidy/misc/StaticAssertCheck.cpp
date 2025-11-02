@@ -1,4 +1,4 @@
-//===--- StaticAssertCheck.cpp - clang-tidy -------------------------------===//
+//===----------------------------------------------------------------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -7,21 +7,19 @@
 //===----------------------------------------------------------------------===//
 
 #include "StaticAssertCheck.h"
+#include "../utils/Matchers.h"
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/Expr.h"
 #include "clang/ASTMatchers/ASTMatchFinder.h"
 #include "clang/Frontend/CompilerInstance.h"
 #include "clang/Lex/Lexer.h"
-#include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
-#include "llvm/Support/Casting.h"
+#include <optional>
 #include <string>
 
 using namespace clang::ast_matchers;
 
-namespace clang {
-namespace tidy {
-namespace misc {
+namespace clang::tidy::misc {
 
 StaticAssertCheck::StaticAssertCheck(StringRef Name, ClangTidyContext *Context)
     : ClangTidyCheck(Name, Context) {}
@@ -40,19 +38,23 @@ void StaticAssertCheck::registerMatchers(MatchFinder *Finder) {
       binaryOperator(
           hasAnyOperatorName("&&", "=="),
           hasEitherOperand(ignoringImpCasts(stringLiteral().bind("assertMSG"))),
-          anyOf(binaryOperator(hasEitherOperand(IsAlwaysFalseWithCast)),
-                anything()))
+          optionally(binaryOperator(hasEitherOperand(IsAlwaysFalseWithCast))))
           .bind("assertExprRoot"),
       IsAlwaysFalse);
   auto NonConstexprFunctionCall =
       callExpr(hasDeclaration(functionDecl(unless(isConstexpr()))));
+  auto NonConstexprVariableReference =
+      declRefExpr(to(varDecl(unless(isConstexpr()))),
+                  unless(hasAncestor(expr(matchers::hasUnevaluatedContext()))),
+                  unless(hasAncestor(typeLoc())));
+
+  auto NonConstexprCode =
+      expr(anyOf(NonConstexprFunctionCall, NonConstexprVariableReference));
   auto AssertCondition =
-      expr(
-          anyOf(expr(ignoringParenCasts(anyOf(
-                    AssertExprRoot, unaryOperator(hasUnaryOperand(
-                                        ignoringParenCasts(AssertExprRoot)))))),
-                anything()),
-          unless(findAll(NonConstexprFunctionCall)))
+      expr(optionally(expr(ignoringParenCasts(anyOf(
+               AssertExprRoot, unaryOperator(hasUnaryOperand(
+                                   ignoringParenCasts(AssertExprRoot))))))),
+           unless(NonConstexprCode), unless(hasDescendant(NonConstexprCode)))
           .bind("condition");
   auto Condition =
       anyOf(ignoringParenImpCasts(callExpr(
@@ -104,8 +106,8 @@ void StaticAssertCheck::check(const MatchFinder::MatchResult &Result) {
 
     StringRef FalseMacroName =
         Lexer::getImmediateMacroName(FalseLiteralLoc, SM, Opts);
-    if (FalseMacroName.compare_lower("false") == 0 ||
-        FalseMacroName.compare_lower("null") == 0)
+    if (FalseMacroName.compare_insensitive("false") == 0 ||
+        FalseMacroName.compare_insensitive("null") == 0)
       return;
   }
 
@@ -118,17 +120,16 @@ void StaticAssertCheck::check(const MatchFinder::MatchResult &Result) {
     FixItHints.push_back(
         FixItHint::CreateReplacement(SourceRange(AssertLoc), "static_assert"));
 
-    std::string StaticAssertMSG = ", \"\"";
     if (AssertExprRoot) {
       FixItHints.push_back(FixItHint::CreateRemoval(
           SourceRange(AssertExprRoot->getOperatorLoc())));
       FixItHints.push_back(FixItHint::CreateRemoval(
           SourceRange(AssertMSG->getBeginLoc(), AssertMSG->getEndLoc())));
-      StaticAssertMSG = (Twine(", \"") + AssertMSG->getString() + "\"").str();
+      FixItHints.push_back(FixItHint::CreateInsertion(
+          LastParenLoc, (Twine(", \"") + AssertMSG->getString() + "\"").str()));
+    } else if (!Opts.CPlusPlus17) {
+      FixItHints.push_back(FixItHint::CreateInsertion(LastParenLoc, ", \"\""));
     }
-
-    FixItHints.push_back(
-        FixItHint::CreateInsertion(LastParenLoc, StaticAssertMSG));
   }
 
   diag(AssertLoc, "found assert() that could be replaced by static_assert()")
@@ -140,9 +141,10 @@ SourceLocation StaticAssertCheck::getLastParenLoc(const ASTContext *ASTCtx,
   const LangOptions &Opts = ASTCtx->getLangOpts();
   const SourceManager &SM = ASTCtx->getSourceManager();
 
-  const llvm::MemoryBuffer *Buffer = SM.getBuffer(SM.getFileID(AssertLoc));
+  std::optional<llvm::MemoryBufferRef> Buffer =
+      SM.getBufferOrNone(SM.getFileID(AssertLoc));
   if (!Buffer)
-    return SourceLocation();
+    return {};
 
   const char *BufferPos = SM.getCharacterData(AssertLoc);
 
@@ -153,7 +155,7 @@ SourceLocation StaticAssertCheck::getLastParenLoc(const ASTContext *ASTCtx,
   //        assert                          first left parenthesis
   if (Lexer.LexFromRawLexer(Token) || Lexer.LexFromRawLexer(Token) ||
       !Token.is(tok::l_paren))
-    return SourceLocation();
+    return {};
 
   unsigned int ParenCount = 1;
   while (ParenCount && !Lexer.LexFromRawLexer(Token)) {
@@ -166,6 +168,4 @@ SourceLocation StaticAssertCheck::getLastParenLoc(const ASTContext *ASTCtx,
   return Token.getLocation();
 }
 
-} // namespace misc
-} // namespace tidy
-} // namespace clang
+} // namespace clang::tidy::misc

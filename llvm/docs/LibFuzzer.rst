@@ -8,7 +8,7 @@ libFuzzer – a library for coverage-guided fuzz testing.
 Introduction
 ============
 
-LibFuzzer is in-process, coverage-guided, evolutionary fuzzing engine.
+LibFuzzer is an in-process, coverage-guided, evolutionary fuzzing engine.
 
 LibFuzzer is linked with the library under test, and feeds fuzzed inputs to the
 library via a specific fuzzing entrypoint (aka "target function"); the fuzzer
@@ -20,13 +20,18 @@ instrumentation.
 
 Contact: libfuzzer(#)googlegroups.com
 
+Status
+======
+
+The original authors of libFuzzer have stopped active work on it and switched
+to working on another fuzzing engine, Centipede_. LibFuzzer is still fully
+supported in that important bugs will get fixed. However, please do not expect
+major new features or code reviews, other than for bug fixes.
+
 Versions
 ========
 
-LibFuzzer is under active development so you will need the current
-(or at least a very recent) version of the Clang compiler (see `building Clang from trunk`_)
-
-Refer to https://releases.llvm.org/5.0.0/docs/LibFuzzer.html for documentation on the older version.
+LibFuzzer requires a matching version of Clang.
 
 
 Getting Started
@@ -49,7 +54,7 @@ Like this:
   // fuzz_target.cc
   extern "C" int LLVMFuzzerTestOneInput(const uint8_t *Data, size_t Size) {
     DoSomethingInterestingWithMyAPI(Data, Size);
-    return 0;  // Non-zero return values are reserved for future use.
+    return 0;  // Values other than 0 and -1 are reserved for future use.
   }
 
 Note that this fuzz target does not depend on libFuzzer in any way
@@ -349,16 +354,18 @@ Output
 
 During operation the fuzzer prints information to ``stderr``, for example::
 
-  INFO: Seed: 1523017872
-  INFO: Loaded 1 modules (16 guards): [0x744e60, 0x744ea0),
-  INFO: -max_len is not provided, using 64
+  INFO: Running with entropic power schedule (0xFF, 100).
+  INFO: Seed: 1434179311
+  INFO: Loaded 1 modules   (8 inline 8-bit counters): 8 [0x5f03d189be90, 0x5f03d189be98),
+  INFO: Loaded 1 PC tables (8 PCs): 8 [0x5f03d189be98,0x5f03d189bf18),
+  INFO: -max_len is not provided; libFuzzer will not generate inputs larger than 4096 bytes
   INFO: A corpus is not provided, starting from an empty corpus
-  #0	READ units: 1
-  #1	INITED cov: 3 ft: 2 corp: 1/1b exec/s: 0 rss: 24Mb
-  #3811	NEW    cov: 4 ft: 3 corp: 2/2b exec/s: 0 rss: 25Mb L: 1 MS: 5 ChangeBit-ChangeByte-ChangeBit-ShuffleBytes-ChangeByte-
-  #3827	NEW    cov: 5 ft: 4 corp: 3/4b exec/s: 0 rss: 25Mb L: 2 MS: 1 CopyPart-
-  #3963	NEW    cov: 6 ft: 5 corp: 4/6b exec/s: 0 rss: 25Mb L: 2 MS: 2 ShuffleBytes-ChangeBit-
-  #4167	NEW    cov: 7 ft: 6 corp: 5/9b exec/s: 0 rss: 25Mb L: 3 MS: 1 InsertByte-
+  #2      INITED cov: 2 ft: 2 corp: 1/1b exec/s: 0 rss: 31Mb
+  #144    NEW    cov: 3 ft: 3 corp: 2/2b lim: 4 exec/s: 0 rss: 31Mb L: 1/1 MS: 2 ChangeByte-ChangeByte-
+  #157    NEW    cov: 4 ft: 4 corp: 3/4b lim: 4 exec/s: 0 rss: 31Mb L: 2/2 MS: 3 CrossOver-ChangeBit-CrossOver-
+  #1345   NEW    cov: 5 ft: 5 corp: 4/8b lim: 14 exec/s: 0 rss: 32Mb L: 4/4 MS: 3 InsertByte-ChangeBit-CrossOver-
+  #1696   NEW    cov: 6 ft: 6 corp: 5/10b lim: 17 exec/s: 0 rss: 32Mb L: 2/4 MS: 1 EraseBytes-
+  #1832   REDUCE cov: 6 ft: 6 corp: 5/9b lim: 17 exec/s: 0 rss: 32Mb L: 3/3 MS: 1 EraseBytes-
   ...
 
 The early parts of the output include information about the fuzzer options and
@@ -402,7 +409,7 @@ Each output line also reports the following statistics (when non-zero):
 ``corp:``
   Number of entries in the current in-memory test corpus and its size in bytes.
 ``lim:``
-  Current limit on the length of new entries in the corpus.  Increases over time
+  Current limit on the length of new entries in the corpus. Increases over time
   until the max length (``-max_len``) is reached.
 ``exec/s:``
   Number of fuzzer iterations per second.
@@ -413,7 +420,8 @@ For ``NEW`` and ``REDUCE`` events, the output line also includes information
 about the mutation operation that produced the new input:
 
 ``L:``
-  Size of the new input in bytes.
+  Size of the new/reduced input in bytes and the size of the largest input
+  in current in-memory test corpus.
 ``MS: <n> <operations>``
   Count and list of the mutation operations used to generate the input.
 
@@ -448,19 +456,26 @@ A simple function that does something interesting if it receives the input
 
 You should get an error pretty quickly::
 
-  INFO: Seed: 1523017872
-  INFO: Loaded 1 modules (16 guards): [0x744e60, 0x744ea0),
-  INFO: -max_len is not provided, using 64
+  INFO: Running with entropic power schedule (0xFF, 100).
+  INFO: Seed: 1434179311
+  INFO: Loaded 1 modules   (8 inline 8-bit counters): 8 [0x5f03d189be90, 0x5f03d189be98),
+  INFO: Loaded 1 PC tables (8 PCs): 8 [0x5f03d189be98,0x5f03d189bf18),
+  INFO: -max_len is not provided; libFuzzer will not generate inputs larger than 4096 bytes
   INFO: A corpus is not provided, starting from an empty corpus
-  #0	READ units: 1
-  #1	INITED cov: 3 ft: 2 corp: 1/1b exec/s: 0 rss: 24Mb
-  #3811	NEW    cov: 4 ft: 3 corp: 2/2b exec/s: 0 rss: 25Mb L: 1 MS: 5 ChangeBit-ChangeByte-ChangeBit-ShuffleBytes-ChangeByte-
-  #3827	NEW    cov: 5 ft: 4 corp: 3/4b exec/s: 0 rss: 25Mb L: 2 MS: 1 CopyPart-
-  #3963	NEW    cov: 6 ft: 5 corp: 4/6b exec/s: 0 rss: 25Mb L: 2 MS: 2 ShuffleBytes-ChangeBit-
-  #4167	NEW    cov: 7 ft: 6 corp: 5/9b exec/s: 0 rss: 25Mb L: 3 MS: 1 InsertByte-
-  ==31511== ERROR: libFuzzer: deadly signal
+  #2      INITED cov: 2 ft: 2 corp: 1/1b exec/s: 0 rss: 31Mb
+  #144    NEW    cov: 3 ft: 3 corp: 2/2b lim: 4 exec/s: 0 rss: 31Mb L: 1/1 MS: 2 ChangeByte-ChangeByte-
+  #157    NEW    cov: 4 ft: 4 corp: 3/4b lim: 4 exec/s: 0 rss: 31Mb L: 2/2 MS: 3 CrossOver-ChangeBit-CrossOver-
+  #1345   NEW    cov: 5 ft: 5 corp: 4/8b lim: 14 exec/s: 0 rss: 32Mb L: 4/4 MS: 3 InsertByte-ChangeBit-CrossOver-
+  #1696   NEW    cov: 6 ft: 6 corp: 5/10b lim: 17 exec/s: 0 rss: 32Mb L: 2/4 MS: 1 EraseBytes-
+  #1832   REDUCE cov: 6 ft: 6 corp: 5/9b lim: 17 exec/s: 0 rss: 32Mb L: 3/3 MS: 1 EraseBytes-
+  ==840148== ERROR: libFuzzer: deadly signal
   ...
-  artifact_prefix='./'; Test unit written to ./crash-b13e8756b13a00cf168300179061fb4b91fefbed
+  SUMMARY: libFuzzer: deadly signal
+  MS: 2 CopyPart-ChangeByte-; base unit: dbee5f8c7a5da845446e75b4a5708e74428b520a
+  0x48,0x49,0x21,
+  HI!
+  artifact_prefix='./'; Test unit written to ./crash-7a8dc3985d2a90fb6e62e94910fc11d31949c348
+  Base64: SEkh
 
 
 More examples
@@ -571,7 +586,7 @@ Periodically restart both fuzzers so that they can use each other's findings.
 Currently, there is no simple way to run both fuzzing engines in parallel while sharing the same corpus dir.
 
 You may also use AFL on your target function ``LLVMFuzzerTestOneInput``:
-see an example `here <https://github.com/llvm/llvm-project/tree/master/compiler-rt/lib/fuzzer/afl>`__.
+see an example `here <https://github.com/llvm/llvm-project/tree/main/compiler-rt/lib/fuzzer/afl>`__.
 
 How good is my fuzzer?
 ----------------------
@@ -617,6 +632,57 @@ really need to access ``argv``/``argc``.
     return 0;
    }
 
+Using libFuzzer as a library
+----------------------------
+If the code being fuzzed must provide its own `main`, it's possible to
+invoke libFuzzer as a library. Be sure to pass ``-fsanitize=fuzzer-no-link``
+during compilation, and link your binary against the no-main version of
+libFuzzer. On Linux installations, this is typically located at:
+
+.. code-block:: bash
+
+  /usr/lib/<llvm-version>/lib/clang/<clang-version>/lib/linux/libclang_rt.fuzzer_no_main-<architecture>.a
+
+If building libFuzzer from source, this is located at the following path
+in the build output directory:
+
+.. code-block:: bash
+
+  lib/linux/libclang_rt.fuzzer_no_main-<architecture>.a
+
+From here, the code can do whatever setup it requires, and when it's ready
+to start fuzzing, it can call `LLVMFuzzerRunDriver`, passing in the program
+arguments and a callback. This callback is invoked just like
+`LLVMFuzzerTestOneInput`, and has the same signature.
+
+.. code-block:: c++
+
+  extern "C" int LLVMFuzzerRunDriver(int *argc, char ***argv,
+                    int (*UserCb)(const uint8_t *Data, size_t Size));
+
+
+Rejecting unwanted inputs
+-------------------------
+
+It may be desirable to reject some inputs, i.e. to not add them to the corpus.
+
+For example, when fuzzing an API consisting of parsing and other logic,
+one may want to allow only those inputs into the corpus that parse successfully.
+
+If the fuzz target returns -1 on a given input,
+libFuzzer will not add that input top the corpus, regardless of what coverage
+it triggers.
+
+
+.. code-block:: c++
+
+  extern "C" int LLVMFuzzerTestOneInput(const uint8_t *Data, size_t Size) {
+    if (auto *Obj = ParseMe(Data, Size)) {
+      Obj->DoSomethingInteresting();
+      return 0;  // Accept. The input may be added to the corpus.
+    }
+    return -1;  // Reject; The input will not be added to the corpus.
+  }
 
 Leaks
 -----
@@ -644,9 +710,9 @@ Developing libFuzzer
 
 LibFuzzer is built as a part of LLVM project by default on macos and Linux.
 Users of other operating systems can explicitly request compilation using
-``-DLIBFUZZER_ENABLE=YES`` flag.
+``-DCOMPILER_RT_BUILD_LIBFUZZER=ON`` flag.
 Tests are run using ``check-fuzzer`` target from the build directory
-which was configured with ``-DLIBFUZZER_ENABLE_TESTS=ON`` flag.
+which was configured with ``-DCOMPILER_RT_INCLUDE_TESTS=ON`` flag.
 
 .. code-block:: console
 
@@ -786,7 +852,7 @@ Trophies
 .. _AddressSanitizer: https://clang.llvm.org/docs/AddressSanitizer.html
 .. _LeakSanitizer: https://clang.llvm.org/docs/LeakSanitizer.html
 .. _Heartbleed: http://en.wikipedia.org/wiki/Heartbleed
-.. _FuzzerInterface.h: https://github.com/llvm/llvm-project/blob/master/compiler-rt/lib/fuzzer/FuzzerInterface.h
+.. _FuzzerInterface.h: https://github.com/llvm/llvm-project/blob/main/compiler-rt/lib/fuzzer/FuzzerInterface.h
 .. _3.7.0: https://llvm.org/releases/3.7.0/docs/LibFuzzer.html
 .. _building Clang from trunk: https://clang.llvm.org/get_started.html
 .. _MemorySanitizer: https://clang.llvm.org/docs/MemorySanitizer.html
@@ -795,4 +861,5 @@ Trophies
 .. _`value profile`: #value-profile
 .. _`caller-callee pairs`: https://clang.llvm.org/docs/SanitizerCoverage.html#caller-callee-coverage
 .. _BoringSSL: https://boringssl.googlesource.com/boringssl/
+.. _Centipede: https://github.com/google/centipede
 

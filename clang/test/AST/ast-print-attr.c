@@ -15,3 +15,26 @@ using C = int (*)() [[gnu::cdecl]];
 int fun_asm() asm("test");
 // CHECK: int var_asm asm("test");
 int var_asm asm("test");
+
+
+@interface NSString
+@end
+
+extern NSString *const MyErrorDomain;
+// CHECK: enum __attribute__((ns_error_domain(MyErrorDomain))) MyErrorEnum {
+enum __attribute__((ns_error_domain(MyErrorDomain))) MyErrorEnum {
+  MyErrFirst,
+  MyErrSecond,
+};
+
+// CHECK: int *fun_returns() __attribute__((ownership_returns(fun_returns)));
+int *fun_returns() __attribute__((ownership_returns(fun_returns)));
+
+// CHECK: void fun_holds(int *a) __attribute__((ownership_holds(fun_holds, 1)));
+void fun_holds(int *a) __attribute__((ownership_holds(fun_holds, 1)));
+
+// CHECK: int fun_var_unused() {
+// CHECK-NEXT: int x __attribute__((unused)) = 0;
+// CHECK-NEXT: return x;
+// CHECK-NEXT: }
+int fun_var_unused() { int x __attribute__((unused)) = 0; return x; }

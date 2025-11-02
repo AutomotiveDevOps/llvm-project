@@ -48,27 +48,27 @@
 
 namespace __sanitizer {
 
-class SuspendedThreadsListNetBSD : public SuspendedThreadsList {
+class SuspendedThreadsListNetBSD final : public SuspendedThreadsList {
  public:
   SuspendedThreadsListNetBSD() { thread_ids_.reserve(1024); }
 
-  tid_t GetThreadID(uptr index) const;
+  ThreadID GetThreadID(uptr index) const;
   uptr ThreadCount() const;
-  bool ContainsTid(tid_t thread_id) const;
-  void Append(tid_t tid);
+  bool ContainsTid(ThreadID thread_id) const;
+  void Append(ThreadID tid);
 
-  PtraceRegistersStatus GetRegistersAndSP(uptr index, uptr *buffer,
+  PtraceRegistersStatus GetRegistersAndSP(uptr index,
+                                          InternalMmapVector<uptr> *buffer,
                                           uptr *sp) const;
-  uptr RegisterCount() const;
 
  private:
-  InternalMmapVector<tid_t> thread_ids_;
+  InternalMmapVector<ThreadID> thread_ids_;
 };
 
 struct TracerThreadArgument {
   StopTheWorldCallback callback;
   void *callback_argument;
-  BlockingMutex mutex;
+  Mutex mutex;
   atomic_uintptr_t done;
   uptr parent_pid;
 };
@@ -131,7 +131,7 @@ bool ThreadSuspender::SuspendAllThreads() {
   pl.pl_lwpid = 0;
 
   int val;
-  while ((val = ptrace(op, pid_, (void *)&pl, sizeof(pl))) != -1 &&
+  while ((val = internal_ptrace(op, pid_, (void *)&pl, sizeof(pl))) != -1 &&
          pl.pl_lwpid != 0) {
     suspended_threads_list_.Append(pl.pl_lwpid);
     VReport(2, "Appended thread %d in process %d.\n", pl.pl_lwpid, pid_);
@@ -158,8 +158,8 @@ static void TracerThreadDieCallback() {
 static void TracerThreadSignalHandler(int signum, __sanitizer_siginfo *siginfo,
                                       void *uctx) {
   SignalContext ctx(siginfo, uctx);
-  Printf("Tracer caught signal %d: addr=0x%zx pc=0x%zx sp=0x%zx\n", signum,
-         ctx.addr, ctx.pc, ctx.sp);
+  Printf("Tracer caught signal %d: addr=%p pc=%p sp=%p\n", signum,
+         (void *)ctx.addr, (void *)ctx.pc, (void *)ctx.sp);
   ThreadSuspender *inst = thread_suspender_instance;
   if (inst) {
     if (signum == SIGABRT)
@@ -313,7 +313,7 @@ void StopTheWorld(StopTheWorldCallback callback, void *argument) {
   }
 }
 
-tid_t SuspendedThreadsListNetBSD::GetThreadID(uptr index) const {
+ThreadID SuspendedThreadsListNetBSD::GetThreadID(uptr index) const {
   CHECK_LT(index, thread_ids_.size());
   return thread_ids_[index];
 }
@@ -322,7 +322,7 @@ uptr SuspendedThreadsListNetBSD::ThreadCount() const {
   return thread_ids_.size();
 }
 
-bool SuspendedThreadsListNetBSD::ContainsTid(tid_t thread_id) const {
+bool SuspendedThreadsListNetBSD::ContainsTid(ThreadID thread_id) const {
   for (uptr i = 0; i < thread_ids_.size(); i++) {
     if (thread_ids_[i] == thread_id)
       return true;
@@ -330,12 +330,12 @@ bool SuspendedThreadsListNetBSD::ContainsTid(tid_t thread_id) const {
   return false;
 }
 
-void SuspendedThreadsListNetBSD::Append(tid_t tid) {
+void SuspendedThreadsListNetBSD::Append(ThreadID tid) {
   thread_ids_.push_back(tid);
 }
 
 PtraceRegistersStatus SuspendedThreadsListNetBSD::GetRegistersAndSP(
-    uptr index, uptr *buffer, uptr *sp) const {
+    uptr index, InternalMmapVector<uptr> *buffer, uptr *sp) const {
   lwpid_t tid = GetThreadID(index);
   pid_t ppid = internal_getppid();
   struct reg regs;
@@ -351,14 +351,12 @@ PtraceRegistersStatus SuspendedThreadsListNetBSD::GetRegistersAndSP(
   }
 
   *sp = PTRACE_REG_SP(&regs);
-  internal_memcpy(buffer, &regs, sizeof(regs));
+  buffer->resize(RoundUpTo(sizeof(regs), sizeof(uptr)) / sizeof(uptr));
+  internal_memcpy(buffer->data(), &regs, sizeof(regs));
 
   return REGISTERS_AVAILABLE;
 }
 
-uptr SuspendedThreadsListNetBSD::RegisterCount() const {
-  return sizeof(struct reg) / sizeof(uptr);
-}
 }  // namespace __sanitizer
 
 #endif

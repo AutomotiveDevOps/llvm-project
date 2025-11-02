@@ -193,11 +193,10 @@ namespace PR16904 {
   struct base {
     template <typename> struct derived;
   };
-  // FIXME: The diagnostics here are terrible.
   template <typename T, typename U, typename V>
-  using derived = base<T, U>::template derived<V>; // expected-error {{expected a type}} expected-error {{expected ';'}}
+  using derived = base<T, U>::template derived<V>; // expected-warning {{missing 'typename'}}
   template <typename T, typename U, typename V>
-  using derived2 = ::PR16904::base<T, U>::template derived<V>; // expected-error {{expected a type}} expected-error {{expected ';'}}
+  using derived2 = ::PR16904::base<T, U>::template derived<V>; // expected-warning {{missing 'typename'}}
 }
 
 namespace PR14858 {
@@ -237,6 +236,29 @@ namespace PR14858 {
   void test_q(int (&a)[5]) { Q<B, B, B>().f<B, B>(&a); }
 }
 
+namespace PR84220 {
+
+template <class...> class list {};
+
+template <int> struct foo_impl {
+  template <class> using f = int;
+};
+
+template <class... xs>
+using foo = typename foo_impl<sizeof...(xs)>::template f<xs...>;
+
+// We call getFullyPackExpandedSize at the annotation stage
+// before parsing the ellipsis next to the foo<xs>. This happens before
+// a PackExpansionType is formed for foo<xs>.
+// getFullyPackExpandedSize shouldn't determine the value here. Otherwise,
+// foo_impl<sizeof...(xs)> would lose its dependency despite the template
+// arguments being unsubstituted.
+template <class... xs> using test = list<foo<xs>...>;
+
+test<int> a;
+
+}
+
 namespace redecl {
   template<typename> using A = int;
   template<typename = void> using A = int;
@@ -265,3 +287,36 @@ namespace an_alias_template_is_not_a_class_template {
     int z = Bar(); // expected-error {{use of template template parameter 'Bar' requires template arguments}}
   }
 }
+
+namespace resolved_nttp {
+  template <typename T> struct A {
+    template <int N> using Arr = T[N];
+    Arr<3> a;
+  };
+  using TA = decltype(A<int>::a);
+  using TA = int[3];
+
+  template <typename T> struct B {
+    template <int... N> using Fn = T(int(*...A)[N]);
+    Fn<1, 2, 3> *p;
+  };
+  using TB = decltype(B<int>::p);
+  using TB = int (*)(int (*)[1], int (*)[2], int (*)[3]);
+
+  template <typename T, int ...M> struct C {
+    template <T... N> using Fn = T(int(*...A)[N]);
+    Fn<1, M..., 4> *p; // expected-error-re 3{{evaluates to {{[234]}}, which cannot be narrowed to type 'bool'}}
+  };
+  using TC = decltype(C<int, 2, 3>::p);
+  using TC = int (*)(int (*)[1], int (*)[2], int (*)[3], int (*)[4]);
+
+  using TC2 = decltype(C<bool, 2, 3>::p); // expected-note {{instantiation of}}
+}
+
+namespace OuterSubstFailure {
+  template <class T> struct A {
+      template <class> using B = T&;
+      // expected-error@-1 {{cannot form a reference to 'void'}}
+  };
+  template struct A<void>; // expected-note {{requested here}}
+} // namespace OuterSubstFailure

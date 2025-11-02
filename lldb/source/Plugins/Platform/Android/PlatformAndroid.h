@@ -23,8 +23,6 @@ class PlatformAndroid : public platform_linux::PlatformLinux {
 public:
   PlatformAndroid(bool is_host);
 
-  ~PlatformAndroid() override;
-
   static void Initialize();
 
   static void Terminate();
@@ -32,13 +30,17 @@ public:
   // lldb_private::PluginInterface functions
   static lldb::PlatformSP CreateInstance(bool force, const ArchSpec *arch);
 
-  static ConstString GetPluginNameStatic(bool is_host);
+  static void DebuggerInitialize(lldb_private::Debugger &debugger);
 
-  static const char *GetPluginDescriptionStatic(bool is_host);
+  static llvm::StringRef GetPluginNameStatic(bool is_host) {
+    return is_host ? Platform::GetHostPlatformName() : "remote-android";
+  }
 
-  ConstString GetPluginName() override;
+  static llvm::StringRef GetPluginDescriptionStatic(bool is_host);
 
-  uint32_t GetPluginVersion() override { return 1; }
+  llvm::StringRef GetPluginName() override {
+    return GetPluginNameStatic(IsHost());
+  }
 
   // lldb_private::Platform functions
 
@@ -57,6 +59,9 @@ public:
 
   uint32_t GetDefaultMemoryCacheLineSize() override;
 
+  uint32_t FindProcesses(const ProcessInstanceInfoMatch &match_info,
+                         ProcessInstanceInfoList &proc_infos) override;
+
 protected:
   const char *GetCacheHostname() override;
 
@@ -70,17 +75,31 @@ protected:
   llvm::StringRef
   GetLibdlFunctionDeclarations(lldb_private::Process *process) override;
 
-private:
-  AdbClient::SyncService *GetSyncService(Status &error);
+  typedef std::unique_ptr<AdbClient> AdbClientUP;
+  virtual AdbClientUP GetAdbClient(Status &error);
 
-  std::unique_ptr<AdbClient::SyncService> m_adb_sync_svc;
+  std::string GetRunAs();
+
+public:
+  virtual llvm::StringRef GetPropertyPackageName();
+
+protected:
+  virtual std::unique_ptr<AdbSyncService> GetSyncService(Status &error);
+
+private:
   std::string m_device_id;
   uint32_t m_sdk_version;
 
-  DISALLOW_COPY_AND_ASSIGN(PlatformAndroid);
+  // Helper functions for process information gathering
+  void PopulateProcessStatusInfo(lldb::pid_t pid,
+                                 ProcessInstanceInfo &process_info);
+  void PopulateProcessCommandLine(lldb::pid_t pid,
+                                  ProcessInstanceInfo &process_info);
+  void PopulateProcessArchitecture(lldb::pid_t pid,
+                                   ProcessInstanceInfo &process_info);
 };
 
-} // namespace platofor_android
+} // namespace platform_android
 } // namespace lldb_private
 
 #endif // LLDB_SOURCE_PLUGINS_PLATFORM_ANDROID_PLATFORMANDROID_H

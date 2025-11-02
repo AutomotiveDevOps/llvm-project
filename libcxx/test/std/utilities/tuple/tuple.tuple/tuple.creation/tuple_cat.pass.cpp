@@ -12,7 +12,7 @@
 
 // template <class... Tuples> tuple<CTypes...> tuple_cat(Tuples&&... tpls);
 
-// UNSUPPORTED: c++98, c++03
+// UNSUPPORTED: c++03
 
 #include <tuple>
 #include <utility>
@@ -29,6 +29,48 @@ struct Namespaced {
 };
 template<typename ...Ts>
 void forward_as_tuple(Ts...) = delete;
+}
+
+// https://llvm.org/PR41689
+struct Unconstrained {
+  int data;
+  template <typename Arg>
+  TEST_CONSTEXPR_CXX14 Unconstrained(Arg arg) : data(arg) {}
+};
+
+TEST_CONSTEXPR_CXX14 bool test_tuple_cat_with_unconstrained_constructor() {
+  {
+    auto tup_src = std::tuple<Unconstrained>(Unconstrained(5));
+    auto tup     = std::tuple_cat(tup_src);
+    assert(std::get<0>(tup).data == 5);
+  }
+  {
+    auto tup = std::tuple_cat(std::tuple<Unconstrained>(Unconstrained(6)));
+    assert(std::get<0>(tup).data == 6);
+  }
+  {
+    auto tup = std::tuple_cat(std::tuple<Unconstrained>(Unconstrained(7)), std::tuple<>());
+    assert(std::get<0>(tup).data == 7);
+  }
+#if TEST_STD_VER >= 17
+  {
+    auto tup_src = std::tuple(Unconstrained(8));
+    auto tup     = std::tuple_cat(tup_src);
+    ASSERT_SAME_TYPE(decltype(tup), std::tuple<Unconstrained>);
+    assert(std::get<0>(tup).data == 8);
+  }
+  {
+    auto tup = std::tuple_cat(std::tuple(Unconstrained(9)));
+    ASSERT_SAME_TYPE(decltype(tup), std::tuple<Unconstrained>);
+    assert(std::get<0>(tup).data == 9);
+  }
+  {
+    auto tup = std::tuple_cat(std::tuple(Unconstrained(10)), std::tuple());
+    ASSERT_SAME_TYPE(decltype(tup), std::tuple<Unconstrained>);
+    assert(std::get<0>(tup).data == 10);
+  }
+#endif
+  return true;
 }
 
 int main(int, char**)
@@ -263,12 +305,20 @@ int main(int, char**)
         ((void)r);
     }
     {
-        std::tuple<NS::Namespaced> t1({1});
+        std::tuple<NS::Namespaced> t1(NS::Namespaced{1});
         std::tuple<NS::Namespaced> t = std::tuple_cat(t1);
         std::tuple<NS::Namespaced, NS::Namespaced> t2 =
             std::tuple_cat(t1, t1);
         assert(std::get<0>(t).i == 1);
         assert(std::get<0>(t2).i == 1);
     }
-  return 0;
+    // See https://llvm.org/PR41689
+    {
+      test_tuple_cat_with_unconstrained_constructor();
+#if TEST_STD_VER >= 14
+      static_assert(test_tuple_cat_with_unconstrained_constructor(), "");
+#endif
+    }
+
+    return 0;
 }

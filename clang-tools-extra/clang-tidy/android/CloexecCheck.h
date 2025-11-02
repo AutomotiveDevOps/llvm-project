@@ -1,4 +1,4 @@
-//===--- CloexecCheck.h - clang-tidy-----------------------------*- C++ -*-===//
+//===----------------------------------------------------------------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -17,9 +17,7 @@
 
 #include "../ClangTidyCheck.h"
 
-namespace clang {
-namespace tidy {
-namespace android {
+namespace clang::tidy::android {
 
 /// The base class for all close-on-exec checks in Android module.
 /// To be specific, there are some functions that need the close-on-exec flag to
@@ -84,21 +82,19 @@ protected:
   /// \param Mode The required mode char.
   /// \param ArgPos The 0-based position of the flag argument.
   void insertStringFlag(const ast_matchers::MatchFinder::MatchResult &Result,
-                        const char Mode, const int ArgPos);
+                        char Mode, int ArgPos);
 
   /// Helper function to get the spelling of a particular argument.
   StringRef getSpellingArg(const ast_matchers::MatchFinder::MatchResult &Result,
                            int N) const;
 
   /// Binding name of the FuncDecl of a function call.
-  static const char *FuncDeclBindingStr;
+  static constexpr char FuncDeclBindingStr[] = "funcDecl";
 
   /// Binding name of the function call expression.
-  static const char *FuncBindingStr;
+  static constexpr char FuncBindingStr[] = "func";
 };
 
-} // namespace android
-} // namespace tidy
-} // namespace clang
+} // namespace clang::tidy::android
 
 #endif // LLVM_CLANG_TOOLS_EXTRA_CLANG_TIDY_ANDROID_CLOEXEC_H

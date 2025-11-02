@@ -38,7 +38,7 @@ public:
     std::map<std::string, tooling::Replacements> FileToReplacements;
     change_namespace::ChangeNamespaceTool NamespaceTool(
         OldNamespace, NewNamespace, FilePattern,
-        /*WhiteListedSymbolPatterns*/ {}, &FileToReplacements);
+        /*AllowedSymbolPatterns*/ {}, &FileToReplacements);
     ast_matchers::MatchFinder Finder;
     NamespaceTool.registerMatchers(&Finder);
     std::unique_ptr<tooling::FrontendActionFactory> Factory =
@@ -2229,7 +2229,7 @@ TEST_F(ChangeNamespaceTest, InjectedClassNameInFriendDecl) {
                          "namespace e {\n"
                          "class D : public a::Base<D> {\n"
                          " private:\n"
-                         "  friend class Base<D>;\n"
+                         "  friend class a::Base<D>;\n"
                          "  void priv() {}\n"
                          "  a::Base b;\n"
                          "};\n"

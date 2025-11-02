@@ -7,8 +7,8 @@ struct param_num {
 
 template <typename T>
 struct dependent_ret {
-  T* Foo(int a) __attribute__((alloc_align(2)));// no-warning, ends up being int**.
-  T Foo2(int a) __attribute__((alloc_align(2)));// expected-warning {{'alloc_align' attribute only applies to return values that are pointers or references}}
+  T *Foo(unsigned long long a) __attribute__((alloc_align(2))); // no-warning, ends up being int**.
+  T Foo2(unsigned long long a) __attribute__((alloc_align(2))); // expected-warning {{'alloc_align' attribute only applies to return values that are pointers or references}}
 };
 
 // Following 2 errors associated only with the 'float' versions below.
@@ -23,6 +23,9 @@ void* dependent_param_func(T param) __attribute__((alloc_align(1)));// expected-
 template <int T>
 void* illegal_align_param(int p) __attribute__((alloc_align(T))); // expected-error {{'alloc_align' attribute requires parameter 1 to be an integer constant}}
 
+template <typename T>
+T dependent_return_type(int p) __attribute__((alloc_align(1)));
+
 void dependent_impl(int align) {
   dependent_ret<int> a; // expected-note {{in instantiation of template class 'dependent_ret<int>' requested here}}
   a.Foo(1);
@@ -32,8 +35,8 @@ void dependent_impl(int align) {
   b.Foo2(1);
   b.Foo(3);           // expected-warning {{requested alignment is not a power of 2}}
   b.Foo2(3);          // expected-warning {{requested alignment is not a power of 2}}
-  b.Foo(1073741824);  // expected-warning {{requested alignment must be 536870912 bytes or smaller; maximum alignment assumed}}
-  b.Foo2(1073741824); // expected-warning {{requested alignment must be 536870912 bytes or smaller; maximum alignment assumed}}
+  b.Foo(8589934592ull);  // expected-warning {{requested alignment must be 4294967296 bytes or smaller; maximum alignment assumed}}
+  b.Foo2(8589934592ull); // expected-warning {{requested alignment must be 4294967296 bytes or smaller; maximum alignment assumed}}
   b.Foo(align);
   b.Foo2(align);
 
@@ -44,3 +47,15 @@ void dependent_impl(int align) {
   dependent_param_func<int>(1);
   dependent_param_func<float>(1); // expected-note {{in instantiation of function template specialization 'dependent_param_func<float>' requested here}}
 }
+
+namespace GH26612 {
+// This issue was about the align_value attribute, but alloc_align has the
+// same problematic code pattern, so is being fixed at the same time despite
+// not having the same crashing behavior.
+template <class T>
+__attribute__((alloc_align(1))) T f(T x); // expected-warning {{'alloc_align' attribute only applies to return values that are pointers or references}}
+
+void foo() {
+  f<int>(0); // expected-note {{in instantiation of function template specialization 'GH26612::f<int>' requested here}}
+}
+} // namespace GH26612

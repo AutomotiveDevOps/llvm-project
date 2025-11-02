@@ -37,8 +37,8 @@ _x:	.long 1
 // We don't check the leading addresses these are at.
 // CHECK:  DW_TAG_compile_unit
 // CHECK:    DW_AT_stmt_list (0x00000000)
-// CHECK:    DW_AT_low_pc (0x0000000000000000)
-// CHECK:    DW_AT_high_pc (0x0000000000000008)
+// CHECK:    DW_AT_low_pc (0x00000000)
+// CHECK:    DW_AT_high_pc (0x00000008)
 // We don't check the file name as it is a temp directory
 // CHECK:    DW_AT_name
 // We don't check the DW_AT_comp_dir which is the current working directory
@@ -49,24 +49,24 @@ _x:	.long 1
 // CHECK:      DW_AT_name ("bar")
 // CHECK:      DW_AT_decl_file ([[FILE:".*gen-dwarf.s"]])
 // CHECK:      DW_AT_decl_line (5)
-// CHECK:      DW_AT_low_pc (0x0000000000000000)
+// CHECK:      DW_AT_low_pc (0x00000000)
 
 // CHECK:    DW_TAG_label
 // CHECK:      DW_AT_name ("foo")
 // CHECK:      DW_AT_decl_file ([[FILE]])
 // CHECK:      DW_AT_decl_line (9)
-// CHECK:      DW_AT_low_pc (0x0000000000000007)
+// CHECK:      DW_AT_low_pc (0x00000007)
 
 // CHECK:    DW_TAG_label
 // CHECK:      DW_AT_name ("baz")
 // CHECK:      DW_AT_decl_file ([[FILE]])
 // CHECK:      DW_AT_decl_line (10)
-// CHECK:      DW_AT_low_pc (0x0000000000000007)
+// CHECK:      DW_AT_low_pc (0x00000007)
 
 // CHECK:    NULL
 
 // CHECK: .debug_aranges contents:
-// CHECK: Address Range Header: length = 0x0000001c, version = 0x0002, cu_offset = 0x00000000, addr_size = 0x04, seg_size = 0x00
+// CHECK: Address Range Header: length = 0x0000001c, format = DWARF32, version = 0x0002, cu_offset = 0x00000000, addr_size = 0x04, seg_size = 0x00
 
 // CHECK: .debug_line contents:
 // CHECK: Line table prologue:
@@ -95,10 +95,10 @@ _x:	.long 1
 // CHECK-NEXT: name: "gen-dwarf.s"
 // CHECK-NEXT: dir_index: 1
 
-// CHECK: Address            Line   Column File   ISA Discriminator Flags
-// CHECK: ------------------ ------ ------ ------ --- ------------- -------------
-// CHECK: 0x0000000000000000      6      0      1   0             0  is_stmt
-// CHECK: 0x0000000000000005      7      0      1   0             0  is_stmt
-// CHECK: 0x0000000000000006      8      0      1   0             0  is_stmt
-// CHECK: 0x0000000000000007     11      0      1   0             0  is_stmt
-// CHECK: 0x0000000000000008     11      0      1   0             0  is_stmt end_sequence
+// CHECK: Address            Line   Column File   ISA Discriminator OpIndex Flags
+// CHECK: ------------------ ------ ------ ------ --- ------------- ------- -------------
+// CHECK: 0x0000000000000000      6      0      1   0             0       0  is_stmt
+// CHECK: 0x0000000000000005      7      0      1   0             0       0  is_stmt
+// CHECK: 0x0000000000000006      8      0      1   0             0       0  is_stmt
+// CHECK: 0x0000000000000007     11      0      1   0             0       0  is_stmt
+// CHECK: 0x0000000000000008     11      0      1   0             0       0  is_stmt end_sequence

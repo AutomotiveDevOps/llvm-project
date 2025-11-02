@@ -1,4 +1,5 @@
 set(LLVM_LINK_COMPONENTS
+  BinaryFormat
   BitReader
   BitWriter
   Core
@@ -16,3 +17,5 @@ add_llvm_tool(llvm-link
   DEPENDS
   intrinsics_gen
   )
+
+setup_host_tool(llvm-link LLVM_LINK llvm_link_exe llvm_link_target)

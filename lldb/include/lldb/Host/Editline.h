@@ -27,28 +27,23 @@
 
 #ifndef LLDB_HOST_EDITLINE_H
 #define LLDB_HOST_EDITLINE_H
-#if defined(__cplusplus)
 
 #include "lldb/Host/Config.h"
 
-#if LLDB_EDITLINE_USE_WCHAR
-#include <codecvt>
-#endif
 #include <locale>
 #include <sstream>
 #include <vector>
 
-#include "lldb/Host/ConnectionFileDescriptor.h"
+#include "lldb/Host/StreamFile.h"
 #include "lldb/lldb-private.h"
 
-#if defined(_WIN32)
-#include "lldb/Host/windows/editlinewin.h"
-#elif !defined(__ANDROID__)
+#if !defined(_WIN32) && !defined(__ANDROID__)
 #include <histedit.h>
 #endif
 
 #include <csignal>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -56,6 +51,9 @@
 #include "lldb/Utility/CompletionRequest.h"
 #include "lldb/Utility/FileSpec.h"
 #include "lldb/Utility/Predicate.h"
+#include "lldb/Utility/StringList.h"
+
+#include "llvm/ADT/FunctionExtras.h"
 
 namespace lldb_private {
 namespace line_editor {
@@ -75,62 +73,68 @@ using EditLineCharType = char;
 // to wchar_t. It is not possible to detect differentiate between the two
 // versions exactly, but this is a pretty good approximation and allows us to
 // build against almost any editline version out there.
+// It does, however, require extra care when invoking el_getc, as the type
+// of the input is a single char buffer, but the callback will write a wchar_t.
 #if LLDB_EDITLINE_USE_WCHAR || defined(EL_CLIENTDATA) || LLDB_HAVE_EL_RFUNC_T
 using EditLineGetCharType = wchar_t;
 #else
 using EditLineGetCharType = char;
 #endif
 
-typedef int (*EditlineGetCharCallbackType)(::EditLine *editline,
-                                           EditLineGetCharType *c);
-typedef unsigned char (*EditlineCommandCallbackType)(::EditLine *editline,
-                                                     int ch);
-typedef const char *(*EditlinePromptCallbackType)(::EditLine *editline);
+using EditlineGetCharCallbackType = int (*)(::EditLine *editline,
+                                            EditLineGetCharType *c);
+using EditlineCommandCallbackType = unsigned char (*)(::EditLine *editline,
+                                                      int ch);
+using EditlinePromptCallbackType = const char *(*)(::EditLine *editline);
 
 class EditlineHistory;
 
-typedef std::shared_ptr<EditlineHistory> EditlineHistorySP;
+using EditlineHistorySP = std::shared_ptr<EditlineHistory>;
 
-typedef bool (*IsInputCompleteCallbackType)(Editline *editline,
-                                            StringList &lines, void *baton);
+using IsInputCompleteCallbackType =
+    llvm::unique_function<bool(Editline *, StringList &)>;
 
-typedef int (*FixIndentationCallbackType)(Editline *editline,
-                                          const StringList &lines,
-                                          int cursor_position, void *baton);
+using FixIndentationCallbackType =
+    llvm::unique_function<int(Editline *, StringList &, int)>;
 
-typedef void (*CompleteCallbackType)(CompletionRequest &request, void *baton);
+using SuggestionCallbackType =
+    llvm::unique_function<std::optional<std::string>(llvm::StringRef)>;
+
+using CompleteCallbackType = llvm::unique_function<void(CompletionRequest &)>;
+
+using RedrawCallbackType = llvm::unique_function<void()>;
 
 /// Status used to decide when and how to start editing another line in
-/// multi-line sessions
+/// multi-line sessions.
 enum class EditorStatus {
 
-  /// The default state proceeds to edit the current line
+  /// The default state proceeds to edit the current line.
   Editing,
 
-  /// Editing complete, returns the complete set of edited lines
+  /// Editing complete, returns the complete set of edited lines.
   Complete,
 
-  /// End of input reported
+  /// End of input reported.
   EndOfInput,
 
-  /// Editing interrupted
+  /// Editing interrupted.
   Interrupted
 };
 
-/// Established locations that can be easily moved among with MoveCursor
+/// Established locations that can be easily moved among with MoveCursor.
 enum class CursorLocation {
-  /// The start of the first line in a multi-line edit session
+  /// The start of the first line in a multi-line edit session.
   BlockStart,
 
-  /// The start of the current line in a multi-line edit session
+  /// The start of the current line in a multi-line edit session.
   EditingPrompt,
 
   /// The location of the cursor on the current line in a multi-line edit
-  /// session
+  /// session.
   EditingCursor,
 
   /// The location immediately after the last character in a multi-line edit
-  /// session
+  /// session.
   BlockEnd
 };
 
@@ -147,12 +151,12 @@ enum class HistoryOperation {
 using namespace line_editor;
 
 /// Instances of Editline provide an abstraction over libedit's EditLine
-/// facility.  Both
-/// single- and multi-line editing are supported.
+/// facility.  Both single- and multi-line editing are supported.
 class Editline {
 public:
-  Editline(const char *editor_name, FILE *input_file, FILE *output_file,
-           FILE *error_file, bool color_prompts);
+  Editline(const char *editor_name, FILE *input_file,
+           lldb::LockableStreamFileSP output_stream_sp,
+           lldb::LockableStreamFileSP error_stream_sp, bool color);
 
   ~Editline();
 
@@ -160,43 +164,92 @@ public:
   /// of Editline.
   static Editline *InstanceFor(::EditLine *editline);
 
+  static void
+  DisplayCompletions(Editline &editline,
+                     llvm::ArrayRef<CompletionResult::Completion> results);
+
+  /// Sets if editline should use color.
+  void UseColor(bool use_color);
+
   /// Sets a string to be used as a prompt, or combined with a line number to
   /// form a prompt.
   void SetPrompt(const char *prompt);
 
   /// Sets an alternate string to be used as a prompt for the second line and
-  /// beyond in multi-line
-  /// editing scenarios.
+  /// beyond in multi-line editing scenarios.
   void SetContinuationPrompt(const char *continuation_prompt);
 
-  /// Call when the terminal size changes
+  /// Call when the terminal size changes.
   void TerminalSizeChanged();
 
-  /// Returns the prompt established by SetPrompt()
+  /// Returns the prompt established by SetPrompt.
   const char *GetPrompt();
 
-  /// Returns the index of the line currently being edited
+  /// Returns the index of the line currently being edited.
   uint32_t GetCurrentLine();
 
-  /// Interrupt the current edit as if ^C was pressed
+  /// Interrupt the current edit as if ^C was pressed.
   bool Interrupt();
 
-  /// Cancel this edit and oblitarate all trace of it
+  /// Cancel this edit and obliterate all trace of it.
   bool Cancel();
 
+  /// Register a callback for autosuggestion.
+  void SetSuggestionCallback(SuggestionCallbackType callback) {
+    m_suggestion_callback = std::move(callback);
+  }
+
+  /// Register a callback for redrawing the statusline.
+  void SetRedrawCallback(RedrawCallbackType callback) {
+    m_redraw_callback = std::move(callback);
+  }
+
   /// Register a callback for the tab key
-  void SetAutoCompleteCallback(CompleteCallbackType callback, void *baton);
+  void SetAutoCompleteCallback(CompleteCallbackType callback) {
+    m_completion_callback = std::move(callback);
+  }
 
   /// Register a callback for testing whether multi-line input is complete
-  void SetIsInputCompleteCallback(IsInputCompleteCallbackType callback,
-                                  void *baton);
+  void SetIsInputCompleteCallback(IsInputCompleteCallbackType callback) {
+    m_is_input_complete_callback = std::move(callback);
+  }
 
   /// Register a callback for determining the appropriate indentation for a line
   /// when creating a newline.  An optional set of insertable characters can
-  /// also
-  /// trigger the callback.
-  bool SetFixIndentationCallback(FixIndentationCallbackType callback,
-                                 void *baton, const char *indent_chars);
+  /// also trigger the callback.
+  void SetFixIndentationCallback(FixIndentationCallbackType callback,
+                                 const char *indent_chars) {
+    m_fix_indentation_callback = std::move(callback);
+    m_fix_indentation_callback_chars = indent_chars;
+  }
+
+  void SetPromptAnsiPrefix(std::string prefix) {
+    if (m_color)
+      m_prompt_ansi_prefix = std::move(prefix);
+    else
+      m_prompt_ansi_prefix.clear();
+  }
+
+  void SetPromptAnsiSuffix(std::string suffix) {
+    if (m_color)
+      m_prompt_ansi_suffix = std::move(suffix);
+    else
+      m_prompt_ansi_suffix.clear();
+  }
+
+  void SetSuggestionAnsiPrefix(std::string prefix) {
+    if (m_color)
+      m_suggestion_ansi_prefix = std::move(prefix);
+    else
+      m_suggestion_ansi_prefix.clear();
+  }
+
+  void SetSuggestionAnsiSuffix(std::string suffix) {
+    if (m_color)
+      m_suggestion_ansi_suffix = std::move(suffix);
+    else
+      m_suggestion_ansi_suffix.clear();
+  }
 
   /// Prompts for and reads a single line of user input.
   bool GetLine(std::string &line, bool &interrupted);
@@ -204,33 +257,38 @@ public:
   /// Prompts for and reads a multi-line batch of user input.
   bool GetLines(int first_line_number, StringList &lines, bool &interrupted);
 
-  void PrintAsync(Stream *stream, const char *s, size_t len);
+  void PrintAsync(lldb::LockableStreamFileSP stream_sp, const char *s,
+                  size_t len);
+
+  /// Convert the current input lines into a UTF8 StringList
+  StringList GetInputAsStringList(int line_count = UINT32_MAX);
+
+  size_t GetTerminalWidth() { return m_terminal_width; }
+
+  size_t GetTerminalHeight() { return m_terminal_height; }
+
+  void Refresh();
 
 private:
   /// Sets the lowest line number for multi-line editing sessions.  A value of
-  /// zero suppresses
-  /// line number printing in the prompt.
+  /// zero suppresses line number printing in the prompt.
   void SetBaseLineNumber(int line_number);
 
   /// Returns the complete prompt by combining the prompt or continuation prompt
-  /// with line numbers
-  /// as appropriate.  The line index is a zero-based index into the current
-  /// multi-line session.
+  /// with line numbers as appropriate.  The line index is a zero-based index
+  /// into the current multi-line session.
   std::string PromptForIndex(int line_index);
 
   /// Sets the current line index between line edits to allow free movement
-  /// between lines.  Updates
-  /// the prompt to match.
+  /// between lines.  Updates the prompt to match.
   void SetCurrentLine(int line_index);
 
   /// Determines the width of the prompt in characters.  The width is guaranteed
-  /// to be the same for
-  /// all lines of the current multi-line session.
-  int GetPromptWidth();
+  /// to be the same for all lines of the current multi-line session.
+  size_t GetPromptWidth();
 
   /// Returns true if the underlying EditLine session's keybindings are
-  /// Emacs-based, or false if
-  /// they are VI-based.
+  /// Emacs-based, or false if they are VI-based.
   bool IsEmacs();
 
   /// Returns true if the current EditLine buffer contains nothing but spaces,
@@ -241,28 +299,22 @@ private:
   int GetLineIndexForLocation(CursorLocation location, int cursor_row);
 
   /// Move the cursor from one well-established location to another using
-  /// relative line positioning
-  /// and absolute column positioning.
+  /// relative line positioning and absolute column positioning.
   void MoveCursor(CursorLocation from, CursorLocation to);
 
   /// Clear from cursor position to bottom of screen and print input lines
-  /// including prompts, optionally
-  /// starting from a specific line.  Lines are drawn with an extra space at the
-  /// end to reserve room for
-  /// the rightmost cursor position.
+  /// including prompts, optionally starting from a specific line.  Lines are
+  /// drawn with an extra space at the end to reserve room for the rightmost
+  /// cursor position.
   void DisplayInput(int firstIndex = 0);
 
   /// Counts the number of rows a given line of content will end up occupying,
-  /// taking into account both
-  /// the preceding prompt and a single trailing space occupied by a cursor when
-  /// at the end of the line.
+  /// taking into account both the preceding prompt and a single trailing space
+  /// occupied by a cursor when at the end of the line.
   int CountRowsForLine(const EditLineStringType &content);
 
-  /// Save the line currently being edited
+  /// Save the line currently being edited.
   void SaveEditedLine();
-
-  /// Convert the current input lines into a UTF8 StringList
-  StringList GetInputAsStringList(int line_count = UINT32_MAX);
 
   /// Replaces the current multi-line session with the next entry from history.
   unsigned char RecallHistory(HistoryOperation op);
@@ -312,6 +364,12 @@ private:
   /// tab key is typed.
   unsigned char TabCommand(int ch);
 
+  /// Apply autosuggestion part in gray as editline.
+  unsigned char ApplyAutosuggestCommand(int ch);
+
+  /// Command used when a character is typed.
+  unsigned char TypedCharacter(int ch);
+
   /// Respond to normal character insertion by fixing line indentation
   unsigned char FixIndentationCommand(int ch);
 
@@ -326,10 +384,16 @@ private:
 
   void ApplyTerminalSizeChange();
 
-private:
-#if LLDB_EDITLINE_USE_WCHAR
-  std::wstring_convert<std::codecvt_utf8<wchar_t>> m_utf8conv;
-#endif
+  // The following set various editline parameters.  It's not any less
+  // verbose to put the editline calls into a function, but it
+  // provides type safety, since the editline functions take varargs
+  // parameters.
+  void AddFunctionToEditLine(const EditLineCharType *command,
+                             const EditLineCharType *helptext,
+                             EditlineCommandCallbackType callbackFn);
+  void SetEditLinePromptCallback(EditlinePromptCallbackType callbackFn);
+  void SetGetCharacterFunction(EditlineGetCharCallbackType callbackFn);
+
   ::EditLine *m_editline = nullptr;
   EditlineHistorySP m_history_sp;
   bool m_in_history = false;
@@ -337,8 +401,8 @@ private:
   bool m_multiline_enabled = false;
   std::vector<EditLineStringType> m_input_lines;
   EditorStatus m_editor_status;
-  bool m_color_prompts = true;
   int m_terminal_width = 0;
+  int m_terminal_height = 0;
   int m_base_line_number = 0;
   unsigned m_current_line_index = 0;
   int m_current_line_rows = -1;
@@ -351,20 +415,30 @@ private:
   volatile std::sig_atomic_t m_terminal_size_has_changed = 0;
   std::string m_editor_name;
   FILE *m_input_file;
-  FILE *m_output_file;
-  FILE *m_error_file;
-  ConnectionFileDescriptor m_input_connection;
-  IsInputCompleteCallbackType m_is_input_complete_callback = nullptr;
-  void *m_is_input_complete_callback_baton = nullptr;
-  FixIndentationCallbackType m_fix_indentation_callback = nullptr;
-  void *m_fix_indentation_callback_baton = nullptr;
-  const char *m_fix_indentation_callback_chars = nullptr;
-  CompleteCallbackType m_completion_callback = nullptr;
-  void *m_completion_callback_baton = nullptr;
+  lldb::LockableStreamFileSP m_output_stream_sp;
+  lldb::LockableStreamFileSP m_error_stream_sp;
 
-  std::mutex m_output_mutex;
+  std::optional<LockedStreamFile> m_locked_output;
+
+  ConnectionFileDescriptor m_input_connection;
+
+  IsInputCompleteCallbackType m_is_input_complete_callback;
+
+  FixIndentationCallbackType m_fix_indentation_callback;
+  const char *m_fix_indentation_callback_chars = nullptr;
+
+  CompleteCallbackType m_completion_callback;
+  SuggestionCallbackType m_suggestion_callback;
+  RedrawCallbackType m_redraw_callback;
+
+  bool m_color;
+  std::string m_prompt_ansi_prefix;
+  std::string m_prompt_ansi_suffix;
+  std::string m_suggestion_ansi_prefix;
+  std::string m_suggestion_ansi_suffix;
+
+  std::size_t m_previous_autosuggestion_size = 0;
 };
 }
 
-#endif // #if defined(__cplusplus)
 #endif // LLDB_HOST_EDITLINE_H

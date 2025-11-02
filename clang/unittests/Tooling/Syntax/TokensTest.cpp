@@ -29,8 +29,6 @@
 #include "clang/Tooling/Tooling.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/IntrusiveRefCntPtr.h"
-#include "llvm/ADT/None.h"
-#include "llvm/ADT/Optional.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/FormatVariadic.h"
@@ -38,14 +36,14 @@
 #include "llvm/Support/VirtualFileSystem.h"
 #include "llvm/Support/raw_os_ostream.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Testing/Support/Annotations.h"
+#include "llvm/Testing/Annotations/Annotations.h"
 #include "llvm/Testing/Support/SupportHelpers.h"
-#include "gmock/gmock.h"
 #include <cassert>
 #include <cstdlib>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include <memory>
+#include <optional>
 #include <ostream>
 #include <string>
 
@@ -53,6 +51,7 @@ using namespace clang;
 using namespace clang::syntax;
 
 using llvm::ValueIs;
+using ::testing::_;
 using ::testing::AllOf;
 using ::testing::Contains;
 using ::testing::ElementsAre;
@@ -105,6 +104,7 @@ public:
       void EndSourceFileAction() override {
         assert(Collector && "BeginSourceFileAction was never called");
         Result = std::move(*Collector).consume();
+        Result.indexExpandedTokens();
       }
 
       std::unique_ptr<ASTConsumer>
@@ -114,7 +114,7 @@ public:
 
     private:
       TokenBuffer &Result;
-      llvm::Optional<TokenCollector> Collector;
+      std::optional<TokenCollector> Collector;
     };
 
     constexpr const char *FileName = "./input.cpp";
@@ -124,16 +124,19 @@ public:
       Diags->setClient(new IgnoringDiagConsumer);
     std::vector<const char *> Args = {"tok-test", "-std=c++03", "-fsyntax-only",
                                       FileName};
-    auto CI = createInvocationFromCommandLine(Args, Diags, FS);
+    CreateInvocationOptions CIOpts;
+    CIOpts.Diags = Diags;
+    CIOpts.VFS = FS;
+    auto CI = createInvocation(Args, std::move(CIOpts));
     assert(CI);
     CI->getFrontendOpts().DisableFree = false;
     CI->getPreprocessorOpts().addRemappedFile(
         FileName, llvm::MemoryBuffer::getMemBufferCopy(Code).release());
-    CompilerInstance Compiler;
-    Compiler.setInvocation(std::move(CI));
-    Compiler.setDiagnostics(Diags.get());
-    Compiler.setFileManager(FileMgr.get());
-    Compiler.setSourceManager(SourceMgr.get());
+    CompilerInstance Compiler(std::move(CI));
+    Compiler.setDiagnostics(Diags);
+    Compiler.setVirtualFileSystem(FS);
+    Compiler.setFileManager(FileMgr);
+    Compiler.setSourceManager(SourceMgr);
 
     this->Buffer = TokenBuffer(*SourceMgr);
     RecordTokens Recorder(this->Buffer);
@@ -188,7 +191,7 @@ public:
                                  llvm::ArrayRef<T> Range, Eq F) {
     assert(Subrange.size() >= 1);
     if (Range.size() < Subrange.size())
-      return llvm::makeArrayRef(Range.end(), Range.end());
+      return llvm::ArrayRef(Range.end(), Range.end());
     for (auto Begin = Range.begin(), Last = Range.end() - Subrange.size();
          Begin <= Last; ++Begin) {
       auto It = Begin;
@@ -197,10 +200,10 @@ public:
         if (!F(*ItSub, *It))
           goto continue_outer;
       }
-      return llvm::makeArrayRef(Begin, It);
+      return llvm::ArrayRef(Begin, It);
     continue_outer:;
     }
-    return llvm::makeArrayRef(Range.end(), Range.end());
+    return llvm::ArrayRef(Range.end(), Range.end());
   }
 
   /// Finds a subrange in \p Tokens that match the tokens specified in \p Query.
@@ -219,15 +222,14 @@ public:
       return Q == T.text(*SourceMgr);
     };
     // Find a match.
-    auto Found =
-        findSubrange(llvm::makeArrayRef(QueryTokens), Tokens, TextMatches);
+    auto Found = findSubrange(llvm::ArrayRef(QueryTokens), Tokens, TextMatches);
     if (Found.begin() == Tokens.end()) {
       ADD_FAILURE() << "could not find the subrange for " << Query;
       std::abort();
     }
     // Check that the match is unique.
-    if (findSubrange(llvm::makeArrayRef(QueryTokens),
-                     llvm::makeArrayRef(Found.end(), Tokens.end()), TextMatches)
+    if (findSubrange(llvm::ArrayRef(QueryTokens),
+                     llvm::ArrayRef(Found.end(), Tokens.end()), TextMatches)
             .begin() != Tokens.end()) {
       ADD_FAILURE() << "match is not unique for " << Query;
       std::abort();
@@ -247,14 +249,16 @@ public:
   }
 
   // Data fields.
+  DiagnosticOptions DiagOpts;
   llvm::IntrusiveRefCntPtr<DiagnosticsEngine> Diags =
-      new DiagnosticsEngine(new DiagnosticIDs, new DiagnosticOptions);
+      llvm::makeIntrusiveRefCnt<DiagnosticsEngine>(DiagnosticIDs::create(),
+                                                   DiagOpts);
   IntrusiveRefCntPtr<llvm::vfs::InMemoryFileSystem> FS =
-      new llvm::vfs::InMemoryFileSystem;
+      llvm::makeIntrusiveRefCnt<llvm::vfs::InMemoryFileSystem>();
   llvm::IntrusiveRefCntPtr<FileManager> FileMgr =
-      new FileManager(FileSystemOptions(), FS);
+      llvm::makeIntrusiveRefCnt<FileManager>(FileSystemOptions(), FS);
   llvm::IntrusiveRefCntPtr<SourceManager> SourceMgr =
-      new SourceManager(*Diags, *FileMgr);
+      llvm::makeIntrusiveRefCnt<SourceManager>(*Diags, *FileMgr);
   /// Contains last result of calling recordTokens().
   TokenBuffer Buffer = TokenBuffer(*SourceMgr);
 };
@@ -372,9 +376,22 @@ TEST_F(TokenCollectorTest, Locations) {
 
   auto StartLoc = SourceMgr->getLocForStartOfFile(SourceMgr->getMainFileID());
   for (auto &R : Code.ranges()) {
-    EXPECT_THAT(Buffer.spelledTokenAt(StartLoc.getLocWithOffset(R.Begin)),
-                Pointee(RangeIs(R)));
+    EXPECT_THAT(
+        Buffer.spelledTokenContaining(StartLoc.getLocWithOffset(R.Begin)),
+        Pointee(RangeIs(R)));
   }
+}
+
+TEST_F(TokenCollectorTest, LocationInMiddleOfSpelledToken) {
+  llvm::Annotations Code(R"cpp(
+    int foo = [[baa^aar]];
+  )cpp");
+  recordTokens(Code.code());
+  // Check spelled tokens.
+  auto StartLoc = SourceMgr->getLocForStartOfFile(SourceMgr->getMainFileID());
+  EXPECT_THAT(
+      Buffer.spelledTokenContaining(StartLoc.getLocWithOffset(Code.point())),
+      Pointee(RangeIs(Code.range())));
 }
 
 TEST_F(TokenCollectorTest, MacroDirectives) {
@@ -631,7 +648,7 @@ TEST_F(TokenBufferTest, SpelledByExpanded) {
     a1 a2 a3 b1 b2
   )cpp");
 
-  // Sanity check: expanded and spelled tokens are stored separately.
+  // Expanded and spelled tokens are stored separately.
   EXPECT_THAT(findExpanded("a1 a2"), Not(SameRange(findSpelled("a1 a2"))));
   // Searching for subranges of expanded tokens should give the corresponding
   // spelled ones.
@@ -657,10 +674,10 @@ TEST_F(TokenBufferTest, SpelledByExpanded) {
   EXPECT_THAT(Buffer.spelledForExpanded(findExpanded("b1 b2")),
               ValueIs(SameRange(findSpelled("split B").drop_front())));
   // Ranges not fully covering macro invocations should fail.
-  EXPECT_EQ(Buffer.spelledForExpanded(findExpanded("a1 a2")), llvm::None);
-  EXPECT_EQ(Buffer.spelledForExpanded(findExpanded("b2")), llvm::None);
+  EXPECT_EQ(Buffer.spelledForExpanded(findExpanded("a1 a2")), std::nullopt);
+  EXPECT_EQ(Buffer.spelledForExpanded(findExpanded("b2")), std::nullopt);
   EXPECT_EQ(Buffer.spelledForExpanded(findExpanded("a2 a3 split b1 b2")),
-            llvm::None);
+            std::nullopt);
 
   // Recursive macro invocations.
   recordTokens(R"cpp(
@@ -727,7 +744,7 @@ TEST_F(TokenBufferTest, SpelledByExpanded) {
     ID2(ID(a1), ID(a2) a3) ID2(a4, a5 a6 a7)
   )cpp");
   // Should fail, spans multiple arguments.
-  EXPECT_EQ(Buffer.spelledForExpanded(findExpanded("a1 a2")), llvm::None);
+  EXPECT_EQ(Buffer.spelledForExpanded(findExpanded("a1 a2")), std::nullopt);
   EXPECT_THAT(Buffer.spelledForExpanded(findExpanded("a2 a3")),
               ValueIs(SameRange(findSpelled("ID ( a2 ) a3"))));
   EXPECT_THAT(
@@ -738,7 +755,92 @@ TEST_F(TokenBufferTest, SpelledByExpanded) {
   EXPECT_THAT(Buffer.spelledForExpanded(findExpanded("a4 a5 a6 a7")),
               ValueIs(SameRange(findSpelled("ID2 ( a4 , a5 a6 a7 )"))));
   // Should fail, spans multiple invocations.
-  EXPECT_EQ(Buffer.spelledForExpanded(findExpanded("a1 a2 a3 a4")), llvm::None);
+  EXPECT_EQ(Buffer.spelledForExpanded(findExpanded("a1 a2 a3 a4")),
+            std::nullopt);
+
+  // https://github.com/clangd/clangd/issues/1289
+  recordTokens(R"cpp(
+    #define FOO(X) foo(X)
+    #define INDIRECT FOO(y)
+    INDIRECT // expands to foo(y)
+  )cpp");
+  EXPECT_EQ(Buffer.spelledForExpanded(findExpanded("y")), std::nullopt);
+
+  recordTokens(R"cpp(
+    #define FOO(X) a X b
+    FOO(y)
+  )cpp");
+  EXPECT_THAT(Buffer.spelledForExpanded(findExpanded("y")),
+              ValueIs(SameRange(findSpelled("y"))));
+
+  recordTokens(R"cpp(
+    #define ID(X) X
+    #define BAR ID(1)
+    BAR
+  )cpp");
+  EXPECT_THAT(Buffer.spelledForExpanded(findExpanded("1")),
+              ValueIs(SameRange(findSpelled(") BAR").drop_front())));
+
+  // Critical cases for mapping of Prev/Next in spelledForExpandedSlow.
+  recordTokens(R"cpp(
+    #define ID(X) X
+    ID(prev good)
+    ID(prev ID(good2))
+    #define LARGE ID(prev ID(bad))
+    LARGE
+  )cpp");
+  EXPECT_THAT(Buffer.spelledForExpanded(findExpanded("good")),
+              ValueIs(SameRange(findSpelled("good"))));
+  EXPECT_THAT(Buffer.spelledForExpanded(findExpanded("good2")),
+              ValueIs(SameRange(findSpelled("good2"))));
+  EXPECT_EQ(Buffer.spelledForExpanded(findExpanded("bad")), std::nullopt);
+
+  recordTokens(R"cpp(
+    #define PREV prev
+    #define ID(X) X
+    PREV ID(good)
+    #define LARGE PREV ID(bad)
+    LARGE
+  )cpp");
+  EXPECT_THAT(Buffer.spelledForExpanded(findExpanded("good")),
+              ValueIs(SameRange(findSpelled("good"))));
+  EXPECT_EQ(Buffer.spelledForExpanded(findExpanded("bad")), std::nullopt);
+
+  recordTokens(R"cpp(
+    #define ID(X) X
+    #define ID2(X, Y) X Y
+    ID2(prev, good)
+    ID2(prev, ID(good2))
+    #define LARGE ID2(prev, bad)
+    LARGE
+  )cpp");
+  EXPECT_THAT(Buffer.spelledForExpanded(findExpanded("good")),
+              ValueIs(SameRange(findSpelled("good"))));
+  EXPECT_THAT(Buffer.spelledForExpanded(findExpanded("good2")),
+              ValueIs(SameRange(findSpelled("good2"))));
+  EXPECT_EQ(Buffer.spelledForExpanded(findExpanded("bad")), std::nullopt);
+
+  // Prev from macro body.
+  recordTokens(R"cpp(
+    #define ID(X) X
+    #define ID2(X, Y) X prev ID(Y)
+    ID2(not_prev, good)
+  )cpp");
+  EXPECT_THAT(Buffer.spelledForExpanded(findExpanded("good")),
+              ValueIs(SameRange(findSpelled("good"))));
+  EXPECT_EQ(Buffer.spelledForExpanded(findExpanded("prev good")), std::nullopt);
+}
+
+TEST_F(TokenBufferTest, NoCrashForEofToken) {
+  recordTokens(R"cpp(
+    int main() {
+  )cpp");
+  ASSERT_TRUE(!Buffer.expandedTokens().empty());
+  ASSERT_EQ(Buffer.expandedTokens().back().kind(), tok::eof);
+  // Expanded range including `eof` is handled gracefully (`eof` is ignored).
+  EXPECT_THAT(
+      Buffer.spelledForExpanded(Buffer.expandedTokens()),
+      ValueIs(SameRange(Buffer.spelledTokens(SourceMgr->getMainFileID()))));
 }
 
 TEST_F(TokenBufferTest, ExpandedTokensForRange) {
@@ -749,13 +851,13 @@ TEST_F(TokenBufferTest, ExpandedTokensForRange) {
 
   SourceRange R(findExpanded("C").front().location(),
                 findExpanded("F_washere").front().location());
-  // Sanity check: expanded and spelled tokens are stored separately.
+  // Expanded and spelled tokens are stored separately.
   EXPECT_THAT(Buffer.expandedTokens(R),
               SameRange(findExpanded("C D_washere E F_washere")));
   EXPECT_THAT(Buffer.expandedTokens(SourceRange()), testing::IsEmpty());
 }
 
-TEST_F(TokenBufferTest, ExpansionStartingAt) {
+TEST_F(TokenBufferTest, ExpansionsOverlapping) {
   // Object-like macro expansions.
   recordTokens(R"cpp(
     #define FOO 3+4
@@ -763,17 +865,25 @@ TEST_F(TokenBufferTest, ExpansionStartingAt) {
     int b = FOO 2;
   )cpp");
 
-  llvm::ArrayRef<syntax::Token> Foo1 = findSpelled("FOO 1").drop_back();
+  llvm::ArrayRef<syntax::Token> Foo1 = findSpelled("FOO 1");
   EXPECT_THAT(
       Buffer.expansionStartingAt(Foo1.data()),
-      ValueIs(IsExpansion(SameRange(Foo1),
+      ValueIs(IsExpansion(SameRange(Foo1.drop_back()),
                           SameRange(findExpanded("3 + 4 1").drop_back()))));
+  EXPECT_THAT(
+      Buffer.expansionsOverlapping(Foo1),
+      ElementsAre(IsExpansion(SameRange(Foo1.drop_back()),
+                              SameRange(findExpanded("3 + 4 1").drop_back()))));
 
-  llvm::ArrayRef<syntax::Token> Foo2 = findSpelled("FOO 2").drop_back();
+  llvm::ArrayRef<syntax::Token> Foo2 = findSpelled("FOO 2");
   EXPECT_THAT(
       Buffer.expansionStartingAt(Foo2.data()),
-      ValueIs(IsExpansion(SameRange(Foo2),
+      ValueIs(IsExpansion(SameRange(Foo2.drop_back()),
                           SameRange(findExpanded("3 + 4 2").drop_back()))));
+  EXPECT_THAT(
+      Buffer.expansionsOverlapping(llvm::ArrayRef(Foo1.begin(), Foo2.end())),
+      ElementsAre(IsExpansion(SameRange(Foo1.drop_back()), _),
+                  IsExpansion(SameRange(Foo2.drop_back()), _)));
 
   // Function-like macro expansions.
   recordTokens(R"cpp(
@@ -788,7 +898,7 @@ TEST_F(TokenBufferTest, ExpansionStartingAt) {
                                   SameRange(findExpanded("1 + 2 + 3")))));
   // Only the first spelled token should be found.
   for (const auto &T : ID1.drop_front())
-    EXPECT_EQ(Buffer.expansionStartingAt(&T), llvm::None);
+    EXPECT_EQ(Buffer.expansionStartingAt(&T), std::nullopt);
 
   llvm::ArrayRef<syntax::Token> ID2 = findSpelled("ID ( ID ( 2 + 3 + 4 ) )");
   EXPECT_THAT(Buffer.expansionStartingAt(&ID2.front()),
@@ -796,7 +906,12 @@ TEST_F(TokenBufferTest, ExpansionStartingAt) {
                                   SameRange(findExpanded("2 + 3 + 4")))));
   // Only the first spelled token should be found.
   for (const auto &T : ID2.drop_front())
-    EXPECT_EQ(Buffer.expansionStartingAt(&T), llvm::None);
+    EXPECT_EQ(Buffer.expansionStartingAt(&T), std::nullopt);
+
+  EXPECT_THAT(Buffer.expansionsOverlapping(llvm::ArrayRef(
+                  findSpelled("1 + 2").data(), findSpelled("4").data())),
+              ElementsAre(IsExpansion(SameRange(ID1), _),
+                          IsExpansion(SameRange(ID2), _)));
 
   // PP directives.
   recordTokens(R"cpp(
@@ -813,7 +928,7 @@ int b = 1;
                           SameRange(findExpanded("int a").take_front(0)))));
   // Only the first spelled token should be found.
   for (const auto &T : DefineFoo.drop_front())
-    EXPECT_EQ(Buffer.expansionStartingAt(&T), llvm::None);
+    EXPECT_EQ(Buffer.expansionStartingAt(&T), std::nullopt);
 
   llvm::ArrayRef<syntax::Token> PragmaOnce = findSpelled("# pragma once");
   EXPECT_THAT(
@@ -822,7 +937,12 @@ int b = 1;
                           SameRange(findExpanded("int b").take_front(0)))));
   // Only the first spelled token should be found.
   for (const auto &T : PragmaOnce.drop_front())
-    EXPECT_EQ(Buffer.expansionStartingAt(&T), llvm::None);
+    EXPECT_EQ(Buffer.expansionStartingAt(&T), std::nullopt);
+
+  EXPECT_THAT(
+      Buffer.expansionsOverlapping(findSpelled("FOO ; # pragma")),
+      ElementsAre(IsExpansion(SameRange(findSpelled("FOO ;").drop_back()), _),
+                  IsExpansion(SameRange(PragmaOnce), _)));
 }
 
 TEST_F(TokenBufferTest, TokensToFileRange) {
@@ -915,7 +1035,7 @@ TEST_F(TokenBufferTest, ExpandedBySpelled) {
   recordTokens(R"cpp(
     a1 a2 a3 b1 b2
   )cpp");
-  // Sanity check: expanded and spelled tokens are stored separately.
+  // Expanded and spelled tokens are stored separately.
   EXPECT_THAT(findExpanded("a1 a2"), Not(SameRange(findSpelled("a1 a2"))));
   // Searching for subranges of expanded tokens should give the corresponding
   // spelled ones.
@@ -1018,4 +1138,13 @@ TEST_F(TokenBufferTest, ExpandedBySpelled) {
               IsEmpty());
 }
 
+TEST_F(TokenCollectorTest, Pragmas) {
+  // Tokens coming from concatenations.
+  recordTokens(R"cpp(
+    void foo() {
+      #pragma unroll 4
+      for(int i=0;i<4;++i);
+    }
+  )cpp");
+}
 } // namespace

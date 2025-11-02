@@ -6,7 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-// UNSUPPORTED: c++98, c++03
+// UNSUPPORTED: c++03
 
 // <bitset>
 
@@ -22,10 +22,10 @@
 int main(int, char**) {
   test_library_hash_specializations_available();
   {
-    test_hash_enabled_for_type<std::bitset<0> >();
-    test_hash_enabled_for_type<std::bitset<1> >();
-    test_hash_enabled_for_type<std::bitset<1024> >();
-    test_hash_enabled_for_type<std::bitset<100000> >();
+    test_hash_enabled<std::bitset<0> >();
+    test_hash_enabled<std::bitset<1> >();
+    test_hash_enabled<std::bitset<1024> >();
+    test_hash_enabled<std::bitset<100000> >();
   }
 
   return 0;

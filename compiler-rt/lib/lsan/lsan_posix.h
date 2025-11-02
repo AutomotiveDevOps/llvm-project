@@ -27,7 +27,7 @@ struct DTLS;
 
 namespace __lsan {
 
-class ThreadContext : public ThreadContextLsanBase {
+class ThreadContext final : public ThreadContextLsanBase {
  public:
   explicit ThreadContext(int tid);
   void OnStarted(void *arg) override;
@@ -41,7 +41,7 @@ class ThreadContext : public ThreadContextLsanBase {
   DTLS *dtls_ = nullptr;
 };
 
-void ThreadStart(u32 tid, tid_t os_id,
+void ThreadStart(u32 tid, ThreadID os_id,
                  ThreadType thread_type = ThreadType::Regular);
 
 }  // namespace __lsan

@@ -1,4 +1,4 @@
-//===--- InefficientStringConcatenationCheck.cpp - clang-tidy--------------===//
+//===----------------------------------------------------------------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -7,14 +7,11 @@
 //===----------------------------------------------------------------------===//
 
 #include "InefficientStringConcatenationCheck.h"
-#include "clang/AST/ASTContext.h"
 #include "clang/ASTMatchers/ASTMatchFinder.h"
 
 using namespace clang::ast_matchers;
 
-namespace clang {
-namespace tidy {
-namespace performance {
+namespace clang::tidy::performance {
 
 void InefficientStringConcatenationCheck::storeOptions(
     ClangTidyOptions::OptionMap &Opts) {
@@ -24,7 +21,7 @@ void InefficientStringConcatenationCheck::storeOptions(
 InefficientStringConcatenationCheck::InefficientStringConcatenationCheck(
     StringRef Name, ClangTidyContext *Context)
     : ClangTidyCheck(Name, Context),
-      StrictMode(Options.getLocalOrGlobal("StrictMode", false)) {}
+      StrictMode(Options.get("StrictMode", false)) {}
 
 void InefficientStringConcatenationCheck::registerMatchers(
     MatchFinder *Finder) {
@@ -69,7 +66,7 @@ void InefficientStringConcatenationCheck::check(
   const auto *LhsStr = Result.Nodes.getNodeAs<DeclRefExpr>("lhsStr");
   const auto *PlusOperator =
       Result.Nodes.getNodeAs<CXXOperatorCallExpr>("plusOperator");
-  const auto DiagMsg =
+  const char *DiagMsg =
       "string concatenation results in allocation of unnecessary temporary "
       "strings; consider using 'operator+=' or 'string::append()' instead";
 
@@ -79,6 +76,4 @@ void InefficientStringConcatenationCheck::check(
     diag(PlusOperator->getExprLoc(), DiagMsg);
 }
 
-} // namespace performance
-} // namespace tidy
-} // namespace clang
+} // namespace clang::tidy::performance

@@ -6,7 +6,7 @@
 define double @int_to_double_rr(i32 %a) {
 ; AVX-LABEL: int_to_double_rr:
 ; AVX:       # %bb.0: # %entry
-; AVX-NEXT:    vcvtusi2sd %edi, %xmm0, %xmm0
+; AVX-NEXT:    vcvtusi2sd %edi, %xmm15, %xmm0
 ; AVX-NEXT:    retq
 ;
 ; AVX_X86-LABEL: int_to_double_rr:
@@ -18,7 +18,7 @@ define double @int_to_double_rr(i32 %a) {
 ; AVX_X86-NEXT:    .cfi_def_cfa_register %ebp
 ; AVX_X86-NEXT:    andl $-8, %esp
 ; AVX_X86-NEXT:    subl $8, %esp
-; AVX_X86-NEXT:    vcvtusi2sdl 8(%ebp), %xmm0, %xmm0
+; AVX_X86-NEXT:    vcvtusi2sdl 8(%ebp), %xmm7, %xmm0
 ; AVX_X86-NEXT:    vmovsd %xmm0, (%esp)
 ; AVX_X86-NEXT:    fldl (%esp)
 ; AVX_X86-NEXT:    movl %ebp, %esp
@@ -30,10 +30,10 @@ entry:
   ret double %0
 }
 
-define double @int_to_double_rm(i32* %a) {
+define double @int_to_double_rm(ptr %a) {
 ; AVX-LABEL: int_to_double_rm:
 ; AVX:       # %bb.0: # %entry
-; AVX-NEXT:    vcvtusi2sdl (%rdi), %xmm0, %xmm0
+; AVX-NEXT:    vcvtusi2sdl (%rdi), %xmm15, %xmm0
 ; AVX-NEXT:    retq
 ;
 ; AVX_X86-LABEL: int_to_double_rm:
@@ -46,7 +46,7 @@ define double @int_to_double_rm(i32* %a) {
 ; AVX_X86-NEXT:    andl $-8, %esp
 ; AVX_X86-NEXT:    subl $8, %esp
 ; AVX_X86-NEXT:    movl 8(%ebp), %eax
-; AVX_X86-NEXT:    vcvtusi2sdl (%eax), %xmm0, %xmm0
+; AVX_X86-NEXT:    vcvtusi2sdl (%eax), %xmm7, %xmm0
 ; AVX_X86-NEXT:    vmovsd %xmm0, (%esp)
 ; AVX_X86-NEXT:    fldl (%esp)
 ; AVX_X86-NEXT:    movl %ebp, %esp
@@ -54,15 +54,15 @@ define double @int_to_double_rm(i32* %a) {
 ; AVX_X86-NEXT:    .cfi_def_cfa %esp, 4
 ; AVX_X86-NEXT:    retl
 entry:
-  %0 = load i32, i32* %a
+  %0 = load i32, ptr %a
   %1 = uitofp i32 %0 to double
   ret double %1
 }
 
-define double @int_to_double_rm_optsize(i32* %a) optsize {
+define double @int_to_double_rm_optsize(ptr %a) optsize {
 ; AVX-LABEL: int_to_double_rm_optsize:
 ; AVX:       # %bb.0: # %entry
-; AVX-NEXT:    vcvtusi2sdl (%rdi), %xmm0, %xmm0
+; AVX-NEXT:    vcvtusi2sdl (%rdi), %xmm15, %xmm0
 ; AVX-NEXT:    retq
 ;
 ; AVX_X86-LABEL: int_to_double_rm_optsize:
@@ -75,7 +75,7 @@ define double @int_to_double_rm_optsize(i32* %a) optsize {
 ; AVX_X86-NEXT:    andl $-8, %esp
 ; AVX_X86-NEXT:    subl $8, %esp
 ; AVX_X86-NEXT:    movl 8(%ebp), %eax
-; AVX_X86-NEXT:    vcvtusi2sdl (%eax), %xmm0, %xmm0
+; AVX_X86-NEXT:    vcvtusi2sdl (%eax), %xmm7, %xmm0
 ; AVX_X86-NEXT:    vmovsd %xmm0, (%esp)
 ; AVX_X86-NEXT:    fldl (%esp)
 ; AVX_X86-NEXT:    movl %ebp, %esp
@@ -83,7 +83,7 @@ define double @int_to_double_rm_optsize(i32* %a) optsize {
 ; AVX_X86-NEXT:    .cfi_def_cfa %esp, 4
 ; AVX_X86-NEXT:    retl
 entry:
-  %0 = load i32, i32* %a
+  %0 = load i32, ptr %a
   %1 = uitofp i32 %0 to double
   ret double %1
 }
@@ -91,14 +91,14 @@ entry:
 define float @int_to_float_rr(i32 %a) {
 ; AVX-LABEL: int_to_float_rr:
 ; AVX:       # %bb.0: # %entry
-; AVX-NEXT:    vcvtusi2ss %edi, %xmm0, %xmm0
+; AVX-NEXT:    vcvtusi2ss %edi, %xmm15, %xmm0
 ; AVX-NEXT:    retq
 ;
 ; AVX_X86-LABEL: int_to_float_rr:
 ; AVX_X86:       # %bb.0: # %entry
 ; AVX_X86-NEXT:    pushl %eax
 ; AVX_X86-NEXT:    .cfi_def_cfa_offset 8
-; AVX_X86-NEXT:    vcvtusi2ssl {{[0-9]+}}(%esp), %xmm0, %xmm0
+; AVX_X86-NEXT:    vcvtusi2ssl {{[0-9]+}}(%esp), %xmm7, %xmm0
 ; AVX_X86-NEXT:    vmovss %xmm0, (%esp)
 ; AVX_X86-NEXT:    flds (%esp)
 ; AVX_X86-NEXT:    popl %eax
@@ -109,10 +109,10 @@ entry:
   ret float %0
 }
 
-define float @int_to_float_rm(i32* %a) {
+define float @int_to_float_rm(ptr %a) {
 ; AVX-LABEL: int_to_float_rm:
 ; AVX:       # %bb.0: # %entry
-; AVX-NEXT:    vcvtusi2ssl (%rdi), %xmm0, %xmm0
+; AVX-NEXT:    vcvtusi2ssl (%rdi), %xmm15, %xmm0
 ; AVX-NEXT:    retq
 ;
 ; AVX_X86-LABEL: int_to_float_rm:
@@ -120,22 +120,22 @@ define float @int_to_float_rm(i32* %a) {
 ; AVX_X86-NEXT:    pushl %eax
 ; AVX_X86-NEXT:    .cfi_def_cfa_offset 8
 ; AVX_X86-NEXT:    movl {{[0-9]+}}(%esp), %eax
-; AVX_X86-NEXT:    vcvtusi2ssl (%eax), %xmm0, %xmm0
+; AVX_X86-NEXT:    vcvtusi2ssl (%eax), %xmm7, %xmm0
 ; AVX_X86-NEXT:    vmovss %xmm0, (%esp)
 ; AVX_X86-NEXT:    flds (%esp)
 ; AVX_X86-NEXT:    popl %eax
 ; AVX_X86-NEXT:    .cfi_def_cfa_offset 4
 ; AVX_X86-NEXT:    retl
 entry:
-  %0 = load i32, i32* %a
+  %0 = load i32, ptr %a
   %1 = uitofp i32 %0 to float
   ret float %1
 }
 
-define float @int_to_float_rm_optsize(i32* %a) optsize {
+define float @int_to_float_rm_optsize(ptr %a) optsize {
 ; AVX-LABEL: int_to_float_rm_optsize:
 ; AVX:       # %bb.0: # %entry
-; AVX-NEXT:    vcvtusi2ssl (%rdi), %xmm0, %xmm0
+; AVX-NEXT:    vcvtusi2ssl (%rdi), %xmm15, %xmm0
 ; AVX-NEXT:    retq
 ;
 ; AVX_X86-LABEL: int_to_float_rm_optsize:
@@ -143,14 +143,14 @@ define float @int_to_float_rm_optsize(i32* %a) optsize {
 ; AVX_X86-NEXT:    pushl %eax
 ; AVX_X86-NEXT:    .cfi_def_cfa_offset 8
 ; AVX_X86-NEXT:    movl {{[0-9]+}}(%esp), %eax
-; AVX_X86-NEXT:    vcvtusi2ssl (%eax), %xmm0, %xmm0
+; AVX_X86-NEXT:    vcvtusi2ssl (%eax), %xmm7, %xmm0
 ; AVX_X86-NEXT:    vmovss %xmm0, (%esp)
 ; AVX_X86-NEXT:    flds (%esp)
 ; AVX_X86-NEXT:    popl %eax
 ; AVX_X86-NEXT:    .cfi_def_cfa_offset 4
 ; AVX_X86-NEXT:    retl
 entry:
-  %0 = load i32, i32* %a
+  %0 = load i32, ptr %a
   %1 = uitofp i32 %0 to float
   ret float %1
 }

@@ -13,9 +13,10 @@
 #ifndef LLVM_SUPPORT_MEMORY_H
 #define LLVM_SUPPORT_MEMORY_H
 
+#include "llvm/Support/Compiler.h"
 #include "llvm/Support/DataTypes.h"
-#include <string>
 #include <system_error>
+#include <utility>
 
 namespace llvm {
 
@@ -38,7 +39,7 @@ namespace sys {
     /// The size as it was allocated. This is always greater or equal to the
     /// size that was originally requested.
     size_t allocatedSize() const { return AllocatedSize; }
-  
+
   private:
     void *Address;    ///< Address of first byte of memory area
     size_t AllocatedSize; ///< Size, in bytes of the memory area
@@ -95,10 +96,9 @@ namespace sys {
     /// otherwise a null MemoryBlock is with \p EC describing the error.
     ///
     /// Allocate mapped memory.
-    static MemoryBlock allocateMappedMemory(size_t NumBytes,
-                                            const MemoryBlock *const NearBlock,
-                                            unsigned Flags,
-                                            std::error_code &EC);
+    LLVM_ABI static MemoryBlock
+    allocateMappedMemory(size_t NumBytes, const MemoryBlock *const NearBlock,
+                         unsigned Flags, std::error_code &EC);
 
     /// This method releases a block of memory that was allocated with the
     /// allocateMappedMemory method. It should not be used to release any
@@ -109,14 +109,13 @@ namespace sys {
     /// describing the failure if an error occurred.
     ///
     /// Release mapped memory.
-    static std::error_code releaseMappedMemory(MemoryBlock &Block);
+    LLVM_ABI static std::error_code releaseMappedMemory(MemoryBlock &Block);
 
     /// This method sets the protection flags for a block of memory to the
     /// state specified by /p Flags.  The behavior is not specified if the
     /// memory was not allocated using the allocateMappedMemory method.
     /// \p Block describes the memory block to be protected.
     /// \p Flags specifies the new protection state to be assigned to the block.
-    /// \p ErrMsg [out] returns a string describing any error that occurred.
     ///
     /// If \p Flags is MF_WRITE, the actual behavior varies
     /// with the operating system (i.e. MF_READ | MF_WRITE on Windows) and the
@@ -126,20 +125,21 @@ namespace sys {
     /// describing the failure if an error occurred.
     ///
     /// Set memory protection state.
-    static std::error_code protectMappedMemory(const MemoryBlock &Block,
-                                               unsigned Flags);
+    LLVM_ABI static std::error_code
+    protectMappedMemory(const MemoryBlock &Block, unsigned Flags);
 
     /// InvalidateInstructionCache - Before the JIT can run a block of code
     /// that has been emitted it must invalidate the instruction cache on some
     /// platforms.
-    static void InvalidateInstructionCache(const void *Addr, size_t Len);
+    LLVM_ABI static void InvalidateInstructionCache(const void *Addr,
+                                                    size_t Len);
   };
 
   /// Owning version of MemoryBlock.
   class OwningMemoryBlock {
   public:
     OwningMemoryBlock() = default;
-    explicit OwningMemoryBlock(MemoryBlock M) : M(M) {}
+    explicit OwningMemoryBlock(MemoryBlock M) : M(std::move(M)) {}
     OwningMemoryBlock(OwningMemoryBlock &&Other) {
       M = Other.M;
       Other.M = MemoryBlock();
@@ -150,13 +150,22 @@ namespace sys {
       return *this;
     }
     ~OwningMemoryBlock() {
-      Memory::releaseMappedMemory(M);
+      if (M.base())
+        Memory::releaseMappedMemory(M);
     }
     void *base() const { return M.base(); }
     /// The size as it was allocated. This is always greater or equal to the
     /// size that was originally requested.
     size_t allocatedSize() const { return M.allocatedSize(); }
     MemoryBlock getMemoryBlock() const { return M; }
+    std::error_code release() {
+      std::error_code EC;
+      if (M.base()) {
+        EC = Memory::releaseMappedMemory(M);
+        M = MemoryBlock();
+      }
+      return EC;
+    }
   private:
     MemoryBlock M;
   };

@@ -1,4 +1,4 @@
-// RUN: llvm-mc -no-exec-stack -filetype=obj -triple x86_64-pc-linux-gnu %s -o - | llvm-readobj -S | FileCheck  %s
+// RUN: llvm-mc -no-exec-stack -filetype=obj -triple x86_64-pc-linux-gnu %s -o - | llvm-readobj -S - | FileCheck  %s
 
 // CHECK:        Section {
 // CHECK:          Index:
@@ -14,3 +14,4 @@
 // CHECK-NEXT:     AddressAlignment: 1
 // CHECK-NEXT:     EntrySize: 0
 // CHECK-NEXT:   }
+nop

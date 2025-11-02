@@ -200,6 +200,8 @@ public:
   /// \returns Whether the root namespace of \p D is the \c std C++ namespace.
   static bool isInStdNamespace(const Decl *D);
 
+  static std::string getFunctionName(const Decl *D);
+
 private:
   std::unique_ptr<ManagedAnalysis> &getAnalysisImpl(const void *tag);
 
@@ -227,7 +229,9 @@ private:
 protected:
   LocationContext(ContextKind k, AnalysisDeclContext *ctx,
                   const LocationContext *parent, int64_t ID)
-      : Kind(k), Ctx(ctx), Parent(parent), ID(ID) {}
+      : Kind(k), Ctx(ctx), Parent(parent), ID(ID) {
+    assert(ctx);
+  }
 
 public:
   virtual ~LocationContext();
@@ -236,8 +240,10 @@ public:
 
   int64_t getID() const { return ID; }
 
+  LLVM_ATTRIBUTE_RETURNS_NONNULL
   AnalysisDeclContext *getAnalysisDeclContext() const { return Ctx; }
 
+  /// It might return null.
   const LocationContext *getParent() const { return Parent; }
 
   bool isParentOf(const LocationContext *LC) const;
@@ -323,6 +329,8 @@ public:
   bool inTopFrame() const override { return getParent() == nullptr; }
 
   unsigned getIndex() const { return Index; }
+
+  CFGElement getCallSiteCFGElement() const { return (*Block)[Index]; }
 
   void Profile(llvm::FoldingSetNodeID &ID) override;
 
@@ -443,7 +451,7 @@ public:
       bool synthesizeBodies = false, bool addStaticInitBranches = false,
       bool addCXXNewAllocator = true, bool addRichCXXConstructors = true,
       bool markElidedCXXConstructors = true, bool addVirtualBaseBranches = true,
-      CodeInjector *injector = nullptr);
+      std::unique_ptr<CodeInjector> injector = nullptr);
 
   AnalysisDeclContext *getContext(const Decl *D);
 

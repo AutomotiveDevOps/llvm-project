@@ -17,6 +17,11 @@
 // RUN: %clang_cc1 -std=c++17 -triple %itanium_abi_triple -fcxx-exceptions -fdelayed-template-parsing -fexceptions -include-pch %t -verify %s
 // RUN: %clang_cc1 -std=c++17 -triple %itanium_abi_triple -fcxx-exceptions -fdelayed-template-parsing -fexceptions -include-pch %t %s -emit-llvm -o - -DNO_ERRORS | FileCheck %s
 
+// Test with pch and template instantiation in the pch.
+// RUN: %clang_cc1 -std=c++17 -triple %itanium_abi_triple -fcxx-exceptions -fexceptions -fpch-instantiate-templates -x c++-header -emit-pch -o %t %S/cxx-templates.h
+// RUN: %clang_cc1 -std=c++17 -triple %itanium_abi_triple -fcxx-exceptions -fexceptions -include-pch %t -verify %s
+// RUN: %clang_cc1 -std=c++17 -triple %itanium_abi_triple -fcxx-exceptions -fexceptions -include-pch %t %s -emit-llvm -o - -DNO_ERRORS | FileCheck %s
+
 // CHECK: define weak_odr {{.*}}void @_ZN2S4IiE1mEv
 // CHECK: define linkonce_odr {{.*}}void @_ZN2S3IiE1mEv
 
@@ -104,7 +109,7 @@ namespace cyclic_module_load {
 }
 
 #ifndef NO_ERRORS
-// expected-error@cxx-templates.h:305 {{incomplete}}
+// expected-error@cxx-templates.h:304 {{incomplete}}
 template int local_extern::f<int[]>(); // expected-note {{in instantiation of}}
 #endif
 template int local_extern::g<int[]>();
@@ -141,7 +146,7 @@ namespace ClassScopeExplicitSpecializations {
   template int A<3>::f<1>() const;
   template int A<4>::f<0>() const; // expected-warning {{has no effect}}
   template int A<4>::f<1>() const;
-  // expected-note@cxx-templates.h:403 2{{here}}
+  // expected-note@cxx-templates.h:402 2{{here}}
 
   static_assert(A<0>().f<0>() == 4, "");
   static_assert(A<0>().f<1>() == 5, "");
@@ -162,7 +167,8 @@ namespace DependentMemberExpr {
   // This used to mark 'f' invalid without producing any diagnostic. That's a
   // little hard to detect, but we can make sure that constexpr evaluation
   // fails when it should.
-  static_assert(A<int>().f() == 1); // expected-error {{static_assert failed}}
+  static_assert(A<int>().f() == 1); // expected-error {{static assertion failed}} \
+                                    // expected-note {{evaluates to '0 == 1'}}
 #endif
 }
 
@@ -174,4 +180,9 @@ namespace DependentTemplateName {
   void test() {
     getWithIdentifier<HasMember>();
   }
+}
+
+namespace ClassTemplateCycle {
+  extern T t;
+  int k = M;
 }

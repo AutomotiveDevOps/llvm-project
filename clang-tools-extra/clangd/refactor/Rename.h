@@ -11,31 +11,71 @@
 
 #include "Protocol.h"
 #include "SourceCode.h"
-#include "support/Path.h"
+#include "clang/Basic/IdentifierTable.h"
 #include "clang/Basic/LangOptions.h"
-#include "clang/Tooling/Core/Replacement.h"
+#include "llvm/ADT/SmallVector.h"
 #include "llvm/Support/Error.h"
+#include <optional>
 
 namespace clang {
 namespace clangd {
 class ParsedAST;
 class SymbolIndex;
 
-/// Gets dirty buffer for a given file \p AbsPath.
-/// Returns None if there is no dirty buffer for the given file.
-using DirtyBufferGetter =
-    llvm::function_ref<llvm::Optional<std::string>(PathRef AbsPath)>;
-
 struct RenameOptions {
-  /// If true, enable cross-file rename; otherwise, only allows to rename a
-  /// symbol that's only used in the current file.
-  bool AllowCrossFile = false;
   /// The maximum number of affected files (0 means no limit), only meaningful
   /// when AllowCrossFile = true.
   /// If the actual number exceeds the limit, rename is forbidden.
   size_t LimitFiles = 50;
   /// If true, format the rename edits, only meaningful in ClangdServer layer.
   bool WantFormat = false;
+  /// Allow rename of virtual method hierarchies.
+  /// Disable to support broken index implementations with missing relations.
+  /// FIXME: fix those implementations and remove this option.
+  bool RenameVirtual = true;
+};
+
+/// A name of a symbol that should be renamed.
+///
+/// Symbol's name can be composed of multiple strings. For example, Objective-C
+/// methods can contain multiple argument labels:
+///
+/// \code
+/// - (void) myMethodNamePiece: (int)x anotherNamePieces:(int)y;
+///          ^~ string 0 ~~~~~         ^~ string 1 ~~~~~
+/// \endcode
+class RenameSymbolName {
+  llvm::SmallVector<std::string, 1> NamePieces;
+
+public:
+  RenameSymbolName();
+
+  /// Create a new \c SymbolName with the specified pieces.
+  explicit RenameSymbolName(ArrayRef<std::string> NamePieces);
+
+  explicit RenameSymbolName(const DeclarationName &Name);
+
+  ArrayRef<std::string> getNamePieces() const { return NamePieces; }
+
+  /// If this symbol consists of a single piece return it, otherwise return
+  /// `None`.
+  ///
+  /// Only symbols in Objective-C can consist of multiple pieces, so this
+  /// function always returns a value for non-Objective-C symbols.
+  std::optional<std::string> getSinglePiece() const;
+
+  /// Returns a human-readable version of this symbol name.
+  ///
+  /// If the symbol consists of multiple pieces (aka. it is an Objective-C
+  /// selector/method name), the pieces are separated by `:`, otherwise just an
+  /// identifier name.
+  std::string getAsString() const;
+
+  void print(raw_ostream &OS) const;
+
+  bool operator==(const RenameSymbolName &Other) const {
+    return NamePieces == Other.NamePieces;
+  }
 };
 
 struct RenameInputs {
@@ -45,20 +85,51 @@ struct RenameInputs {
   ParsedAST &AST;
   llvm::StringRef MainFilePath;
 
+  // The filesystem to query when performing cross file renames.
+  // If this is set, Index must also be set, likewise if this is nullptr, Index
+  // must also be nullptr.
+  llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem> FS = nullptr;
+
   const SymbolIndex *Index = nullptr;
 
   RenameOptions Opts = {};
-  // When set, used by the rename to get file content for all rename-related
-  // files.
-  // If there is no corresponding dirty buffer, we will use the file content
-  // from disk.
-  DirtyBufferGetter GetDirtyBuffer = nullptr;
+};
+
+struct RenameResult {
+  // The range of the symbol that the user can attempt to rename.
+  Range Target;
+  // Placeholder text for the rename operation if non-empty.
+  std::string Placeholder;
+  // Rename occurrences for the current main file.
+  std::vector<Range> LocalChanges;
+  // Complete edits for the rename, including LocalChanges.
+  // If the full set of changes is unknown, this field is empty.
+  FileEdits GlobalChanges;
+};
+
+/// Represents a symbol range where the symbol can potentially have multiple
+/// tokens.
+struct SymbolRange {
+  /// Ranges for the tokens that make up the symbol's name.
+  /// Usually a single range, but there can be multiple ranges if the tokens for
+  /// the symbol are split, e.g. ObjC selectors.
+  std::vector<Range> Ranges;
+
+  SymbolRange(Range R);
+  SymbolRange(std::vector<Range> Ranges);
+
+  /// Returns the first range.
+  Range range() const;
+
+  friend bool operator==(const SymbolRange &LHS, const SymbolRange &RHS);
+  friend bool operator!=(const SymbolRange &LHS, const SymbolRange &RHS);
+  friend bool operator<(const SymbolRange &LHS, const SymbolRange &RHS);
 };
 
 /// Renames all occurrences of the symbol. The result edits are unformatted.
 /// If AllowCrossFile is false, returns an error if rename a symbol that's used
 /// in another file (per the index).
-llvm::Expected<FileEdits> rename(const RenameInputs &RInputs);
+llvm::Expected<RenameResult> rename(const RenameInputs &RInputs);
 
 /// Generates rename edits that replaces all given occurrences with the
 /// NewName.
@@ -66,8 +137,8 @@ llvm::Expected<FileEdits> rename(const RenameInputs &RInputs);
 /// REQUIRED: Occurrences is sorted and doesn't have duplicated ranges.
 llvm::Expected<Edit> buildRenameEdit(llvm::StringRef AbsFilePath,
                                      llvm::StringRef InitialCode,
-                                     std::vector<Range> Occurrences,
-                                     llvm::StringRef NewName);
+                                     std::vector<SymbolRange> Occurrences,
+                                     llvm::ArrayRef<llvm::StringRef> NewNames);
 
 /// Adjusts indexed occurrences to match the current state of the file.
 ///
@@ -79,25 +150,26 @@ llvm::Expected<Edit> buildRenameEdit(llvm::StringRef AbsFilePath,
 /// The API assumes that Indexed contains only named occurrences (each
 /// occurrence has the same length).
 /// REQUIRED: Indexed is sorted.
-llvm::Optional<std::vector<Range>>
-adjustRenameRanges(llvm::StringRef DraftCode, llvm::StringRef Identifier,
+std::optional<std::vector<SymbolRange>>
+adjustRenameRanges(llvm::StringRef DraftCode, const RenameSymbolName &Name,
                    std::vector<Range> Indexed, const LangOptions &LangOpts);
 
 /// Calculates the lexed occurrences that the given indexed occurrences map to.
-/// Returns None if we don't find a mapping.
+/// Returns std::nullopt if we don't find a mapping.
 ///
 /// Exposed for testing only.
 ///
 /// REQUIRED: Indexed and Lexed are sorted.
-llvm::Optional<std::vector<Range>> getMappedRanges(ArrayRef<Range> Indexed,
-                                                   ArrayRef<Range> Lexed);
+std::optional<std::vector<SymbolRange>>
+getMappedRanges(ArrayRef<Range> Indexed, ArrayRef<SymbolRange> Lexed);
 /// Evaluates how good the mapped result is. 0 indicates a perfect match.
 ///
 /// Exposed for testing only.
 ///
 /// REQUIRED: Indexed and Lexed are sorted, Indexed and MappedIndex have the
 /// same size.
-size_t renameRangeAdjustmentCost(ArrayRef<Range> Indexed, ArrayRef<Range> Lexed,
+size_t renameRangeAdjustmentCost(ArrayRef<Range> Indexed,
+                                 ArrayRef<SymbolRange> Lexed,
                                  ArrayRef<size_t> MappedIndex);
 
 } // namespace clangd

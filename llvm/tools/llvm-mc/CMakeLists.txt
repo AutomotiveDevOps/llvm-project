@@ -3,13 +3,15 @@ set(LLVM_LINK_COMPONENTS
   AllTargetsDescs
   AllTargetsDisassemblers
   AllTargetsInfos
-  CodeGen
   MC
   MCParser
   Support
+  TargetParser
+  DWARFCFIChecker
   )
 
 add_llvm_tool(llvm-mc
   llvm-mc.cpp
   Disassembler.cpp
   )
+

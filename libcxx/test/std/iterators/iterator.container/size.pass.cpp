@@ -6,7 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-// UNSUPPORTED: c++98, c++03, c++11, c++14
+// UNSUPPORTED: c++03, c++11, c++14
 
 // <iterator>
 // template <class C> constexpr auto size(const C& c) -> decltype(c.size());         // C++17
@@ -54,7 +54,7 @@ void test_container( std::initializer_list<T>& c )
     assert ( std::size(c)   == c.size());
 }
 
-template<typename T, size_t Sz>
+template<typename T, std::size_t Sz>
 void test_const_array( const T (&array)[Sz] )
 {
     ASSERT_NOEXCEPT(std::size(array));

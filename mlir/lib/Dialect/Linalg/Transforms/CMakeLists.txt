@@ -1,13 +1,51 @@
 add_mlir_dialect_library(MLIRLinalgTransforms
+  AllInterfaces.cpp
+  BubbleUpExtractSlice.cpp
+  BufferizableOpInterfaceImpl.cpp
+  ConstantFold.cpp
+  ConvertToDestinationStyle.cpp
+  ConvertConv2DToImg2Col.cpp
+  DataLayoutPropagation.cpp
+  DecomposeLinalgOps.cpp
+  Detensorize.cpp
   DropUnitDims.cpp
+  ElementwiseOpFusion.cpp
+  ElementwiseToLinalg.cpp
+  EliminateEmptyTensors.cpp
+  EraseUnusedOperandsAndResults.cpp
+  FoldAddIntoDest.cpp
+  FoldIntoElementwise.cpp
+  FusePadOpWithLinalgProducer.cpp
   Fusion.cpp
+  Generalization.cpp
+  Hoisting.cpp
+  HoistPadding.cpp
+  InlineScalarOperands.cpp
   Interchange.cpp
   Loops.cpp
+  MorphOps.cpp
+  TransposeMatmul.cpp
+  ShardingInterfaceImpl.cpp
+  SimplifyDepthwiseConv.cpp
+  NamedToElementwise.cpp
+  BlockPackMatmul.cpp
+  PackAndUnpackPatterns.cpp
+  Padding.cpp
+  PadTilingInterface.cpp
   Promotion.cpp
-  TensorsToBuffers.cpp
+  RuntimeOpVerification.cpp
+  Specialize.cpp
+  Split.cpp
+  SplitReduction.cpp
+  SubsetInsertionOpInterfaceImpl.cpp
+  SwapExtractSliceWithFillPatterns.cpp
   Tiling.cpp
+  TilingInterfaceImpl.cpp
   Transforms.cpp
+  TransposeConv2D.cpp
+  DecomposeGenericByUnfoldingPermutation.cpp
   Vectorization.cpp
+  WinogradConv2D.cpp
 
   ADDITIONAL_HEADER_DIRS
   ${MLIR_MAIN_INCLUDE_DIR}/mlir/Dialect/Linalg
@@ -16,18 +54,37 @@ add_mlir_dialect_library(MLIRLinalgTransforms
   MLIRLinalgPassIncGen
 
   LINK_LIBS PUBLIC
-  MLIRAffineOps
+  MLIRAffineDialect
+  MLIRAffineUtils
   MLIRAnalysis
-  MLIREDSC
+  MLIRArithDialect
+  MLIRArithTransforms
+  MLIRArithUtils
+  MLIRComplexDialect
+  MLIRDestinationStyleOpInterface
+  MLIRDialectUtils
+  MLIRFuncDialect
+  MLIRFuncTransforms
+  MLIRIndexDialect
+  MLIRInferTypeOpInterface
   MLIRIR
-  MLIRLinalgAnalysis
-  MLIRLinalgEDSC
-  MLIRLinalgOps
+  MLIRMemRefDialect
+  MLIRMemRefTransforms
+  MLIRShardTransforms
+  MLIRLinalgDialect
   MLIRLinalgUtils
-  MLIRSCF
+  MLIRSCFDialect
+  MLIRSCFTransforms
   MLIRPass
-  MLIRStandardOps
-  MLIRStandardToLLVM
+  MLIRSubsetOpInterface
+  MLIRSparseTensorDialect
+  MLIRTensorDialect
+  MLIRTensorTilingInterfaceImpl
+  MLIRTransforms
   MLIRTransformUtils
-  MLIRVector
-  )
+  MLIRValueBoundsOpInterface
+  MLIRVectorDialect
+  MLIRVectorTransforms
+  MLIRVectorUtils
+  MLIRVectorToSCF
+)

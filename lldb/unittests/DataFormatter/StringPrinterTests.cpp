@@ -10,16 +10,15 @@
 #include "lldb/Utility/DataExtractor.h"
 #include "lldb/Utility/Endian.h"
 #include "lldb/Utility/StreamString.h"
-#include "llvm/ADT/Optional.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/raw_ostream.h"
 #include "gtest/gtest.h"
+#include <optional>
 #include <string>
 
 using namespace lldb;
 using namespace lldb_private;
 using lldb_private::formatters::StringPrinter;
-using llvm::Optional;
 using llvm::StringRef;
 
 #define QUOTE(x) std::string("\"" x "\"")
@@ -27,8 +26,8 @@ using llvm::StringRef;
 /// Format \p input according to the specified string encoding and special char
 /// escape style.
 template <StringPrinter::StringElementType elem_ty>
-static Optional<std::string> format(StringRef input,
-                                    StringPrinter::EscapeStyle escape_style) {
+static std::optional<std::string>
+format(StringRef input, StringPrinter::EscapeStyle escape_style) {
   StreamString out;
   StringPrinter::ReadBufferAndDumpToStreamOptions opts;
   opts.SetStream(&out);
@@ -37,12 +36,11 @@ static Optional<std::string> format(StringRef input,
   opts.SetEscapeNonPrintables(true);
   opts.SetIgnoreMaxLength(false);
   opts.SetEscapeStyle(escape_style);
-  DataExtractor extractor(input.data(), input.size(),
-                          endian::InlHostByteOrder(), sizeof(void *));
-  opts.SetData(extractor);
+  opts.SetData(DataExtractor(input.data(), input.size(),
+                             endian::InlHostByteOrder(), sizeof(void *)));
   const bool success = StringPrinter::ReadBufferAndDumpToStream<elem_ty>(opts);
   if (!success)
-    return llvm::None;
+    return std::nullopt;
   return out.GetString().str();
 }
 
@@ -77,11 +75,8 @@ TEST(StringPrinterTests, CxxASCII) {
   EXPECT_EQ(fmt("\uD55C"), QUOTE("\uD55C"));
   EXPECT_EQ(fmt("\U00010348"), QUOTE("\U00010348"));
 
-  // FIXME: These strings are all rejected, but shouldn't be AFAICT. LLDB finds
-  // that these are not valid utf8 sequences, but that's OK, the raw values
-  // should still be printed out.
-  EXPECT_NE(fmt("\376"), QUOTE(R"(\xfe)")); // \376 is 254 in decimal.
-  EXPECT_NE(fmt("\xfe"), QUOTE(R"(\xfe)")); // \xfe is 254 in decimal.
+  EXPECT_EQ(fmt("\376"), QUOTE(R"(\xfe)")); // \376 is 254 in decimal.
+  EXPECT_EQ(fmt("\xfe"), QUOTE(R"(\xfe)")); // \xfe is 254 in decimal.
 }
 
 // Test UTF8 formatting for C++.
@@ -114,11 +109,8 @@ TEST(StringPrinterTests, CxxUTF8) {
   EXPECT_EQ(fmt("\uD55C"), QUOTE("\uD55C"));
   EXPECT_EQ(fmt("\U00010348"), QUOTE("\U00010348"));
 
-  // FIXME: These strings are all rejected, but shouldn't be AFAICT. LLDB finds
-  // that these are not valid utf8 sequences, but that's OK, the raw values
-  // should still be printed out.
-  EXPECT_NE(fmt("\376"), QUOTE(R"(\xfe)")); // \376 is 254 in decimal.
-  EXPECT_NE(fmt("\xfe"), QUOTE(R"(\xfe)")); // \xfe is 254 in decimal.
+  EXPECT_EQ(fmt("\376"), QUOTE(R"(\xfe)")); // \376 is 254 in decimal.
+  EXPECT_EQ(fmt("\xfe"), QUOTE(R"(\xfe)")); // \xfe is 254 in decimal.
 }
 
 // Test UTF8 formatting for Swift.
@@ -151,9 +143,6 @@ TEST(StringPrinterTests, SwiftUTF8) {
   EXPECT_EQ(fmt("\uD55C"), QUOTE("\uD55C"));
   EXPECT_EQ(fmt("\U00010348"), QUOTE("\U00010348"));
 
-  // FIXME: These strings are all rejected, but shouldn't be AFAICT. LLDB finds
-  // that these are not valid utf8 sequences, but that's OK, the raw values
-  // should still be printed out.
-  EXPECT_NE(fmt("\376"), QUOTE(R"(\xfe)")); // \376 is 254 in decimal.
-  EXPECT_NE(fmt("\xfe"), QUOTE(R"(\xfe)")); // \xfe is 254 in decimal.
+  EXPECT_EQ(fmt("\376"), QUOTE(R"(\u{fe})")); // \376 is 254 in decimal.
+  EXPECT_EQ(fmt("\xfe"), QUOTE(R"(\u{fe})")); // \xfe is 254 in decimal.
 }

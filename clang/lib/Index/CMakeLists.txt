@@ -16,7 +16,6 @@ add_clang_library(clangIndex
 
   ADDITIONAL_HEADERS
   IndexingContext.h
-  SimpleFormatContext.h
 
   LINK_LIBS
   clangAST
@@ -24,7 +23,11 @@ add_clang_library(clangIndex
   clangFormat
   clangFrontend
   clangLex
-  clangRewrite
+  clangSema
   clangSerialization
   clangToolingCore
+
+  DEPENDS
+  omp_gen
+  ClangDriverOptions
   )

@@ -1,4 +1,4 @@
-//===--- LoopConvertCheck.h - clang-tidy-------------------------*- C++ -*-===//
+//===----------------------------------------------------------------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -10,11 +10,10 @@
 #define LLVM_CLANG_TOOLS_EXTRA_CLANG_TIDY_MODERNIZE_LOOP_CONVERT_H
 
 #include "../ClangTidyCheck.h"
+#include "../utils/IncludeInserter.h"
 #include "LoopConvertUtils.h"
 
-namespace clang {
-namespace tidy {
-namespace modernize {
+namespace clang::tidy::modernize {
 
 class LoopConvertCheck : public ClangTidyCheck {
 public:
@@ -24,16 +23,19 @@ public:
   }
   void storeOptions(ClangTidyOptions::OptionMap &Opts) override;
   void registerMatchers(ast_matchers::MatchFinder *Finder) override;
+  void registerPPCallbacks(const SourceManager &SM, Preprocessor *PP,
+                           Preprocessor *ModuleExpanderPP) override;
   void check(const ast_matchers::MatchFinder::MatchResult &Result) override;
 
 private:
   struct RangeDescriptor {
-    RangeDescriptor();
-    bool ContainerNeedsDereference;
-    bool DerefByConstRef;
-    bool DerefByValue;
+    RangeDescriptor() = default;
+    bool ContainerNeedsDereference = false;
+    bool DerefByConstRef = false;
+    bool DerefByValue = false;
     std::string ContainerString;
     QualType ElemType;
+    bool NeedsReverseCall = false;
   };
 
   void getAliasRange(SourceManager &SM, SourceRange &DeclRange);
@@ -67,14 +69,20 @@ private:
   bool isConvertible(ASTContext *Context, const ast_matchers::BoundNodes &Nodes,
                      const ForStmt *Loop, LoopFixerKind FixerKind);
 
+  StringRef getReverseFunction() const;
+  StringRef getReverseHeader() const;
+
   std::unique_ptr<TUTrackingInfo> TUInfo;
   const unsigned long long MaxCopySize;
   const Confidence::Level MinConfidence;
   const VariableNamer::NamingStyle NamingStyle;
+  utils::IncludeInserter Inserter;
+  bool UseReverseRanges;
+  const bool UseCxx20IfAvailable;
+  std::string ReverseFunction;
+  std::string ReverseHeader;
 };
 
-} // namespace modernize
-} // namespace tidy
-} // namespace clang
+} // namespace clang::tidy::modernize
 
 #endif // LLVM_CLANG_TOOLS_EXTRA_CLANG_TIDY_MODERNIZE_LOOP_CONVERT_H

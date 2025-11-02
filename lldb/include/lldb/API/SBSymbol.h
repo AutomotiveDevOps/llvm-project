@@ -36,18 +36,62 @@ public:
 
   const char *GetMangledName() const;
 
+  const char *GetBaseName() const;
+
   lldb::SBInstructionList GetInstructions(lldb::SBTarget target);
 
   lldb::SBInstructionList GetInstructions(lldb::SBTarget target,
                                           const char *flavor_string);
 
+  /// Get the start address of this symbol
+  ///
+  /// \returns
+  ///   If the symbol's value is not an address, an invalid SBAddress object
+  ///   will be returned. If the symbol's value is an address, a valid SBAddress
+  ///   object will be returned.
   SBAddress GetStartAddress();
 
+  /// Get the end address of this symbol
+  ///
+  /// \returns
+  ///   If the symbol's value is not an address, an invalid SBAddress object
+  ///   will be returned. If the symbol's value is an address, a valid SBAddress
+  ///   object will be returned.
   SBAddress GetEndAddress();
+
+  /// Get the raw value of a symbol.
+  ///
+  /// This accessor allows direct access to the symbol's value from the symbol
+  /// table regardless of what the value is. The value can be a file address or
+  /// it can be an integer value that depends on what the symbol's type is. Some
+  /// symbol values are not addresses, but absolute values or integer values
+  /// that can be mean different things. The GetStartAddress() accessor will
+  /// only return a valid SBAddress if the symbol's value is an address, so this
+  /// accessor provides a way to access the symbol's value when the value is
+  /// not an address.
+  ///
+  /// \returns
+  ///   Returns the raw integer value of a symbol from the symbol table.
+  uint64_t GetValue();
+
+  /// Get the size of the symbol.
+  ///
+  /// This accessor allows direct access to the symbol's size from the symbol
+  /// table regardless of what the value is (address or integer value).
+  ///
+  /// \returns
+  ///   Returns the size of a symbol from the symbol table.
+  uint64_t GetSize();
 
   uint32_t GetPrologueByteSize();
 
   SymbolType GetType();
+
+  /// Get the ID of this symbol, usually the original symbol table index.
+  ///
+  /// \returns
+  ///   Returns the ID of this symbol.
+  uint32_t GetID();
 
   bool operator==(const lldb::SBSymbol &rhs) const;
 
@@ -62,6 +106,15 @@ public:
   // Returns true if the symbol was synthetically generated from something
   // other than the actual symbol table itself in the object file.
   bool IsSynthetic();
+
+  /// Returns true if the symbol is a debug symbol.
+  bool IsDebug();
+
+  /// Get the string representation of a symbol type.
+  static const char *GetTypeAsString(lldb::SymbolType symbol_type);
+
+  /// Get the symbol type from a string representation.
+  static lldb::SymbolType GetTypeFromString(const char *str);
 
 protected:
   lldb_private::Symbol *get();
@@ -78,7 +131,7 @@ private:
 
   void SetSymbol(lldb_private::Symbol *lldb_object_ptr);
 
-  lldb_private::Symbol *m_opaque_ptr;
+  lldb_private::Symbol *m_opaque_ptr = nullptr;
 };
 
 } // namespace lldb

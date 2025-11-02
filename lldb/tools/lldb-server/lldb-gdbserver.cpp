@@ -6,38 +6,41 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include <errno.h>
-#include <stdint.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include <cerrno>
+#include <cstdint>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
 
 #ifndef _WIN32
-#include <signal.h>
+#include <csignal>
 #include <unistd.h>
 #endif
 
-
-#include "Acceptor.h"
 #include "LLDBServerUtilities.h"
 #include "Plugins/Process/gdb-remote/GDBRemoteCommunicationServerLLGS.h"
 #include "Plugins/Process/gdb-remote/ProcessGDBRemoteLog.h"
 #include "lldb/Host/Config.h"
 #include "lldb/Host/ConnectionFileDescriptor.h"
 #include "lldb/Host/FileSystem.h"
-#include "lldb/Host/HostGetOpt.h"
-#include "lldb/Host/OptionParser.h"
 #include "lldb/Host/Pipe.h"
-#include "lldb/Host/Socket.h"
-#include "lldb/Host/StringConvert.h"
 #include "lldb/Host/common/NativeProcessProtocol.h"
+#include "lldb/Host/common/TCPSocket.h"
 #include "lldb/Target/Process.h"
+#include "lldb/Utility/LLDBLog.h"
 #include "lldb/Utility/Status.h"
 #include "llvm/ADT/StringRef.h"
+#include "llvm/Option/ArgList.h"
+#include "llvm/Option/OptTable.h"
+#include "llvm/Option/Option.h"
 #include "llvm/Support/Errno.h"
+#include "llvm/Support/Error.h"
+#include "llvm/Support/WithColor.h"
 
 #if defined(__linux__)
 #include "Plugins/Process/Linux/NativeProcessLinux.h"
+#elif defined(__FreeBSD__)
+#include "Plugins/Process/FreeBSD/NativeProcessFreeBSD.h"
 #elif defined(__NetBSD__)
 #include "Plugins/Process/NetBSD/NativeProcessNetBSD.h"
 #elif defined(_WIN32)
@@ -60,54 +63,33 @@ using namespace lldb_private::process_gdb_remote;
 
 namespace {
 #if defined(__linux__)
-typedef process_linux::NativeProcessLinux::Factory NativeProcessFactory;
+typedef process_linux::NativeProcessLinux::Manager NativeProcessManager;
+#elif defined(__FreeBSD__)
+typedef process_freebsd::NativeProcessFreeBSD::Manager NativeProcessManager;
 #elif defined(__NetBSD__)
-typedef process_netbsd::NativeProcessNetBSD::Factory NativeProcessFactory;
+typedef process_netbsd::NativeProcessNetBSD::Manager NativeProcessManager;
 #elif defined(_WIN32)
-typedef NativeProcessWindows::Factory NativeProcessFactory;
+typedef NativeProcessWindows::Manager NativeProcessManager;
 #else
 // Dummy implementation to make sure the code compiles
-class NativeProcessFactory : public NativeProcessProtocol::Factory {
+class NativeProcessManager : public NativeProcessProtocol::Manager {
 public:
+  NativeProcessManager(MainLoop &mainloop)
+      : NativeProcessProtocol::Manager(mainloop) {}
+
   llvm::Expected<std::unique_ptr<NativeProcessProtocol>>
   Launch(ProcessLaunchInfo &launch_info,
-         NativeProcessProtocol::NativeDelegate &delegate,
-         MainLoop &mainloop) const override {
+         NativeProcessProtocol::NativeDelegate &native_delegate) override {
     llvm_unreachable("Not implemented");
   }
   llvm::Expected<std::unique_ptr<NativeProcessProtocol>>
-  Attach(lldb::pid_t pid, NativeProcessProtocol::NativeDelegate &delegate,
-         MainLoop &mainloop) const override {
+  Attach(lldb::pid_t pid,
+         NativeProcessProtocol::NativeDelegate &native_delegate) override {
     llvm_unreachable("Not implemented");
   }
 };
 #endif
 }
-
-// option descriptors for getopt_long_only()
-
-static int g_debug = 0;
-static int g_verbose = 0;
-
-static struct option g_long_options[] = {
-    {"debug", no_argument, &g_debug, 1},
-    {"verbose", no_argument, &g_verbose, 1},
-    {"log-file", required_argument, nullptr, 'l'},
-    {"log-channels", required_argument, nullptr, 'c'},
-    {"attach", required_argument, nullptr, 'a'},
-    {"named-pipe", required_argument, nullptr, 'N'},
-    {"pipe", required_argument, nullptr, 'U'},
-    {"native-regs", no_argument, nullptr,
-     'r'}, // Specify to use the native registers instead of the gdb defaults
-           // for the architecture.  NOTE: this is a do-nothing arg as it's
-           // behavior is default now.  FIXME remove call from lldb-platform.
-    {"reverse-connect", no_argument, nullptr,
-     'R'}, // Specifies that llgs attaches to the client address:port rather
-           // than llgs listening for a connection from address on port.
-    {"setsid", no_argument, nullptr,
-     'S'}, // Call setsid() to make llgs run in its own session.
-    {"fd", required_argument, nullptr, 'F'},
-    {nullptr, 0, nullptr, 0}};
 
 #ifndef _WIN32
 // Watch for signals
@@ -116,7 +98,7 @@ static int g_sighup_received_count = 0;
 static void sighup_handler(MainLoopBase &mainloop) {
   ++g_sighup_received_count;
 
-  Log *log(GetLogIfAnyCategoriesSet(LIBLLDB_LOG_PROCESS));
+  Log *log = GetLog(LLDBLog::Process);
   LLDB_LOGF(log, "lldb-server:%s swallowing SIGHUP (receive count=%d)",
             __FUNCTION__, g_sighup_received_count);
 
@@ -124,20 +106,6 @@ static void sighup_handler(MainLoopBase &mainloop) {
     mainloop.RequestTermination();
 }
 #endif // #ifndef _WIN32
-
-static void display_usage(const char *progname, const char *subcommand) {
-  fprintf(stderr, "Usage:\n  %s %s "
-                  "[--log-file log-file-name] "
-                  "[--log-channels log-channel-list] "
-                  "[--setsid] "
-                  "[--fd file-descriptor]"
-                  "[--named-pipe named-pipe-path] "
-                  "[--native-regs] "
-                  "[--attach pid] "
-                  "[[HOST]:PORT] "
-                  "[-- PROGRAM ARG1 ARG2 ...]\n",
-          progname, subcommand);
-}
 
 void handle_attach_to_pid(GDBRemoteCommunicationServerLLGS &gdb_server,
                           lldb::pid_t pid) {
@@ -172,12 +140,12 @@ void handle_attach(GDBRemoteCommunicationServerLLGS &gdb_server,
     handle_attach_to_process_name(gdb_server, attach_target);
 }
 
-void handle_launch(GDBRemoteCommunicationServerLLGS &gdb_server, int argc,
-                   const char *const argv[]) {
+void handle_launch(GDBRemoteCommunicationServerLLGS &gdb_server,
+                   llvm::ArrayRef<llvm::StringRef> Arguments) {
   ProcessLaunchInfo info;
   info.GetFlags().Set(eLaunchFlagStopAtEntry | eLaunchFlagDebug |
                       eLaunchFlagDisableASLR);
-  info.SetArguments(const_cast<const char **>(argv), true);
+  info.SetArguments(Args(Arguments), true);
 
   llvm::SmallString<64> cwd;
   if (std::error_code ec = llvm::sys::fs::current_path(cwd)) {
@@ -194,169 +162,183 @@ void handle_launch(GDBRemoteCommunicationServerLLGS &gdb_server, int argc,
   Status error = gdb_server.LaunchProcess();
   if (error.Fail()) {
     llvm::errs() << llvm::formatv("error: failed to launch '{0}': {1}\n",
-                                  argv[0], error);
+                                  Arguments[0], error);
     exit(1);
   }
 }
 
-Status writeSocketIdToPipe(Pipe &port_pipe, const std::string &socket_id) {
-  size_t bytes_written = 0;
-  // Write the port number as a C string with the NULL terminator.
-  return port_pipe.Write(socket_id.c_str(), socket_id.size() + 1,
-                         bytes_written);
+static Status writeSocketIdToPipe(Pipe &port_pipe,
+                                  const std::string &socket_id) {
+  // NB: Include the nul character at the end.
+  llvm::StringRef buf(socket_id.data(), socket_id.size() + 1);
+  while (!buf.empty()) {
+    if (llvm::Expected<size_t> written =
+            port_pipe.Write(buf.data(), buf.size()))
+      buf = buf.drop_front(*written);
+    else
+      return Status::FromError(written.takeError());
+  }
+  return Status();
 }
 
 Status writeSocketIdToPipe(const char *const named_pipe_path,
-                           const std::string &socket_id) {
+                           llvm::StringRef socket_id) {
   Pipe port_name_pipe;
   // Wait for 10 seconds for pipe to be opened.
-  auto error = port_name_pipe.OpenAsWriterWithTimeout(named_pipe_path, false,
-                                                      std::chrono::seconds{10});
-  if (error.Fail())
-    return error;
-  return writeSocketIdToPipe(port_name_pipe, socket_id);
+  if (llvm::Error err = port_name_pipe.OpenAsWriter(named_pipe_path,
+                                                    std::chrono::seconds{10}))
+    return Status::FromError(std::move(err));
+
+  return writeSocketIdToPipe(port_name_pipe, socket_id.str());
 }
 
 Status writeSocketIdToPipe(lldb::pipe_t unnamed_pipe,
-                           const std::string &socket_id) {
+                           llvm::StringRef socket_id) {
   Pipe port_pipe{LLDB_INVALID_PIPE, unnamed_pipe};
-  return writeSocketIdToPipe(port_pipe, socket_id);
+  return writeSocketIdToPipe(port_pipe, socket_id.str());
 }
 
 void ConnectToRemote(MainLoop &mainloop,
                      GDBRemoteCommunicationServerLLGS &gdb_server,
-                     bool reverse_connect, const char *const host_and_port,
+                     bool reverse_connect, llvm::StringRef host_and_port,
                      const char *const progname, const char *const subcommand,
                      const char *const named_pipe_path, pipe_t unnamed_pipe,
-                     int connection_fd) {
+                     shared_fd_t connection_fd) {
   Status error;
 
   std::unique_ptr<Connection> connection_up;
-  if (connection_fd != -1) {
-    // Build the connection string.
-    char connection_url[512];
-    snprintf(connection_url, sizeof(connection_url), "fd://%d", connection_fd);
+  std::string url;
+
+  if (connection_fd != SharedSocket::kInvalidFD) {
+#ifdef _WIN32
+    NativeSocket sockfd;
+    error = SharedSocket::GetNativeSocket(connection_fd, sockfd);
+    if (error.Fail()) {
+      llvm::errs() << llvm::formatv("error: GetNativeSocket failed: {0}\n",
+                                    error.AsCString());
+      exit(-1);
+    }
+    connection_up = std::make_unique<ConnectionFileDescriptor>(
+        std::make_unique<TCPSocket>(sockfd, /*should_close=*/true));
+#else
+    url = llvm::formatv("fd://{0}", connection_fd).str();
 
     // Create the connection.
-#if LLDB_ENABLE_POSIX && !defined _WIN32
     ::fcntl(connection_fd, F_SETFD, FD_CLOEXEC);
 #endif
-    connection_up.reset(new ConnectionFileDescriptor);
-    auto connection_result = connection_up->Connect(connection_url, &error);
-    if (connection_result != eConnectionStatusSuccess) {
-      fprintf(stderr, "error: failed to connect to client at '%s' "
-                      "(connection status: %d)\n",
-              connection_url, static_cast<int>(connection_result));
+  } else if (!host_and_port.empty()) {
+    llvm::Expected<std::string> url_exp =
+        LLGSArgToURL(host_and_port, reverse_connect);
+    if (!url_exp) {
+      llvm::errs() << llvm::formatv("error: invalid host:port or URL '{0}': "
+                                    "{1}\n",
+                                    host_and_port,
+                                    llvm::toString(url_exp.takeError()));
       exit(-1);
     }
+
+    url = std::move(url_exp.get());
+  }
+
+  if (!url.empty()) {
+    // Create the connection or server.
+    std::unique_ptr<ConnectionFileDescriptor> conn_fd_up{
+        new ConnectionFileDescriptor};
+    auto connection_result = conn_fd_up->Connect(
+        url,
+        [named_pipe_path, unnamed_pipe](llvm::StringRef socket_id) {
+          // If we have a named pipe to write the socket id back to, do that
+          // now.
+          if (named_pipe_path && named_pipe_path[0]) {
+            Status error = writeSocketIdToPipe(named_pipe_path, socket_id);
+            if (error.Fail())
+              llvm::errs() << llvm::formatv(
+                  "failed to write to the named pipe '{0}': {1}\n",
+                  named_pipe_path, error.AsCString());
+          }
+          // If we have an unnamed pipe to write the socket id back to, do
+          // that now.
+          else if (unnamed_pipe != LLDB_INVALID_PIPE) {
+            Status error = writeSocketIdToPipe(unnamed_pipe, socket_id);
+            if (error.Fail())
+              llvm::errs() << llvm::formatv(
+                  "failed to write to the unnamed pipe: {0}\n", error);
+          }
+        },
+        &error);
+
     if (error.Fail()) {
-      fprintf(stderr, "error: failed to connect to client at '%s': %s\n",
-              connection_url, error.AsCString());
+      llvm::errs() << llvm::formatv(
+          "error: failed to connect to client at '{0}': {1}\n", url, error);
       exit(-1);
     }
-  } else if (host_and_port && host_and_port[0]) {
-    // Parse out host and port.
-    std::string final_host_and_port;
-    std::string connection_host;
-    std::string connection_port;
-    uint32_t connection_portno = 0;
-
-    // If host_and_port starts with ':', default the host to be "localhost" and
-    // expect the remainder to be the port.
-    if (host_and_port[0] == ':')
-      final_host_and_port.append("localhost");
-    final_host_and_port.append(host_and_port);
-
-    const std::string::size_type colon_pos = final_host_and_port.find(':');
-    if (colon_pos != std::string::npos) {
-      connection_host = final_host_and_port.substr(0, colon_pos);
-      connection_port = final_host_and_port.substr(colon_pos + 1);
-      connection_portno = StringConvert::ToUInt32(connection_port.c_str(), 0);
+    if (connection_result != eConnectionStatusSuccess) {
+      llvm::errs() << llvm::formatv(
+          "error: failed to connect to client at '{0}' "
+          "(connection status: {1})\n",
+          url, static_cast<int>(connection_result));
+      exit(-1);
     }
-
-
-    if (reverse_connect) {
-      // llgs will connect to the gdb-remote client.
-
-      // Ensure we have a port number for the connection.
-      if (connection_portno == 0) {
-        fprintf(stderr, "error: port number must be specified on when using "
-                        "reverse connect\n");
-        exit(1);
-      }
-
-      // Build the connection string.
-      char connection_url[512];
-      snprintf(connection_url, sizeof(connection_url), "connect://%s",
-               final_host_and_port.c_str());
-
-      // Create the connection.
-      connection_up.reset(new ConnectionFileDescriptor);
-      auto connection_result = connection_up->Connect(connection_url, &error);
-      if (connection_result != eConnectionStatusSuccess) {
-        fprintf(stderr, "error: failed to connect to client at '%s' "
-                        "(connection status: %d)\n",
-                connection_url, static_cast<int>(connection_result));
-        exit(-1);
-      }
-      if (error.Fail()) {
-        fprintf(stderr, "error: failed to connect to client at '%s': %s\n",
-                connection_url, error.AsCString());
-        exit(-1);
-      }
-    } else {
-      std::unique_ptr<Acceptor> acceptor_up(
-          Acceptor::Create(final_host_and_port, false, error));
-      if (error.Fail()) {
-        fprintf(stderr, "failed to create acceptor: %s\n", error.AsCString());
-        exit(1);
-      }
-      error = acceptor_up->Listen(1);
-      if (error.Fail()) {
-        fprintf(stderr, "failed to listen: %s\n", error.AsCString());
-        exit(1);
-      }
-      const std::string socket_id = acceptor_up->GetLocalSocketId();
-      if (!socket_id.empty()) {
-        // If we have a named pipe to write the socket id back to, do that now.
-        if (named_pipe_path && named_pipe_path[0]) {
-          error = writeSocketIdToPipe(named_pipe_path, socket_id);
-          if (error.Fail())
-            fprintf(stderr, "failed to write to the named pipe \'%s\': %s\n",
-                    named_pipe_path, error.AsCString());
-        }
-        // If we have an unnamed pipe to write the socket id back to, do that
-        // now.
-        else if (unnamed_pipe != LLDB_INVALID_PIPE) {
-          error = writeSocketIdToPipe(unnamed_pipe, socket_id);
-          if (error.Fail())
-            fprintf(stderr, "failed to write to the unnamed pipe: %s\n",
-                    error.AsCString());
-        }
-      } else {
-        fprintf(stderr,
-                "unable to get the socket id for the listening connection\n");
-      }
-
-      Connection *conn = nullptr;
-      error = acceptor_up->Accept(false, conn);
-      if (error.Fail()) {
-        printf("failed to accept new connection: %s\n", error.AsCString());
-        exit(1);
-      }
-      connection_up.reset(conn);
-    }
+    connection_up = std::move(conn_fd_up);
   }
   error = gdb_server.InitializeConnection(std::move(connection_up));
   if (error.Fail()) {
-    fprintf(stderr, "Failed to initialize connection: %s\n",
-            error.AsCString());
+    llvm::errs() << llvm::formatv("failed to initialize connection\n", error);
     exit(-1);
   }
-  printf("Connection established.\n");
+  llvm::outs() << "Connection established.\n";
 }
 
-// main
+namespace {
+using namespace llvm::opt;
+
+enum ID {
+  OPT_INVALID = 0, // This is not an option ID.
+#define OPTION(...) LLVM_MAKE_OPT_ID(__VA_ARGS__),
+#include "LLGSOptions.inc"
+#undef OPTION
+};
+
+#define OPTTABLE_STR_TABLE_CODE
+#include "LLGSOptions.inc"
+#undef OPTTABLE_STR_TABLE_CODE
+
+#define OPTTABLE_PREFIXES_TABLE_CODE
+#include "LLGSOptions.inc"
+#undef OPTTABLE_PREFIXES_TABLE_CODE
+
+static constexpr opt::OptTable::Info InfoTable[] = {
+#define OPTION(...) LLVM_CONSTRUCT_OPT_INFO(__VA_ARGS__),
+#include "LLGSOptions.inc"
+#undef OPTION
+};
+
+class LLGSOptTable : public opt::GenericOptTable {
+public:
+  LLGSOptTable()
+      : opt::GenericOptTable(OptionStrTable, OptionPrefixesTable, InfoTable) {}
+
+  void PrintHelp(llvm::StringRef Name) {
+    std::string Usage =
+        (Name + " [options] [[host]:port] [[--] program args...]").str();
+    OptTable::printHelp(llvm::outs(), Usage.c_str(), "lldb-server");
+    llvm::outs() << R"(
+DESCRIPTION
+  lldb-server connects to the LLDB client, which drives the debugging session.
+  If no connection options are given, the [host]:port argument must be present
+  and will denote the address that lldb-server will listen on. [host] defaults
+  to "localhost" if empty. Port can be zero, in which case the port number will
+  be chosen dynamically and written to destinations given by --named-pipe and
+  --pipe arguments.
+
+  If no target is selected at startup, lldb-server can be directed by the LLDB
+  client to launch or attach to a process.
+
+)";
+  }
+};
+} // namespace
+
 int main_gdbserver(int argc, char *argv[]) {
   Status error;
   MainLoop mainloop;
@@ -369,10 +351,6 @@ int main_gdbserver(int argc, char *argv[]) {
 
   const char *progname = argv[0];
   const char *subcommand = argv[1];
-  argc--;
-  argv++;
-  int long_option_index = 0;
-  int ch;
   std::string attach_target;
   std::string named_pipe_path;
   std::string log_file;
@@ -380,99 +358,78 @@ int main_gdbserver(int argc, char *argv[]) {
       log_channels; // e.g. "lldb process threads:gdb-remote default:linux all"
   lldb::pipe_t unnamed_pipe = LLDB_INVALID_PIPE;
   bool reverse_connect = false;
-  int connection_fd = -1;
+  shared_fd_t connection_fd = SharedSocket::kInvalidFD;
 
   // ProcessLaunchInfo launch_info;
   ProcessAttachInfo attach_info;
 
-  bool show_usage = false;
-  int option_error = 0;
-#if __GLIBC__
-  optind = 0;
-#else
-  optreset = 1;
-  optind = 1;
-#endif
-
-  std::string short_options(OptionParser::GetShortOptionString(g_long_options));
-
-  while ((ch = getopt_long_only(argc, argv, short_options.c_str(),
-                                g_long_options, &long_option_index)) != -1) {
-    switch (ch) {
-    case 0: // Any optional that auto set themselves will return 0
-      break;
-
-    case 'l': // Set Log File
-      if (optarg && optarg[0])
-        log_file.assign(optarg);
-      break;
-
-    case 'c': // Log Channels
-      if (optarg && optarg[0])
-        log_channels = StringRef(optarg);
-      break;
-
-    case 'N': // named pipe
-      if (optarg && optarg[0])
-        named_pipe_path = optarg;
-      break;
-
-    case 'U': // unnamed pipe
-      if (optarg && optarg[0])
-        unnamed_pipe = (pipe_t)StringConvert::ToUInt64(optarg, -1);
-      break;
-
-    case 'r':
-      // Do nothing, native regs is the default these days
-      break;
-
-    case 'R':
-      reverse_connect = true;
-      break;
-
-    case 'F':
-      connection_fd = StringConvert::ToUInt32(optarg, -1);
-      break;
-
-#ifndef _WIN32
-    case 'S':
-      // Put llgs into a new session. Terminals group processes
-      // into sessions and when a special terminal key sequences
-      // (like control+c) are typed they can cause signals to go out to
-      // all processes in a session. Using this --setsid (-S) option
-      // will cause debugserver to run in its own sessions and be free
-      // from such issues.
-      //
-      // This is useful when llgs is spawned from a command
-      // line application that uses llgs to do the debugging,
-      // yet that application doesn't want llgs receiving the
-      // signals sent to the session (i.e. dying when anyone hits ^C).
-      {
-        const ::pid_t new_sid = setsid();
-        if (new_sid == -1) {
-          llvm::errs() << llvm::formatv(
-              "failed to set new session id for {0} ({1})\n", LLGS_PROGRAM_NAME,
-              llvm::sys::StrError());
-        }
-      }
-      break;
-#endif
-
-    case 'a': // attach {pid|process_name}
-      if (optarg && optarg[0])
-        attach_target = optarg;
-      break;
-
-    case 'h': /* fall-through is intentional */
-    case '?':
-      show_usage = true;
-      break;
-    }
+  LLGSOptTable Opts;
+  llvm::BumpPtrAllocator Alloc;
+  llvm::StringSaver Saver(Alloc);
+  bool HasError = false;
+  opt::InputArgList Args = Opts.parseArgs(argc - 1, argv + 1, OPT_UNKNOWN,
+                                          Saver, [&](llvm::StringRef Msg) {
+                                            WithColor::error() << Msg << "\n";
+                                            HasError = true;
+                                          });
+  std::string Name =
+      (llvm::sys::path::filename(argv[0]) + " g[dbserver]").str();
+  std::string HelpText =
+      "Use '" + Name + " --help' for a complete list of options.\n";
+  if (HasError) {
+    llvm::errs() << HelpText;
+    return 1;
   }
 
-  if (show_usage || option_error) {
-    display_usage(progname, subcommand);
-    exit(option_error);
+  if (Args.hasArg(OPT_help)) {
+    Opts.PrintHelp(Name);
+    return 0;
+  }
+
+#ifndef _WIN32
+  if (Args.hasArg(OPT_setsid)) {
+    // Put llgs into a new session. Terminals group processes
+    // into sessions and when a special terminal key sequences
+    // (like control+c) are typed they can cause signals to go out to
+    // all processes in a session. Using this --setsid (-S) option
+    // will cause debugserver to run in its own sessions and be free
+    // from such issues.
+    //
+    // This is useful when llgs is spawned from a command
+    // line application that uses llgs to do the debugging,
+    // yet that application doesn't want llgs receiving the
+    // signals sent to the session (i.e. dying when anyone hits ^C).
+    {
+      const ::pid_t new_sid = setsid();
+      if (new_sid == -1) {
+        WithColor::warning()
+            << llvm::formatv("failed to set new session id for {0} ({1})\n",
+                             LLGS_PROGRAM_NAME, llvm::sys::StrError());
+      }
+    }
+  }
+#endif
+
+  log_file = Args.getLastArgValue(OPT_log_file).str();
+  log_channels = Args.getLastArgValue(OPT_log_channels);
+  named_pipe_path = Args.getLastArgValue(OPT_named_pipe).str();
+  reverse_connect = Args.hasArg(OPT_reverse_connect);
+  attach_target = Args.getLastArgValue(OPT_attach).str();
+  if (Args.hasArg(OPT_pipe)) {
+    uint64_t Arg;
+    if (!llvm::to_integer(Args.getLastArgValue(OPT_pipe), Arg)) {
+      WithColor::error() << "invalid '--pipe' argument\n" << HelpText;
+      return 1;
+    }
+    unnamed_pipe = (pipe_t)Arg;
+  }
+  if (Args.hasArg(OPT_fd)) {
+    int64_t fd;
+    if (!llvm::to_integer(Args.getLastArgValue(OPT_fd), fd)) {
+      WithColor::error() << "invalid '--fd' argument\n" << HelpText;
+      return 1;
+    }
+    connection_fd = (shared_fd_t)fd;
   }
 
   if (!LLDBServerUtilities::SetupLogging(
@@ -481,30 +438,26 @@ int main_gdbserver(int argc, char *argv[]) {
               LLDB_LOG_OPTION_PREPEND_FILE_FUNCTION))
     return -1;
 
-  Log *log(lldb_private::GetLogIfAnyCategoriesSet(GDBR_LOG_PROCESS));
-  if (log) {
-    LLDB_LOGF(log, "lldb-server launch");
-    for (int i = 0; i < argc; i++) {
-      LLDB_LOGF(log, "argv[%i] = '%s'", i, argv[i]);
-    }
+  std::vector<llvm::StringRef> Inputs;
+  for (opt::Arg *Arg : Args.filtered(OPT_INPUT))
+    Inputs.push_back(Arg->getValue());
+  if (opt::Arg *Arg = Args.getLastArg(OPT_REM)) {
+    for (const char *Val : Arg->getValues())
+      Inputs.push_back(Val);
+  }
+  if (Inputs.empty() && connection_fd == SharedSocket::kInvalidFD) {
+    WithColor::error() << "no connection arguments\n" << HelpText;
+    return 1;
   }
 
-  // Skip any options we consumed with getopt_long_only.
-  argc -= optind;
-  argv += optind;
+  NativeProcessManager manager(mainloop);
+  GDBRemoteCommunicationServerLLGS gdb_server(mainloop, manager);
 
-  if (argc == 0 && connection_fd == -1) {
-    fputs("No arguments\n", stderr);
-    display_usage(progname, subcommand);
-    exit(255);
+  llvm::StringRef host_and_port;
+  if (!Inputs.empty() && connection_fd == SharedSocket::kInvalidFD) {
+    host_and_port = Inputs.front();
+    Inputs.erase(Inputs.begin());
   }
-
-  NativeProcessFactory factory;
-  GDBRemoteCommunicationServerLLGS gdb_server(mainloop, factory);
-
-  const char *const host_and_port = argv[0];
-  argc -= 1;
-  argv += 1;
 
   // Any arguments left over are for the program that we need to launch. If
   // there
@@ -515,8 +468,8 @@ int main_gdbserver(int argc, char *argv[]) {
   // explicitly asked to attach with the --attach={pid|program_name} form.
   if (!attach_target.empty())
     handle_attach(gdb_server, attach_target);
-  else if (argc > 0)
-    handle_launch(gdb_server, argc, argv);
+  else if (!Inputs.empty())
+    handle_launch(gdb_server, Inputs);
 
   // Print version info.
   printf("%s-%s\n", LLGS_PROGRAM_NAME, LLGS_VERSION_STR);
@@ -527,7 +480,6 @@ int main_gdbserver(int argc, char *argv[]) {
 
   if (!gdb_server.IsConnected()) {
     fprintf(stderr, "no connection information provided, unable to run\n");
-    display_usage(progname, subcommand);
     return 1;
   }
 

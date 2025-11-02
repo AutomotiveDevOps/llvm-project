@@ -15,8 +15,8 @@
 
 #include "clang/Basic/TargetInfo.h"
 #include "clang/Basic/TargetOptions.h"
-#include "llvm/ADT/Triple.h"
 #include "llvm/Support/Compiler.h"
+#include "llvm/TargetParser/Triple.h"
 
 namespace clang {
 namespace targets {
@@ -35,14 +35,29 @@ static const unsigned TCEOpenCLAddrSpaceMap[] = {
     4, // opencl_local
     5, // opencl_constant
     0, // opencl_private
+    1, // opencl_global_device
+    1, // opencl_global_host
     // FIXME: generic has to be added to the target
     0, // opencl_generic
     0, // cuda_device
     0, // cuda_constant
     0, // cuda_shared
+    0, // sycl_global
+    0, // sycl_global_device
+    0, // sycl_global_host
+    0, // sycl_local
+    0, // sycl_private
     0, // ptr32_sptr
     0, // ptr32_uptr
     0, // ptr64
+    0, // hlsl_groupshared
+    0, // hlsl_constant
+    0, // hlsl_private
+    0, // hlsl_device
+    0, // hlsl_input
+    // Wasm address space values for this target are dummy values,
+    // as it is only enabled for Wasm targets.
+    20, // wasm_funcref
 };
 
 class LLVM_LIBRARY_VISIBILITY TCETargetInfo : public TargetInfo {
@@ -84,15 +99,17 @@ public:
 
   bool hasFeature(StringRef Feature) const override { return Feature == "tce"; }
 
-  ArrayRef<Builtin::Info> getTargetBuiltins() const override { return None; }
+  llvm::SmallVector<Builtin::InfosShard> getTargetBuiltins() const override {
+    return {};
+  }
 
-  const char *getClobbers() const override { return ""; }
+  std::string_view getClobbers() const override { return ""; }
 
   BuiltinVaListKind getBuiltinVaListKind() const override {
     return TargetInfo::VoidPtrBuiltinVaList;
   }
 
-  ArrayRef<const char *> getGCCRegNames() const override { return None; }
+  ArrayRef<const char *> getGCCRegNames() const override { return {}; }
 
   bool validateAsmConstraint(const char *&Name,
                              TargetInfo::ConstraintInfo &info) const override {
@@ -100,7 +117,7 @@ public:
   }
 
   ArrayRef<TargetInfo::GCCRegAlias> getGCCRegAliases() const override {
-    return None;
+    return {};
   }
 };
 

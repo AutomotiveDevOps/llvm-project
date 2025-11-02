@@ -1,4 +1,4 @@
-//===--- UseDefaultNoneCheck.cpp - clang-tidy -----------------------------===//
+//===----------------------------------------------------------------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -7,27 +7,22 @@
 //===----------------------------------------------------------------------===//
 
 #include "UseDefaultNoneCheck.h"
-#include "clang/AST/ASTContext.h"
 #include "clang/AST/OpenMPClause.h"
-#include "clang/AST/Stmt.h"
 #include "clang/AST/StmtOpenMP.h"
 #include "clang/ASTMatchers/ASTMatchFinder.h"
 #include "clang/ASTMatchers/ASTMatchers.h"
-#include "clang/ASTMatchers/ASTMatchersMacros.h"
 
 using namespace clang::ast_matchers;
 
-namespace clang {
-namespace tidy {
-namespace openmp {
+namespace clang::tidy::openmp {
 
 void UseDefaultNoneCheck::registerMatchers(MatchFinder *Finder) {
   Finder->addMatcher(
       ompExecutableDirective(
-          allOf(isAllowedToContainClauseKind(llvm::omp::OMPC_default),
-                anyOf(unless(hasAnyClause(ompDefaultClause())),
-                      hasAnyClause(ompDefaultClause(unless(isNoneKind()))
-                                       .bind("clause")))))
+          isAllowedToContainClauseKind(llvm::omp::OMPC_default),
+          anyOf(unless(hasAnyClause(ompDefaultClause())),
+                hasAnyClause(
+                    ompDefaultClause(unless(isNoneKind())).bind("clause"))))
           .bind("directive"),
       this);
 }
@@ -55,6 +50,4 @@ void UseDefaultNoneCheck::check(const MatchFinder::MatchResult &Result) {
       << getOpenMPDirectiveName(Directive->getDirectiveKind());
 }
 
-} // namespace openmp
-} // namespace tidy
-} // namespace clang
+} // namespace clang::tidy::openmp

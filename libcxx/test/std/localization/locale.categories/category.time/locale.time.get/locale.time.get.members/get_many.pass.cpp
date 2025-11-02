@@ -14,13 +14,15 @@
 // get(iter_type s, iter_type end, ios_base& f, ios_base::iostate& err, tm *t,
 //     const char_type *fmt, const char_type *fmtend) const;
 
-#include <locale>
 #include <cassert>
+#include <ctime>
 #include <ios>
+#include <locale>
+
 #include "test_macros.h"
 #include "test_iterators.h"
 
-typedef input_iterator<const char*> I;
+typedef cpp17_input_iterator<const char*> I;
 
 typedef std::time_get<char, I> F;
 
@@ -44,7 +46,7 @@ int main(int, char**)
         err = std::ios_base::goodbit;
         t = std::tm();
         I i = f.get(I(in), I(in+sizeof(in)-1), ios, err, &t, fmt, fmt+sizeof(fmt)-1);
-        assert(i.base() == in+sizeof(in)-1);
+        assert(base(i) == in+sizeof(in)-1);
         assert(t.tm_year == 109);
         assert(t.tm_mon == 4);
         assert(t.tm_mday == 9);
@@ -58,7 +60,7 @@ int main(int, char**)
         err = std::ios_base::goodbit;
         t = std::tm();
         I i = f.get(I(in), I(in+sizeof(in)-1), ios, err, &t, fmt, fmt+sizeof(fmt)-1);
-        assert(i.base() == in+sizeof(in)-1);
+        assert(base(i) == in+sizeof(in)-1);
         assert(t.tm_year == 109);
         assert(t.tm_mon == 4);
         assert(t.tm_mday == 9);

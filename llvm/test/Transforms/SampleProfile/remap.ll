@@ -1,21 +1,21 @@
-; RUN: opt %s -passes=sample-profile -sample-profile-file=%S/Inputs/remap.prof -sample-profile-remapping-file=%S/Inputs/remap.map | opt -analyze -branch-prob | FileCheck %s
+; RUN: opt %s -passes=sample-profile -sample-profile-file=%S/Inputs/remap.prof -sample-profile-remapping-file=%S/Inputs/remap.map | opt -passes='print<branch-prob>' -disable-output 2>&1 | FileCheck %s
 ;
 ; Check whether profile remapping work with loading profile on demand used by extbinary format profile.
 ; RUN: llvm-profdata merge -sample -extbinary %S/Inputs/remap.prof -o %t.extbinary.afdo
-; RUN: opt %s -passes=sample-profile -sample-profile-file=%t.extbinary.afdo -sample-profile-remapping-file=%S/Inputs/remap.map | opt -analyze -branch-prob | FileCheck %s
+; RUN: opt %s -passes=sample-profile -sample-profile-file=%t.extbinary.afdo -sample-profile-remapping-file=%S/Inputs/remap.map | opt -passes='print<branch-prob>' -disable-output 2>&1 | FileCheck %s
 ;
 ; Reduced from branch.ll
 
 declare i1 @foo()
 
-define void @_ZN3foo3barERKN1M1XINS_6detail3quxEEE() !dbg !2 {
-; CHECK: Printing analysis 'Branch Probability Analysis' for function '_ZN3foo3barERKN1M1XINS_6detail3quxEEE':
+define void @_ZN3foo3barERKN1M1XINS_6detail3quxEEE() #0 !dbg !2 {
+; CHECK: Printing analysis {{.*}} for function '_ZN3foo3barERKN1M1XINS_6detail3quxEEE':
 
 entry:
   %cmp = call i1 @foo(), !dbg !6
   br i1 %cmp, label %if.then, label %if.end
-; CHECK:  edge entry -> if.then probability is 0x4ccf6b16 / 0x80000000 = 60.01%
-; CHECK:  edge entry -> if.end probability is 0x333094ea / 0x80000000 = 39.99%
+; CHECK:  edge %entry -> %if.then probability is 0x4ccf6b16 / 0x80000000 = 60.01%
+; CHECK:  edge %entry -> %if.end probability is 0x333094ea / 0x80000000 = 39.99%
 
 if.then:
   br label %return
@@ -23,8 +23,8 @@ if.then:
 if.end:
   %cmp1 = call i1 @foo(), !dbg !7
   br i1 %cmp1, label %if.then.2, label %if.else
-; CHECK: edge if.end -> if.then.2 probability is 0x6652c748 / 0x80000000 = 79.94%
-; CHECK: edge if.end -> if.else probability is 0x19ad38b8 / 0x80000000 = 20.06%
+; CHECK: edge %if.end -> %if.then.2 probability is 0x6652c748 / 0x80000000 = 79.94%
+; CHECK: edge %if.end -> %if.else probability is 0x19ad38b8 / 0x80000000 = 20.06%
 
 if.then.2:
   call i1 @foo(), !dbg !8
@@ -33,8 +33,8 @@ if.then.2:
 for.cond:
   %cmp5 = call i1 @foo()
   br i1 %cmp5, label %for.body, label %for.end, !prof !9
-; CHECK: edge for.cond -> for.body probability is 0x73333333 / 0x80000000 = 90.00%
-; CHECK: edge for.cond -> for.end probability is 0x0ccccccd / 0x80000000 = 10.00%
+; CHECK: edge %for.cond -> %for.body probability is 0x73333333 / 0x80000000 = 90.00%
+; CHECK: edge %for.cond -> %for.end probability is 0x0ccccccd / 0x80000000 = 10.00%
 
 for.body:
   br label %for.cond
@@ -48,6 +48,8 @@ if.else:
 return:
   ret void
 }
+
+attributes #0 = { "use-sample-profile" }
 
 !llvm.dbg.cu = !{!0}
 !llvm.module.flags = !{!4, !5}

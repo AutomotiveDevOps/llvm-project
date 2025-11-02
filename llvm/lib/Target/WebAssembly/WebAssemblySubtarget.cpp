@@ -15,7 +15,7 @@
 #include "WebAssemblySubtarget.h"
 #include "MCTargetDesc/WebAssemblyMCTargetDesc.h"
 #include "WebAssemblyInstrInfo.h"
-#include "llvm/Support/TargetRegistry.h"
+#include "llvm/MC/TargetRegistry.h"
 using namespace llvm;
 
 #define DEBUG_TYPE "wasm-subtarget"
@@ -33,7 +33,30 @@ WebAssemblySubtarget::initializeSubtargetDependencies(StringRef CPU,
   if (CPU.empty())
     CPU = "generic";
 
-  ParseSubtargetFeatures(CPU, FS);
+  ParseSubtargetFeatures(CPU, /*TuneCPU*/ CPU, FS);
+
+  FeatureBitset Bits = getFeatureBits();
+
+  // bulk-memory implies bulk-memory-opt
+  if (HasBulkMemory) {
+    HasBulkMemoryOpt = true;
+    Bits.set(WebAssembly::FeatureBulkMemoryOpt);
+  }
+
+  // gc implies reference-types
+  if (HasGC) {
+    HasReferenceTypes = true;
+  }
+
+  // reference-types implies call-indirect-overlong
+  if (HasReferenceTypes) {
+    HasCallIndirectOverlong = true;
+    Bits.set(WebAssembly::FeatureCallIndirectOverlong);
+  }
+
+  // In case we changed any bits, update `MCSubtargetInfo`'s `FeatureBitset`.
+  setFeatureBits(Bits);
+
   return *this;
 }
 
@@ -41,9 +64,9 @@ WebAssemblySubtarget::WebAssemblySubtarget(const Triple &TT,
                                            const std::string &CPU,
                                            const std::string &FS,
                                            const TargetMachine &TM)
-    : WebAssemblyGenSubtargetInfo(TT, CPU, FS), TargetTriple(TT),
-      FrameLowering(), InstrInfo(initializeSubtargetDependencies(CPU, FS)),
-      TSInfo(), TLInfo(TM, *this) {}
+    : WebAssemblyGenSubtargetInfo(TT, CPU, /*TuneCPU*/ CPU, FS),
+      TargetTriple(TT), InstrInfo(initializeSubtargetDependencies(CPU, FS)),
+      TLInfo(TM, *this) {}
 
 bool WebAssemblySubtarget::enableAtomicExpand() const {
   // If atomics are disabled, atomic ops are lowered instead of expanded

@@ -1,4 +1,4 @@
-//===--- DefaultOperatorNewCheck.cpp - clang-tidy --------------------===//
+//===----------------------------------------------------------------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -13,9 +13,7 @@
 
 using namespace clang::ast_matchers;
 
-namespace clang {
-namespace tidy {
-namespace cert {
+namespace clang::tidy::cert {
 
 void DefaultOperatorNewAlignmentCheck::registerMatchers(MatchFinder *Finder) {
   Finder->addMatcher(
@@ -33,7 +31,7 @@ void DefaultOperatorNewAlignmentCheck::check(
     return;
   const TagDecl *D = T->getAsTagDecl();
   // Alignment can not be obtained for undefined type.
-  if (!D || !D->getDefinition() || !D->isCompleteDefinition())
+  if (!D || !D->isCompleteDefinition())
     return;
 
   ASTContext &Context = D->getASTContext();
@@ -63,6 +61,4 @@ void DefaultOperatorNewAlignmentCheck::check(
         << (SpecifiedAlignment / CharWidth);
 }
 
-} // namespace cert
-} // namespace tidy
-} // namespace clang
+} // namespace clang::tidy::cert

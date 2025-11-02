@@ -16,7 +16,7 @@ generation. Consider the simplified schema describing codegen in MLIR.
 Linalg is designed to solve the High-level Hierarchical Optimization
 (HHO box) and to interoperate nicely within a
 *Mixture Of Expert Compilers* environment (i.e. the *CGSel* box).
-This work is inspired by a wealth of [prior art](#prior_art) in
+This work is inspired by a wealth of [prior art](#prior-art) in
 the field, from which it seeks to learn key lessons. This documentation
 and introspection effort also comes in the context of the proposal for a
 working group for discussing the [Development of high-level Tensor Compute
@@ -67,16 +67,16 @@ of the first [MLIR Tutorial](https://www.youtube.com/watch?v=cyICUIZ56wQ).
 ### Evolution
 Since the initial implementation, the design has evolved with, and partially
 driven the evolution of the core MLIR infrastructure to use
-[Regions](https://mlir.llvm.org/docs/LangRef/#regions),
-[OpInterfaces](https://mlir.llvm.org/docs/Interfaces/),
-[ODS](https://mlir.llvm.org/docs/OpDefinitions/) and
-[Declarative Rewrite Rules](https://mlir.llvm.org/docs/DeclarativeRewrites/)
+[Regions](../LangRef.md/#regions),
+[OpInterfaces](../Interfaces.md),
+[ODS](../DefiningDialects/Operations.md) and
+[Declarative Rewrite Rules](../DeclarativeRewrites.md)
 among others. The approach adopted by Linalg was extended to become
 [StructuredOps abstractions](
 https://drive.google.com/drive/u/0/folders/1sRAsgsd8Bvpm_IxREmZf2agsGU2KvrK-),
 with Linalg becoming its incarnation on tensors and buffers.
 It is complemented by the
-[Vector dialect](https://mlir.llvm.org/docs/Dialects/Vector/),
+[Vector dialect](../Dialects/Vector.md),
 which defines structured operations on vectors, following the same rationale and
 design principles as Linalg. (Vector dialect includes the higher-level
 operations on multi-dimensional vectors and abstracts away the lowering to
@@ -85,7 +85,7 @@ single-dimensional vectors).
 The Linalg dialect itself grew beyond linear algebra-like operations to become
 more expressive, in particular by providing an abstraction of a loop nest
 supporting parallelism, reductions and sliding windows around arbitrary MLIR
-[regions](https://mlir.llvm.org/docs/LangRef/#regions). It also has the
+[regions](../LangRef.md/#regions). It also has the
 potential of growing beyond *dense* linear-algebra to support richer data
 types, such as sparse and ragged tensors and buffers.
 
@@ -102,9 +102,9 @@ to the *structured control flow* dialect (named `LoopOps`).
 More components can be extracted, redesigned and generalized when new uses or
 requirements arise.
 
-Several [design questions](#open_issues) remain open in Linalg, which does not
-claim to be a general solution to all compilation problems.
-It does aim at driving thinking and implementations of domain-specific
+Several [design questions](../Dialects/Linalg/_index.md/#open_issues) remain
+open in Linalg, which does not claim to be a general solution to all compilation
+problems. It does aim at driving thinking and implementations of domain-specific
 abstractions where programmer's intent can be captured at a very high level,
 directly in the IR.
 
@@ -112,13 +112,13 @@ Given the evolution of the scope, it becomes apparent that a better name than
 "Linalg" could remove some of the confusions related to the dialect (and the
 underlying approach), its goals and limitations.
 
-## Prior Art<a name=""></a>
+## Prior Art
 Linalg draws inspiration from decades of prior art to design a modern a
 pragmatic solution. The following non-exhaustive list refers to some of the
 projects that influenced Linalg design:
 
 - [ONNX](https://onnx.ai/),
-- [LIFT](https://www.lift-project.org/),
+- [LIFT](https://lift-project.github.io/),
 - [XLA](https://www.tensorflow.org/xla/architecture),
 - [Halide](https://halide-lang.org/) and [TVM](https://tvm.apache.org/),
 - [TACO](http://tensor-compiler.org/),
@@ -171,16 +171,16 @@ Linalg hopes to additionally address the following:
   other, thus simplifying the intermediate representation.
 
 ### Lessons from LIFT<a name="lessonslift"></a>
-[LIFT](https://www.lift-project.org/) is a system to write computational
+[LIFT](https://lift-project.github.io/) is a system to write computational
 kernels based on functional abstractions. Transformations are
 represented by additional nodes in the IR, whose semantics are at the
 level of the algorithm (e.g. `partialReduce`).
 LIFT applies and composes transformations by using [local rewrite
-rules](https://www.lift-project.org/presentations/2015/ICFP-2015.pdf) that
+rules](https://lift-project.github.io/publications/2015/steuwer15generating.pdf) that
 embed these additional nodes directly in the functional abstraction.
 
 Similarly to LIFT, Linalg uses local rewrite rules implemented with the MLIR
-[Declarative Rewrite Rules](https://mlir.llvm.org/docs/DeclarativeRewrites/)
+[Declarative Rewrite Rules](../DeclarativeRewrites.md)
 mechanisms.
 
 Linalg builds on, and helps separate concerns in the LIFT approach as follows:
@@ -194,9 +194,9 @@ Linalg builds on, and helps separate concerns in the LIFT approach as follows:
 LIFT is expected to further influence the design of Linalg as it evolves. In
 particular, extending the data structure abstractions to support non-dense
 tensors can use the experience of LIFT abstractions for
-[sparse](https://www.lift-project.org/publications/2016/harries16sparse.pdf)
+[sparse](https://lift-project.github.io/publications/2016/harries16sparse.pdf)
 and [position-dependent
-arrays](https://www.lift-project.org/publications/2019/pizzuti19positiondependentarrays.pdf).
+arrays](https://lift-project.github.io/publications/2019/pizzuti19positiondependentarrays.pdf).
 
 ### Lessons from XLA<a name="lessonsxla"></a>
 [XLA](https://www.tensorflow.org/xla/architecture) is one of the first
@@ -384,7 +384,7 @@ Affine dialects in particular, Linalg takes the following decisions.
   multi-for loops with induction variables independent of each other (referred
   to as hyper-rectangular iteration domains in the literature) such as the
   proposed
-  [affine.parallel]((https://llvm.discourse.group/t/rfc-add-affine-parallel/350)
+  [affine.parallel](https://llvm.discourse.group/t/rfc-add-affine-parallel/350)
   are sufficient in the majority of cases.
 - **Declarative Tiling**: the *tiling* transformation is ubiquitous in HPC code
   generation. It can be seen as a decomposition of either the iteration space or
@@ -429,7 +429,7 @@ The selection of relevant transformations follows a co-design approach and
 involves considerations related to:
 - concrete current and future needs of the application domain,
 - concrete current and future hardware properties and ISAs,
-- understanding of strengths and limitations of [existing approaches](#prior_art),
+- understanding of strengths and limitations of [existing approaches](#prior-art),
 - taking advantage of the coexistence of multiple levels of IR in MLIR,
 
 One needs to be methodical to avoid proliferation and redundancy. A given
@@ -506,6 +506,72 @@ potential by introducing lower-level IR ops and *smaller* Linalg ops.
 This gradually reduces the potential, all the way to Loops + VectorOps
 and LLVMIR.
 
+### Interchangeability of Forms<a name="forms"></a>
+
+#### The Linalg Forms
+
+The core Linalg operation set has four forms:
+* **Generic:** Represented by `linalg.generic` and can encode all perfectly-nested
+loop operations.
+* **Category:** For example, `linalg.contract` and `linalg.elementwise`, that encode
+higher-level semantics of a `linalg.generic` while still representing multiple _named_
+operations via attributes and syntax. In the future, other category operations are
+planned (e.g.: `linalg.convolution` and `linalg.pooling`).
+* **Named:** For example, `linalg.matmul`, `linalg.add`, etc. All _named_ forms that
+can be converted to either a single _category_ or _generic_ forms, ie. are _perfectly nested_.
+* **Composite:** For example `linalg.softmax` and the `winograd` variations. These
+operations are not perfectly nested, and are converted to a list of other operations
+(of various dialects).
+
+The forms correlate in the following manner:
+```
++ generic
+ \__ + category
+      \__ + named
++ composite
+```
+
+The `category` and `named` forms are derived from `linalg.generic` and are *equivalent*.
+It should always be possible to convert a `named` operation into a `category` and that
+into a `generic` and back to `named`. However, it may not be possible to convert a
+`generic` into a `named` if there is no such `named` form.
+
+`Composite` operations cannot be converted to the other three classes and forms a
+sub-set on its own. But they can use other Linalg forms when expanding. There can be
+a pattern-matching transform to detect a graph of operations and convert into a
+`composite` operation.
+
+The various forms in the Linalg dialect are meant to facilitate
+pattern matching (single operations or DAGs) and to be able to consider
+different forms as *canonical* for different transforms.
+
+Linalg's various forms also carry information, and that
+information should be preserved as much as possible during the progressive
+lowering. A `matmul` operation is a special case of a `contract` operation,
+which in turn is a special case of a `generic` operation. Transformations on
+Linalg operations (in any form) should avoid breaking down into
+loops + arithmetic if they can still be represented as a Linalg operation,
+preferably in their original form.
+
+#### Canonical Forms<a name="canonical_forms"></a>
+
+With multiple (often exchangeable) forms, and with transformation simplicity
+in mind, compilers should aim for reducing matching and replacing complexity
+as much as possible. When matching a single operation with a complex pattern,
+having all the information in a `generic` Op is useful to iteratively match
+different patterns in turn. However, when assembling a DAG of operations to
+form a pattern, it's much simpler to match against named operations (like
+`max` + `div` + `reduce` + `broadcast`) than their generic counterparts.
+
+This is where the interchangeability of forms comes in handy. Linalg has the
+ability to specialize and generalize in order to convert the IR to a form that
+is easier for a particular type of transform. With forms being semantically
+equivalent, one can convert back-and-forth throughout the various transforms
+to match the needs of each transform. For that particular transform, such
+form can be considered _canonical_ and therefore "expected" for the pattern
+to _match_. This reduces complexity of pattern matchers and simplifies compiler
+pipelines.
+
 ### Composable and Declarative Transformations<a name="declarative_transformations"></a>
 Complex and impactful transformations need not be hard to manipulate, write or
 maintain. Mixing XLA-style high-level op semantics knowledge with generic
@@ -547,7 +613,7 @@ data types. We choose to take advantage of these properties for the
 reasons described above.
 In particular, the `MemRefType` represents dense non-contiguous memory regions.
 This structure should extend beyond simple dense data types and generalize to
-ragged, sparse and mixed dens/sparse tensors as well as to trees, hash tables,
+ragged, sparse and mixed dense/sparse tensors as well as to trees, hash tables,
 tables of records and maybe even graphs.
 
 For such more advanced data types, the control-flow required to traverse the
@@ -566,18 +632,18 @@ reconcile [core guiding principles](#guiding_principles) with real-world
 requirements when producing an implementation based on MLIR.
 
 ### Algorithms + Data Structures = Programs<a name="data_and_compute"></a>
+
 This is a twist on Niklaus Wirth's formulation but captures the essence of the
 design of Linalg: control-flow does not exist in a vacuum, independently of
-data.
-On the contrary, there is a very strong relationship between control-flow and
-data structures: one cannot exist without the other. This has multiple
-implications on the [semantics of Linalg Ops](#linalg_ops) and their
-transformations. In particular, this observation influences whether
-certain transformations are better done:
-- as control flow or data structure manipulation,
-- on Linalg ops attributes or on loops after some partial lowering
-occurred,
-- as extensions to the Linalg dialect in terms of new ops or attributes.
+data. On the contrary, there is a very strong relationship between control-flow
+and data structures: one cannot exist without the other. This has multiple
+implications on the
+[semantics of Linalg Ops](../Dialects/Linalg/_index.md/#linalg_ops) and their
+transformations. In particular, this observation influences whether certain
+transformations are better done: - as control flow or data structure
+manipulation, - on Linalg ops attributes or on loops after some partial lowering
+occurred, - as extensions to the Linalg dialect in terms of new ops or
+attributes.
 
 ### The Dialect Need not be Closed Under Transformations<a name="dialect_not_closed"></a>
 This is probably the most surprising and counter-intuitive
@@ -609,15 +675,14 @@ transformations.
 
 ### Summary of Existing Alternatives a Picture<a name="observationssummary"></a>
 Lastly, we summarize our observations of lessons from [Prior
-Art](#prior_art)---when viewed under the lense of our [Core Guiding
+Art](#prior-art)---when viewed under the lense of our [Core Guiding
 Principles](#guiding_principles)---with the following picture.
 
 <img width="1200" alt="MLIR Codegen Flow"
 src="https://user-images.githubusercontent.com/10148468/73613904-2f720a00-45c8-11ea-8265-1c856c02525b.png">
 
-This figure is not meant to be perfectly accurate but a rough map of
-how we view the distribution of structural information in existing
-systems, from a codegen-friendly angle. Unsurprisingly, the
-[Linalg Dialect](../Dialects/Linalg/) and its
-future evolutions aspire to a position in the top-right of this map.
-
+This figure is not meant to be perfectly accurate but a rough map of how we view
+the distribution of structural information in existing systems, from a
+codegen-friendly angle. Unsurprisingly, the
+[Linalg Dialect](../Dialects/Linalg/_index.md) and its future evolutions aspire
+to a position in the top-right of this map.

@@ -7,13 +7,23 @@
 //===----------------------------------------------------------------------===//
 
 #include "AMDGPU.h"
-#include "CommonArgs.h"
-#include "InputInfo.h"
+#include "clang/Basic/TargetID.h"
+#include "clang/Config/config.h"
+#include "clang/Driver/CommonArgs.h"
 #include "clang/Driver/Compilation.h"
-#include "clang/Driver/DriverDiagnostic.h"
+#include "clang/Driver/InputInfo.h"
+#include "clang/Driver/Options.h"
+#include "clang/Driver/SanitizerArgs.h"
+#include "llvm/ADT/StringExtras.h"
 #include "llvm/Option/ArgList.h"
+#include "llvm/Support/Error.h"
+#include "llvm/Support/LineIterator.h"
 #include "llvm/Support/Path.h"
+#include "llvm/Support/Process.h"
 #include "llvm/Support/VirtualFileSystem.h"
+#include "llvm/TargetParser/Host.h"
+#include <optional>
+#include <system_error>
 
 using namespace clang::driver;
 using namespace clang::driver::tools;
@@ -21,29 +31,97 @@ using namespace clang::driver::toolchains;
 using namespace clang;
 using namespace llvm::opt;
 
-void RocmInstallationDetector::scanLibDevicePath() {
-  assert(!LibDevicePath.empty());
+RocmInstallationDetector::CommonBitcodeLibsPreferences::
+    CommonBitcodeLibsPreferences(const Driver &D,
+                                 const llvm::opt::ArgList &DriverArgs,
+                                 StringRef GPUArch,
+                                 const Action::OffloadKind DeviceOffloadingKind,
+                                 const bool NeedsASanRT)
+    : ABIVer(DeviceLibABIVersion::fromCodeObjectVersion(
+          tools::getAMDGPUCodeObjectVersion(D, DriverArgs))) {
+  const auto Kind = llvm::AMDGPU::parseArchAMDGCN(GPUArch);
+  const unsigned ArchAttr = llvm::AMDGPU::getArchAttrAMDGCN(Kind);
+
+  IsOpenMP = DeviceOffloadingKind == Action::OFK_OpenMP;
+
+  const bool HasWave32 = (ArchAttr & llvm::AMDGPU::FEATURE_WAVE32);
+  Wave64 =
+      !HasWave32 || DriverArgs.hasFlag(options::OPT_mwavefrontsize64,
+                                       options::OPT_mno_wavefrontsize64, false);
+
+  const bool IsKnownOffloading = DeviceOffloadingKind == Action::OFK_OpenMP ||
+                                 DeviceOffloadingKind == Action::OFK_HIP;
+
+  // Default to enabling f32 denormals on subtargets where fma is fast with
+  // denormals
+  const bool DefaultDAZ =
+      (Kind == llvm::AMDGPU::GK_NONE)
+          ? false
+          : !((ArchAttr & llvm::AMDGPU::FEATURE_FAST_FMA_F32) &&
+              (ArchAttr & llvm::AMDGPU::FEATURE_FAST_DENORMAL_F32));
+  // TODO: There are way too many flags that change this. Do we need to
+  // check them all?
+  DAZ = IsKnownOffloading
+            ? DriverArgs.hasFlag(options::OPT_fgpu_flush_denormals_to_zero,
+                                 options::OPT_fno_gpu_flush_denormals_to_zero,
+                                 DefaultDAZ)
+            : DriverArgs.hasArg(options::OPT_cl_denorms_are_zero) || DefaultDAZ;
+
+  FiniteOnly = DriverArgs.hasArg(options::OPT_cl_finite_math_only) ||
+               DriverArgs.hasFlag(options::OPT_ffinite_math_only,
+                                  options::OPT_fno_finite_math_only, false);
+
+  UnsafeMathOpt =
+      DriverArgs.hasArg(options::OPT_cl_unsafe_math_optimizations) ||
+      DriverArgs.hasFlag(options::OPT_funsafe_math_optimizations,
+                         options::OPT_fno_unsafe_math_optimizations, false);
+
+  FastRelaxedMath = DriverArgs.hasArg(options::OPT_cl_fast_relaxed_math) ||
+                    DriverArgs.hasFlag(options::OPT_ffast_math,
+                                       options::OPT_fno_fast_math, false);
+
+  const bool DefaultSqrt = IsKnownOffloading ? true : false;
+  CorrectSqrt =
+      DriverArgs.hasArg(options::OPT_cl_fp32_correctly_rounded_divide_sqrt) ||
+      DriverArgs.hasFlag(
+          options::OPT_fhip_fp32_correctly_rounded_divide_sqrt,
+          options::OPT_fno_hip_fp32_correctly_rounded_divide_sqrt, DefaultSqrt);
+  // GPU Sanitizer currently only supports ASan and is enabled through host
+  // ASan.
+  GPUSan = (DriverArgs.hasFlag(options::OPT_fgpu_sanitize,
+                               options::OPT_fno_gpu_sanitize, true) &&
+            NeedsASanRT);
+}
+
+void RocmInstallationDetector::scanLibDevicePath(llvm::StringRef Path) {
+  assert(!Path.empty());
 
   const StringRef Suffix(".bc");
+  const StringRef Suffix2(".amdgcn.bc");
 
   std::error_code EC;
-  for (llvm::sys::fs::directory_iterator LI(LibDevicePath, EC), LE;
+  for (llvm::vfs::directory_iterator LI = D.getVFS().dir_begin(Path, EC), LE;
        !EC && LI != LE; LI = LI.increment(EC)) {
     StringRef FilePath = LI->path();
     StringRef FileName = llvm::sys::path::filename(FilePath);
-    if (!FileName.endswith(Suffix))
+    if (!FileName.ends_with(Suffix))
       continue;
 
-    StringRef BaseName = FileName.drop_back(Suffix.size());
+    StringRef BaseName;
+    if (FileName.ends_with(Suffix2))
+      BaseName = FileName.drop_back(Suffix2.size());
+    else if (FileName.ends_with(Suffix))
+      BaseName = FileName.drop_back(Suffix.size());
 
+    const StringRef ABIVersionPrefix = "oclc_abi_version_";
     if (BaseName == "ocml") {
       OCML = FilePath;
     } else if (BaseName == "ockl") {
       OCKL = FilePath;
     } else if (BaseName == "opencl") {
       OpenCL = FilePath;
-    } else if (BaseName == "hip") {
-      HIP = FilePath;
+    } else if (BaseName == "asanrtl") {
+      AsanRTL = FilePath;
     } else if (BaseName == "oclc_finite_only_off") {
       FiniteOnly.Off = FilePath;
     } else if (BaseName == "oclc_finite_only_on") {
@@ -64,11 +142,17 @@ void RocmInstallationDetector::scanLibDevicePath() {
       WavefrontSize64.On = FilePath;
     } else if (BaseName == "oclc_wavefrontsize64_off") {
       WavefrontSize64.Off = FilePath;
+    } else if (BaseName.starts_with(ABIVersionPrefix)) {
+      unsigned ABIVersionNumber;
+      if (BaseName.drop_front(ABIVersionPrefix.size())
+              .getAsInteger(/*Redex=*/0, ABIVersionNumber))
+        continue;
+      ABIVersionMap[ABIVersionNumber] = FilePath.str();
     } else {
       // Process all bitcode filenames that look like
       // ocl_isa_version_XXX.amdgcn.bc
       const StringRef DeviceLibPrefix = "oclc_isa_version_";
-      if (!BaseName.startswith(DeviceLibPrefix))
+      if (!BaseName.starts_with(DeviceLibPrefix))
         continue;
 
       StringRef IsaVersionNumber =
@@ -82,33 +166,72 @@ void RocmInstallationDetector::scanLibDevicePath() {
   }
 }
 
-RocmInstallationDetector::RocmInstallationDetector(
-    const Driver &D, const llvm::Triple &HostTriple,
-    const llvm::opt::ArgList &Args)
-    : D(D) {
-  struct Candidate {
-    std::string Path;
-    bool StrictChecking;
+// Parse and extract version numbers from `.hipVersion`. Return `true` if
+// the parsing fails.
+bool RocmInstallationDetector::parseHIPVersionFile(llvm::StringRef V) {
+  SmallVector<StringRef, 4> VersionParts;
+  V.split(VersionParts, '\n');
+  unsigned Major = ~0U;
+  unsigned Minor = ~0U;
+  for (auto Part : VersionParts) {
+    auto Splits = Part.rtrim().split('=');
+    if (Splits.first == "HIP_VERSION_MAJOR") {
+      if (Splits.second.getAsInteger(0, Major))
+        return true;
+    } else if (Splits.first == "HIP_VERSION_MINOR") {
+      if (Splits.second.getAsInteger(0, Minor))
+        return true;
+    } else if (Splits.first == "HIP_VERSION_PATCH")
+      VersionPatch = Splits.second.str();
+  }
+  if (Major == ~0U || Minor == ~0U)
+    return true;
+  VersionMajorMinor = llvm::VersionTuple(Major, Minor);
+  DetectedVersion =
+      (Twine(Major) + "." + Twine(Minor) + "." + VersionPatch).str();
+  return false;
+}
 
-    Candidate(std::string Path, bool StrictChecking = false)
-        : Path(Path), StrictChecking(StrictChecking) {}
+/// \returns a list of candidate directories for ROCm installation, which is
+/// cached and populated only once.
+const SmallVectorImpl<RocmInstallationDetector::Candidate> &
+RocmInstallationDetector::getInstallationPathCandidates() {
+
+  // Return the cached candidate list if it has already been populated.
+  if (!ROCmSearchDirs.empty())
+    return ROCmSearchDirs;
+
+  auto DoPrintROCmSearchDirs = [&]() {
+    if (PrintROCmSearchDirs)
+      for (auto Cand : ROCmSearchDirs) {
+        llvm::errs() << "ROCm installation search path: " << Cand.Path << '\n';
+      }
   };
 
-  SmallVector<Candidate, 4> Candidates;
+  // For candidate specified by --rocm-path we do not do strict check, i.e.,
+  // checking existence of HIP version file and device library files.
+  if (!RocmPathArg.empty()) {
+    ROCmSearchDirs.emplace_back(RocmPathArg.str());
+    DoPrintROCmSearchDirs();
+    return ROCmSearchDirs;
+  } else if (std::optional<std::string> RocmPathEnv =
+                 llvm::sys::Process::GetEnv("ROCM_PATH")) {
+    if (!RocmPathEnv->empty()) {
+      ROCmSearchDirs.emplace_back(std::move(*RocmPathEnv));
+      DoPrintROCmSearchDirs();
+      return ROCmSearchDirs;
+    }
+  }
 
-  if (Args.hasArg(clang::driver::options::OPT_rocm_path_EQ)) {
-    Candidates.emplace_back(
-        Args.getLastArgValue(clang::driver::options::OPT_rocm_path_EQ).str());
-  } else {
-    // Try to find relative to the compiler binary.
-    const char *InstallDir = D.getInstalledDir();
+  // Try to find relative to the compiler binary.
+  StringRef InstallDir = D.Dir;
 
-    // Check both a normal Unix prefix position of the clang binary, as well as
-    // the Windows-esque layout the ROCm packages use with the host architecture
-    // subdirectory of bin.
-
+  // Check both a normal Unix prefix position of the clang binary, as well as
+  // the Windows-esque layout the ROCm packages use with the host architecture
+  // subdirectory of bin.
+  auto DeduceROCmPath = [](StringRef ClangPath) {
     // Strip off directory (usually bin)
-    StringRef ParentDir = llvm::sys::path::parent_path(InstallDir);
+    StringRef ParentDir = llvm::sys::path::parent_path(ClangPath);
     StringRef ParentName = llvm::sys::path::filename(ParentDir);
 
     // Some builds use bin/{host arch}, so go up again.
@@ -117,86 +240,372 @@ RocmInstallationDetector::RocmInstallationDetector(
       ParentName = llvm::sys::path::filename(ParentDir);
     }
 
-    if (ParentName == "llvm") {
-      // Some versions of the rocm llvm package install to /opt/rocm/llvm/bin
-      Candidates.emplace_back(llvm::sys::path::parent_path(ParentDir).str(),
-                              /*StrictChecking=*/true);
-    }
+    // Some versions of the rocm llvm package install to /opt/rocm/llvm/bin
+    // Some versions of the aomp package install to /opt/rocm/aomp/bin
+    if (ParentName == "llvm" || ParentName.starts_with("aomp"))
+      ParentDir = llvm::sys::path::parent_path(ParentDir);
 
-    Candidates.emplace_back(D.SysRoot + "/opt/rocm");
+    return Candidate(ParentDir.str(), /*StrictChecking=*/true);
+  };
+
+  // Deduce ROCm path by the path used to invoke clang. Do not resolve symbolic
+  // link of clang itself.
+  ROCmSearchDirs.emplace_back(DeduceROCmPath(InstallDir));
+
+  // Deduce ROCm path by the real path of the invoked clang, resolving symbolic
+  // link of clang itself.
+  llvm::SmallString<256> RealClangPath;
+  llvm::sys::fs::real_path(D.getClangProgramPath(), RealClangPath);
+  auto ParentPath = llvm::sys::path::parent_path(RealClangPath);
+  if (ParentPath != InstallDir)
+    ROCmSearchDirs.emplace_back(DeduceROCmPath(ParentPath));
+
+  // Device library may be installed in clang or resource directory.
+  auto ClangRoot = llvm::sys::path::parent_path(InstallDir);
+  auto RealClangRoot = llvm::sys::path::parent_path(ParentPath);
+  ROCmSearchDirs.emplace_back(ClangRoot.str(), /*StrictChecking=*/true);
+  if (RealClangRoot != ClangRoot)
+    ROCmSearchDirs.emplace_back(RealClangRoot.str(), /*StrictChecking=*/true);
+  ROCmSearchDirs.emplace_back(D.ResourceDir,
+                              /*StrictChecking=*/true);
+
+  ROCmSearchDirs.emplace_back(D.SysRoot + "/opt/rocm",
+                              /*StrictChecking=*/true);
+
+  // Find the latest /opt/rocm-{release} directory.
+  std::error_code EC;
+  std::string LatestROCm;
+  llvm::VersionTuple LatestVer;
+  // Get ROCm version from ROCm directory name.
+  auto GetROCmVersion = [](StringRef DirName) {
+    llvm::VersionTuple V;
+    std::string VerStr = DirName.drop_front(strlen("rocm-")).str();
+    // The ROCm directory name follows the format of
+    // rocm-{major}.{minor}.{subMinor}[-{build}]
+    llvm::replace(VerStr, '-', '.');
+    V.tryParse(VerStr);
+    return V;
+  };
+  for (llvm::vfs::directory_iterator
+           File = D.getVFS().dir_begin(D.SysRoot + "/opt", EC),
+           FileEnd;
+       File != FileEnd && !EC; File.increment(EC)) {
+    llvm::StringRef FileName = llvm::sys::path::filename(File->path());
+    if (!FileName.starts_with("rocm-"))
+      continue;
+    if (LatestROCm.empty()) {
+      LatestROCm = FileName.str();
+      LatestVer = GetROCmVersion(LatestROCm);
+      continue;
+    }
+    auto Ver = GetROCmVersion(FileName);
+    if (LatestVer < Ver) {
+      LatestROCm = FileName.str();
+      LatestVer = Ver;
+    }
+  }
+  if (!LatestROCm.empty())
+    ROCmSearchDirs.emplace_back(D.SysRoot + "/opt/" + LatestROCm,
+                                /*StrictChecking=*/true);
+
+  ROCmSearchDirs.emplace_back(D.SysRoot + "/usr/local",
+                              /*StrictChecking=*/true);
+  ROCmSearchDirs.emplace_back(D.SysRoot + "/usr",
+                              /*StrictChecking=*/true);
+
+  DoPrintROCmSearchDirs();
+  return ROCmSearchDirs;
+}
+
+RocmInstallationDetector::RocmInstallationDetector(
+    const Driver &D, const llvm::Triple &HostTriple,
+    const llvm::opt::ArgList &Args, bool DetectHIPRuntime, bool DetectDeviceLib)
+    : D(D) {
+  Verbose = Args.hasArg(options::OPT_v);
+  RocmPathArg = Args.getLastArgValue(clang::driver::options::OPT_rocm_path_EQ);
+  PrintROCmSearchDirs =
+      Args.hasArg(clang::driver::options::OPT_print_rocm_search_dirs);
+  RocmDeviceLibPathArg =
+      Args.getAllArgValues(clang::driver::options::OPT_rocm_device_lib_path_EQ);
+  HIPPathArg = Args.getLastArgValue(clang::driver::options::OPT_hip_path_EQ);
+  HIPStdParPathArg =
+    Args.getLastArgValue(clang::driver::options::OPT_hipstdpar_path_EQ);
+  HasHIPStdParLibrary =
+    !HIPStdParPathArg.empty() && D.getVFS().exists(HIPStdParPathArg +
+                                                   "/hipstdpar_lib.hpp");
+  HIPRocThrustPathArg =
+    Args.getLastArgValue(clang::driver::options::OPT_hipstdpar_thrust_path_EQ);
+  HasRocThrustLibrary = !HIPRocThrustPathArg.empty() &&
+                        D.getVFS().exists(HIPRocThrustPathArg + "/thrust");
+  HIPRocPrimPathArg =
+    Args.getLastArgValue(clang::driver::options::OPT_hipstdpar_prim_path_EQ);
+  HasRocPrimLibrary = !HIPRocPrimPathArg.empty() &&
+                      D.getVFS().exists(HIPRocPrimPathArg + "/rocprim");
+
+  if (auto *A = Args.getLastArg(clang::driver::options::OPT_hip_version_EQ)) {
+    HIPVersionArg = A->getValue();
+    unsigned Major = ~0U;
+    unsigned Minor = ~0U;
+    SmallVector<StringRef, 3> Parts;
+    HIPVersionArg.split(Parts, '.');
+    if (Parts.size())
+      Parts[0].getAsInteger(0, Major);
+    if (Parts.size() > 1)
+      Parts[1].getAsInteger(0, Minor);
+    if (Parts.size() > 2)
+      VersionPatch = Parts[2].str();
+    if (VersionPatch.empty())
+      VersionPatch = "0";
+    if (Major != ~0U && Minor == ~0U)
+      Minor = 0;
+    if (Major == ~0U || Minor == ~0U)
+      D.Diag(diag::err_drv_invalid_value)
+          << A->getAsString(Args) << HIPVersionArg;
+
+    VersionMajorMinor = llvm::VersionTuple(Major, Minor);
+    DetectedVersion =
+        (Twine(Major) + "." + Twine(Minor) + "." + VersionPatch).str();
+  } else {
+    VersionPatch = DefaultVersionPatch;
+    VersionMajorMinor =
+        llvm::VersionTuple(DefaultVersionMajor, DefaultVersionMinor);
+    DetectedVersion = (Twine(DefaultVersionMajor) + "." +
+                       Twine(DefaultVersionMinor) + "." + VersionPatch)
+                          .str();
   }
 
-  bool NoBuiltinLibs = Args.hasArg(options::OPT_nogpulib);
+  if (DetectHIPRuntime)
+    detectHIPRuntime();
+  if (DetectDeviceLib)
+    detectDeviceLibrary();
+}
 
+void RocmInstallationDetector::detectDeviceLibrary() {
   assert(LibDevicePath.empty());
 
-  if (Args.hasArg(clang::driver::options::OPT_hip_device_lib_path_EQ)) {
-    LibDevicePath
-      = Args.getLastArgValue(clang::driver::options::OPT_hip_device_lib_path_EQ);
-  } else if (const char *LibPathEnv = ::getenv("HIP_DEVICE_LIB_PATH")) {
-    LibDevicePath = LibPathEnv;
-  }
+  if (!RocmDeviceLibPathArg.empty())
+    LibDevicePath = RocmDeviceLibPathArg[RocmDeviceLibPathArg.size() - 1];
+  else if (std::optional<std::string> LibPathEnv =
+               llvm::sys::Process::GetEnv("HIP_DEVICE_LIB_PATH"))
+    LibDevicePath = std::move(*LibPathEnv);
 
+  auto &FS = D.getVFS();
   if (!LibDevicePath.empty()) {
     // Maintain compatability with HIP flag/envvar pointing directly at the
     // bitcode library directory. This points directly at the library path instead
     // of the rocm root installation.
-    if (!D.getVFS().exists(LibDevicePath))
+    if (!FS.exists(LibDevicePath))
       return;
 
-    scanLibDevicePath();
-    IsValid = allGenericLibsValid() && !LibDeviceMap.empty();
+    scanLibDevicePath(LibDevicePath);
+    HasDeviceLibrary = allGenericLibsValid() && !LibDeviceMap.empty();
     return;
   }
 
-  for (const auto &Candidate : Candidates) {
-    InstallPath = Candidate.Path;
-    if (InstallPath.empty() || !D.getVFS().exists(InstallPath))
-      continue;
+  // Check device library exists at the given path.
+  auto CheckDeviceLib = [&](StringRef Path, bool StrictChecking) {
+    bool CheckLibDevice = (!NoBuiltinLibs || StrictChecking);
+    if (CheckLibDevice && !FS.exists(Path))
+      return false;
 
-    // The install path situation in old versions of ROCm is a real mess, and
-    // use a different install layout. Multiple copies of the device libraries
-    // exist for each frontend project, and differ depending on which build
-    // system produced the packages. Standalone OpenCL builds also have a
-    // different directory structure from the ROCm OpenCL package.
-    //
-    // The desired structure is (${ROCM_ROOT} or
-    // ${OPENCL_ROOT})/amdgcn/bitcode/*, so try to detect this layout.
-
-    // BinPath = InstallPath + "/bin";
-    llvm::sys::path::append(IncludePath, InstallPath, "include");
-    llvm::sys::path::append(LibDevicePath, InstallPath, "amdgcn", "bitcode");
-
-    auto &FS = D.getVFS();
-
-    // We don't need the include path for OpenCL, since clang already ships with
-    // the default header.
-
-    bool CheckLibDevice = (!NoBuiltinLibs || Candidate.StrictChecking);
-    if (CheckLibDevice && !FS.exists(LibDevicePath))
-      continue;
-
-    scanLibDevicePath();
+    scanLibDevicePath(Path);
 
     if (!NoBuiltinLibs) {
       // Check that the required non-target libraries are all available.
       if (!allGenericLibsValid())
-        continue;
+        return false;
 
-      // Check that we have found at least one libdevice that we can link in if
-      // -nobuiltinlib hasn't been specified.
+      // Check that we have found at least one libdevice that we can link in
+      // if -nobuiltinlib hasn't been specified.
       if (LibDeviceMap.empty())
-        continue;
+        return false;
     }
+    return true;
+  };
 
-    IsValid = true;
-    break;
+  // Find device libraries in <LLVM_DIR>/lib/clang/<ver>/lib/amdgcn/bitcode
+  LibDevicePath = D.ResourceDir;
+  llvm::sys::path::append(LibDevicePath, CLANG_INSTALL_LIBDIR_BASENAME,
+                          "amdgcn", "bitcode");
+  HasDeviceLibrary = CheckDeviceLib(LibDevicePath, true);
+  if (HasDeviceLibrary)
+    return;
+
+  // Find device libraries in a legacy ROCm directory structure
+  // ${ROCM_ROOT}/amdgcn/bitcode/*
+  auto &ROCmDirs = getInstallationPathCandidates();
+  for (const auto &Candidate : ROCmDirs) {
+    LibDevicePath = Candidate.Path;
+    llvm::sys::path::append(LibDevicePath, "amdgcn", "bitcode");
+    HasDeviceLibrary = CheckDeviceLib(LibDevicePath, Candidate.StrictChecking);
+    if (HasDeviceLibrary)
+      return;
   }
 }
 
+void RocmInstallationDetector::detectHIPRuntime() {
+  SmallVector<Candidate, 4> HIPSearchDirs;
+  if (!HIPPathArg.empty())
+    HIPSearchDirs.emplace_back(HIPPathArg.str());
+  else if (std::optional<std::string> HIPPathEnv =
+               llvm::sys::Process::GetEnv("HIP_PATH")) {
+    if (!HIPPathEnv->empty())
+      HIPSearchDirs.emplace_back(std::move(*HIPPathEnv));
+  }
+  if (HIPSearchDirs.empty())
+    HIPSearchDirs.append(getInstallationPathCandidates());
+  auto &FS = D.getVFS();
+
+  for (const auto &Candidate : HIPSearchDirs) {
+    InstallPath = Candidate.Path;
+    if (InstallPath.empty() || !FS.exists(InstallPath))
+      continue;
+
+    BinPath = InstallPath;
+    llvm::sys::path::append(BinPath, "bin");
+    IncludePath = InstallPath;
+    llvm::sys::path::append(IncludePath, "include");
+    LibPath = InstallPath;
+    llvm::sys::path::append(LibPath, "lib");
+    SharePath = InstallPath;
+    llvm::sys::path::append(SharePath, "share");
+
+    // Get parent of InstallPath and append "share"
+    SmallString<0> ParentSharePath = llvm::sys::path::parent_path(InstallPath);
+    llvm::sys::path::append(ParentSharePath, "share");
+
+    auto Append = [](SmallString<0> &path, const Twine &a, const Twine &b = "",
+                     const Twine &c = "", const Twine &d = "") {
+      SmallString<0> newpath = path;
+      llvm::sys::path::append(newpath, a, b, c, d);
+      return newpath;
+    };
+    // If HIP version file can be found and parsed, use HIP version from there.
+    std::vector<SmallString<0>> VersionFilePaths = {
+        Append(SharePath, "hip", "version"),
+        InstallPath != D.SysRoot + "/usr/local"
+            ? Append(ParentSharePath, "hip", "version")
+            : SmallString<0>(),
+        Append(BinPath, ".hipVersion")};
+
+    for (const auto &VersionFilePath : VersionFilePaths) {
+      if (VersionFilePath.empty())
+        continue;
+      llvm::ErrorOr<std::unique_ptr<llvm::MemoryBuffer>> VersionFile =
+          FS.getBufferForFile(VersionFilePath);
+      if (!VersionFile)
+        continue;
+      if (HIPVersionArg.empty() && VersionFile)
+        if (parseHIPVersionFile((*VersionFile)->getBuffer()))
+          continue;
+
+      HasHIPRuntime = true;
+      return;
+    }
+    // Otherwise, if -rocm-path is specified (no strict checking), use the
+    // default HIP version or specified by --hip-version.
+    if (!Candidate.StrictChecking) {
+      HasHIPRuntime = true;
+      return;
+    }
+  }
+  HasHIPRuntime = false;
+}
+
 void RocmInstallationDetector::print(raw_ostream &OS) const {
-  if (isValid())
-    OS << "Found ROCm installation: " << InstallPath << '\n';
+  if (hasHIPRuntime())
+    OS << "Found HIP installation: " << InstallPath << ", version "
+       << DetectedVersion << '\n';
+}
+
+void RocmInstallationDetector::AddHIPIncludeArgs(const ArgList &DriverArgs,
+                                                 ArgStringList &CC1Args) const {
+  bool UsesRuntimeWrapper = VersionMajorMinor > llvm::VersionTuple(3, 5) &&
+                            !DriverArgs.hasArg(options::OPT_nohipwrapperinc);
+  bool HasHipStdPar = DriverArgs.hasArg(options::OPT_hipstdpar);
+
+  if (!DriverArgs.hasArg(options::OPT_nobuiltininc)) {
+    // HIP header includes standard library wrapper headers under clang
+    // cuda_wrappers directory. Since these wrapper headers include_next
+    // standard C++ headers, whereas libc++ headers include_next other clang
+    // headers. The include paths have to follow this order:
+    // - wrapper include path
+    // - standard C++ include path
+    // - other clang include path
+    // Since standard C++ and other clang include paths are added in other
+    // places after this function, here we only need to make sure wrapper
+    // include path is added.
+    //
+    // ROCm 3.5 does not fully support the wrapper headers. Therefore it needs
+    // a workaround.
+    SmallString<128> P(D.ResourceDir);
+    if (UsesRuntimeWrapper)
+      llvm::sys::path::append(P, "include", "cuda_wrappers");
+    CC1Args.push_back("-internal-isystem");
+    CC1Args.push_back(DriverArgs.MakeArgString(P));
+  }
+
+  const auto HandleHipStdPar = [=, &DriverArgs, &CC1Args]() {
+    StringRef Inc = getIncludePath();
+    auto &FS = D.getVFS();
+
+    if (!hasHIPStdParLibrary())
+      if (!HIPStdParPathArg.empty() ||
+          !FS.exists(Inc + "/thrust/system/hip/hipstdpar/hipstdpar_lib.hpp")) {
+        D.Diag(diag::err_drv_no_hipstdpar_lib);
+        return;
+      }
+    if (!HasRocThrustLibrary && !FS.exists(Inc + "/thrust")) {
+      D.Diag(diag::err_drv_no_hipstdpar_thrust_lib);
+      return;
+    }
+    if (!HasRocPrimLibrary && !FS.exists(Inc + "/rocprim")) {
+      D.Diag(diag::err_drv_no_hipstdpar_prim_lib);
+      return;
+    }
+    const char *ThrustPath;
+    if (HasRocThrustLibrary)
+      ThrustPath = DriverArgs.MakeArgString(HIPRocThrustPathArg);
+    else
+      ThrustPath = DriverArgs.MakeArgString(Inc + "/thrust");
+
+    const char *HIPStdParPath;
+    if (hasHIPStdParLibrary())
+      HIPStdParPath = DriverArgs.MakeArgString(HIPStdParPathArg);
+    else
+      HIPStdParPath = DriverArgs.MakeArgString(StringRef(ThrustPath) +
+                                               "/system/hip/hipstdpar");
+
+    const char *PrimPath;
+    if (HasRocPrimLibrary)
+      PrimPath = DriverArgs.MakeArgString(HIPRocPrimPathArg);
+    else
+      PrimPath = DriverArgs.MakeArgString(getIncludePath() + "/rocprim");
+
+    CC1Args.append({"-idirafter", ThrustPath, "-idirafter", PrimPath,
+                    "-idirafter", HIPStdParPath, "-include",
+                    "hipstdpar_lib.hpp"});
+  };
+
+  if (!DriverArgs.hasFlag(options::OPT_offload_inc, options::OPT_no_offload_inc,
+                          true)) {
+    if (HasHipStdPar)
+      HandleHipStdPar();
+
+    return;
+  }
+
+  if (!hasHIPRuntime()) {
+    D.Diag(diag::err_drv_no_hip_runtime);
+    return;
+  }
+
+  CC1Args.push_back("-idirafter");
+  CC1Args.push_back(DriverArgs.MakeArgString(getIncludePath()));
+  if (UsesRuntimeWrapper)
+    CC1Args.append({"-include", "__clang_hip_runtime_wrapper.h"});
+  if (HasHipStdPar)
+    HandleHipStdPar();
 }
 
 void amdgpu::Linker::ConstructJob(Compilation &C, const JobAction &JA,
@@ -204,44 +613,108 @@ void amdgpu::Linker::ConstructJob(Compilation &C, const JobAction &JA,
                                   const InputInfoList &Inputs,
                                   const ArgList &Args,
                                   const char *LinkingOutput) const {
-
-  std::string Linker = getToolChain().GetProgramPath(getShortName());
+  std::string Linker = getToolChain().GetLinkerPath();
   ArgStringList CmdArgs;
+  if (!Args.hasArg(options::OPT_r)) {
+    CmdArgs.push_back("--no-undefined");
+    CmdArgs.push_back("-shared");
+  }
+
+  if (C.getDriver().isUsingLTO()) {
+    const bool ThinLTO = (C.getDriver().getLTOMode() == LTOK_Thin);
+    addLTOOptions(getToolChain(), Args, CmdArgs, Output, Inputs, ThinLTO);
+  } else if (Args.hasArg(options::OPT_mcpu_EQ)) {
+    CmdArgs.push_back(Args.MakeArgString(
+        "-plugin-opt=mcpu=" +
+        getProcessorFromTargetID(getToolChain().getTriple(),
+                                 Args.getLastArgValue(options::OPT_mcpu_EQ))));
+  }
+  addLinkerCompressDebugSectionsOption(getToolChain(), Args, CmdArgs);
+  getToolChain().AddFilePathLibArgs(Args, CmdArgs);
+  Args.AddAllArgs(CmdArgs, options::OPT_L);
   AddLinkerInputs(getToolChain(), Inputs, Args, CmdArgs, JA);
-  CmdArgs.push_back("-shared");
+
+  // Always pass the target-id features to the LTO job.
+  std::vector<StringRef> Features;
+  getAMDGPUTargetFeatures(C.getDriver(), getToolChain().getTriple(), Args,
+                          Features);
+  if (!Features.empty()) {
+    CmdArgs.push_back(
+        Args.MakeArgString("-plugin-opt=-mattr=" + llvm::join(Features, ",")));
+  }
+
+  if (Args.hasArg(options::OPT_stdlib))
+    CmdArgs.append({"-lc", "-lm"});
+  if (Args.hasArg(options::OPT_startfiles)) {
+    std::optional<std::string> IncludePath = getToolChain().getStdlibPath();
+    if (!IncludePath)
+      IncludePath = "/lib";
+    SmallString<128> P(*IncludePath);
+    llvm::sys::path::append(P, "crt1.o");
+    CmdArgs.push_back(Args.MakeArgString(P));
+  }
+
   CmdArgs.push_back("-o");
   CmdArgs.push_back(Output.getFilename());
-  C.addCommand(std::make_unique<Command>(JA, *this, Args.MakeArgString(Linker),
-                                          CmdArgs, Inputs));
+  C.addCommand(std::make_unique<Command>(
+      JA, *this, ResponseFileSupport::AtFileCurCP(), Args.MakeArgString(Linker),
+      CmdArgs, Inputs, Output));
 }
 
 void amdgpu::getAMDGPUTargetFeatures(const Driver &D,
+                                     const llvm::Triple &Triple,
                                      const llvm::opt::ArgList &Args,
                                      std::vector<StringRef> &Features) {
-  if (const Arg *dAbi = Args.getLastArg(options::OPT_mamdgpu_debugger_abi))
-    D.Diag(diag::err_drv_clang_unsupported) << dAbi->getAsString(Args);
+  // Add target ID features to -target-feature options. No diagnostics should
+  // be emitted here since invalid target ID is diagnosed at other places.
+  StringRef TargetID;
+  if (Args.hasArg(options::OPT_mcpu_EQ))
+    TargetID = Args.getLastArgValue(options::OPT_mcpu_EQ);
+  else if (Args.hasArg(options::OPT_march_EQ))
+    TargetID = Args.getLastArgValue(options::OPT_march_EQ);
+  if (!TargetID.empty()) {
+    llvm::StringMap<bool> FeatureMap;
+    auto OptionalGpuArch = parseTargetID(Triple, TargetID, &FeatureMap);
+    if (OptionalGpuArch) {
+      StringRef GpuArch = *OptionalGpuArch;
+      // Iterate through all possible target ID features for the given GPU.
+      // If it is mapped to true, add +feature.
+      // If it is mapped to false, add -feature.
+      // If it is not in the map (default), do not add it
+      for (auto &&Feature : getAllPossibleTargetIDFeatures(Triple, GpuArch)) {
+        auto Pos = FeatureMap.find(Feature);
+        if (Pos == FeatureMap.end())
+          continue;
+        Features.push_back(Args.MakeArgStringRef(
+            (Twine(Pos->second ? "+" : "-") + Feature).str()));
+      }
+    }
+  }
 
-  if (Args.getLastArg(options::OPT_mwavefrontsize64)) {
-    Features.push_back("-wavefrontsize16");
-    Features.push_back("-wavefrontsize32");
+  if (Args.hasFlag(options::OPT_mwavefrontsize64,
+                   options::OPT_mno_wavefrontsize64, false))
     Features.push_back("+wavefrontsize64");
-  }
-  if (Args.getLastArg(options::OPT_mno_wavefrontsize64)) {
-    Features.push_back("-wavefrontsize16");
-    Features.push_back("+wavefrontsize32");
-    Features.push_back("-wavefrontsize64");
-  }
 
-  handleTargetFeaturesGroup(
-    Args, Features, options::OPT_m_amdgpu_Features_Group);
+  if (Args.hasFlag(options::OPT_mamdgpu_precise_memory_op,
+                   options::OPT_mno_amdgpu_precise_memory_op, false))
+    Features.push_back("+precise-memory");
+
+  handleTargetFeaturesGroup(D, Triple, Args, Features,
+                            options::OPT_m_amdgpu_Features_Group);
 }
 
 /// AMDGPU Toolchain
 AMDGPUToolChain::AMDGPUToolChain(const Driver &D, const llvm::Triple &Triple,
                                  const ArgList &Args)
     : Generic_ELF(D, Triple, Args),
-      OptionsDefault({{options::OPT_O, "3"},
-                      {options::OPT_cl_std_EQ, "CL1.2"}}) {}
+      OptionsDefault(
+          {{options::OPT_O, "3"}, {options::OPT_cl_std_EQ, "CL1.2"}}) {
+  // Check code object version options. Emit warnings for legacy options
+  // and errors for the last invalid code object version options.
+  // It is done here to avoid repeated warning or error messages for
+  // each tool invocation.
+  checkAMDGPUCodeObjectVersion(D, Args);
+}
 
 Tool *AMDGPUToolChain::buildLinker() const {
   return new tools::amdgpu::Linker(*this);
@@ -254,16 +727,39 @@ AMDGPUToolChain::TranslateArgs(const DerivedArgList &Args, StringRef BoundArch,
   DerivedArgList *DAL =
       Generic_ELF::TranslateArgs(Args, BoundArch, DeviceOffloadKind);
 
-  // Do nothing if not OpenCL (-x cl)
-  if (!Args.getLastArgValue(options::OPT_x).equals("cl"))
-    return DAL;
+  const OptTable &Opts = getDriver().getOpts();
 
   if (!DAL)
     DAL = new DerivedArgList(Args.getBaseArgs());
-  for (auto *A : Args)
+
+  for (Arg *A : Args)
     DAL->append(A);
 
-  const OptTable &Opts = getDriver().getOpts();
+  // Replace -mcpu=native with detected GPU.
+  Arg *LastMCPUArg = DAL->getLastArg(options::OPT_mcpu_EQ);
+  if (LastMCPUArg && StringRef(LastMCPUArg->getValue()) == "native") {
+    DAL->eraseArg(options::OPT_mcpu_EQ);
+    auto GPUsOrErr = getSystemGPUArchs(Args);
+    if (!GPUsOrErr) {
+      getDriver().Diag(diag::err_drv_undetermined_gpu_arch)
+          << llvm::Triple::getArchTypeName(getArch())
+          << llvm::toString(GPUsOrErr.takeError()) << "-mcpu";
+    } else {
+      auto &GPUs = *GPUsOrErr;
+      if (GPUs.size() > 1) {
+        getDriver().Diag(diag::warn_drv_multi_gpu_arch)
+            << llvm::Triple::getArchTypeName(getArch())
+            << llvm::join(GPUs, ", ") << "-mcpu";
+      }
+      DAL->AddJoinedArg(nullptr, Opts.getOption(options::OPT_mcpu_EQ),
+                        Args.MakeArgString(GPUs.front()));
+    }
+  }
+
+  checkTargetID(*DAL);
+
+  if (Args.getLastArgValue(options::OPT_x) != "cl")
+    return DAL;
 
   // Phase 1 (.cl -> .bc)
   if (Args.hasArg(options::OPT_c) && Args.hasArg(options::OPT_emit_llvm)) {
@@ -308,17 +804,18 @@ llvm::DenormalMode AMDGPUToolChain::getDefaultDenormalModeForType(
 
   if (JA.getOffloadingDeviceKind() == Action::OFK_HIP ||
       JA.getOffloadingDeviceKind() == Action::OFK_Cuda) {
-    auto Kind = llvm::AMDGPU::parseArchAMDGCN(JA.getOffloadingArch());
+    auto Arch = getProcessorFromTargetID(getTriple(), JA.getOffloadingArch());
+    auto Kind = llvm::AMDGPU::parseArchAMDGCN(Arch);
     if (FPType && FPType == &llvm::APFloat::IEEEsingle() &&
-        DriverArgs.hasFlag(options::OPT_fcuda_flush_denormals_to_zero,
-                           options::OPT_fno_cuda_flush_denormals_to_zero,
+        DriverArgs.hasFlag(options::OPT_fgpu_flush_denormals_to_zero,
+                           options::OPT_fno_gpu_flush_denormals_to_zero,
                            getDefaultDenormsAreZeroForTarget(Kind)))
       return llvm::DenormalMode::getPreserveSign();
 
     return llvm::DenormalMode::getIEEE();
   }
 
-  const StringRef GpuArch = DriverArgs.getLastArgValue(options::OPT_mcpu_EQ);
+  const StringRef GpuArch = getGPUArch(DriverArgs);
   auto Kind = llvm::AMDGPU::parseArchAMDGCN(GpuArch);
 
   // TODO: There are way too many flags that change this. Do we need to check
@@ -335,7 +832,7 @@ llvm::DenormalMode AMDGPUToolChain::getDefaultDenormalModeForType(
 bool AMDGPUToolChain::isWave64(const llvm::opt::ArgList &DriverArgs,
                                llvm::AMDGPU::GPUKind Kind) {
   const unsigned ArchAttr = llvm::AMDGPU::getArchAttrAMDGCN(Kind);
-  static bool HasWave32 = (ArchAttr & llvm::AMDGPU::FEATURE_WAVE32);
+  bool HasWave32 = (ArchAttr & llvm::AMDGPU::FEATURE_WAVE32);
 
   return !HasWave32 || DriverArgs.hasFlag(
     options::OPT_mwavefrontsize64, options::OPT_mno_wavefrontsize64, false);
@@ -345,8 +842,9 @@ bool AMDGPUToolChain::isWave64(const llvm::opt::ArgList &DriverArgs,
 /// ROCM Toolchain
 ROCMToolChain::ROCMToolChain(const Driver &D, const llvm::Triple &Triple,
                              const ArgList &Args)
-  : AMDGPUToolChain(D, Triple, Args),
-    RocmInstallation(D, Triple, Args) { }
+    : AMDGPUToolChain(D, Triple, Args) {
+  RocmInstallation->detectDeviceLibrary();
+}
 
 void AMDGPUToolChain::addClangTargetOptions(
     const llvm::opt::ArgList &DriverArgs,
@@ -356,10 +854,96 @@ void AMDGPUToolChain::addClangTargetOptions(
   // supported for the foreseeable future.
   if (!DriverArgs.hasArg(options::OPT_fvisibility_EQ,
                          options::OPT_fvisibility_ms_compat)) {
-    CC1Args.push_back("-fvisibility");
-    CC1Args.push_back("hidden");
+    CC1Args.push_back("-fvisibility=hidden");
     CC1Args.push_back("-fapply-global-visibility-to-externs");
   }
+
+  // For SPIR-V we want to retain the pristine output of Clang CodeGen, since
+  // optimizations might lose structure / information that is necessary for
+  // generating optimal concrete AMDGPU code.
+  // TODO: using the below option is a temporary placeholder until Clang
+  //       provides the required functionality, which essentially boils down to
+  //       -O0 being refactored / reworked to not imply optnone / remove TBAA.
+  //       Once that is added, we should pivot to that functionality, being
+  //       mindful to not corrupt the user provided and subsequently embedded
+  //       command-line (i.e. if the user asks for -O3 this is what the
+  //       finalisation should use).
+  if (getTriple().isSPIRV() &&
+      !DriverArgs.hasArg(options::OPT_disable_llvm_optzns))
+    CC1Args.push_back("-disable-llvm-optzns");
+
+  if (DeviceOffloadingKind == Action::OFK_None)
+    addOpenCLBuiltinsLib(getDriver(), DriverArgs, CC1Args);
+}
+
+void AMDGPUToolChain::addClangWarningOptions(ArgStringList &CC1Args) const {
+  // AMDGPU does not support atomic lib call. Treat atomic alignment
+  // warnings as errors.
+  CC1Args.push_back("-Werror=atomic-alignment");
+}
+
+void AMDGPUToolChain::AddClangSystemIncludeArgs(const ArgList &DriverArgs,
+                                                ArgStringList &CC1Args) const {
+  if (DriverArgs.hasArg(options::OPT_nostdinc) ||
+      DriverArgs.hasArg(options::OPT_nostdlibinc))
+    return;
+
+  if (std::optional<std::string> Path = getStdlibIncludePath())
+    addSystemInclude(DriverArgs, CC1Args, *Path);
+}
+
+StringRef
+AMDGPUToolChain::getGPUArch(const llvm::opt::ArgList &DriverArgs) const {
+  return getProcessorFromTargetID(
+      getTriple(), DriverArgs.getLastArgValue(options::OPT_mcpu_EQ));
+}
+
+AMDGPUToolChain::ParsedTargetIDType
+AMDGPUToolChain::getParsedTargetID(const llvm::opt::ArgList &DriverArgs) const {
+  StringRef TargetID = DriverArgs.getLastArgValue(options::OPT_mcpu_EQ);
+  if (TargetID.empty())
+    return {std::nullopt, std::nullopt, std::nullopt};
+
+  llvm::StringMap<bool> FeatureMap;
+  auto OptionalGpuArch = parseTargetID(getTriple(), TargetID, &FeatureMap);
+  if (!OptionalGpuArch)
+    return {TargetID.str(), std::nullopt, std::nullopt};
+
+  return {TargetID.str(), OptionalGpuArch->str(), FeatureMap};
+}
+
+void AMDGPUToolChain::checkTargetID(
+    const llvm::opt::ArgList &DriverArgs) const {
+  auto PTID = getParsedTargetID(DriverArgs);
+  if (PTID.OptionalTargetID && !PTID.OptionalGPUArch) {
+    getDriver().Diag(clang::diag::err_drv_bad_target_id)
+        << *PTID.OptionalTargetID;
+  }
+}
+
+Expected<SmallVector<std::string>>
+AMDGPUToolChain::getSystemGPUArchs(const ArgList &Args) const {
+  // Detect AMD GPUs availible on the system.
+  std::string Program;
+  if (Arg *A = Args.getLastArg(options::OPT_offload_arch_tool_EQ))
+    Program = A->getValue();
+  else
+    Program = GetProgramPath("amdgpu-arch");
+
+  auto StdoutOrErr = getDriver().executeProgram({Program});
+  if (!StdoutOrErr)
+    return StdoutOrErr.takeError();
+
+  SmallVector<std::string, 1> GPUArchs;
+  for (StringRef Arch : llvm::split((*StdoutOrErr)->getBuffer(), "\n"))
+    if (!Arch.empty())
+      GPUArchs.push_back(Arch.str());
+
+  if (GPUArchs.empty())
+    return llvm::createStringError(std::error_code(),
+                                   "No AMD GPU detected in the system");
+
+  return std::move(GPUArchs);
 }
 
 void ROCMToolChain::addClangTargetOptions(
@@ -374,78 +958,154 @@ void ROCMToolChain::addClangTargetOptions(
       DriverArgs.hasArg(options::OPT_nostdlib))
     return;
 
-  if (DriverArgs.hasArg(options::OPT_nogpulib))
+  if (!DriverArgs.hasFlag(options::OPT_offloadlib, options::OPT_no_offloadlib,
+                          true))
     return;
-
-  if (!RocmInstallation.isValid()) {
-    getDriver().Diag(diag::err_drv_no_rocm_installation);
-    return;
-  }
 
   // Get the device name and canonicalize it
-  const StringRef GpuArch = DriverArgs.getLastArgValue(options::OPT_mcpu_EQ);
+  const StringRef GpuArch = getGPUArch(DriverArgs);
   auto Kind = llvm::AMDGPU::parseArchAMDGCN(GpuArch);
   const StringRef CanonArch = llvm::AMDGPU::getArchNameAMDGCN(Kind);
-  std::string LibDeviceFile = RocmInstallation.getLibDeviceFile(CanonArch);
-  if (LibDeviceFile.empty()) {
-    getDriver().Diag(diag::err_drv_no_rocm_device_lib) << GpuArch;
+  StringRef LibDeviceFile = RocmInstallation->getLibDeviceFile(CanonArch);
+  auto ABIVer = DeviceLibABIVersion::fromCodeObjectVersion(
+      getAMDGPUCodeObjectVersion(getDriver(), DriverArgs));
+  if (!RocmInstallation->checkCommonBitcodeLibs(CanonArch, LibDeviceFile,
+                                                ABIVer))
     return;
-  }
-
-  bool Wave64 = isWave64(DriverArgs, Kind);
-
-  // TODO: There are way too many flags that change this. Do we need to check
-  // them all?
-  bool DAZ = DriverArgs.hasArg(options::OPT_cl_denorms_are_zero) ||
-             getDefaultDenormsAreZeroForTarget(Kind);
-  bool FiniteOnly = DriverArgs.hasArg(options::OPT_cl_finite_math_only);
-
-  bool UnsafeMathOpt =
-      DriverArgs.hasArg(options::OPT_cl_unsafe_math_optimizations);
-  bool FastRelaxedMath = DriverArgs.hasArg(options::OPT_cl_fast_relaxed_math);
-  bool CorrectSqrt =
-      DriverArgs.hasArg(options::OPT_cl_fp32_correctly_rounded_divide_sqrt);
 
   // Add the OpenCL specific bitcode library.
-  CC1Args.push_back("-mlink-builtin-bitcode");
-  CC1Args.push_back(DriverArgs.MakeArgString(RocmInstallation.getOpenCLPath()));
+  llvm::SmallVector<BitCodeLibraryInfo, 12> BCLibs;
+  BCLibs.emplace_back(RocmInstallation->getOpenCLPath().str());
 
   // Add the generic set of libraries.
-  RocmInstallation.addCommonBitcodeLibCC1Args(
-      DriverArgs, CC1Args, LibDeviceFile, Wave64, DAZ, FiniteOnly,
-      UnsafeMathOpt, FastRelaxedMath, CorrectSqrt);
+  BCLibs.append(RocmInstallation->getCommonBitcodeLibs(
+      DriverArgs, LibDeviceFile, GpuArch, DeviceOffloadingKind,
+      getSanitizerArgs(DriverArgs).needsAsanRt()));
+
+  for (auto [BCFile, Internalize] : BCLibs) {
+    if (Internalize)
+      CC1Args.push_back("-mlink-builtin-bitcode");
+    else
+      CC1Args.push_back("-mlink-bitcode-file");
+    CC1Args.push_back(DriverArgs.MakeArgString(BCFile));
+  }
 }
 
-void RocmInstallationDetector::addCommonBitcodeLibCC1Args(
-    const llvm::opt::ArgList &DriverArgs, llvm::opt::ArgStringList &CC1Args,
-    StringRef LibDeviceFile, bool Wave64, bool DAZ, bool FiniteOnly,
-    bool UnsafeMathOpt, bool FastRelaxedMath, bool CorrectSqrt) const {
-  static const char LinkBitcodeFlag[] = "-mlink-builtin-bitcode";
+bool RocmInstallationDetector::checkCommonBitcodeLibs(
+    StringRef GPUArch, StringRef LibDeviceFile,
+    DeviceLibABIVersion ABIVer) const {
+  if (!hasDeviceLibrary()) {
+    D.Diag(diag::err_drv_no_rocm_device_lib) << 0;
+    return false;
+  }
+  if (LibDeviceFile.empty()) {
+    D.Diag(diag::err_drv_no_rocm_device_lib) << 1 << GPUArch;
+    return false;
+  }
+  if (ABIVer.requiresLibrary() && getABIVersionPath(ABIVer).empty()) {
+    // Starting from COV6, we will report minimum ROCm version requirement in
+    // the error message.
+    if (ABIVer.getAsCodeObjectVersion() < 6)
+      D.Diag(diag::err_drv_no_rocm_device_lib) << 2 << ABIVer.toString() << 0;
+    else
+      D.Diag(diag::err_drv_no_rocm_device_lib)
+          << 2 << ABIVer.toString() << 1 << "6.3";
+    return false;
+  }
+  return true;
+}
 
-  CC1Args.push_back(LinkBitcodeFlag);
-  CC1Args.push_back(DriverArgs.MakeArgString(getOCMLPath()));
+llvm::SmallVector<ToolChain::BitCodeLibraryInfo, 12>
+RocmInstallationDetector::getCommonBitcodeLibs(
+    const llvm::opt::ArgList &DriverArgs, StringRef LibDeviceFile,
+    StringRef GPUArch, const Action::OffloadKind DeviceOffloadingKind,
+    const bool NeedsASanRT) const {
+  llvm::SmallVector<ToolChain::BitCodeLibraryInfo, 12> BCLibs;
 
-  CC1Args.push_back(LinkBitcodeFlag);
-  CC1Args.push_back(DriverArgs.MakeArgString(getOCKLPath()));
+  CommonBitcodeLibsPreferences Pref{D, DriverArgs, GPUArch,
+                                    DeviceOffloadingKind, NeedsASanRT};
 
-  CC1Args.push_back(LinkBitcodeFlag);
-  CC1Args.push_back(DriverArgs.MakeArgString(getDenormalsAreZeroPath(DAZ)));
+  auto AddBCLib = [&](ToolChain::BitCodeLibraryInfo BCLib,
+                      bool Internalize = true) {
+    BCLib.ShouldInternalize = Internalize;
+    BCLibs.emplace_back(BCLib);
+  };
+  auto AddSanBCLibs = [&]() {
+    if (Pref.GPUSan)
+      AddBCLib(getAsanRTLPath(), false);
+  };
 
-  CC1Args.push_back(LinkBitcodeFlag);
-  CC1Args.push_back(DriverArgs.MakeArgString(
-      getUnsafeMathPath(UnsafeMathOpt || FastRelaxedMath)));
+  AddSanBCLibs();
+  AddBCLib(getOCMLPath());
+  if (!Pref.IsOpenMP)
+    AddBCLib(getOCKLPath());
+  else if (Pref.GPUSan && Pref.IsOpenMP)
+    AddBCLib(getOCKLPath(), false);
+  AddBCLib(getDenormalsAreZeroPath(Pref.DAZ));
+  AddBCLib(getUnsafeMathPath(Pref.UnsafeMathOpt || Pref.FastRelaxedMath));
+  AddBCLib(getFiniteOnlyPath(Pref.FiniteOnly || Pref.FastRelaxedMath));
+  AddBCLib(getCorrectlyRoundedSqrtPath(Pref.CorrectSqrt));
+  AddBCLib(getWavefrontSize64Path(Pref.Wave64));
+  AddBCLib(LibDeviceFile);
+  auto ABIVerPath = getABIVersionPath(Pref.ABIVer);
+  if (!ABIVerPath.empty())
+    AddBCLib(ABIVerPath);
 
-  CC1Args.push_back(LinkBitcodeFlag);
-  CC1Args.push_back(DriverArgs.MakeArgString(
-      getFiniteOnlyPath(FiniteOnly || FastRelaxedMath)));
+  return BCLibs;
+}
 
-  CC1Args.push_back(LinkBitcodeFlag);
-  CC1Args.push_back(
-      DriverArgs.MakeArgString(getCorrectlyRoundedSqrtPath(CorrectSqrt)));
+llvm::SmallVector<ToolChain::BitCodeLibraryInfo, 12>
+ROCMToolChain::getCommonDeviceLibNames(
+    const llvm::opt::ArgList &DriverArgs, const std::string &GPUArch,
+    Action::OffloadKind DeviceOffloadingKind) const {
+  auto Kind = llvm::AMDGPU::parseArchAMDGCN(GPUArch);
+  const StringRef CanonArch = llvm::AMDGPU::getArchNameAMDGCN(Kind);
 
-  CC1Args.push_back(LinkBitcodeFlag);
-  CC1Args.push_back(DriverArgs.MakeArgString(getWavefrontSize64Path(Wave64)));
+  StringRef LibDeviceFile = RocmInstallation->getLibDeviceFile(CanonArch);
+  auto ABIVer = DeviceLibABIVersion::fromCodeObjectVersion(
+      getAMDGPUCodeObjectVersion(getDriver(), DriverArgs));
+  if (!RocmInstallation->checkCommonBitcodeLibs(CanonArch, LibDeviceFile,
+                                                ABIVer))
+    return {};
 
-  CC1Args.push_back(LinkBitcodeFlag);
-  CC1Args.push_back(DriverArgs.MakeArgString(LibDeviceFile));
+  return RocmInstallation->getCommonBitcodeLibs(
+      DriverArgs, LibDeviceFile, GPUArch, DeviceOffloadingKind,
+      getSanitizerArgs(DriverArgs).needsAsanRt());
+}
+
+bool AMDGPUToolChain::shouldSkipSanitizeOption(
+    const ToolChain &TC, const llvm::opt::ArgList &DriverArgs,
+    StringRef TargetID, const llvm::opt::Arg *A) const {
+  // For actions without targetID, do nothing.
+  if (TargetID.empty())
+    return false;
+  Option O = A->getOption();
+
+  if (!O.matches(options::OPT_fsanitize_EQ))
+    return false;
+
+  if (!DriverArgs.hasFlag(options::OPT_fgpu_sanitize,
+                          options::OPT_fno_gpu_sanitize, true))
+    return true;
+
+  auto &Diags = TC.getDriver().getDiags();
+
+  // For simplicity, we only allow -fsanitize=address
+  SanitizerMask K = parseSanitizerValue(A->getValue(), /*AllowGroups=*/false);
+  if (K != SanitizerKind::Address)
+    return true;
+
+  llvm::StringMap<bool> FeatureMap;
+  auto OptionalGpuArch = parseTargetID(TC.getTriple(), TargetID, &FeatureMap);
+
+  assert(OptionalGpuArch && "Invalid Target ID");
+  (void)OptionalGpuArch;
+  auto Loc = FeatureMap.find("xnack");
+  if (Loc == FeatureMap.end() || !Loc->second) {
+    Diags.Report(
+        clang::diag::warn_drv_unsupported_option_for_offload_arch_req_feature)
+        << A->getAsString(DriverArgs) << TargetID << "xnack+";
+    return true;
+  }
+  return false;
 }

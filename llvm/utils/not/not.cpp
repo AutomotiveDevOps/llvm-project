@@ -11,9 +11,14 @@
 //   not --crash cmd
 //     Will return true if cmd crashes (e.g. for testing crash reporting).
 
+#include "llvm/Support/Process.h"
 #include "llvm/Support/Program.h"
 #include "llvm/Support/WithColor.h"
 #include "llvm/Support/raw_ostream.h"
+
+#ifdef _WIN32
+#include <windows.h>
+#endif
 
 using namespace llvm;
 
@@ -27,6 +32,19 @@ int main(int argc, const char **argv) {
     ++argv;
     --argc;
     ExpectCrash = true;
+
+    // Crash is expected, so disable crash report and symbolization to reduce
+    // output and avoid potentially slow symbolization.
+#ifdef _WIN32
+    SetEnvironmentVariableA("LLVM_DISABLE_CRASH_REPORT", "1");
+    SetEnvironmentVariableA("LLVM_DISABLE_SYMBOLIZATION", "1");
+#else
+    setenv("LLVM_DISABLE_CRASH_REPORT", "1", 0);
+    setenv("LLVM_DISABLE_SYMBOLIZATION", "1", 0);
+#endif
+    // Try to disable coredumps for expected crashes as well since this can
+    // noticeably slow down running the test suite.
+    sys::Process::PreventCoreFiles();
   }
 
   if (argc == 0)
@@ -39,12 +57,10 @@ int main(int argc, const char **argv) {
     return 1;
   }
 
-  std::vector<StringRef> Argv;
-  Argv.reserve(argc);
-  for (int i = 0; i < argc; ++i)
-    Argv.push_back(argv[i]);
+  SmallVector<StringRef> Argv(ArrayRef(argv, argc));
   std::string ErrMsg;
-  int Result = sys::ExecuteAndWait(*Program, Argv, None, {}, 0, 0, &ErrMsg);
+  int Result =
+      sys::ExecuteAndWait(*Program, Argv, std::nullopt, {}, 0, 0, &ErrMsg);
 #ifdef _WIN32
   // Handle abort() in msvcrt -- It has exit code as 3.  abort(), aka
   // unreachable, should be recognized as a crash.  However, some binaries use

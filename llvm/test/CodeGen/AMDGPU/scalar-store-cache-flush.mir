@@ -1,4 +1,4 @@
-# RUN: llc -march=amdgcn -run-pass si-insert-waitcnts %s -o - | FileCheck %s
+# RUN: llc -mtriple=amdgcn -mcpu=fiji -run-pass si-insert-waitcnts %s -o - | FileCheck %s
 
 --- |
   define amdgpu_kernel void @basic_insert_dcache_wb() {
@@ -19,7 +19,7 @@
 
   define amdgpu_kernel void @multi_block_store() {
   bb0:
-    br i1 undef, label %bb1, label %bb2
+    br i1 poison, label %bb1, label %bb2
 
    bb1:
      ret void
@@ -30,7 +30,7 @@
 
   define amdgpu_kernel void @one_block_store() {
   bb0:
-    br i1 undef, label %bb1, label %bb2
+    br i1 poison, label %bb1, label %bb2
 
    bb1:
      ret void
@@ -40,7 +40,7 @@
   }
 
   define amdgpu_ps float @si_return() {
-    ret float undef
+    ret float poison
   }
 
 ...
@@ -58,7 +58,7 @@ machineFunctionInfo:
 
 body: |
   bb.0:
-    S_STORE_DWORD_SGPR undef $sgpr2, undef $sgpr0_sgpr1, undef $m0, 0, 0
+    S_STORE_DWORD_SGPR undef $sgpr2, undef $sgpr0_sgpr1, undef $m0, 0
     S_ENDPGM 0
 ...
 ---
@@ -76,7 +76,7 @@ machineFunctionInfo:
 
 body: |
   bb.0:
-    S_STORE_DWORD_SGPR undef $sgpr2, undef $sgpr0_sgpr1, undef $m0, 0, 0
+    S_STORE_DWORD_SGPR undef $sgpr2, undef $sgpr0_sgpr1, undef $m0, 0
     S_DCACHE_WB
     S_ENDPGM 0
 ...
@@ -97,7 +97,7 @@ machineFunctionInfo:
 body: |
   bb.0:
     S_DCACHE_WB
-    S_STORE_DWORD_SGPR undef $sgpr2, undef $sgpr0_sgpr1, undef $m0, 0, 0
+    S_STORE_DWORD_SGPR undef $sgpr2, undef $sgpr0_sgpr1, undef $m0, 0
     S_ENDPGM 0
 ...
 ---
@@ -132,11 +132,11 @@ machineFunctionInfo:
 
 body: |
   bb.0:
-    S_STORE_DWORD_SGPR undef $sgpr2, undef $sgpr0_sgpr1, undef $m0, 0, 0
+    S_STORE_DWORD_SGPR undef $sgpr2, undef $sgpr0_sgpr1, undef $m0, 0
     S_ENDPGM 0
 
   bb.1:
-    S_STORE_DWORD_SGPR undef $sgpr4, undef $sgpr6_sgpr7, undef $m0, 0, 0
+    S_STORE_DWORD_SGPR undef $sgpr4, undef $sgpr6_sgpr7, undef $m0, 0
     S_ENDPGM 0
 ...
 ...
@@ -164,7 +164,7 @@ body: |
     S_ENDPGM 0
 
   bb.1:
-    S_STORE_DWORD_SGPR undef $sgpr4, undef $sgpr6_sgpr7, undef $m0, 0, 0
+    S_STORE_DWORD_SGPR undef $sgpr4, undef $sgpr6_sgpr7, undef $m0, 0
     S_ENDPGM 0
 ...
 ---
@@ -182,6 +182,6 @@ machineFunctionInfo:
 
 body: |
   bb.0:
-    S_STORE_DWORD_SGPR undef $sgpr2, undef $sgpr0_sgpr1, undef $m0, 0, 0
+    S_STORE_DWORD_SGPR undef $sgpr2, undef $sgpr0_sgpr1, undef $m0, 0
     SI_RETURN_TO_EPILOG undef $vgpr0
 ...

@@ -60,7 +60,6 @@ private:
 
   size_t GetPointerCount() const;
 
-private:
   uint32_t m_ptr_size = UINT32_MAX;
   lldb::ByteOrder m_byte_order = lldb::eByteOrderInvalid;
   Address m_address = LLDB_INVALID_ADDRESS;
@@ -69,7 +68,7 @@ private:
   ExecutionContextRef m_exe_ctx_ref;
   bool m_mutable = true;
   bool m_multi = false;
-  HashType m_type;
+  HashType m_type = HashType::set;
 };
 
 } // namespace lldb_private

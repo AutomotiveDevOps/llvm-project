@@ -7,7 +7,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "CrossWindows.h"
-#include "CommonArgs.h"
+#include "clang/Driver/CommonArgs.h"
 #include "clang/Driver/Compilation.h"
 #include "clang/Driver/Driver.h"
 #include "clang/Driver/Options.h"
@@ -57,7 +57,8 @@ void tools::CrossWindows::Assembler::ConstructJob(
   const std::string Assembler = TC.GetProgramPath("as");
   Exec = Args.MakeArgString(Assembler);
 
-  C.addCommand(std::make_unique<Command>(JA, *this, Exec, CmdArgs, Inputs));
+  C.addCommand(std::make_unique<Command>(JA, *this, ResponseFileSupport::None(),
+                                         Exec, CmdArgs, Inputs, Output));
 }
 
 void tools::CrossWindows::Linker::ConstructJob(
@@ -93,7 +94,8 @@ void tools::CrossWindows::Linker::ConstructJob(
   CmdArgs.push_back("-m");
   switch (TC.getArch()) {
   default:
-    llvm_unreachable("unsupported architecture");
+    D.Diag(diag::err_target_unknown_triple) << TC.getEffectiveTriple().str();
+    break;
   case llvm::Triple::arm:
   case llvm::Triple::thumb:
     // FIXME: this is incorrect for WinCE
@@ -184,7 +186,7 @@ void tools::CrossWindows::Linker::ConstructJob(
     }
   }
 
-  if (TC.getSanitizerArgs().needsAsanRt()) {
+  if (TC.getSanitizerArgs(Args).needsAsanRt()) {
     // TODO handle /MT[d] /MD[d]
     if (Args.hasArg(options::OPT_shared)) {
       CmdArgs.push_back(TC.getCompilerRTArgString(Args, "asan_dll_thunk"));
@@ -202,7 +204,9 @@ void tools::CrossWindows::Linker::ConstructJob(
 
   Exec = Args.MakeArgString(TC.GetLinkerPath());
 
-  C.addCommand(std::make_unique<Command>(JA, *this, Exec, CmdArgs, Inputs));
+  C.addCommand(std::make_unique<Command>(JA, *this,
+                                         ResponseFileSupport::AtFileUTF8(),
+                                         Exec, CmdArgs, Inputs, Output));
 }
 
 CrossWindowsToolChain::CrossWindowsToolChain(const Driver &D,
@@ -210,17 +214,18 @@ CrossWindowsToolChain::CrossWindowsToolChain(const Driver &D,
                                              const llvm::opt::ArgList &Args)
     : Generic_GCC(D, T, Args) {}
 
-bool CrossWindowsToolChain::IsUnwindTablesDefault(const ArgList &Args) const {
+ToolChain::UnwindTableLevel
+CrossWindowsToolChain::getDefaultUnwindTableLevel(const ArgList &Args) const {
   // FIXME: all non-x86 targets need unwind tables, however, LLVM currently does
   // not know how to emit them.
-  return getArch() == llvm::Triple::x86_64;
+  return getArch() == llvm::Triple::x86_64 ? UnwindTableLevel::Asynchronous : UnwindTableLevel::None;
 }
 
 bool CrossWindowsToolChain::isPICDefault() const {
   return getArch() == llvm::Triple::x86_64;
 }
 
-bool CrossWindowsToolChain::isPIEDefault() const {
+bool CrossWindowsToolChain::isPIEDefault(const llvm::opt::ArgList &Args) const {
   return getArch() == llvm::Triple::x86_64;
 }
 
@@ -268,10 +273,13 @@ AddClangCXXStdlibIncludeArgs(const llvm::opt::ArgList &DriverArgs,
 }
 
 void CrossWindowsToolChain::
-AddCXXStdlibLibArgs(const llvm::opt::ArgList &DriverArgs,
-                    llvm::opt::ArgStringList &CC1Args) const {
-  if (GetCXXStdlibType(DriverArgs) == ToolChain::CST_Libcxx)
-    CC1Args.push_back("-lc++");
+AddCXXStdlibLibArgs(const llvm::opt::ArgList &Args,
+                    llvm::opt::ArgStringList &CmdArgs) const {
+  if (GetCXXStdlibType(Args) == ToolChain::CST_Libcxx) {
+    CmdArgs.push_back("-lc++");
+    if (Args.hasArg(options::OPT_fexperimental_library))
+      CmdArgs.push_back("-lc++experimental");
+  }
 }
 
 clang::SanitizerMask CrossWindowsToolChain::getSupportedSanitizers() const {

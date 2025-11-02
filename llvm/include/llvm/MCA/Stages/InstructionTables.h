@@ -13,26 +13,27 @@
 ///
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_MCA_INSTRUCTIONTABLES_H
-#define LLVM_MCA_INSTRUCTIONTABLES_H
+#ifndef LLVM_MCA_STAGES_INSTRUCTIONTABLES_H
+#define LLVM_MCA_STAGES_INSTRUCTIONTABLES_H
 
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/MC/MCSchedule.h"
 #include "llvm/MCA/HardwareUnits/Scheduler.h"
 #include "llvm/MCA/Stages/Stage.h"
 #include "llvm/MCA/Support.h"
+#include "llvm/Support/Compiler.h"
 
 namespace llvm {
 namespace mca {
 
-class InstructionTables final : public Stage {
+class LLVM_ABI InstructionTables final : public Stage {
   const MCSchedModel &SM;
-  SmallVector<std::pair<ResourceRef, ResourceCycles>, 4> UsedResources;
+  SmallVector<ResourceUse, 4> UsedResources;
   SmallVector<uint64_t, 8> Masks;
 
 public:
   InstructionTables(const MCSchedModel &Model)
-      : Stage(), SM(Model), Masks(Model.getNumProcResourceKinds()) {
+      : SM(Model), Masks(Model.getNumProcResourceKinds()) {
     computeProcResourceMasks(Model, Masks);
   }
 
@@ -42,4 +43,4 @@ public:
 } // namespace mca
 } // namespace llvm
 
-#endif // LLVM_MCA_INSTRUCTIONTABLES_H
+#endif // LLVM_MCA_STAGES_INSTRUCTIONTABLES_H

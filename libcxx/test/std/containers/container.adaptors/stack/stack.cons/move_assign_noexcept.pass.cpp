@@ -13,7 +13,7 @@
 
 // This tests a conforming extension
 
-// UNSUPPORTED: c++98, c++03
+// UNSUPPORTED: c++03
 
 #include <stack>
 #include <cassert>
@@ -21,12 +21,11 @@
 #include "test_macros.h"
 #include "MoveOnly.h"
 
-int main(int, char**)
-{
-    {
-        typedef std::stack<MoveOnly> C;
-        static_assert(std::is_nothrow_move_assignable<C>::value, "");
-    }
+int main(int, char**) {
+  {
+    typedef std::stack<MoveOnly> C;
+    static_assert(std::is_nothrow_move_assignable<C>::value, "");
+  }
 
   return 0;
 }

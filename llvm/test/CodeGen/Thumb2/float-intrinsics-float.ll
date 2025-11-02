@@ -1,10 +1,10 @@
 ; RUN: llc < %s -mtriple=thumbv7-none-eabi   -mcpu=cortex-m3                    | FileCheck %s -check-prefix=CHECK -check-prefix=SOFT -check-prefix=NONE
 ; RUN: llc < %s -mtriple=thumbv7-none-eabihf -mcpu=cortex-m4                    | FileCheck %s -check-prefix=CHECK -check-prefix=HARD -check-prefix=SP -check-prefix=NO-VMLA
 ; RUN: llc < %s -mtriple=thumbv7-none-eabihf -mcpu=cortex-m33                   | FileCheck %s -check-prefix=CHECK -check-prefix=HARD -check-prefix=SP -check-prefix=NO-VMLA
-; RUN: llc < %s -mtriple=thumbv7-none-eabihf -mcpu=cortex-m7                    | FileCheck %s -check-prefix=CHECK -check-prefix=HARD -check-prefix=DP -check-prefix=VFP  -check-prefix=FP-ARMv8  -check-prefix=VMLA
+; RUN: llc < %s -mtriple=thumbv7-none-eabihf -mcpu=cortex-m7                    | FileCheck %s -check-prefix=CHECK -check-prefix=HARD -check-prefix=VFP  -check-prefix=FP-ARMv8  -check-prefix=VMLA
 ; RUN: llc < %s -mtriple=thumbv7-none-eabihf -mcpu=cortex-m7 -mattr=-fp64 | FileCheck %s -check-prefix=CHECK -check-prefix=HARD -check-prefix=SP -check-prefix=FP-ARMv8 -check-prefix=VMLA
-; RUN: llc < %s -mtriple=thumbv7-none-eabihf -mcpu=cortex-a7                    | FileCheck %s -check-prefix=CHECK -check-prefix=HARD -check-prefix=DP -check-prefix=NEON -check-prefix=VFP4 -check-prefix=NO-VMLA
-; RUN: llc < %s -mtriple=thumbv7-none-eabihf -mcpu=cortex-a57                   | FileCheck %s -check-prefix=CHECK -check-prefix=HARD -check-prefix=DP -check-prefix=NEON -check-prefix=FP-ARMv8 -check-prefix=VMLA
+; RUN: llc < %s -mtriple=thumbv7-none-eabihf -mcpu=cortex-a7                    | FileCheck %s -check-prefix=CHECK -check-prefix=HARD -check-prefix=NEON-A7 -check-prefix=VFP4 -check-prefix=NO-VMLA
+; RUN: llc < %s -mtriple=thumbv7-none-eabihf -mcpu=cortex-a57                   | FileCheck %s -check-prefix=CHECK -check-prefix=HARD -check-prefix=NEON-A57 -check-prefix=FP-ARMv8 -check-prefix=VMLA
 
 declare float     @llvm.sqrt.f32(float %Val)
 define float @sqrt_f(float %a) {
@@ -15,12 +15,12 @@ define float @sqrt_f(float %a) {
   ret float %1
 }
 
-declare float     @llvm.powi.f32(float %Val, i32 %power)
+declare float     @llvm.powi.f32.i32(float %Val, i32 %power)
 define float @powi_f(float %a, i32 %b) {
 ; CHECK-LABEL: powi_f:
 ; SOFT: bl __powisf2
 ; HARD: b __powisf2
-  %1 = call float @llvm.powi.f32(float %a, i32 %b)
+  %1 = call float @llvm.powi.f32.i32(float %a, i32 %b)
   ret float %1
 }
 
@@ -39,6 +39,15 @@ define float @cos_f(float %a) {
 ; SOFT: bl cosf
 ; HARD: b cosf
   %1 = call float @llvm.cos.f32(float %a)
+  ret float %1
+}
+
+declare float     @llvm.tan.f32(float %Val)
+define float @tan_f(float %a) {
+; CHECK-LABEL: tan_f:
+; SOFT: bl tanf
+; HARD: b tanf
+  %1 = call float @llvm.tan.f32(float %a)
   ret float %1
 }
 
@@ -123,8 +132,20 @@ define float @copysign_f(float %a, float %b) {
 ; SP: bfi r{{[0-9]+}}, [[REG]], #31, #1
 ; VFP: lsrs [[REG:r[0-9]+]], r{{[0-9]+}}, #31
 ; VFP: bfi r{{[0-9]+}}, [[REG]], #31, #1
-; NEON: vmov.i32 [[REG:d[0-9]+]], #0x80000000
-; NEON: vbsl [[REG]], d
+; NEON-A7:       @ %bb.0:
+; NEON-A7-NEXT:    vmov.f32 s2, s1
+; NEON-A7-NEXT:    @ kill: def $s0 killed $s0 def $d0
+; NEON-A7-NEXT:    vmov.i32 d16, #0x80000000
+; NEON-A7-NEXT:    vbit d0, d1, d16
+; NEON-A7-NEXT:    @ kill: def $s0 killed $s0 killed $d0
+; NEON-A7-NEXT:    bx lr
+; NEON-A57:       @ %bb.0:
+; NEON-A57-NEXT:    vmov.f32 s2, s1
+; NEON-A57-NEXT:    vmov.i32 d16, #0x80000000
+; NEON-A57-NEXT:    @ kill: def $s0 killed $s0 def $d0
+; NEON-A57-NEXT:    vbit d0, d1, d16
+; NEON-A57-NEXT:    @ kill: def $s0 killed $s0 killed $d0
+; NEON-A57-NEXT:    bx lr
   %1 = call float @llvm.copysign.f32(float %a, float %b)
   ret float %1
 }
@@ -186,6 +207,16 @@ define float @round_f(float %a) {
 ; VFP4: b roundf
 ; FP-ARMv8: vrinta.f32
   %1 = call float @llvm.round.f32(float %a)
+  ret float %1
+}
+
+declare float     @llvm.roundeven.f32(float %Val)
+define float @roundeven_f(float %a) {
+; CHECK-LABEL: roundeven_f:
+; SOFT: bl roundevenf
+; VFP4: b roundevenf
+; FP-ARMv8: vrintn.f32
+  %1 = call float @llvm.roundeven.f32(float %a)
   ret float %1
 }
 

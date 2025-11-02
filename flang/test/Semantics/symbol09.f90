@@ -1,4 +1,4 @@
-! RUN: %S/test_symbols.sh %s %t %f18
+! RUN: %python %S/test_symbols.py %s %flang_fc1
 !DEF: /s1 (Subroutine) Subprogram
 subroutine s1
  !DEF: /s1/a ObjectEntity REAL(4)
@@ -25,10 +25,10 @@ subroutine s2
  real a(10)
  !DEF: /s2/i ObjectEntity INTEGER(4)
  integer i
- !DEF: /s2/Block1/i ObjectEntity INTEGER(4)
+ !DEF: /s2/Forall1/i ObjectEntity INTEGER(4)
  do concurrent(i=1:10)
   !REF: /s2/a
-  !REF: /s2/Block1/i
+  !REF: /s2/Forall1/i
   a(i) = i
  end do
  !REF: /s2/i
@@ -47,11 +47,11 @@ subroutine s3
  !REF: /s3/n
  integer, parameter :: n2 = n*n
  !REF: /s3/n
- !DEF: /s3/x ObjectEntity REAL(4)
+ !DEF: /s3/x (InDataStmt) ObjectEntity REAL(4)
  real, dimension(n,n) :: x
  !REF: /s3/x
  !DEF: /s3/ImpliedDos1/k (Implicit) ObjectEntity INTEGER(4)
- !DEF: /s3/ImpliedDos1/j ObjectEntity INTEGER(8)
+ !DEF: /s3/ImpliedDos1/ImpliedDos1/j ObjectEntity INTEGER(8)
  !REF: /s3/n
  !REF: /s3/n2
  data ((x(k,j),integer(kind=8)::j=1,n),k=1,n)/n2*3.0/
@@ -104,14 +104,14 @@ subroutine s6
  integer(kind=8) j
  !DEF: /s6/a ObjectEntity INTEGER(4)
  integer :: a(5) = 1
- !DEF: /s6/Block1/i ObjectEntity INTEGER(4)
- !DEF: /s6/Block1/j (LocalityLocal) HostAssoc INTEGER(8)
- !DEF: /s6/Block1/k (LocalityLocalInit) HostAssoc INTEGER(4)
-  !DEF: /s6/Block1/a (LocalityShared) HostAssoc INTEGER(4)
+ !DEF: /s6/Forall1/i ObjectEntity INTEGER(4)
+ !DEF: /s6/Forall1/j (LocalityLocal) HostAssoc INTEGER(8)
+ !DEF: /s6/Forall1/k (Implicit, LocalityLocalInit) HostAssoc INTEGER(4)
+ !DEF: /s6/Forall1/a (LocalityShared) HostAssoc INTEGER(4)
  do concurrent(integer::i=1:5)local(j)local_init(k)shared(a)
-  !REF: /s6/Block1/a
-  !REF: /s6/Block1/i
-  !REF: /s6/Block1/j
+  !REF: /s6/Forall1/a
+  !REF: /s6/Forall1/i
+  !REF: /s6/Forall1/j
   a(i) = j+1
  end do
 end subroutine
@@ -129,8 +129,8 @@ end subroutine
 subroutine s8
  !DEF: /s8/one PARAMETER ObjectEntity REAL(4)
  real, parameter :: one = 1.0
- !DEF: /s8/y ObjectEntity REAL(4)
- !DEF: /s8/z ObjectEntity REAL(4)
+ !DEF: /s8/y (InDataStmt) ObjectEntity REAL(4)
+ !DEF: /s8/z (InDataStmt) ObjectEntity REAL(4)
  real y(10), z(10)
  !REF: /s8/y
  !DEF: /s8/ImpliedDos1/i (Implicit) ObjectEntity INTEGER(4)

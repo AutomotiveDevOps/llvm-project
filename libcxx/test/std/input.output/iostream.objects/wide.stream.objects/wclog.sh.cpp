@@ -8,20 +8,18 @@
 
 // <iostream>
 
-// istream wclog;
+// wostream wclog;
 
-// FILE_DEPENDENCIES: %t.exe
+// XFAIL: no-wide-characters
+
 // RUN: %{build}
-// RUN: %{exec} %t.exe 2> %t.err
-// RUN: grep -e 'Hello World!' %t.err
+// RUN: %{exec} %t.exe 2> %t.actual
+// RUN: echo -n 1234 > %t.expected
+// RUN: diff %t.expected %t.actual
 
 #include <iostream>
 
-#include "test_macros.h"
-
-int main(int, char**)
-{
-    std::wclog << L"Hello World!\n";
-
+int main(int, char**) {
+    std::wclog << L"1234";
     return 0;
 }

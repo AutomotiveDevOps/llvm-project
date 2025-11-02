@@ -1,38 +1,101 @@
-// RUN: mlir-opt -allow-unregistered-dialect %s --launch-func-to-gpu-runtime="gpu-binary-annotation=nvvm.cubin" | FileCheck %s
-// RUN: mlir-opt -allow-unregistered-dialect %s --launch-func-to-gpu-runtime="gpu-binary-annotation=rocdl.hsaco" | FileCheck %s --check-prefix=ROCDL
+// RUN: mlir-opt %s --gpu-to-llvm -split-input-file | FileCheck %s
 
 module attributes {gpu.container_module} {
-
-  // CHECK: llvm.mlir.global internal constant @[[kernel_name:.*]]("kernel\00")
-  // CHECK: llvm.mlir.global internal constant @[[global:.*]]("CUBIN")
-  // ROCDL: llvm.mlir.global internal constant @[[global:.*]]("HSACO")
-
-  gpu.module @kernel_module attributes {nvvm.cubin = "CUBIN", rocdl.hsaco = "HSACO"} {
-    llvm.func @kernel(%arg0: !llvm.float, %arg1: !llvm<"float*">) attributes {gpu.kernel} {
+  // CHECK: gpu.module
+  gpu.module @kernel_module [#nvvm.target] {
+    llvm.func @kernel(%arg0: i32, %arg1: !llvm.ptr,
+        %arg2: !llvm.ptr, %arg3: i64, %arg4: i64,
+        %arg5: i64) attributes {gpu.kernel} {
       llvm.return
     }
   }
 
-  llvm.func @foo() {
-    %0 = "op"() : () -> (!llvm.float)
-    %1 = "op"() : () -> (!llvm<"float*">)
-    %cst = llvm.mlir.constant(8 : index) : !llvm.i64
+  func.func @foo(%buffer: memref<?xf32>) {
+  // CHECK: [[C8:%.*]] = llvm.mlir.constant(8 : index) : i64
+  // CHECK: [[C32:%.*]] = llvm.mlir.constant(32 : i32) : i32
+  // CHECK: [[C256:%.*]] = llvm.mlir.constant(256 : i32) : i32
+    %c8 = arith.constant 8 : index
+    %c32 = arith.constant 32 : i32
+    %c256 = arith.constant 256 : i32
 
-    // CHECK: %[[addressof:.*]] = llvm.mlir.addressof @[[global]]
-    // CHECK: %[[c0:.*]] = llvm.mlir.constant(0 : index)
-    // CHECK: %[[binary_ptr:.*]] = llvm.getelementptr %[[addressof]][%[[c0]], %[[c0]]]
-    // CHECK-SAME: -> !llvm<"i8*">
-    // CHECK: %[[module_ptr:.*]] = llvm.alloca {{.*}} x !llvm<"i8*"> : (!llvm.i32) -> !llvm<"i8**">
-    // CHECK: llvm.call @mgpuModuleLoad(%[[module_ptr]], %[[binary_ptr]]) : (!llvm<"i8**">, !llvm<"i8*">) -> !llvm.i32
-    // CHECK: %[[func_ptr:.*]] = llvm.alloca {{.*}} x !llvm<"i8*"> : (!llvm.i32) -> !llvm<"i8**">
-    // CHECK: llvm.call @mgpuModuleGetFunction(%[[func_ptr]], {{.*}}, {{.*}}) : (!llvm<"i8**">, !llvm<"i8*">, !llvm<"i8*">) -> !llvm.i32
-    // CHECK: llvm.call @mgpuGetStreamHelper
-    // CHECK: llvm.call @mgpuLaunchKernel
-    // CHECK: llvm.call @mgpuStreamSynchronize
-    "gpu.launch_func"(%cst, %cst, %cst, %cst, %cst, %cst, %0, %1) { kernel = @kernel_module::@kernel }
-        : (!llvm.i64, !llvm.i64, !llvm.i64, !llvm.i64, !llvm.i64, !llvm.i64, !llvm.float, !llvm<"float*">) -> ()
+  // CHECK: gpu.launch_func @kernel_module::@kernel
+  // CHECK: blocks in ([[C8]], [[C8]], [[C8]]) threads in ([[C8]], [[C8]], [[C8]]) : i64
+  // CHECK: dynamic_shared_memory_size [[C256]]
+  // CHECK: args([[C32]] : i32, %{{.*}} : !llvm.ptr, %{{.*}} : !llvm.ptr, %{{.*}} : i64, %{{.*}} : i64, %{{.*}} : i64)
+    gpu.launch_func @kernel_module::@kernel
+        blocks in (%c8, %c8, %c8)
+        threads in (%c8, %c8, %c8)
+        dynamic_shared_memory_size %c256
+        args(%c32 : i32, %buffer : memref<?xf32>)
+    return
+  }
+}
 
-    llvm.return
+
+// -----
+
+module attributes {gpu.container_module} {
+  // CHECK: gpu.module
+  gpu.module @kernel_module [#nvvm.target] {
+    llvm.func @kernel(%arg0: i32, %arg1: !llvm.ptr,
+        %arg2: !llvm.ptr, %arg3: i64, %arg4: i64,
+        %arg5: i64) attributes {gpu.kernel} {
+      llvm.return
+    }
   }
 
+  func.func @foo(%buffer: memref<?xf32>) {
+  // CHECK: [[C8:%.*]] = llvm.mlir.constant(8 : index) : i64
+  // CHECK: [[C32:%.*]] = llvm.mlir.constant(32 : i32) : i32
+  // CHECK: [[C256:%.*]] = llvm.mlir.constant(256 : i32) : i32
+  // CHECK: [[C2:%.*]] = llvm.mlir.constant(2 : index) : i64
+    %c8 = arith.constant 8 : index    
+    %c32 = arith.constant 32 : i32
+    %c256 = arith.constant 256 : i32
+    %c2 = arith.constant 2 : index
+
+  // CHECK: gpu.launch_func @kernel_module::@kernel
+  // CHECK: clusters in ([[C2]], [[C2]], [[C2]])
+  // CHECK: blocks in ([[C8]], [[C8]], [[C8]]) threads in ([[C8]], [[C8]], [[C8]]) : i64
+  // CHECK: dynamic_shared_memory_size [[C256]]
+  // CHECK: args([[C32]] : i32, %{{.*}} : !llvm.ptr, %{{.*}} : !llvm.ptr, %{{.*}} : i64, %{{.*}} : i64, %{{.*}} : i64)
+    gpu.launch_func @kernel_module::@kernel
+        clusters in (%c2, %c2, %c2)
+        blocks in (%c8, %c8, %c8)
+        threads in (%c8, %c8, %c8)
+        dynamic_shared_memory_size %c256
+        args(%c32 : i32, %buffer : memref<?xf32>)
+    return
+  }
+}
+
+// -----
+
+module attributes {gpu.container_module} {
+  // CHECK: gpu.binary
+  gpu.binary @kernel_module [#gpu.object<#rocdl.target, "blob">]
+
+  func.func @foo(%buffer: memref<?xf32>) {
+  // CHECK: [[C8:%.*]] = llvm.mlir.constant(8 : index) : i64
+  // CHECK: [[C32:%.*]] = llvm.mlir.constant(32 : i32) : i32
+  // CHECK: [[C256:%.*]] = llvm.mlir.constant(256 : i32) : i32
+  // CHECK: [[C2:%.*]] = llvm.mlir.constant(2 : index) : i64
+    %c8 = arith.constant 8 : index    
+    %c32 = arith.constant 32 : i32
+    %c256 = arith.constant 256 : i32
+    %c2 = arith.constant 2 : index
+
+  // CHECK: gpu.launch_func @kernel_module::@kernel
+  // CHECK: clusters in ([[C2]], [[C2]], [[C2]])
+  // CHECK: blocks in ([[C8]], [[C8]], [[C8]]) threads in ([[C8]], [[C8]], [[C8]]) : i64
+  // CHECK: dynamic_shared_memory_size [[C256]]
+  // CHECK: args([[C32]] : i32, %{{.*}} : !llvm.ptr, %{{.*}} : !llvm.ptr, %{{.*}} : i64, %{{.*}} : i64, %{{.*}} : i64)
+    gpu.launch_func @kernel_module::@kernel
+        clusters in (%c2, %c2, %c2)
+        blocks in (%c8, %c8, %c8)
+        threads in (%c8, %c8, %c8)
+        dynamic_shared_memory_size %c256
+        args(%c32 : i32, %buffer : memref<?xf32>)
+    return
+  }
 }

@@ -6,11 +6,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-// UNSUPPORTED: c++98, c++03
+// UNSUPPORTED: c++03
 // The test requires access control SFINAE.
-
-// GCC 5 does not evaluate static assertions dependent on a template parameter.
-// UNSUPPORTED: gcc-5
 
 // <unordered_map>
 
@@ -21,16 +18,16 @@
 
 template <class T>
 struct Hash {
-    std::size_t operator () (const T& lhs) const { return 0; }
+  std::size_t operator()(const T& lhs) const { return 0; }
 
-    Hash () {}
+  Hash() {}
+
 private:
-    Hash (const Hash &); // declared but not defined
-    };
-
+  Hash(const Hash&); // declared but not defined
+};
 
 int main(int, char**) {
-    std::unordered_multimap<int, int, Hash<int> > m;
+  std::unordered_multimap<int, int, Hash<int> > m;
 
   return 0;
 }

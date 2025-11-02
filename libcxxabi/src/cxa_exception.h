@@ -1,4 +1,4 @@
-//===------------------------- cxa_exception.h ----------------------------===//
+//===----------------------------------------------------------------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -34,7 +34,7 @@ struct _LIBCXXABI_HIDDEN __cxa_exception {
     // in the beginning of the struct, rather than before unwindHeader.
     void *reserve;
 
-    // This is a new field to support C++ 0x exception_ptr.
+    // This is a new field to support C++11 exception_ptr.
     // For binary compatibility it is at the start of this
     // struct which is prepended to the object thrown in
     // __cxa_allocate_exception.
@@ -43,9 +43,14 @@ struct _LIBCXXABI_HIDDEN __cxa_exception {
 
     //  Manage the exception object itself.
     std::type_info *exceptionType;
-    void (*exceptionDestructor)(void *);
-    std::unexpected_handler unexpectedHandler;
-    std::terminate_handler  terminateHandler;
+#ifdef __wasm__
+    // In Wasm, a destructor returns its argument
+    void *(_LIBCXXABI_DTOR_FUNC *exceptionDestructor)(void *);
+#else
+    void (_LIBCXXABI_DTOR_FUNC *__ptrauth_cxxabi_exception_destructor exceptionDestructor)(void *);
+#endif
+    std::unexpected_handler __ptrauth_cxxabi_unexpected_handler unexpectedHandler;
+    std::terminate_handler __ptrauth_cxxabi_terminate_handler terminateHandler;
 
     __cxa_exception *nextException;
 
@@ -56,16 +61,16 @@ struct _LIBCXXABI_HIDDEN __cxa_exception {
     int propagationCount;
 #else
     int handlerSwitchValue;
-    const unsigned char *actionRecord;
-    const unsigned char *languageSpecificData;
-    void *catchTemp;
-    void *adjustedPtr;
+    const unsigned char *__ptrauth_cxxabi_action_record actionRecord;
+    const unsigned char *__ptrauth_cxxabi_lsd languageSpecificData;
+    void *__ptrauth_cxxabi_catch_temp catchTemp;
+    void *__ptrauth_cxxabi_adjusted_ptr adjustedPtr;
 #endif
 
 #if !defined(__LP64__) && !defined(_WIN64) && !defined(_LIBCXXABI_ARM_EHABI)
-    // This is a new field to support C++ 0x exception_ptr.
+    // This is a new field to support C++11 exception_ptr.
     // For binary compatibility it is placed where the compiler
-    // previously adding padded to 64-bit align unwindHeader.
+    // previously added padding to 64-bit align unwindHeader.
     size_t referenceCount;
 #endif
     _Unwind_Exception unwindHeader;
@@ -74,6 +79,8 @@ struct _LIBCXXABI_HIDDEN __cxa_exception {
 // http://sourcery.mentor.com/archives/cxx-abi-dev/msg01924.html
 // The layout of this structure MUST match the layout of __cxa_exception, with
 // primaryException instead of referenceCount.
+// The pointer authentication schemas specified here must also match those of
+// the corresponding members in __cxa_exception.
 struct _LIBCXXABI_HIDDEN __cxa_dependent_exception {
 #if defined(__LP64__) || defined(_WIN64) || defined(_LIBCXXABI_ARM_EHABI)
     void* reserve; // padding.
@@ -81,9 +88,9 @@ struct _LIBCXXABI_HIDDEN __cxa_dependent_exception {
 #endif
 
     std::type_info *exceptionType;
-    void (*exceptionDestructor)(void *);
-    std::unexpected_handler unexpectedHandler;
-    std::terminate_handler terminateHandler;
+    void (_LIBCXXABI_DTOR_FUNC *__ptrauth_cxxabi_exception_destructor exceptionDestructor)(void *);
+    std::unexpected_handler __ptrauth_cxxabi_unexpected_handler unexpectedHandler;
+    std::terminate_handler __ptrauth_cxxabi_terminate_handler terminateHandler;
 
     __cxa_exception *nextException;
 
@@ -94,10 +101,10 @@ struct _LIBCXXABI_HIDDEN __cxa_dependent_exception {
     int propagationCount;
 #else
     int handlerSwitchValue;
-    const unsigned char *actionRecord;
-    const unsigned char *languageSpecificData;
-    void * catchTemp;
-    void *adjustedPtr;
+    const unsigned char *__ptrauth_cxxabi_action_record actionRecord;
+    const unsigned char *__ptrauth_cxxabi_lsd languageSpecificData;
+    void *__ptrauth_cxxabi_catch_temp catchTemp;
+    void *__ptrauth_cxxabi_adjusted_ptr adjustedPtr;
 #endif
 
 #if !defined(__LP64__) && !defined(_WIN64) && !defined(_LIBCXXABI_ARM_EHABI)
@@ -161,4 +168,4 @@ extern "C" _LIBCXXABI_FUNC_VIS void __cxa_free_dependent_exception (void * depen
 
 }  // namespace __cxxabiv1
 
-#endif  // _CXA_EXCEPTION_H
+#endif // _CXA_EXCEPTION_H

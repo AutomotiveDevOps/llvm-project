@@ -407,7 +407,10 @@ class TestReports(unittest.TestCase):
                 ]
             ],
         )
+<<<<<<< HEAD
         print(test)
+=======
+>>>>>>> upstream/main
         self.assertEqual(
             generate_test_report_lib.generate_report(
                 "Foo",

@@ -9,9 +9,6 @@ import lldbsuite.test.lldbutil as lldbutil
 
 
 class UbsanUserExpressionTestCase(TestBase):
-
-    mydir = TestBase.compute_mydir(__file__)
-
     @skipUnlessUndefinedBehaviorSanitizer
     def test(self):
         self.build()
@@ -20,14 +17,14 @@ class UbsanUserExpressionTestCase(TestBase):
     def setUp(self):
         # Call super's setUp().
         TestBase.setUp(self)
-        self.line_breakpoint = line_number('main.c', '// breakpoint line')
+        self.line_breakpoint = line_number("main.c", "// breakpoint line")
 
     def ubsan_tests(self):
         # Load the test
         exe = self.getBuildArtifact("a.out")
-        self.expect(
-            "file " + exe,
-            patterns=["Current executable set to .*a.out"])
+        target = self.dbg.CreateTarget(exe)
+        self.assertTrue(target, VALID_TARGET)
+        self.registerSanitizerLibrariesWithTarget(target)
 
         self.runCmd("breakpoint set -f main.c -l %d" % self.line_breakpoint)
 
@@ -37,10 +34,16 @@ class UbsanUserExpressionTestCase(TestBase):
         thread = process.GetSelectedThread()
         frame = thread.GetSelectedFrame()
 
-        self.expect("thread list", STOPPED_DUE_TO_BREAKPOINT,
-                    substrs=['stopped', 'stop reason = breakpoint'])
+        self.expect(
+            "thread list",
+            STOPPED_DUE_TO_BREAKPOINT,
+            substrs=["stopped", "stop reason = breakpoint"],
+        )
 
-        self.expect("p foo()", substrs=["(int) $0 = 42"])
+        self.expect("expression foo()", substrs=["(int) $0 = 42"])
 
-        self.expect("thread list", STOPPED_DUE_TO_BREAKPOINT,
-                    substrs=['stopped', 'stop reason = breakpoint'])
+        self.expect(
+            "thread list",
+            STOPPED_DUE_TO_BREAKPOINT,
+            substrs=["stopped", "stop reason = breakpoint"],
+        )

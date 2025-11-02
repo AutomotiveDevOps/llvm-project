@@ -6,7 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-// UNSUPPORTED: c++98, c++03, c++11, c++14
+// UNSUPPORTED: c++03, c++11, c++14
 // <optional>
 
 // template <class U> constexpr T optional<T>::value_or(U&& v) const&;
@@ -74,6 +74,10 @@ int main(int, char**)
     {
         const optional<X> opt;
         assert(opt.value_or(Y(3)) == 4);
+    }
+    {
+      const optional<X> opt;
+      assert(opt.value_or({Y(3)}) == 4);
     }
 
   return 0;

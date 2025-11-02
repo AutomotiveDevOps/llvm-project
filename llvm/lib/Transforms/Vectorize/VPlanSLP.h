@@ -89,8 +89,12 @@ class VPlanSlp {
   /// Width of the widest combined bundle in bits.
   unsigned WidestBundleBits = 0;
 
+<<<<<<< HEAD
   using MultiNodeOpTy =
       typename std::pair<VPInstruction *, SmallVector<VPValue *, 4>>;
+=======
+  using MultiNodeOpTy = std::pair<VPInstruction *, SmallVector<VPValue *, 4>>;
+>>>>>>> upstream/main
 
   // Input operand bundles for the current multi node. Each multi node operand
   // bundle contains values not matching the multi node's opcode. They will

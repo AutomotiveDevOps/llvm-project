@@ -10,8 +10,11 @@
 #define LLVM_SUPPORT_LINEITERATOR_H
 
 #include "llvm/ADT/StringRef.h"
+#include "llvm/Support/Compiler.h"
 #include "llvm/Support/DataTypes.h"
+#include "llvm/Support/MemoryBufferRef.h"
 #include <iterator>
+#include <optional>
 
 namespace llvm {
 
@@ -28,9 +31,8 @@ class MemoryBuffer;
 /// character.
 ///
 /// Note that this iterator requires the buffer to be nul terminated.
-class line_iterator
-    : public std::iterator<std::forward_iterator_tag, StringRef> {
-  const MemoryBuffer *Buffer = nullptr;
+class line_iterator {
+  std::optional<MemoryBufferRef> Buffer;
   char CommentMarker = '\0';
   bool SkipBlanks = true;
 
@@ -38,12 +40,24 @@ class line_iterator
   StringRef CurrentLine;
 
 public:
+  using iterator_category = std::forward_iterator_tag;
+  using value_type = StringRef;
+  using difference_type = std::ptrdiff_t;
+  using pointer = value_type *;
+  using reference = value_type &;
+
   /// Default construct an "end" iterator.
   line_iterator() = default;
 
+  /// Construct a new iterator around an unowned memory buffer.
+  LLVM_ABI explicit line_iterator(const MemoryBufferRef &Buffer,
+                                  bool SkipBlanks = true,
+                                  char CommentMarker = '\0');
+
   /// Construct a new iterator around some memory buffer.
-  explicit line_iterator(const MemoryBuffer &Buffer, bool SkipBlanks = true,
-                         char CommentMarker = '\0');
+  LLVM_ABI explicit line_iterator(const MemoryBuffer &Buffer,
+                                  bool SkipBlanks = true,
+                                  char CommentMarker = '\0');
 
   /// Return true if we've reached EOF or are an "end" iterator.
   bool is_at_eof() const { return !Buffer; }
@@ -80,7 +94,7 @@ public:
 
 private:
   /// Advance the iterator to the next line.
-  void advance();
+  LLVM_ABI void advance();
 };
 }
 

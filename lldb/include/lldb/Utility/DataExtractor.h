@@ -9,16 +9,18 @@
 #ifndef LLDB_UTILITY_DATAEXTRACTOR_H
 #define LLDB_UTILITY_DATAEXTRACTOR_H
 
+#include "lldb/Utility/Endian.h"
 #include "lldb/lldb-defines.h"
 #include "lldb/lldb-enumerations.h"
 #include "lldb/lldb-forward.h"
 #include "lldb/lldb-types.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/Support/DataExtractor.h"
+#include "llvm/Support/SwapByteOrder.h"
 
 #include <cassert>
-#include <stdint.h>
-#include <string.h>
+#include <cstdint>
+#include <cstring>
 
 namespace lldb_private {
 class Log;
@@ -132,7 +134,12 @@ public:
   DataExtractor(const DataExtractor &data, lldb::offset_t offset,
                 lldb::offset_t length, uint32_t target_byte_size = 1);
 
-  DataExtractor(const DataExtractor &rhs);
+  /// Copy constructor.
+  ///
+  /// The copy constructor is explicit as otherwise it is easy to make
+  /// unintended modification of a local copy instead of a caller's instance.
+  /// Also a needless copy of the \a m_data_sp shared pointer is/ expensive.
+  explicit DataExtractor(const DataExtractor &rhs);
 
   /// Assignment operator.
   ///
@@ -146,6 +153,12 @@ public:
   /// \return
   ///     A const reference to this object.
   const DataExtractor &operator=(const DataExtractor &rhs);
+
+  /// Move constructor and move assignment operators to complete the rule of 5.
+  ///
+  /// They would get deleted as we already defined those of rule of 3.
+  DataExtractor(DataExtractor &&rhs) = default;
+  DataExtractor &operator=(DataExtractor &&rhs) = default;
 
   /// Destructor
   ///
@@ -830,9 +843,7 @@ public:
   /// \param[in] addr_size
   ///     The size in bytes to use when extracting addresses.
   void SetAddressByteSize(uint32_t addr_size) {
-#ifdef LLDB_CONFIGURATION_DEBUG
-    assert(addr_size == 4 || addr_size == 8);
-#endif
+    assert(addr_size == 2 || addr_size == 4 || addr_size == 8);
     m_addr_size = addr_size;
   }
 
@@ -979,16 +990,32 @@ public:
   }
 
 protected:
+  template <typename T> T Get(lldb::offset_t *offset_ptr, T fail_value) const {
+    constexpr size_t src_size = sizeof(T);
+    T val = fail_value;
+
+    const void *src = GetData(offset_ptr, src_size);
+    if (!src)
+      return val;
+
+    memcpy(&val, src, src_size);
+    if (m_byte_order != endian::InlHostByteOrder())
+      llvm::sys::swapByteOrder(val);
+
+    return val;
+  }
+
   // Member variables
-  const uint8_t *m_start; ///< A pointer to the first byte of data.
-  const uint8_t
-      *m_end; ///< A pointer to the byte that is past the end of the data.
+  const uint8_t *m_start = nullptr; ///< A pointer to the first byte of data.
+  const uint8_t *m_end =
+      nullptr; ///< A pointer to the byte that is past the end of the data.
   lldb::ByteOrder
       m_byte_order;     ///< The byte order of the data we are extracting from.
   uint32_t m_addr_size; ///< The address size to use when extracting addresses.
   /// The shared pointer to data that can be shared among multiple instances
   lldb::DataBufferSP m_data_sp;
-  const uint32_t m_target_byte_size;
+  /// Making it const would require implementation of move assignment operator.
+  uint32_t m_target_byte_size = 1;
 };
 
 } // namespace lldb_private

@@ -19,7 +19,7 @@ The LLVM project and many of the core projects built on LLVM build using CMake.
 This document aims to provide a brief overview of CMake for developers modifying
 LLVM projects or building their own projects on top of LLVM.
 
-The official CMake language references is available in the cmake-language
+The official CMake language reference is available in the cmake-language
 manpage and `cmake-language online documentation
 <https://cmake.org/cmake/help/v3.4/manual/cmake-language.7.html>`_.
 
@@ -27,7 +27,7 @@ manpage and `cmake-language online documentation
 ==============
 
 CMake is a tool that reads script files in its own language that describe how a
-software project builds. As CMake evaluates the scripts it constructs an
+software project builds. As CMake evaluates the scripts, it constructs an
 internal representation of the software project. Once the scripts have been
 fully processed, if there are no errors, CMake will generate build files to
 actually build the project. CMake supports generating build files for a variety
@@ -54,30 +54,30 @@ program. The example uses only CMake language-defined functions.
 
 .. code-block:: cmake
 
-   cmake_minimum_required(VERSION 3.2)
+   cmake_minimum_required(VERSION 3.20.0)
    project(HelloWorld)
    add_executable(HelloWorld HelloWorld.cpp)
 
-The CMake language provides control flow constructs in the form of foreach loops
-and if blocks. To make the example above more complicated you could add an if
+The CMake language provides control flow constructs in the form of ``foreach`` loops
+and ``if`` blocks. To make the example above more complicated you could add an if
 block to define "APPLE" when targeting Apple platforms:
 
 .. code-block:: cmake
 
-   cmake_minimum_required(VERSION 3.2)
+   cmake_minimum_required(VERSION 3.20.0)
    project(HelloWorld)
    add_executable(HelloWorld HelloWorld.cpp)
    if(APPLE)
      target_compile_definitions(HelloWorld PUBLIC APPLE)
    endif()
-   
+
 Variables, Types, and Scope
 ===========================
 
 Dereferencing
 -------------
 
-In CMake variables are "stringly" typed. All variables are represented as
+In CMake, variables are "stringly" typed. All variables are represented as
 strings throughout evaluation. Wrapping a variable in ``${}`` dereferences it
 and results in a literal substitution of the name for the value. CMake refers to
 this as "variable evaluation" in their documentation. Dereferences are performed
@@ -93,7 +93,7 @@ example:
    set(var_name var1)
    set(${var_name} foo) # same as "set(var1 foo)"
    set(${${var_name}}_var bar) # same as "set(foo_var bar)"
-   
+
 Dereferencing an unset variable results in an empty expansion. It is a common
 pattern in CMake to conditionally set variables knowing that it will be used in
 code paths that the variable isn't set. There are examples of this throughout
@@ -107,7 +107,7 @@ An example of variable empty expansion is:
      set(extra_sources Apple.cpp)
    endif()
    add_executable(HelloWorld HelloWorld.cpp ${extra_sources})
-   
+
 In this example the ``extra_sources`` variable is only defined if you're
 targeting an Apple platform. For all other targets the ``extra_sources`` will be
 evaluated as empty before add_executable is given its arguments.
@@ -115,8 +115,8 @@ evaluated as empty before add_executable is given its arguments.
 Lists
 -----
 
-In CMake lists are semi-colon delimited strings, and it is strongly advised that
-you avoid using semi-colons in lists; it doesn't go smoothly. A few examples of
+In CMake, lists are semicolon-delimited strings, and it is strongly advised that
+you avoid using semicolons in lists; it doesn't go smoothly. A few examples of
 defining lists:
 
 .. code-block:: cmake
@@ -124,7 +124,7 @@ defining lists:
    # Creates a list with members a, b, c, and d
    set(my_list a b c d)
    set(my_list "a;b;c;d")
-   
+
    # Creates a string "a b c d"
    set(my_string "a b c d")
 
@@ -132,7 +132,7 @@ Lists of Lists
 --------------
 
 One of the more complicated patterns in CMake is lists of lists. Because a list
-cannot contain an element with a semi-colon to construct a list of lists you
+cannot contain an element with a semicolon to construct a list of lists you
 make a list of variable names that refer to other lists. For example:
 
 .. code-block:: cmake
@@ -141,7 +141,7 @@ make a list of variable names that refer to other lists. For example:
    set(a 1 2 3)
    set(b 4 5 6)
    set(c 7 8 9)
-   
+
 With this layout you can iterate through the list of lists printing each value
 with the following code:
 
@@ -152,7 +152,7 @@ with the following code:
        message(${value})
      endforeach()
    endforeach()
-   
+
 You'll notice that the inner foreach loop's list is doubly dereferenced. This is
 because the first dereference turns ``list_name`` into the name of the sub-list
 (a, b, or c in the example), then the second dereference is to get the value of
@@ -160,15 +160,15 @@ the list.
 
 This pattern is used throughout CMake, the most common example is the compiler
 flags options, which CMake refers to using the following variable expansions:
-CMAKE_${LANGUAGE}_FLAGS and CMAKE_${LANGUAGE}_FLAGS_${CMAKE_BUILD_TYPE}.
+``CMAKE_${LANGUAGE}_FLAGS`` and ``CMAKE_${LANGUAGE}_FLAGS_${CMAKE_BUILD_TYPE}``.
 
 Other Types
 -----------
 
 Variables that are cached or specified on the command line can have types
 associated with them. The variable's type is used by CMake's UI tool to display
-the right input field. A variable's type generally doesn't impact evaluation,
-however CMake does have special handling for some variables such as PATH.
+the right input field. A variable's type generally doesn't impact evaluation;
+however, CMake does have special handling for some variables such as ``PATH``.
 You can read more about the special handling in `CMake's set documentation
 <https://cmake.org/cmake/help/v3.5/command/set.html#set-cache-entry>`_.
 
@@ -183,11 +183,11 @@ set in the scope they are included from, and all subdirectories.
 When a variable that is already set is set again in a subdirectory it overrides
 the value in that scope and any deeper subdirectories.
 
-The CMake set command provides two scope-related options. PARENT_SCOPE sets a
-variable into the parent scope, and not the current scope. The CACHE option sets
+The CMake set command provides two scope-related options. ``PARENT_SCOPE`` sets a
+variable into the parent scope, and not the current scope. The ``CACHE`` option sets
 the variable in the CMakeCache, which results in it being set in all scopes. The
-CACHE option will not set a variable that already exists in the CACHE unless the
-FORCE option is specified.
+``CACHE`` option will not set a variable that already exists in the ``CACHE`` unless the
+``FORCE`` option is specified.
 
 In addition to directory-based scope, CMake functions also have their own scope.
 This means variables set inside functions do not bleed into the parent scope.
@@ -213,7 +213,7 @@ If, ElseIf, Else
   `here <https://cmake.org/cmake/help/v3.4/command/if.html>`_. That resource is
   far more complete.
 
-In general CMake if blocks work the way you'd expect:
+In general, CMake ``if`` blocks work the way you'd expect:
 
 .. code-block:: cmake
 
@@ -225,7 +225,7 @@ In general CMake if blocks work the way you'd expect:
     message("do other other stuff")
   endif()
 
-The single most important thing to know about CMake's if blocks coming from a C
+The single most important thing to know about CMake's ``if`` blocks coming from a C
 background is that they do not have their own scope. Variables set inside
 conditional blocks persist after the ``endif()``.
 
@@ -317,20 +317,20 @@ Modules are CMake's vehicle for enabling code reuse. CMake modules are just
 CMake script files. They can contain code to execute on include as well as
 definitions for commands.
 
-In CMake macros and functions are universally referred to as commands, and they
+In CMake, macros and functions are universally referred to as commands, and they
 are the primary method of defining code that can be called multiple times.
 
 In LLVM we have several CMake modules that are included as part of our
 distribution for developers who don't build our project from source. Those
 modules are the fundamental pieces needed to build LLVM-based projects with
 CMake. We also rely on modules as a way of organizing the build system's
-functionality for maintainability and re-use within LLVM projects.
+functionality for maintainability and reuse within LLVM projects.
 
 Argument Handling
 -----------------
 
 When defining a CMake command handling arguments is very useful. The examples
-in this section will all use the CMake ``function`` block, but this all applies
+in this section will all use the CMake ``function`` block, but this also applies
 to the ``macro`` block as well.
 
 CMake commands can have named arguments that are required at every call site. In
@@ -385,7 +385,7 @@ result in some unexpected behavior if using unreferenced variables. For example:
        message("${var}")
      endforeach()
    endmacro()
-   
+
    set(my_list a b c d)
    set(my_list_of_numbers 1 2 3 4)
    print_list(my_list_of_numbers)
@@ -395,7 +395,7 @@ result in some unexpected behavior if using unreferenced variables. For example:
    # c
    # d
 
-Generally speaking this issue is uncommon because it requires using
+Generally speaking, this issue is uncommon because it requires using
 non-dereferenced variables with names that overlap in the parent scope, but it
 is important to be aware of because it can lead to subtle bugs.
 
@@ -424,7 +424,7 @@ LLVM.
 Useful Built-in Commands
 ========================
 
-CMake has a bunch of useful built-in commands. This document isn't going to
+CMake has a collection of useful built-in commands. This document isn't going to
 go into details about them because The CMake project has excellent
 documentation. To highlight a few useful functions see:
 

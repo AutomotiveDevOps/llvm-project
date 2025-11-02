@@ -11,11 +11,10 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Support/FileOutputBuffer.h"
-#include "llvm/ADT/STLExtras.h"
 #include "llvm/Support/Errc.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Memory.h"
-#include "llvm/Support/Path.h"
+#include "llvm/Support/TimeProfiler.h"
 #include <system_error>
 
 #if !defined(_MSC_VER) && !defined(__MINGW32__)
@@ -33,21 +32,22 @@ namespace {
 // with the temporary file on commit().
 class OnDiskBuffer : public FileOutputBuffer {
 public:
-  OnDiskBuffer(StringRef Path, fs::TempFile Temp,
-               std::unique_ptr<fs::mapped_file_region> Buf)
+  OnDiskBuffer(StringRef Path, fs::TempFile Temp, fs::mapped_file_region Buf)
       : FileOutputBuffer(Path), Buffer(std::move(Buf)), Temp(std::move(Temp)) {}
 
-  uint8_t *getBufferStart() const override { return (uint8_t *)Buffer->data(); }
+  uint8_t *getBufferStart() const override { return (uint8_t *)Buffer.data(); }
 
   uint8_t *getBufferEnd() const override {
-    return (uint8_t *)Buffer->data() + Buffer->size();
+    return (uint8_t *)Buffer.data() + Buffer.size();
   }
 
-  size_t getBufferSize() const override { return Buffer->size(); }
+  size_t getBufferSize() const override { return Buffer.size(); }
 
   Error commit() override {
+    llvm::TimeTraceScope timeScope("Commit buffer to disk");
+
     // Unmap buffer, letting OS flush dirty pages to file on disk.
-    Buffer.reset();
+    Buffer.unmap();
 
     // Atomically replace the existing file with the new one.
     return Temp.keep(FinalPath);
@@ -56,7 +56,7 @@ public:
   ~OnDiskBuffer() override {
     // Close the mapping before deleting the temp file, so that the removal
     // succeeds.
-    Buffer.reset();
+    Buffer.unmap();
     consumeError(Temp.discard());
   }
 
@@ -67,7 +67,7 @@ public:
   }
 
 private:
-  std::unique_ptr<fs::mapped_file_region> Buffer;
+  fs::mapped_file_region Buffer;
   fs::TempFile Temp;
 };
 
@@ -99,7 +99,7 @@ public:
     int FD;
     std::error_code EC;
     if (auto EC =
-            openFileForWrite(FinalPath, FD, CD_CreateAlways, OF_None, Mode))
+            openFileForWrite(FinalPath, FD, CD_CreateAlways, OF_Delete, Mode))
       return errorCodeToError(EC);
     raw_fd_ostream OS(FD, /*shouldClose=*/true, /*unbuffered=*/true);
     OS << StringRef((const char *)Buffer.base(), BufferSize);
@@ -132,23 +132,16 @@ createOnDiskBuffer(StringRef Path, size_t Size, unsigned Mode) {
     return FileOrErr.takeError();
   fs::TempFile File = std::move(*FileOrErr);
 
-#ifndef _WIN32
-  // On Windows, CreateFileMapping (the mmap function on Windows)
-  // automatically extends the underlying file. We don't need to
-  // extend the file beforehand. _chsize (ftruncate on Windows) is
-  // pretty slow just like it writes specified amount of bytes,
-  // so we should avoid calling that function.
-  if (auto EC = fs::resize_file(File.FD, Size)) {
+  if (auto EC = fs::resize_file_before_mapping_readwrite(File.FD, Size)) {
     consumeError(File.discard());
     return errorCodeToError(EC);
   }
-#endif
 
   // Mmap it.
   std::error_code EC;
-  auto MappedFile = std::make_unique<fs::mapped_file_region>(
-      fs::convertFDToNativeFile(File.FD), fs::mapped_file_region::readwrite,
-      Size, 0, EC);
+  fs::mapped_file_region MappedFile =
+      fs::mapped_file_region(fs::convertFDToNativeFile(File.FD),
+                             fs::mapped_file_region::readwrite, Size, 0, EC);
 
   // mmap(2) can fail if the underlying filesystem does not support it.
   // If that happens, we fall back to in-memory buffer as the last resort.
@@ -193,7 +186,7 @@ FileOutputBuffer::create(StringRef Path, size_t Size, unsigned Flags) {
   case fs::file_type::regular_file:
   case fs::file_type::file_not_found:
   case fs::file_type::status_error:
-    if (Flags & F_no_mmap)
+    if (Flags & F_mmap)
       return createInMemoryBuffer(Path, Size, Mode);
     else
       return createOnDiskBuffer(Path, Size, Mode);

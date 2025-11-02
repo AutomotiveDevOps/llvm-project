@@ -1,12 +1,15 @@
 ; RUN: llc -verify-machineinstrs -mtriple=powerpc64le-unknown-linux-gnu \
-; RUN:   -mcpu=future -ppc-asm-full-reg-names < %s | FileCheck %s
+; RUN:   -mcpu=pwr10 -ppc-asm-full-reg-names < %s | FileCheck %s
+; RUN: llc -verify-machineinstrs -target-abi=elfv2 -mtriple=powerpc64-- \
+; RUN:   -mcpu=pwr10 -ppc-asm-full-reg-names < %s | FileCheck %s
+
 
 ; The test checks the behavior of PC Relative indirect calls. When using
 ; PC Relative, TOC save and restore are no longer required. Function pointer
 ; is passed as a parameter in this test.
 
 ; Function Attrs: noinline
-define dso_local void @IndirectCallExternFuncPtr(void ()* nocapture %ptrfunc) {
+define dso_local void @IndirectCallExternFuncPtr(ptr nocapture %ptrfunc) {
 ; CHECK-LABEL: IndirectCallExternFuncPtr:
 ; CHECK:       # %bb.0: # %entry
 ; CHECK-NEXT:    mtctr r3
@@ -20,7 +23,7 @@ entry:
 
 define dso_local void @FuncPtrPassAsParam() {
 entry:
-  tail call void @IndirectCallExternFuncPtr(void ()* nonnull @Function)
+  tail call void @IndirectCallExternFuncPtr(ptr nonnull @Function)
   ret void
 }
 

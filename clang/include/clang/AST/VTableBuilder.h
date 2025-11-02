@@ -18,6 +18,7 @@
 #include "clang/AST/GlobalDecl.h"
 #include "clang/AST/RecordLayout.h"
 #include "clang/Basic/ABI.h"
+#include "clang/Basic/Thunk.h"
 #include "llvm/ADT/DenseMap.h"
 #include <memory>
 #include <utility>
@@ -238,6 +239,11 @@ public:
   typedef llvm::DenseMap<BaseSubobject, AddressPointLocation>
       AddressPointsMapTy;
 
+  // Mapping between the VTable index and address point index. This is useful
+  // when you don't care about the base subobjects and only want the address
+  // point for a given vtable index.
+  typedef llvm::SmallVector<unsigned, 4> AddressPointsIndexMapTy;
+
 private:
   // Stores the component indices of the first component of each virtual table in
   // the virtual table group. To save a little memory in the common case where
@@ -252,6 +258,9 @@ private:
 
   /// Address points for all vtables.
   AddressPointsMapTy AddressPoints;
+
+  /// Address points for all vtable indices.
+  AddressPointsIndexMapTy AddressPointIndices;
 
 public:
   VTableLayout(ArrayRef<size_t> VTableIndices,
@@ -270,11 +279,15 @@ public:
 
   AddressPointLocation getAddressPoint(BaseSubobject Base) const {
     assert(AddressPoints.count(Base) && "Did not find address point!");
-    return AddressPoints.find(Base)->second;
+    return AddressPoints.lookup(Base);
   }
 
   const AddressPointsMapTy &getAddressPoints() const {
     return AddressPoints;
+  }
+
+  const AddressPointsIndexMapTy &getAddressPointIndices() const {
+    return AddressPointIndices;
   }
 
   size_t getNumVTables() const {
@@ -342,9 +355,16 @@ public:
   }
 
   bool IsMicrosoftABI;
+
+  /// Determine whether this function should be assigned a vtable slot.
+  static bool hasVtableSlot(const CXXMethodDecl *MD);
 };
 
 class ItaniumVTableContext : public VTableContextBase {
+public:
+  typedef llvm::DenseMap<const CXXMethodDecl *, const CXXMethodDecl *>
+      OriginalMethodMapTy;
+
 private:
 
   /// Contains the index (relative to the vtable address point)
@@ -368,10 +388,24 @@ private:
     VirtualBaseClassOffsetOffsetsMapTy;
   VirtualBaseClassOffsetOffsetsMapTy VirtualBaseClassOffsetOffsets;
 
+  /// Map from a virtual method to the nearest method in the primary base class
+  /// chain that it overrides.
+  OriginalMethodMapTy OriginalMethodMap;
+
   void computeVTableRelatedInformation(const CXXRecordDecl *RD) override;
 
 public:
-  ItaniumVTableContext(ASTContext &Context);
+  enum VTableComponentLayout {
+    /// Components in the vtable are pointers to other structs/functions.
+    Pointer,
+
+    /// Components in the vtable are relative offsets between the vtable and the
+    /// other structs/functions.
+    Relative,
+  };
+
+  ItaniumVTableContext(ASTContext &Context,
+                       VTableComponentLayout ComponentLayout = Pointer);
   ~ItaniumVTableContext() override;
 
   const VTableLayout &getVTableLayout(const CXXRecordDecl *RD) {
@@ -399,9 +433,40 @@ public:
   CharUnits getVirtualBaseOffsetOffset(const CXXRecordDecl *RD,
                                        const CXXRecordDecl *VBase);
 
+  /// Return the method that added the v-table slot that will be used to call
+  /// the given method.
+  ///
+  /// In the Itanium ABI, where overrides always cause methods to be added to
+  /// the primary v-table if they're not already there, this will be the first
+  /// declaration in the primary base class chain for which the return type
+  /// adjustment is trivial.
+  GlobalDecl findOriginalMethod(GlobalDecl GD);
+
+  const CXXMethodDecl *findOriginalMethodInMap(const CXXMethodDecl *MD) const;
+
+  void setOriginalMethod(const CXXMethodDecl *Key, const CXXMethodDecl *Val) {
+    OriginalMethodMap[Key] = Val;
+  }
+
+  /// This method is reserved for the implementation and shouldn't be used
+  /// directly.
+  const OriginalMethodMapTy &getOriginalMethodMap() {
+    return OriginalMethodMap;
+  }
+
   static bool classof(const VTableContextBase *VT) {
     return !VT->isMicrosoft();
   }
+
+  VTableComponentLayout getVTableComponentLayout() const {
+    return ComponentLayout;
+  }
+
+  bool isPointerLayout() const { return ComponentLayout == Pointer; }
+  bool isRelativeLayout() const { return ComponentLayout == Relative; }
+
+private:
+  VTableComponentLayout ComponentLayout;
 };
 
 /// Holds information about the inheritance path to a virtual base or function
@@ -526,8 +591,6 @@ private:
 
   llvm::DenseMap<const CXXRecordDecl *, std::unique_ptr<VirtualBaseInfo>>
       VBaseInfo;
-
-  void enumerateVFPtrs(const CXXRecordDecl *ForClass, VPtrInfoVector &Result);
 
   void computeVTableRelatedInformation(const CXXRecordDecl *RD) override;
 

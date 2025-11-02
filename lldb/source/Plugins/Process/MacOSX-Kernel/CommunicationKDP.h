@@ -14,18 +14,16 @@
 #include <string>
 
 #include "lldb/Core/Communication.h"
-#include "lldb/Core/StreamBuffer.h"
 #include "lldb/Utility/Listener.h"
 #include "lldb/Utility/Predicate.h"
+#include "lldb/Utility/StreamBuffer.h"
 #include "lldb/lldb-private.h"
 
 class CommunicationKDP : public lldb_private::Communication {
 public:
-  enum { eBroadcastBitRunPacketSent = kLoUserBroadcastBit };
-
   const static uint32_t kMaxPacketSize = 1200;
   const static uint32_t kMaxDataSize = 1024;
-  typedef lldb_private::StreamBuffer<1024> PacketStreamType;
+  typedef lldb_private::StreamBuffer<4096> PacketStreamType;
   enum CommandType {
     KDP_CONNECT = 0u,
     KDP_DISCONNECT,
@@ -79,7 +77,7 @@ public:
   // Constructors and Destructors
   CommunicationKDP(const char *comm_name);
 
-  virtual ~CommunicationKDP();
+  ~CommunicationKDP() override;
 
   bool SendRequestPacket(const PacketStreamType &request_packet);
 
@@ -223,6 +221,8 @@ protected:
   // Classes that inherit from CommunicationKDP can see and modify these
   uint32_t m_addr_byte_size;
   lldb::ByteOrder m_byte_order;
+  std::string m_bytes;
+  std::recursive_mutex m_bytes_mutex;
   std::chrono::seconds m_packet_timeout;
   std::recursive_mutex m_sequence_mutex; // Restrict access to sending/receiving
                                          // packets to a single thread at a time
@@ -241,7 +241,8 @@ protected:
   lldb::addr_t m_last_read_memory_addr; // Last memory read address for logging
 private:
   // For CommunicationKDP only
-  DISALLOW_COPY_AND_ASSIGN(CommunicationKDP);
+  CommunicationKDP(const CommunicationKDP &) = delete;
+  const CommunicationKDP &operator=(const CommunicationKDP &) = delete;
 };
 
 #endif // LLDB_SOURCE_PLUGINS_PROCESS_MACOSX_KERNEL_COMMUNICATIONKDP_H

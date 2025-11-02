@@ -1,4 +1,4 @@
-//===--- MisplacedPointerArithmeticInAllocCheck.cpp - clang-tidy-----------===//
+//===----------------------------------------------------------------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -9,19 +9,17 @@
 #include "MisplacedPointerArithmeticInAllocCheck.h"
 #include "clang/AST/ASTContext.h"
 #include "clang/ASTMatchers/ASTMatchFinder.h"
+#include "clang/Lex/Lexer.h"
 
 using namespace clang::ast_matchers;
 
-namespace clang {
-namespace tidy {
-namespace bugprone {
+namespace clang::tidy::bugprone {
 
 void MisplacedPointerArithmeticInAllocCheck::registerMatchers(
     MatchFinder *Finder) {
-  const auto AllocFunc = functionDecl(
-      anyOf(hasName("::malloc"), hasName("std::malloc"), hasName("::alloca"),
-            hasName("::calloc"), hasName("std::calloc"), hasName("::realloc"),
-            hasName("std::realloc")));
+  const auto AllocFunc =
+      functionDecl(hasAnyName("::malloc", "std::malloc", "::alloca", "::calloc",
+                              "std::calloc", "::realloc", "std::realloc"));
 
   const auto AllocFuncPtr =
       varDecl(hasType(isConstQualified()),
@@ -77,9 +75,9 @@ void MisplacedPointerArithmeticInAllocCheck::check(
       CallName = "operator new[]";
     } else {
       const auto *CtrE = New->getConstructExpr();
-      if (!CtrE->getArg(CtrE->getNumArgs() - 1)
-               ->getType()
-               ->isIntegralOrEnumerationType())
+      if (!CtrE || !CtrE->getArg(CtrE->getNumArgs() - 1)
+                        ->getType()
+                        ->isIntegralOrEnumerationType())
         return;
       CallName = "operator new";
     }
@@ -99,6 +97,4 @@ void MisplacedPointerArithmeticInAllocCheck::check(
       << FixItHint::CreateInsertion(NewRParen, RParen);
 }
 
-} // namespace bugprone
-} // namespace tidy
-} // namespace clang
+} // namespace clang::tidy::bugprone

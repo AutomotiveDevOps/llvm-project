@@ -1,4 +1,4 @@
-//===--- SpecialMemberFunctionsCheck.h - clang-tidy--------------*- C++ -*-===//
+//===----------------------------------------------------------------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -9,19 +9,17 @@
 #ifndef LLVM_CLANG_TOOLS_EXTRA_CLANG_TIDY_CPPCOREGUIDELINES_SPECIAL_MEMBER_FUNCTIONS_H
 #define LLVM_CLANG_TOOLS_EXTRA_CLANG_TIDY_CPPCOREGUIDELINES_SPECIAL_MEMBER_FUNCTIONS_H
 
-#include "../ClangTidy.h"
+#include "../ClangTidyCheck.h"
 
 #include "llvm/ADT/DenseMapInfo.h"
 
-namespace clang {
-namespace tidy {
-namespace cppcoreguidelines {
+namespace clang::tidy::cppcoreguidelines {
 
 /// Checks for classes where some, but not all, of the special member functions
 /// are defined.
 ///
 /// For the user-facing documentation see:
-/// http://clang.llvm.org/extra/clang-tidy/checks/cppcoreguidelines-special-member-functions.html
+/// https://clang.llvm.org/extra/clang-tidy/checks/cppcoreguidelines/special-member-functions.html
 class SpecialMemberFunctionsCheck : public ClangTidyCheck {
 public:
   SpecialMemberFunctionsCheck(StringRef Name, ClangTidyContext *Context);
@@ -32,6 +30,7 @@ public:
   void registerMatchers(ast_matchers::MatchFinder *Finder) override;
   void check(const ast_matchers::MatchFinder::MatchResult &Result) override;
   void onEndOfTranslationUnit() override;
+  std::optional<TraversalKind> getCheckTraversalKind() const override;
 
   enum class SpecialMemberFunctionKind : uint8_t {
     Destructor,
@@ -46,8 +45,9 @@ public:
   struct SpecialMemberFunctionData {
     SpecialMemberFunctionKind FunctionKind;
     bool IsDeleted;
+    bool IsImplicit = false;
 
-    bool operator==(const SpecialMemberFunctionData &Other) {
+    bool operator==(const SpecialMemberFunctionData &Other) const {
       return (Other.FunctionKind == FunctionKind) &&
              (Other.IsDeleted == IsDeleted);
     }
@@ -62,20 +62,20 @@ public:
 private:
   void checkForMissingMembers(
       const ClassDefId &ID,
-      llvm::ArrayRef<SpecialMemberFunctionData> DefinedSpecialMembers);
+      llvm::ArrayRef<SpecialMemberFunctionData> DefinedMembers);
 
   const bool AllowMissingMoveFunctions;
   const bool AllowSoleDefaultDtor;
   const bool AllowMissingMoveFunctionsWhenCopyIsDeleted;
+  const bool AllowImplicitlyDeletedCopyOrMove;
   ClassDefiningSpecialMembersMap ClassWithSpecialMembers;
+  const bool IgnoreMacros;
 };
 
-} // namespace cppcoreguidelines
-} // namespace tidy
-} // namespace clang
+} // namespace clang::tidy::cppcoreguidelines
 
 namespace llvm {
-/// Specialisation of DenseMapInfo to allow ClassDefId objects in DenseMaps
+/// Specialization of DenseMapInfo to allow ClassDefId objects in DenseMaps
 /// FIXME: Move this to the corresponding cpp file as is done for
 /// clang-tidy/readability/IdentifierNamingCheck.cpp.
 template <>
@@ -84,16 +84,13 @@ struct DenseMapInfo<
   using ClassDefId =
       clang::tidy::cppcoreguidelines::SpecialMemberFunctionsCheck::ClassDefId;
 
-  static inline ClassDefId getEmptyKey() {
-    return ClassDefId(
-        clang::SourceLocation::getFromRawEncoding(static_cast<unsigned>(-1)),
-        "EMPTY");
+  static ClassDefId getEmptyKey() {
+    return {DenseMapInfo<clang::SourceLocation>::getEmptyKey(), "EMPTY"};
   }
 
-  static inline ClassDefId getTombstoneKey() {
-    return ClassDefId(
-        clang::SourceLocation::getFromRawEncoding(static_cast<unsigned>(-2)),
-        "TOMBSTONE");
+  static ClassDefId getTombstoneKey() {
+    return {DenseMapInfo<clang::SourceLocation>::getTombstoneKey(),
+            "TOMBSTONE"};
   }
 
   static unsigned getHashValue(ClassDefId Val) {
@@ -101,7 +98,7 @@ struct DenseMapInfo<
     assert(Val != getTombstoneKey() && "Cannot hash the tombstone key!");
 
     std::hash<ClassDefId::second_type> SecondHash;
-    return Val.first.getRawEncoding() + SecondHash(Val.second);
+    return Val.first.getHashValue() + SecondHash(Val.second);
   }
 
   static bool isEqual(const ClassDefId &LHS, const ClassDefId &RHS) {

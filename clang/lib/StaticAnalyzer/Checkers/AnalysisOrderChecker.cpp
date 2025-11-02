@@ -20,7 +20,6 @@
 #include "clang/StaticAnalyzer/Core/CheckerManager.h"
 #include "clang/StaticAnalyzer/Core/PathSensitive/CallEvent.h"
 #include "clang/StaticAnalyzer/Core/PathSensitive/CheckerContext.h"
-#include "llvm/Support/ErrorHandling.h"
 
 using namespace clang;
 using namespace ento;
@@ -38,7 +37,7 @@ class AnalysisOrderChecker
           check::PostStmt<OffsetOfExpr>, check::PreCall, check::PostCall,
           check::EndFunction, check::EndAnalysis, check::NewAllocator,
           check::Bind, check::PointerEscape, check::RegionChanges,
-          check::LiveSymbols> {
+          check::LiveSymbols, eval::Call> {
 
   bool isCallbackEnabled(const AnalyzerOptions &Opts,
                          StringRef CallbackName) const {
@@ -122,6 +121,20 @@ public:
       llvm::errs() << "PostStmt<OffsetOfExpr>\n";
   }
 
+  bool evalCall(const CallEvent &Call, CheckerContext &C) const {
+    if (isCallbackEnabled(C, "EvalCall")) {
+      llvm::errs() << "EvalCall";
+      if (const NamedDecl *ND = dyn_cast_or_null<NamedDecl>(Call.getDecl()))
+        llvm::errs() << " (" << ND->getQualifiedNameAsString() << ')';
+      llvm::errs() << " {argno: " << Call.getNumArgs() << '}';
+      llvm::errs() << " [" << Call.getKindAsString() << ']';
+      llvm::errs() << '\n';
+      // We can't return `true` from this callback without binding the return
+      // value. Let's just fallthrough here and return `false`.
+    }
+    return false;
+  }
+
   void checkPreCall(const CallEvent &Call, CheckerContext &C) const {
     if (isCallbackEnabled(C, "PreCall")) {
       llvm::errs() << "PreCall";
@@ -171,7 +184,8 @@ public:
       llvm::errs() << "NewAllocator\n";
   }
 
-  void checkBind(SVal Loc, SVal Val, const Stmt *S, CheckerContext &C) const {
+  void checkBind(SVal Loc, SVal Val, const Stmt *S, bool AtDeclInit,
+                 CheckerContext &C) const {
     if (isCallbackEnabled(C, "Bind"))
       llvm::errs() << "Bind\n";
   }

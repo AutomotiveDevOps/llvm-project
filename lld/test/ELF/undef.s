@@ -3,11 +3,12 @@
 # RUN: llvm-mc -filetype=obj -triple=x86_64-pc-linux %p/Inputs/undef.s -o %t2.o
 # RUN: llvm-mc -filetype=obj -triple=x86_64-pc-linux %p/Inputs/undef-debug.s -o %t3.o
 # RUN: llvm-mc -filetype=obj -triple=x86_64-pc-linux %p/Inputs/undef-bad-debug.s -o %t4.o
+# RUN: llvm-mc -filetype=obj -triple=x86_64-pc-linux %p/Inputs/undef-debug2.s -o %t5.o
 # RUN: rm -f %t2.a
 # RUN: llvm-ar rc %t2.a %t2.o
-# RUN: not ld.lld %t.o %t2.a %t3.o %t4.o -o /dev/null 2>&1 \
+# RUN: not ld.lld --threads=1 %t.o %t2.a %t3.o %t4.o %t5.o -o /dev/null 2>&1 \
 # RUN:   | FileCheck %s --implicit-check-not="error:" --implicit-check-not="warning:"
-# RUN: not ld.lld -pie %t.o %t2.a %t3.o %t4.o -o /dev/null 2>&1 \
+# RUN: not ld.lld --threads=1 -pie %t.o %t2.a %t3.o %t4.o %t5.o -o /dev/null 2>&1 \
 # RUN:   | FileCheck %s --implicit-check-not="error:" --implicit-check-not="warning:"
 
 # CHECK:      error: undefined symbol: foo
@@ -27,11 +28,21 @@
 # CHECK-NEXT: >>>               {{.*}}:(.text+0x15)
 # CHECK-NEXT: >>> the vtable symbol may be undefined because the class is missing its key function (see https://lld.llvm.org/missingkeyfunction)
 
-# Check that this symbol isn't demangled
-
-# CHECK:      error: undefined symbol: __Z3fooi
+# CHECK:      error: undefined symbol: foo(int)
 # CHECK-NEXT: >>> referenced by undef.s
-# CHECK-NEXT: >>>               {{.*}}:(.text+0x1A)
+# CHECK-NEXT: >>>               {{.*}}:(.text+0x1a)
+
+# CHECK:      error: undefined symbol: Pi
+# CHECK-NEXT: >>> referenced by undef.s
+# CHECK-NEXT: >>>               {{.*}}:(.text+0x1f)
+
+# CHECK:      error: undefined symbol: D main
+# CHECK-NEXT: >>> referenced by undef.s
+# CHECK-NEXT: >>>               {{.*}}:(.text+0x24)
+
+# CHECK:      error: undefined symbol: a::main
+# CHECK-NEXT: >>> referenced by undef.s
+# CHECK-NEXT: >>>               {{.*}}:(.text+0x29)
 
 # CHECK:      error: undefined symbol: zed2
 # CHECK-NEXT: >>> referenced by {{.*}}.o:(.text+0x0) in archive {{.*}}2.a
@@ -51,7 +62,7 @@
 # Show that all line table problems are mentioned as soon as the object's line information
 # is requested, even if that particular part of the line information is not currently required.
 # Also show that the warnings are only printed once.
-# CHECK:      warning: parsing line table prologue at 0x00000000 should have ended at 0x00000038 but it ended at 0x00000037
+# CHECK:      warning: unknown data in line table prologue at offset 0x00000000: parsing ended (at offset 0x00000037) before reaching the prologue end at offset 0x00000038
 # CHECK-NEXT: warning: parsing line table prologue at offset 0x0000005b: unsupported version 1
 # CHECK-NEXT: warning: last sequence in debug line table at offset 0x00000061 is not terminated
 # CHECK:      error: undefined symbol: zed6a
@@ -72,6 +83,10 @@
 # CHECK-NEXT: >>> referenced by undef-bad-debug2.s:11 (dir2{{/|\\}}undef-bad-debug2.s:11)
 # CHECK-NEXT: >>>               {{.*}}tmp4.o:(.text+0x18)
 
+# CHECK:      error: undefined symbol: zed9
+# CHECK-NEXT: >>> referenced by undef-debug2.cc:3 (dir{{/|\\}}undef-debug2.cc:3)
+# CHECK-NEXT: >>>               {{.*}}tmp5.o:(ns::var)
+
 # RUN: not ld.lld %t.o %t2.a -o /dev/null -no-demangle 2>&1 | \
 # RUN:   FileCheck -check-prefix=NO-DEMANGLE %s
 # NO-DEMANGLE: error: undefined symbol: _Z3fooi
@@ -86,3 +101,6 @@ _start:
   call _Z3fooi
   call _ZTV3Foo
   call __Z3fooi
+  call Pi
+  call _Dmain
+  call _RNvC1a4main

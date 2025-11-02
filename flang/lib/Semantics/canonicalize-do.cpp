@@ -24,64 +24,68 @@ public:
     std::vector<LabelInfo> stack;
     for (auto i{block.begin()}, end{block.end()}; i != end; ++i) {
       if (auto *executableConstruct{std::get_if<ExecutableConstruct>(&i->u)}) {
-        std::visit(
+        common::visit(
             common::visitors{
                 [](auto &) {},
                 // Labels on end-stmt of constructs are accepted by f18 as an
                 // extension.
                 [&](common::Indirection<AssociateConstruct> &associate) {
-          CanonicalizeIfMatch(block, stack, i,
-              std::get<Statement<EndAssociateStmt>>(associate.value().t));
+                  CanonicalizeIfMatch(block, stack, i,
+                      std::get<Statement<EndAssociateStmt>>(
+                          associate.value().t));
                 },
                 [&](common::Indirection<BlockConstruct> &blockConstruct) {
-          CanonicalizeIfMatch(block, stack, i,
-              std::get<Statement<EndBlockStmt>>(blockConstruct.value().t));
+                  CanonicalizeIfMatch(block, stack, i,
+                      std::get<Statement<EndBlockStmt>>(
+                          blockConstruct.value().t));
                 },
                 [&](common::Indirection<ChangeTeamConstruct> &changeTeam) {
-          CanonicalizeIfMatch(block, stack, i,
-              std::get<Statement<EndChangeTeamStmt>>(changeTeam.value().t));
+                  CanonicalizeIfMatch(block, stack, i,
+                      std::get<Statement<EndChangeTeamStmt>>(
+                          changeTeam.value().t));
                 },
                 [&](common::Indirection<CriticalConstruct> &critical) {
-          CanonicalizeIfMatch(block, stack, i,
-              std::get<Statement<EndCriticalStmt>>(critical.value().t));
+                  CanonicalizeIfMatch(block, stack, i,
+                      std::get<Statement<EndCriticalStmt>>(critical.value().t));
                 },
                 [&](common::Indirection<DoConstruct> &doConstruct) {
-          CanonicalizeIfMatch(block, stack, i,
-              std::get<Statement<EndDoStmt>>(doConstruct.value().t));
+                  CanonicalizeIfMatch(block, stack, i,
+                      std::get<Statement<EndDoStmt>>(doConstruct.value().t));
                 },
                 [&](common::Indirection<IfConstruct> &ifConstruct) {
-          CanonicalizeIfMatch(block, stack, i,
-              std::get<Statement<EndIfStmt>>(ifConstruct.value().t));
+                  CanonicalizeIfMatch(block, stack, i,
+                      std::get<Statement<EndIfStmt>>(ifConstruct.value().t));
                 },
                 [&](common::Indirection<CaseConstruct> &caseConstruct) {
-          CanonicalizeIfMatch(block, stack, i,
-              std::get<Statement<EndSelectStmt>>(caseConstruct.value().t));
+                  CanonicalizeIfMatch(block, stack, i,
+                      std::get<Statement<EndSelectStmt>>(
+                          caseConstruct.value().t));
                 },
                 [&](common::Indirection<SelectRankConstruct> &selectRank) {
-          CanonicalizeIfMatch(block, stack, i,
-              std::get<Statement<EndSelectStmt>>(selectRank.value().t));
+                  CanonicalizeIfMatch(block, stack, i,
+                      std::get<Statement<EndSelectStmt>>(selectRank.value().t));
                 },
                 [&](common::Indirection<SelectTypeConstruct> &selectType) {
-          CanonicalizeIfMatch(block, stack, i,
-              std::get<Statement<EndSelectStmt>>(selectType.value().t));
+                  CanonicalizeIfMatch(block, stack, i,
+                      std::get<Statement<EndSelectStmt>>(selectType.value().t));
                 },
                 [&](common::Indirection<ForallConstruct> &forall) {
-          CanonicalizeIfMatch(block, stack, i,
-              std::get<Statement<EndForallStmt>>(forall.value().t));
+                  CanonicalizeIfMatch(block, stack, i,
+                      std::get<Statement<EndForallStmt>>(forall.value().t));
                 },
                 [&](common::Indirection<WhereConstruct> &where) {
                   CanonicalizeIfMatch(block, stack, i,
                       std::get<Statement<EndWhereStmt>>(where.value().t));
                 },
                 [&](Statement<common::Indirection<LabelDoStmt>> &labelDoStmt) {
-          auto &label{std::get<Label>(labelDoStmt.statement.value().t)};
-          stack.push_back(LabelInfo{i, label});
+                  auto &label{std::get<Label>(labelDoStmt.statement.value().t)};
+                  stack.push_back(LabelInfo{i, label});
                 },
                 [&](Statement<common::Indirection<EndDoStmt>> &endDoStmt) {
-          CanonicalizeIfMatch(block, stack, i, endDoStmt);
+                  CanonicalizeIfMatch(block, stack, i, endDoStmt);
                 },
                 [&](Statement<ActionStmt> &actionStmt) {
-          CanonicalizeIfMatch(block, stack, i, actionStmt);
+                  CanonicalizeIfMatch(block, stack, i, actionStmt);
                 },
             },
             executableConstruct->u);
@@ -113,16 +117,15 @@ private:
             std::get<ExecutableConstruct>(doLoop->u).u)};
         auto &loopControl{
             std::get<std::optional<LoopControl>>(labelDo.statement.value().t)};
-        auto &name{std::get<std::optional<Name>>(labelDo.statement.value().t)};
         Statement<NonLabelDoStmt> nonLabelDoStmt{std::move(labelDo.label),
-            NonLabelDoStmt{
-                std::make_tuple(common::Clone(name), std::move(loopControl))}};
+            NonLabelDoStmt{std::make_tuple(std::optional<Name>{},
+                std::optional<Label>{}, std::move(loopControl))}};
         nonLabelDoStmt.source = originalSource;
         std::get<ExecutableConstruct>(doLoop->u).u =
             common::Indirection<DoConstruct>{
                 std::make_tuple(std::move(nonLabelDoStmt), std::move(block),
-                    Statement<EndDoStmt>{
-                        std::optional<Label>{}, EndDoStmt{std::move(name)}})};
+                    Statement<EndDoStmt>{std::optional<Label>{},
+                        EndDoStmt{std::optional<Name>{}}})};
         stack.pop_back();
       } while (!stack.empty() && stack.back().label == currentLabel);
       i = --next;

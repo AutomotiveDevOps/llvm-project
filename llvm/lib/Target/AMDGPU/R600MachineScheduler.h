@@ -17,8 +17,6 @@
 #include "llvm/CodeGen/MachineScheduler.h"
 #include <vector>
 
-using namespace llvm;
-
 namespace llvm {
 
 class R600InstrInfo;
@@ -63,7 +61,7 @@ class R600SchedStrategy final : public MachineSchedStrategy {
 
   int InstKindLimit[IDLast];
 
-  int OccupedSlotsMask;
+  int OccupiedSlotsMask;
 
 public:
   R600SchedStrategy() = default;
@@ -80,7 +78,7 @@ private:
   bool VLIW5;
 
   int getInstKind(SUnit *SU);
-  bool regBelongsToClass(unsigned Reg, const TargetRegisterClass *RC) const;
+  bool regBelongsToClass(Register Reg, const TargetRegisterClass *RC) const;
   AluKind getAluKind(SUnit *SU) const;
   void LoadAlu();
   unsigned AvailablesAluCount() const;

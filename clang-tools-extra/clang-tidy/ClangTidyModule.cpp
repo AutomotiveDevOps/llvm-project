@@ -1,4 +1,4 @@
-//===--- tools/extra/clang-tidy/ClangTidyModule.cpp - Clang tidy tool -----===//
+//===----------------------------------------------------------------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -11,28 +11,41 @@
 //===----------------------------------------------------------------------===//
 
 #include "ClangTidyModule.h"
+#include "ClangTidyCheck.h"
 
-namespace clang {
-namespace tidy {
+namespace clang::tidy {
 
 void ClangTidyCheckFactories::registerCheckFactory(StringRef Name,
                                                    CheckFactory Factory) {
-  Factories[std::string(Name)] = std::move(Factory);
+  Factories.insert_or_assign(Name, std::move(Factory));
 }
 
 std::vector<std::unique_ptr<ClangTidyCheck>>
-ClangTidyCheckFactories::createChecks(ClangTidyContext *Context) {
+ClangTidyCheckFactories::createChecks(ClangTidyContext *Context) const {
   std::vector<std::unique_ptr<ClangTidyCheck>> Checks;
   for (const auto &Factory : Factories) {
-    if (Context->isCheckEnabled(Factory.first))
-      Checks.emplace_back(Factory.second(Factory.first, Context));
+    if (Context->isCheckEnabled(Factory.getKey()))
+      Checks.emplace_back(Factory.getValue()(Factory.getKey(), Context));
   }
   return Checks;
 }
 
-ClangTidyOptions ClangTidyModule::getModuleOptions() {
-  return ClangTidyOptions();
+std::vector<std::unique_ptr<ClangTidyCheck>>
+ClangTidyCheckFactories::createChecksForLanguage(
+    ClangTidyContext *Context) const {
+  std::vector<std::unique_ptr<ClangTidyCheck>> Checks;
+  const LangOptions &LO = Context->getLangOpts();
+  for (const auto &Factory : Factories) {
+    if (!Context->isCheckEnabled(Factory.getKey()))
+      continue;
+    std::unique_ptr<ClangTidyCheck> Check =
+        Factory.getValue()(Factory.getKey(), Context);
+    if (Check->isLanguageVersionSupported(LO))
+      Checks.push_back(std::move(Check));
+  }
+  return Checks;
 }
 
-} // namespace tidy
-} // namespace clang
+ClangTidyOptions ClangTidyModule::getModuleOptions() { return {}; }
+
+} // namespace clang::tidy

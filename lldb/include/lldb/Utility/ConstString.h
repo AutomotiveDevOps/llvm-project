@@ -12,9 +12,9 @@
 #include "llvm/ADT/DenseMapInfo.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/FormatVariadic.h"
-#include "llvm/Support/YAMLTraits.h"
 
-#include <stddef.h>
+#include <cstddef>
+#include <string_view>
 
 namespace lldb_private {
 class Stream;
@@ -42,17 +42,9 @@ public:
   /// Default constructor
   ///
   /// Initializes the string to an empty string.
-  ConstString() : m_string(nullptr) {}
+  ConstString() = default;
 
-  /// Copy constructor
-  ///
-  /// Copies the string value in \a rhs into this object.
-  ///
-  /// \param[in] rhs
-  ///     Another string object to copy.
-  ConstString(const ConstString &rhs) : m_string(rhs.m_string) {}
-
-  explicit ConstString(const llvm::StringRef &s);
+  explicit ConstString(llvm::StringRef s);
 
   /// Construct with C String value
   ///
@@ -86,28 +78,6 @@ public:
   ///     from \a cstr.
   explicit ConstString(const char *cstr, size_t max_cstr_len);
 
-  /// Destructor
-  ///
-  /// Since constant string values are currently not reference counted, there
-  /// isn't much to do here.
-  ~ConstString() = default;
-
-  /// C string equality binary predicate function object for ConstString
-  /// objects.
-  struct StringIsEqual {
-    /// C equality test.
-    ///
-    /// Two C strings are equal when they are contained in ConstString objects
-    /// when their pointer values are equal to each other.
-    ///
-    /// \return
-    ///     Returns \b true if the C string in \a lhs is equal to
-    ///     the C string value in \a rhs, \b false otherwise.
-    bool operator()(const char *lhs, const char *rhs) const {
-      return lhs == rhs;
-    }
-  };
-
   /// Convert to bool operator.
   ///
   /// This allows code to check a ConstString object to see if it contains a
@@ -123,20 +93,6 @@ public:
   ///     /b True this object contains a valid non-empty C string, \b
   ///     false otherwise.
   explicit operator bool() const { return !IsEmpty(); }
-
-  /// Assignment operator
-  ///
-  /// Assigns the string in this object with the value from \a rhs.
-  ///
-  /// \param[in] rhs
-  ///     Another string object to copy into this object.
-  ///
-  /// \return
-  ///     A const reference to this object.
-  ConstString operator=(ConstString rhs) {
-    m_string = rhs.m_string;
-    return *this;
-  }
 
   /// Equal to operator
   ///
@@ -192,9 +148,7 @@ public:
   /// \return
   ///     \b true if this object is not equal to \a rhs.
   ///     \b false if this object is equal to \a rhs.
-  bool operator!=(ConstString rhs) const {
-    return m_string != rhs.m_string;
-  }
+  bool operator!=(ConstString rhs) const { return m_string != rhs.m_string; }
 
   /// Not equal to operator against a non-ConstString value.
   ///
@@ -210,6 +164,17 @@ public:
   bool operator!=(const char *rhs) const { return !(*this == rhs); }
 
   bool operator<(ConstString rhs) const;
+
+  // Implicitly convert \class ConstString instances to \class StringRef.
+  operator llvm::StringRef() const { return GetStringRef(); }
+
+  // Explicitly convert \class ConstString instances to \class std::string_view.
+  explicit operator std::string_view() const {
+    return std::string_view(m_string, GetLength());
+  }
+
+  // Explicitly convert \class ConstString instances to \class std::string.
+  explicit operator std::string() const { return GetString(); }
 
   /// Get the string value as a C string.
   ///
@@ -231,6 +196,11 @@ public:
   ///     needed data.
   llvm::StringRef GetStringRef() const {
     return llvm::StringRef(m_string, GetLength());
+  }
+
+  /// Get the string value as a std::string
+  std::string GetString() const {
+    return std::string(AsCString(""), GetLength());
   }
 
   /// Get the string value as a C string.
@@ -353,7 +323,7 @@ public:
   ///     A NULL terminated C string to add to the string pool.
   void SetCString(const char *cstr);
 
-  void SetString(const llvm::StringRef &s);
+  void SetString(llvm::StringRef s);
 
   /// Set the C string value and its mangled counterpart.
   ///
@@ -424,22 +394,20 @@ public:
   ///
   /// \return
   ///     The number of bytes that this object occupies in memory.
-  ///
-  /// \see ConstString::StaticMemorySize ()
   size_t MemorySize() const { return sizeof(ConstString); }
 
-  /// Get the size in bytes of the current global string pool.
-  ///
-  /// Reports the size in bytes of all shared C string values, containers and
-  /// any other values as a byte size for the entire string pool.
-  ///
-  /// \return
-  ///     The number of bytes that the global string pool occupies
-  ///     in memory.
-  static size_t StaticMemorySize();
+  struct MemoryStats {
+    size_t GetBytesTotal() const { return bytes_total; }
+    size_t GetBytesUsed() const { return bytes_used; }
+    size_t GetBytesUnused() const { return bytes_total - bytes_used; }
+    size_t bytes_total = 0;
+    size_t bytes_used = 0;
+  };
+
+  static MemoryStats GetMemoryStats();
 
 protected:
-  template <typename T> friend struct ::llvm::DenseMapInfo;
+  template <typename T, typename Enable> friend struct ::llvm::DenseMapInfo;
   /// Only used by DenseMapInfo.
   static ConstString FromStringPoolPointer(const char *ptr) {
     ConstString s;
@@ -447,8 +415,7 @@ protected:
     return s;
   };
 
-  // Member variables
-  const char *m_string;
+  const char *m_string = nullptr;
 };
 
 /// Stream the string value \a str to the stream \a s
@@ -483,20 +450,10 @@ template <> struct DenseMapInfo<lldb_private::ConstString> {
 };
 /// \}
 
-namespace yaml {
-template <> struct ScalarTraits<lldb_private::ConstString> {
-  static void output(const lldb_private::ConstString &, void *, raw_ostream &);
-  static StringRef input(StringRef, void *, lldb_private::ConstString &);
-  static QuotingType mustQuote(StringRef S) { return QuotingType::Double; }
-};
-} // namespace yaml
-
 inline raw_ostream &operator<<(raw_ostream &os, lldb_private::ConstString s) {
   os << s.GetStringRef();
   return os;
 }
 } // namespace llvm
-
-LLVM_YAML_IS_SEQUENCE_VECTOR(lldb_private::ConstString)
 
 #endif // LLDB_UTILITY_CONSTSTRING_H

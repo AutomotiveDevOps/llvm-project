@@ -10,6 +10,8 @@
 #define LLVM_MC_MCWINEH_H
 
 #include "llvm/ADT/MapVector.h"
+#include "llvm/Support/Compiler.h"
+#include "llvm/Support/SMLoc.h"
 #include <vector>
 
 namespace llvm {
@@ -26,6 +28,14 @@ struct Instruction {
 
   Instruction(unsigned Op, MCSymbol *L, unsigned Reg, unsigned Off)
     : Label(L), Offset(Off), Register(Reg), Operation(Op) {}
+
+  bool operator==(const Instruction &I) const {
+    // Check whether two instructions refer to the same operation
+    // applied at a different spot (i.e. pointing at a different label).
+    return Offset == I.Offset && Register == I.Register &&
+           Operation == I.Operation;
+  }
+  bool operator!=(const Instruction &I) const { return !(*this == I); }
 };
 
 struct FrameInfo {
@@ -34,17 +44,47 @@ struct FrameInfo {
   const MCSymbol *FuncletOrFuncEnd = nullptr;
   const MCSymbol *ExceptionHandler = nullptr;
   const MCSymbol *Function = nullptr;
+  SMLoc FunctionLoc;
   const MCSymbol *PrologEnd = nullptr;
   const MCSymbol *Symbol = nullptr;
-  const MCSection *TextSection = nullptr;
+  MCSection *TextSection = nullptr;
+  uint32_t PackedInfo = 0;
+  uint32_t PrologCodeBytes = 0;
 
   bool HandlesUnwind = false;
   bool HandlesExceptions = false;
+  bool EmitAttempted = false;
+  bool Fragment = false;
+  constexpr static uint8_t DefaultVersion = 1;
+  uint8_t Version = DefaultVersion;
 
   int LastFrameInst = -1;
   const FrameInfo *ChainedParent = nullptr;
   std::vector<Instruction> Instructions;
-  MapVector<MCSymbol*, std::vector<Instruction>> EpilogMap;
+  struct Epilog {
+    std::vector<Instruction> Instructions;
+    unsigned Condition;
+    const MCSymbol *Start = nullptr;
+    const MCSymbol *End = nullptr;
+    const MCSymbol *UnwindV2Start = nullptr;
+    SMLoc Loc;
+  };
+  MapVector<MCSymbol *, Epilog> EpilogMap;
+
+  // For splitting unwind info of large functions
+  struct Segment {
+    int64_t Offset;
+    int64_t Length;
+    bool HasProlog;
+    MCSymbol *Symbol = nullptr;
+    // Map an Epilog's symbol to its offset within the function.
+    MapVector<MCSymbol *, int64_t> Epilogs;
+
+    Segment(int64_t Offset, int64_t Length, bool HasProlog = false)
+        : Offset(Offset), Length(Length), HasProlog(HasProlog) {}
+  };
+
+  std::vector<Segment> Segments;
 
   FrameInfo() = default;
   FrameInfo(const MCSymbol *Function, const MCSymbol *BeginFuncEHLabel)
@@ -53,15 +93,25 @@ struct FrameInfo {
             const FrameInfo *ChainedParent)
       : Begin(BeginFuncEHLabel), Function(Function),
         ChainedParent(ChainedParent) {}
+
+  bool empty() const {
+    if (!Instructions.empty())
+      return false;
+    for (const auto &E : EpilogMap)
+      if (!E.second.Instructions.empty())
+        return false;
+    return true;
+  }
 };
 
-class UnwindEmitter {
+class LLVM_ABI UnwindEmitter {
 public:
   virtual ~UnwindEmitter();
 
   /// This emits the unwind info sections (.pdata and .xdata in PE/COFF).
   virtual void Emit(MCStreamer &Streamer) const = 0;
-  virtual void EmitUnwindInfo(MCStreamer &Streamer, FrameInfo *FI) const = 0;
+  virtual void EmitUnwindInfo(MCStreamer &Streamer, FrameInfo *FI,
+                              bool HandlerData) const = 0;
 };
 }
 }

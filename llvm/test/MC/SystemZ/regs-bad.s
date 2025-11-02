@@ -217,6 +217,13 @@
 	lxr	%f0,16
 	lxr	%f0,0(%r1)
 
+# Test that a high (>=16) vector register is not accepted in a non-vector
+# operand.
+#
+#CHECK: error: invalid register
+#CHECK: .insn rr,0x1800,%v16,%v0
+.insn rr,0x1800,%v16,%v0
+
 # Test access register operands
 #
 #CHECK: error: invalid operand for instruction
@@ -255,8 +262,6 @@
 
 # Test general register parsing, with no predetermined class in mind.
 #
-#CHECK: error: register expected
-#CHECK: .cfi_offset r0,0
 #CHECK: error: invalid register
 #CHECK: .cfi_offset %,0
 #CHECK: error: invalid register
@@ -282,7 +287,6 @@
 #CHECK: error: invalid register
 #CHECK: .cfi_offset %arid,0
 
-	.cfi_offset r0,0
 	.cfi_offset %,0
 	.cfi_offset %r,0
 	.cfi_offset %f,0

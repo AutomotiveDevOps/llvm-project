@@ -3,11 +3,7 @@
 ;
 ; RUN: opt -module-summary < %s -o %t.bc
 ; RUN: llvm-lto2 run -o %t.out %t.bc -save-temps \
-; RUN:   -r %t.bc,test,px -r %t.bc,bar,x \
-; RUN:   -lto-sample-profile-file=%S/Inputs/load-sample-prof-icp.prof
-; RUN: llvm-dis %t.out.1.4.opt.bc -o - | FileCheck %s
-; RUN: llvm-lto2 run -o %t.out %t.bc -save-temps \
-; RUN:   -r %t.bc,test,px -r %t.bc,bar,x -use-new-pm \
+; RUN:   -r %t.bc,test,px -r %t.bc,bar,px -r %t.bc,externfunc,x \
 ; RUN:   -lto-sample-profile-file=%S/Inputs/load-sample-prof-icp.prof
 ; RUN: llvm-dis %t.out.1.4.opt.bc -o - | FileCheck %s
 
@@ -17,16 +13,23 @@ target triple = "x86_64-unknown-linux-gnu"
 ; CHECK-LABEL: @test
 ; Checks that the call instruction is promoted to direct call and has
 ; profile count annotated on the direct call.
-define void @test(void ()*) !dbg !7 {
-  %2 = alloca void ()*
-  store void ()* %0, void ()** %2
-  %3 = load void ()*, void ()** %2
+define void @test(ptr) #0 !dbg !7 {
+  %2 = alloca ptr
+  store ptr %0, ptr %2
+  %3 = load ptr, ptr %2
   ; CHECK: call void @bar(),{{.*}}!prof
   call void %3(), !dbg !10
   ret void
 }
 
-declare void @bar() local_unnamed_addr
+declare void @externfunc()
+
+define void @bar() #0 {
+  call void @externfunc()
+  ret void
+}
+
+attributes #0 = {"use-sample-profile" noinline}
 
 !llvm.dbg.cu = !{!0}
 !llvm.module.flags = !{!3, !4, !5}

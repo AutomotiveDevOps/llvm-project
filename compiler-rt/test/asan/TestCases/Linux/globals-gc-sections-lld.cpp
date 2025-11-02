@@ -3,7 +3,6 @@
 
 // https://code.google.com/p/address-sanitizer/issues/detail?id=260
 // REQUIRES: lld
-
 int undefined();
 
 // On i386 clang adds --export-dynamic when linking with ASan, which adds all

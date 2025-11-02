@@ -14,17 +14,15 @@
 //   constexpr void      // constexpr after c++17
 //   generate_n(Iter first, Size n, Generator gen);
 
-#include "test_macros.h"
-
-#ifdef TEST_COMPILER_C1XX
-#pragma warning(disable: 4244) // conversion from 'const double' to 'int', possible loss of data
-#endif
-
 #include <algorithm>
 #include <cassert>
+#include <deque>
 
 #include "test_iterators.h"
+#include "test_macros.h"
 #include "user_defined_integral.h"
+
+TEST_MSVC_DIAGNOSTIC_IGNORED(4244) // conversion from 'const double' to 'int', possible loss of data
 
 struct gen_test
 {
@@ -34,7 +32,7 @@ struct gen_test
 
 #if TEST_STD_VER > 17
 TEST_CONSTEXPR bool test_constexpr() {
-    const size_t N = 5;
+    const std::size_t N = 5;
     int ib[] = {0, 0, 0, 0, 0, 0}; // one bigger than N
 
     auto it = std::generate_n(std::begin(ib), N, gen_test());
@@ -74,12 +72,22 @@ test()
     test2<Iter, long double>();
 }
 
+void deque_test() {
+  int sizes[] = {0, 1, 2, 1023, 1024, 1025, 2047, 2048, 2049};
+  for (const int size : sizes) {
+    std::deque<int> d(size);
+    std::generate_n(d.begin(), size, gen_test());
+    assert(std::all_of(d.begin(), d.end(), [](int x) { return x == 2; }));
+  }
+}
+
 int main(int, char**)
 {
     test<forward_iterator<int*> >();
     test<bidirectional_iterator<int*> >();
     test<random_access_iterator<int*> >();
     test<int*>();
+    deque_test();
 
 #if TEST_STD_VER > 17
     static_assert(test_constexpr());

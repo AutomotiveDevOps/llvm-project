@@ -6,7 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-// UNSUPPORTED: c++98, c++03, c++11
+// UNSUPPORTED: c++03, c++11
 
 // <propagate_const>
 
@@ -15,9 +15,11 @@
 // template <class T> constexpr bool operator!=(const propagate_const<T>& x, const T& y);
 
 #include <experimental/propagate_const>
+#include <cassert>
+#include <cstddef>
+
 #include "test_macros.h"
 #include "propagate_const_helpers.h"
-#include <cassert>
 
 using std::experimental::propagate_const;
 using std::nullptr_t;

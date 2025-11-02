@@ -1,9 +1,8 @@
 //===- MsgPackDocumentTest.cpp --------------------------------------------===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 
@@ -13,12 +12,79 @@
 using namespace llvm;
 using namespace msgpack;
 
-TEST(MsgPackDocument, TestReadInt) {
+TEST(MsgPackDocument, DocNodeTest) {
   Document Doc;
-  bool Ok = Doc.readFromBlob(StringRef("\xd0\x00", 2), /*Multi=*/false);
+
+  DocNode Int1 = Doc.getNode(1), Int2 = Doc.getNode(2);
+  DocNode Str1 = Doc.getNode("ab"), Str2 = Doc.getNode("ab");
+
+  ASSERT_TRUE(Int1 != Int2);
+  ASSERT_TRUE(Str1 == Str2);
+}
+
+TEST(MsgPackDocument, TestReadBoolean) {
+  Document Doc1;
+  bool Ok = Doc1.readFromBlob(StringRef("\xC2", 1), /*Multi=*/false);
   ASSERT_TRUE(Ok);
-  ASSERT_EQ(Doc.getRoot().getKind(), Type::Int);
-  ASSERT_EQ(Doc.getRoot().getInt(), 0);
+  ASSERT_EQ(Doc1.getRoot().getKind(), Type::Boolean);
+  ASSERT_EQ(Doc1.getRoot().getBool(), false);
+  Document Doc2;
+  Ok = Doc2.readFromBlob(StringRef("\xC3", 1), /*Multi=*/false);
+  ASSERT_TRUE(Ok);
+  ASSERT_EQ(Doc2.getRoot().getKind(), Type::Boolean);
+  ASSERT_EQ(Doc2.getRoot().getBool(), true);
+}
+
+TEST(MsgPackDocument, TestReadInt) {
+  Document Doc1;
+  bool Ok = Doc1.readFromBlob(StringRef("\xD0\x00", 2), /*Multi=*/false);
+  ASSERT_TRUE(Ok);
+  ASSERT_EQ(Doc1.getRoot().getKind(), Type::Int);
+  ASSERT_EQ(Doc1.getRoot().getInt(), 0);
+  Document Doc2;
+  Ok = Doc2.readFromBlob(StringRef("\xFF", 1), /*Multi=*/false);
+  ASSERT_TRUE(Ok);
+  ASSERT_EQ(Doc2.getRoot().getKind(), Type::Int);
+  ASSERT_EQ(Doc2.getRoot().getInt(), -1);
+}
+
+TEST(MsgPackDocument, TestReadUInt) {
+  Document Doc1;
+  bool Ok = Doc1.readFromBlob(StringRef("\xCC\x00", 2), /*Multi=*/false);
+  ASSERT_TRUE(Ok);
+  ASSERT_EQ(Doc1.getRoot().getKind(), Type::UInt);
+  ASSERT_EQ(Doc1.getRoot().getUInt(), 0U);
+  Document Doc2;
+  Ok = Doc2.readFromBlob(StringRef("\x01", 1), /*Multi=*/false);
+  ASSERT_TRUE(Ok);
+  ASSERT_EQ(Doc2.getRoot().getKind(), Type::UInt);
+  ASSERT_EQ(Doc2.getRoot().getUInt(), 1U);
+}
+
+TEST(MsgPackDocument, TestReadFloat) {
+  Document Doc1;
+  bool Ok =
+      Doc1.readFromBlob(StringRef("\xCA\x3F\x80\x00\x00", 5), /*Multi=*/false);
+  ASSERT_TRUE(Ok);
+  ASSERT_EQ(Doc1.getRoot().getKind(), Type::Float);
+  ASSERT_EQ(Doc1.getRoot().getFloat(), 1.0);
+  Document Doc2;
+  Ok = Doc2.readFromBlob(StringRef("\xCB\x48\x3D\x63\x29\xF1\xC3\x5C\xA5", 9),
+                         /*Multi=*/false);
+  ASSERT_TRUE(Ok);
+  ASSERT_EQ(Doc2.getRoot().getKind(), Type::Float);
+  ASSERT_EQ(Doc2.getRoot().getFloat(), 1e40);
+}
+
+TEST(MsgPackDocument, TestReadBinary) {
+  Document Doc;
+  uint8_t data[] = {1, 2, 3, 4};
+  bool Ok =
+      Doc.readFromBlob(StringRef("\xC4\x4\x1\x2\x3\x4", 6), /*Multi=*/false);
+  ASSERT_TRUE(Ok);
+  ASSERT_EQ(Doc.getRoot().getKind(), Type::Binary);
+  ASSERT_EQ(Doc.getRoot().getBinary().getBuffer(),
+            StringRef(reinterpret_cast<const char *>(data), 4));
 }
 
 TEST(MsgPackDocument, TestReadMergeArray) {
@@ -172,12 +238,64 @@ TEST(MsgPackDocument, TestReadMergeMap) {
   ASSERT_EQ(BayS.getInt(), 8);
 }
 
+TEST(MsgPackDocument, TestWriteBoolean) {
+  Document Doc;
+  Doc.getRoot() = true;
+  std::string Buffer;
+  Doc.writeToBlob(Buffer);
+  ASSERT_EQ(Buffer, "\xc3");
+  Doc.getRoot() = false;
+  Doc.writeToBlob(Buffer);
+  ASSERT_EQ(Buffer, "\xc2");
+}
+
 TEST(MsgPackDocument, TestWriteInt) {
   Document Doc;
   Doc.getRoot() = 1;
   std::string Buffer;
   Doc.writeToBlob(Buffer);
   ASSERT_EQ(Buffer, "\x01");
+  Doc.getRoot() = -1;
+  Doc.writeToBlob(Buffer);
+  ASSERT_EQ(Buffer, "\xFF");
+  Doc.getRoot() = -4096;
+  Doc.writeToBlob(Buffer);
+  ASSERT_EQ(Buffer, StringRef("\xD1\xF0\x00", 3));
+}
+
+TEST(MsgPackDocument, TestWriteUInt) {
+  Document Doc;
+  Doc.getRoot() = 1U;
+  std::string Buffer;
+  Doc.writeToBlob(Buffer);
+  ASSERT_EQ(Buffer, "\x01");
+  Doc.getRoot() = 4096U;
+  Doc.writeToBlob(Buffer);
+  ASSERT_EQ(Buffer, StringRef("\xCD\x10\x00", 3));
+}
+
+TEST(MsgPackDocument, TestWriteFloat) {
+  Document Doc;
+  Doc.getRoot() = 1.0;
+  std::string Buffer;
+  Doc.writeToBlob(Buffer);
+  ASSERT_EQ(Buffer, StringRef("\xCA\x3F\x80\x00\x00", 5));
+  Doc.getRoot() = 1.0f;
+  Doc.writeToBlob(Buffer);
+  ASSERT_EQ(Buffer, StringRef("\xCA\x3F\x80\x00\x00", 5));
+  Doc.getRoot() = 1e40;
+  Doc.writeToBlob(Buffer);
+  ASSERT_EQ(Buffer, "\xCB\x48\x3D\x63\x29\xF1\xC3\x5C\xA5");
+}
+
+TEST(MsgPackDocument, TestWriteBinary) {
+  uint8_t data[] = {1, 2, 3, 4};
+  Document Doc;
+  Doc.getRoot() = MemoryBufferRef(
+      StringRef(reinterpret_cast<const char *>(data), sizeof(data)), "");
+  std::string Buffer;
+  Doc.writeToBlob(Buffer);
+  ASSERT_EQ(Buffer, "\xC4\x4\x1\x2\x3\x4");
 }
 
 TEST(MsgPackDocument, TestWriteArray) {

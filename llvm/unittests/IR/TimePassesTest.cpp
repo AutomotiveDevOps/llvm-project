@@ -6,9 +6,11 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/IR/LegacyPassManager.h"
+#include "llvm/Pass.h"
+#include "llvm/PassRegistry.h"
 #include <gtest/gtest.h>
 #include <llvm/ADT/SmallString.h>
-#include "llvm/IR/LegacyPassManager.h"
 #include <llvm/IR/LLVMContext.h>
 #include <llvm/IR/Module.h>
 #include <llvm/IR/PassInstrumentation.h>
@@ -108,6 +110,9 @@ TEST(TimePassesTest, LegacyCustomOut) {
   EXPECT_TRUE(TimePassesStr.str().contains("report"));
   EXPECT_FALSE(TimePassesStr.str().contains("Pass1"));
   EXPECT_TRUE(TimePassesStr.str().contains("Pass2"));
+
+  // Reset flag to not affect other tests.
+  TimePassesIsEnabled = false;
 }
 
 class MyPass1 : public PassInfoMixin<MyPass1> {};
@@ -133,9 +138,9 @@ TEST(TimePassesTest, CustomOut) {
 
   // Pretending that passes are running to trigger the timers.
   PI.runBeforePass(Pass1, M);
+  PI.runAfterPass(Pass1, M, PreservedAnalyses::all());
   PI.runBeforePass(Pass2, M);
-  PI.runAfterPass(Pass2, M);
-  PI.runAfterPass(Pass1, M);
+  PI.runAfterPass(Pass2, M, PreservedAnalyses::all());
 
   // Generating report.
   TimePasses->print();
@@ -154,10 +159,10 @@ TEST(TimePassesTest, CustomOut) {
 
   // Now trigger just a single pass to populate timers again.
   PI.runBeforePass(Pass2, M);
-  PI.runAfterPass(Pass2, M);
+  PI.runAfterPass(Pass2, M, PreservedAnalyses::all());
 
-  // Generate report by deleting the handler.
-  TimePasses.reset();
+  // Clear and generate report again.
+  TimePasses->print();
 
   // There should be Pass2 in this report and no Pass1.
   EXPECT_FALSE(TimePassesStr.str().empty());

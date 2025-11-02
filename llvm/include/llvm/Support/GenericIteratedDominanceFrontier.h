@@ -20,12 +20,12 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_SUPPORT_GENERIC_IDF_H
-#define LLVM_SUPPORT_GENERIC_IDF_H
+#ifndef LLVM_SUPPORT_GENERICITERATEDDOMINANCEFRONTIER_H
+#define LLVM_SUPPORT_GENERICITERATEDDOMINANCEFRONTIER_H
 
-#include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/ADT/iterator_range.h"
 #include "llvm/Support/GenericDomTree.h"
 #include <queue>
 
@@ -37,10 +37,11 @@ namespace IDFCalculatorDetail {
 /// May be specialized if, for example, one wouldn't like to return nullpointer
 /// successors.
 template <class NodeTy, bool IsPostDom> struct ChildrenGetterTy {
-  using NodeRef = typename GraphTraits<NodeTy>::NodeRef;
-  using ChildrenTy = SmallVector<NodeRef, 8>;
+  using NodeRef = typename GraphTraits<NodeTy *>::NodeRef;
+  using ChildIteratorType = typename GraphTraits<NodeTy *>::ChildIteratorType;
+  using range = iterator_range<ChildIteratorType>;
 
-  ChildrenTy get(const NodeRef &N);
+  range get(const NodeRef &N);
 };
 
 } // end of namespace IDFCalculatorDetail
@@ -116,20 +117,19 @@ private:
 namespace IDFCalculatorDetail {
 
 template <class NodeTy, bool IsPostDom>
-typename ChildrenGetterTy<NodeTy, IsPostDom>::ChildrenTy
+typename ChildrenGetterTy<NodeTy, IsPostDom>::range
 ChildrenGetterTy<NodeTy, IsPostDom>::get(const NodeRef &N) {
   using OrderedNodeTy =
       typename IDFCalculatorBase<NodeTy, IsPostDom>::OrderedNodeTy;
 
-  auto Children = children<OrderedNodeTy>(N);
-  return {Children.begin(), Children.end()};
+  return children<OrderedNodeTy>(N);
 }
 
 } // end of namespace IDFCalculatorDetail
 
 template <class NodeTy, bool IsPostDom>
 void IDFCalculatorBase<NodeTy, IsPostDom>::calculate(
-    SmallVectorImpl<NodeTy *> &PHIBlocks) {
+    SmallVectorImpl<NodeTy *> &IDFBlocks) {
   // Use a priority queue keyed on dominator tree level so that inserted nodes
   // are handled from the bottom of the dominator tree upwards. We also augment
   // the level with a DFS number to ensure that the blocks are ordered in a
@@ -144,14 +144,19 @@ void IDFCalculatorBase<NodeTy, IsPostDom>::calculate(
 
   DT.updateDFSNumbers();
 
-  for (NodeTy *BB : *DefBlocks) {
-    if (DomTreeNodeBase<NodeTy> *Node = DT.getNode(BB))
-      PQ.push({Node, std::make_pair(Node->getLevel(), Node->getDFSNumIn())});
+  SmallVector<DomTreeNodeBase<NodeTy> *, 32> Worklist;
+  SmallPtrSet<DomTreeNodeBase<NodeTy> *, 16> VisitedPQ;
+  SmallPtrSet<DomTreeNodeBase<NodeTy> *, 16> VisitedWorklist;
+  if (useLiveIn) {
+    VisitedPQ.reserve(LiveInBlocks->size());
+    VisitedWorklist.reserve(LiveInBlocks->size());
   }
 
-  SmallVector<DomTreeNodeBase<NodeTy> *, 32> Worklist;
-  SmallPtrSet<DomTreeNodeBase<NodeTy> *, 32> VisitedPQ;
-  SmallPtrSet<DomTreeNodeBase<NodeTy> *, 32> VisitedWorklist;
+  for (NodeTy *BB : *DefBlocks)
+    if (DomTreeNodeBase<NodeTy> *Node = DT.getNode(BB)) {
+      PQ.push({Node, std::make_pair(Node->getLevel(), Node->getDFSNumIn())});
+      VisitedWorklist.insert(Node);
+    }
 
   while (!PQ.empty()) {
     DomTreeNodePair RootPair = PQ.top();
@@ -164,9 +169,8 @@ void IDFCalculatorBase<NodeTy, IsPostDom>::calculate(
     // most Root's level are added to the iterated dominance frontier of the
     // definition set.
 
-    Worklist.clear();
+    assert(Worklist.empty());
     Worklist.push_back(Root);
-    VisitedWorklist.insert(Root);
 
     while (!Worklist.empty()) {
       DomTreeNodeBase<NodeTy> *Node = Worklist.pop_back_val();
@@ -187,13 +191,13 @@ void IDFCalculatorBase<NodeTy, IsPostDom>::calculate(
         if (useLiveIn && !LiveInBlocks->count(SuccBB))
           return;
 
-        PHIBlocks.emplace_back(SuccBB);
+        IDFBlocks.emplace_back(SuccBB);
         if (!DefBlocks->count(SuccBB))
           PQ.push(std::make_pair(
               SuccNode, std::make_pair(SuccLevel, SuccNode->getDFSNumIn())));
       };
 
-      for (auto Succ : ChildrenGetter.get(BB))
+      for (auto *Succ : ChildrenGetter.get(BB))
         DoWork(Succ);
 
       for (auto DomChild : *Node) {

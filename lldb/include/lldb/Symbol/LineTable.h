@@ -9,8 +9,10 @@
 #ifndef LLDB_SYMBOL_LINETABLE_H
 #define LLDB_SYMBOL_LINETABLE_H
 
+#include "lldb/Core/Address.h"
 #include "lldb/Core/ModuleChild.h"
 #include "lldb/Core/Section.h"
+#include "lldb/Core/SourceLocationSpec.h"
 #include "lldb/Symbol/LineEntry.h"
 #include "lldb/Utility/RangeMap.h"
 #include "lldb/lldb-private.h"
@@ -18,24 +20,11 @@
 
 namespace lldb_private {
 
-/// \class LineSequence LineTable.h "lldb/Symbol/LineTable.h" An abstract base
-/// class used during symbol table creation.
-class LineSequence {
-public:
-  LineSequence();
-
-  virtual ~LineSequence() = default;
-
-  virtual void Clear() = 0;
-
-private:
-  DISALLOW_COPY_AND_ASSIGN(LineSequence);
-};
-
 /// \class LineTable LineTable.h "lldb/Symbol/LineTable.h"
 /// A line table class.
 class LineTable {
 public:
+  class Sequence;
   /// Construct with compile unit.
   ///
   /// \param[in] comp_unit
@@ -46,8 +35,7 @@ public:
   ///
   /// \param[in] sequences
   ///     Unsorted list of line sequences.
-  LineTable(CompileUnit *comp_unit,
-            std::vector<std::unique_ptr<LineSequence>> &&sequences);
+  LineTable(CompileUnit *comp_unit, std::vector<Sequence> &&sequences);
 
   /// Destructor.
   ~LineTable();
@@ -70,20 +58,17 @@ public:
                        bool is_start_of_basic_block, bool is_prologue_end,
                        bool is_epilogue_begin, bool is_terminal_entry);
 
-  // Used to instantiate the LineSequence helper class
-  static std::unique_ptr<LineSequence> CreateLineSequenceContainer();
-
   // Append an entry to a caller-provided collection that will later be
   // inserted in this line table.
-  static void AppendLineEntryToSequence(LineSequence *sequence, lldb::addr_t file_addr,
-                                 uint32_t line, uint16_t column,
-                                 uint16_t file_idx, bool is_start_of_statement,
-                                 bool is_start_of_basic_block,
-                                 bool is_prologue_end, bool is_epilogue_begin,
-                                 bool is_terminal_entry);
+  static void
+  AppendLineEntryToSequence(Sequence &sequence, lldb::addr_t file_addr,
+                            uint32_t line, uint16_t column, uint16_t file_idx,
+                            bool is_start_of_statement,
+                            bool is_start_of_basic_block, bool is_prologue_end,
+                            bool is_epilogue_begin, bool is_terminal_entry);
 
   // Insert a sequence of entries into this line table.
-  void InsertSequence(LineSequence *sequence);
+  void InsertSequence(Sequence sequence);
 
   /// Dump all line entries in this line table to the stream \a s.
   ///
@@ -98,6 +83,20 @@ public:
             Address::DumpStyle fallback_style, bool show_line_ranges);
 
   void GetDescription(Stream *s, Target *target, lldb::DescriptionLevel level);
+
+  /// Returns the index of the first line entry which ends after the given
+  /// address (i.e., the first entry which contains the given address or it
+  /// comes after it). Returns <tt>GetSize()</tt> if there is no such entry.
+  uint32_t lower_bound(const Address &so_addr) const;
+
+  /// Returns the (half-open) range of line entry indexes which overlap the
+  /// given address range. Line entries partially overlapping the range (on
+  /// either side) are included as well. Returns an empty range
+  /// (<tt>first==second</tt>) pointing to the "right" place in the list if
+  /// there are no such line entries. Empty input ranges always result in an
+  /// empty output range.
+  std::pair<uint32_t, uint32_t>
+  GetLineEntryIndexRange(const AddressRange &range) const;
 
   /// Find a line entry that contains the section offset address \a so_addr.
   ///
@@ -135,12 +134,8 @@ public:
   ///     CompileUnit::GetSupportFiles()
   ///     FileSpecList::FindFileIndex (uint32_t, const FileSpec &) const
   ///
-  /// \param[in] line
-  ///     The source line to match.
-  ///
-  /// \param[in] exact
-  ///     If true, match only if you find a line entry exactly matching \a line.
-  ///     If false, return the closest line entry greater than \a line.
+  /// \param[in] src_location_spec
+  ///     The source location specifier to match.
   ///
   /// \param[out] line_entry_ptr
   ///     A pointer to a line entry object that will get a copy of
@@ -153,15 +148,16 @@ public:
   ///
   /// \see CompileUnit::GetSupportFiles()
   /// \see FileSpecList::FindFileIndex (uint32_t, const FileSpec &) const
-  uint32_t FindLineEntryIndexByFileIndex(uint32_t start_idx, uint32_t file_idx,
-                                         uint32_t line, bool exact,
-                                         LineEntry *line_entry_ptr);
+  uint32_t
+  FindLineEntryIndexByFileIndex(uint32_t start_idx, uint32_t file_idx,
+                                const SourceLocationSpec &src_location_spec,
+                                LineEntry *line_entry_ptr);
 
   uint32_t FindLineEntryIndexByFileIndex(
-      uint32_t start_idx, const std::vector<uint32_t> &file_indexes,
-      uint32_t line, bool exact, LineEntry *line_entry_ptr);
+      uint32_t start_idx, const std::vector<uint32_t> &file_idx,
+      const SourceLocationSpec &src_location_spec, LineEntry *line_entry_ptr);
 
-  size_t FineLineEntriesForFileIndex(uint32_t file_idx, bool append,
+  size_t FindLineEntriesForFileIndex(uint32_t file_idx, bool append,
                                      SymbolContextList &sc_list);
 
   /// Get the line entry from the line table at index \a idx.
@@ -206,13 +202,11 @@ public:
 
   LineTable *LinkLineTable(const FileRangeMap &file_range_map);
 
-protected:
   struct Entry {
     Entry()
-        : file_addr(LLDB_INVALID_ADDRESS), line(0),
-          is_start_of_statement(false), is_start_of_basic_block(false),
+        : line(0), is_start_of_statement(false), is_start_of_basic_block(false),
           is_prologue_end(false), is_epilogue_begin(false),
-          is_terminal_entry(false), column(0), file_idx(0) {}
+          is_terminal_entry(false) {}
 
     Entry(lldb::addr_t _file_addr, uint32_t _line, uint16_t _column,
           uint16_t _file_idx, bool _is_start_of_statement,
@@ -262,24 +256,13 @@ protected:
       return 0;
     }
 
-    class LessThanBinaryPredicate {
-    public:
-      LessThanBinaryPredicate(LineTable *line_table);
-      bool operator()(const LineTable::Entry &, const LineTable::Entry &) const;
-      bool operator()(const std::unique_ptr<LineSequence> &,
-                      const std::unique_ptr<LineSequence> &) const;
-
-    protected:
-      LineTable *m_line_table;
-    };
-
     static bool EntryAddressLessThan(const Entry &lhs, const Entry &rhs) {
       return lhs.file_addr < rhs.file_addr;
     }
 
     // Member variables.
     /// The file address for this line entry.
-    lldb::addr_t file_addr;
+    lldb::addr_t file_addr = LLDB_INVALID_ADDRESS;
     /// The source line number, or zero if there is no line number
     /// information.
     uint32_t line : 27;
@@ -298,12 +281,42 @@ protected:
     uint32_t is_terminal_entry : 1;
     /// The column number of the source line, or zero if there is no
     /// column information.
-    uint16_t column;
+    uint16_t column = 0;
     /// The file index into CompileUnit's file table, or zero if there
     /// is no file information.
-    uint16_t file_idx;
+    uint16_t file_idx = 0;
   };
 
+  class Sequence {
+  public:
+    Sequence() = default;
+    // Moving clears moved-from object so it can be used anew. Copying is
+    // generally an error. C++ doesn't guarantee that a moved-from vector is
+    // empty(), so we clear it explicitly.
+    Sequence(Sequence &&rhs) : m_entries(std::exchange(rhs.m_entries, {})) {}
+    Sequence &operator=(Sequence &&rhs) {
+      m_entries = std::exchange(rhs.m_entries, {});
+      return *this;
+    }
+    Sequence(const Sequence &) = delete;
+    Sequence &operator=(const Sequence &) = delete;
+
+  private:
+    std::vector<Entry> m_entries;
+    friend class LineTable;
+  };
+
+  class LessThanBinaryPredicate {
+  public:
+    LessThanBinaryPredicate(LineTable *line_table) : m_line_table(line_table) {}
+    bool operator()(const LineTable::Entry &, const LineTable::Entry &) const;
+    bool operator()(const Sequence &, const Sequence &) const;
+
+  protected:
+    LineTable *m_line_table;
+  };
+
+protected:
   struct EntrySearchInfo {
     LineTable *line_table;
     lldb_private::Section *a_section;
@@ -321,23 +334,80 @@ protected:
   entry_collection
       m_entries; ///< The collection of line entries in this line table.
 
-  // Helper class
-  class LineSequenceImpl : public LineSequence {
-  public:
-    LineSequenceImpl() = default;
-
-    ~LineSequenceImpl() override = default;
-
-    void Clear() override;
-
-    entry_collection
-        m_entries; ///< The collection of line entries in this sequence.
-  };
-
   bool ConvertEntryAtIndexToLineEntry(uint32_t idx, LineEntry &line_entry);
 
 private:
-  DISALLOW_COPY_AND_ASSIGN(LineTable);
+  LineTable(const LineTable &) = delete;
+  const LineTable &operator=(const LineTable &) = delete;
+
+  template <typename T>
+  uint32_t FindLineEntryIndexByFileIndexImpl(
+      uint32_t start_idx, T file_idx,
+      const SourceLocationSpec &src_location_spec, LineEntry *line_entry_ptr,
+      std::function<bool(T, uint16_t)> file_idx_matcher) {
+    const size_t count = m_entries.size();
+    size_t best_match = UINT32_MAX;
+
+    if (!line_entry_ptr)
+      return best_match;
+
+    const uint32_t line = src_location_spec.GetLine().value_or(0);
+    const uint16_t column =
+        src_location_spec.GetColumn().value_or(LLDB_INVALID_COLUMN_NUMBER);
+    const bool exact_match = src_location_spec.GetExactMatch();
+
+    for (size_t idx = start_idx; idx < count; ++idx) {
+      // Skip line table rows that terminate the previous row (is_terminal_entry
+      // is non-zero)
+      if (m_entries[idx].is_terminal_entry)
+        continue;
+
+      if (!file_idx_matcher(file_idx, m_entries[idx].file_idx))
+        continue;
+
+      // Exact match always wins.  Otherwise try to find the closest line > the
+      // desired line.
+      // FIXME: Maybe want to find the line closest before and the line closest
+      // after and if they're not in the same function, don't return a match.
+
+      if (column == LLDB_INVALID_COLUMN_NUMBER) {
+        if (m_entries[idx].line < line) {
+          continue;
+        } else if (m_entries[idx].line == line) {
+          ConvertEntryAtIndexToLineEntry(idx, *line_entry_ptr);
+          return idx;
+        } else if (!exact_match) {
+          if (best_match == UINT32_MAX ||
+              m_entries[idx].line < m_entries[best_match].line)
+            best_match = idx;
+        }
+      } else {
+        if (m_entries[idx].line < line) {
+          continue;
+        } else if (m_entries[idx].line == line &&
+                   m_entries[idx].column == column) {
+          ConvertEntryAtIndexToLineEntry(idx, *line_entry_ptr);
+          return idx;
+        } else if (!exact_match) {
+          if (best_match == UINT32_MAX)
+            best_match = idx;
+          else if (m_entries[idx].line < m_entries[best_match].line)
+            best_match = idx;
+          else if (m_entries[idx].line == m_entries[best_match].line)
+            if (m_entries[idx].column &&
+                m_entries[idx].column < m_entries[best_match].column)
+              best_match = idx;
+        }
+      }
+    }
+
+    if (best_match != UINT32_MAX) {
+      if (line_entry_ptr)
+        ConvertEntryAtIndexToLineEntry(best_match, *line_entry_ptr);
+      return best_match;
+    }
+    return UINT32_MAX;
+  }
 };
 
 } // namespace lldb_private

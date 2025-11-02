@@ -12,15 +12,42 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/AST/ASTDumper.h"
+#include "clang/AST/ASTConcept.h"
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/DeclLookups.h"
 #include "clang/AST/JSONNodeDumper.h"
-#include "clang/Basic/Builtins.h"
-#include "clang/Basic/Module.h"
 #include "clang/Basic/SourceManager.h"
 #include "llvm/Support/raw_ostream.h"
+
 using namespace clang;
 using namespace clang::comments;
+
+void ASTDumper::dumpInvalidDeclContext(const DeclContext *DC) {
+  NodeDumper.AddChild([=] {
+    if (!DC) {
+      ColorScope Color(OS, ShowColors, NullColor);
+      OS << "<<<NULL>>>";
+      return;
+    }
+    // An invalid DeclContext is one for which a dyn_cast() from a DeclContext
+    // pointer to a Decl pointer would fail an assertion or otherwise fall prey
+    // to undefined behavior as a result of an invalid associated DeclKind.
+    // Such invalidity is not supposed to happen of course, but, when it does,
+    // the information provided below is intended to provide some hints about
+    // what might have gone awry.
+    {
+      ColorScope Color(OS, ShowColors, DeclKindNameColor);
+      OS << "DeclContext";
+    }
+    NodeDumper.dumpPointer(DC);
+    OS << " <";
+    {
+      ColorScope Color(OS, ShowColors, DeclNameColor);
+      OS << "unrecognized Decl kind " << (unsigned)DC->getDeclKind();
+    }
+    OS << ">";
+  });
+}
 
 void ASTDumper::dumpLookups(const DeclContext *DC, bool DumpDecls) {
   NodeDumper.AddChild([=] {
@@ -54,7 +81,7 @@ void ASTDumper::dumpLookups(const DeclContext *DC, bool DumpDecls) {
           NodeDumper.AddChild([=] {
             NodeDumper.dumpBareDeclRef(*RI);
 
-            if ((*RI)->isHidden())
+            if (!(*RI)->isUnconditionallyVisible())
               OS << " hidden";
 
             // If requested, dump the redecl chain for this lookup.
@@ -91,20 +118,14 @@ void ASTDumper::dumpTemplateDeclSpecialization(const SpecializationDecl *D,
     // type. (In particular, ClassTemplateSpecializationDecl::redecls() gives
     // us TagDecls, and should give CXXRecordDecls).
     auto *Redecl = dyn_cast<SpecializationDecl>(RedeclWithBadType);
-    if (!Redecl) {
-      // Found the injected-class-name for a class template. This will be dumped
-      // as part of its surrounding class so we don't need to dump it here.
-      assert(isa<CXXRecordDecl>(RedeclWithBadType) &&
-             "expected an injected-class-name");
+    if (!Redecl)
       continue;
-    }
-
     switch (Redecl->getTemplateSpecializationKind()) {
     case TSK_ExplicitInstantiationDeclaration:
     case TSK_ExplicitInstantiationDefinition:
       if (!DumpExplicitInst)
         break;
-      LLVM_FALLTHROUGH;
+      [[fallthrough]];
     case TSK_Undeclared:
     case TSK_ImplicitInstantiation:
       if (DumpRefOnly)
@@ -129,9 +150,11 @@ void ASTDumper::dumpTemplateDecl(const TemplateDecl *D, bool DumpExplicitInst) {
 
   Visit(D->getTemplatedDecl());
 
-  for (const auto *Child : D->specializations())
-    dumpTemplateDeclSpecialization(Child, DumpExplicitInst,
-                                   !D->isCanonicalDecl());
+  if (GetTraversalKind() == TK_AsIs) {
+    for (const auto *Child : D->specializations())
+      dumpTemplateDeclSpecialization(Child, DumpExplicitInst,
+                                     !D->isCanonicalDecl());
+  }
 }
 
 void ASTDumper::VisitFunctionTemplateDecl(const FunctionTemplateDecl *D) {
@@ -159,17 +182,35 @@ void QualType::dump(const char *msg) const {
   dump();
 }
 
-LLVM_DUMP_METHOD void QualType::dump() const { dump(llvm::errs()); }
-
-LLVM_DUMP_METHOD void QualType::dump(llvm::raw_ostream &OS) const {
-  ASTDumper Dumper(OS, nullptr, nullptr);
+LLVM_DUMP_METHOD void QualType::dump() const {
+  ASTDumper Dumper(llvm::errs(), /*ShowColors=*/false);
   Dumper.Visit(*this);
 }
 
-LLVM_DUMP_METHOD void Type::dump() const { dump(llvm::errs()); }
+LLVM_DUMP_METHOD void QualType::dump(llvm::raw_ostream &OS,
+                                     const ASTContext &Context) const {
+  ASTDumper Dumper(OS, Context, Context.getDiagnostics().getShowColors());
+  Dumper.Visit(*this);
+}
 
-LLVM_DUMP_METHOD void Type::dump(llvm::raw_ostream &OS) const {
-  QualType(this, 0).dump(OS);
+LLVM_DUMP_METHOD void Type::dump() const { QualType(this, 0).dump(); }
+
+LLVM_DUMP_METHOD void Type::dump(llvm::raw_ostream &OS,
+                                 const ASTContext &Context) const {
+  QualType(this, 0).dump(OS, Context);
+}
+
+//===----------------------------------------------------------------------===//
+// TypeLoc method implementations
+//===----------------------------------------------------------------------===//
+
+LLVM_DUMP_METHOD void TypeLoc::dump() const {
+  ASTDumper(llvm::errs(), /*ShowColors=*/false).Visit(*this);
+}
+
+LLVM_DUMP_METHOD void TypeLoc::dump(llvm::raw_ostream &OS,
+                                    const ASTContext &Context) const {
+  ASTDumper(OS, Context, Context.getDiagnostics().getShowColors()).Visit(*this);
 }
 
 //===----------------------------------------------------------------------===//
@@ -189,8 +230,7 @@ LLVM_DUMP_METHOD void Decl::dump(raw_ostream &OS, bool Deserialize,
     (void)Deserialize; // FIXME?
     P.Visit(this);
   } else {
-    ASTDumper P(OS, &Ctx.getCommentCommandTraits(), &SM,
-                SM.getDiagnostics().getShowColors(), Ctx.getPrintingPolicy());
+    ASTDumper P(OS, Ctx, Ctx.getDiagnostics().getShowColors());
     P.setDeserialize(Deserialize);
     P.Visit(this);
   }
@@ -198,10 +238,33 @@ LLVM_DUMP_METHOD void Decl::dump(raw_ostream &OS, bool Deserialize,
 
 LLVM_DUMP_METHOD void Decl::dumpColor() const {
   const ASTContext &Ctx = getASTContext();
-  ASTDumper P(llvm::errs(), &Ctx.getCommentCommandTraits(),
-              &Ctx.getSourceManager(), /*ShowColors*/ true,
-              Ctx.getPrintingPolicy());
+  ASTDumper P(llvm::errs(), Ctx, /*ShowColors=*/true);
   P.Visit(this);
+}
+
+LLVM_DUMP_METHOD void DeclContext::dumpAsDecl() const {
+  dumpAsDecl(nullptr);
+}
+
+LLVM_DUMP_METHOD void DeclContext::dumpAsDecl(const ASTContext *Ctx) const {
+  // By design, DeclContext is required to be a base class of some class that
+  // derives from Decl. Thus, it should always be possible to dyn_cast() from
+  // a DeclContext pointer to a Decl pointer and Decl::castFromDeclContext()
+  // asserts that to be the case. Since this function is intended for use in a
+  // debugger, it performs an additional check in order to prevent a failed
+  // cast and assertion. If that check fails, then the (invalid) DeclContext
+  // is dumped with an indication of its invalidity.
+  if (hasValidDeclKind()) {
+    const auto *D = cast<Decl>(this);
+    D->dump();
+  } else {
+    // If an ASTContext is not available, a less capable ASTDumper is
+    // constructed for which color diagnostics are, regrettably, disabled.
+    ASTDumper P = Ctx ? ASTDumper(llvm::errs(), *Ctx,
+                                  Ctx->getDiagnostics().getShowColors())
+                      : ASTDumper(llvm::errs(), /*ShowColors*/ false);
+    P.dumpInvalidDeclContext(this);
+  }
 }
 
 LLVM_DUMP_METHOD void DeclContext::dumpLookups() const {
@@ -214,10 +277,8 @@ LLVM_DUMP_METHOD void DeclContext::dumpLookups(raw_ostream &OS,
   const DeclContext *DC = this;
   while (!DC->isTranslationUnit())
     DC = DC->getParent();
-  ASTContext &Ctx = cast<TranslationUnitDecl>(DC)->getASTContext();
-  const SourceManager &SM = Ctx.getSourceManager();
-  ASTDumper P(OS, &Ctx.getCommentCommandTraits(), &Ctx.getSourceManager(),
-              SM.getDiagnostics().getShowColors(), Ctx.getPrintingPolicy());
+  const ASTContext &Ctx = cast<TranslationUnitDecl>(DC)->getASTContext();
+  ASTDumper P(OS, Ctx, Ctx.getDiagnostics().getShowColors());
   P.setDeserialize(Deserialize);
   P.dumpLookups(this, DumpDecls);
 }
@@ -226,27 +287,19 @@ LLVM_DUMP_METHOD void DeclContext::dumpLookups(raw_ostream &OS,
 // Stmt method implementations
 //===----------------------------------------------------------------------===//
 
-LLVM_DUMP_METHOD void Stmt::dump(SourceManager &SM) const {
-  dump(llvm::errs(), SM);
-}
-
-LLVM_DUMP_METHOD void Stmt::dump(raw_ostream &OS, SourceManager &SM) const {
-  ASTDumper P(OS, nullptr, &SM);
-  P.Visit(this);
-}
-
-LLVM_DUMP_METHOD void Stmt::dump(raw_ostream &OS) const {
-  ASTDumper P(OS, nullptr, nullptr);
-  P.Visit(this);
-}
-
 LLVM_DUMP_METHOD void Stmt::dump() const {
-  ASTDumper P(llvm::errs(), nullptr, nullptr);
+  ASTDumper P(llvm::errs(), /*ShowColors=*/false);
+  P.Visit(this);
+}
+
+LLVM_DUMP_METHOD void Stmt::dump(raw_ostream &OS,
+                                 const ASTContext &Context) const {
+  ASTDumper P(OS, Context, Context.getDiagnostics().getShowColors());
   P.Visit(this);
 }
 
 LLVM_DUMP_METHOD void Stmt::dumpColor() const {
-  ASTDumper P(llvm::errs(), nullptr, nullptr, /*ShowColors*/true);
+  ASTDumper P(llvm::errs(), /*ShowColors=*/true);
   P.Visit(this);
 }
 
@@ -255,27 +308,89 @@ LLVM_DUMP_METHOD void Stmt::dumpColor() const {
 //===----------------------------------------------------------------------===//
 
 LLVM_DUMP_METHOD void Comment::dump() const {
-  dump(llvm::errs(), nullptr, nullptr);
-}
-
-LLVM_DUMP_METHOD void Comment::dump(const ASTContext &Context) const {
-  dump(llvm::errs(), &Context.getCommentCommandTraits(),
-       &Context.getSourceManager());
-}
-
-void Comment::dump(raw_ostream &OS, const CommandTraits *Traits,
-                   const SourceManager *SM) const {
-  const FullComment *FC = dyn_cast<FullComment>(this);
+  const auto *FC = dyn_cast<FullComment>(this);
   if (!FC)
     return;
-  ASTDumper D(OS, Traits, SM);
-  D.Visit(FC, FC);
+  ASTDumper Dumper(llvm::errs(), /*ShowColors=*/false);
+  Dumper.Visit(FC, FC);
+}
+
+LLVM_DUMP_METHOD void Comment::dump(raw_ostream &OS,
+                                    const ASTContext &Context) const {
+  const auto *FC = dyn_cast<FullComment>(this);
+  if (!FC)
+    return;
+  ASTDumper Dumper(OS, Context, Context.getDiagnostics().getShowColors());
+  Dumper.Visit(FC, FC);
 }
 
 LLVM_DUMP_METHOD void Comment::dumpColor() const {
-  const FullComment *FC = dyn_cast<FullComment>(this);
+  const auto *FC = dyn_cast<FullComment>(this);
   if (!FC)
     return;
-  ASTDumper D(llvm::errs(), nullptr, nullptr, /*ShowColors*/true);
-  D.Visit(FC, FC);
+  ASTDumper Dumper(llvm::errs(), /*ShowColors=*/true);
+  Dumper.Visit(FC, FC);
+}
+
+//===----------------------------------------------------------------------===//
+// APValue method implementations
+//===----------------------------------------------------------------------===//
+
+LLVM_DUMP_METHOD void APValue::dump() const {
+  ASTDumper Dumper(llvm::errs(), /*ShowColors=*/false);
+  Dumper.Visit(*this, /*Ty=*/QualType());
+}
+
+LLVM_DUMP_METHOD void APValue::dump(raw_ostream &OS,
+                                    const ASTContext &Context) const {
+  ASTDumper Dumper(OS, Context, Context.getDiagnostics().getShowColors());
+  Dumper.Visit(*this, /*Ty=*/Context.getPointerType(Context.CharTy));
+}
+
+//===----------------------------------------------------------------------===//
+// ConceptReference method implementations
+//===----------------------------------------------------------------------===//
+
+LLVM_DUMP_METHOD void ConceptReference::dump() const {
+  dump(llvm::errs());
+}
+
+LLVM_DUMP_METHOD void ConceptReference::dump(raw_ostream &OS) const {
+  auto &Ctx = getNamedConcept()->getASTContext();
+  ASTDumper P(OS, Ctx, Ctx.getDiagnostics().getShowColors());
+  P.Visit(this);
+}
+
+//===----------------------------------------------------------------------===//
+// TemplateName method implementations
+//===----------------------------------------------------------------------===//
+
+// FIXME: These are actually using the TemplateArgument dumper, through
+// an implicit conversion. The dump will claim this is a template argument,
+// which is misleading.
+
+LLVM_DUMP_METHOD void TemplateName::dump() const {
+  ASTDumper Dumper(llvm::errs(), /*ShowColors=*/false);
+  Dumper.Visit(*this);
+}
+
+LLVM_DUMP_METHOD void TemplateName::dump(llvm::raw_ostream &OS,
+                                         const ASTContext &Context) const {
+  ASTDumper Dumper(OS, Context, Context.getDiagnostics().getShowColors());
+  Dumper.Visit(*this);
+}
+
+//===----------------------------------------------------------------------===//
+// TemplateArgument method implementations
+//===----------------------------------------------------------------------===//
+
+LLVM_DUMP_METHOD void TemplateArgument::dump() const {
+  ASTDumper Dumper(llvm::errs(), /*ShowColors=*/false);
+  Dumper.Visit(*this);
+}
+
+LLVM_DUMP_METHOD void TemplateArgument::dump(llvm::raw_ostream &OS,
+                                             const ASTContext &Context) const {
+  ASTDumper Dumper(OS, Context, Context.getDiagnostics().getShowColors());
+  Dumper.Visit(*this);
 }

@@ -4,7 +4,7 @@
 ; RUN: llc < %s -mtriple=x86_64-linux -mcpu=bdver4 | FileCheck %s
 ; RUN: llc < %s -mtriple=x86_64-win32 -mcpu=bdver4 | FileCheck %s -check-prefix=WIN64
 
-define void @foo(i8* %P, i32 %E, i32 %H) nounwind {
+define void @foo(ptr %P, i32 %E, i32 %H) nounwind {
 ; CHECK-LABEL: foo:
 ; CHECK:       # %bb.0: # %entry
 ; CHECK-NEXT:    movl %esi, %ecx
@@ -20,19 +20,19 @@ define void @foo(i8* %P, i32 %E, i32 %H) nounwind {
 ; WIN64-NEXT:    monitorx
 ; WIN64-NEXT:    retq
 entry:
-  tail call void @llvm.x86.monitorx(i8* %P, i32 %E, i32 %H)
+  tail call void @llvm.x86.monitorx(ptr %P, i32 %E, i32 %H)
   ret void
 }
 
-declare void @llvm.x86.monitorx(i8*, i32, i32) nounwind
+declare void @llvm.x86.monitorx(ptr, i32, i32) nounwind
 
 define void @bar(i32 %E, i32 %H, i32 %C) nounwind {
 ; CHECK-LABEL: bar:
 ; CHECK:       # %bb.0: # %entry
 ; CHECK-NEXT:    pushq %rbx
-; CHECK-NEXT:    movl %edx, %ebx
 ; CHECK-NEXT:    movl %esi, %eax
 ; CHECK-NEXT:    movl %edi, %ecx
+; CHECK-NEXT:    movl %edx, %ebx
 ; CHECK-NEXT:    mwaitx
 ; CHECK-NEXT:    popq %rbx
 ; CHECK-NEXT:    retq
@@ -40,8 +40,8 @@ define void @bar(i32 %E, i32 %H, i32 %C) nounwind {
 ; WIN64-LABEL: bar:
 ; WIN64:       # %bb.0: # %entry
 ; WIN64-NEXT:    pushq %rbx
-; WIN64-NEXT:    movl %r8d, %ebx
 ; WIN64-NEXT:    movl %edx, %eax
+; WIN64-NEXT:    movl %r8d, %ebx
 ; WIN64-NEXT:    mwaitx
 ; WIN64-NEXT:    popq %rbx
 ; WIN64-NEXT:    retq

@@ -203,8 +203,16 @@ TEST(AddressSanitizer, UAF_char) {
 TEST(AddressSanitizer, UAF_long_double) {
   if (sizeof(long double) == sizeof(double)) return;
   long double *p = Ident(new long double[10]);
+#if defined(_WIN32)
+  // https://google.github.io/googletest/advanced.html#regular-expression-syntax
+  // GoogleTest's regular expression engine on Windows does not support `[]`
+  // brackets.
+  EXPECT_DEATH(Ident(p)[12] = 0, "WRITE of size 10");
+  EXPECT_DEATH(Ident(p)[0] = Ident(p)[12], "READ of size 10");
+#else
   EXPECT_DEATH(Ident(p)[12] = 0, "WRITE of size 1[026]");
   EXPECT_DEATH(Ident(p)[0] = Ident(p)[12], "READ of size 1[026]");
+#endif
   delete [] Ident(p);
 }
 
@@ -230,13 +238,13 @@ TEST(AddressSanitizer, UAF_Packed5) {
   delete [] Ident(p);
 }
 
-#if ASAN_HAS_BLACKLIST
+#if ASAN_HAS_IGNORELIST
 TEST(AddressSanitizer, IgnoreTest) {
   int *x = Ident(new int);
   delete Ident(x);
   *x = 0;
 }
-#endif  // ASAN_HAS_BLACKLIST
+#endif  // ASAN_HAS_IGNORELIST
 
 struct StructWithBitField {
   int bf1:1;
@@ -313,7 +321,7 @@ TEST(AddressSanitizer, SignalTest) {
 
 static void TestLargeMalloc(size_t size) {
   char buff[1024];
-  sprintf(buff, "is located 1 bytes to the left of %lu-byte", (long)size);
+  sprintf(buff, "is located 1 bytes before %lu-byte", (long)size);
   EXPECT_DEATH(Ident((char*)malloc(size))[-1] = 0, buff);
 }
 
@@ -329,7 +337,7 @@ TEST(AddressSanitizer, HugeMallocTest) {
   if (SANITIZER_WORDSIZE != 64 || ASAN_AVOID_EXPENSIVE_TESTS) return;
   size_t n_megs = 4100;
   EXPECT_DEATH(Ident((char*)malloc(n_megs << 20))[-1] = 0,
-               "is located 1 bytes to the left|"
+               "is located 1 bytes before|"
                "AddressSanitizer failed to allocate");
 }
 #endif
@@ -345,9 +353,9 @@ TEST(AddressSanitizer, memalign) {
   for (int align = 16; align <= (1 << 23); align *= 2) {
     size_t size = align * 5;
     EXPECT_DEATH(MemalignRun(align, size, -1),
-                 "is located 1 bytes to the left");
+                 "is located 1 bytes before");
     EXPECT_DEATH(MemalignRun(align, size, size + 1),
-                 "is located 1 bytes to the right");
+                 "is located 1 bytes after");
   }
 }
 #endif  // SANITIZER_TEST_HAS_MEMALIGN
@@ -361,8 +369,7 @@ void *ManyThreadsWorker(void *a) {
   return 0;
 }
 
-#if !defined(__aarch64__) && !defined(__powerpc64__)
-// FIXME: Infinite loop in AArch64 (PR24389).
+#if !defined(__powerpc64__)
 // FIXME: Also occasional hang on powerpc.  Maybe same problem as on AArch64?
 TEST(AddressSanitizer, ManyThreadsTest) {
   const size_t kNumThreads =
@@ -388,7 +395,8 @@ TEST(AddressSanitizer, ReallocTest) {
   }
   free(ptr);
   // Realloc pointer returned by malloc(0).
-  int *ptr2 = Ident((int*)malloc(0));
+  void *ptr0 = malloc(0);
+  int *ptr2 = Ident((int *)ptr0);
   ptr2 = Ident((int*)realloc(ptr2, sizeof(*ptr2)));
   *ptr2 = 42;
   EXPECT_EQ(42, *ptr2);
@@ -588,9 +596,6 @@ NOINLINE void TouchStackFunc() {
     A[i] = i*i;
 }
 
-// Disabled due to rdar://problem/62141412
-#if !(defined(__APPLE__) && defined(__i386__))
-
 // Test that we handle longjmp and do not report false positives on stack.
 TEST(AddressSanitizer, LongJmpTest) {
   static jmp_buf buf;
@@ -600,7 +605,6 @@ TEST(AddressSanitizer, LongJmpTest) {
     TouchStackFunc();
   }
 }
-#endif
 
 #if !defined(_WIN32)  // Only basic longjmp is available on Windows.
 NOINLINE void UnderscopeLongJmpFunc1(jmp_buf buf) {
@@ -625,9 +629,9 @@ NOINLINE void SigLongJmpFunc1(sigjmp_buf buf) {
   siglongjmp(buf, 1);
 }
 
-#if !defined(__ANDROID__) && !defined(__arm__) && \
-    !defined(__aarch64__) && !defined(__mips__) && \
-    !defined(__mips64) && !defined(__s390__)
+#if !defined(__ANDROID__) && !defined(__arm__) && !defined(__aarch64__) && \
+    !defined(__mips__) && !defined(__mips64) && !defined(__s390__) &&      \
+    !defined(__riscv) && !defined(__loongarch__) && !defined(__sparc__)
 NOINLINE void BuiltinLongJmpFunc1(jmp_buf buf) {
   // create three red zones for these two stack objects.
   int a;
@@ -650,8 +654,9 @@ TEST(AddressSanitizer, BuiltinLongJmpTest) {
   }
 }
 #endif  // !defined(__ANDROID__) && !defined(__arm__) &&
-        // !defined(__aarch64__) && !defined(__mips__)
-        // !defined(__mips64) && !defined(__s390__)
+        // !defined(__aarch64__) && !defined(__mips__) &&
+        // !defined(__mips64) && !defined(__s390__) &&
+        // !defined(__riscv) && !defined(__loongarch__)
 
 TEST(AddressSanitizer, UnderscopeLongJmpTest) {
   static jmp_buf buf;
@@ -662,8 +667,6 @@ TEST(AddressSanitizer, UnderscopeLongJmpTest) {
   }
 }
 
-// Disabled due to rdar://problem/62141412
-#if !(defined(__APPLE__) && defined(__i386__))
 TEST(AddressSanitizer, SigLongJmpTest) {
   static sigjmp_buf buf;
   if (!sigsetjmp(buf, 1)) {
@@ -672,8 +675,6 @@ TEST(AddressSanitizer, SigLongJmpTest) {
     TouchStackFunc();
   }
 }
-#endif
-
 #endif
 
 // FIXME: Why does clang-cl define __EXCEPTIONS?
@@ -741,7 +742,7 @@ TEST(AddressSanitizer, Store128Test) {
   EXPECT_DEATH(_mm_store_si128((__m128i*)p, value_wide),
                "WRITE of size 16");
   EXPECT_DEATH(_mm_store_si128((__m128i*)p, value_wide),
-               "located 0 bytes to the right of 12-byte");
+               "located 0 bytes after 12-byte");
   free(a);
 }
 #endif
@@ -754,7 +755,7 @@ std::string RightOOBErrorMessage(int oob_distance, bool is_write) {
 #if !GTEST_USES_SIMPLE_RE
           "buffer-overflow.*%s.*"
 #endif
-          "located %d bytes to the right",
+          "located %d bytes after",
 #if !GTEST_USES_SIMPLE_RE
           is_write ? "WRITE" : "READ",
 #endif
@@ -778,7 +779,7 @@ std::string LeftOOBErrorMessage(int oob_distance, bool is_write) {
 #if !GTEST_USES_SIMPLE_RE
           ASAN_PCRE_DOTALL "%s.*"
 #endif
-          "located %d bytes to the left",
+          "located %d bytes before",
 #if !GTEST_USES_SIMPLE_RE
           is_write ? "WRITE" : "READ",
 #endif
@@ -797,7 +798,7 @@ std::string LeftOOBReadMessage(int oob_distance) {
 std::string LeftOOBAccessMessage(int oob_distance) {
   assert(oob_distance > 0);
   char expected_str[100];
-  sprintf(expected_str, "located %d bytes to the left", oob_distance);
+  sprintf(expected_str, "located %d bytes before", oob_distance);
   return std::string(expected_str);
 }
 
@@ -811,7 +812,7 @@ char* MallocAndMemsetString(size_t size) {
   return MallocAndMemsetString(size, 'z');
 }
 
-#if defined(__linux__) && !defined(__ANDROID__)
+#if SANITIZER_GLIBC
 #define READ_TEST(READ_N_BYTES)                                          \
   char *x = new char[10];                                                \
   int fd = open("/proc/self/stat", O_RDONLY);                            \
@@ -819,7 +820,7 @@ char* MallocAndMemsetString(size_t size) {
   EXPECT_DEATH(READ_N_BYTES,                                             \
                ASAN_PCRE_DOTALL                                          \
                "AddressSanitizer: heap-buffer-overflow"                  \
-               ".* is located 0 bytes to the right of 10-byte region");  \
+               ".* is located 0 bytes after 10-byte region");  \
   close(fd);                                                             \
   delete [] x;                                                           \
 
@@ -834,7 +835,7 @@ TEST(AddressSanitizer, pread64) {
 TEST(AddressSanitizer, read) {
   READ_TEST(read(fd, x, 15));
 }
-#endif  // defined(__linux__) && !defined(__ANDROID__)
+#endif  // SANITIZER_GLIBC
 
 // This test case fails
 // Clang optimizes memcpy/memset calls which lead to unaligned access
@@ -1020,23 +1021,23 @@ TEST(AddressSanitizer, GlobalTest) {
   glob5[Ident(4)] = 0;
 
   EXPECT_DEATH(glob5[Ident(5)] = 0,
-               "0 bytes to the right of global variable.*glob5.* size 5");
+               "0 bytes after global variable.*glob5.* size 5");
   EXPECT_DEATH(glob5[Ident(5+6)] = 0,
-               "6 bytes to the right of global variable.*glob5.* size 5");
+               "6 bytes after global variable.*glob5.* size 5");
   Ident(static110);  // avoid optimizations
   static110[Ident(0)] = 0;
   static110[Ident(109)] = 0;
   EXPECT_DEATH(static110[Ident(110)] = 0,
-               "0 bytes to the right of global variable");
+               "0 bytes after global variable");
   EXPECT_DEATH(static110[Ident(110+7)] = 0,
-               "7 bytes to the right of global variable");
+               "7 bytes after global variable");
 
   Ident(func_static15);  // avoid optimizations
   func_static15[Ident(0)] = 0;
   EXPECT_DEATH(func_static15[Ident(15)] = 0,
-               "0 bytes to the right of global variable");
+               "0 bytes after global variable");
   EXPECT_DEATH(func_static15[Ident(15 + 9)] = 0,
-               "9 bytes to the right of global variable");
+               "9 bytes after global variable");
 
   Ident(fs1);
   Ident(fs2);
@@ -1044,12 +1045,12 @@ TEST(AddressSanitizer, GlobalTest) {
 
   // We don't create left redzones, so this is not 100% guaranteed to fail.
   // But most likely will.
-  EXPECT_DEATH(fs2[Ident(-1)] = 0, "is located.*of global variable");
+  EXPECT_DEATH(fs2[Ident(-1)] = 0, "is located.* global variable");
 
   EXPECT_DEATH(Ident(Ident(ConstGlob)[8]),
-               "is located 1 bytes to the right of .*ConstGlob");
+               "is located 1 bytes after .*ConstGlob");
   EXPECT_DEATH(Ident(Ident(StaticConstGlob)[5]),
-               "is located 2 bytes to the right of .*StaticConstGlob");
+               "is located 2 bytes after .*StaticConstGlob");
 
   // call stuff from another file.
   GlobalsTest(0);
@@ -1163,15 +1164,11 @@ TEST(AddressSanitizer, DISABLED_StressStackReuseAndExceptionsTest) {
 }
 #endif
 
-#if !defined(_WIN32)
+#if !defined(_WIN32) && !defined(__HAIKU__)
 TEST(AddressSanitizer, MlockTest) {
-#if !defined(__ANDROID__) || __ANDROID_API__ >= 17
   EXPECT_EQ(0, mlockall(MCL_CURRENT));
-#endif
-  EXPECT_EQ(0, mlock((void*)0x12345, 0x5678));
-#if !defined(__ANDROID__) || __ANDROID_API__ >= 17
+  EXPECT_EQ(0, mlock((void *)0x12345, 0x5678));
   EXPECT_EQ(0, munlockall());
-#endif
   EXPECT_EQ(0, munlock((void*)0x987, 0x654));
 }
 #endif

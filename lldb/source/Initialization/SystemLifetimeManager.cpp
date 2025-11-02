@@ -8,15 +8,13 @@
 
 #include "lldb/Initialization/SystemLifetimeManager.h"
 
-#include "lldb/Core/Debugger.h"
 #include "lldb/Initialization/SystemInitializer.h"
 
 #include <utility>
 
 using namespace lldb_private;
 
-SystemLifetimeManager::SystemLifetimeManager()
-    : m_mutex(), m_initialized(false) {}
+SystemLifetimeManager::SystemLifetimeManager() : m_mutex() {}
 
 SystemLifetimeManager::~SystemLifetimeManager() {
   assert(!m_initialized &&
@@ -24,8 +22,7 @@ SystemLifetimeManager::~SystemLifetimeManager() {
 }
 
 llvm::Error SystemLifetimeManager::Initialize(
-    std::unique_ptr<SystemInitializer> initializer,
-    LoadPluginCallbackType plugin_callback) {
+    std::unique_ptr<SystemInitializer> initializer) {
   std::lock_guard<std::recursive_mutex> guard(m_mutex);
   if (!m_initialized) {
     assert(!m_initializer && "Attempting to call "
@@ -36,8 +33,6 @@ llvm::Error SystemLifetimeManager::Initialize(
 
     if (auto e = m_initializer->Initialize())
       return e;
-
-    Debugger::Initialize(plugin_callback);
   }
 
   return llvm::Error::success();
@@ -47,7 +42,6 @@ void SystemLifetimeManager::Terminate() {
   std::lock_guard<std::recursive_mutex> guard(m_mutex);
 
   if (m_initialized) {
-    Debugger::Terminate();
     m_initializer->Terminate();
 
     m_initializer.reset();

@@ -37,33 +37,32 @@
 
 --- !ELF
 FileHeader:
-  Class:           ELFCLASS64
-  Data:            ELFDATA2LSB
-  Type:            ET_EXEC
-  Machine:         EM_X86_64
+  Class: ELFCLASS64
+  Data:  ELFDATA2LSB
+  Type:  ET_EXEC
 Sections:
   - Name: .text
     Type: SHT_PROGBITS
     Size: 4
-    ShOffset: 0x1000
+    Offset: 0x1000
     AddressAlign: 0x1000
   - Name: .rodata
     Type: SHT_PROGBITS
     Size: 4
-    ShOffset: 0x2000
+    Offset: 0x2000
     AddressAlign: 0x1000
   - Name: .data
     Type: SHT_PROGBITS
-    ShOffset: 0x2004
+    Offset: 0x2004
     Size: 4
   - Name: .nobits1
     Type: SHT_NOBITS
-    ShOffset: 0x2008
+    Offset: 0x2008
     Size: 1
   - Name: .nobits2
     Type: SHT_NOBITS
     # Intentionally set to 0x2009 though the previous section is SHT_NOBITS.
-    ShOffset: 0x2009
+    Offset: 0x2009
     Size: 1
 ProgramHeaders:
   # Program header with no sections.
@@ -74,25 +73,25 @@ ProgramHeaders:
   # Program header with only file size set.
   - Type:     0x6abcdef0
     FileSize: 6
-    Sections:
-      - Section: .rodata
+    FirstSec: .rodata
+    LastSec:  .rodata
   # Program header with only mem size set.
   - Type:     0x6abcdef0
-    MemSize: 6
-    Sections:
-      - Section: .rodata
+    MemSize:  6
+    FirstSec: .rodata
+    LastSec:  .rodata
   # Program header with only offset set.
   - Type:     0x6abcdef0
     Offset:   0x1fff
-    Sections:
-      - Section: .rodata
+    FirstSec: .rodata
+    LastSec:  .rodata
   # Program header with sections, valid properties.
   - Type:     0x6abcdef0
     Offset:   0xffe
     FileSize: 7
     MemSize:  9
-    Sections:
-      - Section: .text
+    FirstSec: .text
+    LastSec:  .text
   # Program header with invalid properties.
   - Type:     0x6abcdef0
     Offset:   0x3000
@@ -101,10 +100,8 @@ ProgramHeaders:
   # Program header with 2 SHT_NOBITS sections.
   - Type:     0x6abcdef0
     Offset:   0x2004
-    Sections:
-      - Section: .data
-      - Section: .nobits1
-      - Section: .nobits2
+    FirstSec: .data
+    LastSec:  .nobits2
 
 ## Test the "Offset" property.
 
@@ -124,10 +121,9 @@ ProgramHeaders:
 
 --- !ELF
 FileHeader:
-  Class:   ELFCLASS64
-  Data:    ELFDATA2LSB
-  Type:    ET_EXEC
-  Machine: EM_X86_64
+  Class: ELFCLASS64
+  Data:  ELFDATA2LSB
+  Type:  ET_EXEC
 Sections:
   - Name:    .foo
     Type:    SHT_PROGBITS
@@ -139,13 +135,12 @@ Sections:
     Flags: [ SHF_ALLOC ]
     Size:  0x1
 ProgramHeaders:
-  - Type: PT_LOAD
-    Sections:
-      - Section: .foo
-      - Section: .bar
-  - Type: PT_LOAD
-    Sections:
-      - Section: .bar
+  - Type:     PT_LOAD
+    FirstSec: .foo
+    LastSec:  .bar
+  - Type:     PT_LOAD
+    FirstSec: .bar
+    LastSec:  .bar
 
 ## Check we can set the "Offset" value explicitly to be less than or equal to
 ## the offset of a section in the segment.
@@ -165,20 +160,19 @@ ProgramHeaders:
 
 --- !ELF
 FileHeader:
-  Class:   ELFCLASS64
-  Data:    ELFDATA2LSB
-  Type:    ET_EXEC
-  Machine: EM_X86_64
+  Class: ELFCLASS64
+  Data:  ELFDATA2LSB
+  Type:  ET_EXEC
 Sections:
   - Name:  .foo
     Type:  SHT_PROGBITS
     Flags: [ SHF_ALLOC ]
     Size:  0x1
 ProgramHeaders:
-  - Type: PT_LOAD
-    Offset: [[OFFSET]]
-    Sections:
-      - Section: .foo
+  - Type:    PT_LOAD
+    Offset:  [[OFFSET]]
+    FirstSec: .foo
+    LastSec:  .foo
 
 ## Check we report an error when the "Offset" value is larger than the offset of a section in the segment.
 # RUN: not yaml2obj --docnum=3 -DOFFSET=0x79 %s -o /dev/null 2>&1 | \
@@ -186,7 +180,7 @@ ProgramHeaders:
 
 # INVALID-OFFSET: yaml2obj: error: 'Offset' for segment with index 1 must be less than or equal to the minimum file offset of all included sections (0x78)
 
-## Document that the "Offset" value is checked after the section offset is overriden using "ShOffset".
+## Check "Offset" is used before the section offset is overriden using "ShOffset".
 # RUN: yaml2obj --docnum=4 %s -o %t5
 # RUN: llvm-readelf %t5 --sections --program-headers | FileCheck %s --check-prefix=SHOFFSET
 
@@ -194,24 +188,21 @@ ProgramHeaders:
 # SHOFFSET: [ 1] .foo PROGBITS 0000000000000000 ffffffff
 
 # SHOFFSET:      Type Offset
-# SHOFFSET-NEXT: LOAD 0xffffff00
+# SHOFFSET-NEXT: LOAD 0x000078
 
 --- !ELF
 FileHeader:
-  Class:   ELFCLASS64
-  Data:    ELFDATA2LSB
-  Type:    ET_EXEC
-  Machine: EM_X86_64
+  Class: ELFCLASS64
+  Data:  ELFDATA2LSB
+  Type:  ET_EXEC
 Sections:
   - Name:     .foo
     Type:     SHT_PROGBITS
     Flags:    [ SHF_ALLOC ]
     Size:     0x1
-## Note: the real .foo offset is much less than 0xFFFFFFFF or
-##       0xFFFFFF00, but no error is reported.
     ShOffset: 0xFFFFFFFF
 ProgramHeaders:
-  - Type:   PT_LOAD
-    Offset: 0xFFFFFF00
-    Sections:
-      - Section: .foo
+  - Type:     PT_LOAD
+    Offset:   0x78
+    FirstSec: .foo
+    LastSec:  .foo

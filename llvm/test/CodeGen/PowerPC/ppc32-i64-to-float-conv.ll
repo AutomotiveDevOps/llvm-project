@@ -1,7 +1,7 @@
-; RUN: llc -verify-machineinstrs < %s -mcpu=pwr4 \
+; RUN: llc -verify-machineinstrs < %s -mcpu=pwr4 -mattr=-altivec \
 ; RUN: -mtriple=powerpc-ibm-aix-xcoff 2>&1 | FileCheck %s
 
-; RUN: llc -verify-machineinstrs < %s -mcpu=pwr4 \
+; RUN: llc -verify-machineinstrs < %s -mcpu=pwr4 -mattr=-altivec \
 ; RUN: -mtriple=powerpc-unknown-linux-gnu 2>&1 | FileCheck %s
 
 ; When we convert an `i64` to `f32` on 32-bit PPC target, a `setcc` will be
@@ -15,9 +15,9 @@
 
 define void @foo() local_unnamed_addr {
 entry:
-  %0 = load i64, i64* @ll
+  %0 = load i64, ptr @ll
   %conv = sitofp i64 %0 to float
-  store float %conv, float* getelementptr inbounds (%struct.A, %struct.A* @a, i32 0, i32 0)
+  store float %conv, ptr @a
   ret void
 }
 

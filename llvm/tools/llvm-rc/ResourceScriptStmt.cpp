@@ -102,9 +102,22 @@ raw_ostream &MenuSeparator::log(raw_ostream &OS) const {
   return OS << "  Menu separator\n";
 }
 
+raw_ostream &MenuExItem::log(raw_ostream &OS) const {
+  OS << "  MenuExItem (" << Name << "), ID = " << Id;
+  OS << ", type: " << Type << ", state: " << State;
+  return OS << "\n";
+}
+
 raw_ostream &PopupItem::log(raw_ostream &OS) const {
   OS << "  Popup (" << Name << ")";
   logFlags(OS, Flags);
+  OS << ":\n";
+  return SubItems.log(OS);
+}
+
+raw_ostream &PopupExItem::log(raw_ostream &OS) const {
+  OS << "  Popup (" << Name << ")";
+  OS << ", type: " << Type << ", state: " << State << ", help ID: " << HelpId;
   OS << ":\n";
   return SubItems.log(OS);
 }
@@ -115,11 +128,21 @@ raw_ostream &MenuResource::log(raw_ostream &OS) const {
   return Elements.log(OS);
 }
 
+raw_ostream &MenuExResource::log(raw_ostream &OS) const {
+  OS << "MenuEx (" << ResName << "):\n";
+  OptStatements->log(OS);
+  return Elements.log(OS);
+}
+
 raw_ostream &StringTableResource::log(raw_ostream &OS) const {
   OS << "StringTable:\n";
   OptStatements->log(OS);
-  for (const auto &String : Table)
-    OS << "  " << String.first << " => " << String.second << "\n";
+  for (const auto &String : Table) {
+    OS << "  " << String.first << " =>";
+    for (const auto &S : String.second)
+      OS << " " << S;
+    OS << "\n";
+  }
   return OS;
 }
 
@@ -284,6 +307,10 @@ raw_ostream &StyleStmt::log(raw_ostream &OS) const {
 
 raw_ostream &ExStyleStmt::log(raw_ostream &OS) const {
   return OS << "ExStyle: " << Value << "\n";
+}
+
+raw_ostream &MenuStmt::log(raw_ostream &OS) const {
+  return OS << "Menu: " << Value << "\n";
 }
 
 } // namespace rc

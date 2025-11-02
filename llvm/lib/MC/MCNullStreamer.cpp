@@ -7,9 +7,14 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/ADT/StringRef.h"
-#include "llvm/MC/MCInst.h"
+#include "llvm/MC/MCDirectives.h"
 #include "llvm/MC/MCStreamer.h"
-#include "llvm/MC/MCSymbol.h"
+namespace llvm {
+class MCContext;
+class MCExpr;
+class MCSection;
+class MCSymbol;
+} // namespace llvm
 
 using namespace llvm;
 
@@ -31,15 +36,15 @@ namespace {
     }
 
     void emitCommonSymbol(MCSymbol *Symbol, uint64_t Size,
-                          unsigned ByteAlignment) override {}
-    void emitZerofill(MCSection *Section, MCSymbol *Symbol = nullptr,
-                      uint64_t Size = 0, unsigned ByteAlignment = 0,
-                      SMLoc Loc = SMLoc()) override {}
-    void emitGPRel32Value(const MCExpr *Value) override {}
-    void BeginCOFFSymbolDef(const MCSymbol *Symbol) override {}
-    void EmitCOFFSymbolStorageClass(int StorageClass) override {}
-    void EmitCOFFSymbolType(int Type) override {}
-    void EndCOFFSymbolDef() override {}
+                          Align ByteAlignment) override {}
+    void emitSubsectionsViaSymbols() override {};
+    void beginCOFFSymbolDef(const MCSymbol *Symbol) override {}
+    void emitCOFFSymbolStorageClass(int StorageClass) override {}
+    void emitCOFFSymbolType(int Type) override {}
+    void endCOFFSymbolDef() override {}
+    void
+    emitXCOFFSymbolLinkageWithVisibility(MCSymbol *Symbol, MCSymbolAttr Linkage,
+                                         MCSymbolAttr Visibility) override {}
   };
 
 }

@@ -14,33 +14,34 @@
 #ifndef LLVM_TRANSFORMS_OBJCARC_H
 #define LLVM_TRANSFORMS_OBJCARC_H
 
+#include "llvm/IR/PassManager.h"
+#include "llvm/Support/Compiler.h"
+
 namespace llvm {
 
 class Pass;
 
 //===----------------------------------------------------------------------===//
 //
-// ObjCARCAPElim - ObjC ARC autorelease pool elimination.
-//
-Pass *createObjCARCAPElimPass();
-
-//===----------------------------------------------------------------------===//
-//
-// ObjCARCExpand - ObjC ARC preliminary simplifications.
-//
-Pass *createObjCARCExpandPass();
-
-//===----------------------------------------------------------------------===//
-//
 // ObjCARCContract - Late ObjC ARC cleanups.
 //
-Pass *createObjCARCContractPass();
+LLVM_ABI Pass *createObjCARCContractPass();
 
-//===----------------------------------------------------------------------===//
-//
-// ObjCARCOpt - ObjC ARC optimization.
-//
-Pass *createObjCARCOptPass();
+struct ObjCARCOptPass : public PassInfoMixin<ObjCARCOptPass> {
+  LLVM_ABI PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
+};
+
+struct ObjCARCContractPass : public PassInfoMixin<ObjCARCContractPass> {
+  LLVM_ABI PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
+};
+
+struct ObjCARCExpandPass : public PassInfoMixin<ObjCARCExpandPass> {
+  LLVM_ABI PreservedAnalyses run(Function &M, FunctionAnalysisManager &AM);
+};
+
+struct PAEvalPass : public PassInfoMixin<PAEvalPass> {
+  LLVM_ABI PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
+};
 
 } // End llvm namespace
 

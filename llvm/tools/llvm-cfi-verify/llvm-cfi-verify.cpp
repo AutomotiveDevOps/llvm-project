@@ -7,7 +7,7 @@
 //===----------------------------------------------------------------------===//
 //
 // This tool verifies Control Flow Integrity (CFI) instrumentation by static
-// binary anaylsis. See the design document in /docs/CFIVerify.rst for more
+// binary analysis. See the design document in /docs/CFIVerify.rst for more
 // information.
 //
 // This tool is currently incomplete. It currently only does disassembly for
@@ -20,6 +20,7 @@
 #include "lib/GraphBuilder.h"
 
 #include "llvm/BinaryFormat/ELF.h"
+#include "llvm/DebugInfo/Symbolize/SymbolizableModule.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Error.h"
 #include "llvm/Support/FormatVariadic.h"
@@ -32,35 +33,40 @@ using namespace llvm;
 using namespace llvm::object;
 using namespace llvm::cfi_verify;
 
-cl::opt<std::string> InputFilename(cl::Positional, cl::desc("<input file>"),
-                                   cl::Required);
-cl::opt<std::string> BlacklistFilename(cl::Positional,
-                                       cl::desc("[blacklist file]"),
-                                       cl::init("-"));
-cl::opt<bool> PrintGraphs(
+static cl::OptionCategory CFIVerifyCategory("CFI Verify Options");
+
+static cl::opt<std::string> InputFilename(cl::Positional,
+                                          cl::desc("<input file>"),
+                                          cl::Required,
+                                          cl::cat(CFIVerifyCategory));
+static cl::opt<std::string> IgnorelistFilename(cl::Positional,
+                                               cl::desc("[ignorelist file]"),
+                                               cl::init("-"),
+                                               cl::cat(CFIVerifyCategory));
+static cl::opt<bool> PrintGraphs(
     "print-graphs",
     cl::desc("Print graphs around indirect CF instructions in DOT format."),
-    cl::init(false));
-cl::opt<unsigned> PrintBlameContext(
+    cl::init(false), cl::cat(CFIVerifyCategory));
+static cl::opt<unsigned> PrintBlameContext(
     "blame-context",
     cl::desc("Print the blame context (if possible) for BAD instructions. This "
              "specifies the number of lines of context to include, where zero "
              "disables this feature."),
-    cl::init(0));
-cl::opt<unsigned> PrintBlameContextAll(
+    cl::init(0), cl::cat(CFIVerifyCategory));
+static cl::opt<unsigned> PrintBlameContextAll(
     "blame-context-all",
     cl::desc("Prints the blame context (if possible) for ALL instructions. "
              "This specifies the number of lines of context for non-BAD "
              "instructions (see --blame-context). If --blame-context is "
              "unspecified, it prints this number of contextual lines for BAD "
              "instructions as well."),
-    cl::init(0));
-cl::opt<bool> Summarize("summarize", cl::desc("Print the summary only."),
-                        cl::init(false));
+    cl::init(0), cl::cat(CFIVerifyCategory));
+static cl::opt<bool> Summarize("summarize", cl::desc("Print the summary only."),
+                               cl::init(false), cl::cat(CFIVerifyCategory));
 
 ExitOnError ExitOnErr;
 
-void printBlameContext(const DILineInfo &LineInfo, unsigned Context) {
+static void printBlameContext(const DILineInfo &LineInfo, unsigned Context) {
   auto FileOrErr = MemoryBuffer::getFile(LineInfo.FileName);
   if (!FileOrErr) {
     errs() << "Could not open file: " << LineInfo.FileName << "\n";
@@ -72,8 +78,7 @@ void printBlameContext(const DILineInfo &LineInfo, unsigned Context) {
   File->getBuffer().split(Lines, '\n');
 
   for (unsigned i = std::max<size_t>(1, LineInfo.Line - Context);
-       i <
-       std::min<size_t>(Lines.size() + 1, LineInfo.Line + Context + 1);
+       i < std::min<size_t>(Lines.size() + 1, LineInfo.Line + Context + 1);
        ++i) {
     if (i == LineInfo.Line)
       outs() << ">";
@@ -84,10 +89,10 @@ void printBlameContext(const DILineInfo &LineInfo, unsigned Context) {
   }
 }
 
-void printInstructionInformation(const FileAnalysis &Analysis,
-                                 const Instr &InstrMeta,
-                                 const GraphResult &Graph,
-                                 CFIProtectionStatus ProtectionStatus) {
+static void printInstructionInformation(const FileAnalysis &Analysis,
+                                        const Instr &InstrMeta,
+                                        const GraphResult &Graph,
+                                        CFIProtectionStatus ProtectionStatus) {
   outs() << "Instruction: " << format_hex(InstrMeta.VMAddress, 2) << " ("
          << stringCFIProtectionStatus(ProtectionStatus) << "): ";
   Analysis.printInstruction(InstrMeta, outs());
@@ -97,10 +102,10 @@ void printInstructionInformation(const FileAnalysis &Analysis,
     Graph.printToDOT(Analysis, outs());
 }
 
-void printInstructionStatus(unsigned BlameLine, bool CFIProtected,
-                            const DILineInfo &LineInfo) {
+static void printInstructionStatus(unsigned BlameLine, bool CFIProtected,
+                                   const DILineInfo &LineInfo) {
   if (BlameLine) {
-    outs() << "Blacklist Match: " << BlacklistFilename << ":" << BlameLine
+    outs() << "Ignorelist Match: " << IgnorelistFilename << ":" << BlameLine
            << "\n";
     if (CFIProtected)
       outs() << "====> Unexpected Protected\n";
@@ -122,8 +127,9 @@ void printInstructionStatus(unsigned BlameLine, bool CFIProtected,
   }
 }
 
-void printIndirectCFInstructions(FileAnalysis &Analysis,
-                                 const SpecialCaseList *SpecialCaseList) {
+static void
+printIndirectCFInstructions(FileAnalysis &Analysis,
+                            const SpecialCaseList *SpecialCaseList) {
   uint64_t ExpectedProtected = 0;
   uint64_t UnexpectedProtected = 0;
   uint64_t ExpectedUnprotected = 0;
@@ -186,12 +192,16 @@ void printIndirectCFInstructions(FileAnalysis &Analysis,
 
     unsigned BlameLine = 0;
     for (auto &K : {"cfi-icall", "cfi-vcall"}) {
-      if (!BlameLine)
-        BlameLine =
+      if (!BlameLine) {
+        auto [FileIdx, Line] =
             SpecialCaseList->inSectionBlame(K, "src", LineInfo.FileName);
-      if (!BlameLine)
-        BlameLine =
+        BlameLine = Line;
+      }
+      if (!BlameLine) {
+        auto [FileIdx, Line] =
             SpecialCaseList->inSectionBlame(K, "fun", LineInfo.FunctionName);
+        BlameLine = Line;
+      }
     }
 
     if (BlameLine) {
@@ -236,14 +246,15 @@ void printIndirectCFInstructions(FileAnalysis &Analysis,
   if (!SpecialCaseList)
     return;
 
-  outs() << "\nBlacklist Results:\n";
+  outs() << "\nIgnorelist Results:\n";
   for (const auto &KV : BlameCounter) {
-    outs() << "  " << BlacklistFilename << ":" << KV.first << " affects "
+    outs() << "  " << IgnorelistFilename << ":" << KV.first << " affects "
            << KV.second << " indirect CF instructions.\n";
   }
 }
 
 int main(int argc, char **argv) {
+  cl::HideUnrelatedOptions({&CFIVerifyCategory, &getColorCategory()});
   cl::ParseCommandLineOptions(
       argc, argv,
       "Identifies whether Control Flow Integrity protects all indirect control "
@@ -260,12 +271,12 @@ int main(int argc, char **argv) {
     PrintBlameContext.setValue(PrintBlameContextAll);
 
   std::unique_ptr<SpecialCaseList> SpecialCaseList;
-  if (BlacklistFilename != "-") {
+  if (IgnorelistFilename != "-") {
     std::string Error;
-    SpecialCaseList = SpecialCaseList::create({BlacklistFilename},
+    SpecialCaseList = SpecialCaseList::create({IgnorelistFilename},
                                               *vfs::getRealFileSystem(), Error);
     if (!SpecialCaseList) {
-      errs() << "Failed to get blacklist: " << Error << "\n";
+      errs() << "Failed to get ignorelist: " << Error << "\n";
       exit(EXIT_FAILURE);
     }
   }

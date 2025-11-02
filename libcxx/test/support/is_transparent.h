@@ -11,6 +11,8 @@
 
 #include "test_macros.h"
 
+#include <functional> // for std::equal_to
+
 // testing transparent
 #if TEST_STD_VER > 11
 
@@ -32,6 +34,17 @@ struct transparent_less_not_referenceable
     -> decltype      (std::forward<T>(t) < std::forward<U>(u))
         { return      std::forward<T>(t) < std::forward<U>(u); }
     using is_transparent = void () const &;  // it's a type; a weird one, but a type
+};
+
+// Prevent regression when empty base class optimization is not suitable.
+// See llvm.org/PR152543.
+struct transparent_less_nonempty {
+  template <class T, class U>
+  constexpr bool operator()(T&& t, U&& u) const {
+    return std::forward<T>(t) < std::forward<U>(u);
+  }
+  struct is_transparent {
+  } pad_; // making this comparator non-empty
 };
 
 struct transparent_less_no_type
@@ -79,6 +92,6 @@ bool operator <(int          rhs,   const C2Int& lhs) { return rhs       < lhs.g
 bool operator <(const C2Int& rhs,   const C2Int& lhs) { return rhs.get() < lhs.get(); }
 bool operator <(const C2Int& rhs,            int lhs) { return rhs.get() < lhs; }
 
-#endif
+#endif // TEST_STD_VER > 11
 
-#endif  // TRANSPARENT_H
+#endif // TRANSPARENT_H

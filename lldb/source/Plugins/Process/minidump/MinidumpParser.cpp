@@ -12,14 +12,16 @@
 
 #include "Plugins/Process/Utility/LinuxProcMaps.h"
 #include "lldb/Utility/LLDBAssert.h"
+#include "lldb/Utility/LLDBLog.h"
 #include "lldb/Utility/Log.h"
 
 // C includes
 // C++ includes
 #include <algorithm>
 #include <map>
-#include <vector>
+#include <optional>
 #include <utility>
+#include <vector>
 
 using namespace lldb_private;
 using namespace minidump;
@@ -44,8 +46,12 @@ llvm::ArrayRef<uint8_t> MinidumpParser::GetData() {
 }
 
 llvm::ArrayRef<uint8_t> MinidumpParser::GetStream(StreamType stream_type) {
-  return m_file->getRawStream(stream_type)
-      .getValueOr(llvm::ArrayRef<uint8_t>());
+  return m_file->getRawStream(stream_type).value_or(llvm::ArrayRef<uint8_t>());
+}
+
+std::optional<llvm::ArrayRef<uint8_t>>
+MinidumpParser::GetRawStream(StreamType stream_type) {
+  return m_file->getRawStream(stream_type);
 }
 
 UUID MinidumpParser::GetModuleUUID(const minidump::Module *module) {
@@ -62,29 +68,18 @@ UUID MinidumpParser::GetModuleUUID(const minidump::Module *module) {
       static_cast<CvSignature>(static_cast<uint32_t>(*signature));
 
   if (cv_signature == CvSignature::Pdb70) {
-    const CvRecordPdb70 *pdb70_uuid = nullptr;
+    const UUID::CvRecordPdb70 *pdb70_uuid = nullptr;
     Status error = consumeObject(cv_record, pdb70_uuid);
     if (error.Fail())
       return UUID();
-
-    CvRecordPdb70 swapped;
-    if (!GetArchitecture().GetTriple().isOSBinFormatELF()) {
-      // LLDB's UUID class treats the data as a sequence of bytes, but breakpad
-      // interprets it as a sequence of little-endian fields, which it converts
-      // to big-endian when converting to text. Swap the bytes to big endian so
-      // that the string representation comes out right.
-      swapped = *pdb70_uuid;
-      llvm::sys::swapByteOrder(swapped.Uuid.Data1);
-      llvm::sys::swapByteOrder(swapped.Uuid.Data2);
-      llvm::sys::swapByteOrder(swapped.Uuid.Data3);
-      llvm::sys::swapByteOrder(swapped.Age);
-      pdb70_uuid = &swapped;
+    if (GetArchitecture().GetTriple().isOSBinFormatELF()) {
+      if (pdb70_uuid->Age != 0)
+        return UUID(pdb70_uuid, sizeof(*pdb70_uuid));
+      return UUID(&pdb70_uuid->Uuid, sizeof(pdb70_uuid->Uuid));
     }
-    if (pdb70_uuid->Age != 0)
-      return UUID::fromOptionalData(pdb70_uuid, sizeof(*pdb70_uuid));
-    return UUID::fromOptionalData(&pdb70_uuid->Uuid, sizeof(pdb70_uuid->Uuid));
+    return UUID(*pdb70_uuid);
   } else if (cv_signature == CvSignature::ElfBuildId)
-    return UUID::fromOptionalData(cv_record);
+    return UUID(cv_record);
 
   return UUID();
 }
@@ -94,8 +89,7 @@ llvm::ArrayRef<minidump::Thread> MinidumpParser::GetThreads() {
   if (ExpectedThreads)
     return *ExpectedThreads;
 
-  LLDB_LOG_ERROR(GetLogIfAnyCategoriesSet(LIBLLDB_LOG_THREAD),
-                 ExpectedThreads.takeError(),
+  LLDB_LOG_ERROR(GetLog(LLDBLog::Thread), ExpectedThreads.takeError(),
                  "Failed to read thread list: {0}");
   return {};
 }
@@ -114,13 +108,21 @@ MinidumpParser::GetThreadContext(const minidump::Thread &td) {
 
 llvm::ArrayRef<uint8_t>
 MinidumpParser::GetThreadContextWow64(const minidump::Thread &td) {
+  Log *log = GetLog(LLDBLog::Process);
   // On Windows, a 32-bit process can run on a 64-bit machine under WOW64. If
   // the minidump was captured with a 64-bit debugger, then the CONTEXT we just
   // grabbed from the mini_dump_thread is the one for the 64-bit "native"
   // process rather than the 32-bit "guest" process we care about.  In this
   // case, we can get the 32-bit CONTEXT from the TEB (Thread Environment
   // Block) of the 64-bit process.
-  auto teb_mem = GetMemory(td.EnvironmentBlock, sizeof(TEB64));
+  auto teb_mem_maybe = GetMemory(td.EnvironmentBlock, sizeof(TEB64));
+  if (!teb_mem_maybe) {
+    LLDB_LOG_ERROR(log, teb_mem_maybe.takeError(),
+                   "Failed to read Thread Environment Block: {0}");
+    return {};
+  }
+
+  auto teb_mem = *teb_mem_maybe;
   if (teb_mem.empty())
     return {};
 
@@ -132,8 +134,16 @@ MinidumpParser::GetThreadContextWow64(const minidump::Thread &td) {
   // Slot 1 of the thread-local storage in the 64-bit TEB points to a structure
   // that includes the 32-bit CONTEXT (after a ULONG). See:
   // https://msdn.microsoft.com/en-us/library/ms681670.aspx
-  auto context =
+  auto context_maybe =
       GetMemory(wow64teb->tls_slots[1] + 4, sizeof(MinidumpContext_x86_32));
+  if (!context_maybe) {
+    LLDB_LOG_ERROR(log, context_maybe.takeError(),
+                   "Failed to read WOW Thread Context: {0}");
+    return {};
+  }
+
+  auto context = *context_maybe;
+
   if (context.size() < sizeof(MinidumpContext_x86_32))
     return {};
 
@@ -151,8 +161,7 @@ ArchSpec MinidumpParser::GetArchitecture() {
   llvm::Expected<const SystemInfo &> system_info = m_file->getSystemInfo();
 
   if (!system_info) {
-    LLDB_LOG_ERROR(GetLogIfAnyCategoriesSet(LIBLLDB_LOG_PROCESS),
-                   system_info.takeError(),
+    LLDB_LOG_ERROR(GetLog(LLDBLog::Process), system_info.takeError(),
                    "Failed to read SystemInfo stream: {0}");
     return m_arch;
   }
@@ -210,8 +219,7 @@ ArchSpec MinidumpParser::GetArchitecture() {
     triple.setOS(llvm::Triple::OSType::UnknownOS);
     auto ExpectedCSD = m_file->getString(system_info->CSDVersionRVA);
     if (!ExpectedCSD) {
-      LLDB_LOG_ERROR(GetLogIfAnyCategoriesSet(LIBLLDB_LOG_PROCESS),
-                     ExpectedCSD.takeError(),
+      LLDB_LOG_ERROR(GetLog(LLDBLog::Process), ExpectedCSD.takeError(),
                      "Failed to CSD Version string: {0}");
     } else {
       if (ExpectedCSD->find("Linux") != std::string::npos)
@@ -233,27 +241,27 @@ const MinidumpMiscInfo *MinidumpParser::GetMiscInfo() {
   return MinidumpMiscInfo::Parse(data);
 }
 
-llvm::Optional<LinuxProcStatus> MinidumpParser::GetLinuxProcStatus() {
+std::optional<LinuxProcStatus> MinidumpParser::GetLinuxProcStatus() {
   llvm::ArrayRef<uint8_t> data = GetStream(StreamType::LinuxProcStatus);
 
   if (data.size() == 0)
-    return llvm::None;
+    return std::nullopt;
 
   return LinuxProcStatus::Parse(data);
 }
 
-llvm::Optional<lldb::pid_t> MinidumpParser::GetPid() {
+std::optional<lldb::pid_t> MinidumpParser::GetPid() {
   const MinidumpMiscInfo *misc_info = GetMiscInfo();
   if (misc_info != nullptr) {
     return misc_info->GetPid();
   }
 
-  llvm::Optional<LinuxProcStatus> proc_status = GetLinuxProcStatus();
-  if (proc_status.hasValue()) {
+  std::optional<LinuxProcStatus> proc_status = GetLinuxProcStatus();
+  if (proc_status) {
     return proc_status->GetPid();
   }
 
-  return llvm::None;
+  return std::nullopt;
 }
 
 llvm::ArrayRef<minidump::Module> MinidumpParser::GetModuleList() {
@@ -261,20 +269,115 @@ llvm::ArrayRef<minidump::Module> MinidumpParser::GetModuleList() {
   if (ExpectedModules)
     return *ExpectedModules;
 
-  LLDB_LOG_ERROR(GetLogIfAnyCategoriesSet(LIBLLDB_LOG_MODULES),
-                 ExpectedModules.takeError(),
+  LLDB_LOG_ERROR(GetLog(LLDBLog::Modules), ExpectedModules.takeError(),
                  "Failed to read module list: {0}");
   return {};
 }
 
+static bool
+CreateRegionsCacheFromLinuxMaps(MinidumpParser &parser,
+                                std::vector<MemoryRegionInfo> &regions) {
+  auto data = parser.GetStream(StreamType::LinuxMaps);
+  if (data.empty())
+    return false;
+
+  Log *log = GetLog(LLDBLog::Expressions);
+  ParseLinuxMapRegions(
+      llvm::toStringRef(data),
+      [&regions, &log](llvm::Expected<MemoryRegionInfo> region) -> bool {
+        if (region)
+          regions.push_back(*region);
+        else
+          LLDB_LOG_ERROR(log, region.takeError(),
+                         "Reading memory region from minidump failed: {0}");
+        return true;
+      });
+  return !regions.empty();
+}
+
+/// Check for the memory regions starting at \a load_addr for a contiguous
+/// section that has execute permissions that matches the module path.
+///
+/// When we load a breakpad generated minidump file, we might have the
+/// /proc/<pid>/maps text for a process that details the memory map of the
+/// process that the minidump is describing. This checks the sorted memory
+/// regions for a section that has execute permissions. A sample maps files
+/// might look like:
+///
+/// 00400000-00401000 r--p 00000000 fd:01 2838574           /tmp/a.out
+/// 00401000-00402000 r-xp 00001000 fd:01 2838574           /tmp/a.out
+/// 00402000-00403000 r--p 00002000 fd:01 2838574           /tmp/a.out
+/// 00403000-00404000 r--p 00002000 fd:01 2838574           /tmp/a.out
+/// 00404000-00405000 rw-p 00003000 fd:01 2838574           /tmp/a.out
+/// ...
+///
+/// This function should return true when given 0x00400000 and "/tmp/a.out"
+/// is passed in as the path since it has a consecutive memory region for
+/// "/tmp/a.out" that has execute permissions at 0x00401000. This will help us
+/// differentiate if a file has been memory mapped into a process for reading
+/// and breakpad ends up saving a minidump file that has two module entries for
+/// a given file: one that is read only for the entire file, and then one that
+/// is the real executable that is loaded into memory for execution. For memory
+/// mapped files they will typically show up and r--p permissions and a range
+/// matcning the entire range of the file on disk:
+///
+/// 00800000-00805000 r--p 00000000 fd:01 2838574           /tmp/a.out
+/// 00805000-00806000 r-xp 00001000 fd:01 1234567           /usr/lib/libc.so
+///
+/// This function should return false when asked about 0x00800000 with
+/// "/tmp/a.out" as the path.
+///
+/// \param[in] path
+///   The path to the module to check for in the memory regions. Only sequential
+///   memory regions whose paths match this path will be considered when looking
+///   for execute permissions.
+///
+/// \param[in] regions
+///   A sorted list of memory regions obtained from a call to
+///   CreateRegionsCacheFromLinuxMaps.
+///
+/// \param[in] base_of_image
+///   The load address of this module from BaseOfImage in the modules list.
+///
+/// \return
+///   True if a contiguous region of memory belonging to the module with a
+///   matching path exists that has executable permissions. Returns false if
+///   \a regions is empty or if there are no regions with execute permissions
+///   that match \a path.
+
+static bool CheckForLinuxExecutable(ConstString path,
+                                    const MemoryRegionInfos &regions,
+                                    lldb::addr_t base_of_image) {
+  if (regions.empty())
+    return false;
+  lldb::addr_t addr = base_of_image;
+  MemoryRegionInfo region = MinidumpParser::GetMemoryRegionInfo(regions, addr);
+  while (region.GetName() == path) {
+    if (region.GetExecutable() == MemoryRegionInfo::eYes)
+      return true;
+    addr += region.GetRange().GetByteSize();
+    region = MinidumpParser::GetMemoryRegionInfo(regions, addr);
+  }
+  return false;
+}
+
 std::vector<const minidump::Module *> MinidumpParser::GetFilteredModuleList() {
-  Log *log = GetLogIfAnyCategoriesSet(LIBLLDB_LOG_MODULES);
+  Log *log = GetLog(LLDBLog::Modules);
   auto ExpectedModules = GetMinidumpFile().getModuleList();
   if (!ExpectedModules) {
     LLDB_LOG_ERROR(log, ExpectedModules.takeError(),
                    "Failed to read module list: {0}");
     return {};
   }
+
+  // Create memory regions from the linux maps only. We do this to avoid issues
+  // with breakpad generated minidumps where if someone has mmap'ed a shared
+  // library into memory to access its data in the object file, we can get a
+  // minidump with two mappings for a binary: one whose base image points to a
+  // memory region that is read + execute and one that is read only.
+  MemoryRegionInfos linux_regions;
+  if (CreateRegionsCacheFromLinuxMaps(*this, linux_regions))
+    llvm::sort(linux_regions);
 
   // map module_name -> filtered_modules index
   typedef llvm::StringMap<size_t> MapType;
@@ -304,10 +407,29 @@ std::vector<const minidump::Module *> MinidumpParser::GetFilteredModuleList() {
       // "filtered_modules.size()" above.
       filtered_modules.push_back(&module);
     } else {
+      // We have a duplicate module entry. Check the linux regions to see if
+      // either module is not really a mapped executable. If one but not the
+      // other is a real mapped executable, prefer the executable one. This
+      // can happen when a process mmap's in the file for an executable in
+      // order to read bytes from the executable file. A memory region mapping
+      // will exist for the mmap'ed version and for the loaded executable, but
+      // only one will have a consecutive region that is executable in the
+      // memory regions.
+      auto dup_module = filtered_modules[iter->second];
+      ConstString name(*ExpectedName);
+      bool is_executable =
+          CheckForLinuxExecutable(name, linux_regions, module.BaseOfImage);
+      bool dup_is_executable =
+          CheckForLinuxExecutable(name, linux_regions, dup_module->BaseOfImage);
+
+      if (is_executable != dup_is_executable) {
+        if (is_executable)
+          filtered_modules[iter->second] = &module;
+        continue;
+      }
       // This module has been seen. Modules are sometimes mentioned multiple
       // times when they are mapped discontiguously, so find the module with
       // the lowest "base_of_image" and use that as the filtered module.
-      auto dup_module = filtered_modules[iter->second];
       if (module.BaseOfImage < dup_module->BaseOfImage)
         filtered_modules[iter->second] = &module;
     }
@@ -315,122 +437,98 @@ std::vector<const minidump::Module *> MinidumpParser::GetFilteredModuleList() {
   return filtered_modules;
 }
 
-const minidump::ExceptionStream *MinidumpParser::GetExceptionStream() {
-  auto ExpectedStream = GetMinidumpFile().getExceptionStream();
-  if (ExpectedStream)
-    return &*ExpectedStream;
-
-  LLDB_LOG_ERROR(GetLogIfAnyCategoriesSet(LIBLLDB_LOG_PROCESS),
-                 ExpectedStream.takeError(),
-                 "Failed to read minidump exception stream: {0}");
-  return nullptr;
+llvm::iterator_range<ExceptionStreamsIterator>
+MinidumpParser::GetExceptionStreams() {
+  return GetMinidumpFile().getExceptionStreams();
 }
 
-llvm::Optional<minidump::Range>
+std::optional<minidump::Range>
 MinidumpParser::FindMemoryRange(lldb::addr_t addr) {
-  llvm::ArrayRef<uint8_t> data64 = GetStream(StreamType::Memory64List);
-  Log *log = GetLogIfAnyCategoriesSet(LIBLLDB_LOG_MODULES);
+  if (m_memory_ranges.IsEmpty())
+    PopulateMemoryRanges();
 
+  const MemoryRangeVector::Entry *entry =
+      m_memory_ranges.FindEntryThatContains(addr);
+  if (!entry)
+    return std::nullopt;
+
+  return entry->data;
+}
+
+void MinidumpParser::PopulateMemoryRanges() {
+  Log *log = GetLog(LLDBLog::Modules);
   auto ExpectedMemory = GetMinidumpFile().getMemoryList();
-  if (!ExpectedMemory) {
-    LLDB_LOG_ERROR(log, ExpectedMemory.takeError(),
-                   "Failed to read memory list: {0}");
-  } else {
+  if (ExpectedMemory) {
     for (const auto &memory_desc : *ExpectedMemory) {
       const LocationDescriptor &loc_desc = memory_desc.Memory;
       const lldb::addr_t range_start = memory_desc.StartOfMemoryRange;
       const size_t range_size = loc_desc.DataSize;
-
-      if (loc_desc.RVA + loc_desc.DataSize > GetData().size())
-        return llvm::None;
-
-      if (range_start <= addr && addr < range_start + range_size) {
-        auto ExpectedSlice = GetMinidumpFile().getRawData(loc_desc);
-        if (!ExpectedSlice) {
-          LLDB_LOG_ERROR(log, ExpectedSlice.takeError(),
-                         "Failed to get memory slice: {0}");
-          return llvm::None;
-        }
-        return minidump::Range(range_start, *ExpectedSlice);
+      auto ExpectedSlice = GetMinidumpFile().getRawData(loc_desc);
+      if (!ExpectedSlice) {
+        LLDB_LOG_ERROR(log, ExpectedSlice.takeError(),
+                       "Failed to get memory slice: {0}");
+        continue;
       }
+      m_memory_ranges.Append(MemoryRangeVector::Entry(
+          range_start, range_size,
+          minidump::Range(range_start, *ExpectedSlice)));
     }
+  } else {
+    LLDB_LOG_ERROR(log, ExpectedMemory.takeError(),
+                   "Failed to read memory list: {0}");
   }
 
-  // Some Minidumps have a Memory64ListStream that captures all the heap memory
-  // (full-memory Minidumps).  We can't exactly use the same loop as above,
-  // because the Minidump uses slightly different data structures to describe
-  // those
-
-  if (!data64.empty()) {
-    llvm::ArrayRef<MinidumpMemoryDescriptor64> memory64_list;
-    uint64_t base_rva;
-    std::tie(memory64_list, base_rva) =
-        MinidumpMemoryDescriptor64::ParseMemory64List(data64);
-
-    if (memory64_list.empty())
-      return llvm::None;
-
-    for (const auto &memory_desc64 : memory64_list) {
-      const lldb::addr_t range_start = memory_desc64.start_of_memory_range;
-      const size_t range_size = memory_desc64.data_size;
-
-      if (base_rva + range_size > GetData().size())
-        return llvm::None;
-
-      if (range_start <= addr && addr < range_start + range_size) {
-        return minidump::Range(range_start,
-                               GetData().slice(base_rva, range_size));
-      }
-      base_rva += range_size;
+  if (!GetStream(StreamType::Memory64List).empty()) {
+    llvm::Error err = llvm::Error::success();
+    for (const auto &memory_desc : GetMinidumpFile().getMemory64List(err)) {
+      m_memory_ranges.Append(MemoryRangeVector::Entry(
+          memory_desc.first.StartOfMemoryRange, memory_desc.first.DataSize,
+          minidump::Range(memory_desc.first.StartOfMemoryRange,
+                          memory_desc.second)));
     }
+
+    if (err)
+      LLDB_LOG_ERROR(log, std::move(err), "Failed to read memory64 list: {0}");
   }
 
-  return llvm::None;
+  m_memory_ranges.Sort();
 }
 
-llvm::ArrayRef<uint8_t> MinidumpParser::GetMemory(lldb::addr_t addr,
-                                                  size_t size) {
-  // I don't have a sense of how frequently this is called or how many memory
-  // ranges a Minidump typically has, so I'm not sure if searching for the
-  // appropriate range linearly each time is stupid.  Perhaps we should build
-  // an index for faster lookups.
-  llvm::Optional<minidump::Range> range = FindMemoryRange(addr);
+llvm::Expected<llvm::ArrayRef<uint8_t>>
+MinidumpParser::GetMemory(lldb::addr_t addr, size_t size) {
+  std::optional<minidump::Range> range = FindMemoryRange(addr);
   if (!range)
-    return {};
+    return llvm::createStringError(
+        llvm::inconvertibleErrorCode(),
+        "No memory range found for address (0x%" PRIx64 ")", addr);
 
   // There's at least some overlap between the beginning of the desired range
-  // (addr) and the current range.  Figure out where the overlap begins and how
-  // much overlap there is.
+  // (addr) and the current range.  Figure out where the overlap begins and
+  // how much overlap there is.
 
   const size_t offset = addr - range->start;
 
   if (addr < range->start || offset >= range->range_ref.size())
-    return {};
+    return llvm::createStringError(
+        llvm::inconvertibleErrorCode(),
+        "Address (0x%" PRIx64 ") is not in range [0x%" PRIx64 " - 0x%" PRIx64
+        ")",
+        addr, range->start, range->start + range->range_ref.size());
 
   const size_t overlap = std::min(size, range->range_ref.size() - offset);
   return range->range_ref.slice(offset, overlap);
 }
 
-static bool
-CreateRegionsCacheFromLinuxMaps(MinidumpParser &parser,
-                                std::vector<MemoryRegionInfo> &regions) {
-  auto data = parser.GetStream(StreamType::LinuxMaps);
-  if (data.empty())
-    return false;
-  ParseLinuxMapRegions(llvm::toStringRef(data),
-                       [&](const lldb_private::MemoryRegionInfo &region,
-                           const lldb_private::Status &status) -> bool {
-    if (status.Success())
-      regions.push_back(region);
-    return true;
-  });
-  return !regions.empty();
+llvm::iterator_range<FallibleMemory64Iterator>
+MinidumpParser::GetMemory64Iterator(llvm::Error &err) {
+  llvm::ErrorAsOutParameter ErrAsOutParam(&err);
+  return m_file->getMemory64List(err);
 }
 
 static bool
 CreateRegionsCacheFromMemoryInfoList(MinidumpParser &parser,
                                      std::vector<MemoryRegionInfo> &regions) {
-  Log *log = GetLogIfAnyCategoriesSet(LIBLLDB_LOG_MODULES);
+  Log *log = GetLog(LLDBLog::Modules);
   auto ExpectedInfo = parser.GetMinidumpFile().getMemoryInfoList();
   if (!ExpectedInfo) {
     LLDB_LOG_ERROR(log, ExpectedInfo.takeError(),
@@ -467,54 +565,45 @@ CreateRegionsCacheFromMemoryInfoList(MinidumpParser &parser,
 static bool
 CreateRegionsCacheFromMemoryList(MinidumpParser &parser,
                                  std::vector<MemoryRegionInfo> &regions) {
-  Log *log = GetLogIfAnyCategoriesSet(LIBLLDB_LOG_MODULES);
+  Log *log = GetLog(LLDBLog::Modules);
+  // Cache the expected memory32 into an optional
+  // because it is possible to just have a memory64 list
   auto ExpectedMemory = parser.GetMinidumpFile().getMemoryList();
   if (!ExpectedMemory) {
     LLDB_LOG_ERROR(log, ExpectedMemory.takeError(),
                    "Failed to read memory list: {0}");
-    return false;
+  } else {
+    for (const MemoryDescriptor &memory_desc : *ExpectedMemory) {
+      if (memory_desc.Memory.DataSize == 0)
+        continue;
+      MemoryRegionInfo region;
+      region.GetRange().SetRangeBase(memory_desc.StartOfMemoryRange);
+      region.GetRange().SetByteSize(memory_desc.Memory.DataSize);
+      region.SetReadable(MemoryRegionInfo::eYes);
+      region.SetMapped(MemoryRegionInfo::eYes);
+      regions.push_back(region);
+    }
   }
-  regions.reserve(ExpectedMemory->size());
-  for (const MemoryDescriptor &memory_desc : *ExpectedMemory) {
-    if (memory_desc.Memory.DataSize == 0)
-      continue;
-    MemoryRegionInfo region;
-    region.GetRange().SetRangeBase(memory_desc.StartOfMemoryRange);
-    region.GetRange().SetByteSize(memory_desc.Memory.DataSize);
-    region.SetReadable(MemoryRegionInfo::eYes);
-    region.SetMapped(MemoryRegionInfo::eYes);
-    regions.push_back(region);
-  }
-  regions.shrink_to_fit();
-  return !regions.empty();
-}
 
-static bool
-CreateRegionsCacheFromMemory64List(MinidumpParser &parser,
-                                   std::vector<MemoryRegionInfo> &regions) {
-  llvm::ArrayRef<uint8_t> data =
-      parser.GetStream(StreamType::Memory64List);
-  if (data.empty())
-    return false;
-  llvm::ArrayRef<MinidumpMemoryDescriptor64> memory64_list;
-  uint64_t base_rva;
-  std::tie(memory64_list, base_rva) =
-      MinidumpMemoryDescriptor64::ParseMemory64List(data);
-  
-  if (memory64_list.empty())
-    return false;
-    
-  regions.reserve(memory64_list.size());
-  for (const auto &memory_desc : memory64_list) {
-    if (memory_desc.data_size == 0)
-      continue;
-    MemoryRegionInfo region;
-    region.GetRange().SetRangeBase(memory_desc.start_of_memory_range);
-    region.GetRange().SetByteSize(memory_desc.data_size);
-    region.SetReadable(MemoryRegionInfo::eYes);
-    region.SetMapped(MemoryRegionInfo::eYes);
-    regions.push_back(region);
+  if (!parser.GetStream(StreamType::Memory64List).empty()) {
+    llvm::Error err = llvm::Error::success();
+    for (const auto &memory_desc : parser.GetMemory64Iterator(err)) {
+      if (memory_desc.first.DataSize == 0)
+        continue;
+      MemoryRegionInfo region;
+      region.GetRange().SetRangeBase(memory_desc.first.StartOfMemoryRange);
+      region.GetRange().SetByteSize(memory_desc.first.DataSize);
+      region.SetReadable(MemoryRegionInfo::eYes);
+      region.SetMapped(MemoryRegionInfo::eYes);
+      regions.push_back(region);
+    }
+
+    if (err) {
+      LLDB_LOG_ERROR(log, std::move(err), "Failed to read memory64 list: {0}");
+      return false;
+    }
   }
+
   regions.shrink_to_fit();
   return !regions.empty();
 }
@@ -535,9 +624,7 @@ std::pair<MemoryRegionInfos, bool> MinidumpParser::BuildMemoryRegions() {
     return return_sorted(true);
   if (CreateRegionsCacheFromMemoryInfoList(*this, result))
     return return_sorted(true);
-  if (CreateRegionsCacheFromMemoryList(*this, result))
-    return return_sorted(false);
-  CreateRegionsCacheFromMemory64List(*this, result);
+  CreateRegionsCacheFromMemoryList(*this, result);
   return return_sorted(false);
 }
 
@@ -545,8 +632,7 @@ std::pair<MemoryRegionInfos, bool> MinidumpParser::BuildMemoryRegions() {
   case StreamType::ST:                                                         \
     return #ST
 
-llvm::StringRef
-MinidumpParser::GetStreamTypeAsString(StreamType stream_type) {
+llvm::StringRef MinidumpParser::GetStreamTypeAsString(StreamType stream_type) {
   switch (stream_type) {
     ENUM_TO_CSTR(Unused);
     ENUM_TO_CSTR(ThreadList);
@@ -594,6 +680,34 @@ MinidumpParser::GetStreamTypeAsString(StreamType stream_type) {
     ENUM_TO_CSTR(FacebookAbortReason);
     ENUM_TO_CSTR(FacebookThreadName);
     ENUM_TO_CSTR(FacebookLogcat);
+    ENUM_TO_CSTR(LLDBGenerated);
   }
   return "unknown stream type";
+}
+
+MemoryRegionInfo
+MinidumpParser::GetMemoryRegionInfo(const MemoryRegionInfos &regions,
+                                    lldb::addr_t load_addr) {
+  MemoryRegionInfo region;
+  auto pos = llvm::upper_bound(regions, load_addr);
+  if (pos != regions.begin() &&
+      std::prev(pos)->GetRange().Contains(load_addr)) {
+    return *std::prev(pos);
+  }
+
+  if (pos == regions.begin())
+    region.GetRange().SetRangeBase(0);
+  else
+    region.GetRange().SetRangeBase(std::prev(pos)->GetRange().GetRangeEnd());
+
+  if (pos == regions.end())
+    region.GetRange().SetRangeEnd(UINT64_MAX);
+  else
+    region.GetRange().SetRangeEnd(pos->GetRange().GetRangeBase());
+
+  region.SetReadable(MemoryRegionInfo::eNo);
+  region.SetWritable(MemoryRegionInfo::eNo);
+  region.SetExecutable(MemoryRegionInfo::eNo);
+  region.SetMapped(MemoryRegionInfo::eNo);
+  return region;
 }

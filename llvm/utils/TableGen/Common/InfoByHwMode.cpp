@@ -174,7 +174,11 @@ bool RegSizeInfoByHwMode::hasStricterSpillThan(
 }
 
 void RegSizeInfoByHwMode::writeToStream(raw_ostream &OS) const {
+<<<<<<< HEAD
   typedef typename decltype(Map)::value_type PairType;
+=======
+  typedef decltype(Map)::value_type PairType;
+>>>>>>> upstream/main
   std::vector<const PairType *> Pairs;
   for (const auto &P : Map)
     Pairs.push_back(&P);

@@ -13,13 +13,13 @@
 
 @end
 
-void func() {
+void func(void) {
   NSObject <PWhatever, XCElementSpacerP> * flexer;
   NSObject <PWhatever, XCElementP> * flexer2;
   XX *obj;
   [obj setFlexElement:flexer];
   // FIXME: GCC provides the following diagnostic (which is much better):
   // protocol-typecheck.m:21: warning: class 'NSObject <PWhatever, XCElementP>' does not implement the 'XCElementSpacerP' protocol
-  [obj setFlexElement2:flexer2]; // expected-warning{{incompatible pointer types sending 'NSObject<PWhatever,XCElementP> *' to parameter of type 'NSObject<PWhatever,XCElementSpacerP> *'}}
+  [obj setFlexElement2:flexer2]; // expected-error{{incompatible pointer types sending 'NSObject<PWhatever,XCElementP> *' to parameter of type 'NSObject<PWhatever,XCElementSpacerP> *'}}
 }
 

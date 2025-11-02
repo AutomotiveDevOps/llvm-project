@@ -1,10 +1,10 @@
-// RUN: llvm-mc -filetype=obj -triple i686-pc-win32 -mcpu=pentiumpro %s | llvm-readobj -S --sd | FileCheck %s
+// RUN: llvm-mc -filetype=obj -triple i686-pc-win32 -mcpu=pentiumpro %s | llvm-readobj -S --sd - | FileCheck %s
 
 // Test that we get optimal nops in text
     .text
 f0:
     .long 0
-    .align  8, 0x90
+    .align  8
     .long 0
     .align  8
 

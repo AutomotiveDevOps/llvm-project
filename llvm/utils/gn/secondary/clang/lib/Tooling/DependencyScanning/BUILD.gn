@@ -4,6 +4,7 @@ static_library("DependencyScanning") {
   deps = [
     "//clang/lib/AST",
     "//clang/lib/Basic",
+    "//clang/lib/CodeGen",
     "//clang/lib/Driver",
     "//clang/lib/Frontend",
     "//clang/lib/FrontendTool",
@@ -13,12 +14,16 @@ static_library("DependencyScanning") {
     "//clang/lib/Tooling",
     "//llvm/lib/IR",
     "//llvm/lib/Support",
+    "//llvm/lib/Target:TargetsToBuild",
+    "//llvm/lib/TargetParser",
   ]
   sources = [
+    "DependencyScannerImpl.cpp",
     "DependencyScanningFilesystem.cpp",
     "DependencyScanningService.cpp",
     "DependencyScanningTool.cpp",
     "DependencyScanningWorker.cpp",
+    "InProcessModuleCache.cpp",
     "ModuleDepCollector.cpp",
   ]
 }

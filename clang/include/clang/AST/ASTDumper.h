@@ -24,21 +24,15 @@ class ASTDumper : public ASTNodeTraverser<ASTDumper, TextNodeDumper> {
   const bool ShowColors;
 
 public:
-  ASTDumper(raw_ostream &OS, const comments::CommandTraits *Traits,
-            const SourceManager *SM)
-      : ASTDumper(OS, Traits, SM, SM && SM->getDiagnostics().getShowColors()) {}
+  ASTDumper(raw_ostream &OS, const ASTContext &Context, bool ShowColors)
+      : NodeDumper(OS, Context, ShowColors), OS(OS), ShowColors(ShowColors) {}
 
-  ASTDumper(raw_ostream &OS, const comments::CommandTraits *Traits,
-            const SourceManager *SM, bool ShowColors)
-      : ASTDumper(OS, Traits, SM, ShowColors, LangOptions()) {}
-  ASTDumper(raw_ostream &OS, const comments::CommandTraits *Traits,
-            const SourceManager *SM, bool ShowColors,
-            const PrintingPolicy &PrintPolicy)
-      : NodeDumper(OS, ShowColors, SM, PrintPolicy, Traits), OS(OS),
-        ShowColors(ShowColors) {}
+  ASTDumper(raw_ostream &OS, bool ShowColors)
+      : NodeDumper(OS, ShowColors), OS(OS), ShowColors(ShowColors) {}
 
   TextNodeDumper &doGetNodeDelegate() { return NodeDumper; }
 
+  void dumpInvalidDeclContext(const DeclContext *DC);
   void dumpLookups(const DeclContext *DC, bool DumpDecls);
 
   template <typename SpecializationDecl>

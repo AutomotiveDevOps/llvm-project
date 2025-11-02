@@ -26,7 +26,6 @@
 #include <sstream>
 
 // clang-format off
-#include <sys/types.h>
 #include <sys/sysctl.h>
 // clang-format on
 
@@ -75,13 +74,13 @@ Status NativeThreadNetBSD::Suspend() {
 
 void NativeThreadNetBSD::SetStoppedBySignal(uint32_t signo,
                                             const siginfo_t *info) {
-  Log *log(ProcessPOSIXLog::GetLogIfAllCategoriesSet(POSIX_LOG_THREAD));
+  Log *log = GetLog(POSIXLog::Thread);
   LLDB_LOG(log, "tid = {0} in called with signal {1}", GetID(), signo);
 
   SetStopped();
 
   m_stop_info.reason = StopReason::eStopReasonSignal;
-  m_stop_info.details.signal.signo = signo;
+  m_stop_info.signo = signo;
 
   m_stop_description.clear();
   if (info) {
@@ -90,8 +89,7 @@ void NativeThreadNetBSD::SetStoppedBySignal(uint32_t signo,
     case SIGBUS:
     case SIGFPE:
     case SIGILL:
-      const auto reason = GetCrashReason(*info);
-      m_stop_description = GetCrashReasonString(reason, *info);
+      m_stop_description = GetCrashReasonString(*info);
       break;
     }
   }
@@ -100,24 +98,22 @@ void NativeThreadNetBSD::SetStoppedBySignal(uint32_t signo,
 void NativeThreadNetBSD::SetStoppedByBreakpoint() {
   SetStopped();
   m_stop_info.reason = StopReason::eStopReasonBreakpoint;
-  m_stop_info.details.signal.signo = SIGTRAP;
+  m_stop_info.signo = SIGTRAP;
 }
 
 void NativeThreadNetBSD::SetStoppedByTrace() {
   SetStopped();
   m_stop_info.reason = StopReason::eStopReasonTrace;
-  m_stop_info.details.signal.signo = SIGTRAP;
+  m_stop_info.signo = SIGTRAP;
 }
 
 void NativeThreadNetBSD::SetStoppedByExec() {
   SetStopped();
   m_stop_info.reason = StopReason::eStopReasonExec;
-  m_stop_info.details.signal.signo = SIGTRAP;
+  m_stop_info.signo = SIGTRAP;
 }
 
 void NativeThreadNetBSD::SetStoppedByWatchpoint(uint32_t wp_index) {
-  SetStopped();
-
   lldbassert(wp_index != LLDB_INVALID_INDEX32 && "wp_index cannot be invalid");
 
   std::ostringstream ostr;
@@ -126,17 +122,44 @@ void NativeThreadNetBSD::SetStoppedByWatchpoint(uint32_t wp_index) {
 
   ostr << " " << GetRegisterContext().GetWatchpointHitAddress(wp_index);
 
+  SetStopped();
   m_stop_description = ostr.str();
-
   m_stop_info.reason = StopReason::eStopReasonWatchpoint;
-  m_stop_info.details.signal.signo = SIGTRAP;
+  m_stop_info.signo = SIGTRAP;
+}
+
+void NativeThreadNetBSD::SetStoppedByFork(lldb::pid_t child_pid,
+                                           lldb::tid_t child_tid) {
+  SetStopped();
+
+  m_stop_info.reason = StopReason::eStopReasonFork;
+  m_stop_info.signo = SIGTRAP;
+  m_stop_info.details.fork.child_pid = child_pid;
+  m_stop_info.details.fork.child_tid = child_tid;
+}
+
+void NativeThreadNetBSD::SetStoppedByVFork(lldb::pid_t child_pid,
+                                            lldb::tid_t child_tid) {
+  SetStopped();
+
+  m_stop_info.reason = StopReason::eStopReasonVFork;
+  m_stop_info.signo = SIGTRAP;
+  m_stop_info.details.fork.child_pid = child_pid;
+  m_stop_info.details.fork.child_tid = child_tid;
+}
+
+void NativeThreadNetBSD::SetStoppedByVForkDone() {
+  SetStopped();
+
+  m_stop_info.reason = StopReason::eStopReasonVForkDone;
+  m_stop_info.signo = SIGTRAP;
 }
 
 void NativeThreadNetBSD::SetStoppedWithNoReason() {
   SetStopped();
 
   m_stop_info.reason = StopReason::eStopReasonNone;
-  m_stop_info.details.signal.signo = 0;
+  m_stop_info.signo = 0;
 }
 
 void NativeThreadNetBSD::SetStopped() {
@@ -156,8 +179,6 @@ void NativeThreadNetBSD::SetStepping() {
 }
 
 std::string NativeThreadNetBSD::GetName() {
-  Log *log(ProcessPOSIXLog::GetLogIfAllCategoriesSet(POSIX_LOG_THREAD));
-
 #ifdef PT_LWPSTATUS
   struct ptrace_lwpstatus info = {};
   info.pl_lwpid = m_tid;
@@ -169,6 +190,8 @@ std::string NativeThreadNetBSD::GetName() {
   return info.pl_name;
 #else
   std::vector<struct kinfo_lwp> infos;
+  Log *log = GetLog(POSIXLog::Thread);
+
   int mib[5] = {CTL_KERN, KERN_LWP, static_cast<int>(m_process.GetID()),
                 sizeof(struct kinfo_lwp), 0};
   size_t size;
@@ -203,8 +226,7 @@ lldb::StateType NativeThreadNetBSD::GetState() { return m_state; }
 
 bool NativeThreadNetBSD::GetStopReason(ThreadStopInfo &stop_info,
                                        std::string &description) {
-  Log *log(ProcessPOSIXLog::GetLogIfAllCategoriesSet(POSIX_LOG_THREAD));
-
+  Log *log = GetLog(POSIXLog::Thread);
   description.clear();
 
   switch (m_state) {
@@ -239,16 +261,16 @@ NativeRegisterContextNetBSD &NativeThreadNetBSD::GetRegisterContext() {
 
 Status NativeThreadNetBSD::SetWatchpoint(lldb::addr_t addr, size_t size,
                                          uint32_t watch_flags, bool hardware) {
+  assert(m_state == eStateStopped);
   if (!hardware)
-    return Status("not implemented");
-  if (m_state == eStateLaunching)
-    return Status();
+    return Status::FromErrorString("not implemented");
   Status error = RemoveWatchpoint(addr);
   if (error.Fail())
     return error;
-  uint32_t wp_index = GetRegisterContext().SetHardwareWatchpoint(addr, size, watch_flags);
+  uint32_t wp_index =
+      GetRegisterContext().SetHardwareWatchpoint(addr, size, watch_flags);
   if (wp_index == LLDB_INVALID_INDEX32)
-    return Status("Setting hardware watchpoint failed.");
+    return Status::FromErrorString("Setting hardware watchpoint failed.");
   m_watchpoint_index_map.insert({addr, wp_index});
   return Status();
 }
@@ -261,14 +283,12 @@ Status NativeThreadNetBSD::RemoveWatchpoint(lldb::addr_t addr) {
   m_watchpoint_index_map.erase(wp);
   if (GetRegisterContext().ClearHardwareWatchpoint(wp_index))
     return Status();
-  return Status("Clearing hardware watchpoint failed.");
+  return Status::FromErrorString("Clearing hardware watchpoint failed.");
 }
 
 Status NativeThreadNetBSD::SetHardwareBreakpoint(lldb::addr_t addr,
                                                  size_t size) {
-  if (m_state == eStateLaunching)
-    return Status();
-
+  assert(m_state == eStateStopped);
   Status error = RemoveHardwareBreakpoint(addr);
   if (error.Fail())
     return error;
@@ -276,7 +296,7 @@ Status NativeThreadNetBSD::SetHardwareBreakpoint(lldb::addr_t addr,
   uint32_t bp_index = GetRegisterContext().SetHardwareBreakpoint(addr, size);
 
   if (bp_index == LLDB_INVALID_INDEX32)
-    return Status("Setting hardware breakpoint failed.");
+    return Status::FromErrorString("Setting hardware breakpoint failed.");
 
   m_hw_break_index_map.insert({addr, bp_index});
   return Status();
@@ -293,13 +313,14 @@ Status NativeThreadNetBSD::RemoveHardwareBreakpoint(lldb::addr_t addr) {
     return Status();
   }
 
-  return Status("Clearing hardware breakpoint failed.");
+  return Status::FromErrorString("Clearing hardware breakpoint failed.");
 }
 
-Status NativeThreadNetBSD::CopyWatchpointsFrom(NativeThreadNetBSD &source) {
-  Status s = GetRegisterContext().CopyHardwareWatchpointsFrom(
+llvm::Error
+NativeThreadNetBSD::CopyWatchpointsFrom(NativeThreadNetBSD &source) {
+  llvm::Error s = GetRegisterContext().CopyHardwareWatchpointsFrom(
       source.GetRegisterContext());
-  if (!s.Fail()) {
+  if (!s) {
     m_watchpoint_index_map = source.m_watchpoint_index_map;
     m_hw_break_index_map = source.m_hw_break_index_map;
   }

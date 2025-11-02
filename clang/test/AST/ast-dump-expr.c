@@ -1,4 +1,13 @@
-// RUN: %clang_cc1 -triple x86_64-unknown-unknown -Wno-unused-value -std=gnu11 -ast-dump %s | FileCheck -strict-whitespace %s
+// Test without serialization:
+// RUN: %clang_cc1 -triple x86_64-unknown-unknown -Wno-unused-value -std=gnu11 -ast-dump %s \
+// RUN: | FileCheck --strict-whitespace %s
+//
+// Test with serialization:
+// RUN: %clang_cc1 -triple x86_64-unknown-unknown -Wno-unused-value -std=gnu11 -emit-pch -o %t %s
+// RUN: %clang_cc1 -x c -triple x86_64-unknown-unknown -Wno-unused-value -std=gnu11 \
+// RUN: -include-pch %t -ast-dump-all /dev/null \
+// RUN: | sed -e "s/ <undeserialized declarations>//" -e "s/ imported//" \
+// RUN: | FileCheck --strict-whitespace %s
 
 void Comma(void) {
   1, 2, 3;
@@ -213,15 +222,15 @@ void UnaryOperators(int a, int *b) {
   // CHECK-NEXT: DeclRefExpr 0x{{[^ ]*}} <col:4> 'int' lvalue ParmVar 0x{{[^ ]*}} 'a' 'int'
 
   sizeof a;
-  // CHECK: UnaryExprOrTypeTraitExpr 0x{{[^ ]*}} <line:[[@LINE-1]]:3, col:10> 'unsigned long' sizeof
+  // CHECK: UnaryExprOrTypeTraitExpr 0x{{[^ ]*}} <line:[[@LINE-1]]:3, col:10> '__size_t':'unsigned long' sizeof
   // CHECK-NEXT: DeclRefExpr 0x{{[^ ]*}} <col:10> 'int' lvalue ParmVar 0x{{[^ ]*}} 'a' 'int'
 
   sizeof(int);
-  // CHECK: UnaryExprOrTypeTraitExpr 0x{{[^ ]*}} <line:[[@LINE-1]]:3, col:13> 'unsigned long' sizeof 'int'
+  // CHECK: UnaryExprOrTypeTraitExpr 0x{{[^ ]*}} <line:[[@LINE-1]]:3, col:13> '__size_t':'unsigned long' sizeof 'int'
 
   _Alignof(int);
   // FIXME: Uses C++ spelling for alignof in C mode.
-  // CHECK: UnaryExprOrTypeTraitExpr 0x{{[^ ]*}} <line:[[@LINE-2]]:3, col:15> 'unsigned long' alignof 'int'
+  // CHECK: UnaryExprOrTypeTraitExpr 0x{{[^ ]*}} <line:[[@LINE-2]]:3, col:15> '__size_t':'unsigned long' alignof 'int'
 }
 
 struct S {
@@ -250,7 +259,7 @@ void PostfixOperators(int *a, struct S b, struct S *c) {
   b.a;
   // CHECK: ImplicitCastExpr
   // CHECK-NEXT: MemberExpr 0x{{[^ ]*}} <col:3, col:5> 'int' lvalue .a 0x{{[^ ]*}}
-  // CHECK-NEXT: DeclRefExpr 0x{{[^ ]*}} <col:3> 'struct S':'struct S' lvalue ParmVar 0x{{[^ ]*}} 'b' 'struct S':'struct S'
+  // CHECK-NEXT: DeclRefExpr 0x{{[^ ]*}} <col:3> 'struct S' lvalue ParmVar 0x{{[^ ]*}} 'b' 'struct S'
 
   c->a;
   // CHECK: ImplicitCastExpr
@@ -262,8 +271,8 @@ void PostfixOperators(int *a, struct S b, struct S *c) {
 
   (int [4]){1, 2, 3, 4, };
   // CHECK: ImplicitCastExpr
-  // CHECK-NEXT: CompoundLiteralExpr 0x{{[^ ]*}} <col:3, col:25> 'int [4]' lvalue
-  // CHECK-NEXT: InitListExpr 0x{{[^ ]*}} <col:12, col:25> 'int [4]'
+  // CHECK-NEXT: CompoundLiteralExpr 0x{{[^ ]*}} <col:3, col:25> 'int[4]' lvalue
+  // CHECK-NEXT: InitListExpr 0x{{[^ ]*}} <col:12, col:25> 'int[4]'
   // CHECK-NEXT: IntegerLiteral 0x{{[^ ]*}} <col:13> 'int' 1
   // CHECK-NEXT: IntegerLiteral 0x{{[^ ]*}} <col:16> 'int' 2
   // CHECK-NEXT: IntegerLiteral 0x{{[^ ]*}} <col:19> 'int' 3
@@ -271,8 +280,8 @@ void PostfixOperators(int *a, struct S b, struct S *c) {
 
   (struct S){1};
   // CHECK: ImplicitCastExpr
-  // CHECK-NEXT: CompoundLiteralExpr 0x{{[^ ]*}} <col:3, col:15> 'struct S':'struct S' lvalue
-  // CHECK-NEXT: InitListExpr 0x{{[^ ]*}} <col:13, col:15> 'struct S':'struct S'
+  // CHECK-NEXT: CompoundLiteralExpr 0x{{[^ ]*}} <col:3, col:15> 'struct S' lvalue
+  // CHECK-NEXT: InitListExpr 0x{{[^ ]*}} <col:13, col:15> 'struct S'
   // CHECK-NEXT: IntegerLiteral 0x{{[^ ]*}} <col:14> 'int' 1
 }
 
@@ -291,23 +300,23 @@ void PrimaryExpressions(int a) {
 
   "a";
   // ImplicitCastExpr
-  // CHECK: StringLiteral 0x{{[^ ]*}} <col:3> 'char [2]' lvalue "a"
+  // CHECK: StringLiteral 0x{{[^ ]*}} <col:3> 'char[2]' lvalue "a"
 
   L"a";
   // ImplicitCastExpr
-  // CHECK: StringLiteral 0x{{[^ ]*}} <col:3> 'int [2]' lvalue L"a"
+  // CHECK: StringLiteral 0x{{[^ ]*}} <col:3> 'int[2]' lvalue L"a"
 
   u8"a";
   // ImplicitCastExpr
-  // CHECK: StringLiteral 0x{{[^ ]*}} <col:3> 'char [2]' lvalue u8"a"
+  // CHECK: StringLiteral 0x{{[^ ]*}} <col:3> 'char[2]' lvalue u8"a"
 
   U"a";
   // ImplicitCastExpr
-  // CHECK: StringLiteral 0x{{[^ ]*}} <col:3> 'unsigned int [2]' lvalue U"a"
+  // CHECK: StringLiteral 0x{{[^ ]*}} <col:3> 'unsigned int[2]' lvalue U"a"
 
   u"a";
   // ImplicitCastExpr
-  // CHECK: StringLiteral 0x{{[^ ]*}} <col:3> 'unsigned short [2]' lvalue u"a"
+  // CHECK: StringLiteral 0x{{[^ ]*}} <col:3> 'unsigned short[2]' lvalue u"a"
 
   1;
   // CHECK: IntegerLiteral 0x{{[^ ]*}} <line:[[@LINE-1]]:3> 'int' 1

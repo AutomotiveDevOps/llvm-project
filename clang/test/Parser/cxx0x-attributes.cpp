@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -fcxx-exceptions -fexceptions -fsyntax-only -verify -std=c++11 -Wc++14-compat -Wc++14-extensions -Wc++17-extensions %s
+// RUN: %clang_cc1 -fcxx-exceptions -fdeclspec -fexceptions -fsyntax-only -verify -std=c++11 -Wc++14-compat -Wc++14-extensions -Wc++17-extensions %s
 
 // Need std::initializer_list
 namespace std {
@@ -46,7 +46,7 @@ int & [[noreturn]] ref_attr_3 = after_attr; // expected-error {{'noreturn' attri
 int && [[]] rref_attr = 0;
 int array_attr [1] [[]];
 alignas(8) int aligned_attr;
-[[test::valid(for 42 [very] **** '+' symbols went on a trip and had a "good"_time; the end.)]] int garbage_attr; // expected-warning {{unknown attribute 'valid' ignored}}
+[[test::valid(for 42 [very] **** '+' symbols went on a trip and had a "good"_time; the end.)]] int garbage_attr; // expected-warning {{unknown attribute 'test::valid' ignored}}
 [[,,,static, class, namespace,, inline, constexpr, mutable,, bitand, bitor::compl(!.*_ Cx.!U^*R),,,]] int more_garbage_attr; // expected-warning {{unknown attribute 'static' ignored}} \
     // expected-warning {{unknown attribute 'class' ignored}} \
     // expected-warning {{unknown attribute 'namespace' ignored}} \
@@ -54,7 +54,7 @@ alignas(8) int aligned_attr;
     // expected-warning {{unknown attribute 'constexpr' ignored}} \
     // expected-warning {{unknown attribute 'mutable' ignored}} \
     // expected-warning {{unknown attribute 'bitand' ignored}} \
-    // expected-warning {{unknown attribute 'compl' ignored}}
+    // expected-warning {{unknown attribute 'bitor::compl' ignored}}
 [[u8"invalid!"]] int invalid_string_attr; // expected-error {{expected ']'}}
 void fn_attr () [[]];
 void noexcept_fn_attr () noexcept [[]];
@@ -72,6 +72,30 @@ namespace test_misplacement {
 [[]] enum  E2 { }; //expected-error{{misplaced attributes}}
 }
 
+__attribute__(()) alignas(int) int xx; // expected-none
+__attribute__(()) alignas(int) [[]] int yy; // expected-none
+[[]] __attribute__(()) alignas(int) int zz; // expected-none
+alignas(int) [[]] __attribute__(()) int aa; // expected-none
+[[]] alignas(int)  __attribute__(()) int bb; // expected-none
+__attribute__(()) [[]] alignas(int) int cc; // expected-none
+
+class C1 {
+  __attribute__(()) alignas(int) int x; // expected-none
+  __attribute__(()) alignas(int) [[]] int y; // expected-none
+  [[]] __attribute__(()) alignas(int) int z; // expected-none
+  alignas(int) [[]] __attribute__(()) int a; // expected-none
+  [[]] alignas(int)  __attribute__(()) int b; // expected-none
+  __attribute__(()) [[]] alignas(int) int c; // expected-none
+};
+
+void fn_with_decl() {
+  __attribute__(()) alignas(int) int x; // expected-none
+  __attribute__(()) alignas(int) [[]] int y; // expected-none
+  [[]] __attribute__(()) alignas(int) int z; // expected-none
+  alignas(int) [[]] __attribute__(()) int a; // expected-none
+  [[]] alignas(int)  __attribute__(()) int b; // expected-none
+  __attribute__(()) [[]] alignas(int) int c; // expected-none
+}
 // Checks attributes placed at wrong syntactic locations of class specifiers.
 class [[]] [[]]
   attr_after_class_name_decl [[]] [[]]; // expected-error {{an attribute list cannot appear here}}
@@ -94,7 +118,7 @@ class [[]] [[]] final_class_another
   [[]] [[]] alignas(16) [[]]{}; // expected-error {{an attribute list cannot appear here}}
 
 // The diagnostics here don't matter much, this just shouldn't crash:
-class C final [[deprecated(l]] {}); // expected-error {{use of undeclared identifier}} expected-error {{expected ']'}} expected-error {{an attribute list cannot appear here}} expected-error {{expected unqualified-id}}
+class C final [[deprecated(l]] {}); //expected-error {{expected string literal as argument of 'deprecated' attribute}} expected-error {{an attribute list cannot appear here}} expected-error {{expected unqualified-id}}
 class D final alignas ([l) {}]{}); // expected-error {{expected ',' or ']' in lambda capture list}} expected-error {{an attribute list cannot appear here}}
 
 [[]] struct with_init_declarators {} init_declarator;
@@ -126,17 +150,18 @@ class foo {
   void const_after_attr () [[]] const; // expected-error {{expected ';'}}
 };
 extern "C++" [[]] { } // expected-error {{an attribute list cannot appear here}}
+[[]] extern "C++" { } // expected-error {{an attribute list cannot appear here}}
 [[]] template <typename T> void before_template_attr (); // expected-error {{an attribute list cannot appear here}}
 [[]] namespace ns { int i; } // expected-error {{an attribute list cannot appear here}} expected-note {{declared here}}
 [[]] static_assert(true, ""); //expected-error {{an attribute list cannot appear here}}
 [[]] asm(""); // expected-error {{an attribute list cannot appear here}}
 
-[[]] using ns::i; // expected-error {{an attribute list cannot appear here}}
+[[]] using ns::i;
 [[unknown]] using namespace ns; // expected-warning {{unknown attribute 'unknown' ignored}}
 [[noreturn]] using namespace ns; // expected-error {{'noreturn' attribute only applies to functions}}
 namespace [[]] ns2 {} // expected-warning {{attributes on a namespace declaration are a C++17 extension}}
 
-using [[]] alignas(4) [[]] ns::i; // expected-error {{an attribute list cannot appear here}}
+using[[]] alignas(4)[[]] ns::i;          // expected-error {{an attribute list cannot appear here}} expected-error {{'alignas' attribute only applies to variables, data members and tag types}} expected-warning {{ISO C++}}
 using [[]] alignas(4) [[]] foobar = int; // expected-error {{an attribute list cannot appear here}} expected-error {{'alignas' attribute only applies to}}
 
 void bad_attributes_in_do_while() {
@@ -152,12 +177,22 @@ void bad_attributes_in_do_while() {
       [[ab]ab] ns::i); // expected-error {{an attribute list cannot appear here}}
   do {} while ( // expected-note {{to match this '('}}
       alignas(4 ns::i; // expected-note {{to match this '('}}
+                       // expected-error@-1 {{expected ';' after do/while}}
 } // expected-error 2{{expected ')'}} expected-error {{expected expression}}
 
 [[]] using T = int; // expected-error {{an attribute list cannot appear here}}
 using T [[]] = int; // ok
 template<typename T> using U [[]] = T;
-using ns::i [[]]; // expected-error {{an attribute list cannot appear here}}
+using ns::i [[]];
+using ns::i [[]], ns::i [[]]; // expected-warning {{use of multiple declarators in a single using declaration is a C++17 extension}}
+struct using_in_struct_base {
+  typedef int i, j, k, l;
+};
+struct using_in_struct : using_in_struct_base {
+  [[]] using using_in_struct_base::i;
+  using using_in_struct_base::j [[]];
+  [[]] using using_in_struct_base::k [[]], using_in_struct_base::l [[]]; // expected-warning {{use of multiple declarators in a single using declaration is a C++17 extension}}
+};
 using [[]] ns::i; // expected-error {{an attribute list cannot appear here}}
 using T [[unknown]] = int; // expected-warning {{unknown attribute 'unknown' ignored}}
 using T [[noreturn]] = int; // expected-error {{'noreturn' attribute only applies to functions}}
@@ -179,6 +214,7 @@ struct [[]] N::S s; // expected-error {{an attribute list cannot appear here}}
 struct [[]] Template<int> t; // expected-error {{an attribute list cannot appear here}}
 struct [[]] ::template Template<int> u; // expected-error {{an attribute list cannot appear here}}
 template struct [[]] Template<char>; // expected-error {{an attribute list cannot appear here}}
+template struct __attribute__((pure)) Template<std::size_t>; // We still allow GNU-style attributes here
 template <> struct [[]] Template<void>;
 
 enum [[]] E1 {};
@@ -252,13 +288,26 @@ template<typename...Ts> void variadic() {
   void bar [[noreturn...]] (); // expected-error {{attribute 'noreturn' cannot be used as an attribute pack}}
 }
 
+template <int... Is> void variadic_nttp() {
+  void bar [[noreturn...]] ();                        // expected-error {{attribute 'noreturn' cannot be used as an attribute pack}}
+  void baz [[clang::no_sanitize(Is...)]] ();          // expected-error {{expected string literal as argument of 'no_sanitize' attribute}}
+  void bor [[clang::annotate("A", "V" ...)]] ();      // expected-error {{pack expansion does not contain any unexpanded parameter packs}}
+  void bir [[clang::annotate("B", {1, 2, 3, 4})]] (); // expected-error {{'clang::annotate' attribute requires parameter 1 to be a constant expression}} expected-note {{subexpression not valid in a constant expression}}
+  void boo [[unknown::foo(Is...)]] ();                // expected-warning {{unknown attribute 'unknown::foo' ignored}}
+  void faz [[clang::annotate("C", (Is + ...))]] ();   // expected-warning {{pack fold expression is a C++17 extension}}
+  void far [[clang::annotate("D", Is...)]] ();
+  void foz [[clang::annotate("E", 1, 2, 3, Is...)]] ();
+  void fiz [[clang::annotate("F", Is..., 1, 2, 3)]] ();
+  void fir [[clang::annotate("G", 1, Is..., 2, 3)]] ();
+}
+
 // Expression tests
 void bar () {
   // FIXME: GCC accepts [[gnu::noreturn]] on a lambda, even though it appertains
   // to the operator()'s type, and GCC does not otherwise accept attributes
   // applied to types. Use that to test this.
-  [] () [[gnu::noreturn]] { return; } (); // expected-warning {{attribute 'noreturn' ignored}} FIXME-error {{should not return}}
-  [] () [[gnu::noreturn]] { throw; } (); // expected-warning {{attribute 'noreturn' ignored}}
+  [] () [[gnu::noreturn]] { return; } (); // expected-warning {{attribute 'gnu::noreturn' ignored}} FIXME-error {{should not return}}
+  [] () [[gnu::noreturn]] { throw; } (); // expected-warning {{attribute 'gnu::noreturn' ignored}}
   new int[42][[]][5][[]]{};
 }
 
@@ -295,22 +344,22 @@ enum class [[]] EvenMoreSecrets {};
 
 namespace arguments {
   void f[[gnu::format(printf, 1, 2)]](const char*, ...);
-  void g() [[unknown::foo(ignore arguments for unknown attributes, even with symbols!)]]; // expected-warning {{unknown attribute 'foo' ignored}}
+  void g() [[unknown::foo(ignore arguments for unknown attributes, even with symbols!)]]; // expected-warning {{unknown attribute 'unknown::foo' ignored}}
   [[deprecated("with argument")]] int i;
   // expected-warning@-1 {{use of the 'deprecated' attribute is a C++14 extension}}
 }
 
 // Forbid attributes on decl specifiers.
-unsigned [[gnu::used]] static int [[gnu::unused]] v1; // expected-error {{'unused' attribute cannot be applied to types}} \
+unsigned [[gnu::used]] static int [[gnu::unused]] v1; // expected-error {{'gnu::unused' attribute cannot be applied to types}} \
            expected-error {{an attribute list cannot appear here}}
-typedef [[gnu::used]] unsigned long [[gnu::unused]] v2; // expected-error {{'unused' attribute cannot be applied to types}} \
+typedef [[gnu::used]] unsigned long [[gnu::unused]] v2; // expected-error {{'gnu::unused' attribute cannot be applied to types}} \
           expected-error {{an attribute list cannot appear here}}
 int [[carries_dependency]] foo(int [[carries_dependency]] x); // expected-error 2{{'carries_dependency' attribute cannot be applied to types}}
 
 // Forbid [[gnu::...]] attributes on declarator chunks.
-int *[[gnu::unused]] v3; // expected-warning {{attribute 'unused' ignored}}
-int v4[2][[gnu::unused]]; // expected-warning {{attribute 'unused' ignored}}
-int v5()[[gnu::unused]]; // expected-warning {{attribute 'unused' ignored}}
+int *[[gnu::unused]] v3; // expected-warning {{attribute 'gnu::unused' ignored}}
+int v4[2][[gnu::unused]]; // expected-warning {{attribute 'gnu::unused' ignored}}
+int v5()[[gnu::unused]]; // expected-warning {{attribute 'gnu::unused' ignored}}
 
 [[attribute_declaration]]; // expected-warning {{unknown attribute 'attribute_declaration' ignored}}
 [[noreturn]]; // expected-error {{'noreturn' attribute only applies to functions}}
@@ -367,6 +416,22 @@ int fallthru(int n) {
   return n;
 }
 
+template<typename T> struct TemplateStruct {};
+class FriendClassesWithAttributes {
+  // We allow GNU-style attributes here
+  template <class _Tp, class _Alloc> friend class __attribute__((__type_visibility__("default"))) vector;
+  template <class _Tp, class _Alloc> friend class __declspec(code_seg("foo,whatever")) vector2;
+  // But not C++11 ones
+  template <class _Tp, class _Alloc> friend class[[]] vector3;                                         // expected-error {{an attribute list cannot appear here}}
+  template <class _Tp, class _Alloc> friend class [[clang::__type_visibility__(("default"))]] vector4; // expected-error {{an attribute list cannot appear here}}
+
+  // Also allowed
+  friend struct __attribute__((__type_visibility__("default"))) TemplateStruct<FriendClassesWithAttributes>;
+  friend struct __declspec(code_seg("foo,whatever")) TemplateStruct<FriendClassesWithAttributes>;
+  friend struct[[]] TemplateStruct<FriendClassesWithAttributes>;                                       // expected-error {{an attribute list cannot appear here}}
+  friend struct [[clang::__type_visibility__("default")]] TemplateStruct<FriendClassesWithAttributes>; // expected-error {{an attribute list cannot appear here}}
+};
+
 #define attr_name bitand
 #define attr_name_2(x) x
 #define attr_name_3(x, y) x##y
@@ -381,3 +446,34 @@ int fallthru(int n) {
 // prefered "protected" vendor namespace. We support __clang__ only for
 // people expecting it to behave the same as __gnu__.
 [[__clang__::annotate("test")]] void annotate3();  // expected-warning {{'__clang__' is a predefined macro name, not an attribute scope specifier; did you mean '_Clang' instead?}}
+
+// Check ordering: C++11 attributes must appear before GNU attributes.
+class Ordering {
+  void f1(
+    int ([[]] __attribute__(()) int n)
+  ) {
+  }
+
+  void f2(
+      int (*)([[]] __attribute__(()) int n)
+  ) {
+  }
+
+  void f3(
+    int (__attribute__(()) [[]] int n) // expected-error {{an attribute list cannot appear here}}
+  ) {
+  }
+
+  void f4(
+      int (*)(__attribute__(()) [[]] int n) // expected-error {{an attribute list cannot appear here}}
+  ) {
+  }
+};
+
+namespace P2361 {
+[[deprecated(L"abc")]] void a(); // expected-warning{{encoding prefix 'L' on an unevaluated string literal has no effect and is incompatible with c++2c}} \
+                                 // expected-warning {{use of the 'deprecated' attribute is a C++14 extension}}
+[[nodiscard("\123")]] int b(); // expected-error{{invalid escape sequence '\123' in an unevaluated string literal}}
+}
+
+alignas(int) struct AlignAsAttribute {}; // expected-error {{misplaced attributes; expected attributes here}}

@@ -6,7 +6,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-// UNSUPPORTED: c++98, c++03
+// REQUIRES: can-create-symlinks
+// UNSUPPORTED: c++03, c++11, c++14
+// UNSUPPORTED: no-filesystem
 
 // <filesystem>
 
@@ -15,32 +17,32 @@
 // directory_iterator begin(directory_iterator iter) noexcept;
 // directory_iterator end(directory_iterator iter) noexcept;
 
-#include "filesystem_include.h"
+#include <filesystem>
 #include <type_traits>
 #include <set>
 #include <cassert>
 
 #include "test_macros.h"
-#include "rapid-cxx-test.h"
 #include "filesystem_test_helper.h"
-#include <iostream>
-
+namespace fs = std::filesystem;
 using namespace fs;
 
-TEST_SUITE(directory_iterator_begin_end_tests)
-
-TEST_CASE(test_function_signatures)
+static void test_function_signatures()
 {
-    directory_iterator d; ((void)d);
+    directory_iterator d;
 
     ASSERT_SAME_TYPE(decltype(begin(d)), directory_iterator);
+    ASSERT_SAME_TYPE(decltype(begin(std::move(d))), directory_iterator);
+    ASSERT_NOEXCEPT(begin(d));
     ASSERT_NOEXCEPT(begin(std::move(d)));
 
     ASSERT_SAME_TYPE(decltype(end(d)), directory_iterator);
+    ASSERT_SAME_TYPE(decltype(end(std::move(d))), directory_iterator);
+    ASSERT_NOEXCEPT(end(d));
     ASSERT_NOEXCEPT(end(std::move(d)));
 }
 
-TEST_CASE(test_ranged_for_loop)
+static void test_ranged_for_loop()
 {
     static_test_env static_env;
     const path testDir = static_env.Dir;
@@ -49,12 +51,17 @@ TEST_CASE(test_ranged_for_loop)
 
     std::error_code ec;
     directory_iterator it(testDir, ec);
-    TEST_REQUIRE(!ec);
+    assert(!ec);
 
     for (auto& elem : it) {
-        TEST_CHECK(dir_contents.erase(elem) == 1);
+        assert(dir_contents.erase(elem) == 1);
     }
-    TEST_CHECK(dir_contents.empty());
+    assert(dir_contents.empty());
 }
 
-TEST_SUITE_END()
+int main(int, char**) {
+    test_function_signatures();
+    test_ranged_for_loop();
+
+    return 0;
+}

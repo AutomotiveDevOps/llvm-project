@@ -30,6 +30,7 @@ namespace clang {
 
 template<typename T> class CanProxy;
 template<typename T> struct CanProxyAdaptor;
+class ASTContext;
 class CXXRecordDecl;
 class EnumDecl;
 class Expr;
@@ -164,14 +165,14 @@ public:
 
   /// Determines whether this canonical type is more qualified than
   /// the @p Other canonical type.
-  bool isMoreQualifiedThan(CanQual<T> Other) const {
-    return Stored.isMoreQualifiedThan(Other.Stored);
+  bool isMoreQualifiedThan(CanQual<T> Other, const ASTContext &Ctx) const {
+    return Stored.isMoreQualifiedThan(Other.Stored, Ctx);
   }
 
   /// Determines whether this canonical type is at least as qualified as
   /// the @p Other canonical type.
-  bool isAtLeastAsQualifiedAs(CanQual<T> Other) const {
-    return Stored.isAtLeastAsQualifiedAs(Other.Stored);
+  bool isAtLeastAsQualifiedAs(CanQual<T> Other, const ASTContext &Ctx) const {
+    return Stored.isAtLeastAsQualifiedAs(Other.Stored, Ctx);
   }
 
   /// If the canonical type is a reference type, returns the type that
@@ -215,8 +216,8 @@ inline CanQualType Type::getCanonicalTypeUnqualified() const {
   return CanQualType::CreateUnsafe(getCanonicalTypeInternal());
 }
 
-inline const DiagnosticBuilder &operator<<(const DiagnosticBuilder &DB,
-                                           CanQualType T) {
+inline const StreamingDiagnostic &operator<<(const StreamingDiagnostic &DB,
+                                             CanQualType T) {
   DB << static_cast<QualType>(T);
   return DB;
 }
@@ -299,13 +300,13 @@ public:
   LLVM_CLANG_CANPROXY_SIMPLE_ACCESSOR(bool, isDependentType)
   LLVM_CLANG_CANPROXY_SIMPLE_ACCESSOR(bool, isOverloadableType)
   LLVM_CLANG_CANPROXY_SIMPLE_ACCESSOR(bool, isArrayType)
+  LLVM_CLANG_CANPROXY_SIMPLE_ACCESSOR(bool, isConstantArrayType)
   LLVM_CLANG_CANPROXY_SIMPLE_ACCESSOR(bool, hasPointerRepresentation)
   LLVM_CLANG_CANPROXY_SIMPLE_ACCESSOR(bool, hasObjCPointerRepresentation)
   LLVM_CLANG_CANPROXY_SIMPLE_ACCESSOR(bool, hasIntegerRepresentation)
   LLVM_CLANG_CANPROXY_SIMPLE_ACCESSOR(bool, hasSignedIntegerRepresentation)
   LLVM_CLANG_CANPROXY_SIMPLE_ACCESSOR(bool, hasUnsignedIntegerRepresentation)
   LLVM_CLANG_CANPROXY_SIMPLE_ACCESSOR(bool, hasFloatingRepresentation)
-  LLVM_CLANG_CANPROXY_SIMPLE_ACCESSOR(bool, isPromotableIntegerType)
   LLVM_CLANG_CANPROXY_SIMPLE_ACCESSOR(bool, isSignedIntegerType)
   LLVM_CLANG_CANPROXY_SIMPLE_ACCESSOR(bool, isUnsignedIntegerType)
   LLVM_CLANG_CANPROXY_SIMPLE_ACCESSOR(bool, isSignedIntegerOrEnumerationType)
@@ -452,7 +453,9 @@ template<>
 struct CanProxyAdaptor<MemberPointerType>
   : public CanProxyBase<MemberPointerType> {
   LLVM_CLANG_CANPROXY_TYPE_ACCESSOR(getPointeeType)
-  LLVM_CLANG_CANPROXY_SIMPLE_ACCESSOR(const Type *, getClass)
+  LLVM_CLANG_CANPROXY_SIMPLE_ACCESSOR(NestedNameSpecifier, getQualifier)
+  LLVM_CLANG_CANPROXY_SIMPLE_ACCESSOR(const CXXRecordDecl *,
+                                      getMostRecentCXXRecordDecl)
 };
 
 // CanProxyAdaptors for arrays are intentionally unimplemented because
@@ -529,7 +532,7 @@ struct CanProxyAdaptor<FunctionProtoType>
 
 template<>
 struct CanProxyAdaptor<TypeOfType> : public CanProxyBase<TypeOfType> {
-  LLVM_CLANG_CANPROXY_TYPE_ACCESSOR(getUnderlyingType)
+  LLVM_CLANG_CANPROXY_TYPE_ACCESSOR(getUnmodifiedType)
 };
 
 template<>
@@ -549,20 +552,17 @@ struct CanProxyAdaptor<UnaryTransformType>
 template<>
 struct CanProxyAdaptor<TagType> : public CanProxyBase<TagType> {
   LLVM_CLANG_CANPROXY_SIMPLE_ACCESSOR(TagDecl *, getDecl)
-  LLVM_CLANG_CANPROXY_SIMPLE_ACCESSOR(bool, isBeingDefined)
 };
 
 template<>
 struct CanProxyAdaptor<RecordType> : public CanProxyBase<RecordType> {
   LLVM_CLANG_CANPROXY_SIMPLE_ACCESSOR(RecordDecl *, getDecl)
-  LLVM_CLANG_CANPROXY_SIMPLE_ACCESSOR(bool, isBeingDefined)
   LLVM_CLANG_CANPROXY_SIMPLE_ACCESSOR(bool, hasConstFields)
 };
 
 template<>
 struct CanProxyAdaptor<EnumType> : public CanProxyBase<EnumType> {
   LLVM_CLANG_CANPROXY_SIMPLE_ACCESSOR(EnumDecl *, getDecl)
-  LLVM_CLANG_CANPROXY_SIMPLE_ACCESSOR(bool, isBeingDefined)
 };
 
 template<>

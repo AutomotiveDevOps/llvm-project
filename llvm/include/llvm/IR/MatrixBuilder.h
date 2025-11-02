@@ -22,6 +22,7 @@
 #include "llvm/IR/IntrinsicInst.h"
 #include "llvm/IR/Type.h"
 #include "llvm/IR/Value.h"
+#include "llvm/Support/Alignment.h"
 
 namespace llvm {
 
@@ -29,52 +30,79 @@ class Function;
 class Twine;
 class Module;
 
-template <class IRBuilderTy> class MatrixBuilder {
-  IRBuilderTy &B;
+class MatrixBuilder {
+  IRBuilderBase &B;
   Module *getModule() { return B.GetInsertBlock()->getParent()->getParent(); }
 
-public:
-  MatrixBuilder(IRBuilderTy &Builder) : B(Builder) {}
+  std::pair<Value *, Value *> splatScalarOperandIfNeeded(Value *LHS,
+                                                         Value *RHS) {
+    assert((LHS->getType()->isVectorTy() || RHS->getType()->isVectorTy()) &&
+           "One of the operands must be a matrix (embedded in a vector)");
+    if (LHS->getType()->isVectorTy() && !RHS->getType()->isVectorTy()) {
+      assert(!isa<ScalableVectorType>(LHS->getType()) &&
+             "LHS Assumed to be fixed width");
+      RHS = B.CreateVectorSplat(
+          cast<VectorType>(LHS->getType())->getElementCount(), RHS,
+          "scalar.splat");
+    } else if (!LHS->getType()->isVectorTy() && RHS->getType()->isVectorTy()) {
+      assert(!isa<ScalableVectorType>(RHS->getType()) &&
+             "RHS Assumed to be fixed width");
+      LHS = B.CreateVectorSplat(
+          cast<VectorType>(RHS->getType())->getElementCount(), LHS,
+          "scalar.splat");
+    }
+    return {LHS, RHS};
+  }
 
-  /// Create a columnwise, strided matrix load.
+public:
+  MatrixBuilder(IRBuilderBase &Builder) : B(Builder) {}
+
+  /// Create a column major, strided matrix load.
+  /// \p EltTy   - Matrix element type
   /// \p DataPtr - Start address of the matrix read
   /// \p Rows    - Number of rows in matrix (must be a constant)
   /// \p Columns - Number of columns in matrix (must be a constant)
   /// \p Stride  - Space between columns
-  CallInst *CreateMatrixColumnwiseLoad(Value *DataPtr, unsigned Rows,
-                                       unsigned Columns, Value *Stride,
-                                       const Twine &Name = "") {
+  CallInst *CreateColumnMajorLoad(Type *EltTy, Value *DataPtr, Align Alignment,
+                                  Value *Stride, bool IsVolatile, unsigned Rows,
+                                  unsigned Columns, const Twine &Name = "") {
+    auto *RetType = FixedVectorType::get(EltTy, Rows * Columns);
 
-    // Deal with the pointer
-    PointerType *PtrTy = cast<PointerType>(DataPtr->getType());
-    Type *EltTy = PtrTy->getElementType();
+    Value *Ops[] = {DataPtr, Stride, B.getInt1(IsVolatile), B.getInt32(Rows),
+                    B.getInt32(Columns)};
+    Type *OverloadedTypes[] = {RetType, Stride->getType()};
 
-    Type *RetType = VectorType::get(EltTy, Rows * Columns);
+    Function *TheFn = Intrinsic::getOrInsertDeclaration(
+        getModule(), Intrinsic::matrix_column_major_load, OverloadedTypes);
 
-    Value *Ops[] = {DataPtr, Stride, B.getInt32(Rows), B.getInt32(Columns)};
-    Type *OverloadedTypes[] = {RetType, PtrTy};
-
-    Function *TheFn = Intrinsic::getDeclaration(
-        getModule(), Intrinsic::matrix_columnwise_load, OverloadedTypes);
-
-    return B.CreateCall(TheFn->getFunctionType(), TheFn, Ops, Name);
+    CallInst *Call = B.CreateCall(TheFn->getFunctionType(), TheFn, Ops, Name);
+    Attribute AlignAttr =
+        Attribute::getWithAlignment(Call->getContext(), Alignment);
+    Call->addParamAttr(0, AlignAttr);
+    return Call;
   }
 
-  /// Create a columnwise, strided matrix store.
+  /// Create a column major, strided matrix store.
   /// \p Matrix  - Matrix to store
   /// \p Ptr     - Pointer to write back to
   /// \p Stride  - Space between columns
-  CallInst *CreateMatrixColumnwiseStore(Value *Matrix, Value *Ptr,
-                                        Value *Stride, unsigned Rows,
-                                        unsigned Columns,
-                                        const Twine &Name = "") {
-    Value *Ops[] = {Matrix, Ptr, Stride, B.getInt32(Rows), B.getInt32(Columns)};
-    Type *OverloadedTypes[] = {Matrix->getType(), Ptr->getType()};
+  CallInst *CreateColumnMajorStore(Value *Matrix, Value *Ptr, Align Alignment,
+                                   Value *Stride, bool IsVolatile,
+                                   unsigned Rows, unsigned Columns,
+                                   const Twine &Name = "") {
+    Value *Ops[] = {Matrix,           Ptr,
+                    Stride,           B.getInt1(IsVolatile),
+                    B.getInt32(Rows), B.getInt32(Columns)};
+    Type *OverloadedTypes[] = {Matrix->getType(), Stride->getType()};
 
-    Function *TheFn = Intrinsic::getDeclaration(
-        getModule(), Intrinsic::matrix_columnwise_store, OverloadedTypes);
+    Function *TheFn = Intrinsic::getOrInsertDeclaration(
+        getModule(), Intrinsic::matrix_column_major_store, OverloadedTypes);
 
-    return B.CreateCall(TheFn->getFunctionType(), TheFn, Ops, Name);
+    CallInst *Call = B.CreateCall(TheFn->getFunctionType(), TheFn, Ops, Name);
+    Attribute AlignAttr =
+        Attribute::getWithAlignment(Call->getContext(), Alignment);
+    Call->addParamAttr(1, AlignAttr);
+    return Call;
   }
 
   /// Create a llvm.matrix.transpose call, transposing \p Matrix with \p Rows
@@ -82,12 +110,12 @@ public:
   CallInst *CreateMatrixTranspose(Value *Matrix, unsigned Rows,
                                   unsigned Columns, const Twine &Name = "") {
     auto *OpType = cast<VectorType>(Matrix->getType());
-    Type *ReturnType =
-        VectorType::get(OpType->getElementType(), Rows * Columns);
+    auto *ReturnType =
+        FixedVectorType::get(OpType->getElementType(), Rows * Columns);
 
     Type *OverloadedTypes[] = {ReturnType};
     Value *Ops[] = {Matrix, B.getInt32(Rows), B.getInt32(Columns)};
-    Function *TheFn = Intrinsic::getDeclaration(
+    Function *TheFn = Intrinsic::getOrInsertDeclaration(
         getModule(), Intrinsic::matrix_transpose, OverloadedTypes);
 
     return B.CreateCall(TheFn->getFunctionType(), TheFn, Ops, Name);
@@ -101,14 +129,14 @@ public:
     auto *LHSType = cast<VectorType>(LHS->getType());
     auto *RHSType = cast<VectorType>(RHS->getType());
 
-    Type *ReturnType =
-        VectorType::get(LHSType->getElementType(), LHSRows * RHSColumns);
+    auto *ReturnType =
+        FixedVectorType::get(LHSType->getElementType(), LHSRows * RHSColumns);
 
     Value *Ops[] = {LHS, RHS, B.getInt32(LHSRows), B.getInt32(LHSColumns),
                     B.getInt32(RHSColumns)};
     Type *OverloadedTypes[] = {ReturnType, LHSType, RHSType};
 
-    Function *TheFn = Intrinsic::getDeclaration(
+    Function *TheFn = Intrinsic::getOrInsertDeclaration(
         getModule(), Intrinsic::matrix_multiply, OverloadedTypes);
     return B.CreateCall(TheFn->getFunctionType(), TheFn, Ops, Name);
   }
@@ -128,14 +156,19 @@ public:
   /// matrixes.
   Value *CreateAdd(Value *LHS, Value *RHS) {
     assert(LHS->getType()->isVectorTy() || RHS->getType()->isVectorTy());
-    if (LHS->getType()->isVectorTy() && !RHS->getType()->isVectorTy())
+    if (LHS->getType()->isVectorTy() && !RHS->getType()->isVectorTy()) {
+      assert(!isa<ScalableVectorType>(LHS->getType()) &&
+             "LHS Assumed to be fixed width");
       RHS = B.CreateVectorSplat(
-          cast<VectorType>(LHS->getType())->getNumElements(), RHS,
+          cast<VectorType>(LHS->getType())->getElementCount(), RHS,
           "scalar.splat");
-    else if (!LHS->getType()->isVectorTy() && RHS->getType()->isVectorTy())
+    } else if (!LHS->getType()->isVectorTy() && RHS->getType()->isVectorTy()) {
+      assert(!isa<ScalableVectorType>(RHS->getType()) &&
+             "RHS Assumed to be fixed width");
       LHS = B.CreateVectorSplat(
-          cast<VectorType>(RHS->getType())->getNumElements(), LHS,
+          cast<VectorType>(RHS->getType())->getElementCount(), LHS,
           "scalar.splat");
+    }
 
     return cast<VectorType>(LHS->getType())
                    ->getElementType()
@@ -148,14 +181,19 @@ public:
   /// point matrixes.
   Value *CreateSub(Value *LHS, Value *RHS) {
     assert(LHS->getType()->isVectorTy() || RHS->getType()->isVectorTy());
-    if (LHS->getType()->isVectorTy() && !RHS->getType()->isVectorTy())
+    if (LHS->getType()->isVectorTy() && !RHS->getType()->isVectorTy()) {
+      assert(!isa<ScalableVectorType>(LHS->getType()) &&
+             "LHS Assumed to be fixed width");
       RHS = B.CreateVectorSplat(
-          cast<VectorType>(LHS->getType())->getNumElements(), RHS,
+          cast<VectorType>(LHS->getType())->getElementCount(), RHS,
           "scalar.splat");
-    else if (!LHS->getType()->isVectorTy() && RHS->getType()->isVectorTy())
+    } else if (!LHS->getType()->isVectorTy() && RHS->getType()->isVectorTy()) {
+      assert(!isa<ScalableVectorType>(RHS->getType()) &&
+             "RHS Assumed to be fixed width");
       LHS = B.CreateVectorSplat(
-          cast<VectorType>(RHS->getType())->getNumElements(), LHS,
+          cast<VectorType>(RHS->getType())->getElementCount(), LHS,
           "scalar.splat");
+    }
 
     return cast<VectorType>(LHS->getType())
                    ->getElementType()
@@ -164,30 +202,54 @@ public:
                : B.CreateSub(LHS, RHS);
   }
 
-  /// Multiply matrix \p LHS with scalar \p RHS.
+  /// Multiply matrix \p LHS with scalar \p RHS or scalar \p LHS with matrix \p
+  /// RHS.
   Value *CreateScalarMultiply(Value *LHS, Value *RHS) {
-    Value *ScalarVector =
-        B.CreateVectorSplat(cast<VectorType>(LHS->getType())->getNumElements(),
-                            RHS, "scalar.splat");
-    if (RHS->getType()->isFloatingPointTy())
-      return B.CreateFMul(LHS, ScalarVector);
-
-    return B.CreateMul(LHS, ScalarVector);
+    std::tie(LHS, RHS) = splatScalarOperandIfNeeded(LHS, RHS);
+    if (LHS->getType()->getScalarType()->isFloatingPointTy())
+      return B.CreateFMul(LHS, RHS);
+    return B.CreateMul(LHS, RHS);
   }
 
-  /// Extracts the element at (\p RowIdx, \p ColumnIdx) from \p Matrix.
-  Value *CreateExtractElement(Value *Matrix, Value *RowIdx, Value *ColumnIdx,
-                              unsigned NumRows, Twine const &Name = "") {
+  /// Divide matrix \p LHS by scalar \p RHS. If the operands are integers, \p
+  /// IsUnsigned indicates whether UDiv or SDiv should be used.
+  Value *CreateScalarDiv(Value *LHS, Value *RHS, bool IsUnsigned) {
+    assert(LHS->getType()->isVectorTy() && !RHS->getType()->isVectorTy());
+    assert(!isa<ScalableVectorType>(LHS->getType()) &&
+           "LHS Assumed to be fixed width");
+    RHS =
+        B.CreateVectorSplat(cast<VectorType>(LHS->getType())->getElementCount(),
+                            RHS, "scalar.splat");
+    return cast<VectorType>(LHS->getType())
+                   ->getElementType()
+                   ->isFloatingPointTy()
+               ? B.CreateFDiv(LHS, RHS)
+               : (IsUnsigned ? B.CreateUDiv(LHS, RHS) : B.CreateSDiv(LHS, RHS));
+  }
 
+  /// Create an assumption that \p Idx is less than \p NumElements.
+  void CreateIndexAssumption(Value *Idx, unsigned NumElements,
+                             Twine const &Name = "") {
+    Value *NumElts =
+        B.getIntN(Idx->getType()->getScalarSizeInBits(), NumElements);
+    auto *Cmp = B.CreateICmpULT(Idx, NumElts);
+    if (isa<ConstantInt>(Cmp))
+      assert(cast<ConstantInt>(Cmp)->isOne() && "Index must be valid!");
+    else
+      B.CreateAssumption(Cmp);
+  }
+
+  /// Compute the index to access the element at (\p RowIdx, \p ColumnIdx) from
+  /// a matrix with \p NumRows embedded in a vector.
+  Value *CreateIndex(Value *RowIdx, Value *ColumnIdx, unsigned NumRows,
+                     Twine const &Name = "") {
     unsigned MaxWidth = std::max(RowIdx->getType()->getScalarSizeInBits(),
                                  ColumnIdx->getType()->getScalarSizeInBits());
     Type *IntTy = IntegerType::get(RowIdx->getType()->getContext(), MaxWidth);
     RowIdx = B.CreateZExt(RowIdx, IntTy);
     ColumnIdx = B.CreateZExt(ColumnIdx, IntTy);
     Value *NumRowsV = B.getIntN(MaxWidth, NumRows);
-    return B.CreateExtractElement(
-        Matrix, B.CreateAdd(B.CreateMul(ColumnIdx, NumRowsV), RowIdx),
-        "matext");
+    return B.CreateAdd(B.CreateMul(ColumnIdx, NumRowsV), RowIdx);
   }
 };
 

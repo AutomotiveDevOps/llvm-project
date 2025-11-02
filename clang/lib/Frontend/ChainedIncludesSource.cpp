@@ -27,15 +27,15 @@
 using namespace clang;
 
 namespace {
-class ChainedIncludesSourceImpl : public ExternalSemaSource {
+class ChainedIncludesSource : public ExternalSemaSource {
 public:
-  ChainedIncludesSourceImpl(std::vector<std::unique_ptr<CompilerInstance>> CIs)
+  ChainedIncludesSource(std::vector<std::unique_ptr<CompilerInstance>> CIs)
       : CIs(std::move(CIs)) {}
 
 protected:
-  //===----------------------------------------------------------------------===//
+  //===--------------------------------------------------------------------===//
   // ExternalASTSource interface.
-  //===----------------------------------------------------------------------===//
+  //===--------------------------------------------------------------------===//
 
   /// Return the amount of memory used by memory buffers, breaking down
   /// by heap-backed versus mmap'ed memory.
@@ -51,42 +51,19 @@ protected:
 private:
   std::vector<std::unique_ptr<CompilerInstance>> CIs;
 };
+} // end anonymous namespace
 
-/// Members of ChainedIncludesSource, factored out so we can initialize
-/// them before we initialize the ExternalSemaSource base class.
-struct ChainedIncludesSourceMembers {
-  ChainedIncludesSourceMembers(
-      std::vector<std::unique_ptr<CompilerInstance>> CIs,
-      IntrusiveRefCntPtr<ExternalSemaSource> FinalReader)
-      : Impl(std::move(CIs)), FinalReader(std::move(FinalReader)) {}
-  ChainedIncludesSourceImpl Impl;
-  IntrusiveRefCntPtr<ExternalSemaSource> FinalReader;
-};
-
-/// Use MultiplexExternalSemaSource to dispatch all ExternalSemaSource
-/// calls to the final reader.
-class ChainedIncludesSource
-    : private ChainedIncludesSourceMembers,
-      public MultiplexExternalSemaSource {
-public:
-  ChainedIncludesSource(std::vector<std::unique_ptr<CompilerInstance>> CIs,
-                        IntrusiveRefCntPtr<ExternalSemaSource> FinalReader)
-      : ChainedIncludesSourceMembers(std::move(CIs), std::move(FinalReader)),
-        MultiplexExternalSemaSource(Impl, *this->FinalReader) {}
-};
-}
-
-static ASTReader *
+static llvm::IntrusiveRefCntPtr<ASTReader>
 createASTReader(CompilerInstance &CI, StringRef pchFile,
                 SmallVectorImpl<std::unique_ptr<llvm::MemoryBuffer>> &MemBufs,
                 SmallVectorImpl<std::string> &bufNames,
                 ASTDeserializationListener *deserialListener = nullptr) {
   Preprocessor &PP = CI.getPreprocessor();
-  std::unique_ptr<ASTReader> Reader;
-  Reader.reset(new ASTReader(PP, CI.getModuleCache(), &CI.getASTContext(),
-                             CI.getPCHContainerReader(),
-                             /*Extensions=*/{},
-                             /*isysroot=*/"", /*DisableValidation=*/true));
+  auto Reader = llvm::makeIntrusiveRefCnt<ASTReader>(
+      PP, CI.getModuleCache(), &CI.getASTContext(), CI.getPCHContainerReader(),
+      CI.getCodeGenOpts(),
+      /*Extensions=*/ArrayRef<std::shared_ptr<ModuleFileExtension>>(),
+      /*isysroot=*/"", DisableValidationForModuleKind::PCH);
   for (unsigned ti = 0; ti < bufNames.size(); ++ti) {
     StringRef sr(bufNames[ti]);
     Reader->addInMemoryBuffer(sr, std::move(MemBufs[ti]));
@@ -97,7 +74,7 @@ createASTReader(CompilerInstance &CI, StringRef pchFile,
   case ASTReader::Success:
     // Set the predefines buffer as suggested by the PCH reader.
     PP.setPredefines(Reader->getSuggestedPredefines());
-    return Reader.release();
+    return Reader;
 
   case ASTReader::Failure:
   case ASTReader::Missing:
@@ -110,8 +87,9 @@ createASTReader(CompilerInstance &CI, StringRef pchFile,
   return nullptr;
 }
 
-IntrusiveRefCntPtr<ExternalSemaSource> clang::createChainedIncludesSource(
-    CompilerInstance &CI, IntrusiveRefCntPtr<ExternalSemaSource> &Reader) {
+IntrusiveRefCntPtr<ExternalSemaSource>
+clang::createChainedIncludesSource(CompilerInstance &CI,
+                                   IntrusiveRefCntPtr<ASTReader> &OutReader) {
 
   std::vector<std::string> &includes = CI.getPreprocessorOpts().ChainedIncludes;
   assert(!includes.empty() && "No '-chain-include' in options!");
@@ -129,7 +107,8 @@ IntrusiveRefCntPtr<ExternalSemaSource> clang::createChainedIncludesSource(
 
     CInvok->getPreprocessorOpts().ChainedIncludes.clear();
     CInvok->getPreprocessorOpts().ImplicitPCHInclude.clear();
-    CInvok->getPreprocessorOpts().DisablePCHValidation = true;
+    CInvok->getPreprocessorOpts().DisablePCHOrModuleValidation =
+        DisableValidationForModuleKind::PCH;
     CInvok->getPreprocessorOpts().Includes.clear();
     CInvok->getPreprocessorOpts().MacroIncludes.clear();
     CInvok->getPreprocessorOpts().Macros.clear();
@@ -139,19 +118,18 @@ IntrusiveRefCntPtr<ExternalSemaSource> clang::createChainedIncludesSource(
     CInvok->getFrontendOpts().Inputs.push_back(InputFile);
 
     TextDiagnosticPrinter *DiagClient =
-      new TextDiagnosticPrinter(llvm::errs(), new DiagnosticOptions());
-    IntrusiveRefCntPtr<DiagnosticIDs> DiagID(new DiagnosticIDs());
-    IntrusiveRefCntPtr<DiagnosticsEngine> Diags(
-        new DiagnosticsEngine(DiagID, &CI.getDiagnosticOpts(), DiagClient));
+        new TextDiagnosticPrinter(llvm::errs(), CI.getDiagnosticOpts());
+    auto Diags = llvm::makeIntrusiveRefCnt<DiagnosticsEngine>(
+        DiagnosticIDs::create(), CI.getDiagnosticOpts(), DiagClient);
 
-    std::unique_ptr<CompilerInstance> Clang(
-        new CompilerInstance(CI.getPCHContainerOperations()));
-    Clang->setInvocation(std::move(CInvok));
-    Clang->setDiagnostics(Diags.get());
+    auto Clang = std::make_unique<CompilerInstance>(
+        std::move(CInvok), CI.getPCHContainerOperations());
+    Clang->createVirtualFileSystem();
+    Clang->setDiagnostics(Diags);
     Clang->setTarget(TargetInfo::CreateTargetInfo(
-        Clang->getDiagnostics(), Clang->getInvocation().TargetOpts));
+        Clang->getDiagnostics(), Clang->getInvocation().getTargetOpts()));
     Clang->createFileManager();
-    Clang->createSourceManager(Clang->getFileManager());
+    Clang->createSourceManager();
     Clang->createPreprocessor(TU_Prefix);
     Clang->getDiagnosticClient().BeginSourceFile(Clang->getLangOpts(),
                                                  &Clang->getPreprocessor());
@@ -161,7 +139,8 @@ IntrusiveRefCntPtr<ExternalSemaSource> clang::createChainedIncludesSource(
     ArrayRef<std::shared_ptr<ModuleFileExtension>> Extensions;
     auto consumer = std::make_unique<PCHGenerator>(
         Clang->getPreprocessor(), Clang->getModuleCache(), "-", /*isysroot=*/"",
-        Buffer, Extensions, /*AllowASTWithErrors=*/true);
+        Buffer, Clang->getCodeGenOpts(), Extensions,
+        /*AllowASTWithErrors=*/true);
     Clang->getASTContext().setASTMutationListener(
                                             consumer->GetASTMutationListener());
     Clang->setASTConsumer(std::move(consumer));
@@ -181,7 +160,7 @@ IntrusiveRefCntPtr<ExternalSemaSource> clang::createChainedIncludesSource(
       std::string pchName = includes[i-1];
       llvm::raw_string_ostream os(pchName);
       os << ".pch" << i-1;
-      serialBufNames.push_back(os.str());
+      serialBufNames.push_back(pchName);
 
       IntrusiveRefCntPtr<ASTReader> Reader;
       Reader = createASTReader(
@@ -209,10 +188,12 @@ IntrusiveRefCntPtr<ExternalSemaSource> clang::createChainedIncludesSource(
   assert(!SerialBufs.empty());
   std::string pchName = includes.back() + ".pch-final";
   serialBufNames.push_back(pchName);
-  Reader = createASTReader(CI, pchName, SerialBufs, serialBufNames);
-  if (!Reader)
+  OutReader = createASTReader(CI, pchName, SerialBufs, serialBufNames);
+  if (!OutReader)
     return nullptr;
 
-  return IntrusiveRefCntPtr<ChainedIncludesSource>(
-      new ChainedIncludesSource(std::move(CIs), Reader));
+  auto ChainedSrc =
+      llvm::makeIntrusiveRefCnt<ChainedIncludesSource>(std::move(CIs));
+  return llvm::makeIntrusiveRefCnt<MultiplexExternalSemaSource>(
+      std::move(ChainedSrc), OutReader);
 }

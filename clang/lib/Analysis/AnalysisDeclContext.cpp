@@ -36,11 +36,9 @@
 #include "clang/Basic/SourceManager.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/FoldingSet.h"
-#include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/iterator_range.h"
 #include "llvm/Support/Allocator.h"
-#include "llvm/Support/Casting.h"
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/SaveAndRestore.h"
@@ -71,8 +69,8 @@ AnalysisDeclContextManager::AnalysisDeclContextManager(
     bool addLoopExit, bool addScopes, bool synthesizeBodies,
     bool addStaticInitBranch, bool addCXXNewAllocator,
     bool addRichCXXConstructors, bool markElidedCXXConstructors,
-    bool addVirtualBaseBranches, CodeInjector *injector)
-    : Injector(injector), FunctionBodyFarm(ASTCtx, injector),
+    bool addVirtualBaseBranches, std::unique_ptr<CodeInjector> injector)
+    : Injector(std::move(injector)), FunctionBodyFarm(ASTCtx, Injector.get()),
       SynthesizeBodies(synthesizeBodies) {
   cfgBuildOptions.PruneTriviallyFalseEdges = !useUnoptimizedCFG;
   cfgBuildOptions.AddImplicitDtors = addImplicitDtors;
@@ -142,7 +140,7 @@ bool AnalysisDeclContext::isBodyAutosynthesizedFromModelFile() const {
 
 /// Returns true if \param VD is an Objective-C implicit 'self' parameter.
 static bool isSelfDecl(const VarDecl *VD) {
-  return isa<ImplicitParamDecl>(VD) && VD->getName() == "self";
+  return isa_and_nonnull<ImplicitParamDecl>(VD) && VD->getName() == "self";
 }
 
 const ImplicitParamDecl *AnalysisDeclContext::getSelfDecl() const {
@@ -169,8 +167,8 @@ const ImplicitParamDecl *AnalysisDeclContext::getSelfDecl() const {
     if (!LC.capturesVariable())
       continue;
 
-    VarDecl *VD = LC.getCapturedVar();
-    if (isSelfDecl(VD))
+    ValueDecl *VD = LC.getCapturedVar();
+    if (isSelfDecl(dyn_cast<VarDecl>(VD)))
       return dyn_cast<ImplicitParamDecl>(VD);
   }
 
@@ -231,8 +229,7 @@ CFG *AnalysisDeclContext::getCFG() {
 
 CFG *AnalysisDeclContext::getUnoptimizedCFG() {
   if (!builtCompleteCFG) {
-    SaveAndRestore<bool> NotPrune(cfgBuildOptions.PruneTriviallyFalseEdges,
-                                  false);
+    SaveAndRestore NotPrune(cfgBuildOptions.PruneTriviallyFalseEdges, false);
     completeCFG =
         CFG::buildCFG(D, getBody(), &D->getASTContext(), cfgBuildOptions);
     // Even when the cfg is not successfully built, we don't
@@ -335,6 +332,59 @@ bool AnalysisDeclContext::isInStdNamespace(const Decl *D) {
   }
 
   return ND->isStdNamespace();
+}
+
+std::string AnalysisDeclContext::getFunctionName(const Decl *D) {
+  std::string Str;
+  llvm::raw_string_ostream OS(Str);
+  const ASTContext &Ctx = D->getASTContext();
+
+  if (const FunctionDecl *FD = dyn_cast<FunctionDecl>(D)) {
+    OS << FD->getQualifiedNameAsString();
+
+    // In C++, there are overloads.
+
+    if (Ctx.getLangOpts().CPlusPlus) {
+      OS << '(';
+      for (const auto &P : FD->parameters()) {
+        if (P != *FD->param_begin())
+          OS << ", ";
+        OS << P->getType();
+      }
+      OS << ')';
+    }
+
+  } else if (isa<BlockDecl>(D)) {
+    PresumedLoc Loc = Ctx.getSourceManager().getPresumedLoc(D->getLocation());
+
+    if (Loc.isValid()) {
+      OS << "block (line: " << Loc.getLine() << ", col: " << Loc.getColumn()
+         << ')';
+    }
+
+  } else if (const ObjCMethodDecl *OMD = dyn_cast<ObjCMethodDecl>(D)) {
+
+    // FIXME: copy-pasted from CGDebugInfo.cpp.
+    OS << (OMD->isInstanceMethod() ? '-' : '+') << '[';
+    const DeclContext *DC = OMD->getDeclContext();
+    if (const auto *OID = dyn_cast<ObjCImplementationDecl>(DC)) {
+      OS << OID->getName();
+    } else if (const auto *OID = dyn_cast<ObjCInterfaceDecl>(DC)) {
+      OS << OID->getName();
+    } else if (const auto *OC = dyn_cast<ObjCCategoryDecl>(DC)) {
+      if (OC->IsClassExtension()) {
+        OS << OC->getClassInterface()->getName();
+      } else {
+        OS << OC->getIdentifier()->getNameStart() << '('
+           << OC->getIdentifier()->getNameStart() << ')';
+      }
+    } else if (const auto *OCD = dyn_cast<ObjCCategoryImplDecl>(DC)) {
+      OS << OCD->getClassInterface()->getName() << '(' << OCD->getName() << ')';
+    }
+    OS << ' ' << OMD->getSelector().getAsString() << ']';
+  }
+
+  return Str;
 }
 
 LocationContextManager &AnalysisDeclContext::getLocationContextManager() {
@@ -456,7 +506,7 @@ void LocationContext::dumpStack(raw_ostream &Out) const {
       Out << "\t#" << Frame << ' ';
       ++Frame;
       if (const auto *D = dyn_cast<NamedDecl>(LCtx->getDecl()))
-        Out << "Calling " << D->getQualifiedNameAsString();
+        Out << "Calling " << AnalysisDeclContext::getFunctionName(D);
       else
         Out << "Calling anonymous code";
       if (const Stmt *S = cast<StackFrameContext>(LCtx)->getCallSite()) {

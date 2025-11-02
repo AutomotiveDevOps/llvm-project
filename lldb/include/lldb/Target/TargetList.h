@@ -14,6 +14,7 @@
 
 #include "lldb/Target/Target.h"
 #include "lldb/Utility/Broadcaster.h"
+#include "lldb/Utility/Iterable.h"
 
 namespace lldb_private {
 
@@ -24,7 +25,7 @@ private:
   /// Constructor
   ///
   /// The constructor for the target list is private. Clients can
-  /// get ahold of of the one and only target list through the
+  /// get ahold of the one and only target list through the
   /// lldb_private::Debugger::GetSharedInstance().GetTargetList().
   ///
   /// \see static TargetList& lldb_private::Debugger::GetTargetList().
@@ -36,13 +37,15 @@ public:
 
   // These two functions fill out the Broadcaster interface:
 
-  static ConstString &GetStaticBroadcasterClass();
+  static llvm::StringRef GetStaticBroadcasterClass();
 
-  ConstString &GetBroadcasterClass() const override {
+  llvm::StringRef GetBroadcasterClass() const override {
     return GetStaticBroadcasterClass();
   }
 
-  ~TargetList() override;
+  typedef std::vector<lldb::TargetSP> collection;
+  typedef LockingAdaptedIterable<std::recursive_mutex, collection>
+      TargetIterable;
 
   /// Create a new Target.
   ///
@@ -111,7 +114,7 @@ public:
   ///     in \a target_sp which can then be properly released.
   bool DeleteTarget(lldb::TargetSP &target_sp);
 
-  int GetNumTargets() const;
+  size_t GetNumTargets() const;
 
   lldb::TargetSP GetTargetAtIndex(uint32_t index) const;
 
@@ -156,6 +159,17 @@ public:
 
   lldb::TargetSP FindTargetWithProcess(lldb_private::Process *process) const;
 
+  /// Find the target that has a globally unique ID that matches ID \a id.
+  ///
+  /// \param[in] id
+  ///     The globally unique target ID to search our target list for.
+  ///
+  /// \return
+  ///     A shared pointer to a target object. The returned shared
+  ///     pointer will contain nullptr if no target objects has a
+  ///     matching target ID.
+  lldb::TargetSP FindTargetByGloballyUniqueID(lldb::user_id_t id) const;
+
   lldb::TargetSP GetTargetSP(Target *target) const;
 
   /// Send an async interrupt to one or all processes.
@@ -175,38 +189,52 @@ public:
 
   uint32_t SignalIfRunning(lldb::pid_t pid, int signo);
 
-  uint32_t SetSelectedTarget(Target *target);
+  void SetSelectedTarget(uint32_t index);
+
+  void SetSelectedTarget(const lldb::TargetSP &target);
 
   lldb::TargetSP GetSelectedTarget();
+  
+  ///  Returns whether any module, including ones in the process of being
+  ///  added, contains this module.  I don't want to give direct access to
+  ///  these not yet added target, but for interruption purposes, we might
+  ///  need to ask whether this target contains this module. 
+  bool AnyTargetContainsModule(Module &module);
 
-protected:
-  typedef std::vector<lldb::TargetSP> collection;
-  // Member variables.
+  TargetIterable Targets() {
+    return TargetIterable(m_target_list, m_target_list_mutex);
+  }
+
+private:
   collection m_target_list;
-  lldb::TargetSP m_dummy_target_sp;
+  std::unordered_set<lldb::TargetSP> m_in_process_target_list;
   mutable std::recursive_mutex m_target_list_mutex;
   uint32_t m_selected_target_idx;
 
-private:
-  lldb::TargetSP GetDummyTarget(lldb_private::Debugger &debugger);
+  static Status CreateTargetInternal(
+      Debugger &debugger, llvm::StringRef user_exe_path,
+      llvm::StringRef triple_str, LoadDependentFiles load_dependent_files,
+      const OptionGroupPlatform *platform_options, lldb::TargetSP &target_sp);
 
-  Status CreateDummyTarget(Debugger &debugger,
-                           llvm::StringRef specified_arch_name,
-                           lldb::TargetSP &target_sp);
+  static Status CreateTargetInternal(Debugger &debugger,
+                                     llvm::StringRef user_exe_path,
+                                     const ArchSpec &arch,
+                                     LoadDependentFiles get_dependent_modules,
+                                     lldb::PlatformSP &platform_sp,
+                                     lldb::TargetSP &target_sp);
 
-  Status CreateTargetInternal(Debugger &debugger, llvm::StringRef user_exe_path,
-                              llvm::StringRef triple_str,
-                              LoadDependentFiles load_dependent_files,
-                              const OptionGroupPlatform *platform_options,
-                              lldb::TargetSP &target_sp, bool is_dummy_target);
+  void RegisterInProcessTarget(lldb::TargetSP target_sp);
+  
+  void UnregisterInProcessTarget(lldb::TargetSP target_sp);
+  
+  bool IsTargetInProcess(lldb::TargetSP target_sp);
+  
+  void AddTargetInternal(lldb::TargetSP target_sp, bool do_select);
 
-  Status CreateTargetInternal(Debugger &debugger, llvm::StringRef user_exe_path,
-                              const ArchSpec &arch,
-                              LoadDependentFiles get_dependent_modules,
-                              lldb::PlatformSP &platform_sp,
-                              lldb::TargetSP &target_sp, bool is_dummy_target);
+  void SetSelectedTargetInternal(uint32_t index);
 
-  DISALLOW_COPY_AND_ASSIGN(TargetList);
+  TargetList(const TargetList &) = delete;
+  const TargetList &operator=(const TargetList &) = delete;
 };
 
 } // namespace lldb_private

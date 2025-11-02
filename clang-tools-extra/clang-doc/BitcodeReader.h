@@ -18,10 +18,10 @@
 #include "BitcodeWriter.h"
 #include "Representation.h"
 #include "clang/AST/AST.h"
-#include "llvm/ADT/Optional.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Bitstream/BitstreamReader.h"
 #include "llvm/Support/Error.h"
+#include <optional>
 
 namespace clang {
 namespace doc {
@@ -64,8 +64,15 @@ private:
   // Helper function to set up the appropriate type of Info.
   llvm::Expected<std::unique_ptr<Info>> readBlockToInfo(unsigned ID);
 
+  template <typename InfoType, typename T, typename CallbackFunction>
+  llvm::Error handleSubBlock(unsigned ID, T Parent, CallbackFunction Function);
+
+  template <typename InfoType, typename T, typename CallbackFunction>
+  llvm::Error handleTypeSubBlock(unsigned ID, T Parent,
+                                 CallbackFunction Function);
+
   llvm::BitstreamCursor &Stream;
-  Optional<llvm::BitstreamBlockInfo> BlockInfo;
+  std::optional<llvm::BitstreamBlockInfo> BlockInfo;
   FieldId CurrentReferenceField;
 };
 

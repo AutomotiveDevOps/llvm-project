@@ -1,4 +1,4 @@
-; RUN: not llvm-rc /V /FO %t.res -- %p/Inputs/tokens.rc | FileCheck %s
+; RUN: not llvm-rc -no-preprocess /V /FO %t.res -- %p/Inputs/tokens.rc | FileCheck %s
 ; llvm-rc fails now on this sample because it is an invalid resource file
 ; script. We silence the error message and just analyze the output.
 
@@ -25,8 +25,14 @@
 ; CHECK-NEXT:  BlockEnd: }
 ; CHECK-NEXT:  BlockBegin: Begin
 ; CHECK-NEXT:  BlockEnd: End
+; CHECK-NEXT:  Int: 1; int value = 1
+; CHECK-NEXT:  Asterisk: *
+; CHECK-NEXT:  Int: 3; int value = 3
+; CHECK-NEXT:  Slash: /
+; CHECK-NEXT:  Int: 4; int value = 4
 ; CHECK-NEXT:  Identifier: He11o
 ; CHECK-NEXT:  Identifier: LLVM
+; CHECK-NEXT:  Identifier: identifier-with-dashes
 ; CHECK-NEXT:  String: "RC string test."
 ; CHECK-NEXT:  Comma: ,
 ; CHECK-NEXT:  String: L"Another RC string test.'&{"

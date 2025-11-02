@@ -7,7 +7,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Analysis/PhiValues.h"
-#include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/InitializePasses.h"
@@ -68,8 +67,10 @@ void PhiValues::processPhi(const PHINode *Phi,
       }
       // If the phi did not become part of a component then this phi and that
       // phi are part of the same component, so adjust the depth number.
-      if (!ReachableMap.count(OpDepthNumber))
-        DepthMap[Phi] = std::min(DepthMap[Phi], OpDepthNumber);
+      if (!ReachableMap.count(OpDepthNumber)) {
+        unsigned &Depth = DepthMap[Phi];
+        Depth = std::min(Depth, OpDepthNumber);
+      }
     } else {
       TrackedValues.insert(PhiValuesCallbackVH(PhiOp, this));
     }
@@ -99,7 +100,7 @@ void PhiValues::processPhi(const PHINode *Phi,
           if (OpDepthNumber != RootDepthNumber) {
             auto It = ReachableMap.find(OpDepthNumber);
             if (It != ReachableMap.end())
-              Reachable.insert(It->second.begin(), It->second.end());
+              Reachable.insert_range(It->second);
           }
         } else
           Reachable.insert(Op);
@@ -204,9 +205,7 @@ PreservedAnalyses PhiValuesPrinterPass::run(Function &F,
   return PreservedAnalyses::all();
 }
 
-PhiValuesWrapperPass::PhiValuesWrapperPass() : FunctionPass(ID) {
-  initializePhiValuesWrapperPassPass(*PassRegistry::getPassRegistry());
-}
+PhiValuesWrapperPass::PhiValuesWrapperPass() : FunctionPass(ID) {}
 
 bool PhiValuesWrapperPass::runOnFunction(Function &F) {
   Result.reset(new PhiValues(F));

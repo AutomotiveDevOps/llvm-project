@@ -20,9 +20,12 @@
 
 namespace llvm {
 namespace exegesis {
+<<<<<<< HEAD
 
 void InitializeRISCVExegesisTarget();
 
+=======
+>>>>>>> upstream/main
 namespace {
 
 using testing::IsEmpty;

@@ -12,7 +12,12 @@
 #include "flang/Evaluate/common.h"
 #include "flang/Evaluate/tools.h"
 #include "flang/Evaluate/variable.h"
+#include "flang/Parser/char-block.h"
 #include "flang/Parser/message.h"
+#include "flang/Semantics/scope.h"
+#include "flang/Semantics/symbol.h"
+#include "flang/Semantics/tools.h"
+#include "flang/Semantics/type.h"
 #include "llvm/Support/raw_ostream.h"
 #include <string>
 #include <type_traits>
@@ -25,15 +30,21 @@ template <int KIND>
 std::optional<Expr<SubscriptInteger>>
 Expr<Type<TypeCategory::Character, KIND>>::LEN() const {
   using T = std::optional<Expr<SubscriptInteger>>;
-  return std::visit(
+  return common::visit(
       common::visitors{
           [](const Constant<Result> &c) -> T {
             return AsExpr(Constant<SubscriptInteger>{c.LEN()});
           },
-          [](const ArrayConstructor<Result> &a) -> T { return a.LEN(); },
+          [](const ArrayConstructor<Result> &a) -> T {
+            if (const auto *len{a.LEN()}) {
+              return T{*len};
+            } else {
+              return std::nullopt;
+            }
+          },
           [](const Parentheses<Result> &x) { return x.left().LEN(); },
           [](const Convert<Result> &x) {
-            return std::visit(
+            return common::visit(
                 [&](const auto &kx) { return kx.LEN(); }, x.left().u);
           },
           [](const Concat<KIND> &c) -> T {
@@ -79,7 +90,7 @@ std::optional<DynamicType> ExpressionBase<A>::GetType() const {
   if constexpr (IsLengthlessIntrinsicType<Result>) {
     return Result::GetType();
   } else {
-    return std::visit(
+    return common::visit(
         [&](const auto &x) -> std::optional<DynamicType> {
           if constexpr (!common::HasMember<decltype(x), TypelessExpression>) {
             return x.GetType();
@@ -91,7 +102,7 @@ std::optional<DynamicType> ExpressionBase<A>::GetType() const {
 }
 
 template <typename A> int ExpressionBase<A>::Rank() const {
-  return std::visit(
+  return common::visit(
       [](const auto &x) {
         if constexpr (common::HasMember<decltype(x), TypelessExpression>) {
           return 0;
@@ -102,7 +113,47 @@ template <typename A> int ExpressionBase<A>::Rank() const {
       derived().u);
 }
 
+template <typename A> int ExpressionBase<A>::Corank() const {
+  return common::visit(
+      [](const auto &x) {
+        if constexpr (common::HasMember<decltype(x), TypelessExpression>) {
+          return 0;
+        } else {
+          return x.Corank();
+        }
+      },
+      derived().u);
+}
+
+DynamicType Parentheses<SomeDerived>::GetType() const {
+  return left().GetType().value();
+}
+
+#if !defined(NDEBUG) || defined(LLVM_ENABLE_DUMP)
+template <typename A> LLVM_DUMP_METHOD void ExpressionBase<A>::dump() const {
+  llvm::errs() << "Expr is <{" << AsFortran() << "}>\n";
+}
+#endif
+
 // Equality testing
+
+template <typename A> bool Extremum<A>::operator==(const Extremum &that) const {
+  return ordering == that.ordering && Base::operator==(that);
+}
+
+template <int KIND>
+bool LogicalOperation<KIND>::operator==(const LogicalOperation &that) const {
+  return logicalOperator == that.logicalOperator && Base::operator==(that);
+}
+
+template <typename A>
+bool Relational<A>::operator==(const Relational &that) const {
+  return opr == that.opr && Base::operator==(that);
+}
+
+bool Relational<SomeType>::operator==(const Relational &that) const {
+  return u == that.u;
+}
 
 bool ImpliedDoIndex::operator==(const ImpliedDoIndex &that) const {
   return name == that.name;
@@ -125,6 +176,13 @@ template <typename R>
 bool ArrayConstructorValues<R>::operator==(
     const ArrayConstructorValues<R> &that) const {
   return values_ == that.values_;
+}
+
+template <int KIND>
+auto ArrayConstructor<Type<TypeCategory::Character, KIND>>::set_LEN(
+    Expr<SubscriptInteger> &&len) -> ArrayConstructor & {
+  length_.emplace(std::move(len));
+  return *this;
 }
 
 template <int KIND>
@@ -151,10 +209,6 @@ StructureConstructor::StructureConstructor(
 
 bool StructureConstructor::operator==(const StructureConstructor &that) const {
   return result_ == that.result_ && values_ == that.values_;
-}
-
-bool Relational<SomeType>::operator==(const Relational<SomeType> &that) const {
-  return u == that.u;
 }
 
 template <int KIND>
@@ -187,6 +241,12 @@ bool Expr<Type<TypeCategory::Character, KIND>>::operator==(
   return u == that.u;
 }
 
+template <int KIND>
+bool Expr<Type<TypeCategory::Unsigned, KIND>>::operator==(
+    const Expr<Type<TypeCategory::Unsigned, KIND>> &that) const {
+  return u == that.u;
+}
+
 template <TypeCategory CAT>
 bool Expr<SomeKind<CAT>>::operator==(const Expr<SomeKind<CAT>> &that) const {
   return u == that.u;
@@ -206,13 +266,75 @@ bool Expr<SomeType>::operator==(const Expr<SomeType> &that) const {
 
 DynamicType StructureConstructor::GetType() const { return result_.GetType(); }
 
-const Expr<SomeType> *StructureConstructor::Find(
+std::optional<Expr<SomeType>> StructureConstructor::CreateParentComponent(
+    const Symbol &component) const {
+  if (const semantics::DerivedTypeSpec *
+      parentSpec{GetParentTypeSpec(derivedTypeSpec())}) {
+    StructureConstructor structureConstructor{*parentSpec};
+    if (const auto *parentDetails{
+            component.detailsIf<semantics::DerivedTypeDetails>()}) {
+      auto parentIter{parentDetails->componentNames().begin()};
+      for (const auto &childIter : values_) {
+        if (parentIter == parentDetails->componentNames().end()) {
+          break; // There are more components in the child
+        }
+        SymbolRef componentSymbol{childIter.first};
+        structureConstructor.Add(
+            *componentSymbol, common::Clone(childIter.second.value()));
+        ++parentIter;
+      }
+      Constant<SomeDerived> constResult{std::move(structureConstructor)};
+      Expr<SomeDerived> result{std::move(constResult)};
+      return std::optional<Expr<SomeType>>{result};
+    }
+  }
+  return std::nullopt;
+}
+
+static const Symbol *GetParentComponentSymbol(const Symbol &symbol) {
+  if (symbol.test(Symbol::Flag::ParentComp)) {
+    // we have a created parent component
+    const auto &compObject{symbol.get<semantics::ObjectEntityDetails>()};
+    if (const semantics::DeclTypeSpec * compType{compObject.type()}) {
+      const semantics::DerivedTypeSpec &dtSpec{compType->derivedTypeSpec()};
+      const semantics::Symbol &compTypeSymbol{dtSpec.typeSymbol()};
+      return &compTypeSymbol;
+    }
+  }
+  if (symbol.detailsIf<semantics::DerivedTypeDetails>()) {
+    // we have an implicit parent type component
+    return &symbol;
+  }
+  return nullptr;
+}
+
+std::optional<Expr<SomeType>> StructureConstructor::Find(
     const Symbol &component) const {
   if (auto iter{values_.find(component)}; iter != values_.end()) {
-    return &iter->second.value();
-  } else {
-    return nullptr;
+    return iter->second.value();
   }
+  // The component wasn't there directly, see if we're looking for the parent
+  // component of an extended type
+  if (const Symbol * typeSymbol{GetParentComponentSymbol(component)}) {
+    return CreateParentComponent(*typeSymbol);
+  }
+  // Look for the component in the parent type component.  The parent type
+  // component is always the first one
+  if (!values_.empty()) {
+    const Expr<SomeType> *parentExpr{&values_.begin()->second.value()};
+    if (const Expr<SomeDerived> *derivedExpr{
+            std::get_if<Expr<SomeDerived>>(&parentExpr->u)}) {
+      if (const Constant<SomeDerived> *constExpr{
+              std::get_if<Constant<SomeDerived>>(&derivedExpr->u)}) {
+        if (std::optional<StructureConstructor> parentComponentValue{
+                constExpr->GetScalarValue()}) {
+          // Try to find the component in the parent structure constructor
+          return parentComponentValue->Find(component);
+        }
+      }
+    }
+  }
+  return std::nullopt;
 }
 
 StructureConstructor &StructureConstructor::Add(
@@ -223,25 +345,32 @@ StructureConstructor &StructureConstructor::Add(
 
 GenericExprWrapper::~GenericExprWrapper() {}
 
+void GenericExprWrapper::Deleter(GenericExprWrapper *p) { delete p; }
+
 GenericAssignmentWrapper::~GenericAssignmentWrapper() {}
 
+void GenericAssignmentWrapper::Deleter(GenericAssignmentWrapper *p) {
+  delete p;
+}
+
 template <TypeCategory CAT> int Expr<SomeKind<CAT>>::GetKind() const {
-  return std::visit(
+  return common::visit(
       [](const auto &kx) { return std::decay_t<decltype(kx)>::Result::kind; },
       u);
 }
 
 int Expr<SomeCharacter>::GetKind() const {
-  return std::visit(
+  return common::visit(
       [](const auto &kx) { return std::decay_t<decltype(kx)>::Result::kind; },
       u);
 }
 
 std::optional<Expr<SubscriptInteger>> Expr<SomeCharacter>::LEN() const {
-  return std::visit([](const auto &kx) { return kx.LEN(); }, u);
+  return common::visit([](const auto &kx) { return kx.LEN(); }, u);
 }
 
+#ifdef _MSC_VER // disable bogus warning about missing definitions
+#pragma warning(disable : 4661)
+#endif
 INSTANTIATE_EXPRESSION_TEMPLATES
 } // namespace Fortran::evaluate
-DEFINE_DELETER(Fortran::evaluate::GenericExprWrapper)
-DEFINE_DELETER(Fortran::evaluate::GenericAssignmentWrapper)

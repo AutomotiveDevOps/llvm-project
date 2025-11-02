@@ -2,9 +2,9 @@
 
 namespace std {
   template<typename T> struct initializer_list {
-    T *p;
+    const T *p;
     __SIZE_TYPE__ n;
-    initializer_list(T*, __SIZE_TYPE__);
+    initializer_list(const T*, __SIZE_TYPE__);
   };
 }
 
@@ -86,7 +86,7 @@ namespace PR7985 {
   template<int N> struct integral_c { };
 
   template <typename T, int N>
-  integral_c<N> array_lengthof(T (&x)[N]) { return integral_c<N>(); } // expected-note 2{{candidate template ignored: could not match 'T [N]' against 'const Data<}}
+  integral_c<N> array_lengthof(T (&x)[N]) { return integral_c<N>(); } // expected-note 2{{candidate template ignored: could not match 'T[N]' against 'const Data<}}
 
   template<typename T>
   struct Data {
@@ -108,7 +108,7 @@ namespace PR7985 {
     integral_c<1> ic1 = array_lengthof(Description<int>::data);
     (void)sizeof(array_lengthof(Description<float>::data));
 
-    sizeof(array_lengthof( // expected-error{{no matching function for call to 'array_lengthof'}}
+    (void)sizeof(array_lengthof( // expected-error{{no matching function for call to 'array_lengthof'}}
                           Description<int*>::data // expected-note{{in instantiation of static data member 'PR7985::Description<int *>::data' requested here}}
                           ));
 

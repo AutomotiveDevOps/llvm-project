@@ -1,4 +1,5 @@
-; RUN: opt -analyze -module-debuginfo < %s | FileCheck %s
+; RUN: opt -passes='print<module-debuginfo>' -disable-output 2>&1 < %s \
+; RUN:   | FileCheck %s
 
 ; This module is generated from the following c-code:
 ;
@@ -17,7 +18,7 @@
 
 source_filename = "test/DebugInfo/Generic/debuginfofinder-forward-declaration.ll"
 
-%struct.Y = type { %struct.X* }
+%struct.Y = type { ptr }
 %struct.X = type opaque
 
 @y = common global %struct.Y zeroinitializer, align 8, !dbg !0

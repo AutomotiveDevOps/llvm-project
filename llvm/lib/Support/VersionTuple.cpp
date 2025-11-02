@@ -10,7 +10,9 @@
 // the form major[.minor[.subminor]].
 //
 //===----------------------------------------------------------------------===//
+
 #include "llvm/Support/VersionTuple.h"
+#include "llvm/ADT/StringRef.h"
 #include "llvm/Support/raw_ostream.h"
 #include <cassert>
 
@@ -27,11 +29,11 @@ std::string VersionTuple::getAsString() const {
 
 raw_ostream &llvm::operator<<(raw_ostream &Out, const VersionTuple &V) {
   Out << V.getMajor();
-  if (Optional<unsigned> Minor = V.getMinor())
+  if (std::optional<unsigned> Minor = V.getMinor())
     Out << '.' << *Minor;
-  if (Optional<unsigned> Subminor = V.getSubminor())
+  if (std::optional<unsigned> Subminor = V.getSubminor())
     Out << '.' << *Subminor;
-  if (Optional<unsigned> Build = V.getBuild())
+  if (std::optional<unsigned> Build = V.getBuild())
     Out << '.' << *Build;
   return Out;
 }
@@ -83,9 +85,8 @@ bool VersionTuple::tryParse(StringRef input) {
   }
 
   // If we're not done, parse the micro version, \.[0-9]+
-  if (input[0] != '.')
+  if (!input.consume_front("."))
     return true;
-  input = input.substr(1);
   if (parseInt(input, micro))
     return true;
 
@@ -95,9 +96,8 @@ bool VersionTuple::tryParse(StringRef input) {
   }
 
   // If we're not done, parse the micro version, \.[0-9]+
-  if (input[0] != '.')
+  if (!input.consume_front("."))
     return true;
-  input = input.substr(1);
   if (parseInt(input, build))
     return true;
 
@@ -107,4 +107,14 @@ bool VersionTuple::tryParse(StringRef input) {
 
   *this = VersionTuple(major, minor, micro, build);
   return false;
+}
+
+VersionTuple VersionTuple::withMajorReplaced(unsigned NewMajor) const {
+  if (HasBuild)
+    return VersionTuple(NewMajor, Minor, Subminor, Build);
+  if (HasSubminor)
+    return VersionTuple(NewMajor, Minor, Subminor);
+  if (HasMinor)
+    return VersionTuple(NewMajor, Minor);
+  return VersionTuple(NewMajor);
 }

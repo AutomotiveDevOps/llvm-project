@@ -1,11 +1,13 @@
-// RUN: %clang_cc1 -fsyntax-only -verify %s
-// RUN: %clang_cc1 -fsyntax-only -verify -std=c++98 %s
-// RUN: %clang_cc1 -fsyntax-only -verify -std=c++11 %s
+// RUN: %clang_cc1 -fsyntax-only -verify=expected,cxx11 %s
+// RUN: %clang_cc1 -fsyntax-only -verify=expected,cxx98 -std=c++98 %s
+// RUN: %clang_cc1 -fsyntax-only -verify=expected,cxx11 -std=c++11 %s
 
 template<typename T, T Divisor>
 class X {
 public:
-  static const T value = 10 / Divisor; // expected-error{{in-class initializer for static data member is not a constant expression}}
+  static const T value = 10 / Divisor; // expected-error{{in-class initializer for static data member is not a constant expression}} \
+  // cxx11-note {{division by zero}} \
+  // cxx98-note {{subexpression not valid}}
 };
 
 int array1[X<int, 2>::value == 5? 1 : -1];
@@ -134,4 +136,34 @@ MyString StaticVarWithTypedefString<T>::str = "";
 
 void testStaticVarWithTypedefString() {
   (void)StaticVarWithTypedefString<int>::str;
+}
+
+namespace ArrayBound {
+#if __cplusplus >= 201103L
+  template<typename T> void make_unique(T &&);
+
+  template<typename> struct Foo {
+    static constexpr char kMessage[] = "abc";
+    static void f() { make_unique(kMessage); }
+    static void g1() { const char (&ref)[4] = kMessage; } // OK
+    // We can diagnose this prior to instantiation because kMessage is not type-dependent.
+    static void g2() { const char (&ref)[5] = kMessage; } // expected-error {{could not bind}}
+  };
+  template void Foo<int>::f();
+#endif
+
+  template<typename> struct Bar {
+    static const char kMessage[];
+    // Here, kMessage is type-dependent, so we don't diagnose until
+    // instantiation.
+    static void g1() { const char (&ref)[4] = kMessage; } // expected-error {{could not bind to an lvalue of type 'const char[5]'}}
+    static void g2() { const char (&ref)[5] = kMessage; } // expected-error {{could not bind to an lvalue of type 'const char[4]'}}
+  };
+  template<typename T> const char Bar<T>::kMessage[] = "foo";
+  template void Bar<int>::g1();
+  template void Bar<int>::g2(); // expected-note {{in instantiation of}}
+
+  template<> const char Bar<char>::kMessage[] = "foox";
+  template void Bar<char>::g1(); // expected-note {{in instantiation of}}
+  template void Bar<char>::g2();
 }

@@ -105,9 +105,20 @@ uptr internal_munmap(void *addr, uptr length) {
   return _REAL(munmap, addr, length);
 }
 
+uptr internal_mremap(void *old_address, uptr old_size, uptr new_size, int flags,
+                     void *new_address) {
+  CHECK(false && "internal_mremap is unimplemented on NetBSD");
+  return 0;
+}
+
 int internal_mprotect(void *addr, uptr length, int prot) {
   DEFINE__REAL(int, mprotect, void *a, uptr b, int c);
   return _REAL(mprotect, addr, length, prot);
+}
+
+int internal_madvise(uptr addr, uptr length, int advice) {
+  DEFINE__REAL(int, madvise, void *a, uptr b, int c);
+  return _REAL(madvise, (void *)addr, length, advice);
 }
 
 uptr internal_close(fd_t fd) {
@@ -204,15 +215,12 @@ void internal__exit(int exitcode) {
   Die();  // Unreachable.
 }
 
-unsigned int internal_sleep(unsigned int seconds) {
+void internal_usleep(u64 useconds) {
   struct timespec ts;
-  ts.tv_sec = seconds;
-  ts.tv_nsec = 0;
+  ts.tv_sec = useconds / 1000000;
+  ts.tv_nsec = (useconds % 1000000) * 1000;
   CHECK(&_sys___nanosleep50);
-  int res = _sys___nanosleep50(&ts, &ts);
-  if (res)
-    return ts.tv_sec;
-  return 0;
+  _sys___nanosleep50(&ts, &ts);
 }
 
 uptr internal_execve(const char *filename, char *const argv[],
@@ -221,12 +229,12 @@ uptr internal_execve(const char *filename, char *const argv[],
   return _sys_execve(filename, argv, envp);
 }
 
-tid_t GetTid() {
+ThreadID GetTid() {
   DEFINE__REAL(int, _lwp_self);
   return _REAL(_lwp_self);
 }
 
-int TgKill(pid_t pid, tid_t tid, int sig) {
+int TgKill(pid_t pid, ThreadID tid, int sig) {
   DEFINE__REAL(int, _lwp_kill, int a, int b);
   (void)pid;
   return _REAL(_lwp_kill, tid, sig);

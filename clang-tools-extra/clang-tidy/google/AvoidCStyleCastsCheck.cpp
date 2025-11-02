@@ -1,4 +1,4 @@
-//===--- AvoidCStyleCastsCheck.cpp - clang-tidy -----------------*- C++ -*-===//
+//===----------------------------------------------------------------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -14,10 +14,7 @@
 
 using namespace clang::ast_matchers;
 
-namespace clang {
-namespace tidy {
-namespace google {
-namespace readability {
+namespace clang::tidy::google::readability {
 
 void AvoidCStyleCastsCheck::registerMatchers(
     ast_matchers::MatchFinder *Finder) {
@@ -26,9 +23,16 @@ void AvoidCStyleCastsCheck::registerMatchers(
           // Filter out (EnumType)IntegerLiteral construct, which is generated
           // for non-type template arguments of enum types.
           // FIXME: Remove this once this is fixed in the AST.
-          unless(hasParent(substNonTypeTemplateParmExpr())),
-          // Avoid matches in template instantiations.
-          unless(isInTemplateInstantiation()))
+          unless(hasParent(substNonTypeTemplateParmExpr())))
+          .bind("cast"),
+      this);
+
+  Finder->addMatcher(
+      cxxFunctionalCastExpr(
+          hasDestinationType(hasCanonicalType(anyOf(
+              builtinType(), references(qualType()), pointsTo(qualType())))),
+          unless(
+              hasSourceExpression(anyOf(cxxConstructExpr(), initListExpr()))))
           .bind("cast"),
       this);
 }
@@ -55,8 +59,62 @@ static bool pointedUnqualifiedTypesAreEqual(QualType T1, QualType T2) {
   return T1.getUnqualifiedType() == T2.getUnqualifiedType();
 }
 
+static clang::CharSourceRange getReplaceRange(const ExplicitCastExpr *Expr) {
+  if (const auto *CastExpr = dyn_cast<CStyleCastExpr>(Expr))
+    return CharSourceRange::getCharRange(
+        CastExpr->getLParenLoc(),
+        CastExpr->getSubExprAsWritten()->getBeginLoc());
+  if (const auto *CastExpr = dyn_cast<CXXFunctionalCastExpr>(Expr))
+    return CharSourceRange::getCharRange(CastExpr->getBeginLoc(),
+                                         CastExpr->getLParenLoc());
+  llvm_unreachable("Unsupported CastExpr");
+}
+
+static StringRef getDestTypeString(const SourceManager &SM,
+                                   const LangOptions &LangOpts,
+                                   const ExplicitCastExpr *Expr) {
+  SourceLocation BeginLoc;
+  SourceLocation EndLoc;
+
+  if (const auto *CastExpr = dyn_cast<CStyleCastExpr>(Expr)) {
+    BeginLoc = CastExpr->getLParenLoc().getLocWithOffset(1);
+    EndLoc = CastExpr->getRParenLoc().getLocWithOffset(-1);
+  } else if (const auto *CastExpr = dyn_cast<CXXFunctionalCastExpr>(Expr)) {
+    BeginLoc = CastExpr->getBeginLoc();
+    EndLoc = CastExpr->getLParenLoc().getLocWithOffset(-1);
+  } else
+    llvm_unreachable("Unsupported CastExpr");
+
+  return Lexer::getSourceText(CharSourceRange::getTokenRange(BeginLoc, EndLoc),
+                              SM, LangOpts);
+}
+
+static bool sameTypeAsWritten(QualType X, QualType Y) {
+  if (X.getCanonicalType() != Y.getCanonicalType())
+    return false;
+
+  auto TC = X->getTypeClass();
+  if (TC != Y->getTypeClass())
+    return false;
+
+  switch (TC) {
+  case Type::Typedef:
+    return declaresSameEntity(cast<TypedefType>(X)->getDecl(),
+                              cast<TypedefType>(Y)->getDecl());
+  case Type::Pointer:
+    return sameTypeAsWritten(cast<PointerType>(X)->getPointeeType(),
+                             cast<PointerType>(Y)->getPointeeType());
+  case Type::RValueReference:
+  case Type::LValueReference:
+    return sameTypeAsWritten(cast<ReferenceType>(X)->getPointeeType(),
+                             cast<ReferenceType>(Y)->getPointeeType());
+  default:
+    return true;
+  }
+}
+
 void AvoidCStyleCastsCheck::check(const MatchFinder::MatchResult &Result) {
-  const auto *CastExpr = Result.Nodes.getNodeAs<CStyleCastExpr>("cast");
+  const auto *CastExpr = Result.Nodes.getNodeAs<ExplicitCastExpr>("cast");
 
   // Ignore casts in macros.
   if (CastExpr->getExprLoc().isMacroID())
@@ -67,7 +125,7 @@ void AvoidCStyleCastsCheck::check(const MatchFinder::MatchResult &Result) {
   if (CastExpr->getCastKind() == CK_ToVoid)
     return;
 
-  auto isFunction = [](QualType T) {
+  auto IsFunction = [](QualType T) {
     T = T.getCanonicalType().getNonReferenceType();
     return T->isFunctionType() || T->isFunctionPointerType() ||
            T->isMemberFunctionPointerType();
@@ -80,22 +138,21 @@ void AvoidCStyleCastsCheck::check(const MatchFinder::MatchResult &Result) {
   const QualType SourceType = SourceTypeAsWritten.getCanonicalType();
   const QualType DestType = DestTypeAsWritten.getCanonicalType();
 
-  auto ReplaceRange = CharSourceRange::getCharRange(
-      CastExpr->getLParenLoc(), CastExpr->getSubExprAsWritten()->getBeginLoc());
+  CharSourceRange ReplaceRange = getReplaceRange(CastExpr);
 
   bool FnToFnCast =
-      isFunction(SourceTypeAsWritten) && isFunction(DestTypeAsWritten);
+      IsFunction(SourceTypeAsWritten) && IsFunction(DestTypeAsWritten);
 
   const bool ConstructorCast = !CastExpr->getTypeAsWritten().hasQualifiers() &&
-      DestTypeAsWritten->isRecordType() &&
-      !DestTypeAsWritten->isElaboratedTypeSpecifier();
+                               DestTypeAsWritten->isRecordType() &&
+                               !DestTypeAsWritten->isElaboratedTypeSpecifier();
 
   if (CastExpr->getCastKind() == CK_NoOp && !FnToFnCast) {
     // Function pointer/reference casts may be needed to resolve ambiguities in
     // case of overloaded functions, so detection of redundant casts is trickier
     // in this case. Don't emit "redundant cast" warnings for function
     // pointer/reference types.
-    if (SourceTypeAsWritten == DestTypeAsWritten) {
+    if (sameTypeAsWritten(SourceTypeAsWritten, DestTypeAsWritten)) {
       diag(CastExpr->getBeginLoc(), "redundant cast to the same type")
           << FixItHint::CreateRemoval(ReplaceRange);
       return;
@@ -112,30 +169,27 @@ void AvoidCStyleCastsCheck::check(const MatchFinder::MatchResult &Result) {
     return;
   // Ignore code in .c files and headers included from them, even if they are
   // compiled as C++.
-  if (getCurrentMainFile().endswith(".c"))
+  if (getCurrentMainFile().ends_with(".c"))
     return;
 
   SourceManager &SM = *Result.SourceManager;
 
   // Ignore code in .c files #included in other files (which shouldn't be done,
   // but people still do this for test and other purposes).
-  if (SM.getFilename(SM.getSpellingLoc(CastExpr->getBeginLoc())).endswith(".c"))
+  if (SM.getFilename(SM.getSpellingLoc(CastExpr->getBeginLoc()))
+          .ends_with(".c"))
     return;
 
   // Leave type spelling exactly as it was (unlike
   // getTypeAsWritten().getAsString() which would spell enum types 'enum X').
-  StringRef DestTypeString =
-      Lexer::getSourceText(CharSourceRange::getTokenRange(
-                               CastExpr->getLParenLoc().getLocWithOffset(1),
-                               CastExpr->getRParenLoc().getLocWithOffset(-1)),
-                           SM, getLangOpts());
+  StringRef DestTypeString = getDestTypeString(SM, getLangOpts(), CastExpr);
 
   auto Diag =
       diag(CastExpr->getBeginLoc(), "C-style casts are discouraged; use %0");
 
   auto ReplaceWithCast = [&](std::string CastText) {
     const Expr *SubExpr = CastExpr->getSubExprAsWritten()->IgnoreImpCasts();
-    if (!isa<ParenExpr>(SubExpr)) {
+    if (!isa<ParenExpr>(SubExpr) && !isa<CXXFunctionalCastExpr>(CastExpr)) {
       CastText.push_back('(');
       Diag << FixItHint::CreateInsertion(
           Lexer::getLocForEndOfToken(SubExpr->getEndLoc(), 0, SM,
@@ -194,7 +248,7 @@ void AvoidCStyleCastsCheck::check(const MatchFinder::MatchResult &Result) {
       }
       break;
     }
-    LLVM_FALLTHROUGH;
+    [[fallthrough]];
   case clang::CK_IntegralCast:
     // Convert integral and no-op casts between builtin types and enums to
     // static_cast. A cast from enum to integer may be unnecessary, but it's
@@ -222,7 +276,4 @@ void AvoidCStyleCastsCheck::check(const MatchFinder::MatchResult &Result) {
   Diag << "static_cast/const_cast/reinterpret_cast";
 }
 
-} // namespace readability
-} // namespace google
-} // namespace tidy
-} // namespace clang
+} // namespace clang::tidy::google::readability

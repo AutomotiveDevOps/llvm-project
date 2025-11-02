@@ -9,8 +9,8 @@
 #ifndef LLVM_CLANG_DRIVER_DISTRO_H
 #define LLVM_CLANG_DRIVER_DISTRO_H
 
-#include "llvm/ADT/Triple.h"
 #include "llvm/Support/VirtualFileSystem.h"
+#include "llvm/TargetParser/Triple.h"
 
 namespace clang {
 namespace driver {
@@ -23,34 +23,29 @@ namespace driver {
 class Distro {
 public:
   enum DistroType {
+    // Special value means that no detection was performed yet.
+    UninitializedDistro,
     // NB: Releases of a particular Linux distro should be kept together
     // in this enum, because some tests are done by integer comparison against
     // the first and last known member in the family, e.g. IsRedHat().
     AlpineLinux,
     ArchLinux,
-    DebianLenny,
-    DebianSqueeze,
-    DebianWheezy,
     DebianJessie,
     DebianStretch,
     DebianBuster,
     DebianBullseye,
+    DebianBookworm,
+    DebianTrixie,
+    DebianForky,
+    DebianDuke,
     Exherbo,
-    RHEL5,
-    RHEL6,
     RHEL7,
+    RHEL8,
+    RHEL9,
+    RHEL10,
     Fedora,
     Gentoo,
     OpenSUSE,
-    UbuntuHardy,
-    UbuntuIntrepid,
-    UbuntuJaunty,
-    UbuntuKarmic,
-    UbuntuLucid,
-    UbuntuMaverick,
-    UbuntuNatty,
-    UbuntuOneiric,
-    UbuntuPrecise,
     UbuntuQuantal,
     UbuntuRaring,
     UbuntuSaucy,
@@ -68,6 +63,17 @@ public:
     UbuntuEoan,
     UbuntuFocal,
     UbuntuGroovy,
+    UbuntuHirsute,
+    UbuntuImpish,
+    UbuntuJammy,
+    UbuntuKinetic,
+    UbuntuLunar,
+    UbuntuMantic,
+    UbuntuNoble,
+    UbuntuOracular,
+    UbuntuPlucky,
+    UbuntuQuesting,
+    UbuntuResolute,
     UnknownDistro
   };
 
@@ -109,28 +115,22 @@ public:
   /// @{
 
   bool IsRedhat() const {
-    return DistroVal == Fedora || (DistroVal >= RHEL5 && DistroVal <= RHEL7);
+    return DistroVal == Fedora || (DistroVal >= RHEL7 && DistroVal <= RHEL10);
   }
 
-  bool IsOpenSUSE() const {
-    return DistroVal == OpenSUSE;
-  }
+  bool IsOpenSUSE() const { return DistroVal == OpenSUSE; }
 
   bool IsDebian() const {
-    return DistroVal >= DebianLenny && DistroVal <= DebianBullseye;
+    return DistroVal >= DebianJessie && DistroVal <= DebianDuke;
   }
 
   bool IsUbuntu() const {
-    return DistroVal >= UbuntuHardy && DistroVal <= UbuntuGroovy;
+    return DistroVal >= UbuntuQuantal && DistroVal <= UbuntuResolute;
   }
 
-  bool IsAlpineLinux() const {
-    return DistroVal == AlpineLinux;
-  }
+  bool IsAlpineLinux() const { return DistroVal == AlpineLinux; }
 
-  bool IsGentoo() const {
-    return DistroVal == Gentoo;
-  }
+  bool IsGentoo() const { return DistroVal == Gentoo; }
 
   /// @}
 };

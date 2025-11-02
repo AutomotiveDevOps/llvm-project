@@ -6,8 +6,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-// UNSUPPORTED: c++98, c++03
+// UNSUPPORTED: c++03, c++11, c++14
 // REQUIRES: long_tests
+// UNSUPPORTED: no-filesystem
 
 // <filesystem>
 
@@ -17,36 +18,25 @@
 // bool copy_file(const path& from, const path& to, copy_options options,
 //           error_code& ec) noexcept;
 
-#include "filesystem_include.h"
-#include <type_traits>
-#include <chrono>
+#include <filesystem>
 #include <cassert>
+#include <cstdio>
+#include <string>
 
 #include "test_macros.h"
-#include "rapid-cxx-test.h"
 #include "filesystem_test_helper.h"
-
+namespace fs = std::filesystem;
 using namespace fs;
-
-TEST_SUITE(filesystem_copy_file_test_suite)
-
-static std::string random_hex_chars(uintmax_t size) {
-  std::string data;
-  data.reserve(size);
-  for (uintmax_t I = 0; I < size; ++I)
-    data.push_back(random_utils::random_hex_char());
-  return data;
-}
 
 // This test is intended to test 'sendfile's 2gb limit for a single call, and
 // to ensure that libc++ correctly copies files larger than that limit.
 // However it requires allocating ~5GB of filesystem space. This might not
 // be acceptable on all systems.
-TEST_CASE(large_file) {
+static void large_file() {
   using namespace fs;
-  constexpr uintmax_t sendfile_size_limit = 2147479552ull;
-  constexpr uintmax_t additional_size = 1024;
-  constexpr uintmax_t test_file_size = sendfile_size_limit + additional_size;
+  constexpr std::uintmax_t sendfile_size_limit = 2147479552ull;
+  constexpr std::uintmax_t additional_size = 1024;
+  constexpr std::uintmax_t test_file_size = sendfile_size_limit + additional_size;
   static_assert(test_file_size > sendfile_size_limit, "");
 
   scoped_test_env env;
@@ -54,45 +44,45 @@ TEST_CASE(large_file) {
   // Check that we have more than sufficient room to create the files needed
   // to perform the test.
   if (space(env.test_root).available < 3 * test_file_size) {
-    TEST_UNSUPPORTED();
+    return;
   }
 
-  // Use python to create a file right at the size limit.
-  const path file = env.create_file("source", sendfile_size_limit);
-  // Create some random data that looks different than the data before the
-  // size limit.
-  const std::string additional_data = random_hex_chars(additional_size);
-  // Append this known data to the end of the source file.
+  // Create a file right at the size limit. The file is full of '\0's.
+  const path source = env.create_file("source", sendfile_size_limit);
+  const std::string additional_data(additional_size, 'x');
+  // Append known data to the end of the source file.
   {
-    std::ofstream outf(file.native(), std::ios_base::app);
-    TEST_REQUIRE(outf.good());
-    outf << additional_data;
-    TEST_REQUIRE(outf);
+    std::FILE* outf = std::fopen(source.string().c_str(), "a");
+    assert(outf != nullptr);
+    std::fputs(additional_data.c_str(), outf);
+    std::fclose(outf);
   }
-  TEST_REQUIRE(file_size(file) == test_file_size);
+  assert(file_size(source) == test_file_size);
   const path dest = env.make_env_path("dest");
 
   std::error_code ec = GetTestEC();
-  TEST_CHECK(copy_file(file, dest, ec));
-  TEST_CHECK(!ec);
+  assert(copy_file(source, dest, ec));
+  assert(!ec);
 
-  TEST_REQUIRE(is_regular_file(dest));
-  TEST_CHECK(file_size(dest) == test_file_size);
+  assert(is_regular_file(dest));
+  assert(file_size(dest) == test_file_size);
 
   // Read the data from the end of the destination file, and ensure it matches
   // the data at the end of the source file.
-  std::string out_data;
-  out_data.reserve(additional_size);
+  std::string out_data(additional_size, 'z');
   {
-    std::ifstream dest_file(dest.native());
-    TEST_REQUIRE(dest_file);
-    dest_file.seekg(sendfile_size_limit);
-    TEST_REQUIRE(dest_file);
-    dest_file >> out_data;
-    TEST_CHECK(dest_file.eof());
+    std::FILE* dest_file = std::fopen(dest.string().c_str(), "r");
+    assert(dest_file != nullptr);
+    assert(std::fseek(dest_file, sendfile_size_limit, SEEK_SET) == 0);
+    assert(std::fread(&out_data[0], sizeof(out_data[0]), additional_size, dest_file) == additional_size);
+    std::fclose(dest_file);
   }
-  TEST_CHECK(out_data.size() == additional_data.size());
-  TEST_CHECK(out_data == additional_data);
+  assert(out_data.size() == additional_data.size());
+  assert(out_data == additional_data);
 }
 
-TEST_SUITE_END()
+int main(int, char**) {
+  large_file();
+
+  return 0;
+}

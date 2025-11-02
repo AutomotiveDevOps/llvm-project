@@ -10,12 +10,14 @@
 
 using namespace llvm::X86Disassembler;
 
-void ModRMFilter::anchor() { }
+void ModRMFilter::anchor() {}
 
-void DumbFilter::anchor() { }
+void DumbFilter::anchor() {}
 
-void ModFilter::anchor() { }
+void ModFilter::anchor() {}
 
-void ExtendedFilter::anchor() { }
+void ExtendedFilter::anchor() {}
 
-void ExactFilter::anchor() { }
+void ExtendedRMFilter::anchor() {}
+
+void ExactFilter::anchor() {}

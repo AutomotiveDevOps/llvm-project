@@ -17,10 +17,18 @@
 #include "lldb/API/SBFileSpec.h"
 #include "lldb/API/SBFileSpecList.h"
 #include "lldb/API/SBLaunchInfo.h"
+#include "lldb/API/SBStatisticsOptions.h"
 #include "lldb/API/SBSymbolContextList.h"
 #include "lldb/API/SBType.h"
 #include "lldb/API/SBValue.h"
 #include "lldb/API/SBWatchpoint.h"
+#include "lldb/API/SBWatchpointOptions.h"
+
+namespace lldb_private {
+namespace python {
+class SWIGBridge;
+}
+} // namespace lldb_private
 
 namespace lldb {
 
@@ -34,15 +42,14 @@ public:
     eBroadcastBitModulesLoaded = (1 << 1),
     eBroadcastBitModulesUnloaded = (1 << 2),
     eBroadcastBitWatchpointChanged = (1 << 3),
-    eBroadcastBitSymbolsLoaded = (1 << 4)
+    eBroadcastBitSymbolsLoaded = (1 << 4),
+    eBroadcastBitSymbolsChanged = (1 << 5),
   };
 
   // Constructors
   SBTarget();
 
   SBTarget(const lldb::SBTarget &rhs);
-
-  SBTarget(const lldb::TargetSP &target_sp);
 
   // Destructor
   ~SBTarget();
@@ -84,6 +91,20 @@ public:
   /// \return
   ///     A SBStructuredData with the statistics collected.
   lldb::SBStructuredData GetStatistics();
+
+  /// Returns a dump of the collected statistics.
+  ///
+  /// \param[in] options
+  ///   An objects object that contains all options for the statistics dumping.
+  ///
+  /// \return
+  ///     A SBStructuredData with the statistics collected.
+  lldb::SBStructuredData GetStatistics(SBStatisticsOptions options);
+
+  /// Reset the statistics collected for this target.
+  /// This includes clearing symbol table and debug info parsing/index time for
+  /// all modules, breakpoint resolve time and target statistics.
+  void ResetStatistics();
 
   /// Return the platform object associated with the target.
   ///
@@ -303,6 +324,16 @@ public:
 
   lldb::SBModule FindModule(const lldb::SBFileSpec &file_spec);
 
+  /// Find a module with the given module specification.
+  ///
+  /// \param[in] module_spec
+  ///     A lldb::SBModuleSpec object that contains module specification.
+  ///
+  /// \return
+  ///     A lldb::SBModule object that represents the found module, or an
+  ///     invalid SBModule object if no module was found.
+  lldb::SBModule FindModule(const lldb::SBModuleSpec &module_spec);
+
   /// Find compile units related to *this target and passed source
   /// file.
   ///
@@ -322,6 +353,32 @@ public:
 
   const char *GetTriple();
 
+  const char *GetABIName();
+
+  const char *GetLabel() const;
+
+  /// Get the globally unique ID for this target. This ID is unique
+  /// across all debugger instances within the same lldb process.
+  ///
+  /// \return
+  ///     The globally unique ID for this target, or
+  ///     LLDB_INVALID_GLOBALLY_UNIQUE_TARGET_ID if the target is invalid.
+  lldb::user_id_t GetGloballyUniqueID() const;
+
+  SBError SetLabel(const char *label);
+
+  /// Architecture opcode byte size width accessor
+  ///
+  /// \return
+  /// The minimum size in 8-bit (host) bytes of an opcode.
+  uint32_t GetMinimumOpcodeByteSize() const;
+
+  /// Architecture opcode byte size width accessor
+  ///
+  /// \return
+  /// The maximum size in 8-bit (host) bytes of an opcode.
+  uint32_t GetMaximumOpcodeByteSize() const;
+
   /// Architecture data byte width accessor
   ///
   /// \return
@@ -335,6 +392,11 @@ public:
   /// The size in 8-bit (host) bytes of a minimum addressable
   /// unit from the Architecture's code bus
   uint32_t GetCodeByteSize();
+
+  /// Gets the target.max-children-count value
+  /// It should be used to limit the number of
+  /// children of large data structures to be displayed.
+  uint32_t GetMaximumNumberOfChildrenToDisplay() const;
 
   /// Set the base load address for a module section.
   ///
@@ -362,6 +424,31 @@ public:
   ///     failure.
   lldb::SBError ClearSectionLoadAddress(lldb::SBSection section);
 
+#ifndef SWIG
+  /// Slide all file addresses for all module sections so that \a module
+  /// appears to loaded at these slide addresses.
+  ///
+  /// When you need all sections within a module to be loaded at a
+  /// rigid slide from the addresses found in the module object file,
+  /// this function will allow you to easily and quickly slide all
+  /// module sections.
+  ///
+  /// \param[in] module
+  ///     The module to load.
+  ///
+  /// \param[in] sections_offset
+  ///     An offset that will be applied to all section file addresses
+  ///     (the virtual addresses found in the object file itself).
+  ///
+  /// \return
+  ///     An error to indicate success, fail, and any reason for
+  ///     failure.
+  LLDB_DEPRECATED_FIXME("Use SetModuleLoadAddress(lldb::SBModule, uint64_t)",
+                        "SetModuleLoadAddress(lldb::SBModule, uint64_t)")
+  lldb::SBError SetModuleLoadAddress(lldb::SBModule module,
+                                     int64_t sections_offset);
+#endif
+
   /// Slide all file addresses for all module sections so that \a module
   /// appears to loaded at these slide addresses.
   ///
@@ -381,7 +468,7 @@ public:
   ///     An error to indicate success, fail, and any reason for
   ///     failure.
   lldb::SBError SetModuleLoadAddress(lldb::SBModule module,
-                                     int64_t sections_offset);
+                                     uint64_t sections_offset);
 
   /// Clear the section base load addresses for all sections in a module.
   ///
@@ -560,6 +647,12 @@ public:
                              uint32_t column, lldb::addr_t offset,
                              SBFileSpecList &module_list);
 
+  lldb::SBBreakpoint
+  BreakpointCreateByLocation(const lldb::SBFileSpec &file_spec, uint32_t line,
+                             uint32_t column, lldb::addr_t offset,
+                             SBFileSpecList &module_list,
+                             bool move_to_nearest_code);
+
   lldb::SBBreakpoint BreakpointCreateByName(const char *symbol_name,
                                             const char *module_name = nullptr);
 
@@ -583,6 +676,37 @@ public:
       lldb::LanguageType symbol_language,
       const SBFileSpecList &module_list, const SBFileSpecList &comp_unit_list);
 
+  lldb::SBBreakpoint BreakpointCreateByName(
+      const char *symbol_name,
+      uint32_t
+          name_type_mask, // Logical OR one or more FunctionNameType enum bits
+      lldb::LanguageType symbol_language, lldb::addr_t offset,
+      bool offset_is_insn_count, const SBFileSpecList &module_list,
+      const SBFileSpecList &comp_unit_list);
+
+#ifdef SWIG
+  lldb::SBBreakpoint BreakpointCreateByNames(
+      const char **symbol_name, uint32_t num_names,
+      uint32_t
+          name_type_mask, // Logical OR one or more FunctionNameType enum bits
+      const SBFileSpecList &module_list,
+      const SBFileSpecList &comp_unit_list);
+
+  lldb::SBBreakpoint BreakpointCreateByNames(
+      const char **symbol_name, uint32_t num_names,
+      uint32_t
+          name_type_mask, // Logical OR one or more FunctionNameType enum bits
+      lldb::LanguageType symbol_language,
+      const SBFileSpecList &module_list, const SBFileSpecList &comp_unit_list);
+
+  lldb::SBBreakpoint BreakpointCreateByNames(
+      const char **symbol_name, uint32_t num_names,
+      uint32_t
+          name_type_mask, // Logical OR one or more FunctionNameType enum bits
+      lldb::LanguageType symbol_language,
+      lldb::addr_t offset, const SBFileSpecList &module_list,
+      const SBFileSpecList &comp_unit_list);
+#else
   lldb::SBBreakpoint BreakpointCreateByNames(
       const char *symbol_name[], uint32_t num_names,
       uint32_t
@@ -604,6 +728,7 @@ public:
       lldb::LanguageType symbol_language,
       lldb::addr_t offset, const SBFileSpecList &module_list,
       const SBFileSpecList &comp_unit_list);
+#endif
 
   lldb::SBBreakpoint BreakpointCreateByRegex(const char *symbol_name_regex,
                                              const char *module_name = nullptr);
@@ -637,7 +762,7 @@ public:
   lldb::SBBreakpoint BreakpointCreateByAddress(addr_t address);
 
   lldb::SBBreakpoint BreakpointCreateBySBAddress(SBAddress &address);
-  
+
   /// Create a breakpoint using a scripted resolver.
   ///
   /// \param[in] class_name
@@ -645,16 +770,16 @@ public:
   ///
   /// \param[in] extra_args
   ///    This is an SBStructuredData object that will get passed to the
-  ///    constructor of the class in class_name.  You can use this to 
-  ///    reuse the same class, parametrizing with entries from this 
+  ///    constructor of the class in class_name.  You can use this to
+  ///    reuse the same class, parametrizing with entries from this
   ///    dictionary.
   ///
   /// \param module_list
-  ///    If this is non-empty, this will be used as the module filter in the 
+  ///    If this is non-empty, this will be used as the module filter in the
   ///    SearchFilter created for this breakpoint.
   ///
   /// \param file_list
-  ///    If this is non-empty, this will be used as the comp unit filter in the 
+  ///    If this is non-empty, this will be used as the comp unit filter in the
   ///    SearchFilter created for this breakpoint.
   ///
   /// \return
@@ -758,8 +883,13 @@ public:
 
   lldb::SBWatchpoint FindWatchpointByID(lldb::watch_id_t watch_id);
 
+  LLDB_DEPRECATED("WatchAddress deprecated, use WatchpointCreateByAddress")
   lldb::SBWatchpoint WatchAddress(lldb::addr_t addr, size_t size, bool read,
-                                  bool write, SBError &error);
+                                  bool modify, SBError &error);
+
+  lldb::SBWatchpoint
+  WatchpointCreateByAddress(lldb::addr_t addr, size_t size,
+                            lldb::SBWatchpointOptions options, SBError &error);
 
   bool EnableAllWatchpoints();
 
@@ -792,6 +922,10 @@ public:
                                            uint32_t count,
                                            const char *flavor_string);
 
+  lldb::SBInstructionList ReadInstructions(lldb::SBAddress start_addr,
+                                           lldb::SBAddress end_addr,
+                                           const char *flavor_string);
+
   lldb::SBInstructionList GetInstructions(lldb::SBAddress base_addr,
                                           const void *buf, size_t size);
 
@@ -803,13 +937,14 @@ public:
                                                     const void *buf,
                                                     size_t size);
 
+#ifndef SWIG
   lldb::SBInstructionList GetInstructions(lldb::addr_t base_addr,
                                           const void *buf, size_t size);
-
   lldb::SBInstructionList GetInstructionsWithFlavor(lldb::addr_t base_addr,
                                                     const char *flavor_string,
                                                     const void *buf,
                                                     size_t size);
+#endif
 
   lldb::SBSymbolContextList FindSymbols(const char *name,
                                         lldb::SymbolType type = eSymbolTypeAny);
@@ -828,17 +963,39 @@ public:
 
   lldb::addr_t GetStackRedZoneSize();
 
+  bool IsLoaded(const lldb::SBModule &module) const;
+
   lldb::SBLaunchInfo GetLaunchInfo() const;
 
   void SetLaunchInfo(const lldb::SBLaunchInfo &launch_info);
 
+  /// Get a \a SBTrace object the can manage the processor trace information of
+  /// this target.
+  ///
+  /// \return
+  ///   The trace object. The returned SBTrace object might not be valid, so it
+  ///   should be checked with a call to "bool SBTrace::IsValid()".
+  lldb::SBTrace GetTrace();
+
+  /// Create a \a Trace object for the current target using the using the
+  /// default supported tracing technology for this process.
+  ///
+  /// \param[out] error
+  ///     An error if a Trace already exists or the trace couldn't be created.
+  lldb::SBTrace CreateTrace(SBError &error);
+
+  lldb::SBMutex GetAPIMutex() const;
+
 protected:
   friend class SBAddress;
+  friend class SBAddressRange;
   friend class SBBlock;
+  friend class SBBreakpoint;
   friend class SBBreakpointList;
   friend class SBBreakpointNameImpl;
   friend class SBDebugger;
   friend class SBExecutionContext;
+  friend class SBFrame;
   friend class SBFunction;
   friend class SBInstruction;
   friend class SBModule;
@@ -847,11 +1004,17 @@ protected:
   friend class SBSection;
   friend class SBSourceManager;
   friend class SBSymbol;
+  friend class SBType;
+  friend class SBTypeStaticField;
   friend class SBValue;
   friend class SBVariablesOptions;
 
+  friend class lldb_private::python::SWIGBridge;
+
   // Constructors are private, use static Target::Create function to create an
   // instance of this class.
+
+  SBTarget(const lldb::TargetSP &target_sp);
 
   lldb::TargetSP GetSP() const;
 

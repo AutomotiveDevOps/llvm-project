@@ -10,7 +10,9 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Analysis/DependenceGraphBuilder.h"
+#include "llvm/ADT/DepthFirstIterator.h"
 #include "llvm/ADT/EnumeratedArray.h"
+#include "llvm/ADT/PostOrderIterator.h"
 #include "llvm/ADT/SCCIterator.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Analysis/DDG.h"
@@ -129,7 +131,7 @@ template <class G> void AbstractDependenceGraphBuilder<G>::createPiBlocks() {
 
     // Build a set to speed up the lookup for edges whose targets
     // are inside the SCC.
-    SmallPtrSet<NodeType *, 4> NodesInSCC(NL.begin(), NL.end());
+    SmallPtrSet<NodeType *, 4> NodesInSCC(llvm::from_range, NL);
 
     // We have the set of nodes in the SCC. We go through the set of nodes
     // that are outside of the SCC and look for edges that cross the two sets.
@@ -139,75 +141,74 @@ template <class G> void AbstractDependenceGraphBuilder<G>::createPiBlocks() {
       if (*N == PiNode || NodesInSCC.count(N))
         continue;
 
-      for (NodeType *SCCNode : NL) {
+      enum Direction {
+        Incoming,      // Incoming edges to the SCC
+        Outgoing,      // Edges going ot of the SCC
+        DirectionCount // To make the enum usable as an array index.
+      };
 
-        enum Direction {
-          Incoming,      // Incoming edges to the SCC
-          Outgoing,      // Edges going ot of the SCC
-          DirectionCount // To make the enum usable as an array index.
-        };
+      // Use these flags to help us avoid creating redundant edges. If there
+      // are more than one edges from an outside node to inside nodes, we only
+      // keep one edge from that node to the pi-block node. Similarly, if
+      // there are more than one edges from inside nodes to an outside node,
+      // we only keep one edge from the pi-block node to the outside node.
+      // There is a flag defined for each direction (incoming vs outgoing) and
+      // for each type of edge supported, using a two-dimensional boolean
+      // array.
+      using EdgeKind = typename EdgeType::EdgeKind;
+      EnumeratedArray<bool, EdgeKind> EdgeAlreadyCreated[DirectionCount]{false,
+                                                                         false};
 
-        // Use these flags to help us avoid creating redundant edges. If there
-        // are more than one edges from an outside node to inside nodes, we only
-        // keep one edge from that node to the pi-block node. Similarly, if
-        // there are more than one edges from inside nodes to an outside node,
-        // we only keep one edge from the pi-block node to the outside node.
-        // There is a flag defined for each direction (incoming vs outgoing) and
-        // for each type of edge supported, using a two-dimensional boolean
-        // array.
-        using EdgeKind = typename EdgeType::EdgeKind;
-        EnumeratedArray<bool, EdgeKind> EdgeAlreadyCreated[DirectionCount]{
-            false, false};
+      auto createEdgeOfKind = [this](NodeType &Src, NodeType &Dst,
+                                     const EdgeKind K) {
+        switch (K) {
+        case EdgeKind::RegisterDefUse:
+          createDefUseEdge(Src, Dst);
+          break;
+        case EdgeKind::MemoryDependence:
+          createMemoryEdge(Src, Dst);
+          break;
+        case EdgeKind::Rooted:
+          createRootedEdge(Src, Dst);
+          break;
+        default:
+          llvm_unreachable("Unsupported type of edge.");
+        }
+      };
 
-        auto createEdgeOfKind = [this](NodeType &Src, NodeType &Dst,
-                                       const EdgeKind K) {
-          switch (K) {
-          case EdgeKind::RegisterDefUse:
-            createDefUseEdge(Src, Dst);
-            break;
-          case EdgeKind::MemoryDependence:
-            createMemoryEdge(Src, Dst);
-            break;
-          case EdgeKind::Rooted:
-            createRootedEdge(Src, Dst);
-            break;
-          default:
-            llvm_unreachable("Unsupported type of edge.");
-          }
-        };
+      auto reconnectEdges = [&](NodeType *Src, NodeType *Dst, NodeType *New,
+                                const Direction Dir) {
+        if (!Src->hasEdgeTo(*Dst))
+          return;
+        LLVM_DEBUG(
+            dbgs() << "reconnecting("
+                   << (Dir == Direction::Incoming ? "incoming)" : "outgoing)")
+                   << ":\nSrc:" << *Src << "\nDst:" << *Dst << "\nNew:" << *New
+                   << "\n");
+        assert((Dir == Direction::Incoming || Dir == Direction::Outgoing) &&
+               "Invalid direction.");
 
-        auto reconnectEdges = [&](NodeType *Src, NodeType *Dst, NodeType *New,
-                                  const Direction Dir) {
-          if (!Src->hasEdgeTo(*Dst))
-            return;
-          LLVM_DEBUG(dbgs()
-                     << "reconnecting("
-                     << (Dir == Direction::Incoming ? "incoming)" : "outgoing)")
-                     << ":\nSrc:" << *Src << "\nDst:" << *Dst
-                     << "\nNew:" << *New << "\n");
-          assert((Dir == Direction::Incoming || Dir == Direction::Outgoing) &&
-                 "Invalid direction.");
-
-          SmallVector<EdgeType *, 10> EL;
-          Src->findEdgesTo(*Dst, EL);
-          for (EdgeType *OldEdge : EL) {
-            EdgeKind Kind = OldEdge->getKind();
-            if (!EdgeAlreadyCreated[Dir][Kind]) {
-              if (Dir == Direction::Incoming) {
-                createEdgeOfKind(*Src, *New, Kind);
-                LLVM_DEBUG(dbgs() << "created edge from Src to New.\n");
-              } else if (Dir == Direction::Outgoing) {
-                createEdgeOfKind(*New, *Dst, Kind);
-                LLVM_DEBUG(dbgs() << "created edge from New to Dst.\n");
-              }
-              EdgeAlreadyCreated[Dir][Kind] = true;
+        SmallVector<EdgeType *, 10> EL;
+        Src->findEdgesTo(*Dst, EL);
+        for (EdgeType *OldEdge : EL) {
+          EdgeKind Kind = OldEdge->getKind();
+          if (!EdgeAlreadyCreated[Dir][Kind]) {
+            if (Dir == Direction::Incoming) {
+              createEdgeOfKind(*Src, *New, Kind);
+              LLVM_DEBUG(dbgs() << "created edge from Src to New.\n");
+            } else if (Dir == Direction::Outgoing) {
+              createEdgeOfKind(*New, *Dst, Kind);
+              LLVM_DEBUG(dbgs() << "created edge from New to Dst.\n");
             }
-            Src->removeEdge(*OldEdge);
-            destroyEdge(*OldEdge);
-            LLVM_DEBUG(dbgs() << "removed old edge between Src and Dst.\n\n");
+            EdgeAlreadyCreated[Dir][Kind] = true;
           }
-        };
+          Src->removeEdge(*OldEdge);
+          destroyEdge(*OldEdge);
+          LLVM_DEBUG(dbgs() << "removed old edge between Src and Dst.\n\n");
+        }
+      };
 
+      for (NodeType *SCCNode : NL) {
         // Process incoming edges incident to the pi-block node.
         reconnectEdges(N, SCCNode, &PiNode, Direction::Incoming);
 
@@ -239,9 +240,7 @@ template <class G> void AbstractDependenceGraphBuilder<G>::createDefUseEdges() {
         Instruction *UI = dyn_cast<Instruction>(U);
         if (!UI)
           continue;
-        NodeType *DstNode = nullptr;
-        if (IMap.find(UI) != IMap.end())
-          DstNode = IMap.find(UI)->second;
+        NodeType *DstNode = IMap.lookup(UI);
 
         // In the case of loops, the scope of the subgraph is all the
         // basic blocks (and instructions within them) belonging to the loop. We
@@ -296,7 +295,7 @@ void AbstractDependenceGraphBuilder<G>::createMemoryDependencyEdges() {
       bool BackwardEdgeCreated = false;
       for (Instruction *ISrc : SrcIList) {
         for (Instruction *IDst : DstIList) {
-          auto D = DI.depends(ISrc, IDst, true);
+          auto D = DI.depends(ISrc, IDst);
           if (!D)
             continue;
 
@@ -434,9 +433,8 @@ template <class G> void AbstractDependenceGraphBuilder<G>::simplify() {
     NodeType &Src = *Worklist.pop_back_val();
     // As nodes get merged, we need to skip any node that has been removed from
     // the candidate set (see below).
-    if (CandidateSourceNodes.find(&Src) == CandidateSourceNodes.end())
+    if (!CandidateSourceNodes.erase(&Src))
       continue;
-    CandidateSourceNodes.erase(&Src);
 
     assert(Src.getEdges().size() == 1 &&
            "Expected a single edge from the candidate src node.");
@@ -469,10 +467,9 @@ template <class G> void AbstractDependenceGraphBuilder<G>::simplify() {
     // We also need to remove the old target (b), from the worklist. We first
     // remove it from the candidate set here, and skip any item from the
     // worklist that is not in the set.
-    if (CandidateSourceNodes.find(&Tgt) != CandidateSourceNodes.end()) {
+    if (CandidateSourceNodes.erase(&Tgt)) {
       Worklist.push_back(&Src);
       CandidateSourceNodes.insert(&Src);
-      CandidateSourceNodes.erase(&Tgt);
       LLVM_DEBUG(dbgs() << "Putting " << &Src << " back in the worklist.\n");
     }
   }
@@ -493,16 +490,14 @@ void AbstractDependenceGraphBuilder<G>::sortNodesTopologically() {
       // Put members of the pi-block right after the pi-block itself, for
       // convenience.
       const NodeListType &PiBlockMembers = getNodesInPiBlock(*N);
-      NodesInPO.insert(NodesInPO.end(), PiBlockMembers.begin(),
-                       PiBlockMembers.end());
+      llvm::append_range(NodesInPO, PiBlockMembers);
     }
     NodesInPO.push_back(N);
   }
 
   size_t OldSize = Graph.Nodes.size();
   Graph.Nodes.clear();
-  for (NodeType *N : reverse(NodesInPO))
-    Graph.Nodes.push_back(N);
+  append_range(Graph.Nodes, reverse(NodesInPO));
   if (Graph.Nodes.size() != OldSize)
     assert(false &&
            "Expected the number of nodes to stay the same after the sort");

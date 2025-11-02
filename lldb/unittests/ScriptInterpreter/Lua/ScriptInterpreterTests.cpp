@@ -13,18 +13,15 @@
 #include "lldb/Host/HostInfo.h"
 #include "lldb/Interpreter/CommandReturnObject.h"
 #include "lldb/Target/Platform.h"
-#include "lldb/Utility/Reproducer.h"
 #include "gtest/gtest.h"
 
 using namespace lldb_private;
-using namespace lldb_private::repro;
 using namespace lldb;
 
 namespace {
 class ScriptInterpreterTest : public ::testing::Test {
 public:
   void SetUp() override {
-    llvm::cantFail(Reproducer::Initialize(ReproducerMode::Off, llvm::None));
     FileSystem::Initialize();
     HostInfo::Initialize();
 
@@ -38,25 +35,19 @@ public:
     platform_linux::PlatformLinux::Terminate();
     HostInfo::Terminate();
     FileSystem::Terminate();
-    Reproducer::Terminate();
   }
 };
 } // namespace
-
-TEST_F(ScriptInterpreterTest, Plugin) {
-  EXPECT_EQ(ScriptInterpreterLua::GetPluginNameStatic(), "script-lua");
-  EXPECT_EQ(ScriptInterpreterLua::GetPluginDescriptionStatic(),
-            "Lua script interpreter");
-}
 
 TEST_F(ScriptInterpreterTest, ExecuteOneLine) {
   DebuggerSP debugger_sp = Debugger::CreateInstance();
   ASSERT_TRUE(debugger_sp);
 
   ScriptInterpreterLua script_interpreter(*debugger_sp);
-  CommandReturnObject result;
+  CommandReturnObject result(/*colors*/ false);
   EXPECT_TRUE(script_interpreter.ExecuteOneLine("foo = 1", &result));
   EXPECT_FALSE(script_interpreter.ExecuteOneLine("nil = foo", &result));
-  EXPECT_TRUE(result.GetErrorData().startswith(
-      "error: lua failed attempting to evaluate 'nil = foo'"));
+  EXPECT_EQ(result.GetErrorString().find(
+                "error: lua failed attempting to evaluate 'nil = foo'"),
+            0U);
 }

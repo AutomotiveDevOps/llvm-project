@@ -1,7 +1,9 @@
 // REQUIRES: aarch64
-// RUN: llvm-mc -filetype=obj -triple=aarch64-none-linux %s -o %t.o
+// RUN: llvm-mc -filetype=obj -triple=aarch64 %s -o %t.o
 // RUN: ld.lld --fix-cortex-a53-843419 -Ttext=0x8000000 %t.o -o %t2
 // RUN: llvm-objdump -d --start-address=0x8001000 --stop-address=0x8001004 %t2 | FileCheck %s
+/// The temporary files are more than 128MiB. Delete them early.
+// RUN: rm %t.o %t2
 
 .section .text.01, "ax", %progbits
 .balign 4096

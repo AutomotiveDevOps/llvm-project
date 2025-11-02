@@ -1,5 +1,5 @@
-# RUN: yaml2obj < %p/Inputs/pdb1.yaml > %t1.obj
-# RUN: yaml2obj < %p/Inputs/pdb2.yaml > %t2.obj
+# RUN: yaml2obj %p/Inputs/pdb1.yaml -o %t1.obj
+# RUN: yaml2obj %p/Inputs/pdb2.yaml -o %t2.obj
 
 ; If /DEBUG is not specified, /pdb is ignored.
 # RUN: rm -f %t.pdb
@@ -19,8 +19,10 @@
 ; If /DEBUG is specified but not /pdb, it uses a default name in the current
 ; directory.  This is a bit hacky since but we need to be IN our test specific
 ; temporary directory when we run this command or we can't test this
-# RUN: cd %T
-# RUN: lld-link /DEBUG /entry:main /nodefaultlib %t1.obj %t2.obj
-# RUN: ls %t1.pdb
-# RUN: rm %t*
-# RUN: cd %T/..
+# RUN: mkdir -p %t.dir
+# RUN: cp %t1.obj %t.dir/1.obj
+# RUN: cp %t2.obj %t.dir/2.obj
+# RUN: cd %t.dir
+# RUN: lld-link /DEBUG /entry:main /nodefaultlib %t.dir/1.obj %t.dir/2.obj
+# RUN: ls %t.dir/1.pdb
+# RUN: rm -r %t*

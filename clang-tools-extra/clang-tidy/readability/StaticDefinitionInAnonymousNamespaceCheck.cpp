@@ -1,4 +1,4 @@
-//===--- StaticDefinitionInAnonymousNamespaceCheck.cpp - clang-tidy--------===//
+//===----------------------------------------------------------------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -7,22 +7,19 @@
 //===----------------------------------------------------------------------===//
 
 #include "StaticDefinitionInAnonymousNamespaceCheck.h"
-#include "clang/AST/ASTContext.h"
 #include "clang/ASTMatchers/ASTMatchFinder.h"
 #include "clang/Lex/Lexer.h"
 
 using namespace clang::ast_matchers;
 
-namespace clang {
-namespace tidy {
-namespace readability {
+namespace clang::tidy::readability {
 
 void StaticDefinitionInAnonymousNamespaceCheck::registerMatchers(
     MatchFinder *Finder) {
   Finder->addMatcher(
       namedDecl(anyOf(functionDecl(isDefinition(), isStaticStorageClass()),
                       varDecl(isDefinition(), isStaticStorageClass())),
-                hasParent(namespaceDecl(isAnonymous())))
+                isInAnonymousNamespace())
           .bind("static-def"),
       this);
 }
@@ -60,6 +57,4 @@ void StaticDefinitionInAnonymousNamespaceCheck::check(
   }
 }
 
-} // namespace readability
-} // namespace tidy
-} // namespace clang
+} // namespace clang::tidy::readability

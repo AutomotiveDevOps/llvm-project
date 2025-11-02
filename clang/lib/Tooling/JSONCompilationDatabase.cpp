@@ -15,28 +15,23 @@
 #include "clang/Tooling/CompilationDatabase.h"
 #include "clang/Tooling/CompilationDatabasePluginRegistry.h"
 #include "clang/Tooling/Tooling.h"
-#include "llvm/ADT/Optional.h"
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
-#include "llvm/ADT/Triple.h"
 #include "llvm/Support/Allocator.h"
-#include "llvm/Support/Casting.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/ErrorOr.h"
-#include "llvm/Support/Host.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/StringSaver.h"
 #include "llvm/Support/VirtualFileSystem.h"
 #include "llvm/Support/YAMLParser.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/TargetParser/Host.h"
 #include <cassert>
 #include <memory>
+#include <optional>
 #include <string>
 #include <system_error>
-#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -135,15 +130,12 @@ class CommandLineArgumentParser {
 std::vector<std::string> unescapeCommandLine(JSONCommandLineSyntax Syntax,
                                              StringRef EscapedCommandLine) {
   if (Syntax == JSONCommandLineSyntax::AutoDetect) {
+#ifdef _WIN32
+    // Assume Windows command line parsing on Win32
+    Syntax = JSONCommandLineSyntax::Windows;
+#else
     Syntax = JSONCommandLineSyntax::Gnu;
-    llvm::Triple Triple(llvm::sys::getProcessTriple());
-    if (Triple.getOS() == llvm::Triple::OSType::Win32) {
-      // Assume Windows command line parsing on Win32 unless the triple
-      // explicitly tells us otherwise.
-      if (!Triple.hasEnvironment() ||
-          Triple.getEnvironment() == llvm::Triple::EnvironmentType::MSVC)
-        Syntax = JSONCommandLineSyntax::Windows;
-    }
+#endif
   }
 
   if (Syntax == JSONCommandLineSyntax::Windows) {
@@ -198,7 +190,7 @@ JSONCompilationDatabase::loadFromFile(StringRef FilePath,
                                       JSONCommandLineSyntax Syntax) {
   // Don't mmap: if we're a long-lived process, the build system may overwrite.
   llvm::ErrorOr<std::unique_ptr<llvm::MemoryBuffer>> DatabaseBuffer =
-      llvm::MemoryBuffer::getFile(FilePath, /*FileSize=*/-1,
+      llvm::MemoryBuffer::getFile(FilePath, /*IsText=*/false,
                                   /*RequiresNullTerminator=*/true,
                                   /*IsVolatile=*/true);
   if (std::error_code Result = DatabaseBuffer.getError()) {
@@ -217,7 +209,7 @@ JSONCompilationDatabase::loadFromBuffer(StringRef DatabaseString,
                                         std::string &ErrorMessage,
                                         JSONCommandLineSyntax Syntax) {
   std::unique_ptr<llvm::MemoryBuffer> DatabaseBuffer(
-      llvm::MemoryBuffer::getMemBuffer(DatabaseString));
+      llvm::MemoryBuffer::getMemBufferCopy(DatabaseString));
   std::unique_ptr<JSONCompilationDatabase> Database(
       new JSONCompilationDatabase(std::move(DatabaseBuffer), Syntax));
   if (!Database->parse(ErrorMessage))
@@ -263,7 +255,7 @@ static llvm::StringRef stripExecutableExtension(llvm::StringRef Name) {
   return Name;
 }
 
-// There are compiler-wrappers (ccache, distcc, gomacc) that take the "real"
+// There are compiler-wrappers (ccache, distcc) that take the "real"
 // compiler as an argument, e.g. distcc gcc -O3 foo.c.
 // These end up in compile_commands.json when people set CC="distcc gcc".
 // Clang's driver doesn't understand this, so we need to unwrap.
@@ -272,7 +264,7 @@ static bool unwrapCommand(std::vector<std::string> &Args) {
     return false;
   StringRef Wrapper =
       stripExecutableExtension(llvm::sys::path::filename(Args.front()));
-  if (Wrapper == "distcc" || Wrapper == "gomacc" || Wrapper == "ccache") {
+  if (Wrapper == "distcc" || Wrapper == "ccache" || Wrapper == "sccache") {
     // Most of these wrappers support being invoked 3 ways:
     // `distcc g++ file.c` This is the mode we're trying to match.
     //                     We need to drop `distcc`.
@@ -351,7 +343,7 @@ bool JSONCompilationDatabase::parse(std::string &ErrorMessage) {
       return false;
     }
     llvm::yaml::ScalarNode *Directory = nullptr;
-    llvm::Optional<std::vector<llvm::yaml::ScalarNode *>> Command;
+    std::optional<std::vector<llvm::yaml::ScalarNode *>> Command;
     llvm::yaml::ScalarNode *File = nullptr;
     llvm::yaml::ScalarNode *Output = nullptr;
     for (auto& NextKeyValue : *Object) {
@@ -369,16 +361,11 @@ bool JSONCompilationDatabase::parse(std::string &ErrorMessage) {
       }
       auto *ValueString = dyn_cast<llvm::yaml::ScalarNode>(Value);
       auto *SequenceString = dyn_cast<llvm::yaml::SequenceNode>(Value);
-      if (KeyValue == "arguments" && !SequenceString) {
-        ErrorMessage = "Expected sequence as value.";
-        return false;
-      } else if (KeyValue != "arguments" && !ValueString) {
-        ErrorMessage = "Expected string as value.";
-        return false;
-      }
-      if (KeyValue == "directory") {
-        Directory = ValueString;
-      } else if (KeyValue == "arguments") {
+      if (KeyValue == "arguments") {
+        if (!SequenceString) {
+          ErrorMessage = "Expected sequence as value.";
+          return false;
+        }
         Command = std::vector<llvm::yaml::ScalarNode *>();
         for (auto &Argument : *SequenceString) {
           auto *Scalar = dyn_cast<llvm::yaml::ScalarNode>(&Argument);
@@ -388,17 +375,25 @@ bool JSONCompilationDatabase::parse(std::string &ErrorMessage) {
           }
           Command->push_back(Scalar);
         }
-      } else if (KeyValue == "command") {
-        if (!Command)
-          Command = std::vector<llvm::yaml::ScalarNode *>(1, ValueString);
-      } else if (KeyValue == "file") {
-        File = ValueString;
-      } else if (KeyValue == "output") {
-        Output = ValueString;
       } else {
-        ErrorMessage = ("Unknown key: \"" +
-                        KeyString->getRawValue() + "\"").str();
-        return false;
+        if (!ValueString) {
+          ErrorMessage = "Expected string as value.";
+          return false;
+        }
+        if (KeyValue == "directory") {
+          Directory = ValueString;
+        } else if (KeyValue == "command") {
+          if (!Command)
+            Command = std::vector<llvm::yaml::ScalarNode *>(1, ValueString);
+        } else if (KeyValue == "file") {
+          File = ValueString;
+        } else if (KeyValue == "output") {
+          Output = ValueString;
+        } else {
+          ErrorMessage =
+              ("Unknown key: \"" + KeyString->getRawValue() + "\"").str();
+          return false;
+        }
       }
     }
     if (!File) {
@@ -418,14 +413,13 @@ bool JSONCompilationDatabase::parse(std::string &ErrorMessage) {
     SmallString<128> NativeFilePath;
     if (llvm::sys::path::is_relative(FileName)) {
       SmallString<8> DirectoryStorage;
-      SmallString<128> AbsolutePath(
-          Directory->getValue(DirectoryStorage));
+      SmallString<128> AbsolutePath(Directory->getValue(DirectoryStorage));
       llvm::sys::path::append(AbsolutePath, FileName);
-      llvm::sys::path::remove_dots(AbsolutePath, /*remove_dot_dot=*/ true);
       llvm::sys::path::native(AbsolutePath, NativeFilePath);
     } else {
       llvm::sys::path::native(FileName, NativeFilePath);
     }
+    llvm::sys::path::remove_dots(NativeFilePath, /*remove_dot_dot=*/true);
     auto Cmd = CompileCommandRef(Directory, File, *Command, Output);
     IndexByFile[NativeFilePath].push_back(Cmd);
     AllCommands.push_back(Cmd);

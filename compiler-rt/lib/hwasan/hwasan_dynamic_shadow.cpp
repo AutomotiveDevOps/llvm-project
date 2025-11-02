@@ -12,58 +12,19 @@
 ///
 //===----------------------------------------------------------------------===//
 
-#include "hwasan.h"
 #include "hwasan_dynamic_shadow.h"
-#include "hwasan_mapping.h"
-#include "sanitizer_common/sanitizer_common.h"
-#include "sanitizer_common/sanitizer_posix.h"
 
 #include <elf.h>
 #include <link.h>
 
+#include "hwasan.h"
+#include "hwasan_mapping.h"
+#include "hwasan_thread_list.h"
+#include "sanitizer_common/sanitizer_common.h"
+#include "sanitizer_common/sanitizer_posix.h"
+
 // The code in this file needs to run in an unrelocated binary. It should not
 // access any external symbol, including its own non-hidden globals.
-
-namespace __hwasan {
-
-static void UnmapFromTo(uptr from, uptr to) {
-  if (to == from)
-    return;
-  CHECK(to >= from);
-  uptr res = internal_munmap(reinterpret_cast<void *>(from), to - from);
-  if (UNLIKELY(internal_iserror(res))) {
-    Report("ERROR: %s failed to unmap 0x%zx (%zd) bytes at address %p\n",
-           SanitizerToolName, to - from, to - from, from);
-    CHECK("unable to unmap" && 0);
-  }
-}
-
-// Returns an address aligned to kShadowBaseAlignment, such that
-// 2**kShadowBaseAlingment on the left and shadow_size_bytes bytes on the right
-// of it are mapped no access.
-static uptr MapDynamicShadow(uptr shadow_size_bytes) {
-  const uptr granularity = GetMmapGranularity();
-  const uptr min_alignment = granularity << kShadowScale;
-  const uptr alignment = 1ULL << kShadowBaseAlignment;
-  CHECK_GE(alignment, min_alignment);
-
-  const uptr left_padding = 1ULL << kShadowBaseAlignment;
-  const uptr shadow_size =
-      RoundUpTo(shadow_size_bytes, granularity);
-  const uptr map_size = shadow_size + left_padding + alignment;
-
-  const uptr map_start = (uptr)MmapNoAccess(map_size);
-  CHECK_NE(map_start, ~(uptr)0);
-
-  const uptr shadow_start = RoundUpTo(map_start + left_padding, alignment);
-
-  UnmapFromTo(map_start, shadow_start - left_padding);
-  UnmapFromTo(shadow_start + shadow_size, map_start + map_size);
-
-  return shadow_start;
-}
-
-}  // namespace __hwasan
 
 #if SANITIZER_ANDROID
 extern "C" {
@@ -75,14 +36,20 @@ decltype(__hwasan_shadow)* __hwasan_premap_shadow();
 
 namespace __hwasan {
 
+// We cannot call anything in libc here (see comment above), so we need to
+// assume the biggest allowed page size.
+// Android max page size is defined as 16k here:
+// https://android.googlesource.com/platform/bionic/+/main/libc/platform/bionic/page.h#41
+static constexpr uptr kMaxGranularity = 16384;
+
 // Conservative upper limit.
 static uptr PremapShadowSize() {
-  return RoundUpTo(GetMaxVirtualAddress() >> kShadowScale,
-                   GetMmapGranularity());
+  return RoundUpTo(GetMaxVirtualAddress() >> kShadowScale, kMaxGranularity);
 }
 
 static uptr PremapShadow() {
-  return MapDynamicShadow(PremapShadowSize());
+  return MapDynamicShadow(PremapShadowSize(), kShadowScale,
+                          kShadowBaseAlignment, kHighMemEnd, kMaxGranularity);
 }
 
 static bool IsPremapShadowAvailable() {
@@ -94,7 +61,7 @@ static bool IsPremapShadowAvailable() {
 }
 
 static uptr FindPremappedShadowStart(uptr shadow_size_bytes) {
-  const uptr granularity = GetMmapGranularity();
+  const uptr granularity = kMaxGranularity;
   const uptr shadow_start = reinterpret_cast<uptr>(&__hwasan_shadow);
   const uptr premap_shadow_size = PremapShadowSize();
   const uptr shadow_size = RoundUpTo(shadow_size_bytes, granularity);
@@ -146,17 +113,34 @@ void InitShadowGOT() {
 uptr FindDynamicShadowStart(uptr shadow_size_bytes) {
   if (IsPremapShadowAvailable())
     return FindPremappedShadowStart(shadow_size_bytes);
-  return MapDynamicShadow(shadow_size_bytes);
+  return MapDynamicShadow(shadow_size_bytes, kShadowScale, kShadowBaseAlignment,
+                          kHighMemEnd, kMaxGranularity);
 }
 
 }  // namespace __hwasan
+
+#elif SANITIZER_FUCHSIA
+
+namespace __hwasan {
+
+void InitShadowGOT() {}
+
+}  // namespace __hwasan
+
 #else
 namespace __hwasan {
 
 void InitShadowGOT() {}
 
 uptr FindDynamicShadowStart(uptr shadow_size_bytes) {
-  return MapDynamicShadow(shadow_size_bytes);
+#  if defined(HWASAN_ALIASING_MODE)
+  constexpr uptr kAliasSize = 1ULL << kAddressTagShift;
+  constexpr uptr kNumAliases = 1ULL << kTagBits;
+  return MapDynamicShadowAndAliases(shadow_size_bytes, kAliasSize, kNumAliases,
+                                    RingBufferSize());
+#  endif
+  return MapDynamicShadow(shadow_size_bytes, kShadowScale, kShadowBaseAlignment,
+                          kHighMemEnd, GetMmapGranularity());
 }
 
 }  // namespace __hwasan

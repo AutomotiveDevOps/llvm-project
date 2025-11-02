@@ -37,6 +37,8 @@ public:
 
   void Clear();
 
+  bool IsFileBacked() const;
+
   /// Get const accessor for the module file specification.
   ///
   /// This function returns the file for the module on the host system
@@ -288,12 +290,27 @@ public:
   lldb::SBAddress GetObjectFileHeaderAddress() const;
   lldb::SBAddress GetObjectFileEntryPointAddress() const;
 
+  /// Get the number of global modules.
+  static uint32_t GetNumberAllocatedModules();
+
+  /// Remove any global modules which are no longer needed.
+  static void GarbageCollectAllocatedModules();
+
+  /// If this Module represents a specific object or part within a larger file,
+  /// returns the name of that object or part. Otherwise, returns
+  /// nullptr.
+  const char *GetObjectName() const;
+
 private:
   friend class SBAddress;
   friend class SBFrame;
   friend class SBSection;
   friend class SBSymbolContext;
+  friend class SBPlatform;
   friend class SBTarget;
+  friend class SBType;
+
+  friend class lldb_private::python::SWIGBridge;
 
   explicit SBModule(const lldb::ModuleSP &module_sp);
 

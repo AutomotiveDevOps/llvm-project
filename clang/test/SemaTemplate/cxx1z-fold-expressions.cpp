@@ -102,3 +102,60 @@ namespace PR41845 {
 
   Sum<1>::type<1, 2> x; // expected-note {{instantiation of}}
 }
+
+namespace PR30738 {
+  namespace N {
+    struct S {};
+  }
+
+  namespace T {
+    void operator+(N::S, N::S) {}
+    template<typename ...Ts> void f() { (Ts{} + ...); }
+  }
+
+  void g() { T::f<N::S, N::S>(); }
+
+  template<typename T, typename ...U> auto h(U ...v) {
+    T operator+(T, T); // expected-note {{candidate}}
+    return (v + ...); // expected-error {{invalid operands}}
+  }
+  int test_h1 = h<N::S>(1, 2, 3);
+  N::S test_h2 = h<N::S>(N::S(), N::S(), N::S());
+  int test_h3 = h<struct X>(1, 2, 3);
+  N::S test_h4 = h<struct X>(N::S(), N::S(), N::S()); // expected-note {{instantiation of}}
+}
+
+namespace GH67395 {
+template <typename>
+bool f();
+
+template <typename... T>
+void g(bool = (f<T>() || ...));
+}
+
+
+namespace comparison_warning {
+  struct S {
+    bool operator<(const S&) const;
+    bool operator<(int) const;
+    bool operator==(const S&) const;
+  };
+
+  template <typename...T>
+  void f(T... ts) {
+    (void)(ts == ...);
+    // expected-error@-1 2{{comparison in fold expression would evaluate to '(X == Y) == Z'}}
+    (void)(ts < ...);
+    // expected-error@-1 2{{comparison in fold expression would evaluate to '(X < Y) < Z'}}
+    (void)(... < ts);
+    // expected-error@-1 2{{comparison in fold expression would evaluate to '(X < Y) < Z'}}
+  }
+
+  void test() {
+    f(0, 1, 2); // expected-note{{in instantiation}}
+    f(0, 1); // expected-note{{in instantiation}}
+    f(S{}, S{});
+    f(0);
+  }
+
+};

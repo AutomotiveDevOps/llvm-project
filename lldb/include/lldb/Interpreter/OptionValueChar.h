@@ -13,16 +13,15 @@
 
 namespace lldb_private {
 
-class OptionValueChar : public OptionValue {
+class OptionValueChar : public Cloneable<OptionValueChar, OptionValue> {
 public:
   OptionValueChar(char value)
-      : OptionValue(), m_current_value(value), m_default_value(value) {}
+      : m_current_value(value), m_default_value(value) {}
 
   OptionValueChar(char current_value, char default_value)
-      : OptionValue(), m_current_value(current_value),
-        m_default_value(default_value) {}
+      : m_current_value(current_value), m_default_value(default_value) {}
 
-  ~OptionValueChar() override {}
+  ~OptionValueChar() override = default;
 
   // Virtual subclass pure virtual overrides
 
@@ -31,17 +30,17 @@ public:
   void DumpValue(const ExecutionContext *exe_ctx, Stream &strm,
                  uint32_t dump_mask) override;
 
+  llvm::json::Value ToJSON(const ExecutionContext *exe_ctx) const override {
+    return m_current_value;
+  }
+
   Status
   SetValueFromString(llvm::StringRef value,
                      VarSetOperationType op = eVarSetOperationAssign) override;
-  Status
-  SetValueFromString(const char *,
-                     VarSetOperationType = eVarSetOperationAssign) = delete;
 
-  bool Clear() override {
+  void Clear() override {
     m_current_value = m_default_value;
     m_value_was_set = false;
-    return true;
   }
 
   // Subclass specific functions
@@ -58,8 +57,6 @@ public:
   void SetCurrentValue(char value) { m_current_value = value; }
 
   void SetDefaultValue(char value) { m_default_value = value; }
-
-  lldb::OptionValueSP DeepCopy() const override;
 
 protected:
   char m_current_value;

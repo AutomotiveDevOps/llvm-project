@@ -1,4 +1,4 @@
-//===--- ArgumentCommentCheck.cpp - clang-tidy ----------------------------===//
+//===----------------------------------------------------------------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -16,21 +16,23 @@
 
 using namespace clang::ast_matchers;
 
-namespace clang {
-namespace tidy {
-namespace bugprone {
+namespace clang::tidy::bugprone {
 namespace {
-AST_MATCHER(Decl, isFromStdNamespace) {
+AST_MATCHER(Decl, isFromStdNamespaceOrSystemHeader) {
   if (const auto *D = Node.getDeclContext()->getEnclosingNamespaceContext())
-    return D->isStdNamespace();
-  return false;
+    if (D->isStdNamespace())
+      return true;
+  if (Node.getLocation().isInvalid())
+    return false;
+  return Node.getASTContext().getSourceManager().isInSystemHeader(
+      Node.getLocation());
 }
 } // namespace
 
 ArgumentCommentCheck::ArgumentCommentCheck(StringRef Name,
                                            ClangTidyContext *Context)
     : ClangTidyCheck(Name, Context),
-      StrictMode(Options.getLocalOrGlobal("StrictMode", false)),
+      StrictMode(Options.get("StrictMode", false)),
       IgnoreSingleArgument(Options.get("IgnoreSingleArgument", false)),
       CommentBoolLiterals(Options.get("CommentBoolLiterals", false)),
       CommentIntegerLiterals(Options.get("CommentIntegerLiterals", false)),
@@ -56,7 +58,7 @@ void ArgumentCommentCheck::storeOptions(ClangTidyOptions::OptionMap &Opts) {
 
 void ArgumentCommentCheck::registerMatchers(MatchFinder *Finder) {
   Finder->addMatcher(
-      callExpr(unless(cxxOperatorCallExpr()),
+      callExpr(unless(cxxOperatorCallExpr()), unless(userDefinedLiteral()),
                // NewCallback's arguments relate to the pointed function,
                // don't check them against NewCallback's parameter names.
                // FIXME: Make this configurable.
@@ -66,13 +68,13 @@ void ArgumentCommentCheck::registerMatchers(MatchFinder *Finder) {
                // not specified by the standard, and standard library
                // implementations in practice have to use reserved names to
                // avoid conflicts with same-named macros.
-               unless(hasDeclaration(isFromStdNamespace())))
+               unless(hasDeclaration(isFromStdNamespaceOrSystemHeader())))
           .bind("expr"),
       this);
-  Finder->addMatcher(
-      cxxConstructExpr(unless(hasDeclaration(isFromStdNamespace())))
-          .bind("expr"),
-      this);
+  Finder->addMatcher(cxxConstructExpr(unless(hasDeclaration(
+                                          isFromStdNamespaceOrSystemHeader())))
+                         .bind("expr"),
+                     this);
 }
 
 static std::vector<std::pair<SourceLocation, StringRef>>
@@ -143,7 +145,7 @@ static bool isLikelyTypo(llvm::ArrayRef<ParmVarDecl *> Params,
   std::string ArgNameLowerStr = ArgName.lower();
   StringRef ArgNameLower = ArgNameLowerStr;
   // The threshold is arbitrary.
-  unsigned UpperBound = (ArgName.size() + 2) / 3 + 1;
+  unsigned UpperBound = ((ArgName.size() + 2) / 3) + 1;
   unsigned ThisED = ArgNameLower.edit_distance(
       Params[ArgIndex]->getIdentifier()->getName().lower(),
       /*AllowReplacements=*/true, UpperBound);
@@ -176,14 +178,14 @@ static bool sameName(StringRef InComment, StringRef InDecl, bool StrictMode) {
     return InComment == InDecl;
   InComment = InComment.trim('_');
   InDecl = InDecl.trim('_');
-  // FIXME: compare_lower only works for ASCII.
-  return InComment.compare_lower(InDecl) == 0;
+  // FIXME: compare_insensitive only works for ASCII.
+  return InComment.compare_insensitive(InDecl) == 0;
 }
 
 static bool looksLikeExpectMethod(const CXXMethodDecl *Expect) {
   return Expect != nullptr && Expect->getLocation().isMacroID() &&
          Expect->getNameInfo().getName().isIdentifier() &&
-         Expect->getName().startswith("gmock_");
+         Expect->getName().starts_with("gmock_");
 }
 static bool areMockAndExpectMethods(const CXXMethodDecl *Mock,
                                     const CXXMethodDecl *Expect) {
@@ -280,7 +282,7 @@ void ArgumentCommentCheck::checkCallArgs(ASTContext *Ctx,
     IdentifierInfo *II = PVD->getIdentifier();
     if (!II)
       continue;
-    if (auto Template = Callee->getTemplateInstantiationPattern()) {
+    if (FunctionDecl *Template = Callee->getTemplateInstantiationPattern()) {
       // Don't warn on arguments for parameters instantiated from template
       // parameter packs. If we find more arguments than the template
       // definition has, it also means that they correspond to a parameter
@@ -349,7 +351,7 @@ void ArgumentCommentCheck::check(const MatchFinder::MatchResult &Result) {
       return;
 
     checkCallArgs(Result.Context, Callee, Call->getCallee()->getEndLoc(),
-                  llvm::makeArrayRef(Call->getArgs(), Call->getNumArgs()));
+                  llvm::ArrayRef(Call->getArgs(), Call->getNumArgs()));
   } else {
     const auto *Construct = cast<CXXConstructExpr>(E);
     if (Construct->getNumArgs() > 0 &&
@@ -360,10 +362,8 @@ void ArgumentCommentCheck::check(const MatchFinder::MatchResult &Result) {
     checkCallArgs(
         Result.Context, Construct->getConstructor(),
         Construct->getParenOrBraceRange().getBegin(),
-        llvm::makeArrayRef(Construct->getArgs(), Construct->getNumArgs()));
+        llvm::ArrayRef(Construct->getArgs(), Construct->getNumArgs()));
   }
 }
 
-} // namespace bugprone
-} // namespace tidy
-} // namespace clang
+} // namespace clang::tidy::bugprone

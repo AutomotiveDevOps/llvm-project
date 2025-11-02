@@ -10,13 +10,15 @@
 #include <type_traits>
 #include "test_macros.h"
 
-// XFAIL: c++98, c++03, c++11, c++14
+// XFAIL: c++03, c++11, c++14
 
 // std::byte is not an integer type, nor a character type.
 // It is a distinct type for accessing the bits that ultimately make up object storage.
 
 #if TEST_STD_VER > 17
-static_assert( std::is_trivial<std::byte>::value, "" );   // P0767
+static_assert(std::is_trivially_copyable<std::byte>::value, "");
+static_assert(std::is_trivially_default_constructible<std::byte>::value, "");
+static_assert(std::is_standard_layout<std::byte>::value, "");
 #else
 static_assert( std::is_pod<std::byte>::value, "" );
 #endif

@@ -9,6 +9,9 @@
 //       file-filter\header*.h due to code order between '/' and '\\'.
 // RUN: clang-tidy -checks='-*,google-explicit-constructor' -header-filter='.*' -system-headers %s -- -I %S/Inputs/file-filter/system/.. -isystem %S/Inputs/file-filter/system 2>&1 | FileCheck --check-prefix=CHECK4 %s
 // RUN: clang-tidy -checks='-*,google-explicit-constructor' -header-filter='.*' -system-headers -quiet %s -- -I %S/Inputs/file-filter/system/.. -isystem %S/Inputs/file-filter/system 2>&1 | FileCheck --check-prefix=CHECK4-QUIET %s
+// RUN: clang-tidy -checks='-*,cppcoreguidelines-pro-type-cstyle-cast' -header-filter='.*' -system-headers %s -- -I %S/Inputs/file-filter/system/.. -isystem %S/Inputs/file-filter/system 2>&1 | FileCheck --check-prefix=CHECK5 %s
+// RUN: clang-tidy -checks='-*,cppcoreguidelines-pro-type-cstyle-cast' -header-filter='.*' %s -- -I %S/Inputs/file-filter/system/.. -isystem %S/Inputs/file-filter/system 2>&1 | FileCheck --check-prefix=CHECK5-NO-SYSTEM-HEADERS %s
+// RUN: clang-tidy -checks='-*,google-explicit-constructor' -header-filter='.*' -exclude-header-filter='header1\.h' %s -- -I %S/Inputs/file-filter/ -isystem %S/Inputs/file-filter/system 2>&1 | FileCheck --check-prefix=CHECK6 %s
 
 #include "header1.h"
 // CHECK-NOT: warning:
@@ -19,6 +22,7 @@
 // CHECK3-QUIET-NOT: warning:
 // CHECK4: header1.h:1:12: warning: single-argument constructors
 // CHECK4-QUIET: header1.h:1:12: warning: single-argument constructors
+// CHECK6-NOT: warning:
 
 #include "header2.h"
 // CHECK-NOT: warning:
@@ -29,6 +33,7 @@
 // CHECK3-QUIET: header2.h:1:12: warning: single-argument constructors
 // CHECK4: header2.h:1:12: warning: single-argument constructors
 // CHECK4-QUIET: header2.h:1:12: warning: single-argument constructors
+// CHECK6: header2.h:1:12: warning: single-argument constructors
 
 #include <system-header.h>
 // CHECK-NOT: warning:
@@ -39,6 +44,7 @@
 // CHECK3-QUIET-NOT: warning:
 // CHECK4: system-header.h:1:12: warning: single-argument constructors
 // CHECK4-QUIET: system-header.h:1:12: warning: single-argument constructors
+// CHECK6-NOT: warning:
 
 class A { A(int); };
 // CHECK: :[[@LINE-1]]:11: warning: single-argument constructors
@@ -49,6 +55,7 @@ class A { A(int); };
 // CHECK3-QUIET: :[[@LINE-6]]:11: warning: single-argument constructors
 // CHECK4: :[[@LINE-7]]:11: warning: single-argument constructors
 // CHECK4-QUIET: :[[@LINE-8]]:11: warning: single-argument constructors
+// CHECK6: :[[@LINE-9]]:11: warning: single-argument constructors
 
 // CHECK-NOT: warning:
 // CHECK-QUIET-NOT: warning:
@@ -59,15 +66,17 @@ class A { A(int); };
 // CHECK4-NOT: warning:
 // CHECK4-QUIET-NOT: warning:
 
-// CHECK: Suppressed 3 warnings (3 in non-user code)
-// CHECK: Use -header-filter=.* to display errors from all non-system headers.
+// CHECK: Use -header-filter=.* or leave it as default to display errors from all non-system headers.
 // CHECK-QUIET-NOT: Suppressed
-// CHECK2: Suppressed 1 warnings (1 in non-user code)
-// CHECK2: Use -header-filter=.* {{.*}}
 // CHECK2-QUIET-NOT: Suppressed
-// CHECK3: Suppressed 2 warnings (2 in non-user code)
 // CHECK3: Use -header-filter=.* {{.*}}
 // CHECK3-QUIET-NOT: Suppressed
 // CHECK4-NOT: Suppressed {{.*}} warnings
 // CHECK4-NOT: Use -header-filter=.* {{.*}}
 // CHECK4-QUIET-NOT: Suppressed
+// CHECK6: Use -header-filter=.* {{.*}}
+
+int x = 123;
+auto x_ptr = TO_FLOAT_PTR(&x);
+// CHECK5: :[[@LINE-1]]:14: warning: do not use C-style cast to convert between unrelated types
+// CHECK5-NO-SYSTEM-HEADERS-NOT: :[[@LINE-2]]:14: warning: do not use C-style cast to convert between unrelated types

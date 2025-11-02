@@ -1,4 +1,4 @@
-//===------- HICPPTidyModule.cpp - clang-tidy -----------------------------===//
+//===----------------------------------------------------------------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -9,6 +9,7 @@
 #include "../ClangTidy.h"
 #include "../ClangTidyModule.h"
 #include "../ClangTidyModuleRegistry.h"
+#include "../bugprone/UndelegatedConstructorCheck.h"
 #include "../bugprone/UseAfterMoveCheck.h"
 #include "../cppcoreguidelines/AvoidGotoCheck.h"
 #include "../cppcoreguidelines/NoMallocCheck.h"
@@ -16,11 +17,9 @@
 #include "../cppcoreguidelines/ProTypeMemberInitCheck.h"
 #include "../cppcoreguidelines/ProTypeVarargCheck.h"
 #include "../cppcoreguidelines/SpecialMemberFunctionsCheck.h"
-#include "../google/DefaultArgumentsCheck.h"
 #include "../google/ExplicitConstructorCheck.h"
 #include "../misc/NewDeleteOverloadsCheck.h"
 #include "../misc/StaticAssertCheck.h"
-#include "../bugprone/UndelegatedConstructorCheck.h"
 #include "../modernize/AvoidCArraysCheck.h"
 #include "../modernize/DeprecatedHeadersCheck.h"
 #include "../modernize/UseAutoCheck.h"
@@ -34,15 +33,15 @@
 #include "../performance/NoexceptMoveConstructorCheck.h"
 #include "../readability/BracesAroundStatementsCheck.h"
 #include "../readability/FunctionSizeCheck.h"
-#include "../readability/IdentifierNamingCheck.h"
+#include "../readability/NamedParameterCheck.h"
 #include "../readability/UppercaseLiteralSuffixCheck.h"
 #include "ExceptionBaseclassCheck.h"
+#include "IgnoredRemoveResultCheck.h"
 #include "MultiwayPathsCoveredCheck.h"
 #include "NoAssemblerCheck.h"
 #include "SignedBitwiseCheck.h"
 
-namespace clang {
-namespace tidy {
+namespace clang::tidy {
 namespace hicpp {
 
 class HICPPModule : public ClangTidyModule {
@@ -58,6 +57,8 @@ public:
         "hicpp-deprecated-headers");
     CheckFactories.registerCheck<ExceptionBaseclassCheck>(
         "hicpp-exception-baseclass");
+    CheckFactories.registerCheck<IgnoredRemoveResultCheck>(
+        "hicpp-ignored-remove-result");
     CheckFactories.registerCheck<MultiwayPathsCoveredCheck>(
         "hicpp-multiway-paths-covered");
     CheckFactories.registerCheck<SignedBitwiseCheck>("hicpp-signed-bitwise");
@@ -65,7 +66,7 @@ public:
         "hicpp-explicit-conversions");
     CheckFactories.registerCheck<readability::FunctionSizeCheck>(
         "hicpp-function-size");
-    CheckFactories.registerCheck<readability::IdentifierNamingCheck>(
+    CheckFactories.registerCheck<readability::NamedParameterCheck>(
         "hicpp-named-parameter");
     CheckFactories.registerCheck<bugprone::UseAfterMoveCheck>(
         "hicpp-invalid-access-moved");
@@ -118,7 +119,6 @@ static ClangTidyModuleRegistry::Add<HICPPModule>
 
 // This anchor is used to force the linker to link in the generated object file
 // and thus register the HICPPModule.
-volatile int HICPPModuleAnchorSource = 0;
+volatile int HICPPModuleAnchorSource = 0; // NOLINT(misc-use-internal-linkage)
 
-} // namespace tidy
-} // namespace clang
+} // namespace clang::tidy

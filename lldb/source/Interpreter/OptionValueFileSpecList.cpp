@@ -8,7 +8,7 @@
 
 #include "lldb/Interpreter/OptionValueFileSpecList.h"
 
-#include "lldb/Host/StringConvert.h"
+#include "lldb/Interpreter/OptionValue.h"
 #include "lldb/Utility/Args.h"
 #include "lldb/Utility/Stream.h"
 
@@ -23,9 +23,15 @@ void OptionValueFileSpecList::DumpValue(const ExecutionContext *exe_ctx,
   if (dump_mask & eDumpOptionValue) {
     const bool one_line = dump_mask & eDumpOptionCommand;
     const uint32_t size = m_current_value.GetSize();
-    if (dump_mask & eDumpOptionType)
-      strm.Printf(" =%s",
-                  (m_current_value.GetSize() > 0 && !one_line) ? "\n" : "");
+    if (dump_mask & (eDumpOptionType | eDumpOptionDefaultValue)) {
+      strm.Printf(" =");
+      if (dump_mask & eDumpOptionDefaultValue && !m_current_value.IsEmpty()) {
+        DefaultValueFormat label(strm);
+        strm.PutCString("empty");
+      }
+      if (!m_current_value.IsEmpty() && !one_line)
+        strm.PutCString("\n");
+    }
     if (!one_line)
       strm.IndentMore();
     for (uint32_t i = 0; i < size; ++i) {
@@ -40,6 +46,15 @@ void OptionValueFileSpecList::DumpValue(const ExecutionContext *exe_ctx,
     if (!one_line)
       strm.IndentLess();
   }
+}
+
+llvm::json::Value
+OptionValueFileSpecList::ToJSON(const ExecutionContext *exe_ctx) const {
+  std::lock_guard<std::recursive_mutex> lock(m_mutex);
+  llvm::json::Array array;
+  for (const auto &file_spec : m_current_value)
+    array.emplace_back(file_spec.ToJSON());
+  return array;
 }
 
 Status OptionValueFileSpecList::SetValueFromString(llvm::StringRef value,
@@ -57,13 +72,12 @@ Status OptionValueFileSpecList::SetValueFromString(llvm::StringRef value,
 
   case eVarSetOperationReplace:
     if (argc > 1) {
-      uint32_t idx =
-          StringConvert::ToUInt32(args.GetArgumentAtIndex(0), UINT32_MAX);
+      uint32_t idx;
       const uint32_t count = m_current_value.GetSize();
-      if (idx > count) {
-        error.SetErrorStringWithFormat(
-            "invalid file list index %u, index must be 0 through %u", idx,
-            count);
+      if (!llvm::to_integer(args.GetArgumentAtIndex(0), idx) || idx > count) {
+        error = Status::FromErrorStringWithFormat(
+            "invalid file list index %s, index must be 0 through %u",
+            args.GetArgumentAtIndex(0), count);
       } else {
         for (size_t i = 1; i < argc; ++i, ++idx) {
           FileSpec file(args.GetArgumentAtIndex(i));
@@ -75,15 +89,16 @@ Status OptionValueFileSpecList::SetValueFromString(llvm::StringRef value,
         NotifyValueChanged();
       }
     } else {
-      error.SetErrorString("replace operation takes an array index followed by "
-                           "one or more values");
+      error = Status::FromErrorString(
+          "replace operation takes an array index followed by "
+          "one or more values");
     }
     break;
 
   case eVarSetOperationAssign:
     m_current_value.Clear();
     // Fall through to append case
-    LLVM_FALLTHROUGH;
+    [[fallthrough]];
   case eVarSetOperationAppend:
     if (argc > 0) {
       m_value_was_set = true;
@@ -93,7 +108,7 @@ Status OptionValueFileSpecList::SetValueFromString(llvm::StringRef value,
       }
       NotifyValueChanged();
     } else {
-      error.SetErrorString(
+      error = Status::FromErrorString(
           "assign operation takes at least one file path argument");
     }
     break;
@@ -101,13 +116,12 @@ Status OptionValueFileSpecList::SetValueFromString(llvm::StringRef value,
   case eVarSetOperationInsertBefore:
   case eVarSetOperationInsertAfter:
     if (argc > 1) {
-      uint32_t idx =
-          StringConvert::ToUInt32(args.GetArgumentAtIndex(0), UINT32_MAX);
+      uint32_t idx;
       const uint32_t count = m_current_value.GetSize();
-      if (idx > count) {
-        error.SetErrorStringWithFormat(
-            "invalid insert file list index %u, index must be 0 through %u",
-            idx, count);
+      if (!llvm::to_integer(args.GetArgumentAtIndex(0), idx) || idx > count) {
+        error = Status::FromErrorStringWithFormat(
+            "invalid insert file list index %s, index must be 0 through %u",
+            args.GetArgumentAtIndex(0), count);
       } else {
         if (op == eVarSetOperationInsertAfter)
           ++idx;
@@ -118,8 +132,9 @@ Status OptionValueFileSpecList::SetValueFromString(llvm::StringRef value,
         NotifyValueChanged();
       }
     } else {
-      error.SetErrorString("insert operation takes an array index followed by "
-                           "one or more values");
+      error = Status::FromErrorString(
+          "insert operation takes an array index followed by "
+          "one or more values");
     }
     break;
 
@@ -129,9 +144,8 @@ Status OptionValueFileSpecList::SetValueFromString(llvm::StringRef value,
       bool all_indexes_valid = true;
       size_t i;
       for (i = 0; all_indexes_valid && i < argc; ++i) {
-        const int idx =
-            StringConvert::ToSInt32(args.GetArgumentAtIndex(i), INT32_MAX);
-        if (idx == INT32_MAX)
+        int idx;
+        if (!llvm::to_integer(args.GetArgumentAtIndex(i), idx))
           all_indexes_valid = false;
         else
           remove_indexes.push_back(idx);
@@ -141,19 +155,20 @@ Status OptionValueFileSpecList::SetValueFromString(llvm::StringRef value,
         size_t num_remove_indexes = remove_indexes.size();
         if (num_remove_indexes) {
           // Sort and then erase in reverse so indexes are always valid
-          llvm::sort(remove_indexes.begin(), remove_indexes.end());
+          llvm::sort(remove_indexes);
           for (size_t j = num_remove_indexes - 1; j < num_remove_indexes; ++j) {
             m_current_value.Remove(j);
           }
         }
         NotifyValueChanged();
       } else {
-        error.SetErrorStringWithFormat(
+        error = Status::FromErrorStringWithFormat(
             "invalid array index '%s', aborting remove operation",
             args.GetArgumentAtIndex(i));
       }
     } else {
-      error.SetErrorString("remove operation takes one or more array index");
+      error = Status::FromErrorString(
+          "remove operation takes one or more array index");
     }
     break;
 
@@ -164,7 +179,7 @@ Status OptionValueFileSpecList::SetValueFromString(llvm::StringRef value,
   return error;
 }
 
-lldb::OptionValueSP OptionValueFileSpecList::DeepCopy() const {
+OptionValueSP OptionValueFileSpecList::Clone() const {
   std::lock_guard<std::recursive_mutex> lock(m_mutex);
-  return OptionValueSP(new OptionValueFileSpecList(m_current_value));
+  return Cloneable::Clone();
 }

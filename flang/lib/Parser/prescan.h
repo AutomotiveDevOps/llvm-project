@@ -16,11 +16,11 @@
 // fixed form character literals on truncated card images, file
 // inclusion, and driving the Fortran source preprocessor.
 
-#include "token-sequence.h"
-#include "flang/Common/Fortran-features.h"
 #include "flang/Parser/characters.h"
 #include "flang/Parser/message.h"
 #include "flang/Parser/provenance.h"
+#include "flang/Parser/token-sequence.h"
+#include "flang/Support/Fortran-features.h"
 #include <bitset>
 #include <optional>
 #include <string>
@@ -35,10 +35,27 @@ class Prescanner {
 public:
   Prescanner(Messages &, CookedSource &, Preprocessor &,
       common::LanguageFeatureControl);
-  Prescanner(const Prescanner &);
+  Prescanner(
+      const Prescanner &, Preprocessor &, bool isNestedInIncludeDirective);
+  Prescanner(const Prescanner &) = delete;
+  Prescanner(Prescanner &&) = delete;
 
-  Messages &messages() const { return messages_; }
+  const AllSources &allSources() const { return allSources_; }
+  AllSources &allSources() { return allSources_; }
+  const Messages &messages() const { return messages_; }
+  Messages &messages() { return messages_; }
+  const Preprocessor &preprocessor() const { return preprocessor_; }
+  Preprocessor &preprocessor() { return preprocessor_; }
+  common::LanguageFeatureControl &features() { return features_; }
 
+  Prescanner &set_preprocessingOnly(bool yes) {
+    preprocessingOnly_ = yes;
+    return *this;
+  }
+  Prescanner &set_expandIncludeLines(bool yes) {
+    expandIncludeLines_ = yes;
+    return *this;
+  }
   Prescanner &set_fixedForm(bool yes) {
     inFixedForm_ = yes;
     return *this;
@@ -64,11 +81,23 @@ public:
   TokenSequence TokenizePreprocessorDirective();
   Provenance GetCurrentProvenance() const { return GetProvenance(at_); }
 
-  template <typename... A> Message &Say(A &&... a) {
-    Message &m{messages_.Say(std::forward<A>(a)...)};
-    std::optional<ProvenanceRange> range{m.GetProvenanceRange(cooked_)};
-    CHECK(!range || cooked_.IsValid(*range));
-    return m;
+  const char *IsCompilerDirectiveSentinel(const char *, std::size_t) const;
+  const char *IsCompilerDirectiveSentinel(CharBlock) const;
+  // 'first' is the sentinel, 'second' is beginning of payload
+  std::optional<std::pair<const char *, const char *>>
+  IsCompilerDirectiveSentinel(const char *p) const;
+
+  template <typename... A> Message &Say(A &&...a) {
+    return messages_.Say(std::forward<A>(a)...);
+  }
+
+  template <typename... A>
+  Message *Warn(common::UsageWarning warning, A &&...a) {
+    return messages_.Warn(false, features_, warning, std::forward<A>(a)...);
+  }
+  template <typename... A>
+  Message *Warn(common::LanguageFeature feature, A &&...a) {
+    return messages_.Warn(false, features_, feature, std::forward<A>(a)...);
   }
 
 private:
@@ -86,6 +115,7 @@ private:
     LineClassification(Kind k, std::size_t po = 0, const char *s = nullptr)
         : kind{k}, payloadOffset{po}, sentinel{s} {}
     LineClassification(LineClassification &&) = default;
+    LineClassification &operator=(LineClassification &&) = default;
     Kind kind;
     std::size_t payloadOffset; // byte offset of content
     const char *sentinel; // if it's a compiler directive
@@ -95,14 +125,21 @@ private:
     at_ = at;
     column_ = 1;
     tabInCurrentLine_ = false;
-    slashInCurrentLine_ = false;
-    preventHollerith_ = false;
-    delimiterNesting_ = 0;
   }
 
   void BeginSourceLineAndAdvance() {
     BeginSourceLine(nextLine_);
     NextLine();
+  }
+
+  void BeginStatementAndAdvance() {
+    BeginSourceLineAndAdvance();
+    slashInCurrentStatement_ = false;
+    preventHollerith_ = false;
+    parenthesisNesting_ = 0;
+    continuationLines_ = 0;
+    isPossibleMacroCall_ = false;
+    disableSourceContinuation_ = false;
   }
 
   Provenance GetProvenance(const char *sourceChar) const {
@@ -120,7 +157,7 @@ private:
   }
 
   void EmitInsertedChar(TokenSequence &tokens, char ch) {
-    Provenance provenance{cooked_.allSources().CompilerInsertionProvenance(ch)};
+    Provenance provenance{allSources_.CompilerInsertionProvenance(ch)};
     tokens.PutNextTokenChar(ch, provenance);
   }
 
@@ -131,6 +168,21 @@ private:
   }
 
   bool InCompilerDirective() const { return directiveSentinel_ != nullptr; }
+  bool InOpenMPConditionalLine() const {
+    return directiveSentinel_ && directiveSentinel_[0] == '$' &&
+        !directiveSentinel_[1];
+  }
+  bool InOpenACCOrCUDAConditionalLine() const {
+    return directiveSentinel_ && directiveSentinel_[0] == '@' &&
+        ((directiveSentinel_[1] == 'a' && directiveSentinel_[2] == 'c' &&
+             directiveSentinel_[3] == 'c') ||
+            (directiveSentinel_[1] == 'c' && directiveSentinel_[2] == 'u' &&
+                directiveSentinel_[3] == 'f')) &&
+        directiveSentinel_[4] == '\0';
+  }
+  bool InConditionalLine() const {
+    return InOpenMPConditionalLine() || InOpenACCOrCUDAConditionalLine();
+  }
   bool InFixedFormSource() const {
     return inFixedForm_ && !inPreprocessorDirective_ && !InCompilerDirective();
   }
@@ -143,17 +195,24 @@ private:
                     common::LanguageFeature::ClassicCComments)));
   }
 
-  void LabelField(TokenSequence &, int outCol = 1);
+  void CheckAndEmitLine(TokenSequence &, Provenance newlineProvenance);
+  void LabelField(TokenSequence &);
+  void EnforceStupidEndStatementRules(const TokenSequence &);
   void SkipToEndOfLine();
   bool MustSkipToEndOfLine() const;
   void NextChar();
+  // True when input flowed to a continuation line
+  bool SkipToNextSignificantCharacter();
   void SkipCComments();
   void SkipSpaces();
   static const char *SkipWhiteSpace(const char *);
+  const char *SkipWhiteSpaceIncludingEmptyMacros(const char *) const;
   const char *SkipWhiteSpaceAndCComments(const char *) const;
   const char *SkipCComment(const char *) const;
   bool NextToken(TokenSequence &);
-  bool ExponentAndKind(TokenSequence &);
+  bool HandleExponent(TokenSequence &);
+  bool HandleKindSuffix(TokenSequence &);
+  bool HandleExponentAndOrKindSuffix(TokenSequence &);
   void QuotedCharacterLiteral(TokenSequence &, const char *start);
   void Hollerith(TokenSequence &, int count, const char *start);
   bool PadOutCharacterLiteral(TokenSequence &);
@@ -163,28 +222,41 @@ private:
   std::optional<std::size_t> IsIncludeLine(const char *) const;
   void FortranInclude(const char *quote);
   const char *IsPreprocessorDirectiveLine(const char *) const;
-  const char *FixedFormContinuationLine(bool mightNeedSpace);
+  const char *FixedFormContinuationLine(bool atNewline);
   const char *FreeFormContinuationLine(bool ampersand);
-  bool FixedFormContinuation(bool mightNeedSpace);
+  bool IsImplicitContinuation() const;
+  bool FixedFormContinuation(bool atNewline);
   bool FreeFormContinuation();
   bool Continuation(bool mightNeedFixedFormSpace);
   std::optional<LineClassification> IsFixedFormCompilerDirectiveLine(
       const char *) const;
   std::optional<LineClassification> IsFreeFormCompilerDirectiveLine(
       const char *) const;
-  const char *IsCompilerDirectiveSentinel(const char *) const;
   LineClassification ClassifyLine(const char *) const;
-  void SourceFormChange(std::string &&);
+  LineClassification ClassifyLine(
+      TokenSequence &, Provenance newlineProvenance) const;
+  bool SourceFormChange(std::string &&);
+  bool CompilerDirectiveContinuation(TokenSequence &, const char *sentinel);
+  bool SourceLineContinuation(TokenSequence &);
 
   Messages &messages_;
   CookedSource &cooked_;
   Preprocessor &preprocessor_;
+  AllSources &allSources_;
   common::LanguageFeatureControl features_;
+  bool preprocessingOnly_{false};
+  bool expandIncludeLines_{true};
+  bool isNestedInIncludeDirective_{false};
+  bool backslashFreeFormContinuation_{false};
   bool inFixedForm_{false};
   int fixedFormColumnLimit_{72};
   Encoding encoding_{Encoding::UTF_8};
-  int delimiterNesting_{0};
+  int parenthesisNesting_{0};
   int prescannerNesting_{0};
+  int continuationLines_{0};
+  bool isPossibleMacroCall_{false};
+  bool afterPreprocessingDirective_{false};
+  bool disableSourceContinuation_{false};
 
   Provenance startProvenance_;
   const char *start_{nullptr}; // beginning of current source file content
@@ -192,20 +264,26 @@ private:
   const char *nextLine_{nullptr}; // next line to process; <= limit_
   const char *directiveSentinel_{nullptr}; // current compiler directive
 
-  // This data members are state for processing the source line containing
+  // These data members are state for processing the source line containing
   // "at_", which goes to up to the newline character before "nextLine_".
   const char *at_{nullptr}; // next character to process; < nextLine_
   int column_{1}; // card image column position of next character
   bool tabInCurrentLine_{false};
-  bool slashInCurrentLine_{false};
-  bool preventHollerith_{false};
+  bool slashInCurrentStatement_{false};
+  bool preventHollerith_{false}; // CHARACTER*4HIMOM not Hollerith
   bool inCharLiteral_{false};
+  bool continuationInCharLiteral_{false};
   bool inPreprocessorDirective_{false};
 
-  // In some edge cases of compiler directive continuation lines, it
-  // is necessary to treat the line break as a space character by
-  // setting this flag, which is cleared by EmitChar().
-  bool insertASpace_{false};
+  // True after processing a continuation that can't be allowed
+  // to appear in the middle of an identifier token, but is fixed form,
+  // or is free form and doesn't have a space character handy to use as
+  // a separator when:
+  // a) (standard) doesn't begin with a leading '&' on the continuation
+  //     line, but has a non-blank in column 1, or
+  // b) (extension) does have a leading '&', but didn't have one
+  //    on the continued line.
+  bool brokenToken_{false};
 
   // When a free form continuation marker (&) appears at the end of a line
   // before a INCLUDE or #include, we delete it and omit the newline, so
@@ -215,12 +293,12 @@ private:
   bool omitNewline_{false};
   bool skipLeadingAmpersand_{false};
 
+  const std::size_t firstCookedCharacterOffset_{cooked_.BufferedBytes()};
+
   const Provenance spaceProvenance_{
-      cooked_.allSources().CompilerInsertionProvenance(' ')};
+      allSources_.CompilerInsertionProvenance(' ')};
   const Provenance backslashProvenance_{
-      cooked_.allSources().CompilerInsertionProvenance('\\')};
-  const ProvenanceRange sixSpaceProvenance_{
-      cooked_.allSources().AddCompilerInsertion("      "s)};
+      allSources_.CompilerInsertionProvenance('\\')};
 
   // To avoid probing the set of active compiler directive sentinel strings
   // on every comment line, they're checked first with a cheap Bloom filter.

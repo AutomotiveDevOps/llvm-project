@@ -6,6 +6,7 @@ static_library("AsmPrinter") {
     "//llvm/lib/CodeGen",
     "//llvm/lib/DebugInfo/CodeView",
     "//llvm/lib/DebugInfo/DWARF",
+    "//llvm/lib/DebugInfo/DWARF/LowLevel",
     "//llvm/lib/DebugInfo/MSF",
     "//llvm/lib/IR",
     "//llvm/lib/MC",
@@ -13,8 +14,10 @@ static_library("AsmPrinter") {
     "//llvm/lib/Remarks",
     "//llvm/lib/Support",
     "//llvm/lib/Target",
+    "//llvm/lib/TargetParser",
   ]
   sources = [
+    "AIXException.cpp",
     "ARMException.cpp",
     "AccelTable.cpp",
     "AddressPool.cpp",
@@ -37,6 +40,7 @@ static_library("AsmPrinter") {
     "EHStreamer.cpp",
     "ErlangGCPrinter.cpp",
     "OcamlGCPrinter.cpp",
+    "PseudoProbePrinter.cpp",
     "WasmException.cpp",
     "WinCFGuard.cpp",
     "WinException.cpp",

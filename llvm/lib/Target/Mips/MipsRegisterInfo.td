@@ -84,6 +84,7 @@ class HWR<bits<16> Enc, string n> : MipsReg<Enc, n>;
 
 let Namespace = "Mips" in {
   // General Purpose Registers
+  let isConstant = true in
   def ZERO : MipsGPRReg< 0, "zero">, DwarfRegNum<[0]>;
   def AT   : MipsGPRReg< 1, "1">,    DwarfRegNum<[1]>;
   def V0   : MipsGPRReg< 2, "2">,    DwarfRegNum<[2]>;
@@ -118,6 +119,7 @@ let Namespace = "Mips" in {
   def RA   : MipsGPRReg< 31, "ra">,  DwarfRegNum<[31]>;
 
   // General Purpose 64-bit Registers
+  let isConstant = true in
   def ZERO_64 : Mips64GPRReg< 0, "zero", [ZERO]>, DwarfRegNum<[0]>;
   def AT_64   : Mips64GPRReg< 1, "1",    [AT]>, DwarfRegNum<[1]>;
   def V0_64   : Mips64GPRReg< 2, "2",    [V0]>, DwarfRegNum<[2]>;
@@ -756,3 +758,19 @@ def MSA128DOpnd : RegisterOperand<MSA128D> {
 def MSA128CROpnd : RegisterOperand<MSACtrl> {
   let ParserMatchClass = MSACtrlAsmOperand;
 }
+
+def mips_ptr_rc : RegClassByHwMode<
+  [MIPS32, MIPS64],
+  [GPR32, GPR64]>;
+
+def ptr_gpr16mm_rc : RegClassByHwMode<
+  [MIPS32, MIPS64],
+  [GPRMM16, GPRMM16]>; // FIXME: Why even use this if it's just a constant
+
+def ptr_sp_rc : RegClassByHwMode<
+  [MIPS32, MIPS64],
+  [SP32, SP64]>;
+
+def ptr_gp_rc : RegClassByHwMode<
+  [MIPS32, MIPS64],
+  [GP32, GP64]>;

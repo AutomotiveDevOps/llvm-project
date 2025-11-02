@@ -1,18 +1,18 @@
 // RUN: %clang_cc1 -fsyntax-only -verify %s
 
-extern void foo();
+extern void foo(void);
 
 @protocol MyProtocol @end
 
 @interface MyClass @end
 
-int main()
+int main(void)
 {
   MyClass <MyProtocol> *obj_p;
   MyClass *obj_cp;
 
   obj_cp = obj_p;  
-  obj_p = obj_cp;	// expected-warning {{incompatible pointer types assigning to 'MyClass<MyProtocol> *' from 'MyClass *'}}
+  obj_p = obj_cp;	// expected-error {{incompatible pointer types assigning to 'MyClass<MyProtocol> *' from 'MyClass *'}}
 
   if (obj_cp == obj_p)
     foo();

@@ -48,7 +48,7 @@ void false_positives() {
   vol_a_ref = vol_a_ref;
 }
 
-// Do not diagnose self-assigment in an unevaluated context
+// Do not diagnose self-assignment in an unevaluated context
 void false_positives_unevaluated_ctx(int a) noexcept(noexcept(a = a)) // expected-warning {{expression with side effects has no effect in an unevaluated context}}
 {
   decltype(a = a) b = a;              // expected-warning {{expression with side effects has no effect in an unevaluated context}}
@@ -65,3 +65,26 @@ void instantiate() {
   g<int>();
   g<S>();
 }
+
+struct Foo {
+  int A;
+
+  Foo(int A) : A(A) {}
+
+  void setA(int A) {
+    A = A; // expected-warning{{explicitly assigning value of variable of type 'int' to itself; did you mean to assign to member 'A'?}}
+  }
+
+  void setThroughLambda() {
+    [](int A) {
+      // To fix here we would need to insert an explicit capture 'this'
+      A = A; // expected-warning{{explicitly assigning}}
+    }(5);
+
+    [this](int A) {
+      this->A = 0;
+      // This fix would be possible by just adding this-> as above, but currently unsupported.
+      A = A; // expected-warning{{explicitly assigning}}
+    }(5);
+  }
+};

@@ -6,11 +6,13 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_MC_REGISTER_H
-#define LLVM_MC_REGISTER_H
+#ifndef LLVM_MC_MCREGISTER_H
+#define LLVM_MC_MCREGISTER_H
 
 #include "llvm/ADT/DenseMapInfo.h"
+#include "llvm/ADT/Hashing.h"
 #include <cassert>
+#include <limits>
 
 namespace llvm {
 
@@ -18,12 +20,22 @@ namespace llvm {
 /// but not necessarily virtual registers.
 using MCPhysReg = uint16_t;
 
+/// Register units are used to compute register aliasing. Every register has at
+/// least one register unit, but it can have more. Two registers overlap if and
+/// only if they have a common register unit.
+///
+/// A target with a complicated sub-register structure will typically have many
+/// fewer register units than actual registers. MCRI::getNumRegUnits() returns
+/// the number of register units in the target.
+using MCRegUnit = unsigned;
+
 /// Wrapper class representing physical registers. Should be passed by value.
 class MCRegister {
+  friend hash_code hash_value(const MCRegister &);
   unsigned Reg;
 
 public:
-  constexpr MCRegister(unsigned Val = 0): Reg(Val) {}
+  constexpr MCRegister(unsigned Val = 0) : Reg(Val) {}
 
   // Register numbers can represent physical registers, virtual registers, and
   // sometimes stack slots. The unsigned values are divided into these ranges:
@@ -35,76 +47,77 @@ public:
   //
   // Further sentinels can be allocated from the small negative integers.
   // DenseMapInfo<unsigned> uses -1u and -2u.
-
-  /// This is the portion of the positive number space that is not a physical
-  /// register. StackSlot values do not exist in the MC layer, see
-  /// Register::isStackSlot() for the more information on them.
-  ///
-  /// Note that isVirtualRegister() and isPhysicalRegister() cannot handle stack
-  /// slots, so if a variable may contains a stack slot, always check
-  /// isStackSlot() first.
-  static bool isStackSlot(unsigned Reg) {
-    return int(Reg) >= (1 << 30);
-  }
+  static_assert(std::numeric_limits<decltype(Reg)>::max() >= 0xFFFFFFFF,
+                "Reg isn't large enough to hold full range.");
+  static constexpr unsigned NoRegister = 0u;
+  static constexpr unsigned FirstPhysicalReg = 1u;
+  static constexpr unsigned LastPhysicalReg = (1u << 30) - 1;
 
   /// Return true if the specified register number is in
   /// the physical register namespace.
-  static bool isPhysicalRegister(unsigned Reg) {
-    assert(!isStackSlot(Reg) && "Not a register! Check isStackSlot() first.");
-    return int(Reg) > 0;
+  static constexpr bool isPhysicalRegister(unsigned Reg) {
+    return FirstPhysicalReg <= Reg && Reg <= LastPhysicalReg;
   }
 
   /// Return true if the specified register number is in the physical register
   /// namespace.
-  bool isPhysical() const {
-    return isPhysicalRegister(Reg);
+  constexpr bool isPhysical() const { return isPhysicalRegister(Reg); }
+
+  constexpr operator unsigned() const { return Reg; }
+
+  /// Check the provided unsigned value is a valid MCRegister.
+  static MCRegister from(unsigned Val) {
+    assert(Val == NoRegister || isPhysicalRegister(Val));
+    return MCRegister(Val);
   }
 
-  constexpr operator unsigned() const {
-    return Reg;
-  }
+  constexpr unsigned id() const { return Reg; }
 
-  unsigned id() const {
-    return Reg;
-  }
-
-  bool isValid() const {
-    return Reg != 0;
-  }
+  constexpr bool isValid() const { return Reg != NoRegister; }
 
   /// Comparisons between register objects
-  bool operator==(const MCRegister &Other) const { return Reg == Other.Reg; }
-  bool operator!=(const MCRegister &Other) const { return Reg != Other.Reg; }
+  constexpr bool operator==(const MCRegister &Other) const {
+    return Reg == Other.Reg;
+  }
+  constexpr bool operator!=(const MCRegister &Other) const {
+    return Reg != Other.Reg;
+  }
 
   /// Comparisons against register constants. E.g.
   /// * R == AArch64::WZR
   /// * R == 0
-  /// * R == VirtRegMap::NO_PHYS_REG
-  bool operator==(unsigned Other) const { return Reg == Other; }
-  bool operator!=(unsigned Other) const { return Reg != Other; }
-  bool operator==(int Other) const { return Reg == unsigned(Other); }
-  bool operator!=(int Other) const { return Reg != unsigned(Other); }
+  constexpr bool operator==(unsigned Other) const { return Reg == Other; }
+  constexpr bool operator!=(unsigned Other) const { return Reg != Other; }
+  constexpr bool operator==(int Other) const { return Reg == unsigned(Other); }
+  constexpr bool operator!=(int Other) const { return Reg != unsigned(Other); }
   // MSVC requires that we explicitly declare these two as well.
-  bool operator==(MCPhysReg Other) const { return Reg == unsigned(Other); }
-  bool operator!=(MCPhysReg Other) const { return Reg != unsigned(Other); }
+  constexpr bool operator==(MCPhysReg Other) const {
+    return Reg == unsigned(Other);
+  }
+  constexpr bool operator!=(MCPhysReg Other) const {
+    return Reg != unsigned(Other);
+  }
 };
 
 // Provide DenseMapInfo for MCRegister
-template<> struct DenseMapInfo<MCRegister> {
-  static inline unsigned getEmptyKey() {
+template <> struct DenseMapInfo<MCRegister> {
+  static inline MCRegister getEmptyKey() {
     return DenseMapInfo<unsigned>::getEmptyKey();
   }
-  static inline unsigned getTombstoneKey() {
+  static inline MCRegister getTombstoneKey() {
     return DenseMapInfo<unsigned>::getTombstoneKey();
   }
   static unsigned getHashValue(const MCRegister &Val) {
     return DenseMapInfo<unsigned>::getHashValue(Val.id());
   }
   static bool isEqual(const MCRegister &LHS, const MCRegister &RHS) {
-    return DenseMapInfo<unsigned>::isEqual(LHS.id(), RHS.id());
+    return LHS == RHS;
   }
 };
 
+inline hash_code hash_value(const MCRegister &Reg) {
+  return hash_value(Reg.id());
 }
+} // namespace llvm
 
-#endif // ifndef LLVM_MC_REGISTER_H
+#endif // LLVM_MC_MCREGISTER_H

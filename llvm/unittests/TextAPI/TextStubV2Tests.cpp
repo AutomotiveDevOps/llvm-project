@@ -6,9 +6,9 @@
 //
 //===-----------------------------------------------------------------------===/
 #include "TextStubHelpers.h"
-#include "llvm/TextAPI/MachO/InterfaceFile.h"
-#include "llvm/TextAPI/MachO/TextAPIReader.h"
-#include "llvm/TextAPI/MachO/TextAPIWriter.h"
+#include "llvm/TextAPI/InterfaceFile.h"
+#include "llvm/TextAPI/TextAPIReader.h"
+#include "llvm/TextAPI/TextAPIWriter.h"
 #include "gtest/gtest.h"
 #include <string>
 #include <vector>
@@ -17,24 +17,24 @@ using namespace llvm;
 using namespace llvm::MachO;
 
 static ExportedSymbol TBDv2Symbols[] = {
-    {SymbolKind::GlobalSymbol, "$ld$hide$os9.0$_sym1", false, false},
-    {SymbolKind::GlobalSymbol, "_sym1", false, false},
-    {SymbolKind::GlobalSymbol, "_sym2", false, false},
-    {SymbolKind::GlobalSymbol, "_sym3", false, false},
-    {SymbolKind::GlobalSymbol, "_sym4", false, false},
-    {SymbolKind::GlobalSymbol, "_sym5", false, false},
-    {SymbolKind::GlobalSymbol, "_tlv1", false, true},
-    {SymbolKind::GlobalSymbol, "_tlv2", false, true},
-    {SymbolKind::GlobalSymbol, "_tlv3", false, true},
-    {SymbolKind::GlobalSymbol, "_weak1", true, false},
-    {SymbolKind::GlobalSymbol, "_weak2", true, false},
-    {SymbolKind::GlobalSymbol, "_weak3", true, false},
-    {SymbolKind::ObjectiveCClass, "class1", false, false},
-    {SymbolKind::ObjectiveCClass, "class2", false, false},
-    {SymbolKind::ObjectiveCClass, "class3", false, false},
-    {SymbolKind::ObjectiveCInstanceVariable, "class1._ivar1", false, false},
-    {SymbolKind::ObjectiveCInstanceVariable, "class1._ivar2", false, false},
-    {SymbolKind::ObjectiveCInstanceVariable, "class1._ivar3", false, false},
+    {EncodeKind::GlobalSymbol, "$ld$hide$os9.0$_sym1", false, false},
+    {EncodeKind::GlobalSymbol, "_sym1", false, false},
+    {EncodeKind::GlobalSymbol, "_sym2", false, false},
+    {EncodeKind::GlobalSymbol, "_sym3", false, false},
+    {EncodeKind::GlobalSymbol, "_sym4", false, false},
+    {EncodeKind::GlobalSymbol, "_sym5", false, false},
+    {EncodeKind::GlobalSymbol, "_tlv1", false, true},
+    {EncodeKind::GlobalSymbol, "_tlv2", false, true},
+    {EncodeKind::GlobalSymbol, "_tlv3", false, true},
+    {EncodeKind::GlobalSymbol, "_weak1", true, false},
+    {EncodeKind::GlobalSymbol, "_weak2", true, false},
+    {EncodeKind::GlobalSymbol, "_weak3", true, false},
+    {EncodeKind::ObjectiveCClass, "class1", false, false},
+    {EncodeKind::ObjectiveCClass, "class2", false, false},
+    {EncodeKind::ObjectiveCClass, "class3", false, false},
+    {EncodeKind::ObjectiveCInstanceVariable, "class1._ivar1", false, false},
+    {EncodeKind::ObjectiveCInstanceVariable, "class1._ivar2", false, false},
+    {EncodeKind::ObjectiveCInstanceVariable, "class1._ivar3", false, false},
 };
 
 namespace TBDv2 {
@@ -67,12 +67,13 @@ TEST(TBDv2, ReadFile) {
       "    thread-local-symbols: [ _tlv3 ]\n"
       "...\n";
 
-  auto Result = TextAPIReader::get(MemoryBufferRef(TBDv2File1, "Test.tbd"));
+  Expected<TBDFile> Result =
+      TextAPIReader::get(MemoryBufferRef(TBDv2File1, "Test.tbd"));
   EXPECT_TRUE(!!Result);
-  auto File = std::move(Result.get());
+  TBDFile File = std::move(Result.get());
   EXPECT_EQ(FileType::TBD_V2, File->getFileType());
   auto Archs = AK_armv7 | AK_armv7s | AK_armv7k | AK_arm64;
-  auto Platform = PlatformKind::iOS;
+  auto Platform = PLATFORM_IOS;
   TargetList Targets;
   for (auto &&arch : Archs)
     Targets.emplace_back(Target(arch, Platform));
@@ -86,7 +87,6 @@ TEST(TBDv2, ReadFile) {
   EXPECT_EQ(ObjCConstraintType::Retain_Release, File->getObjCConstraint());
   EXPECT_TRUE(File->isTwoLevelNamespace());
   EXPECT_TRUE(File->isApplicationExtensionSafe());
-  EXPECT_TRUE(File->isInstallAPI());
   InterfaceFileRef client("clientA", Targets);
   InterfaceFileRef reexport("/usr/lib/libfoo.dylib", Targets);
   EXPECT_EQ(1U, File->allowableClients().size());
@@ -102,9 +102,9 @@ TEST(TBDv2, ReadFile) {
         ExportedSymbol{Sym->getKind(), std::string(Sym->getName()),
                        Sym->isWeakDefined(), Sym->isThreadLocalValue()});
   }
-  llvm::sort(Exports.begin(), Exports.end());
+  llvm::sort(Exports);
 
-  EXPECT_EQ(sizeof(TBDv2Symbols) / sizeof(ExportedSymbol), Exports.size());
+  EXPECT_EQ(std::size(TBDv2Symbols), Exports.size());
   EXPECT_TRUE(
       std::equal(Exports.begin(), Exports.end(), std::begin(TBDv2Symbols)));
 }
@@ -138,12 +138,13 @@ TEST(TBDv2, ReadFile2) {
       "    weak-ref-symbols: [ _undefWeak1, _undefWeak2 ]\n"
       "...\n";
 
-  auto Result = TextAPIReader::get(MemoryBufferRef(TBDv2File2, "Test.tbd"));
+  Expected<TBDFile> Result =
+      TextAPIReader::get(MemoryBufferRef(TBDv2File2, "Test.tbd"));
   EXPECT_TRUE(!!Result);
-  auto File = std::move(Result.get());
+  TBDFile File = std::move(Result.get());
   EXPECT_EQ(FileType::TBD_V2, File->getFileType());
   auto Archs = AK_armv7 | AK_armv7s | AK_armv7k | AK_arm64;
-  auto Platform = PlatformKind::iOS;
+  auto Platform = PLATFORM_IOS;
   TargetList Targets;
   for (auto &&arch : Archs)
     Targets.emplace_back(Target(arch, Platform));
@@ -157,7 +158,6 @@ TEST(TBDv2, ReadFile2) {
   EXPECT_EQ(ObjCConstraintType::Retain_Release, File->getObjCConstraint());
   EXPECT_FALSE(File->isTwoLevelNamespace());
   EXPECT_FALSE(File->isApplicationExtensionSafe());
-  EXPECT_FALSE(File->isInstallAPI());
   EXPECT_EQ(0U, File->allowableClients().size());
   EXPECT_EQ(0U, File->reexportedLibraries().size());
 }
@@ -187,7 +187,7 @@ TEST(TBDv2, WriteFile) {
   InterfaceFile File;
   TargetList Targets;
   for (auto &&arch : AK_i386 | AK_x86_64)
-    Targets.emplace_back(Target(arch, PlatformKind::macOS));
+    Targets.emplace_back(Target(arch, PLATFORM_MACOS));
   File.setPath("libfoo.dylib");
   File.setInstallName("/usr/lib/libfoo.dylib");
   File.setFileType(FileType::TBD_V2);
@@ -199,19 +199,19 @@ TEST(TBDv2, WriteFile) {
   File.setObjCConstraint(ObjCConstraintType::Retain_Release);
   File.addAllowableClient("clientA", Targets[1]);
   File.addReexportedLibrary("/usr/lib/libfoo.dylib", Targets[1]);
-  File.addSymbol(SymbolKind::GlobalSymbol, "_sym1", {Targets[0]});
-  File.addSymbol(SymbolKind::GlobalSymbol, "_sym2", {Targets[0]},
+  File.addSymbol(EncodeKind::GlobalSymbol, "_sym1", {Targets[0]});
+  File.addSymbol(EncodeKind::GlobalSymbol, "_sym2", {Targets[0]},
                  SymbolFlags::WeakDefined);
-  File.addSymbol(SymbolKind::GlobalSymbol, "_sym3", {Targets[0]},
+  File.addSymbol(EncodeKind::GlobalSymbol, "_sym3", {Targets[0]},
                  SymbolFlags::ThreadLocalValue);
-  File.addSymbol(SymbolKind::ObjectiveCClass, "Class1", {Targets[1]});
-  File.addSymbol(SymbolKind::ObjectiveCClassEHType, "Class1", {Targets[1]});
-  File.addSymbol(SymbolKind::ObjectiveCInstanceVariable, "Class1._ivar1",
+  File.addSymbol(EncodeKind::ObjectiveCClass, "Class1", {Targets[1]});
+  File.addSymbol(EncodeKind::ObjectiveCClassEHType, "Class1", {Targets[1]});
+  File.addSymbol(EncodeKind::ObjectiveCInstanceVariable, "Class1._ivar1",
                  {Targets[1]});
 
   SmallString<4096> Buffer;
   raw_svector_ostream OS(Buffer);
-  auto Result = TextAPIWriter::writeToStream(OS, File);
+  Error Result = TextAPIWriter::writeToStream(OS, File);
   EXPECT_FALSE(Result);
   EXPECT_STREQ(TBDv2File3, Buffer.c_str());
 }
@@ -223,11 +223,11 @@ TEST(TBDv2, Platform_macOS) {
                                            "install-name: Test.dylib\n"
                                            "...\n";
 
-  auto Result =
+  Expected<TBDFile> Result =
       TextAPIReader::get(MemoryBufferRef(TBDv2PlatformMacOS, "Test.tbd"));
   EXPECT_TRUE(!!Result);
-  auto File = std::move(Result.get());
-  auto Platform = PlatformKind::macOS;
+  TBDFile File = std::move(Result.get());
+  auto Platform = PLATFORM_MACOS;
   EXPECT_EQ(FileType::TBD_V2, File->getFileType());
   EXPECT_EQ(File->getPlatforms().size(), 1U);
   EXPECT_EQ(Platform, *File->getPlatforms().begin());
@@ -240,11 +240,11 @@ TEST(TBDv2, Platform_iOS) {
                                          "install-name: Test.dylib\n"
                                          "...\n";
 
-  auto Result =
+  Expected<TBDFile> Result =
       TextAPIReader::get(MemoryBufferRef(TBDv2PlatformiOS, "Test.tbd"));
   EXPECT_TRUE(!!Result);
-  auto Platform = PlatformKind::iOS;
-  auto File = std::move(Result.get());
+  auto Platform = PLATFORM_IOS;
+  TBDFile File = std::move(Result.get());
   EXPECT_EQ(FileType::TBD_V2, File->getFileType());
   EXPECT_EQ(File->getPlatforms().size(), 1U);
   EXPECT_EQ(Platform, *File->getPlatforms().begin());
@@ -257,11 +257,11 @@ TEST(TBDv2, Platform_watchOS) {
                                              "install-name: Test.dylib\n"
                                              "...\n";
 
-  auto Result =
+  Expected<TBDFile> Result =
       TextAPIReader::get(MemoryBufferRef(TBDv2PlatformWatchOS, "Test.tbd"));
   EXPECT_TRUE(!!Result);
-  auto Platform = PlatformKind::watchOS;
-  auto File = std::move(Result.get());
+  auto Platform = PLATFORM_WATCHOS;
+  TBDFile File = std::move(Result.get());
   EXPECT_EQ(FileType::TBD_V2, File->getFileType());
   EXPECT_EQ(File->getPlatforms().size(), 1U);
   EXPECT_EQ(Platform, *File->getPlatforms().begin());
@@ -274,11 +274,11 @@ TEST(TBDv2, Platform_tvOS) {
                                           "install-name: Test.dylib\n"
                                           "...\n";
 
-  auto Result =
+  Expected<TBDFile> Result =
       TextAPIReader::get(MemoryBufferRef(TBDv2PlatformtvOS, "Test.tbd"));
   EXPECT_TRUE(!!Result);
-  auto Platform = PlatformKind::tvOS;
-  auto File = std::move(Result.get());
+  auto Platform = PLATFORM_TVOS;
+  TBDFile File = std::move(Result.get());
   EXPECT_EQ(FileType::TBD_V2, File->getFileType());
   EXPECT_EQ(File->getPlatforms().size(), 1U);
   EXPECT_EQ(Platform, *File->getPlatforms().begin());
@@ -291,10 +291,11 @@ TEST(TBDv2, Platform_bridgeOS) {
                                       "install-name: Test.dylib\n"
                                       "...\n";
 
-  auto Result = TextAPIReader::get(MemoryBufferRef(TBDv2BridgeOS, "Test.tbd"));
+  Expected<TBDFile> Result =
+      TextAPIReader::get(MemoryBufferRef(TBDv2BridgeOS, "Test.tbd"));
   EXPECT_TRUE(!!Result);
-  auto Platform = PlatformKind::bridgeOS;
-  auto File = std::move(Result.get());
+  auto Platform = PLATFORM_BRIDGEOS;
+  TBDFile File = std::move(Result.get());
   EXPECT_EQ(FileType::TBD_V2, File->getFileType());
   EXPECT_EQ(File->getPlatforms().size(), 1U);
   EXPECT_EQ(Platform, *File->getPlatforms().begin());
@@ -308,9 +309,10 @@ TEST(TBDv2, Swift_1_0) {
                                     "swift-version: 1.0\n"
                                     "...\n";
 
-  auto Result = TextAPIReader::get(MemoryBufferRef(TBDv2Swift1, "Test.tbd"));
+  Expected<TBDFile> Result =
+      TextAPIReader::get(MemoryBufferRef(TBDv2Swift1, "Test.tbd"));
   EXPECT_TRUE(!!Result);
-  auto File = std::move(Result.get());
+  TBDFile File = std::move(Result.get());
   EXPECT_EQ(FileType::TBD_V2, File->getFileType());
   EXPECT_EQ(1U, File->getSwiftABIVersion());
 }
@@ -323,9 +325,10 @@ TEST(TBDv2, Swift_1_1) {
                                        "swift-version: 1.1\n"
                                        "...\n";
 
-  auto Result = TextAPIReader::get(MemoryBufferRef(TBDv2Swift1dot, "Test.tbd"));
+  Expected<TBDFile> Result =
+      TextAPIReader::get(MemoryBufferRef(TBDv2Swift1dot, "Test.tbd"));
   EXPECT_TRUE(!!Result);
-  auto File = std::move(Result.get());
+  TBDFile File = std::move(Result.get());
   EXPECT_EQ(FileType::TBD_V2, File->getFileType());
   EXPECT_EQ(2U, File->getSwiftABIVersion());
 }
@@ -338,10 +341,10 @@ TEST(TBDv2, Swift_2_0) {
                                          "swift-version: 2.0\n"
                                          "...\n";
 
-  auto Result =
+  Expected<TBDFile> Result =
       TextAPIReader::get(MemoryBufferRef(tbd_v2_swift_2_0, "Test.tbd"));
   EXPECT_TRUE(!!Result);
-  auto File = std::move(Result.get());
+  TBDFile File = std::move(Result.get());
   EXPECT_EQ(FileType::TBD_V2, File->getFileType());
   EXPECT_EQ(3U, File->getSwiftABIVersion());
 }
@@ -354,9 +357,10 @@ TEST(TBDv2, Swift_3_0) {
                                     "swift-version: 3.0\n"
                                     "...\n";
 
-  auto Result = TextAPIReader::get(MemoryBufferRef(TBDv2Swift3, "Test.tbd"));
+  Expected<TBDFile> Result =
+      TextAPIReader::get(MemoryBufferRef(TBDv2Swift3, "Test.tbd"));
   EXPECT_TRUE(!!Result);
-  auto File = std::move(Result.get());
+  TBDFile File = std::move(Result.get());
   EXPECT_EQ(FileType::TBD_V2, File->getFileType());
   EXPECT_EQ(4U, File->getSwiftABIVersion());
 }
@@ -369,12 +373,13 @@ TEST(TBDv2, Swift_4_0) {
                                     "swift-version: 4.0\n"
                                     "...\n";
 
-  auto Result = TextAPIReader::get(MemoryBufferRef(TBDv2Swift4, "Test.tbd"));
+  Expected<TBDFile> Result =
+      TextAPIReader::get(MemoryBufferRef(TBDv2Swift4, "Test.tbd"));
   EXPECT_FALSE(!!Result);
-  auto errorMessage = toString(Result.takeError());
+  std::string ErrorMessage = toString(Result.takeError());
   EXPECT_EQ("malformed file\nTest.tbd:5:16: error: invalid Swift ABI "
             "version.\nswift-version: 4.0\n               ^~~\n",
-            errorMessage);
+            ErrorMessage);
 }
 
 TEST(TBDv2, Swift_5) {
@@ -385,9 +390,10 @@ TEST(TBDv2, Swift_5) {
                                     "swift-version: 5\n"
                                     "...\n";
 
-  auto Result = TextAPIReader::get(MemoryBufferRef(TBDv2Swift5, "Test.tbd"));
+  Expected<TBDFile> Result =
+      TextAPIReader::get(MemoryBufferRef(TBDv2Swift5, "Test.tbd"));
   EXPECT_TRUE(!!Result);
-  auto File = std::move(Result.get());
+  TBDFile File = std::move(Result.get());
   EXPECT_EQ(FileType::TBD_V2, File->getFileType());
   EXPECT_EQ(5U, File->getSwiftABIVersion());
 }
@@ -400,9 +406,10 @@ TEST(TBDv2, Swift_99) {
                                      "swift-version: 99\n"
                                      "...\n";
 
-  auto Result = TextAPIReader::get(MemoryBufferRef(TBDv2Swift99, "Test.tbd"));
+  Expected<TBDFile> Result =
+      TextAPIReader::get(MemoryBufferRef(TBDv2Swift99, "Test.tbd"));
   EXPECT_TRUE(!!Result);
-  auto File = std::move(Result.get());
+  TBDFile File = std::move(Result.get());
   EXPECT_EQ(FileType::TBD_V2, File->getFileType());
   EXPECT_EQ(99U, File->getSwiftABIVersion());
 }
@@ -413,7 +420,7 @@ TEST(TBDv2, UnknownArchitecture) {
                                              "platform: macosx\n"
                                              "install-name: Test.dylib\n"
                                              "...\n";
-  auto Result =
+  Expected<TBDFile> Result =
       TextAPIReader::get(MemoryBufferRef(TBDv2FileUnknownArch, "Test.tbd"));
   EXPECT_TRUE(!!Result);
 }
@@ -424,13 +431,13 @@ TEST(TBDv2, UnknownPlatform) {
                                                  "platform: newOS\n"
                                                  "...\n";
 
-  auto Result =
+  Expected<TBDFile> Result =
       TextAPIReader::get(MemoryBufferRef(TBDv2FileUnknownPlatform, "Test.tbd"));
   EXPECT_FALSE(!!Result);
-  auto errorMessage = toString(Result.takeError());
+  std::string ErrorMessage = toString(Result.takeError());
   EXPECT_EQ("malformed file\nTest.tbd:3:11: error: unknown platform\nplatform: "
             "newOS\n          ^~~~~\n",
-            errorMessage);
+            ErrorMessage);
 }
 
 TEST(TBDv2, InvalidPlatform) {
@@ -440,13 +447,13 @@ TEST(TBDv2, InvalidPlatform) {
                                                  "install-name: Test.dylib\n"
                                                  "...\n";
 
-  auto Result =
+  Expected<TBDFile> Result =
       TextAPIReader::get(MemoryBufferRef(TBDv2FileInvalidPlatform, "Test.tbd"));
   EXPECT_FALSE(!!Result);
-  auto errorMessage = toString(Result.takeError());
+  std::string ErrorMessage = toString(Result.takeError());
   EXPECT_EQ("malformed file\nTest.tbd:3:11: error: invalid platform\nplatform: "
             "iosmac\n          ^~~~~~\n",
-            errorMessage);
+            ErrorMessage);
 }
 
 TEST(TBDv2, MalformedFile1) {
@@ -455,13 +462,13 @@ TEST(TBDv2, MalformedFile1) {
                                             "foobar: \"Unsupported key\"\n"
                                             "...\n";
 
-  auto Result =
+  Expected<TBDFile> Result =
       TextAPIReader::get(MemoryBufferRef(TBDv2FileMalformed1, "Test.tbd"));
   EXPECT_FALSE(!!Result);
-  auto errorMessage = toString(Result.takeError());
+  std::string ErrorMessage = toString(Result.takeError());
   ASSERT_EQ("malformed file\nTest.tbd:2:1: error: missing required key "
             "'platform'\narchs: [ arm64 ]\n^\n",
-            errorMessage);
+            ErrorMessage);
 }
 
 TEST(TBDv2, MalformedFile2) {
@@ -472,14 +479,14 @@ TEST(TBDv2, MalformedFile2) {
                                             "foobar: \"Unsupported key\"\n"
                                             "...\n";
 
-  auto Result =
+  Expected<TBDFile> Result =
       TextAPIReader::get(MemoryBufferRef(TBDv2FileMalformed2, "Test.tbd"));
   EXPECT_FALSE(!!Result);
-  auto errorMessage = toString(Result.takeError());
+  std::string ErrorMessage = toString(Result.takeError());
   ASSERT_EQ(
-      "malformed file\nTest.tbd:5:9: error: unknown key 'foobar'\nfoobar: "
-      "\"Unsupported key\"\n        ^~~~~~~~~~~~~~~~~\n",
-      errorMessage);
+      "malformed file\nTest.tbd:5:1: error: unknown key 'foobar'\nfoobar: "
+      "\"Unsupported key\"\n^~~~~~\n",
+      ErrorMessage);
 }
 
 } // namespace TBDv2

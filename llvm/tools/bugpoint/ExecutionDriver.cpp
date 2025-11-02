@@ -33,19 +33,19 @@ enum OutputType {
   RunJIT,
   RunLLC,
   RunLLCIA,
-  LLC_Safe,
   CompileCustom,
   Custom
 };
+} // namespace
 
-cl::opt<double> AbsTolerance("abs-tolerance",
-                             cl::desc("Absolute error tolerated"),
-                             cl::init(0.0));
-cl::opt<double> RelTolerance("rel-tolerance",
-                             cl::desc("Relative error tolerated"),
-                             cl::init(0.0));
+static cl::opt<double> AbsTolerance("abs-tolerance",
+                                    cl::desc("Absolute error tolerated"),
+                                    cl::init(0.0));
+static cl::opt<double> RelTolerance("rel-tolerance",
+                                    cl::desc("Relative error tolerated"),
+                                    cl::init(0.0));
 
-cl::opt<OutputType> InterpreterSel(
+static cl::opt<OutputType> InterpreterSel(
     cl::desc("Specify the \"test\" i.e. suspect back-end:"),
     cl::values(clEnumValN(AutoPick, "auto", "Use best guess"),
                clEnumValN(RunLLI, "run-int", "Execute with the interpreter"),
@@ -53,7 +53,6 @@ cl::opt<OutputType> InterpreterSel(
                clEnumValN(RunLLC, "run-llc", "Compile with LLC"),
                clEnumValN(RunLLCIA, "run-llc-ia",
                           "Compile with LLC with integrated assembler"),
-               clEnumValN(LLC_Safe, "llc-safe", "Use LLC for all"),
                clEnumValN(CompileCustom, "compile-custom",
                           "Use -compile-command to define a command to "
                           "compile the bitcode. Useful to avoid linking."),
@@ -62,7 +61,7 @@ cl::opt<OutputType> InterpreterSel(
                           "the bitcode. Useful for cross-compilation.")),
     cl::init(AutoPick));
 
-cl::opt<OutputType> SafeInterpreterSel(
+static cl::opt<OutputType> SafeInterpreterSel(
     cl::desc("Specify \"safe\" i.e. known-good backend:"),
     cl::values(clEnumValN(AutoPick, "safe-auto", "Use best guess"),
                clEnumValN(RunLLC, "safe-run-llc", "Compile with LLC"),
@@ -71,66 +70,62 @@ cl::opt<OutputType> SafeInterpreterSel(
                           "the bitcode. Useful for cross-compilation.")),
     cl::init(AutoPick));
 
-cl::opt<std::string> SafeInterpreterPath(
+static cl::opt<std::string> SafeInterpreterPath(
     "safe-path", cl::desc("Specify the path to the \"safe\" backend program"),
     cl::init(""));
 
-cl::opt<bool> AppendProgramExitCode(
+static cl::opt<bool> AppendProgramExitCode(
     "append-exit-code",
     cl::desc("Append the exit code to the output so it gets diff'd too"),
     cl::init(false));
 
-cl::opt<std::string>
+static cl::opt<std::string>
     InputFile("input", cl::init("/dev/null"),
               cl::desc("Filename to pipe in as stdin (default: /dev/null)"));
 
-cl::list<std::string>
+static cl::list<std::string>
     AdditionalSOs("additional-so", cl::desc("Additional shared objects to load "
                                             "into executing programs"));
 
-cl::list<std::string> AdditionalLinkerArgs(
+static cl::list<std::string> AdditionalLinkerArgs(
     "Xlinker", cl::desc("Additional arguments to pass to the linker"));
 
-cl::opt<std::string> CustomCompileCommand(
+static cl::opt<std::string> CustomCompileCommand(
     "compile-command", cl::init("llc"),
     cl::desc("Command to compile the bitcode (use with -compile-custom) "
              "(default: llc)"));
 
-cl::opt<std::string> CustomExecCommand(
+static cl::opt<std::string> CustomExecCommand(
     "exec-command", cl::init("simulate"),
     cl::desc("Command to execute the bitcode (use with -run-custom) "
              "(default: simulate)"));
-}
 
-namespace llvm {
 // Anything specified after the --args option are taken as arguments to the
 // program being debugged.
+namespace llvm {
 cl::list<std::string> InputArgv("args", cl::Positional,
                                 cl::desc("<program arguments>..."),
-                                cl::ZeroOrMore, cl::PositionalEatsArgs);
+                                cl::PositionalEatsArgs);
 
 cl::opt<std::string>
     OutputPrefix("output-prefix", cl::init("bugpoint"),
                  cl::desc("Prefix to use for outputs (default: 'bugpoint')"));
-}
+} // namespace llvm
 
-namespace {
-cl::list<std::string> ToolArgv("tool-args", cl::Positional,
-                               cl::desc("<tool arguments>..."), cl::ZeroOrMore,
-                               cl::PositionalEatsArgs);
+static cl::list<std::string> ToolArgv("tool-args", cl::Positional,
+                                      cl::desc("<tool arguments>..."),
+                                      cl::PositionalEatsArgs);
 
-cl::list<std::string> SafeToolArgv("safe-tool-args", cl::Positional,
-                                   cl::desc("<safe-tool arguments>..."),
-                                   cl::ZeroOrMore, cl::PositionalEatsArgs);
+static cl::list<std::string> SafeToolArgv("safe-tool-args", cl::Positional,
+                                          cl::desc("<safe-tool arguments>..."),
+                                          cl::PositionalEatsArgs);
 
-cl::opt<std::string> CCBinary("gcc", cl::init(""),
-                              cl::desc("The gcc binary to use."));
+static cl::opt<std::string> CCBinary("gcc", cl::init(""),
+                                     cl::desc("The gcc binary to use."));
 
-cl::list<std::string> CCToolArgv("gcc-tool-args", cl::Positional,
-                                 cl::desc("<gcc-tool arguments>..."),
-                                 cl::ZeroOrMore, cl::PositionalEatsArgs);
-}
-
+static cl::list<std::string> CCToolArgv("gcc-tool-args", cl::Positional,
+                                        cl::desc("<gcc-tool arguments>..."),
+                                        cl::PositionalEatsArgs);
 //===----------------------------------------------------------------------===//
 // BugDriver method implementation
 //
@@ -182,7 +177,6 @@ Error BugDriver::initializeExecutionEnvironment() {
     break;
   case RunLLC:
   case RunLLCIA:
-  case LLC_Safe:
     Interpreter = AbstractInterpreter::createLLC(
         getToolName(), Message, CCBinary, &ToolArgv, &CCToolArgv,
         InterpreterSel == RunLLCIA);
@@ -212,21 +206,12 @@ Error BugDriver::initializeExecutionEnvironment() {
   switch (SafeInterpreterSel) {
   case AutoPick:
     // In "llc-safe" mode, default to using LLC as the "safe" backend.
-    if (!SafeInterpreter && InterpreterSel == LLC_Safe) {
+    if (InterpreterSel == RunLLC) {
       SafeInterpreterSel = RunLLC;
       SafeToolArgs.push_back("--relocation-model=pic");
       SafeInterpreter = AbstractInterpreter::createLLC(
           Path.c_str(), Message, CCBinary, &SafeToolArgs, &CCToolArgv);
-    }
-
-    if (!SafeInterpreter && InterpreterSel != RunLLC &&
-        InterpreterSel != RunJIT) {
-      SafeInterpreterSel = RunLLC;
-      SafeToolArgs.push_back("--relocation-model=pic");
-      SafeInterpreter = AbstractInterpreter::createLLC(
-          Path.c_str(), Message, CCBinary, &SafeToolArgs, &CCToolArgv);
-    }
-    if (!SafeInterpreter) {
+    } else if (InterpreterSel != CompileCustom) {
       SafeInterpreterSel = AutoPick;
       Message = "Sorry, I can't automatically select a safe interpreter!\n";
     }
@@ -247,7 +232,7 @@ Error BugDriver::initializeExecutionEnvironment() {
               "\"safe\" backend right now!\n";
     break;
   }
-  if (!SafeInterpreter) {
+  if (!SafeInterpreter && InterpreterSel != CompileCustom) {
     outs() << Message << "\nExiting.\n";
     exit(1);
   }
@@ -311,7 +296,7 @@ Expected<std::string> BugDriver::executeProgram(const Module &Program,
              << "!\n";
       exit(1);
     }
-    BitcodeFile = std::string(UniqueFilename.str());
+    BitcodeFile = std::string(UniqueFilename);
 
     if (writeProgramToFile(BitcodeFile, UniqueFD, Program)) {
       errs() << ToolName << ": Error emitting bitcode to file '" << BitcodeFile
@@ -336,7 +321,7 @@ Expected<std::string> BugDriver::executeProgram(const Module &Program,
            << "\n";
     exit(1);
   }
-  OutputFile = std::string(UniqueFile.str());
+  OutputFile = std::string(UniqueFile);
 
   // Figure out which shared objects to run, if any.
   std::vector<std::string> SharedObjs(AdditionalSOs);

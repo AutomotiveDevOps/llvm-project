@@ -31,11 +31,25 @@ public:
   constexpr Interval &operator=(const Interval &) = default;
   constexpr Interval &operator=(Interval &&) = default;
 
+  constexpr bool operator<(const Interval &that) const {
+    return start_ < that.start_ ||
+        (start_ == that.start_ && size_ < that.size_);
+  }
+  constexpr bool operator<=(const Interval &that) const {
+    return start_ < that.start_ ||
+        (start_ == that.start_ && size_ <= that.size_);
+  }
   constexpr bool operator==(const Interval &that) const {
     return start_ == that.start_ && size_ == that.size_;
   }
   constexpr bool operator!=(const Interval &that) const {
     return !(*this == that);
+  }
+  constexpr bool operator>=(const Interval &that) const {
+    return !(*this < that);
+  }
+  constexpr bool operator>(const Interval &that) const {
+    return !(*this <= that);
   }
 
   constexpr const A &start() const { return start_; }
@@ -46,7 +60,8 @@ public:
     return start_ <= x && x < start_ + size_;
   }
   constexpr bool Contains(const Interval &that) const {
-    return Contains(that.start_) && Contains(that.start_ + (that.size_ - 1));
+    return Contains(that.start_) &&
+        ((that.size_ == 0) || Contains(that.start_ + (that.size_ - 1)));
   }
   constexpr bool IsDisjointWith(const Interval &that) const {
     return that.NextAfter() <= start_ || NextAfter() <= that.start_;
@@ -79,7 +94,7 @@ public:
     return x - start_;
   }
   A OffsetMember(std::size_t n) const {
-    CHECK(n < size_);
+    CHECK(n <= size_);
     return start_ + n;
   }
 
@@ -89,7 +104,7 @@ public:
     return {start_, std::min(size_, n)};
   }
   Interval Suffix(std::size_t n) const {
-    CHECK(n <= size_);
+    n = std::min(n, size_);
     return {start_ + n, size_ - n};
   }
 

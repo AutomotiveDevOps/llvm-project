@@ -8,6 +8,7 @@
 
 // <numeric>
 
+// Became constexpr in C++20
 // template<InputIterator InIter,
 //          OutputIterator<auto, const InIter::value_type&> OutIter,
 //          Callable<auto, const InIter::value_type&, InIter::reference> BinaryOperation>
@@ -19,13 +20,61 @@
 
 #include <numeric>
 #include <functional>
+#include <string>
 #include <cassert>
 
 #include "test_macros.h"
 #include "test_iterators.h"
 
+#if TEST_STD_VER > 17
+struct rvalue_addable
+{
+    bool correctOperatorUsed = false;
+
+    // make sure the predicate is passed an rvalue and an lvalue (so check that the first argument was moved)
+    constexpr rvalue_addable operator()(rvalue_addable&& r, rvalue_addable const&) {
+        r.correctOperatorUsed = true;
+        return std::move(r);
+    }
+};
+
+constexpr rvalue_addable operator+(rvalue_addable& lhs, rvalue_addable const&)
+{
+    lhs.correctOperatorUsed = false;
+    return lhs;
+}
+
+constexpr rvalue_addable operator+(rvalue_addable&& lhs, rvalue_addable const&)
+{
+    lhs.correctOperatorUsed = true;
+    return std::move(lhs);
+}
+
+constexpr void
+test_use_move()
+{
+    const std::size_t size = 100;
+    rvalue_addable arr[size];
+    rvalue_addable res1[size];
+    rvalue_addable res2[size];
+    std::partial_sum(arr, arr + size, res1);
+    std::partial_sum(arr, arr + size, res2, /*predicate=*/rvalue_addable());
+    // start at 1 because the first element is not moved
+    for (unsigned i = 1; i < size; ++i) assert(res1[i].correctOperatorUsed);
+    for (unsigned i = 1; i < size; ++i) assert(res2[i].correctOperatorUsed);
+}
+#endif // TEST_STD_VER > 17
+
+TEST_CONSTEXPR_CXX20 void test_string() {
+    std::string sa[] = {"a", "b", "c"};
+    std::string sr[] = {"a", "ba", "cb"};
+    std::string output[3];
+    std::adjacent_difference(sa, sa + 3, output, std::plus<std::string>());
+    for (unsigned i = 0; i < 3; ++i) assert(output[i] == sr[i]);
+}
+
 template <class InIter, class OutIter>
-void
+TEST_CONSTEXPR_CXX20 void
 test()
 {
     int ia[] = {1, 2, 3, 4, 5};
@@ -38,37 +87,54 @@ test()
         assert(ib[i] == ir[i]);
 }
 
-int main(int, char**)
+TEST_CONSTEXPR_CXX20 bool
+test()
 {
-    test<input_iterator<const int*>, output_iterator<int*> >();
-    test<input_iterator<const int*>, forward_iterator<int*> >();
-    test<input_iterator<const int*>, bidirectional_iterator<int*> >();
-    test<input_iterator<const int*>, random_access_iterator<int*> >();
-    test<input_iterator<const int*>, int*>();
+    test<cpp17_input_iterator<const int*>, cpp17_output_iterator<int*> >();
+    test<cpp17_input_iterator<const int*>, forward_iterator<int*> >();
+    test<cpp17_input_iterator<const int*>, bidirectional_iterator<int*> >();
+    test<cpp17_input_iterator<const int*>, random_access_iterator<int*> >();
+    test<cpp17_input_iterator<const int*>, int*>();
 
-    test<forward_iterator<const int*>, output_iterator<int*> >();
+    test<forward_iterator<const int*>, cpp17_output_iterator<int*> >();
     test<forward_iterator<const int*>, forward_iterator<int*> >();
     test<forward_iterator<const int*>, bidirectional_iterator<int*> >();
     test<forward_iterator<const int*>, random_access_iterator<int*> >();
     test<forward_iterator<const int*>, int*>();
 
-    test<bidirectional_iterator<const int*>, output_iterator<int*> >();
+    test<bidirectional_iterator<const int*>, cpp17_output_iterator<int*> >();
     test<bidirectional_iterator<const int*>, forward_iterator<int*> >();
     test<bidirectional_iterator<const int*>, bidirectional_iterator<int*> >();
     test<bidirectional_iterator<const int*>, random_access_iterator<int*> >();
     test<bidirectional_iterator<const int*>, int*>();
 
-    test<random_access_iterator<const int*>, output_iterator<int*> >();
+    test<random_access_iterator<const int*>, cpp17_output_iterator<int*> >();
     test<random_access_iterator<const int*>, forward_iterator<int*> >();
     test<random_access_iterator<const int*>, bidirectional_iterator<int*> >();
     test<random_access_iterator<const int*>, random_access_iterator<int*> >();
     test<random_access_iterator<const int*>, int*>();
 
-    test<const int*, output_iterator<int*> >();
+    test<const int*, cpp17_output_iterator<int*> >();
     test<const int*, forward_iterator<int*> >();
     test<const int*, bidirectional_iterator<int*> >();
     test<const int*, random_access_iterator<int*> >();
     test<const int*, int*>();
 
-  return 0;
+#if TEST_STD_VER > 17
+    test_use_move();
+#endif // TEST_STD_VER > 17
+
+    test_string();
+
+    return true;
+}
+
+int main(int, char**)
+{
+    test();
+#if TEST_STD_VER > 17
+    static_assert(test());
+#endif
+
+    return 0;
 }

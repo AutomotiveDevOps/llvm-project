@@ -19,11 +19,11 @@
 ; CHECK: $cppxdata$main:
 ; CHECK-NEXT: .long   429065506               # MagicNumber
 ; CHECK-NEXT: .long   4                       # MaxState
-; CHECK-NEXT: .long   ($stateUnwindMap$main)@IMGREL # UnwindMap
+; CHECK-NEXT: .long   $stateUnwindMap$main@IMGREL # UnwindMap
 ; CHECK-NEXT: .long   2                       # NumTryBlocks
-; CHECK-NEXT: .long   ($tryMap$main)@IMGREL   # TryBlockMap
+; CHECK-NEXT: .long   $tryMap$main@IMGREL   # TryBlockMap
 ; CHECK-NEXT: .long   5                       # IPMapEntries
-; CHECK-NEXT: .long   ($ip2state$main)@IMGREL # IPToStateXData
+; CHECK-NEXT: .long   $ip2state$main@IMGREL # IPToStateXData
 ; CHECK-NEXT: .long   32                      # UnwindHelp
 ; CHECK-NEXT: .long   0                       # ESTypeList
 ; CHECK-NEXT: .long   1                       # EHFlags
@@ -33,12 +33,12 @@
 ; CHECK-NEXT: .long   1                       # TryHigh
 ; CHECK-NEXT: .long   2                       # CatchHigh
 ; CHECK-NEXT: .long   1                       # NumCatches
-; CHECK-NEXT: .long   ($handlerMap$0$main)@IMGREL # HandlerArray
+; CHECK-NEXT: .long   $handlerMap$0$main@IMGREL # HandlerArray
 ; CHECK-NEXT: .long   0                       # TryLow
 ; CHECK-NEXT: .long   2                       # TryHigh
 ; CHECK-NEXT: .long   3                       # CatchHigh
 ; CHECK-NEXT: .long   1                       # NumCatches
-; CHECK-NEXT: .long   ($handlerMap$1$main)@IMGREL # HandlerArray
+; CHECK-NEXT: .long   $handlerMap$1$main@IMGREL # HandlerArray
 
 ; CHECK: $handlerMap$0$main:
 ; CHECK-NEXT: .long   0                       # Adjectives
@@ -59,15 +59,15 @@ source_filename = "t.cpp"
 target datalayout = "e-m:w-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-pc-windows-msvc19.0.24210"
 
-%rtti.TypeDescriptor2 = type { i8**, i8*, [3 x i8] }
+%rtti.TypeDescriptor2 = type { ptr, ptr, [3 x i8] }
 
 $"\01??_R0H@8" = comdat any
 
-@"\01??_7type_info@@6B@" = external constant i8*
-@"\01??_R0H@8" = linkonce_odr global %rtti.TypeDescriptor2 { i8** @"\01??_7type_info@@6B@", i8* null, [3 x i8] c".H\00" }, comdat
+@"\01??_7type_info@@6B@" = external constant ptr
+@"\01??_R0H@8" = linkonce_odr global %rtti.TypeDescriptor2 { ptr @"\01??_7type_info@@6B@", ptr null, [3 x i8] c".H\00" }, comdat
 
 ; Function Attrs: norecurse uwtable
-define i32 @main() local_unnamed_addr personality i32 (...)* @__CxxFrameHandler3 {
+define i32 @main() local_unnamed_addr personality ptr @__CxxFrameHandler3 {
 entry:
   %v = alloca i32, align 4
   invoke void @maythrow()
@@ -77,7 +77,7 @@ catch.dispatch:                                   ; preds = %entry
   %0 = catchswitch within none [label %catch] unwind label %catch.dispatch2
 
 catch:                                            ; preds = %catch.dispatch
-  %1 = catchpad within %0 [%rtti.TypeDescriptor2* @"\01??_R0H@8", i32 0, i32* %v]
+  %1 = catchpad within %0 [ptr @"\01??_R0H@8", i32 0, ptr %v]
   invoke void @maythrow() [ "funclet"(token %1) ]
           to label %invoke.cont1 unwind label %catch.dispatch2
 
@@ -85,7 +85,7 @@ catch.dispatch2:                                  ; preds = %catch, %catch.dispa
   %2 = catchswitch within none [label %catch3] unwind to caller
 
 catch3:                                           ; preds = %catch.dispatch2
-  %3 = catchpad within %2 [%rtti.TypeDescriptor2* @"\01??_R0H@8", i32 0, i32* %v]
+  %3 = catchpad within %2 [ptr @"\01??_R0H@8", i32 0, ptr %v]
   call void @maythrow() [ "funclet"(token %3) ]
   catchret from %3 to label %try.cont6
 

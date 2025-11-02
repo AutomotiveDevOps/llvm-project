@@ -7,17 +7,11 @@
 set(CLANG_TOOLS_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/..")
 set(CLANG_TOOLS_BINARY_DIR "${CMAKE_CURRENT_BINARY_DIR}/..")
 
-if (CMAKE_CFG_INTDIR STREQUAL ".")
-  set(LLVM_BUILD_MODE ".")
-else ()
-  set(LLVM_BUILD_MODE "%(build_mode)s")
-endif ()
-
-string(REPLACE ${CMAKE_CFG_INTDIR} ${LLVM_BUILD_MODE} CLANG_TOOLS_DIR ${LLVM_RUNTIME_OUTPUT_INTDIR})
-
 llvm_canonicalize_cmake_booleans(
-  CLANG_ENABLE_STATIC_ANALYZER
-  LIBCLANG_INCLUDE_CLANG_TOOLS_EXTRA
+  CLANG_TIDY_ENABLE_STATIC_ANALYZER
+  CLANG_TIDY_ENABLE_QUERY_BASED_CUSTOM_CHECKS
+  CLANG_PLUGIN_SUPPORT
+  LLVM_INSTALL_TOOLCHAIN_ONLY
   )
 
 configure_lit_site_cfg(
@@ -34,15 +28,7 @@ configure_lit_site_cfg(
   ${CMAKE_CURRENT_SOURCE_DIR}/Unit/lit.cfg.py
   )
 
-option(CLANG_TOOLS_TEST_USE_VG "Run Clang tools' tests under Valgrind" OFF)
-if(CLANG_TOOLS_TEST_USE_VG)
-  set(CLANG_TOOLS_TEST_EXTRA_ARGS ${CLANG_TEST_EXTRA_ARGS} "--vg")
-endif()
-
 set(CLANG_TOOLS_TEST_DEPS
-  # For the clang-apply-replacements test that uses clang-rename.
-  clang-rename
-
   # For the clang-doc tests that emit bitcode files.
   llvm-bcanalyzer
 
@@ -65,17 +51,11 @@ set(CLANG_TOOLS_TEST_DEPS
   clang-resource-headers
 
   clang-tidy
-  # Clang-tidy tests need clang for building modules.
-  clang
 )
-if (LIBCLANG_INCLUDE_CLANG_TOOLS_EXTRA)
-  # For the clang-tidy libclang integration test.
-  set(CLANG_TOOLS_TEST_DEPS ${CLANG_TOOLS_TEST_DEPS} "c-index-test")
-endif ()
 
 # Add lit test dependencies.
 set(LLVM_UTILS_DEPS
-  FileCheck count not
+  FileCheck count not split-file
 )
 foreach(dep ${LLVM_UTILS_DEPS})
   if(TARGET ${dep})
@@ -83,10 +63,31 @@ foreach(dep ${LLVM_UTILS_DEPS})
   endif()
 endforeach()
 
-add_lit_testsuite(check-clang-tools "Running the Clang extra tools' regression tests"
-  ${CMAKE_CURRENT_BINARY_DIR}
+if (NOT WIN32 OR NOT LLVM_LINK_LLVM_DYLIB)
+  llvm_add_library(
+      CTTestTidyModule
+      MODULE clang-tidy/CTTestTidyModule.cpp
+      PLUGIN_TOOL clang-tidy)
+endif()
+
+if(TARGET CTTestTidyModule)
+    list(APPEND CLANG_TOOLS_TEST_DEPS CTTestTidyModule)
+    target_include_directories(CTTestTidyModule PUBLIC BEFORE "${CLANG_TOOLS_SOURCE_DIR}")
+    if(CLANG_PLUGIN_SUPPORT AND (WIN32 OR CYGWIN))
+      set(LLVM_LINK_COMPONENTS
+        Support
+      )
+    endif()
+endif()
+
+add_lit_testsuite(check-clang-extra "Running clang-tools-extra/test"
+   ${CMAKE_CURRENT_BINARY_DIR}
+   DEPENDS ${CLANG_TOOLS_TEST_DEPS}
+   )
+
+add_lit_testsuites(CLANG-EXTRA ${CMAKE_CURRENT_SOURCE_DIR}
   DEPENDS ${CLANG_TOOLS_TEST_DEPS}
-  ARGS ${CLANG_TOOLS_TEST_EXTRA_ARGS}
+   SKIP "^clang-doc"
   )
 
-set_target_properties(check-clang-tools PROPERTIES FOLDER "Clang extra tools' tests")
+add_subdirectory(clang-doc)

@@ -13,6 +13,7 @@
 #ifndef LLVM_UNITTESTS_DEBUG_INFO_DWARF_DWARFGENERATOR_H
 #define LLVM_UNITTESTS_DEBUG_INFO_DWARF_DWARFGENERATOR_H
 
+#include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/CodeGen/DIE.h"
 #include "llvm/DebugInfo/DWARF/DWARFDebugLine.h"
@@ -20,7 +21,6 @@
 
 #include <memory>
 #include <string>
-#include <tuple>
 #include <vector>
 
 namespace llvm {
@@ -133,6 +133,9 @@ public:
   /// Add a DW_AT_str_offsets_base attribute to this DIE.
   void addStrOffsetsBaseAttribute();
 
+  /// Add a DW_AT_addr_base attribute to this DIE.
+  void addAddrBaseAttribute();
+
   /// Add a new child to this DIE object.
   ///
   /// \param Tag the dwarf::Tag to assing to the llvm::DIE object.
@@ -149,18 +152,21 @@ public:
 class CompileUnit {
   Generator &DG;
   BasicDIEUnit DU;
+  uint64_t Length; /// The length in bytes of all of the DIEs in this unit.
+  const uint16_t Version; /// The Dwarf version number for this unit.
+  const uint8_t AddrSize; /// The size in bytes of an address for this unit.
 
 public:
   CompileUnit(Generator &D, uint16_t V, uint8_t A)
-      : DG(D), DU(V, A, dwarf::DW_TAG_compile_unit) {}
+      : DG(D), DU(dwarf::DW_TAG_compile_unit), Version(V), AddrSize(A) {}
   DIE getUnitDIE();
   Generator &getGenerator() { return DG; }
   uint64_t getOffset() const { return DU.getDebugSectionOffset(); }
-  uint64_t getLength() const { return DU.getLength(); }
-  uint16_t getVersion() const { return DU.getDwarfVersion(); }
-  uint16_t getAddressSize() const { return DU.getAddressSize(); }
+  uint64_t getLength() const { return Length; }
+  uint16_t getVersion() const { return Version; }
+  uint16_t getAddressSize() const { return AddrSize; }
   void setOffset(uint64_t Offset) { DU.setDebugSectionOffset(Offset); }
-  void setLength(uint64_t Length) { DU.setLength(Length); }
+  void setLength(uint64_t L) { Length = L; }
 };
 
 /// A DWARF line unit-like class used to generate DWARF line units.
@@ -217,7 +223,7 @@ private:
   // Calculate the number of bytes the Contents will take up.
   size_t getContentsSize() const;
 
-  llvm::Optional<DWARFDebugLine::Prologue> Prologue;
+  std::optional<DWARFDebugLine::Prologue> Prologue;
   std::vector<ValueAndLength> CustomPrologue;
   std::vector<ValueAndLength> Contents;
 
@@ -255,7 +261,17 @@ class Generator {
   std::vector<std::unique_ptr<LineTable>> LineTables;
   DIEAbbrevSet Abbreviations;
 
+  // Mimics llvm::AddressPool, but allows for constant addresses for testing.
+  struct DummyAddressPool {
+    unsigned getIndex(uint64_t Address);
+
+    void emit(AsmPrinter &Asm, MCSection *AddrSection, MCSymbol *StartSym);
+
+    std::vector<uint64_t> AddressValues;
+  } AddressPool;
+
   MCSymbol *StringOffsetsStartSym;
+  MCSymbol *AddrTableStartSym;
 
   SmallString<4096> FileBytes;
   /// The stream we use to generate the DWARF into as an ELF file.
@@ -309,6 +325,8 @@ public:
   DIEAbbrevSet &getAbbrevSet() { return Abbreviations; }
   DwarfStringPool &getStringPool() { return *StringPool; }
   MCSymbol *getStringOffsetsStartSym() const { return StringOffsetsStartSym; }
+  DummyAddressPool &getAddressPool() { return AddressPool; }
+  MCSymbol *getAddrTableStartSym() const { return AddrTableStartSym; }
 
   /// Save the generated DWARF file to disk.
   ///

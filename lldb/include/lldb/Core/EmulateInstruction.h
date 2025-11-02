@@ -9,6 +9,7 @@
 #ifndef LLDB_CORE_EMULATEINSTRUCTION_H
 #define LLDB_CORE_EMULATEINSTRUCTION_H
 
+#include <optional>
 #include <string>
 
 #include "lldb/Core/Address.h"
@@ -21,8 +22,10 @@
 #include "lldb/lldb-private-types.h"
 #include "lldb/lldb-types.h"
 
-#include <stddef.h>
-#include <stdint.h>
+#include "llvm/Support/Error.h"
+
+#include <cstddef>
+#include <cstdint>
 
 namespace lldb_private {
 class OptionValueDictionary;
@@ -31,6 +34,38 @@ class RegisterValue;
 class Stream;
 class Target;
 class UnwindPlan;
+class EmulateInstruction;
+
+using BreakpointLocations = std::vector<lldb::addr_t>;
+
+class SingleStepBreakpointLocationsPredictor {
+public:
+  SingleStepBreakpointLocationsPredictor(
+      std::unique_ptr<EmulateInstruction> emulator_up)
+      : m_emulator_up{std::move(emulator_up)} {}
+
+  virtual BreakpointLocations GetBreakpointLocations(Status &status);
+
+  virtual llvm::Expected<unsigned>
+  GetBreakpointSize([[maybe_unused]] lldb::addr_t bp_addr) {
+    return 4;
+  }
+
+  virtual ~SingleStepBreakpointLocationsPredictor() = default;
+
+protected:
+  // This function retrieves the address of the next instruction as it appears
+  // in the binary file. Essentially, it reads the value of the PC register,
+  // determines the size of the current instruction (where the PC is pointing),
+  // and returns the sum of these two values.
+  lldb::addr_t GetNextInstructionAddress(Status &error);
+
+  lldb::addr_t GetBreakpointLocationAddress(lldb::addr_t entry_pc,
+                                            Status &error);
+
+  std::unique_ptr<EmulateInstruction> m_emulator_up;
+  bool m_emulation_result = false;
+};
 
 /// \class EmulateInstruction EmulateInstruction.h
 /// "lldb/Core/EmulateInstruction.h"
@@ -179,12 +214,17 @@ public:
     eInfoTypeISAAndImmediateSigned,
     eInfoTypeISA,
     eInfoTypeNoArgs
-  } InfoType;
+  };
 
   struct Context {
-    ContextType type;
-    enum InfoType info_type;
-    union {
+    ContextType type = eContextInvalid;
+
+  private:
+    enum InfoType info_type = eInfoTypeNoArgs;
+
+  public:
+    enum InfoType GetInfoType() const { return info_type; }
+    union ContextInfo {
       struct RegisterPlusOffset {
         RegisterInfo reg;      // base register
         int64_t signed_offset; // signed offset added to base register
@@ -236,8 +276,10 @@ public:
 
       uint32_t isa;
     } info;
+    static_assert(std::is_trivial<ContextInfo>::value,
+                  "ContextInfo must be trivial.");
 
-    Context() : type(eContextInvalid), info_type(eInfoTypeNoArgs) {}
+    Context() = default;
 
     void SetRegisterPlusOffset(RegisterInfo base_reg, int64_t signed_offset) {
       info_type = eInfoTypeRegisterPlusOffset;
@@ -361,17 +403,19 @@ public:
 
   virtual bool ReadInstruction() = 0;
 
+  virtual std::optional<uint32_t> GetLastInstrSize() { return std::nullopt; }
+
   virtual bool EvaluateInstruction(uint32_t evaluate_options) = 0;
 
   virtual InstructionCondition GetInstructionCondition() {
     return UnconditionalCondition;
   }
 
-  virtual bool TestEmulation(Stream *out_stream, ArchSpec &arch,
+  virtual bool TestEmulation(Stream &out_stream, ArchSpec &arch,
                              OptionValueDictionary *test_data) = 0;
 
-  virtual bool GetRegisterInfo(lldb::RegisterKind reg_kind, uint32_t reg_num,
-                               RegisterInfo &reg_info) = 0;
+  virtual std::optional<RegisterInfo>
+  GetRegisterInfo(lldb::RegisterKind reg_kind, uint32_t reg_num) = 0;
 
   // Optional overrides
   virtual bool SetInstruction(const Opcode &insn_opcode,
@@ -383,16 +427,16 @@ public:
                                        uint32_t reg_num, std::string &reg_name);
 
   // RegisterInfo variants
-  bool ReadRegister(const RegisterInfo *reg_info, RegisterValue &reg_value);
+  std::optional<RegisterValue> ReadRegister(const RegisterInfo &reg_info);
 
-  uint64_t ReadRegisterUnsigned(const RegisterInfo *reg_info,
+  uint64_t ReadRegisterUnsigned(const RegisterInfo &reg_info,
                                 uint64_t fail_value, bool *success_ptr);
 
-  bool WriteRegister(const Context &context, const RegisterInfo *ref_info,
+  bool WriteRegister(const Context &context, const RegisterInfo &ref_info,
                      const RegisterValue &reg_value);
 
   bool WriteRegisterUnsigned(const Context &context,
-                             const RegisterInfo *reg_info, uint64_t reg_value);
+                             const RegisterInfo &reg_info, uint64_t reg_value);
 
   // Register kind and number variants
   bool ReadRegister(lldb::RegisterKind reg_kind, uint32_t reg_num,
@@ -487,7 +531,19 @@ public:
   static uint32_t GetInternalRegisterNumber(RegisterContext *reg_ctx,
                                             const RegisterInfo &reg_info);
 
+  static std::unique_ptr<SingleStepBreakpointLocationsPredictor>
+  CreateBreakpointLocationPredictor(
+      std::unique_ptr<EmulateInstruction> emulator_up);
+
+  // Helper functions
+  std::optional<lldb::addr_t> ReadPC();
+  bool WritePC(lldb::addr_t addr);
+
 protected:
+  using BreakpointLocationsPredictorCreator =
+      std::function<std::unique_ptr<SingleStepBreakpointLocationsPredictor>(
+          std::unique_ptr<EmulateInstruction>)>;
+
   ArchSpec m_arch;
   void *m_baton = nullptr;
   ReadMemoryCallback m_read_mem_callback = &ReadMemoryDefault;
@@ -498,8 +554,24 @@ protected:
   Opcode m_opcode;
 
 private:
+  virtual BreakpointLocationsPredictorCreator
+  GetSingleStepBreakpointLocationsPredictorCreator() {
+    if (!m_arch.IsMIPS() && !m_arch.GetTriple().isPPC64() &&
+        !m_arch.GetTriple().isLoongArch()) {
+      // Unsupported architecture
+      return [](std::unique_ptr<EmulateInstruction> emulator_up) {
+        return nullptr;
+      };
+    }
+    return [](std::unique_ptr<EmulateInstruction> emulator_up) {
+      return std::make_unique<SingleStepBreakpointLocationsPredictor>(
+          std::move(emulator_up));
+    };
+  }
+
   // For EmulateInstruction only
-  DISALLOW_COPY_AND_ASSIGN(EmulateInstruction);
+  EmulateInstruction(const EmulateInstruction &) = delete;
+  const EmulateInstruction &operator=(const EmulateInstruction &) = delete;
 };
 
 } // namespace lldb_private

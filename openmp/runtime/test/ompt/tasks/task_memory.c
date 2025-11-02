@@ -1,6 +1,8 @@
+// clang-format off
 // RUN: %libomp-compile-and-run | FileCheck %s
 // REQUIRES: ompt
 // UNSUPPORTED: gcc-4, gcc-5, gcc-6, gcc-7
+// clang-format on
 #define USE_PRIVATE_TOOL 1
 #include "callback.h"
 #include <omp.h>
@@ -41,6 +43,9 @@ static void on_ompt_callback_implicit_task(ompt_scope_endpoint_t endpoint,
            ", memory_addr=%p, memory_size=%lu, result=%d \n",
            task_data->value, addr, size, result);
     break;
+  case ompt_scope_beginend:
+    printf("ompt_scope_beginend should never be passed to %s\n", __func__);
+    exit(-1);
   }
 }
 
@@ -74,9 +79,9 @@ int ompt_initialize(ompt_function_lookup_t lookup, int initial_device_num,
   ompt_get_unique_id = (ompt_get_unique_id_t)lookup("ompt_get_unique_id");
   ompt_get_task_memory = (ompt_get_task_memory_t)lookup("ompt_get_task_memory");
 
-  register_callback(ompt_callback_implicit_task);
-  register_callback(ompt_callback_task_create);
-  register_callback(ompt_callback_task_schedule);
+  register_ompt_callback(ompt_callback_implicit_task);
+  register_ompt_callback(ompt_callback_task_create);
+  register_ompt_callback(ompt_callback_task_schedule);
   printf("0: NULL_POINTER=%p\n", (void *)NULL);
   return 1; // success
 }
@@ -90,19 +95,21 @@ ompt_start_tool_result_t *ompt_start_tool(unsigned int omp_version,
   return &ompt_start_tool_result;
 }
 
+// clang-format off
 // CHECK: {{^}}0: NULL_POINTER=[[NULL:.*$]]
 
-// CHECK: ompt_event_implicit_task_begin: task_id=[[TASK_ID:[0-9]+]]
+// CHECK: ompt_event_implicit_task_begin: task_id=[[TASK_ID:[0-f]+]]
 // CHECK-SAME: memory_addr=[[NULL]], memory_size=0, result=0
 
 // CHECK: ompt_event_task_create: task_id=[[TASK_ID_0:[0-9]+]]
-// CHECK: ompt_event_task_create: task_id=[[TASK_ID_1:[0-9]+]]
+// CHECK-DAG: ompt_event_task_create: task_id=[[TASK_ID_1:[0-9]+]]
 
 // Expects non-zero address, size, and result
 // CHECK-DAG: ompt_event_task_schedule: task_id=[[TASK_ID_0]],
-// memory_addr=0x{{[0-f]+}}, memory_size={{[1-9][0-9]*}}, result=1
+// memory_addr={{(0x)?[0-f]+}}, memory_size={{[1-9][0-9]*}}, result=1
 // CHECK-DAG: ompt_event_task_schedule: task_id=[[TASK_ID_1]],
-// memory_addr=0x{{[0-f]+}}, memory_size={{[1-9][0-9]*}}, result=1
+// memory_addr={{(0x)?[0-f]+}}, memory_size={{[1-9][0-9]*}}, result=1
 
 // CHECK: ompt_event_implicit_task_end: task_id=[[TASK_ID]]
 // CHECK-SAME: memory_addr=[[NULL]], memory_size=0, result=0
+// clang-format on

@@ -6,6 +6,10 @@
 //
 //===----------------------------------------------------------------------===//
 
+// UNSUPPORTED: c++03, c++11, c++14, c++17
+
+// XFAIL: availability-char8_t_support-missing
+
 // <locale>
 
 // template <> class codecvt<char32_t, char8_t, mbstate_t>
@@ -13,11 +17,6 @@
 // result in(stateT& state,
 //           const externT* from, const externT* from_end, const externT*& from_next,
 //           internT* to, internT* to_end, internT*& to_next) const;
-
-// UNSUPPORTED: c++98, c++03, c++11, c++14, c++17
-
-// C++20 codecvt specializations for char8_t are not yet implemented:
-// UNSUPPORTED: libc++
 
 #include <cassert>
 #include <locale>
@@ -34,6 +33,6 @@ int main(int, char**) {
   assert(from_next - from == 9);
   assert(to_next - to == 9);
   for (unsigned i = 0; i < 9; ++i)
-    assert(to[i] == from[i]);
+    assert(to[i] == static_cast<char32_t>(from[i]));
   return 0;
 }

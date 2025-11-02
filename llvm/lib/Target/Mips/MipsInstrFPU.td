@@ -452,6 +452,12 @@ let AdditionalPredicates = [NotInMicroMips] in {
 
 let DecoderNamespace = "MipsFP64" in {
   let AdditionalPredicates = [NotInMicroMips] in {
+    def FADD_PS64   : ADDS_FT<"add.ps", FGR64Opnd, II_ADD_PS, 0>,
+                      ADDS_FM<0x0, 22>,
+                      ISA_MIPS32R2_NOT_32R6_64R6, FGR_64;
+    def FMUL_PS64   : ADDS_FT<"mul.ps", FGR64Opnd, II_MUL_PS, 0>,
+                      ADDS_FM<0x2, 22>,
+                      ISA_MIPS32R2_NOT_32R6_64R6, FGR_64;
     def PLL_PS64    : ADDS_FT<"pll.ps", FGR64Opnd, II_CVT, 0>,
                       ADDS_FM<0x2C, 22>,
                       ISA_MIPS32R2_NOT_32R6_64R6, FGR_64;
@@ -463,6 +469,9 @@ let DecoderNamespace = "MipsFP64" in {
                       ISA_MIPS32R2_NOT_32R6_64R6, FGR_64;
     def PUU_PS64    : ADDS_FT<"puu.ps", FGR64Opnd, II_CVT, 0>,
                       ADDS_FM<0x2F, 22>,
+                      ISA_MIPS32R2_NOT_32R6_64R6, FGR_64;
+    def FSUB_PS64   : ADDS_FT<"sub.ps", FGR64Opnd, II_SUB_PS, 0>,
+                      ADDS_FM<0x1, 22>,
                       ISA_MIPS32R2_NOT_32R6_64R6, FGR_64;
 
     def CVT_S_PU64  : ABSS_FT<"cvt.s.pu", FGR32Opnd, FGR64Opnd, II_CVT>,
@@ -613,15 +622,13 @@ let AdditionalPredicates = [NotInMicroMips] in {
 
 // Indexed loads and stores.
 // Base register + offset register addressing mode (indicated by "x" in the
-// instruction mnemonic) is disallowed under NaCl.
-let AdditionalPredicates = [IsNotNaCl] in {
-  def LWXC1 : MMRel, LWXC1_FT<"lwxc1", FGR32Opnd, II_LWXC1, load>, LWXC1_FM<0>,
-              INSN_MIPS4_32R2_NOT_32R6_64R6;
-  def SWXC1 : MMRel, SWXC1_FT<"swxc1", FGR32Opnd, II_SWXC1, store>, SWXC1_FM<8>,
-              INSN_MIPS4_32R2_NOT_32R6_64R6;
-}
+// instruction mnemonic).
+def LWXC1 : MMRel, LWXC1_FT<"lwxc1", FGR32Opnd, II_LWXC1, load>, LWXC1_FM<0>,
+            INSN_MIPS4_32R2_NOT_32R6_64R6;
+def SWXC1 : MMRel, SWXC1_FT<"swxc1", FGR32Opnd, II_SWXC1, store>, SWXC1_FM<8>,
+            INSN_MIPS4_32R2_NOT_32R6_64R6;
 
-let AdditionalPredicates = [NotInMicroMips, IsNotNaCl] in {
+let AdditionalPredicates = [NotInMicroMips] in {
   def LDXC1 : LWXC1_FT<"ldxc1", AFGR64Opnd, II_LDXC1, load>, LWXC1_FM<1>,
               INSN_MIPS4_32R2_NOT_32R6_64R6, FGR_32;
   def SDXC1 : SWXC1_FT<"sdxc1", AFGR64Opnd, II_SDXC1, store>, SWXC1_FM<9>,
@@ -637,14 +644,14 @@ let DecoderNamespace="MipsFP64" in {
 
 // Load/store doubleword indexed unaligned.
 // FIXME: This instruction should not be defined for FGR_32.
-let AdditionalPredicates = [IsNotNaCl, NotInMicroMips] in {
+let AdditionalPredicates = [NotInMicroMips] in {
   def LUXC1 : MMRel, LWXC1_FT<"luxc1", AFGR64Opnd, II_LUXC1>, LWXC1_FM<0x5>,
               INSN_MIPS5_32R2_NOT_32R6_64R6, FGR_32;
   def SUXC1 : MMRel, SWXC1_FT<"suxc1", AFGR64Opnd, II_SUXC1>, SWXC1_FM<0xd>,
               INSN_MIPS5_32R2_NOT_32R6_64R6, FGR_32;
 }
 
-let AdditionalPredicates = [IsNotNaCl, NotInMicroMips],
+let AdditionalPredicates = [NotInMicroMips],
     DecoderNamespace="MipsFP64" in {
   def LUXC164 : LWXC1_FT<"luxc1", FGR64Opnd, II_LUXC1>, LWXC1_FM<0x5>,
                 INSN_MIPS5_32R2_NOT_32R6_64R6, FGR_64;

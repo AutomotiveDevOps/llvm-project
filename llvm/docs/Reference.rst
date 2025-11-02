@@ -14,7 +14,13 @@ LLVM and API reference documentation.
    BlockFrequencyTerminology
    BranchWeightMetadata
    Bugpoint
+   CalleeTypeMetadata
+   CallGraphSection
+   CIBestPractices
    CommandGuide/index
+   ContentAddressableStorage
+   ConvergenceAndUniformity
+   ConvergentOperations
    Coroutines
    DependenceGraphs/index
    ExceptionHandling
@@ -28,23 +34,32 @@ LLVM and API reference documentation.
    HowToSetUpLLVMStyleRTTI
    HowToUseAttributes
    InAlloca
+   InterfaceExportAnnotations
    LangRef
    LibFuzzer
    MarkedUpDisassembly
    MIRLangRef
    OptBisect
-   ORCv2
+   PCSectionsMetadata
    PDB/index
+   PointerAuth
+   MLGO
    ScudoHardenedAllocator
+   MemoryModelRelaxationAnnotations
    MemTagSanitizer
+   QualGroup
+   Security
+   SecurityTransparencyReports
    SegmentedStacks
    StackMaps
    SpeculativeLoadHardening
    Statepoints
+   SymbolizerMarkupFormat
    SystemLibrary
    TestingGuide
    TransformMetadata
    TypeMetadata
+   UndefinedBehavior
    XRay
    XRayExample
    XRayFDRFormat
@@ -58,12 +73,6 @@ API Reference
 
 :doc:`HowToUseAttributes`
   Answers some questions about the new Attributes infrastructure.
-
-`Documentation for Go bindings <http://godoc.org/llvm.org/llvm/bindings/go/llvm>`_
-
-:doc:`ORCv2`
-   Describes the design and implementation of the ORC APIs, including some
-   usage examples, and a guide for users transitioning from ORCv1 to ORCv2.
 
 LLVM Reference
 --------------
@@ -82,6 +91,9 @@ Command Line Utilities
 
 :doc:`OptBisect`
   A command line option for debugging optimization-induced failures.
+
+:doc:`SymbolizerMarkupFormat`
+  A reference for the log symbolizer markup accepted by ``llvm-symbolizer``.
 
 :doc:`The Microsoft PDB File Format <PDB/index>`
   A detailed description of the Microsoft PDB (Program Database) file format.
@@ -116,6 +128,9 @@ LLVM IR
   Defines the LLVM intermediate representation and the assembly form of the
   different nodes.
 
+:doc:`Undefined Behavior (UB) <UndefinedBehavior>`
+  A guide on what UB/undef/poison are and when to use each one.
+
 :doc:`InAlloca`
   Description of the ``inalloca`` argument attribute.
 
@@ -128,6 +143,9 @@ LLVM IR
 
 :doc:`GlobalISel/index`
   This describes the prototype instruction selection replacement, GlobalISel.
+
+:doc:`ConvergentOperations`
+  Description of ``convergent`` operation semantics and related intrinsics.
 
 =====================
 Testing and Debugging
@@ -188,6 +206,9 @@ Additional Topics
 :doc:`ScudoHardenedAllocator`
   A library that implements a security-hardened `malloc()`.
 
+:doc:`MemoryModelRelaxationAnnotations`
+  Target-defined relaxation to LLVM's concurrency model.
+
 :doc:`MemTagSanitizer`
   Security hardening for production code aiming to mitigate memory
   related vulnerabilities. Based on the Armv8.5-A Memory Tagging Extension.
@@ -212,5 +233,24 @@ Additional Topics
 :doc:`Coroutines`
   LLVM support for coroutines.
 
+:doc:`PointerAuth`
+  A description of pointer authentication, its LLVM IR representation, and its
+  support in the backend.
+
 :doc:`YamlIO`
    A reference guide for using LLVM's YAML I/O library.
+
+:doc:`ConvergenceAndUniformity`
+   A description of uniformity analysis in the presence of irreducible
+   control flow, and its implementation.
+
+:doc:`MLGO`
+   Facilities for ML-Guided Optimization, such as collecting IR corpora from a
+   build, interfacing with ML models, an exposing features for training.
+
+:doc:`ContentAddressableStorage`
+   A reference guide for using LLVM's CAS library.
+
+:doc:`CIBestPractices`
+   A list of guidelines and best practices to use when working on LLVM's
+   CI systems.

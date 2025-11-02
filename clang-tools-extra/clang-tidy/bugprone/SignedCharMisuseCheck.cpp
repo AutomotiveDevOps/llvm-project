@@ -1,4 +1,4 @@
-//===--- SignedCharMisuseCheck.cpp - clang-tidy ---------------------------===//
+//===----------------------------------------------------------------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -14,27 +14,19 @@
 using namespace clang::ast_matchers;
 using namespace clang::ast_matchers::internal;
 
-namespace clang {
-namespace tidy {
-namespace bugprone {
+namespace clang::tidy::bugprone {
 
 static constexpr int UnsignedASCIIUpperBound = 127;
-
-static Matcher<TypedefDecl> hasAnyListedName(const std::string &Names) {
-  const std::vector<std::string> NameList =
-      utils::options::parseStringList(Names);
-  return hasAnyName(std::vector<StringRef>(NameList.begin(), NameList.end()));
-}
 
 SignedCharMisuseCheck::SignedCharMisuseCheck(StringRef Name,
                                              ClangTidyContext *Context)
     : ClangTidyCheck(Name, Context),
-      CharTypdefsToIgnoreList(Options.get("CharTypdefsToIgnore", "")),
+      CharTypedefsToIgnoreList(Options.get("CharTypedefsToIgnore", "")),
       DiagnoseSignedUnsignedCharComparisons(
           Options.get("DiagnoseSignedUnsignedCharComparisons", true)) {}
 
 void SignedCharMisuseCheck::storeOptions(ClangTidyOptions::OptionMap &Opts) {
-  Options.store(Opts, "CharTypdefsToIgnore", CharTypdefsToIgnoreList);
+  Options.store(Opts, "CharTypedefsToIgnore", CharTypedefsToIgnoreList);
   Options.store(Opts, "DiagnoseSignedUnsignedCharComparisons",
                 DiagnoseSignedUnsignedCharComparisons);
 }
@@ -46,8 +38,8 @@ BindableMatcher<clang::Stmt> SignedCharMisuseCheck::charCastExpression(
   // We can ignore typedefs which are some kind of integer types
   // (e.g. typedef char sal_Int8). In this case, we don't need to
   // worry about the misinterpretation of char values.
-  const auto IntTypedef = qualType(
-      hasDeclaration(typedefDecl(hasAnyListedName(CharTypdefsToIgnoreList))));
+  const auto IntTypedef = qualType(hasDeclaration(typedefDecl(
+      hasAnyName(utils::options::parseStringList(CharTypedefsToIgnoreList)))));
 
   auto CharTypeExpr = expr();
   if (IsSigned) {
@@ -70,9 +62,8 @@ BindableMatcher<clang::Stmt> SignedCharMisuseCheck::charCastExpression(
   // We catch any type of casts to an integer. We need to have these cast
   // expressions explicitly to catch only those casts which are direct children
   // of the checked expressions. (e.g. assignment, declaration).
-  return traverse(ast_type_traits::TK_AsIs,
-                  expr(anyOf(ImplicitCastExpr, CStyleCastExpr, StaticCastExpr,
-                             FunctionalCastExpr)));
+  return traverse(TK_AsIs, expr(anyOf(ImplicitCastExpr, CStyleCastExpr,
+                                      StaticCastExpr, FunctionalCastExpr)));
 }
 
 void SignedCharMisuseCheck::registerMatchers(MatchFinder *Finder) {
@@ -83,17 +74,25 @@ void SignedCharMisuseCheck::registerMatchers(MatchFinder *Finder) {
       charCastExpression(true, IntegerType, "signedCastExpression");
   const auto UnSignedCharCastExpr =
       charCastExpression(false, IntegerType, "unsignedCastExpression");
+  const bool IsC23 = getLangOpts().C23;
 
-  // Catch assignments with singed char -> integer conversion.
+  // Catch assignments with signed char -> integer conversion. Ignore false
+  // positives on C23 enums with the fixed underlying type of signed char.
   const auto AssignmentOperatorExpr =
       expr(binaryOperator(hasOperatorName("="), hasLHS(hasType(IntegerType)),
-                          hasRHS(SignedCharCastExpr)));
+                          hasRHS(SignedCharCastExpr)),
+           IsC23 ? unless(binaryOperator(
+                       hasLHS(hasType(hasCanonicalType(enumType())))))
+                 : Matcher<Stmt>(anything()));
 
   Finder->addMatcher(AssignmentOperatorExpr, this);
 
-  // Catch declarations with singed char -> integer conversion.
-  const auto Declaration = varDecl(isDefinition(), hasType(IntegerType),
-                                   hasInitializer(SignedCharCastExpr));
+  // Catch declarations with signed char -> integer conversion. Ignore false
+  // positives on C23 enums with the fixed underlying type of signed char.
+  const auto Declaration = varDecl(
+      isDefinition(), hasType(IntegerType), hasInitializer(SignedCharCastExpr),
+      IsC23 ? unless(hasType(hasCanonicalType(enumType())))
+            : Matcher<VarDecl>(anything()));
 
   Finder->addMatcher(Declaration, this);
 
@@ -175,6 +174,4 @@ void SignedCharMisuseCheck::check(const MatchFinder::MatchResult &Result) {
   }
 }
 
-} // namespace bugprone
-} // namespace tidy
-} // namespace clang
+} // namespace clang::tidy::bugprone

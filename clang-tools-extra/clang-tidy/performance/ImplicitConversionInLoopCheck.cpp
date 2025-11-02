@@ -1,4 +1,4 @@
-//===--- ImplicitConversionInLoopCheck.cpp - clang-tidy--------------------===//
+//===----------------------------------------------------------------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -16,18 +16,16 @@
 
 using namespace clang::ast_matchers;
 
-namespace clang {
-namespace tidy {
-namespace performance {
+namespace clang::tidy::performance {
 
 // Checks if the stmt is a ImplicitCastExpr with a CastKind that is not a NoOp.
-// The subtelty is that in some cases (user defined conversions), we can
+// The subtlety is that in some cases (user defined conversions), we can
 // get to ImplicitCastExpr inside each other, with the outer one a NoOp. In this
 // case we skip the first cast expr.
-static bool IsNonTrivialImplicitCast(const Stmt *ST) {
+static bool isNonTrivialImplicitCast(const Stmt *ST) {
   if (const auto *ICE = dyn_cast<ImplicitCastExpr>(ST)) {
     return (ICE->getCastKind() != CK_NoOp) ||
-            IsNonTrivialImplicitCast(ICE->getSubExpr());
+           isNonTrivialImplicitCast(ICE->getSubExpr());
   }
   return false;
 }
@@ -48,7 +46,7 @@ void ImplicitConversionInLoopCheck::registerMatchers(MatchFinder *Finder) {
   // cxxOperatorCallExpr() matcher.
   Finder->addMatcher(
       traverse(
-          ast_type_traits::TK_AsIs,
+          TK_AsIs,
           cxxForRangeStmt(hasLoopVariable(
               varDecl(
                   hasType(qualType(references(qualType(isConstQualified())))),
@@ -67,8 +65,7 @@ void ImplicitConversionInLoopCheck::check(
     const MatchFinder::MatchResult &Result) {
   const auto *VD = Result.Nodes.getNodeAs<VarDecl>("faulty-var");
   const auto *Init = Result.Nodes.getNodeAs<Expr>("init");
-  const auto *OperatorCall =
-      Result.Nodes.getNodeAs<Expr>("operator-call");
+  const auto *OperatorCall = Result.Nodes.getNodeAs<Expr>("operator-call");
 
   if (const auto *Cleanup = dyn_cast<ExprWithCleanups>(Init))
     Init = Cleanup->getSubExpr();
@@ -81,13 +78,13 @@ void ImplicitConversionInLoopCheck::check(
   // iterator returns a value instead of a reference, and the loop variable
   // is a reference. This situation is fine (it probably produces the same
   // code at the end).
-  if (IsNonTrivialImplicitCast(Materialized->getSubExpr()))
-    ReportAndFix(Result.Context, VD, OperatorCall);
+  if (isNonTrivialImplicitCast(Materialized->getSubExpr()))
+    reportAndFix(Result.Context, VD, OperatorCall);
 }
 
-void ImplicitConversionInLoopCheck::ReportAndFix(
-    const ASTContext *Context, const VarDecl *VD,
-    const Expr *OperatorCall) {
+void ImplicitConversionInLoopCheck::reportAndFix(const ASTContext *Context,
+                                                 const VarDecl *VD,
+                                                 const Expr *OperatorCall) {
   // We only match on const ref, so we should print a const ref version of the
   // type.
   QualType ConstType = OperatorCall->getType().withConst();
@@ -101,6 +98,4 @@ void ImplicitConversionInLoopCheck::ReportAndFix(
   diag(VD->getBeginLoc(), Message) << VD << ConstRefType;
 }
 
-} // namespace performance
-} // namespace tidy
-} // namespace clang
+} // namespace clang::tidy::performance

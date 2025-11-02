@@ -6,6 +6,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "TestCompiler.h"
+
 #include "clang/AST/ASTConsumer.h"
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/GlobalDecl.h"
@@ -17,12 +19,12 @@
 #include "clang/Lex/Preprocessor.h"
 #include "clang/Parse/ParseAST.h"
 #include "clang/Sema/Sema.h"
-#include "llvm/ADT/Triple.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/Support/Debug.h"
-#include "llvm/Support/Host.h"
 #include "llvm/Support/MemoryBuffer.h"
+#include "llvm/TargetParser/Host.h"
+#include "llvm/TargetParser/Triple.h"
 #include "gtest/gtest.h"
 
 using namespace llvm;
@@ -170,6 +172,7 @@ static void test_codegen_fns(MyASTConsumer *my) {
   bool mytest_struct_ok = false;
 
   CodeGen::CodeGenModule &CGM = my->Builder->CGM();
+  const ASTContext &Ctx = my->toplevel_decls.front()->getASTContext();
 
   for (auto decl : my->toplevel_decls ) {
     if (FunctionDecl *fd = dyn_cast<FunctionDecl>(decl)) {
@@ -187,9 +190,7 @@ static void test_codegen_fns(MyASTConsumer *my) {
       if (rd->getName() == "mytest_struct") {
         RecordDecl *def = rd->getDefinition();
         ASSERT_TRUE(def != NULL);
-        const clang::Type *clangTy = rd->getCanonicalDecl()->getTypeForDecl();
-        ASSERT_TRUE(clangTy != NULL);
-        QualType qType = clangTy->getCanonicalTypeInternal();
+        CanQualType qType = Ctx.getCanonicalTagType(rd);
 
         // Check convertTypeForMemory
         llvm::Type *llvmTy = CodeGen::convertTypeForMemory(CGM, qType);
@@ -257,45 +258,18 @@ static void test_codegen_fns(MyASTConsumer *my) {
 }
 
 TEST(CodeGenExternalTest, CodeGenExternalTest) {
-    LLVMContext Context;
-    CompilerInstance compiler;
+  clang::LangOptions LO;
+  LO.CPlusPlus = 1;
+  LO.CPlusPlus11 = 1;
+  TestCompiler Compiler(LO);
+  auto CustomASTConsumer
+    = std::make_unique<MyASTConsumer>(std::move(Compiler.CG));
 
-    compiler.createDiagnostics();
-    compiler.getLangOpts().CPlusPlus = 1;
-    compiler.getLangOpts().CPlusPlus11 = 1;
+  Compiler.init(TestProgram, std::move(CustomASTConsumer));
 
-    compiler.getTargetOpts().Triple = llvm::Triple::normalize(
-        llvm::sys::getProcessTriple());
-    compiler.setTarget(clang::TargetInfo::CreateTargetInfo(
-      compiler.getDiagnostics(),
-      std::make_shared<clang::TargetOptions>(
-        compiler.getTargetOpts())));
+  clang::ParseAST(Compiler.compiler.getSema(), false, false);
 
-    compiler.createFileManager();
-    compiler.createSourceManager(compiler.getFileManager());
-    compiler.createPreprocessor(clang::TU_Prefix);
-
-    compiler.createASTContext();
-
-
-    compiler.setASTConsumer(std::unique_ptr<ASTConsumer>(
-          new MyASTConsumer(std::unique_ptr<CodeGenerator>(
-             CreateLLVMCodeGen(compiler.getDiagnostics(),
-                               "MemoryTypesTest",
-                               compiler.getHeaderSearchOpts(),
-                               compiler.getPreprocessorOpts(),
-                               compiler.getCodeGenOpts(),
-                               Context)))));
-
-    compiler.createSema(clang::TU_Prefix, nullptr);
-
-    clang::SourceManager &sm = compiler.getSourceManager();
-    sm.setMainFileID(sm.createFileID(
-        llvm::MemoryBuffer::getMemBuffer(TestProgram), clang::SrcMgr::C_User));
-
-    clang::ParseAST(compiler.getSema(), false, false);
-
-    ASSERT_TRUE(test_codegen_fns_ran);
+  ASSERT_TRUE(test_codegen_fns_ran);
 }
 
 } // end anonymous namespace

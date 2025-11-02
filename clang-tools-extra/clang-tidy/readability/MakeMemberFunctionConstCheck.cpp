@@ -1,4 +1,4 @@
-//===--- MakeMemberFunctionConstCheck.cpp - clang-tidy --------------------===//
+//===----------------------------------------------------------------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -11,12 +11,13 @@
 #include "clang/AST/ParentMapContext.h"
 #include "clang/AST/RecursiveASTVisitor.h"
 #include "clang/ASTMatchers/ASTMatchFinder.h"
+#include "clang/Lex/Lexer.h"
 
 using namespace clang::ast_matchers;
 
-namespace clang {
-namespace tidy {
-namespace readability {
+namespace clang::tidy::readability {
+
+namespace {
 
 AST_MATCHER(CXXMethodDecl, isStatic) { return Node.isStatic(); }
 
@@ -65,6 +66,13 @@ public:
     return Parents.begin()->get<T>();
   }
 
+  const Expr *getParentExprIgnoreParens(const Expr *E) {
+    const Expr *Parent = getParent<Expr>(E);
+    while (isa_and_nonnull<ParenExpr>(Parent))
+      Parent = getParent<Expr>(Parent);
+    return Parent;
+  }
+
   bool VisitUnresolvedMemberExpr(const UnresolvedMemberExpr *) {
     // An UnresolvedMemberExpr might resolve to a non-const non-static
     // member function.
@@ -90,7 +98,7 @@ public:
   //  `-ImplicitCastExpr
   //  (possibly `-UnaryOperator Deref)
   //        `-CXXThisExpr 'S *' this
-  bool VisitUser(const ImplicitCastExpr *Cast) {
+  bool visitUser(const ImplicitCastExpr *Cast) {
     if (Cast->getCastKind() != CK_NoOp)
       return false; // Stop traversal.
 
@@ -114,14 +122,14 @@ public:
 
     // ((const S*)this)->Member
     if (const auto *Member = dyn_cast<MemberExpr>(Parent))
-      return VisitUser(Member, /*OnConstObject=*/true);
+      return visitUser(Member, /*OnConstObject=*/true);
 
     return false; // Stop traversal.
   }
 
   // If OnConstObject is true, then this is a MemberExpr using
   // a constant this, i.e. 'const S' or 'const S *'.
-  bool VisitUser(const MemberExpr *Member, bool OnConstObject) {
+  bool visitUser(const MemberExpr *Member, bool OnConstObject) {
     if (Member->isBoundMemberFunction(Ctxt)) {
       if (!OnConstObject || Member->getFoundDecl().getAccess() != AS_public) {
         // Non-public non-static member functions might not preserve the
@@ -139,7 +147,7 @@ public:
       return true;
     }
 
-    const auto *Parent = getParent<Expr>(Member);
+    const auto *Parent = getParentExprIgnoreParens(Member);
 
     if (const auto *Cast = dyn_cast_or_null<ImplicitCastExpr>(Parent)) {
       // A read access to a member is safe when the member either
@@ -158,7 +166,7 @@ public:
     }
 
     if (const auto *M = dyn_cast_or_null<MemberExpr>(Parent))
-      return VisitUser(M, /*OnConstObject=*/false);
+      return visitUser(M, /*OnConstObject=*/false);
 
     return false; // Stop traversal.
   }
@@ -166,12 +174,12 @@ public:
   bool VisitCXXThisExpr(const CXXThisExpr *E) {
     Usage = Const;
 
-    const auto *Parent = getParent<Expr>(E);
+    const auto *Parent = getParentExprIgnoreParens(E);
 
     // Look through deref of this.
     if (const auto *UnOp = dyn_cast_or_null<UnaryOperator>(Parent)) {
       if (UnOp->getOpcode() == UO_Deref) {
-        Parent = getParent<Expr>(UnOp);
+        Parent = getParentExprIgnoreParens(UnOp);
       }
     }
 
@@ -181,7 +189,7 @@ public:
     //  ((const S*)this)->f()
     // when 'f' is a public member function.
     if (const auto *Cast = dyn_cast_or_null<ImplicitCastExpr>(Parent)) {
-      if (VisitUser(Cast))
+      if (visitUser(Cast))
         return true;
 
       // And it's also okay to
@@ -189,7 +197,7 @@ public:
       //   (LValueToRValue)(S->t)
       // when 't' is either of builtin type or a public member.
     } else if (const auto *Member = dyn_cast_or_null<MemberExpr>(Parent)) {
-      if (VisitUser(Member, /*OnConstObject=*/false))
+      if (visitUser(Member, /*OnConstObject=*/false))
         return true;
     }
 
@@ -203,15 +211,17 @@ AST_MATCHER(CXXMethodDecl, usesThisAsConst) {
   FindUsageOfThis UsageOfThis(Finder->getASTContext());
 
   // TraverseStmt does not modify its argument.
-  UsageOfThis.TraverseStmt(const_cast<Stmt *>(Node.getBody()));
+  UsageOfThis.TraverseStmt(Node.getBody());
 
   return UsageOfThis.Usage == Const;
 }
 
+} // namespace
+
 void MakeMemberFunctionConstCheck::registerMatchers(MatchFinder *Finder) {
   Finder->addMatcher(
       traverse(
-          ast_type_traits::TK_AsIs,
+          TK_AsIs,
           cxxMethodDecl(
               isDefinition(), isUserProvided(),
               unless(anyOf(
@@ -235,8 +245,7 @@ static SourceLocation getConstInsertionPoint(const CXXMethodDecl *M) {
   if (!TSI)
     return {};
 
-  FunctionTypeLoc FTL =
-      TSI->getTypeLoc().IgnoreParens().getAs<FunctionTypeLoc>();
+  auto FTL = TSI->getTypeLoc().IgnoreParens().getAs<FunctionTypeLoc>();
   if (!FTL)
     return {};
 
@@ -247,7 +256,7 @@ void MakeMemberFunctionConstCheck::check(
     const MatchFinder::MatchResult &Result) {
   const auto *Definition = Result.Nodes.getNodeAs<CXXMethodDecl>("x");
 
-  auto Declaration = Definition->getCanonicalDecl();
+  const auto *Declaration = Definition->getCanonicalDecl();
 
   auto Diag = diag(Definition->getLocation(), "method %0 can be made const")
               << Definition
@@ -259,6 +268,4 @@ void MakeMemberFunctionConstCheck::check(
   }
 }
 
-} // namespace readability
-} // namespace tidy
-} // namespace clang
+} // namespace clang::tidy::readability

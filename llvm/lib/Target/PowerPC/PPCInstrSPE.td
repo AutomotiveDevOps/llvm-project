@@ -20,10 +20,10 @@ class EFXForm_1<bits<11> xo, dag OOL, dag IOL, string asmstr,
 
   let Pattern = pattern;
 
-  let Inst{6-10}  = RT;
-  let Inst{11-15} = RA;
-  let Inst{16-20} = RB;
-  let Inst{21-31} = xo;
+  let Inst{6...10}  = RT;
+  let Inst{11...15} = RA;
+  let Inst{16...20} = RB;
+  let Inst{21...31} = xo;
 }
 
 class EFXForm_2<bits<11> xo, dag OOL, dag IOL, string asmstr,
@@ -45,11 +45,11 @@ class EFXForm_3<bits<11> xo, dag OOL, dag IOL, string asmstr,
   bits<5> RA;
   bits<5> RB;
 
-  let Inst{6-8}  = crD;
-  let Inst{9-10}  = 0;
-  let Inst{11-15} = RA;
-  let Inst{16-20} = RB;
-  let Inst{21-31} = xo;
+  let Inst{6...8}  = crD;
+  let Inst{9...10}  = 0;
+  let Inst{11...15} = RA;
+  let Inst{16...20} = RB;
+  let Inst{21...31} = xo;
 }
 
 class EVXForm_1<bits<11> xo, dag OOL, dag IOL, string asmstr,
@@ -61,10 +61,10 @@ class EVXForm_1<bits<11> xo, dag OOL, dag IOL, string asmstr,
 
   let Pattern = pattern;
 
-  let Inst{6-10}  = RT;
-  let Inst{11-15} = RA;
-  let Inst{16-20} = RB;
-  let Inst{21-31} = xo;
+  let Inst{6...10}  = RT;
+  let Inst{11...15} = RA;
+  let Inst{16...20} = RB;
+  let Inst{21...31} = xo;
 }
 
 class EVXForm_2<bits<11> xo, dag OOL, dag IOL, string asmstr,
@@ -88,11 +88,11 @@ class EVXForm_3<bits<11> xo, dag OOL, dag IOL, string asmstr,
 
   let Pattern = pattern;
 
-  let Inst{6-8}  = crD;
-  let Inst{9-10}  = 0;
-  let Inst{11-15} = RA;
-  let Inst{16-20} = RB;
-  let Inst{21-31} = xo;
+  let Inst{6...8}  = crD;
+  let Inst{9...10}  = 0;
+  let Inst{11...15} = RA;
+  let Inst{16...20} = RB;
+  let Inst{21...31} = xo;
 }
 
 class EVXForm_4<bits<8> xo, dag OOL, dag IOL, string asmstr,
@@ -105,34 +105,26 @@ class EVXForm_4<bits<8> xo, dag OOL, dag IOL, string asmstr,
 
   let Pattern = pattern;
 
-  let Inst{6-10}  = RT;
-  let Inst{11-15} = RA;
-  let Inst{16-20} = RB;
-  let Inst{21-28} = xo;
-  let Inst{29-31} = crD;
+  let Inst{6...10}  = RT;
+  let Inst{11...15} = RA;
+  let Inst{16...20} = RB;
+  let Inst{21...28} = xo;
+  let Inst{29...31} = crD;
 }
 
 class EVXForm_D<bits<11> xo, dag OOL, dag IOL, string asmstr,
                InstrItinClass itin, list<dag> pattern> :
-               I<4, OOL, IOL, asmstr, itin> {
+               I<4, OOL, IOL, asmstr, itin>, MemriOp {
   bits<5> RT;
-  bits<21> D;
+  bits<5> RA;
+  bits<5> D;
 
   let Pattern = pattern;
 
-  let Inst{6-10}  = RT;
-  let Inst{20} = D{0};
-  let Inst{19} = D{1};
-  let Inst{18} = D{2};
-  let Inst{17} = D{3};
-  let Inst{16} = D{4};
-  let Inst{15} = D{5};
-  let Inst{14} = D{6};
-  let Inst{13} = D{7};
-  let Inst{12} = D{8};
-  let Inst{11} = D{9};
-  let Inst{11-20} = D{0-9};
-  let Inst{21-31} = xo;
+  let Inst{6...10}  = RT;
+  let Inst{11...15} = RA;
+  let Inst{16...20} = D;
+  let Inst{21...31} = xo;
 }
 
 let DecoderNamespace = "SPE", Predicates = [HasSPE] in {
@@ -147,18 +139,18 @@ def EFDABS         : EFXForm_2<740, (outs sperc:$RT), (ins sperc:$RA),
 
 def EFDADD         : EFXForm_1<736, (outs sperc:$RT), (ins sperc:$RA, sperc:$RB),
                                 "efdadd $RT, $RA, $RB", IIC_FPAddSub,
-                                [(set f64:$RT, (fadd f64:$RA, f64:$RB))]>;
+                                [(set f64:$RT, (any_fadd f64:$RA, f64:$RB))]>;
 
 def EFDCFS         : EFXForm_2a<751, (outs sperc:$RT), (ins spe4rc:$RB),
                                 "efdcfs $RT, $RB", IIC_FPDGeneral,
-                                [(set f64:$RT, (fpextend f32:$RB))]>;
+                                [(set f64:$RT, (any_fpextend f32:$RB))]>;
 
 def EFDCFSF        : EFXForm_2a<755, (outs sperc:$RT), (ins spe4rc:$RB),
                                 "efdcfsf $RT, $RB", IIC_FPDGeneral, []>;
 
 def EFDCFSI        : EFXForm_2a<753, (outs sperc:$RT), (ins gprc:$RB),
                                 "efdcfsi $RT, $RB", IIC_FPDGeneral,
-                                [(set f64:$RT, (sint_to_fp i32:$RB))]>;
+                                [(set f64:$RT, (any_sint_to_fp i32:$RB))]>;
 
 def EFDCFSID       : EFXForm_2a<739, (outs sperc:$RT), (ins gprc:$RB),
                                 "efdcfsid $RT, $RB", IIC_FPDGeneral,
@@ -169,7 +161,7 @@ def EFDCFUF        : EFXForm_2a<754, (outs sperc:$RT), (ins spe4rc:$RB),
 
 def EFDCFUI        : EFXForm_2a<752, (outs sperc:$RT), (ins gprc:$RB),
                                 "efdcfui $RT, $RB", IIC_FPDGeneral,
-                                [(set f64:$RT, (uint_to_fp i32:$RB))]>;
+                                [(set f64:$RT, (any_uint_to_fp i32:$RB))]>;
 
 def EFDCFUID       : EFXForm_2a<738, (outs sperc:$RT), (ins gprc:$RB),
                                 "efdcfuid $RT, $RB", IIC_FPDGeneral,
@@ -197,7 +189,7 @@ def EFDCTSIDZ      : EFXForm_2a<747, (outs gprc:$RT), (ins sperc:$RB),
 
 def EFDCTSIZ       : EFXForm_2a<762, (outs gprc:$RT), (ins sperc:$RB),
                                 "efdctsiz $RT, $RB", IIC_FPDGeneral,
-                                [(set i32:$RT, (fp_to_sint f64:$RB))]>;
+                                [(set i32:$RT, (any_fp_to_sint f64:$RB))]>;
 
 def EFDCTUF        : EFXForm_2a<758, (outs sperc:$RT), (ins spe4rc:$RB),
                                 "efdctuf $RT, $RB", IIC_FPDGeneral, []>;
@@ -212,15 +204,15 @@ def EFDCTUIDZ      : EFXForm_2a<746, (outs gprc:$RT), (ins sperc:$RB),
 
 def EFDCTUIZ       : EFXForm_2a<760, (outs gprc:$RT), (ins sperc:$RB),
                                 "efdctuiz $RT, $RB", IIC_FPDGeneral,
-                                [(set i32:$RT, (fp_to_uint f64:$RB))]>;
+                                [(set i32:$RT, (any_fp_to_uint f64:$RB))]>;
 
 def EFDDIV         : EFXForm_1<745, (outs sperc:$RT), (ins sperc:$RA, sperc:$RB),
                                "efddiv $RT, $RA, $RB", IIC_FPDivD,
-                               [(set f64:$RT, (fdiv f64:$RA, f64:$RB))]>;
+                               [(set f64:$RT, (any_fdiv f64:$RA, f64:$RB))]>;
 
 def EFDMUL         : EFXForm_1<744, (outs sperc:$RT), (ins sperc:$RA, sperc:$RB),
                                "efdmul $RT, $RA, $RB", IIC_FPDGeneral,
-                               [(set f64:$RT, (fmul f64:$RA, f64:$RB))]>;
+                               [(set f64:$RT, (any_fmul f64:$RA, f64:$RB))]>;
 
 def EFDNABS        : EFXForm_2<741, (outs sperc:$RT), (ins sperc:$RA),
                                "efdnabs $RT, $RA", IIC_FPDGeneral,
@@ -232,7 +224,7 @@ def EFDNEG         : EFXForm_2<742, (outs sperc:$RT), (ins sperc:$RA),
 
 def EFDSUB         : EFXForm_1<737, (outs sperc:$RT), (ins sperc:$RA, sperc:$RB),
                                "efdsub $RT, $RA, $RB", IIC_FPDGeneral,
-                               [(set f64:$RT, (fsub f64:$RA, f64:$RB))]>;
+                               [(set f64:$RT, (any_fsub f64:$RA, f64:$RB))]>;
 
 let isCompare = 1 in {
 def EFDTSTEQ       : EFXForm_3<766, (outs crrc:$crD), (ins sperc:$RA, sperc:$RB),
@@ -250,25 +242,25 @@ def EFSABS         : EFXForm_2<708, (outs spe4rc:$RT), (ins spe4rc:$RA),
 
 def EFSADD         : EFXForm_1<704, (outs spe4rc:$RT), (ins spe4rc:$RA, spe4rc:$RB),
                                 "efsadd $RT, $RA, $RB", IIC_FPAddSub,
-                                [(set f32:$RT, (fadd f32:$RA, f32:$RB))]>;
+                                [(set f32:$RT, (any_fadd f32:$RA, f32:$RB))]>;
 
 def EFSCFD         : EFXForm_2a<719, (outs spe4rc:$RT), (ins sperc:$RB),
                                 "efscfd $RT, $RB", IIC_FPSGeneral,
-                                [(set f32:$RT, (fpround f64:$RB))]>;
+                                [(set f32:$RT, (any_fpround f64:$RB))]>;
 
 def EFSCFSF        : EFXForm_2a<723, (outs spe4rc:$RT), (ins spe4rc:$RB),
                                 "efscfsf $RT, $RB", IIC_FPSGeneral, []>;
 
 def EFSCFSI        : EFXForm_2a<721, (outs spe4rc:$RT), (ins gprc:$RB),
                                 "efscfsi $RT, $RB", IIC_FPSGeneral,
-                                [(set f32:$RT, (sint_to_fp i32:$RB))]>;
+                                [(set f32:$RT, (any_sint_to_fp i32:$RB))]>;
 
 def EFSCFUF        : EFXForm_2a<722, (outs spe4rc:$RT), (ins spe4rc:$RB),
                                 "efscfuf $RT, $RB", IIC_FPSGeneral, []>;
 
 def EFSCFUI        : EFXForm_2a<720, (outs spe4rc:$RT), (ins gprc:$RB),
                                 "efscfui $RT, $RB", IIC_FPSGeneral,
-                                [(set f32:$RT, (uint_to_fp i32:$RB))]>;
+                                [(set f32:$RT, (any_uint_to_fp i32:$RB))]>;
 
 let isCompare = 1 in {
 def EFSCMPEQ       : EFXForm_3<718, (outs crrc:$crD), (ins spe4rc:$RA, spe4rc:$RB),
@@ -288,7 +280,7 @@ def EFSCTSI        : EFXForm_2a<725, (outs gprc:$RT), (ins spe4rc:$RB),
 
 def EFSCTSIZ       : EFXForm_2a<730, (outs gprc:$RT), (ins spe4rc:$RB),
                                 "efsctsiz $RT, $RB", IIC_FPSGeneral,
-                                [(set i32:$RT, (fp_to_sint f32:$RB))]>;
+                                [(set i32:$RT, (any_fp_to_sint f32:$RB))]>;
 
 def EFSCTUF        : EFXForm_2a<726, (outs sperc:$RT), (ins spe4rc:$RB),
                                 "efsctuf $RT, $RB", IIC_FPSGeneral, []>;
@@ -299,15 +291,15 @@ def EFSCTUI        : EFXForm_2a<724, (outs gprc:$RT), (ins spe4rc:$RB),
 
 def EFSCTUIZ       : EFXForm_2a<728, (outs gprc:$RT), (ins spe4rc:$RB),
                                 "efsctuiz $RT, $RB", IIC_FPSGeneral,
-                                [(set i32:$RT, (fp_to_uint f32:$RB))]>;
+                                [(set i32:$RT, (any_fp_to_uint f32:$RB))]>;
 
 def EFSDIV         : EFXForm_1<713, (outs spe4rc:$RT), (ins spe4rc:$RA, spe4rc:$RB),
                                "efsdiv $RT, $RA, $RB", IIC_FPDivD,
-                               [(set f32:$RT, (fdiv f32:$RA, f32:$RB))]>;
+                               [(set f32:$RT, (any_fdiv f32:$RA, f32:$RB))]>;
 
 def EFSMUL         : EFXForm_1<712, (outs spe4rc:$RT), (ins spe4rc:$RA, spe4rc:$RB),
                                "efsmul $RT, $RA, $RB", IIC_FPGeneral,
-                               [(set f32:$RT, (fmul f32:$RA, f32:$RB))]>;
+                               [(set f32:$RT, (any_fmul f32:$RA, f32:$RB))]>;
 
 def EFSNABS        : EFXForm_2<709, (outs spe4rc:$RT), (ins spe4rc:$RA),
                                "efsnabs $RT, $RA", IIC_FPGeneral,
@@ -319,7 +311,7 @@ def EFSNEG         : EFXForm_2<710, (outs spe4rc:$RT), (ins spe4rc:$RA),
 
 def EFSSUB         : EFXForm_1<705, (outs spe4rc:$RT), (ins spe4rc:$RA, spe4rc:$RB),
                                "efssub $RT, $RA, $RB", IIC_FPSGeneral,
-                               [(set f32:$RT, (fsub f32:$RA, f32:$RB))]>;
+                               [(set f32:$RT, (any_fsub f32:$RA, f32:$RB))]>;
 
 let isCompare = 1 in {
 def EFSTSTEQ       : EFXForm_3<734, (outs crrc:$crD), (ins sperc:$RA, sperc:$RB),
@@ -460,53 +452,53 @@ def EVFSTSTLT       : EVXForm_3<669, (outs crrc:$crD), (ins sperc:$RA, sperc:$RB
                                "evfststlt $crD, $RA, $RB", IIC_VecGeneral, []>;
 }
 
-def EVLDD          : EVXForm_D<769, (outs sperc:$RT), (ins spe8dis:$dst),
+def EVLDD          : EVXForm_D<769, (outs sperc:$RT), (ins (spe8dis $D, $RA):$dst),
                                "evldd $RT, $dst", IIC_LdStLoad,
                                [(set f64:$RT, (load iaddr:$dst))]>;
-def EVLDDX         : EVXForm_1<768, (outs sperc:$RT), (ins memrr:$src),
+def EVLDDX         : EVXForm_1<768, (outs sperc:$RT), (ins (memrr $RA, $RB):$src),
                                "evlddx $RT, $src", IIC_LdStLoad,
                                [(set f64:$RT, (load xaddr:$src))]>;
-def EVLDH          : EVXForm_D<773, (outs sperc:$RT), (ins spe8dis:$dst),
+def EVLDH          : EVXForm_D<773, (outs sperc:$RT), (ins (spe8dis $D, $RA):$dst),
                                "evldh $RT, $dst", IIC_LdStLoad, []>;
-def EVLDHX         : EVXForm_1<772, (outs sperc:$RT), (ins memrr:$src),
+def EVLDHX         : EVXForm_1<772, (outs sperc:$RT), (ins (memrr $RA, $RB):$src),
                                "evldhx $RT, $src", IIC_LdStLoad, []>;
-def EVLDW          : EVXForm_D<771, (outs sperc:$RT), (ins spe8dis:$dst),
+def EVLDW          : EVXForm_D<771, (outs sperc:$RT), (ins (spe8dis $D, $RA):$dst),
                                "evldw $RT, $dst", IIC_LdStLoad,
                                []>;
-def EVLDWX         : EVXForm_1<770, (outs sperc:$RT), (ins memrr:$src),
+def EVLDWX         : EVXForm_1<770, (outs sperc:$RT), (ins (memrr $RA, $RB):$src),
                                "evldwx $RT, $src", IIC_LdStLoad,
                                []>;
-def EVLHHESPLAT    : EVXForm_D<777, (outs sperc:$RT), (ins spe2dis:$dst),
+def EVLHHESPLAT    : EVXForm_D<777, (outs sperc:$RT), (ins (spe2dis $D, $RA):$dst),
                                "evlhhesplat $RT, $dst", IIC_LdStLoad, []>;
-def EVLHHESPLATX   : EVXForm_1<776, (outs sperc:$RT), (ins memrr:$src),
+def EVLHHESPLATX   : EVXForm_1<776, (outs sperc:$RT), (ins (memrr $RA, $RB):$src),
                                "evlhhesplatx $RT, $src", IIC_LdStLoad, []>;
-def EVLHHOUSPLAT   : EVXForm_D<781, (outs sperc:$RT), (ins spe2dis:$dst),
+def EVLHHOUSPLAT   : EVXForm_D<781, (outs sperc:$RT), (ins (spe2dis $D, $RA):$dst),
                                "evlhhousplat $RT, $dst", IIC_LdStLoad, []>;
-def EVLHHOUSPLATX  : EVXForm_1<780, (outs sperc:$RT), (ins memrr:$src),
+def EVLHHOUSPLATX  : EVXForm_1<780, (outs sperc:$RT), (ins (memrr $RA, $RB):$src),
                                "evlhhousplatx $RT, $src", IIC_LdStLoad, []>;
-def EVLHHOSSPLAT   : EVXForm_D<783, (outs sperc:$RT), (ins spe2dis:$dst),
+def EVLHHOSSPLAT   : EVXForm_D<783, (outs sperc:$RT), (ins (spe2dis $D, $RA):$dst),
                                "evlhhossplat $RT, $dst", IIC_LdStLoad, []>;
-def EVLHHOSSPLATX  : EVXForm_1<782, (outs sperc:$RT), (ins memrr:$src),
+def EVLHHOSSPLATX  : EVXForm_1<782, (outs sperc:$RT), (ins (memrr $RA, $RB):$src),
                                "evlhhossplatx $RT, $src", IIC_LdStLoad, []>;
-def EVLWHE         : EVXForm_D<785, (outs sperc:$RT), (ins spe4dis:$dst),
+def EVLWHE         : EVXForm_D<785, (outs sperc:$RT), (ins (spe4dis $D, $RA):$dst),
                                "evlwhe $RT, $dst", IIC_LdStLoad, []>;
-def EVLWHEX        : EVXForm_1<784, (outs sperc:$RT), (ins memrr:$src),
+def EVLWHEX        : EVXForm_1<784, (outs sperc:$RT), (ins (memrr $RA, $RB):$src),
                                "evlwhex $RT, $src", IIC_LdStLoad, []>;
-def EVLWHOS        : EVXForm_D<791, (outs sperc:$RT), (ins spe4dis:$dst),
+def EVLWHOS        : EVXForm_D<791, (outs sperc:$RT), (ins (spe4dis $D, $RA):$dst),
                                "evlwhos $RT, $dst", IIC_LdStLoad, []>;
-def EVLWHOSX       : EVXForm_1<790, (outs sperc:$RT), (ins memrr:$src),
+def EVLWHOSX       : EVXForm_1<790, (outs sperc:$RT), (ins (memrr $RA, $RB):$src),
                                "evlwhosx $RT, $src", IIC_LdStLoad, []>;
-def EVLWHOU        : EVXForm_D<789, (outs sperc:$RT), (ins spe4dis:$dst),
+def EVLWHOU        : EVXForm_D<789, (outs sperc:$RT), (ins (spe4dis $D, $RA):$dst),
                                "evlwhou $RT, $dst", IIC_LdStLoad, []>;
-def EVLWHOUX       : EVXForm_1<788, (outs sperc:$RT), (ins memrr:$src),
+def EVLWHOUX       : EVXForm_1<788, (outs sperc:$RT), (ins (memrr $RA, $RB):$src),
                                "evlwhoux $RT, $src", IIC_LdStLoad, []>;
-def EVLWHSPLAT     : EVXForm_D<797, (outs sperc:$RT), (ins spe4dis:$dst),
+def EVLWHSPLAT     : EVXForm_D<797, (outs sperc:$RT), (ins (spe4dis $D, $RA):$dst),
                                "evlwhsplat $RT, $dst", IIC_LdStLoad, []>;
-def EVLWHSPLATX    : EVXForm_1<796, (outs sperc:$RT), (ins memrr:$src),
+def EVLWHSPLATX    : EVXForm_1<796, (outs sperc:$RT), (ins (memrr $RA, $RB):$src),
                                "evlwhsplatx $RT, $src", IIC_LdStLoad, []>;
-def EVLWWSPLAT     : EVXForm_D<793, (outs sperc:$RT), (ins spe4dis:$dst),
+def EVLWWSPLAT     : EVXForm_D<793, (outs sperc:$RT), (ins (spe4dis $D, $RA):$dst),
                                "evlwwsplat $RT, $dst", IIC_LdStLoad, []>;
-def EVLWWSPLATX    : EVXForm_1<792, (outs sperc:$RT), (ins memrr:$src),
+def EVLWWSPLATX    : EVXForm_1<792, (outs sperc:$RT), (ins (memrr $RA, $RB):$src),
                                "evlwwsplatx $RT, $src", IIC_LdStLoad, []>;
 
 def EVMERGEHI      : EVXForm_1<556, (outs sperc:$RT), (ins sperc:$RA, sperc:$RB),
@@ -751,37 +743,37 @@ def EVSRWU         : EVXForm_1<544, (outs sperc:$RT), (ins sperc:$RA, sperc:$RB)
                                "evsrwu $RT, $RA, $RB", IIC_VecGeneral,
                                []>;
 
-def EVSTDD         : EVXForm_D<801, (outs), (ins sperc:$RT, spe8dis:$dst),
+def EVSTDD         : EVXForm_D<801, (outs), (ins sperc:$RT, (spe8dis $D, $RA):$dst),
                                "evstdd $RT, $dst", IIC_LdStStore,
                                [(store f64:$RT, iaddr:$dst)]>;
-def EVSTDDX        : EVXForm_1<800, (outs), (ins sperc:$RT, memrr:$dst),
+def EVSTDDX        : EVXForm_1<800, (outs), (ins sperc:$RT, (memrr $RA, $RB):$dst),
                                "evstddx $RT, $dst", IIC_LdStStore,
                                [(store f64:$RT, xaddr:$dst)]>;
-def EVSTDH         : EVXForm_D<805, (outs), (ins sperc:$RT, spe8dis:$dst),
+def EVSTDH         : EVXForm_D<805, (outs), (ins sperc:$RT, (spe8dis $D, $RA):$dst),
                                "evstdh $RT, $dst", IIC_LdStStore, []>;
-def EVSTDHX        : EVXForm_1<804, (outs), (ins sperc:$RT, memrr:$dst),
+def EVSTDHX        : EVXForm_1<804, (outs), (ins sperc:$RT, (memrr $RA, $RB):$dst),
                                "evstdhx $RT, $dst", IIC_LdStStore, []>;
-def EVSTDW         : EVXForm_D<803, (outs), (ins sperc:$RT, spe8dis:$dst),
+def EVSTDW         : EVXForm_D<803, (outs), (ins sperc:$RT, (spe8dis $D, $RA):$dst),
                                "evstdw $RT, $dst", IIC_LdStStore,
                                []>;
-def EVSTDWX        : EVXForm_1<802, (outs), (ins sperc:$RT, memrr:$dst),
+def EVSTDWX        : EVXForm_1<802, (outs), (ins sperc:$RT, (memrr $RA, $RB):$dst),
                                "evstdwx $RT, $dst", IIC_LdStStore,
                                []>;
-def EVSTWHE        : EVXForm_D<817, (outs), (ins sperc:$RT, spe4dis:$dst),
+def EVSTWHE        : EVXForm_D<817, (outs), (ins sperc:$RT, (spe4dis $D, $RA):$dst),
                                "evstwhe $RT, $dst", IIC_LdStStore, []>;
-def EVSTWHEX       : EVXForm_1<816, (outs), (ins sperc:$RT, memrr:$dst),
+def EVSTWHEX       : EVXForm_1<816, (outs), (ins sperc:$RT, (memrr $RA, $RB):$dst),
                                "evstwhex $RT, $dst", IIC_LdStStore, []>;
-def EVSTWHO        : EVXForm_D<821, (outs), (ins sperc:$RT, spe4dis:$dst),
+def EVSTWHO        : EVXForm_D<821, (outs), (ins sperc:$RT, (spe4dis $D, $RA):$dst),
                                "evstwho $RT, $dst", IIC_LdStStore, []>;
-def EVSTWHOX       : EVXForm_1<820, (outs), (ins sperc:$RT, memrr:$dst),
+def EVSTWHOX       : EVXForm_1<820, (outs), (ins sperc:$RT, (memrr $RA, $RB):$dst),
                                "evstwhox $RT, $dst", IIC_LdStStore, []>;
-def EVSTWWE        : EVXForm_D<825, (outs), (ins sperc:$RT, spe4dis:$dst),
+def EVSTWWE        : EVXForm_D<825, (outs), (ins sperc:$RT, (spe4dis $D, $RA):$dst),
                                "evstwwe $RT, $dst", IIC_LdStStore, []>;
-def EVSTWWEX       : EVXForm_1<824, (outs), (ins sperc:$RT, memrr:$dst),
+def EVSTWWEX       : EVXForm_1<824, (outs), (ins sperc:$RT, (memrr $RA, $RB):$dst),
                                "evstwwex $RT, $dst", IIC_LdStStore, []>;
-def EVSTWWO        : EVXForm_D<829, (outs), (ins sperc:$RT, spe4dis:$dst),
+def EVSTWWO        : EVXForm_D<829, (outs), (ins sperc:$RT, (spe4dis $D, $RA):$dst),
                                "evstwwo $RT, $dst", IIC_LdStStore, []>;
-def EVSTWWOX       : EVXForm_1<828, (outs), (ins sperc:$RT, memrr:$dst),
+def EVSTWWOX       : EVXForm_1<828, (outs), (ins sperc:$RT, (memrr $RA, $RB):$dst),
                                "evstwwox $RT, $dst", IIC_LdStStore, []>;
 
 def EVSUBFSSIAAW   : EVXForm_2<1219, (outs sperc:$RT), (ins sperc:$RA),
@@ -803,31 +795,21 @@ def EVXOR          : EVXForm_1<534, (outs sperc:$RT), (ins sperc:$RA, sperc:$RB)
 
 let isAsmParserOnly = 1 in {
 // Identical to the integer Load/Stores, but to handle floats
-def SPELWZ        : DForm_1<32, (outs spe4rc:$rD), (ins memri:$src),
-                            "lwz $rD, $src", IIC_LdStLoad,
-                            [(set f32:$rD, (load iaddr:$src))]>;
-def SPELWZX       : XForm_1<31,  23, (outs spe4rc:$rD), (ins memrr:$src),
-                            "lwzx $rD, $src", IIC_LdStLoad,
-                            [(set f32:$rD, (load xaddr:$src))]>;
-def SPESTW        : DForm_1<36, (outs), (ins spe4rc:$rS, memri:$src),
-                            "stw $rS, $src", IIC_LdStStore,
-                            [(store f32:$rS, iaddr:$src)]>;
-def SPESTWX       : XForm_8<31, 151, (outs), (ins spe4rc:$rS, memrr:$dst),
-                           "stwx $rS, $dst", IIC_LdStStore,
-                           [(store f32:$rS, xaddr:$dst)]>;
+def SPELWZ        : DForm_1<32, (outs spe4rc:$RST), (ins (memri $D, $RA):$addr),
+                            "lwz $RST, $addr", IIC_LdStLoad,
+                            [(set f32:$RST, (load iaddr:$addr))]>;
+def SPELWZX       : XForm_1<31,  23, (outs spe4rc:$RST), (ins (memrr $RA, $RB):$addr),
+                            "lwzx $RST, $addr", IIC_LdStLoad,
+                            [(set f32:$RST, (load xaddr:$addr))]>;
+def SPESTW        : DForm_1<36, (outs), (ins spe4rc:$RST, (memri $D, $RA):$addr),
+                            "stw $RST, $addr", IIC_LdStStore,
+                            [(store f32:$RST, iaddr:$addr)]>;
+def SPESTWX       : XForm_8<31, 151, (outs), (ins spe4rc:$RST, (memrr $RA, $RB):$addr),
+                           "stwx $RST, $addr", IIC_LdStStore,
+                           [(store f32:$RST, xaddr:$addr)]>;
 }
 
 } // HasSPE
-
-let Predicates = [HasSPE] in {
-def : Pat<(f64 (extloadf32 iaddr:$src)),
-          (COPY_TO_REGCLASS (SPELWZ iaddr:$src), SPERC)>;
-def : Pat<(f64 (extloadf32 xaddr:$src)),
-          (COPY_TO_REGCLASS (SPELWZX xaddr:$src), SPERC)>;
-
-def : Pat<(f64 (fpextend f32:$src)),
-          (COPY_TO_REGCLASS $src, SPERC)>;
-}
 
 let Predicates = [HasSPE] in {
 def SELECT_CC_SPE4 : PPCCustomInserterPseudo<(outs spe4rc:$dst),

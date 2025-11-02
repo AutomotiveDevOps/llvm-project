@@ -49,7 +49,7 @@ public:
   ~ClangASTSource() override;
 
   /// Interface stubs.
-  clang::Decl *GetExternalDecl(uint32_t) override { return nullptr; }
+  clang::Decl *GetExternalDecl(clang::GlobalDeclID) override { return nullptr; }
   clang::Stmt *GetExternalDeclStmt(uint64_t) override { return nullptr; }
   clang::Selector GetExternalSelector(uint32_t) override {
     return clang::Selector();
@@ -59,7 +59,7 @@ public:
   GetExternalCXXBaseSpecifiers(uint64_t Offset) override {
     return nullptr;
   }
-  void MaterializeVisibleDecls(const clang::DeclContext *DC) { return; }
+  void MaterializeVisibleDecls(const clang::DeclContext *DC) {}
 
   void InstallASTContext(TypeSystemClang &ast_context);
 
@@ -83,8 +83,10 @@ public:
   ///
   /// \return
   ///     Whatever SetExternalVisibleDeclsForName returns.
-  bool FindExternalVisibleDeclsByName(const clang::DeclContext *DC,
-                                      clang::DeclarationName Name) override;
+  bool
+  FindExternalVisibleDeclsByName(const clang::DeclContext *DC,
+                                 clang::DeclarationName Name,
+                                 const clang::DeclContext *OriginalDC) override;
 
   /// Enumerate all Decls in a given lexical context.
   ///
@@ -197,11 +199,6 @@ public:
 
   clang::Sema *getSema();
 
-  void SetImportInProgress(bool import_in_progress) {
-    m_import_in_progress = import_in_progress;
-  }
-  bool GetImportInProgress() { return m_import_in_progress; }
-
   void SetLookupsEnabled(bool lookups_enabled) {
     m_lookups_enabled = lookups_enabled;
   }
@@ -216,9 +213,10 @@ public:
   public:
     ClangASTSourceProxy(ClangASTSource &original) : m_original(original) {}
 
-    bool FindExternalVisibleDeclsByName(const clang::DeclContext *DC,
-                                        clang::DeclarationName Name) override {
-      return m_original.FindExternalVisibleDeclsByName(DC, Name);
+    bool FindExternalVisibleDeclsByName(
+        const clang::DeclContext *DC, clang::DeclarationName Name,
+        const clang::DeclContext *OriginalDC) override {
+      return m_original.FindExternalVisibleDeclsByName(DC, Name, OriginalDC);
     }
 
     void FindExternalLexicalDecls(
@@ -255,8 +253,8 @@ public:
     ClangASTSource &m_original;
   };
 
-  clang::ExternalASTSource *CreateProxy() {
-    return new ClangASTSourceProxy(*this);
+  llvm::IntrusiveRefCntPtr<clang::ExternalASTSource> CreateProxy() {
+    return llvm::makeIntrusiveRefCnt<ClangASTSourceProxy>(*this);
   }
 
 protected:
@@ -319,6 +317,8 @@ protected:
   ///     The imported type.
   CompilerType GuardedCopyType(const CompilerType &src_type);
 
+  std::shared_ptr<ClangModulesDeclVendor> GetClangModulesDeclVendor();
+
 public:
   /// Returns true if a name should be ignored by name lookup.
   ///
@@ -333,7 +333,6 @@ public:
   ///     global lookup for performance reasons.
   bool IgnoreName(const ConstString name, bool ignore_all_dollar_names);
 
-public:
   /// Copies a single Decl into the parser's AST context.
   ///
   /// \param[in] src_decl
@@ -356,6 +355,11 @@ public:
   /// ExternalASTSource.
   TypeSystemClang *GetTypeSystem() const { return m_clang_ast_context; }
 
+private:
+  bool FindObjCPropertyAndIvarDeclsWithOrigin(
+      NameSearchContext &context,
+      DeclFromUser<const clang::ObjCInterfaceDecl> &origin_iface_decl);
+
 protected:
   bool FindObjCMethodDeclsWithOrigin(
       NameSearchContext &context,
@@ -373,9 +377,10 @@ protected:
   void FillNamespaceMap(NameSearchContext &context, lldb::ModuleSP module_sp,
                         const CompilerDeclContext &namespace_decl);
 
+  clang::TagDecl *FindCompleteType(const clang::TagDecl *decl);
+
   friend struct NameSearchContext;
 
-  bool m_import_in_progress;
   bool m_lookups_enabled;
 
   /// The target to use in finding variables and types.

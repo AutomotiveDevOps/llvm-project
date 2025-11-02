@@ -17,10 +17,10 @@
 
 class X {
 public:
-  X(const X &x) { Init(x.a); }
+  X(const X& x) { Init(x.a); }
   X(char arg) { Init(arg); }
   X() { Init(42); }
-  X &operator=(const X &x) {
+  X& operator=(const X& x) {
     Init(x.a);
     return *this;
   }
@@ -40,19 +40,17 @@ private:
 
 class ThrowOnCopy {
 public:
-    ThrowOnCopy() : should_throw(false) {}
-    explicit ThrowOnCopy(bool xshould_throw) : should_throw(xshould_throw) {}
+  ThrowOnCopy() : should_throw(false) {}
+  explicit ThrowOnCopy(bool xshould_throw) : should_throw(xshould_throw) {}
 
-    ThrowOnCopy(ThrowOnCopy const & other)
-        : should_throw(other.should_throw)
-    {
-        if (should_throw) {
-            throw 0;
-        }
+  ThrowOnCopy(ThrowOnCopy const& other) : should_throw(other.should_throw) {
+    if (should_throw) {
+      throw 0;
     }
-    ThrowOnCopy& operator=(ThrowOnCopy const&) = default;
+  }
+  ThrowOnCopy& operator=(ThrowOnCopy const&) = default;
 
-    bool should_throw;
+  bool should_throw;
 };
 
 void test_push_back() {
@@ -99,9 +97,9 @@ void test_insert_range() {
     v.insert(v.end(), a, a + 2);
     assert(0);
   } catch (int e) {
-    assert(v.size() == 3);
+    assert(v.size() == 2);
   }
-  assert(v.size() == 3);
+  assert(v.size() == 2);
   assert(is_contiguous_container_asan_correct(v));
 }
 
@@ -174,7 +172,6 @@ void test_insert_n() {
   }
   assert(0);
 }
-
 
 void test_insert_n2() {
   std::vector<ThrowOnCopy> v(10);

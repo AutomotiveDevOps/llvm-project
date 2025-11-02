@@ -45,7 +45,7 @@
 + (Unrelated *)newUnrelated;
 @end
 
-void test_inference() {
+void test_inference(void) {
   // Inference based on method family
   __typeof__(([[NSString alloc] init])) *str = (NSString**)0;
   __typeof__(([[[[NSString new] self] retain] autorelease])) *str2 = (NSString **)0;
@@ -66,7 +66,7 @@ void test_inference() {
 
   
   NSArray *arr = [[NSMutableArray alloc] init];
-  NSMutableArray *marr = [arr retain]; // expected-warning{{incompatible pointer types initializing 'NSMutableArray *' with an expression of type 'NSArray *'}}
+  NSMutableArray *marr = [arr retain]; // expected-error{{incompatible pointer types initializing 'NSMutableArray *' with an expression of type 'NSArray *'}}
 }
 
 @implementation NSBlah
@@ -148,7 +148,6 @@ void test_inference() {
 + (NSString *)newString { return @"blah"; }
 @end
 
-// <rdar://problem/9340699>
 @interface G 
 - (id)_ABC_init __attribute__((objc_method_family(init))); // expected-note {{method '_ABC_init' declared here}}
 @end
@@ -179,14 +178,10 @@ void test_inference() {
 }
 @end
 
-// <rdar://problem/11460990>
-
 @interface WeirdNSString : NSString
 - (id)initWithCString:(const char*)string, void *blah;
 @end
 
-
-// rdar://14121570
 @protocol PMFilterManager
 @end
 
@@ -197,6 +192,6 @@ void test_inference() {
 + (UIViewController<PMFilterManager> *)newFilterViewControllerForType // expected-note {{compiler has implicitly changed method 'newFilterViewControllerForType' return type}}
 {
         UIViewController<PMFilterManager> *filterVC;
-        return filterVC; // expected-warning {{incompatible pointer types casting 'UIViewController *' to type 'UIViewController<PMFilterManager> *'}}
+        return filterVC; // expected-error {{incompatible pointer types casting 'UIViewController *' to type 'UIViewController<PMFilterManager> *'}}
 }
 @end

@@ -13,22 +13,26 @@
 #ifndef LLVM_CODEGEN_TARGETSUBTARGETINFO_H
 #define LLVM_CODEGEN_TARGETSUBTARGETINFO_H
 
-#include "llvm/ADT/APInt.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
+#include "llvm/CodeGen/MacroFusion.h"
 #include "llvm/CodeGen/PBQPRAConstraint.h"
-#include "llvm/CodeGen/ScheduleDAGMutation.h"
 #include "llvm/CodeGen/SchedulerRegistry.h"
+#include "llvm/IR/GlobalValue.h"
 #include "llvm/MC/MCSubtargetInfo.h"
 #include "llvm/Support/CodeGen.h"
+#include "llvm/Support/Compiler.h"
 #include <memory>
 #include <vector>
 
-
 namespace llvm {
 
+class APInt;
+class MachineFunction;
+class ScheduleDAGMutation;
 class CallLowering;
+class GlobalValue;
 class InlineAsmLowering;
 class InstrItineraryData;
 struct InstrStage;
@@ -42,9 +46,6 @@ struct MCWriteProcResEntry;
 class RegisterBankInfo;
 class SDep;
 class SelectionDAGTargetInfo;
-struct SubtargetFeatureKV;
-struct SubtargetSubTypeKV;
-struct SubtargetInfoKV;
 class SUnit;
 class TargetFrameLowering;
 class TargetInstrInfo;
@@ -53,6 +54,7 @@ class TargetRegisterClass;
 class TargetRegisterInfo;
 class TargetSchedModel;
 class Triple;
+struct SchedRegion;
 
 //===----------------------------------------------------------------------===//
 ///
@@ -60,9 +62,10 @@ class Triple;
 /// Target-specific options that control code generation and printing should
 /// be exposed through a TargetSubtargetInfo-derived class.
 ///
-class TargetSubtargetInfo : public MCSubtargetInfo {
+class LLVM_ABI TargetSubtargetInfo : public MCSubtargetInfo {
 protected: // Can only create subclasses...
-  TargetSubtargetInfo(const Triple &TT, StringRef CPU, StringRef FS,
+  TargetSubtargetInfo(const Triple &TT, StringRef CPU, StringRef TuneCPU,
+                      StringRef FS, ArrayRef<StringRef> PN,
                       ArrayRef<SubtargetFeatureKV> PF,
                       ArrayRef<SubtargetSubTypeKV> PD,
                       const MCWriteProcResEntry *WPR,
@@ -117,15 +120,14 @@ public:
 
   /// Target can subclass this hook to select a different DAG scheduler.
   virtual RegisterScheduler::FunctionPassCtor
-      getDAGScheduler(CodeGenOpt::Level) const {
+  getDAGScheduler(CodeGenOptLevel) const {
     return nullptr;
   }
 
   virtual const LegalizerInfo *getLegalizerInfo() const { return nullptr; }
 
-  /// getRegisterInfo - If register information is available, return it.  If
-  /// not, return null.
-  virtual const TargetRegisterInfo *getRegisterInfo() const { return nullptr; }
+  /// Return the target's register information.
+  virtual const TargetRegisterInfo *getRegisterInfo() const = 0;
 
   /// If the information for the register banks is available, return it.
   /// Otherwise return nullptr.
@@ -199,6 +201,9 @@ public:
   /// True if the subtarget should run MachinePipeliner
   virtual bool enableMachinePipeliner() const { return true; };
 
+  /// True if the subtarget should run WindowScheduler.
+  virtual bool enableWindowScheduler() const { return true; }
+
   /// True if the subtarget should enable joining global copies.
   ///
   /// By default this is enabled if the machine scheduler is enabled, but
@@ -227,7 +232,17 @@ public:
   /// scheduling heuristics (no custom MachineSchedStrategy) to make
   /// changes to the generic scheduling policy.
   virtual void overrideSchedPolicy(MachineSchedPolicy &Policy,
-                                   unsigned NumRegionInstrs) const {}
+                                   const SchedRegion &Region) const {}
+
+  /// Override generic post-ra scheduling policy within a region.
+  ///
+  /// This is a convenient way for targets that don't provide any custom
+  /// scheduling heuristics (no custom MachineSchedStrategy) to make
+  /// changes to the generic  post-ra scheduling policy.
+  /// Note that some options like tracking register pressure won't take effect
+  /// in post-ra scheduling.
+  virtual void overridePostRASchedPolicy(MachineSchedPolicy &Policy,
+                                         const SchedRegion &Region) const {}
 
   // Perform target-specific adjustments to the latency of a schedule
   // dependency.
@@ -235,7 +250,9 @@ public:
   // and UseOpIdx are the indices of the operands in Def and Use, respectively.
   // Otherwise, either may be -1.
   virtual void adjustSchedDependency(SUnit *Def, int DefOpIdx, SUnit *Use,
-                                     int UseOpIdx, SDep &Dep) const {}
+                                     int UseOpIdx, SDep &Dep,
+                                     const TargetSchedModel *SchedModel) const {
+  }
 
   // For use with PostRAScheduling: get the anti-dependence breaking that should
   // be performed before post-RA scheduling.
@@ -266,20 +283,15 @@ public:
 
   // For use with PostRAScheduling: get the minimum optimization level needed
   // to enable post-RA scheduling.
-  virtual CodeGenOpt::Level getOptLevelToEnablePostRAScheduler() const {
-    return CodeGenOpt::Default;
+  virtual CodeGenOptLevel getOptLevelToEnablePostRAScheduler() const {
+    return CodeGenOptLevel::Default;
   }
 
   /// True if the subtarget should run the local reassignment
   /// heuristic of the register allocator.
   /// This heuristic may be compile time intensive, \p OptLevel provides
   /// a finer grain to tune the register allocator.
-  virtual bool enableRALocalReassignment(CodeGenOpt::Level OptLevel) const;
-
-  /// True if the subtarget should consider the cost of local intervals
-  /// created by a split candidate when choosing the best split candidate. This
-  /// heuristic may be compile time intensive.
-  virtual bool enableAdvancedRASplitCost() const;
+  virtual bool enableRALocalReassignment(CodeGenOptLevel OptLevel) const;
 
   /// Enable use of alias analysis during code generation (during MI
   /// scheduling, DAGCombine, etc.).
@@ -313,11 +325,35 @@ public:
   /// written in the tablegen descriptions, false if it should allocate
   /// the specified physical register later if is it callee-saved.
   virtual bool ignoreCSRForAllocationOrder(const MachineFunction &MF,
-                                           unsigned PhysReg) const {
+                                           MCRegister PhysReg) const {
     return false;
   }
-};
 
+  /// Classify a global function reference. This mainly used to fetch target
+  /// special flags for lowering a function address. For example mark a function
+  /// call should be plt or pc-related addressing.
+  virtual unsigned char
+  classifyGlobalFunctionReference(const GlobalValue *GV) const {
+    return 0;
+  }
+
+  /// Enable spillage copy elimination in MachineCopyPropagation pass. This
+  /// helps removing redundant copies generated by register allocator when
+  /// handling complex eviction chains.
+  virtual bool enableSpillageCopyElimination() const { return false; }
+
+  /// Get the list of MacroFusion predicates.
+  virtual std::vector<MacroFusionPredTy> getMacroFusions() const { return {}; };
+
+  /// Whether the target has instructions where an early-clobber result
+  /// operand cannot overlap with an undef input operand.
+  virtual bool requiresDisjointEarlyClobberAndUndef() const {
+    // Conservatively assume such instructions exist by default.
+    return true;
+  }
+
+  virtual bool isRegisterReservedByUser(Register R) const { return false; }
+};
 } // end namespace llvm
 
 #endif // LLVM_CODEGEN_TARGETSUBTARGETINFO_H

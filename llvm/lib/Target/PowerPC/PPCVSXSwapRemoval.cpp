@@ -42,7 +42,6 @@
 //===---------------------------------------------------------------------===//
 
 #include "PPC.h"
-#include "PPCInstrBuilder.h"
 #include "PPCInstrInfo.h"
 #include "PPCTargetMachine.h"
 #include "llvm/ADT/DenseMap.h"
@@ -111,9 +110,7 @@ struct PPCVSXSwapRemoval : public MachineFunctionPass {
   // Swap entries are represented by their VSEId fields.
   EquivalenceClasses<int> *EC;
 
-  PPCVSXSwapRemoval() : MachineFunctionPass(ID) {
-    initializePPCVSXSwapRemovalPass(*PassRegistry::getPassRegistry());
-  }
+  PPCVSXSwapRemoval() : MachineFunctionPass(ID) {}
 
 private:
   // Initialize data structures.
@@ -212,6 +209,7 @@ public:
     return Changed;
   }
 };
+} // end anonymous namespace
 
 // Initialize data structures for this pass.  In particular, clear the
 // swap vector and allocate the equivalence class mapping before
@@ -254,10 +252,11 @@ bool PPCVSXSwapRemoval::gatherVectorInstructions() {
         if (!MO.isReg())
           continue;
         Register Reg = MO.getReg();
-        if (isAnyVecReg(Reg, Partial)) {
+        // All operands need to be checked because there are instructions that
+        // operate on a partial register and produce a full register (such as
+        // XXPERMDIs).
+        if (isAnyVecReg(Reg, Partial))
           RelevantInstr = true;
-          break;
-        }
       }
 
       if (!RelevantInstr)
@@ -518,6 +517,8 @@ bool PPCVSXSwapRemoval::gatherVectorInstructions() {
       case PPC::XXSLDWI:
       case PPC::XSCVDPSPN:
       case PPC::XSCVSPDPN:
+      case PPC::MTVSCR:
+      case PPC::MFVSCR:
         break;
       }
     }
@@ -605,7 +606,7 @@ void PPCVSXSwapRemoval::formWebs() {
       if (!isVecReg(Reg) && !isScalarVecReg(Reg))
         continue;
 
-      if (!Register::isVirtualRegister(Reg)) {
+      if (!Reg.isVirtual()) {
         if (!(MI->isCopy() && isScalarVecReg(Reg)))
           SwapVector[EntryIdx].MentionsPhysVR = 1;
         continue;
@@ -615,7 +616,7 @@ void PPCVSXSwapRemoval::formWebs() {
         continue;
 
       MachineInstr* DefMI = MRI->getVRegDef(Reg);
-      assert(SwapMap.find(DefMI) != SwapMap.end() &&
+      assert(SwapMap.contains(DefMI) &&
              "Inconsistency: def of vector reg not found in swap map!");
       int DefIdx = SwapMap[DefMI];
       (void)EC->unionSets(SwapVector[DefIdx].VSEId,
@@ -688,6 +689,29 @@ void PPCVSXSwapRemoval::recordUnoptimizableWebs() {
           LLVM_DEBUG(dbgs() << "  use " << UseIdx << ": ");
           LLVM_DEBUG(UseMI.dump());
           LLVM_DEBUG(dbgs() << "\n");
+        }
+
+        // It is possible that the load feeds a swap and that swap feeds a
+        // store. In such a case, the code is actually trying to store a swapped
+        // vector. We must reject such webs.
+        if (SwapVector[UseIdx].IsSwap && !SwapVector[UseIdx].IsLoad &&
+            !SwapVector[UseIdx].IsStore) {
+          Register SwapDefReg = UseMI.getOperand(0).getReg();
+          for (MachineInstr &UseOfUseMI :
+               MRI->use_nodbg_instructions(SwapDefReg)) {
+            int UseOfUseIdx = SwapMap[&UseOfUseMI];
+            if (SwapVector[UseOfUseIdx].IsStore) {
+              SwapVector[Repr].WebRejected = 1;
+              LLVM_DEBUG(
+                  dbgs() << format(
+                      "Web %d rejected for load/swap feeding a store\n", Repr));
+              LLVM_DEBUG(dbgs() << "  def " << EntryIdx << ": ");
+              LLVM_DEBUG(MI->dump());
+              LLVM_DEBUG(dbgs() << "  use " << UseIdx << ": ");
+              LLVM_DEBUG(UseMI.dump());
+              LLVM_DEBUG(dbgs() << "\n");
+            }
+          }
         }
       }
 
@@ -1035,8 +1059,6 @@ LLVM_DUMP_METHOD void PPCVSXSwapRemoval::dumpSwapVector() {
   dbgs() << "\n";
 }
 #endif
-
-} // end default namespace
 
 INITIALIZE_PASS_BEGIN(PPCVSXSwapRemoval, DEBUG_TYPE,
                       "PowerPC VSX Swap Removal", false, false)

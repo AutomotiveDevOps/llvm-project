@@ -9,23 +9,27 @@
 // RUN:   -analyzer-checker=cplusplus.NewDelete \
 // RUN:   -analyzer-checker=cplusplus.NewDeleteLeaks
 //
-// RUN: %clang_analyze_cc1 -std=c++11 -fblocks %s \
-// RUN:   -verify=expected,newdelete \
-// RUN:   -analyzer-checker=core \
-// RUN:   -analyzer-checker=cplusplus.NewDelete \
-// RUN:   -analyzer-config c++-allocator-inlining=true
-//
-// RUN: %clang_analyze_cc1 -std=c++11 -fblocks -verify %s \
-// RUN:   -verify=expected,newdelete,leak \
-// RUN:   -analyzer-checker=core \
-// RUN:   -analyzer-checker=cplusplus.NewDelete \
-// RUN:   -analyzer-checker=cplusplus.NewDeleteLeaks \
-// RUN:   -analyzer-config c++-allocator-inlining=true
-//
 // RUN: %clang_analyze_cc1 -std=c++11 -fblocks -verify %s \
 // RUN:   -verify=expected,leak \
 // RUN:   -analyzer-checker=core \
 // RUN:   -analyzer-checker=cplusplus.NewDeleteLeaks
+//
+// RUN: %clang_analyze_cc1 -std=c++17 -fblocks %s \
+// RUN:   -verify=expected,newdelete \
+// RUN:   -analyzer-checker=core \
+// RUN:   -analyzer-checker=cplusplus.NewDelete
+//
+// RUN: %clang_analyze_cc1 -DLEAKS -std=c++17 -fblocks %s \
+// RUN:   -verify=expected,newdelete,leak \
+// RUN:   -analyzer-checker=core \
+// RUN:   -analyzer-checker=cplusplus.NewDelete \
+// RUN:   -analyzer-checker=cplusplus.NewDeleteLeaks
+//
+// RUN: %clang_analyze_cc1 -std=c++17 -fblocks -verify %s \
+// RUN:   -verify=expected,leak,inspection \
+// RUN:   -analyzer-checker=core \
+// RUN:   -analyzer-checker=cplusplus.NewDeleteLeaks \
+// RUN:   -analyzer-checker=debug.ExprInspection
 
 #include "Inputs/system-header-simulator-cxx.h"
 
@@ -33,10 +37,6 @@ typedef __typeof__(sizeof(int)) size_t;
 extern "C" void *malloc(size_t);
 extern "C" void free (void* ptr);
 int *global;
-
-//------------------
-// check for leaks
-//------------------
 
 //----- Standard non-placement operators
 void testGlobalOpNew() {
@@ -67,14 +67,34 @@ void testGlobalNoThrowPlacementExprNewBeforeOverload() {
 //----- Standard pointer placement operators
 void testGlobalPointerPlacementNew() {
   int i;
+  void *p1 = operator new(0, &i); // no leak: placement new never allocates
+  void *p2 = operator new[](0, &i); // no leak
+  int *p3 = new(&i) int; // no leak
+  int *p4 = new(&i) int[0]; // no leak
+}
 
-  void *p1 = operator new(0, &i); // no warn
+template<typename T>
+void clang_analyzer_dump(T x);
 
-  void *p2 = operator new[](0, &i); // no warn
+void testPlacementNewBufValue() {
+  int i = 10;
+  int *p = new(&i) int;
+  clang_analyzer_dump(p); // inspection-warning{{&i}}
+  clang_analyzer_dump(*p); // inspection-warning{{10}}
+}
 
-  int *p3 = new(&i) int; // no warn
+void testPlacementNewBufValueExplicitOp() {
+  int i = 10;
+  int *p = (int*)operator new(sizeof(int), &i);
+  clang_analyzer_dump(p); // inspection-warning{{&i}}
+  clang_analyzer_dump(*p); // inspection-warning{{10}}
+}
 
-  int *p4 = new(&i) int[0]; // no warn
+void testPlacementArrNewBufValueExplicitArrOp() {
+  int i = 10;
+  int *p = (int*)operator new[](sizeof(int), &i);
+  clang_analyzer_dump(p); // inspection-warning{{&i}}
+  clang_analyzer_dump(*p); // inspection-warning{{10}}
 }
 
 //----- Other cases
@@ -102,13 +122,13 @@ void testNewInvalidationPlacement(PtrWrapper *w) {
 
 void testUseZeroAlloc1() {
   int *p = (int *)operator new(0);
-  *p = 1; // newdelete-warning {{Use of zero-allocated memory}}
+  *p = 1; // newdelete-warning {{Use of memory allocated with size zero}}
   delete p;
 }
 
 int testUseZeroAlloc2() {
   int *p = (int *)operator new[](0);
-  return p[0]; // newdelete-warning {{Use of zero-allocated memory}}
+  return p[0]; // newdelete-warning {{Use of memory allocated with size zero}}
   delete[] p;
 }
 
@@ -116,7 +136,7 @@ void f(int);
 
 void testUseZeroAlloc3() {
   int *p = new int[0];
-  f(*p); // newdelete-warning {{Use of zero-allocated memory}}
+  f(*p); // newdelete-warning {{Use of memory allocated with size zero}}
   delete[] p;
 }
 
@@ -135,52 +155,52 @@ void g(SomeClass &c, ...);
 void testUseFirstArgAfterDelete() {
   int *p = new int;
   delete p;
-  f(p); // newdelete-warning{{Use of memory after it is freed}}
+  f(p); // newdelete-warning{{Use of memory after it is released}}
 }
 
 void testUseMiddleArgAfterDelete(int *p) {
   delete p;
-  f(0, p); // newdelete-warning{{Use of memory after it is freed}}
+  f(0, p); // newdelete-warning{{Use of memory after it is released}}
 }
 
 void testUseLastArgAfterDelete(int *p) {
   delete p;
-  f(0, 0, p); // newdelete-warning{{Use of memory after it is freed}}
+  f(0, 0, p); // newdelete-warning{{Use of memory after it is released}}
 }
 
 void testUseSeveralArgsAfterDelete(int *p) {
   delete p;
-  f(p, p, p); // newdelete-warning{{Use of memory after it is freed}}
+  f(p, p, p); // newdelete-warning{{Use of memory after it is released}}
 }
 
 void testUseRefArgAfterDelete(SomeClass &c) {
   delete &c;
-  g(c); // newdelete-warning{{Use of memory after it is freed}}
+  g(c); // newdelete-warning{{Use of memory after it is released}}
 }
 
 void testVariadicArgAfterDelete() {
   SomeClass c;
   int *p = new int;
   delete p;
-  g(c, 0, p); // newdelete-warning{{Use of memory after it is freed}}
+  g(c, 0, p); // newdelete-warning{{Use of memory after it is released}}
 }
 
 void testUseMethodArgAfterDelete(int *p) {
   SomeClass *c = new SomeClass;
   delete p;
-  c->f(p); // newdelete-warning{{Use of memory after it is freed}}
+  c->f(p); // newdelete-warning{{Use of memory after it is released}}
 }
 
 void testUseThisAfterDelete() {
   SomeClass *c = new SomeClass;
   delete c;
-  c->f(0); // newdelete-warning{{Use of memory after it is freed}}
+  c->f(0); // newdelete-warning{{Use of memory after it is released}}
 }
 
 void testDoubleDelete() {
   int *p = new int;
   delete p;
-  delete p; // newdelete-warning{{Attempt to free released memory}}
+  delete p; // newdelete-warning{{Attempt to release already released memory}}
 }
 
 void testExprDeleteArg() {
@@ -288,7 +308,7 @@ namespace reference_count {
     explicit shared_ptr(T *p) : p(p), control(new control_block) {
       control->retain();
     }
-    shared_ptr(shared_ptr &other) : p(other.p), control(other.control) {
+    shared_ptr(const shared_ptr &other) : p(other.p), control(other.control) {
       if (control)
           control->retain();
     }
@@ -314,8 +334,23 @@ namespace reference_count {
     }
   };
 
+  template <typename T, typename... Args>
+  shared_ptr<T> make_shared(Args &&...args) {
+    return shared_ptr<T>(new T(static_cast<Args &&>(args)...));
+  }
+
   void testSingle() {
     shared_ptr<int> a(new int);
+    *a = 1;
+  }
+
+  void testMake() {
+    shared_ptr<int> a = make_shared<int>();
+    *a = 1;
+  }
+
+  void testMakeInParens() {
+    shared_ptr<int> a = (make_shared<int>()); // no warn
     *a = 1;
   }
 
@@ -367,13 +402,17 @@ class DerefClass{
 public:
   int *x;
   DerefClass() {}
-  ~DerefClass() {*x = 1;}
+  ~DerefClass() {
+    int i = 0;
+    x = &i;
+    *x = 1;
+  }
 };
 
 void testDoubleDeleteClassInstance() {
   DerefClass *foo = new DerefClass();
   delete foo;
-  delete foo; // newdelete-warning {{Attempt to delete released memory}}
+  delete foo; // newdelete-warning {{Attempt to release already released memory}}
 }
 
 class EmptyClass{
@@ -385,7 +424,7 @@ public:
 void testDoubleDeleteEmptyClass() {
   EmptyClass *foo = new EmptyClass();
   delete foo;
-  delete foo; // newdelete-warning {{Attempt to delete released memory}}
+  delete foo; // newdelete-warning {{Attempt to release already released memory}}
 }
 
 struct Base {
@@ -402,4 +441,65 @@ Base *allocate() {
 void shouldNotReportLeak() {
   Derived *p = (Derived *)allocate();
   delete p;
+}
+
+template<void *allocate_fn(size_t)>
+void* allocate_via_nttp(size_t n) {
+  return allocate_fn(n);
+}
+
+template<void deallocate_fn(void*)>
+void deallocate_via_nttp(void* ptr) {
+  deallocate_fn(ptr);
+}
+
+void testNTTPNewNTTPDelete() {
+  void* p = allocate_via_nttp<::operator new>(10);
+  deallocate_via_nttp<::operator delete>(p);
+} // no warn
+
+void testNTTPNewDirectDelete() {
+  void* p = allocate_via_nttp<::operator new>(10);
+  ::operator delete(p);
+} // no warn
+
+void testDirectNewNTTPDelete() {
+  void* p = ::operator new(10);
+  deallocate_via_nttp<::operator delete>(p);
+}
+
+void not_free(void*) {
+}
+
+void testLeakBecauseNTTPIsNotDeallocation() {
+  void* p = ::operator new(10);
+  deallocate_via_nttp<not_free>(p);
+}  // leak-warning{{Potential leak of memory pointed to by 'p'}}
+
+namespace optional_union {
+  template <typename T>
+  class unique_ptr {
+    T *q;
+  public:
+    unique_ptr() : q(new T) {}
+    ~unique_ptr() {
+      delete q;
+    }
+  };
+
+  union custom_union_t {
+    unique_ptr<int> present;
+    char notpresent;
+    custom_union_t() : present(unique_ptr<int>()) {}
+    ~custom_union_t() {}
+  };
+
+  void testUnionCorrect() {
+    custom_union_t a;
+    a.present.~unique_ptr<int>();
+  }
+
+  void testUnionLeak() {
+    custom_union_t a;
+  } // leak-warning{{Potential leak of memory pointed to by 'a.present.q'}}
 }

@@ -1,4 +1,6 @@
 // Test dedup_token_length
+// Fails with debug checks: https://bugs.llvm.org/show_bug.cgi?id=46860
+// XFAIL: !compiler-rt-optimized && tsan
 // RUN: %clangxx -O0 %s -o %t
 // RUN: env %tool_options='abort_on_error=0'                       not %run %t 2>&1   | FileCheck %s --check-prefix=CHECK0 --match-full-lines
 // RUN: env %tool_options='abort_on_error=0, dedup_token_length=0' not %run %t 2>&1   | FileCheck %s --check-prefix=CHECK0 --match-full-lines
@@ -8,7 +10,11 @@
 
 // REQUIRES: stable-runtime
 
-// XFAIL: netbsd && !asan
+// rdar://158303080 top few frames are at times inaccurate in ubsan fast stack
+// unwind on darwin
+// XFAIL: (darwin && ubsan && (arm64-target-arch || arm64e-target-arch))
+
+// XFAIL: target={{.*netbsd.*}} && !asan
 
 volatile int *null = 0;
 

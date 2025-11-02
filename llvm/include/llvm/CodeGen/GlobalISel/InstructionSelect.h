@@ -13,10 +13,19 @@
 #ifndef LLVM_CODEGEN_GLOBALISEL_INSTRUCTIONSELECT_H
 #define LLVM_CODEGEN_GLOBALISEL_INSTRUCTIONSELECT_H
 
-#include "llvm/CodeGen/GlobalISel/InstructionSelector.h"
+#include "llvm/ADT/StringRef.h"
+#include "llvm/CodeGen/MachineFunction.h"
 #include "llvm/CodeGen/MachineFunctionPass.h"
+#include "llvm/Support/CodeGen.h"
+#include "llvm/Support/Compiler.h"
 
 namespace llvm {
+
+class InstructionSelector;
+class GISelValueTracking;
+class BlockFrequencyInfo;
+class ProfileSummaryInfo;
+
 /// This pass is responsible for selecting generic machine instructions to
 /// target-specific instructions.  It relies on the InstructionSelector provided
 /// by the target.
@@ -24,7 +33,7 @@ namespace llvm {
 /// reverse order.
 ///
 /// \post for all inst in MF: not isPreISelGenericOpcode(inst.opcode)
-class InstructionSelect : public MachineFunctionPass {
+class LLVM_ABI InstructionSelect : public MachineFunctionPass {
 public:
   static char ID;
   StringRef getPassName() const override { return "InstructionSelect"; }
@@ -33,19 +42,33 @@ public:
 
   MachineFunctionProperties getRequiredProperties() const override {
     return MachineFunctionProperties()
-        .set(MachineFunctionProperties::Property::IsSSA)
-        .set(MachineFunctionProperties::Property::Legalized)
-        .set(MachineFunctionProperties::Property::RegBankSelected);
+        .setIsSSA()
+        .setLegalized()
+        .setRegBankSelected();
   }
 
   MachineFunctionProperties getSetProperties() const override {
-    return MachineFunctionProperties().set(
-        MachineFunctionProperties::Property::Selected);
+    return MachineFunctionProperties().setSelected();
   }
 
-  InstructionSelect();
+  InstructionSelect(CodeGenOptLevel OL = CodeGenOptLevel::Default,
+                    char &PassID = ID);
 
   bool runOnMachineFunction(MachineFunction &MF) override;
+  bool selectMachineFunction(MachineFunction &MF);
+  void setInstructionSelector(InstructionSelector *NewISel) { ISel = NewISel; }
+
+protected:
+  class MIIteratorMaintainer;
+
+  InstructionSelector *ISel = nullptr;
+  GISelValueTracking *VT = nullptr;
+  BlockFrequencyInfo *BFI = nullptr;
+  ProfileSummaryInfo *PSI = nullptr;
+
+  CodeGenOptLevel OptLevel = CodeGenOptLevel::None;
+
+  bool selectInstr(MachineInstr &MI);
 };
 } // End namespace llvm.
 

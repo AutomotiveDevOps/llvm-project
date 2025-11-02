@@ -10,28 +10,39 @@
 #define LLD_COFF_PDB_H
 
 #include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/Optional.h"
 #include "llvm/ADT/StringRef.h"
+#include <optional>
 
-namespace llvm {
-namespace codeview {
+namespace llvm::codeview {
 union DebugInfo;
-}
 }
 
 namespace lld {
-namespace coff {
-class OutputSection;
-class SectionChunk;
-class SymbolTable;
+class Timer;
 
-void createPDB(SymbolTable *symtab,
-               llvm::ArrayRef<OutputSection *> outputSections,
-               llvm::ArrayRef<uint8_t> sectionTable,
+namespace coff {
+class SectionChunk;
+class COFFLinkerContext;
+
+void createPDB(COFFLinkerContext &ctx, llvm::ArrayRef<uint8_t> sectionTable,
                llvm::codeview::DebugInfo *buildId);
 
-llvm::Optional<std::pair<llvm::StringRef, uint32_t>>
+std::optional<std::pair<llvm::StringRef, uint32_t>>
 getFileLineCodeView(const SectionChunk *c, uint32_t addr);
+
+// For statistics
+struct PDBStats {
+  uint64_t globalSymbols = 0;
+  uint64_t moduleSymbols = 0;
+  uint64_t publicSymbols = 0;
+  uint64_t nbTypeRecords = 0;
+  uint64_t nbTypeRecordsBytes = 0;
+  uint64_t nbTPIrecords = 0;
+  uint64_t nbIPIrecords = 0;
+  uint64_t strTabSize = 0;
+  std::string largeInputTypeRecs;
+};
+
 } // namespace coff
 } // namespace lld
 

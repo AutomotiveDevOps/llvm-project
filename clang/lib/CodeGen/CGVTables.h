@@ -38,10 +38,10 @@ class CodeGenVTables {
   typedef VTableLayout::AddressPointsMapTy VTableAddressPointsMapTy;
 
   typedef std::pair<const CXXRecordDecl *, BaseSubobject> BaseSubobjectPairTy;
-  typedef llvm::DenseMap<BaseSubobjectPairTy, uint64_t> SubVTTIndiciesMapTy;
+  typedef llvm::DenseMap<BaseSubobjectPairTy, uint64_t> SubVTTIndicesMapTy;
 
-  /// SubVTTIndicies - Contains indices into the various sub-VTTs.
-  SubVTTIndiciesMapTy SubVTTIndicies;
+  /// SubVTTIndices - Contains indices into the various sub-VTTs.
+  SubVTTIndicesMapTy SubVTTIndices;
 
   typedef llvm::DenseMap<BaseSubobjectPairTy, uint64_t>
     SecondaryVirtualPointerIndicesMapTy;
@@ -62,20 +62,33 @@ class CodeGenVTables {
                                  bool ForVTable);
 
   void addVTableComponent(ConstantArrayBuilder &builder,
-                          const VTableLayout &layout, unsigned idx,
-                          llvm::Constant *rtti,
-                          unsigned &nextVTableThunkIndex);
+                          const VTableLayout &layout, unsigned componentIndex,
+                          llvm::Constant *rtti, unsigned &nextVTableThunkIndex,
+                          unsigned vtableAddressPoint,
+                          bool vtableHasLocalLinkage);
+
+  /// Add a 32-bit offset to a component relative to the vtable when using the
+  /// relative vtables ABI. The array builder points to the start of the vtable.
+  void addRelativeComponent(ConstantArrayBuilder &builder,
+                            llvm::Constant *component,
+                            unsigned vtableAddressPoint,
+                            bool vtableHasLocalLinkage,
+                            bool isCompleteDtor) const;
 
 public:
   /// Add vtable components for the given vtable layout to the given
   /// global initializer.
   void createVTableInitializer(ConstantStructBuilder &builder,
-                               const VTableLayout &layout,
-                               llvm::Constant *rtti);
+                               const VTableLayout &layout, llvm::Constant *rtti,
+                               bool vtableHasLocalLinkage);
 
   CodeGenVTables(CodeGenModule &CGM);
 
   ItaniumVTableContext &getItaniumVTableContext() {
+    return *cast<ItaniumVTableContext>(VTContext);
+  }
+
+  const ItaniumVTableContext &getItaniumVTableContext() const {
     return *cast<ItaniumVTableContext>(VTContext);
   }
 
@@ -124,6 +137,22 @@ public:
   /// arrays of pointers, with one struct element for each vtable in the vtable
   /// group.
   llvm::Type *getVTableType(const VTableLayout &layout);
+
+  /// Generate a public facing alias for the vtable and make the vtable either
+  /// hidden or private. The alias will have the original linkage and visibility
+  /// of the vtable. This is used for cases under the relative vtables ABI
+  /// when a vtable may not be dso_local.
+  void GenerateRelativeVTableAlias(llvm::GlobalVariable *VTable,
+                                   llvm::StringRef AliasNameRef);
+
+  /// Specify a global should not be instrumented with hwasan.
+  void RemoveHwasanMetadata(llvm::GlobalValue *GV) const;
+
+  /// Return the type used as components for a vtable.
+  llvm::Type *getVTableComponentType() const;
+
+  /// Return true if the relative vtable layout is used.
+  bool useRelativeLayout() const;
 };
 
 } // end namespace CodeGen

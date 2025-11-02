@@ -7,11 +7,14 @@
 //===----------------------------------------------------------------------===//
 
 #include "OrcTestCommon.h"
+#include "llvm/ADT/ScopeExit.h"
 #include "llvm/Config/llvm-config.h"
+#include "llvm/ExecutionEngine/Orc/AbsoluteSymbols.h"
 #include "llvm/ExecutionEngine/Orc/Core.h"
-#include "llvm/ExecutionEngine/Orc/OrcError.h"
+#include "llvm/ExecutionEngine/Orc/Shared/OrcError.h"
 #include "llvm/Testing/Support/Error.h"
 
+#include <deque>
 #include <set>
 #include <thread>
 
@@ -21,6 +24,55 @@ using namespace llvm::orc;
 class CoreAPIsStandardTest : public CoreAPIsBasedStandardTest {};
 
 namespace {
+
+class CustomError : public ErrorInfo<CustomError> {
+public:
+  static char ID;
+  void log(raw_ostream &OS) const override { OS << "CustomError"; }
+  std::error_code convertToErrorCode() const override { return {}; }
+};
+char CustomError::ID = 0;
+
+TEST_F(CoreAPIsStandardTest, ErrorReporter) {
+  // Check that errors reported via ExecutionSession::reportError are sent to
+  // the registered error reporter, and that the error reporter can hold
+  // uniquely owned state.
+
+  Error ReportedError = Error::success();
+
+  ES.setErrorReporter(
+      // Make sure error reporter can capture uniquely-owned state.
+      [&, State = std::make_unique<int>(42)](Error Err) {
+        ReportedError = joinErrors(std::move(Err), std::move(ReportedError));
+      });
+
+  ES.reportError(make_error<CustomError>());
+
+  EXPECT_THAT_ERROR(std::move(ReportedError), Failed<CustomError>());
+}
+
+TEST_F(CoreAPIsStandardTest, JITDylibAddToLinkOrder) {
+  // Check that the JITDylib::addToLinkOrder methods behave as expected.
+  auto &JD2 = ES.createBareJITDylib("JD2");
+  auto &JD3 = ES.createBareJITDylib("JD3");
+
+  JD.addToLinkOrder(JD2);
+  JD.withLinkOrderDo([&](const JITDylibSearchOrder &SO) {
+    EXPECT_EQ(SO.size(), 2U);
+    EXPECT_EQ(SO[0].first, &JD);
+    EXPECT_EQ(SO[1].first, &JD2);
+  });
+
+  JD.addToLinkOrder(makeJITDylibSearchOrder({&JD2, &JD3}));
+  JD.withLinkOrderDo([&](const JITDylibSearchOrder &SO) {
+    // JD2 was already in the search order, so we expect just one extra item
+    // here.
+    EXPECT_EQ(SO.size(), 3U);
+    EXPECT_EQ(SO[0].first, &JD);
+    EXPECT_EQ(SO[1].first, &JD2);
+    EXPECT_EQ(SO[2].first, &JD3);
+  });
+}
 
 TEST_F(CoreAPIsStandardTest, BasicSuccessfulLookup) {
   bool OnCompletionRun = false;
@@ -35,12 +87,12 @@ TEST_F(CoreAPIsStandardTest, BasicSuccessfulLookup) {
     OnCompletionRun = true;
   };
 
-  std::shared_ptr<MaterializationResponsibility> FooMR;
+  std::unique_ptr<MaterializationResponsibility> FooMR;
 
   cantFail(JD.define(std::make_unique<SimpleMaterializationUnit>(
       SymbolFlagsMap({{Foo, FooSym.getFlags()}}),
-      [&](MaterializationResponsibility R) {
-        FooMR = std::make_shared<MaterializationResponsibility>(std::move(R));
+      [&](std::unique_ptr<MaterializationResponsibility> R) {
+        FooMR = std::move(R);
       })));
 
   ES.lookup(LookupKind::Static, makeJITDylibSearchOrder(&JD),
@@ -53,28 +105,9 @@ TEST_F(CoreAPIsStandardTest, BasicSuccessfulLookup) {
 
   EXPECT_FALSE(OnCompletionRun) << "Should not be ready yet";
 
-  cantFail(FooMR->notifyEmitted());
+  cantFail(FooMR->notifyEmitted({}));
 
   EXPECT_TRUE(OnCompletionRun) << "Should have been marked ready";
-}
-
-TEST_F(CoreAPIsStandardTest, ExecutionSessionFailQuery) {
-  bool OnCompletionRun = false;
-
-  auto OnCompletion = [&](Expected<SymbolMap> Result) {
-    EXPECT_FALSE(!!Result) << "Resolution unexpectedly returned success";
-    auto Msg = toString(Result.takeError());
-    EXPECT_EQ(Msg, "xyz") << "Resolution returned incorrect result";
-    OnCompletionRun = true;
-  };
-
-  AsynchronousSymbolQuery Q(SymbolLookupSet(Foo), SymbolState::Ready,
-                            OnCompletion);
-
-  ES.legacyFailQuery(Q,
-                     make_error<StringError>("xyz", inconvertibleErrorCode()));
-
-  EXPECT_TRUE(OnCompletionRun) << "OnCompletionCallback was not run";
 }
 
 TEST_F(CoreAPIsStandardTest, EmptyLookup) {
@@ -99,9 +132,9 @@ TEST_F(CoreAPIsStandardTest, ResolveUnrequestedSymbol) {
 
   cantFail(JD.define(std::make_unique<SimpleMaterializationUnit>(
       SymbolFlagsMap({{Foo, FooSym.getFlags()}, {Bar, BarSym.getFlags()}}),
-      [this](MaterializationResponsibility R) {
-        cantFail(R.notifyResolved({{Foo, FooSym}, {Bar, BarSym}}));
-        cantFail(R.notifyEmitted());
+      [this](std::unique_ptr<MaterializationResponsibility> R) {
+        cantFail(R->notifyResolved({{Foo, FooSym}, {Bar, BarSym}}));
+        cantFail(R->notifyEmitted({}));
       })));
 
   auto Result =
@@ -110,24 +143,26 @@ TEST_F(CoreAPIsStandardTest, ResolveUnrequestedSymbol) {
   EXPECT_TRUE(Result.count(Foo)) << "Expected result for \"Foo\"";
 }
 
-TEST_F(CoreAPIsStandardTest, MaterializationSideEffctsOnlyTest) {
+TEST_F(CoreAPIsStandardTest, MaterializationSideEffctsOnlyBasic) {
   // Test that basic materialization-side-effects-only symbols work as expected:
   // that they can be emitted without being resolved, that queries for them
   // don't return until they're emitted, and that they don't appear in query
   // results.
 
-  Optional<MaterializationResponsibility> FooR;
-  Optional<SymbolMap> Result;
+  std::unique_ptr<MaterializationResponsibility> FooR;
+  std::optional<SymbolMap> Result;
 
   cantFail(JD.define(std::make_unique<SimpleMaterializationUnit>(
       SymbolFlagsMap(
           {{Foo, JITSymbolFlags::Exported |
                      JITSymbolFlags::MaterializationSideEffectsOnly}}),
-      [&](MaterializationResponsibility R) { FooR.emplace(std::move(R)); })));
+      [&](std::unique_ptr<MaterializationResponsibility> R) {
+        FooR = std::move(R);
+      })));
 
   ES.lookup(
       LookupKind::Static, makeJITDylibSearchOrder(&JD),
-      SymbolLookupSet({Foo}, SymbolLookupFlags::WeaklyReferencedSymbol),
+      SymbolLookupSet(Foo, SymbolLookupFlags::WeaklyReferencedSymbol),
       SymbolState::Ready,
       [&](Expected<SymbolMap> LookupResult) {
         if (LookupResult)
@@ -140,11 +175,31 @@ TEST_F(CoreAPIsStandardTest, MaterializationSideEffctsOnlyTest) {
 
   EXPECT_FALSE(Result) << "Lookup returned unexpectedly";
   EXPECT_TRUE(FooR) << "Lookup failed to trigger materialization";
-  EXPECT_THAT_ERROR(FooR->notifyEmitted(), Succeeded())
+  EXPECT_THAT_ERROR(FooR->notifyEmitted({}), Succeeded())
       << "Emission of materialization-side-effects-only symbol failed";
 
   EXPECT_TRUE(Result) << "Lookup failed to return";
   EXPECT_TRUE(Result->empty()) << "Lookup result contained unexpected value";
+}
+
+TEST_F(CoreAPIsStandardTest, MaterializationSideEffectsOnlyFailuresPersist) {
+  // Test that when a MaterializationSideEffectsOnly symbol is failed it
+  // remains in the failure state rather than vanishing.
+
+  cantFail(JD.define(std::make_unique<SimpleMaterializationUnit>(
+      SymbolFlagsMap(
+          {{Foo, JITSymbolFlags::Exported |
+                     JITSymbolFlags::MaterializationSideEffectsOnly}}),
+      [&](std::unique_ptr<MaterializationResponsibility> R) {
+        R->failMaterialization();
+      })));
+
+  EXPECT_THAT_EXPECTED(
+      ES.lookup(makeJITDylibSearchOrder(&JD), SymbolLookupSet({Foo})),
+      Failed());
+  EXPECT_THAT_EXPECTED(
+      ES.lookup(makeJITDylibSearchOrder(&JD), SymbolLookupSet({Foo})),
+      Failed());
 }
 
 TEST_F(CoreAPIsStandardTest, RemoveSymbolsTest) {
@@ -164,10 +219,10 @@ TEST_F(CoreAPIsStandardTest, RemoveSymbolsTest) {
   bool BarMaterializerDestructed = false;
   cantFail(JD.define(std::make_unique<SimpleMaterializationUnit>(
       SymbolFlagsMap({{Bar, BarSym.getFlags()}}),
-      [this](MaterializationResponsibility R) {
+      [this](std::unique_ptr<MaterializationResponsibility> R) {
         ADD_FAILURE() << "Unexpected materialization of \"Bar\"";
-        cantFail(R.notifyResolved({{Bar, BarSym}}));
-        cantFail(R.notifyEmitted());
+        cantFail(R->notifyResolved({{Bar, BarSym}}));
+        cantFail(R->notifyEmitted({}));
       },
       nullptr,
       [&](const JITDylib &JD, const SymbolStringPtr &Name) {
@@ -179,10 +234,12 @@ TEST_F(CoreAPIsStandardTest, RemoveSymbolsTest) {
 
   // Baz will be in the materializing state initially, then
   // materialized for the final removal attempt.
-  Optional<MaterializationResponsibility> BazR;
+  std::unique_ptr<MaterializationResponsibility> BazR;
   cantFail(JD.define(std::make_unique<SimpleMaterializationUnit>(
       SymbolFlagsMap({{Baz, BazSym.getFlags()}}),
-      [&](MaterializationResponsibility R) { BazR.emplace(std::move(R)); },
+      [&](std::unique_ptr<MaterializationResponsibility> R) {
+        BazR = std::move(R);
+      },
       nullptr,
       [](const JITDylib &JD, const SymbolStringPtr &Name) {
         ADD_FAILURE() << "\"Baz\" discarded unexpectedly";
@@ -217,7 +274,7 @@ TEST_F(CoreAPIsStandardTest, RemoveSymbolsTest) {
   }
 
   cantFail(BazR->notifyResolved({{Baz, BazSym}}));
-  cantFail(BazR->notifyEmitted());
+  cantFail(BazR->notifyEmitted({}));
   {
     // Attempt 3: Search now that all symbols are fully materialized
     // (Foo, Baz), or not yet materialized (Bar).
@@ -231,28 +288,30 @@ TEST_F(CoreAPIsStandardTest, RemoveSymbolsTest) {
   EXPECT_TRUE(OnCompletionRun) << "OnCompletion should have been run";
 }
 
-TEST_F(CoreAPIsStandardTest, ChainedJITDylibLookup) {
-  cantFail(JD.define(absoluteSymbols({{Foo, FooSym}})));
+TEST_F(CoreAPIsStandardTest, DiscardInitSymbol) {
+  SymbolStringPtr ForwardedDiscardSym = nullptr;
 
-  auto &JD2 = ES.createBareJITDylib("JD2");
-
-  bool OnCompletionRun = false;
-
-  auto Q = std::make_shared<AsynchronousSymbolQuery>(
-      SymbolLookupSet({Foo}), SymbolState::Ready,
-      [&](Expected<SymbolMap> Result) {
-        cantFail(std::move(Result));
-        OnCompletionRun = true;
+  auto MU = std::make_unique<SimpleMaterializationUnit>(
+      SymbolFlagsMap({{Foo, FooSym.getFlags()}, {Bar, BarSym.getFlags()}}),
+      [](std::unique_ptr<MaterializationResponsibility> R) {
+        llvm_unreachable("Materialize called unexpectedly?");
+      },
+      Foo,
+      [&](const JITDylib &, SymbolStringPtr Sym) {
+        ForwardedDiscardSym = std::move(Sym);
       });
 
-  cantFail(JD2.legacyLookup(Q, cantFail(JD.legacyLookup(Q, {Foo}))));
+  MU->doDiscard(JD, Foo);
 
-  EXPECT_TRUE(OnCompletionRun) << "OnCompletion was not run for empty query";
+  EXPECT_EQ(ForwardedDiscardSym, Foo);
+  EXPECT_EQ(MU->getSymbols().size(), 1U);
+  EXPECT_TRUE(MU->getSymbols().count(Bar));
+  EXPECT_EQ(MU->getInitializerSymbol(), nullptr);
 }
 
 TEST_F(CoreAPIsStandardTest, LookupWithHiddenSymbols) {
   auto BarHiddenFlags = BarSym.getFlags() & ~JITSymbolFlags::Exported;
-  auto BarHiddenSym = JITEvaluatedSymbol(BarSym.getAddress(), BarHiddenFlags);
+  auto BarHiddenSym = ExecutorSymbolDef(BarSym.getAddress(), BarHiddenFlags);
 
   cantFail(JD.define(absoluteSymbols({{Foo, FooSym}, {Bar, BarHiddenSym}})));
 
@@ -279,16 +338,18 @@ TEST_F(CoreAPIsStandardTest, LookupFlagsTest) {
       JITSymbolFlags::Exported | JITSymbolFlags::Weak));
   auto MU = std::make_unique<SimpleMaterializationUnit>(
       SymbolFlagsMap({{Bar, BarSym.getFlags()}}),
-      [](MaterializationResponsibility R) {
+      [](std::unique_ptr<MaterializationResponsibility> R) {
         llvm_unreachable("Symbol materialized on flags lookup");
       });
 
   cantFail(JD.define(absoluteSymbols({{Foo, FooSym}})));
   cantFail(JD.define(std::move(MU)));
 
-  auto SymbolFlags = cantFail(JD.lookupFlags(
-      LookupKind::Static, JITDylibLookupFlags::MatchExportedSymbolsOnly,
-      SymbolLookupSet({Foo, Bar, Baz})));
+  auto SymbolFlags = cantFail(ES.lookupFlags(
+      LookupKind::Static,
+      {{&JD, JITDylibLookupFlags::MatchExportedSymbolsOnly}},
+      SymbolLookupSet({Foo, Bar, Baz},
+                      SymbolLookupFlags::WeaklyReferencedSymbol)));
 
   EXPECT_EQ(SymbolFlags.size(), 2U)
       << "Returned symbol flags contains unexpected results";
@@ -303,10 +364,10 @@ TEST_F(CoreAPIsStandardTest, LookupFlagsTest) {
 
 TEST_F(CoreAPIsStandardTest, LookupWithGeneratorFailure) {
 
-  class BadGenerator : public JITDylib::DefinitionGenerator {
+  class BadGenerator : public DefinitionGenerator {
   public:
-    Error tryToGenerate(LookupKind K, JITDylib &, JITDylibLookupFlags,
-                        const SymbolLookupSet &) override {
+    Error tryToGenerate(LookupState &LS, LookupKind K, JITDylib &,
+                        JITDylibLookupFlags, const SymbolLookupSet &) override {
       return make_error<StringError>("BadGenerator", inconvertibleErrorCode());
     }
   };
@@ -314,8 +375,8 @@ TEST_F(CoreAPIsStandardTest, LookupWithGeneratorFailure) {
   JD.addGenerator(std::make_unique<BadGenerator>());
 
   EXPECT_THAT_ERROR(
-      JD.lookupFlags(LookupKind::Static,
-                     JITDylibLookupFlags::MatchExportedSymbolsOnly,
+      ES.lookupFlags(LookupKind::Static,
+                     {{&JD, JITDylibLookupFlags::MatchExportedSymbolsOnly}},
                      SymbolLookupSet(Foo))
           .takeError(),
       Failed<StringError>())
@@ -382,10 +443,10 @@ TEST_F(CoreAPIsStandardTest, TestThatReExportsDontUnnecessarilyMaterialize) {
   bool BarMaterialized = false;
   auto BarMU = std::make_unique<SimpleMaterializationUnit>(
       SymbolFlagsMap({{Bar, BarSym.getFlags()}}),
-      [&](MaterializationResponsibility R) {
+      [&](std::unique_ptr<MaterializationResponsibility> R) {
         BarMaterialized = true;
-        cantFail(R.notifyResolved({{Bar, BarSym}}));
-        cantFail(R.notifyEmitted());
+        cantFail(R->notifyResolved({{Bar, BarSym}}));
+        cantFail(R->notifyEmitted({}));
       });
 
   cantFail(JD.define(BarMU));
@@ -413,9 +474,11 @@ TEST_F(CoreAPIsStandardTest, TestReexportsGenerator) {
   JD.addGenerator(std::make_unique<ReexportsGenerator>(
       JD2, JITDylibLookupFlags::MatchExportedSymbolsOnly, Filter));
 
-  auto Flags = cantFail(JD.lookupFlags(
-      LookupKind::Static, JITDylibLookupFlags::MatchExportedSymbolsOnly,
-      SymbolLookupSet({Foo, Bar, Baz})));
+  auto Flags = cantFail(ES.lookupFlags(
+      LookupKind::Static,
+      {{&JD, JITDylibLookupFlags::MatchExportedSymbolsOnly}},
+      SymbolLookupSet({Foo, Bar, Baz},
+                      SymbolLookupFlags::WeaklyReferencedSymbol)));
   EXPECT_EQ(Flags.size(), 1U) << "Unexpected number of results";
   EXPECT_EQ(Flags[Foo], FooSym.getFlags()) << "Unexpected flags for Foo";
 
@@ -426,10 +489,12 @@ TEST_F(CoreAPIsStandardTest, TestReexportsGenerator) {
 }
 
 TEST_F(CoreAPIsStandardTest, TestTrivialCircularDependency) {
-  Optional<MaterializationResponsibility> FooR;
+  std::unique_ptr<MaterializationResponsibility> FooR;
   auto FooMU = std::make_unique<SimpleMaterializationUnit>(
       SymbolFlagsMap({{Foo, FooSym.getFlags()}}),
-      [&](MaterializationResponsibility R) { FooR.emplace(std::move(R)); });
+      [&](std::unique_ptr<MaterializationResponsibility> R) {
+        FooR = std::move(R);
+      });
 
   cantFail(JD.define(FooMU));
 
@@ -443,14 +508,79 @@ TEST_F(CoreAPIsStandardTest, TestTrivialCircularDependency) {
             SymbolLookupSet({Foo}), SymbolState::Ready, OnCompletion,
             NoDependenciesToRegister);
 
-  FooR->addDependenciesForAll({{&JD, SymbolNameSet({Foo})}});
   EXPECT_THAT_ERROR(FooR->notifyResolved({{Foo, FooSym}}), Succeeded())
       << "No symbols marked failed, but Foo failed to resolve";
-  EXPECT_THAT_ERROR(FooR->notifyEmitted(), Succeeded())
+  SymbolDependenceGroup SDG({{Foo}, {{&JD, SymbolNameSet({Foo})}}});
+  EXPECT_THAT_ERROR(FooR->notifyEmitted(SDG), Succeeded())
       << "No symbols marked failed, but Foo failed to emit";
 
   EXPECT_TRUE(FooReady)
     << "Self-dependency prevented symbol from being marked ready";
+}
+
+TEST_F(CoreAPIsStandardTest, TestBasicQueryDependenciesReporting) {
+  // Test that dependencies are reported as expected.
+
+  bool DependenciesCallbackRan = false;
+
+  std::unique_ptr<MaterializationResponsibility> FooR;
+  std::unique_ptr<MaterializationResponsibility> BarR;
+
+  cantFail(JD.define(std::make_unique<SimpleMaterializationUnit>(
+      SymbolFlagsMap({{Foo, FooSym.getFlags()}}),
+      [&](std::unique_ptr<MaterializationResponsibility> R) {
+        FooR = std::move(R);
+      })));
+
+  cantFail(JD.define(std::make_unique<SimpleMaterializationUnit>(
+      SymbolFlagsMap({{Bar, BarSym.getFlags()}}),
+      [&](std::unique_ptr<MaterializationResponsibility> R) {
+        BarR = std::move(R);
+      })));
+
+  cantFail(JD.define(std::make_unique<SimpleMaterializationUnit>(
+      SymbolFlagsMap({{Baz, BazSym.getFlags()}}),
+      [&](std::unique_ptr<MaterializationResponsibility> R) {
+        cantFail(R->notifyResolved({{Baz, BazSym}}));
+        cantFail(R->notifyEmitted({}));
+      })));
+
+  // First issue a lookup for Foo and Bar so that we can put them
+  // into the required states for the test lookup below.
+  ES.lookup(
+      LookupKind::Static, makeJITDylibSearchOrder(&JD),
+      SymbolLookupSet({Foo, Bar}), SymbolState::Resolved,
+      [](Expected<SymbolMap> Result) {
+        EXPECT_THAT_EXPECTED(std::move(Result), Succeeded());
+      },
+      NoDependenciesToRegister);
+
+  cantFail(FooR->notifyResolved({{Foo, FooSym}}));
+  cantFail(FooR->notifyEmitted({}));
+
+  cantFail(BarR->notifyResolved({{Bar, BarSym}}));
+
+  ES.lookup(
+      LookupKind::Static, makeJITDylibSearchOrder(&JD),
+      SymbolLookupSet({Foo, Bar, Baz}), SymbolState::Resolved,
+      [](Expected<SymbolMap> Result) {
+        EXPECT_THAT_EXPECTED(std::move(Result), Succeeded());
+      },
+      [&](const SymbolDependenceMap &Dependencies) {
+        EXPECT_EQ(Dependencies.size(), 1U)
+            << "Expect dependencies on only one JITDylib";
+        EXPECT_TRUE(Dependencies.count(&JD))
+            << "Expect dependencies on JD only";
+        auto &Deps = Dependencies.begin()->second;
+        EXPECT_EQ(Deps.size(), 2U);
+        EXPECT_TRUE(Deps.count(Bar));
+        EXPECT_TRUE(Deps.count(Baz));
+        DependenciesCallbackRan = true;
+      });
+
+  cantFail(BarR->notifyEmitted({}));
+
+  EXPECT_TRUE(DependenciesCallbackRan);
 }
 
 TEST_F(CoreAPIsStandardTest, TestCircularDependenceInOneJITDylib) {
@@ -458,26 +588,29 @@ TEST_F(CoreAPIsStandardTest, TestCircularDependenceInOneJITDylib) {
   // does not prevent any symbol from becoming 'ready' once all symbols are
   // emitted.
 
-  // Create three MaterializationResponsibility objects: one for each of Foo,
-  // Bar and Baz. These are optional because MaterializationResponsibility
-  // does not have a default constructor).
-  Optional<MaterializationResponsibility> FooR;
-  Optional<MaterializationResponsibility> BarR;
-  Optional<MaterializationResponsibility> BazR;
+  std::unique_ptr<MaterializationResponsibility> FooR;
+  std::unique_ptr<MaterializationResponsibility> BarR;
+  std::unique_ptr<MaterializationResponsibility> BazR;
 
   // Create a MaterializationUnit for each symbol that moves the
   // MaterializationResponsibility into one of the locals above.
   auto FooMU = std::make_unique<SimpleMaterializationUnit>(
       SymbolFlagsMap({{Foo, FooSym.getFlags()}}),
-      [&](MaterializationResponsibility R) { FooR.emplace(std::move(R)); });
+      [&](std::unique_ptr<MaterializationResponsibility> R) {
+        FooR = std::move(R);
+      });
 
   auto BarMU = std::make_unique<SimpleMaterializationUnit>(
       SymbolFlagsMap({{Bar, BarSym.getFlags()}}),
-      [&](MaterializationResponsibility R) { BarR.emplace(std::move(R)); });
+      [&](std::unique_ptr<MaterializationResponsibility> R) {
+        BarR = std::move(R);
+      });
 
   auto BazMU = std::make_unique<SimpleMaterializationUnit>(
       SymbolFlagsMap({{Baz, BazSym.getFlags()}}),
-      [&](MaterializationResponsibility R) { BazR.emplace(std::move(R)); });
+      [&](std::unique_ptr<MaterializationResponsibility> R) {
+        BazR = std::move(R);
+      });
 
   // Define the symbols.
   cantFail(JD.define(FooMU));
@@ -549,17 +682,6 @@ TEST_F(CoreAPIsStandardTest, TestCircularDependenceInOneJITDylib) {
             SymbolLookupSet(Baz), SymbolState::Ready, std::move(OnBazReady),
             NoDependenciesToRegister);
 
-  // Add a circular dependency: Foo -> Bar, Bar -> Baz, Baz -> Foo.
-  FooR->addDependenciesForAll({{&JD, SymbolNameSet({Bar})}});
-  BarR->addDependenciesForAll({{&JD, SymbolNameSet({Baz})}});
-  BazR->addDependenciesForAll({{&JD, SymbolNameSet({Foo})}});
-
-  // Add self-dependencies for good measure. This tests that the implementation
-  // of addDependencies filters these out.
-  FooR->addDependenciesForAll({{&JD, SymbolNameSet({Foo})}});
-  BarR->addDependenciesForAll({{&JD, SymbolNameSet({Bar})}});
-  BazR->addDependenciesForAll({{&JD, SymbolNameSet({Baz})}});
-
   // Check that nothing has been resolved yet.
   EXPECT_FALSE(FooResolved) << "\"Foo\" should not be resolved yet";
   EXPECT_FALSE(BarResolved) << "\"Bar\" should not be resolved yet";
@@ -583,10 +705,15 @@ TEST_F(CoreAPIsStandardTest, TestCircularDependenceInOneJITDylib) {
   EXPECT_FALSE(BazReady) << "\"Baz\" should not be ready yet";
 
   // Emit two of the symbols.
-  EXPECT_THAT_ERROR(FooR->notifyEmitted(), Succeeded())
-      << "No symbols failed, but Foo failed to emit";
-  EXPECT_THAT_ERROR(BarR->notifyEmitted(), Succeeded())
-      << "No symbols failed, but Bar failed to emit";
+  {
+    SymbolDependenceGroup FooDeps({{Foo}, {{&JD, {Foo, Bar}}}});
+    EXPECT_THAT_ERROR(FooR->notifyEmitted(FooDeps), Succeeded())
+        << "No symbols failed, but Foo failed to emit";
+
+    SymbolDependenceGroup BarDeps({{Bar}, {{&JD, {Bar, Baz}}}});
+    EXPECT_THAT_ERROR(BarR->notifyEmitted(BarDeps), Succeeded())
+        << "No symbols failed, but Bar failed to emit";
+  }
 
   // Verify that nothing is ready until the circular dependence is resolved.
   EXPECT_FALSE(FooReady) << "\"Foo\" still should not be ready";
@@ -594,8 +721,11 @@ TEST_F(CoreAPIsStandardTest, TestCircularDependenceInOneJITDylib) {
   EXPECT_FALSE(BazReady) << "\"Baz\" still should not be ready";
 
   // Emit the last symbol.
-  EXPECT_THAT_ERROR(BazR->notifyEmitted(), Succeeded())
-      << "No symbols failed, but Baz failed to emit";
+  {
+    SymbolDependenceGroup BazDeps({{Baz}, {{&JD, {Baz, Foo}}}});
+    EXPECT_THAT_ERROR(BazR->notifyEmitted(BazDeps), Succeeded())
+        << "No symbols failed, but Baz failed to emit";
+  }
 
   // Verify that everything becomes ready once the circular dependence resolved.
   EXPECT_TRUE(FooReady) << "\"Foo\" should be ready now";
@@ -604,18 +734,22 @@ TEST_F(CoreAPIsStandardTest, TestCircularDependenceInOneJITDylib) {
 }
 
 TEST_F(CoreAPIsStandardTest, FailureInDependency) {
-  Optional<MaterializationResponsibility> FooR;
-  Optional<MaterializationResponsibility> BarR;
+  std::unique_ptr<MaterializationResponsibility> FooR;
+  std::unique_ptr<MaterializationResponsibility> BarR;
 
   // Create a MaterializationUnit for each symbol that moves the
   // MaterializationResponsibility into one of the locals above.
   auto FooMU = std::make_unique<SimpleMaterializationUnit>(
       SymbolFlagsMap({{Foo, FooSym.getFlags()}}),
-      [&](MaterializationResponsibility R) { FooR.emplace(std::move(R)); });
+      [&](std::unique_ptr<MaterializationResponsibility> R) {
+        FooR = std::move(R);
+      });
 
   auto BarMU = std::make_unique<SimpleMaterializationUnit>(
       SymbolFlagsMap({{Bar, BarSym.getFlags()}}),
-      [&](MaterializationResponsibility R) { BarR.emplace(std::move(R)); });
+      [&](std::unique_ptr<MaterializationResponsibility> R) {
+        BarR = std::move(R);
+      });
 
   // Define the symbols.
   cantFail(JD.define(FooMU));
@@ -640,9 +774,6 @@ TEST_F(CoreAPIsStandardTest, FailureInDependency) {
   ES.lookup(LookupKind::Static, makeJITDylibSearchOrder(&JD),
             SymbolLookupSet(Bar), SymbolState::Ready, std::move(OnBarReady),
             NoDependenciesToRegister);
-
-  // Add a dependency by Foo on Bar.
-  FooR->addDependenciesForAll({{&JD, SymbolNameSet({Bar})}});
 
   // Fail bar.
   BarR->failMaterialization();
@@ -652,74 +783,8 @@ TEST_F(CoreAPIsStandardTest, FailureInDependency) {
   EXPECT_FALSE(OnFooReadyRun) << "Query for \"Foo\" was run unexpectedly";
 
   // Check that we can still resolve Foo (even though it has been failed).
-  EXPECT_THAT_ERROR(FooR->notifyResolved({{Foo, FooSym}}), Failed())
-      << "Expected resolution for \"Foo\" to fail.";
-
-  FooR->failMaterialization();
-
-  // Verify that queries on Foo have now failed.
-  EXPECT_TRUE(OnFooReadyRun) << "Query for \"Foo\" was not run";
-
-  // Verify that subsequent lookups on Bar and Foo fail.
-  EXPECT_THAT_EXPECTED(ES.lookup({&JD}, {Bar}), Failed())
-      << "Lookup on failed symbol should fail";
-
-  EXPECT_THAT_EXPECTED(ES.lookup({&JD}, {Foo}), Failed())
-      << "Lookup on failed symbol should fail";
-}
-
-TEST_F(CoreAPIsStandardTest, FailureInCircularDependency) {
-  Optional<MaterializationResponsibility> FooR;
-  Optional<MaterializationResponsibility> BarR;
-
-  // Create a MaterializationUnit for each symbol that moves the
-  // MaterializationResponsibility into one of the locals above.
-  auto FooMU = std::make_unique<SimpleMaterializationUnit>(
-      SymbolFlagsMap({{Foo, FooSym.getFlags()}}),
-      [&](MaterializationResponsibility R) { FooR.emplace(std::move(R)); });
-
-  auto BarMU = std::make_unique<SimpleMaterializationUnit>(
-      SymbolFlagsMap({{Bar, BarSym.getFlags()}}),
-      [&](MaterializationResponsibility R) { BarR.emplace(std::move(R)); });
-
-  // Define the symbols.
-  cantFail(JD.define(FooMU));
-  cantFail(JD.define(BarMU));
-
-  bool OnFooReadyRun = false;
-  auto OnFooReady = [&](Expected<SymbolMap> Result) {
-    EXPECT_THAT_EXPECTED(std::move(Result), Failed());
-    OnFooReadyRun = true;
-  };
-
-  ES.lookup(LookupKind::Static, makeJITDylibSearchOrder(&JD),
-            SymbolLookupSet(Foo), SymbolState::Ready, std::move(OnFooReady),
-            NoDependenciesToRegister);
-
-  bool OnBarReadyRun = false;
-  auto OnBarReady = [&](Expected<SymbolMap> Result) {
-    EXPECT_THAT_EXPECTED(std::move(Result), Failed());
-    OnBarReadyRun = true;
-  };
-
-  ES.lookup(LookupKind::Static, makeJITDylibSearchOrder(&JD),
-            SymbolLookupSet(Bar), SymbolState::Ready, std::move(OnBarReady),
-            NoDependenciesToRegister);
-
-  // Add a dependency by Foo on Bar and vice-versa.
-  FooR->addDependenciesForAll({{&JD, SymbolNameSet({Bar})}});
-  BarR->addDependenciesForAll({{&JD, SymbolNameSet({Foo})}});
-
-  // Fail bar.
-  BarR->failMaterialization();
-
-  // Verify that queries on Bar failed, but queries on Foo have not yet.
-  EXPECT_TRUE(OnBarReadyRun) << "Query for \"Bar\" was not run";
-  EXPECT_FALSE(OnFooReadyRun) << "Query for \"Foo\" was run unexpectedly";
-
-  // Verify that trying to resolve Foo fails.
-  EXPECT_THAT_ERROR(FooR->notifyResolved({{Foo, FooSym}}), Failed())
-      << "Expected resolution for \"Foo\" to fail.";
+  EXPECT_THAT_ERROR(FooR->notifyResolved({{Foo, FooSym}}), Succeeded())
+      << "Expected resolution for \"Foo\" to succeed despite error state.";
 
   FooR->failMaterialization();
 
@@ -735,18 +800,22 @@ TEST_F(CoreAPIsStandardTest, FailureInCircularDependency) {
 }
 
 TEST_F(CoreAPIsStandardTest, AddDependencyOnFailedSymbol) {
-  Optional<MaterializationResponsibility> FooR;
-  Optional<MaterializationResponsibility> BarR;
+  std::unique_ptr<MaterializationResponsibility> FooR;
+  std::unique_ptr<MaterializationResponsibility> BarR;
 
   // Create a MaterializationUnit for each symbol that moves the
   // MaterializationResponsibility into one of the locals above.
   auto FooMU = std::make_unique<SimpleMaterializationUnit>(
       SymbolFlagsMap({{Foo, FooSym.getFlags()}}),
-      [&](MaterializationResponsibility R) { FooR.emplace(std::move(R)); });
+      [&](std::unique_ptr<MaterializationResponsibility> R) {
+        FooR = std::move(R);
+      });
 
   auto BarMU = std::make_unique<SimpleMaterializationUnit>(
       SymbolFlagsMap({{Bar, BarSym.getFlags()}}),
-      [&](MaterializationResponsibility R) { BarR.emplace(std::move(R)); });
+      [&](std::unique_ptr<MaterializationResponsibility> R) {
+        BarR = std::move(R);
+      });
 
   // Define the symbols.
   cantFail(JD.define(FooMU));
@@ -780,12 +849,14 @@ TEST_F(CoreAPIsStandardTest, AddDependencyOnFailedSymbol) {
   EXPECT_TRUE(OnBarReadyRun) << "Query for \"Bar\" was not run";
   EXPECT_FALSE(OnFooReadyRun) << "Query for \"Foo\" should not have run yet";
 
-  // Add dependency of Foo on Bar.
-  FooR->addDependenciesForAll({{&JD, SymbolNameSet({Bar})}});
+  EXPECT_THAT_ERROR(FooR->notifyResolved({{Foo, FooSym}}), Succeeded())
+      << "Expected resolution for \"Foo\" to succeed.";
 
-  // Check that we can still resolve Foo (even though it has been failed).
-  EXPECT_THAT_ERROR(FooR->notifyResolved({{Foo, FooSym}}), Failed())
-      << "Expected resolution for \"Foo\" to fail.";
+  // Check that emission of Foo fails.
+  {
+    SymbolDependenceGroup FooDeps({{Foo}, {{&JD, {Bar}}}});
+    EXPECT_THAT_ERROR(FooR->notifyEmitted(FooDeps), Failed());
+  }
 
   FooR->failMaterialization();
 
@@ -801,18 +872,22 @@ TEST_F(CoreAPIsStandardTest, AddDependencyOnFailedSymbol) {
 }
 
 TEST_F(CoreAPIsStandardTest, FailAfterMaterialization) {
-  Optional<MaterializationResponsibility> FooR;
-  Optional<MaterializationResponsibility> BarR;
+  std::unique_ptr<MaterializationResponsibility> FooR;
+  std::unique_ptr<MaterializationResponsibility> BarR;
 
   // Create a MaterializationUnit for each symbol that moves the
   // MaterializationResponsibility into one of the locals above.
   auto FooMU = std::make_unique<SimpleMaterializationUnit>(
       SymbolFlagsMap({{Foo, FooSym.getFlags()}}),
-      [&](MaterializationResponsibility R) { FooR.emplace(std::move(R)); });
+      [&](std::unique_ptr<MaterializationResponsibility> R) {
+        FooR = std::move(R);
+      });
 
   auto BarMU = std::make_unique<SimpleMaterializationUnit>(
       SymbolFlagsMap({{Bar, BarSym.getFlags()}}),
-      [&](MaterializationResponsibility R) { BarR.emplace(std::move(R)); });
+      [&](std::unique_ptr<MaterializationResponsibility> R) {
+        BarR = std::move(R);
+      });
 
   // Define the symbols.
   cantFail(JD.define(FooMU));
@@ -838,15 +913,14 @@ TEST_F(CoreAPIsStandardTest, FailAfterMaterialization) {
             SymbolLookupSet(Bar), SymbolState::Ready, std::move(OnBarReady),
             NoDependenciesToRegister);
 
-  // Add a dependency by Foo on Bar and vice-versa.
-  FooR->addDependenciesForAll({{&JD, SymbolNameSet({Bar})}});
-  BarR->addDependenciesForAll({{&JD, SymbolNameSet({Foo})}});
-
   // Materialize Foo.
   EXPECT_THAT_ERROR(FooR->notifyResolved({{Foo, FooSym}}), Succeeded())
       << "Expected resolution for \"Foo\" to succeed.";
-  EXPECT_THAT_ERROR(FooR->notifyEmitted(), Succeeded())
-      << "Expected emission for \"Foo\" to succeed.";
+  {
+    SymbolDependenceGroup FooDeps({{Foo}, {{&JD, {Bar}}}});
+    EXPECT_THAT_ERROR(FooR->notifyEmitted(FooDeps), Succeeded())
+        << "Expected emission for \"Foo\" to succeed.";
+  }
 
   // Fail bar.
   BarR->failMaterialization();
@@ -864,9 +938,9 @@ TEST_F(CoreAPIsStandardTest, FailMaterializerWithUnqueriedSymbols) {
   auto MU = std::make_unique<SimpleMaterializationUnit>(
       SymbolFlagsMap(
           {{Foo, JITSymbolFlags::Exported}, {Bar, JITSymbolFlags::Exported}}),
-      [&](MaterializationResponsibility R) {
+      [&](std::unique_ptr<MaterializationResponsibility> R) {
         MaterializerRun = true;
-        R.failMaterialization();
+        R->failMaterialization();
       });
 
   cantFail(JD.define(std::move(MU)));
@@ -893,7 +967,7 @@ TEST_F(CoreAPIsStandardTest, DropMaterializerWhenEmpty) {
 
   auto MU = std::make_unique<SimpleMaterializationUnit>(
       SymbolFlagsMap({{Foo, WeakExported}, {Bar, WeakExported}}),
-      [](MaterializationResponsibility R) {
+      [](std::unique_ptr<MaterializationResponsibility> R) {
         llvm_unreachable("Unexpected call to materialize");
       },
       nullptr,
@@ -925,10 +999,10 @@ TEST_F(CoreAPIsStandardTest, AddAndMaterializeLazySymbol) {
 
   auto MU = std::make_unique<SimpleMaterializationUnit>(
       SymbolFlagsMap({{Foo, JITSymbolFlags::Exported}, {Bar, WeakExported}}),
-      [&](MaterializationResponsibility R) {
+      [&](std::unique_ptr<MaterializationResponsibility> R) {
         assert(BarDiscarded && "Bar should have been discarded by this point");
-        cantFail(R.notifyResolved(SymbolMap({{Foo, FooSym}})));
-        cantFail(R.notifyEmitted());
+        cantFail(R->notifyResolved(SymbolMap({{Foo, FooSym}})));
+        cantFail(R->notifyEmitted({}));
         FooMaterialized = true;
       },
       nullptr,
@@ -967,18 +1041,18 @@ TEST_F(CoreAPIsStandardTest, TestBasicWeakSymbolMaterialization) {
   bool BarMaterialized = false;
   auto MU1 = std::make_unique<SimpleMaterializationUnit>(
       SymbolFlagsMap({{Foo, FooSym.getFlags()}, {Bar, BarSym.getFlags()}}),
-      [&](MaterializationResponsibility R) {
-        cantFail(R.notifyResolved(SymbolMap({{Foo, FooSym}, {Bar, BarSym}})));
-        cantFail(R.notifyEmitted());
+      [&](std::unique_ptr<MaterializationResponsibility> R) {
+        cantFail(R->notifyResolved(SymbolMap({{Foo, FooSym}, {Bar, BarSym}})));
+        cantFail(R->notifyEmitted({}));
         BarMaterialized = true;
       });
 
   bool DuplicateBarDiscarded = false;
   auto MU2 = std::make_unique<SimpleMaterializationUnit>(
       SymbolFlagsMap({{Bar, BarSym.getFlags()}}),
-      [&](MaterializationResponsibility R) {
+      [&](std::unique_ptr<MaterializationResponsibility> R) {
         ADD_FAILURE() << "Attempt to materialize Bar from the wrong unit";
-        R.failMaterialization();
+        R->failMaterialization();
       },
       nullptr,
       [&](const JITDylib &JD, SymbolStringPtr Name) {
@@ -1006,22 +1080,36 @@ TEST_F(CoreAPIsStandardTest, TestBasicWeakSymbolMaterialization) {
       << "Duplicate bar definition not discarded";
 }
 
+TEST_F(CoreAPIsStandardTest, RedefineBoundWeakSymbol) {
+  // Check that redefinition of a bound weak symbol fails.
+
+  JITSymbolFlags WeakExported(JITSymbolFlags::Exported);
+  WeakExported |= JITSymbolFlags::Weak;
+
+  // Define "Foo" as weak, force materialization.
+  cantFail(JD.define(absoluteSymbols({{Foo, {FooAddr, WeakExported}}})));
+  cantFail(ES.lookup({&JD}, Foo));
+
+  // Attempt to redefine "Foo". Expect failure, despite "Foo" being weak,
+  // since it has already been bound.
+  EXPECT_THAT_ERROR(JD.define(absoluteSymbols({{Foo, FooSym}})), Failed());
+}
+
 TEST_F(CoreAPIsStandardTest, DefineMaterializingSymbol) {
   bool ExpectNoMoreMaterialization = false;
-  ES.setDispatchMaterialization([&](std::unique_ptr<MaterializationUnit> MU,
-                                    MaterializationResponsibility MR) {
-    if (ExpectNoMoreMaterialization)
+  DispatchOverride = [&](std::unique_ptr<Task> T) {
+    if (ExpectNoMoreMaterialization && isa<MaterializationTask>(*T))
       ADD_FAILURE() << "Unexpected materialization";
-    MU->materialize(std::move(MR));
-  });
+    T->run();
+  };
 
   auto MU = std::make_unique<SimpleMaterializationUnit>(
       SymbolFlagsMap({{Foo, FooSym.getFlags()}}),
-      [&](MaterializationResponsibility R) {
+      [&](std::unique_ptr<MaterializationResponsibility> R) {
         cantFail(
-            R.defineMaterializing(SymbolFlagsMap({{Bar, BarSym.getFlags()}})));
-        cantFail(R.notifyResolved(SymbolMap({{Foo, FooSym}, {Bar, BarSym}})));
-        cantFail(R.notifyEmitted());
+            R->defineMaterializing(SymbolFlagsMap({{Bar, BarSym.getFlags()}})));
+        cantFail(R->notifyResolved(SymbolMap({{Foo, FooSym}, {Bar, BarSym}})));
+        cantFail(R->notifyEmitted({}));
       });
 
   cantFail(JD.define(MU));
@@ -1037,14 +1125,16 @@ TEST_F(CoreAPIsStandardTest, DefineMaterializingSymbol) {
 }
 
 TEST_F(CoreAPIsStandardTest, GeneratorTest) {
-  cantFail(JD.define(absoluteSymbols({{Foo, FooSym}})));
+  ExecutorSymbolDef BazHiddenSym(BazSym.getAddress(),
+                                 BazSym.getFlags() & ~JITSymbolFlags::Exported);
+  cantFail(JD.define(absoluteSymbols({{Foo, FooSym}, {Baz, BazHiddenSym}})));
 
-  class TestGenerator : public JITDylib::DefinitionGenerator {
+  class TestGenerator : public DefinitionGenerator {
   public:
     TestGenerator(SymbolMap Symbols) : Symbols(std::move(Symbols)) {}
-    Error tryToGenerate(LookupKind K, JITDylib &JD,
+    Error tryToGenerate(LookupState &LS, LookupKind K, JITDylib &JD,
                         JITDylibLookupFlags JDLookupFlags,
-                        const SymbolLookupSet &Names) {
+                        const SymbolLookupSet &Names) override {
       SymbolMap NewDefs;
 
       for (const auto &KV : Names) {
@@ -1061,22 +1151,272 @@ TEST_F(CoreAPIsStandardTest, GeneratorTest) {
     SymbolMap Symbols;
   };
 
-  JD.addGenerator(std::make_unique<TestGenerator>(SymbolMap({{Bar, BarSym}})));
+  JD.addGenerator(std::make_unique<TestGenerator>(
+      SymbolMap({{Bar, BarSym}, {Baz, BazSym}})));
 
   auto Result = cantFail(
-      ES.lookup(makeJITDylibSearchOrder(&JD), SymbolLookupSet({Foo, Bar})));
+      ES.lookup(makeJITDylibSearchOrder(&JD),
+                SymbolLookupSet({Foo, Bar})
+                    .add(Baz, SymbolLookupFlags::WeaklyReferencedSymbol)));
 
   EXPECT_EQ(Result.count(Bar), 1U) << "Expected to find fallback def for 'bar'";
   EXPECT_EQ(Result[Bar].getAddress(), BarSym.getAddress())
       << "Expected fallback def for Bar to be equal to BarSym";
 }
 
+/// By default appends LookupStates to a queue.
+/// Behavior can be overridden by setting TryToGenerateOverride.
+class SimpleAsyncGenerator : public DefinitionGenerator {
+public:
+  struct SuspendedLookupInfo {
+    LookupState LS;
+    LookupKind K;
+    JITDylibSP JD;
+    JITDylibLookupFlags JDLookupFlags;
+    SymbolLookupSet Names;
+  };
+
+  unique_function<Error(LookupState &, LookupKind, JITDylib &,
+                        JITDylibLookupFlags, const SymbolLookupSet &)>
+      TryToGenerateOverride;
+
+  Error tryToGenerate(LookupState &LS, LookupKind K, JITDylib &JD,
+                      JITDylibLookupFlags JDLookupFlags,
+                      const SymbolLookupSet &Names) override {
+    if (TryToGenerateOverride)
+      return TryToGenerateOverride(LS, K, JD, JDLookupFlags, Names);
+    Lookup = SuspendedLookupInfo{std::move(LS), K, &JD, JDLookupFlags, Names};
+    return Error::success();
+  }
+
+  SuspendedLookupInfo takeLookup() {
+    std::optional<SuspendedLookupInfo> Tmp;
+    std::swap(Tmp, Lookup);
+    return std::move(*Tmp);
+  }
+
+  std::optional<SuspendedLookupInfo> Lookup;
+};
+
+TEST_F(CoreAPIsStandardTest, SimpleAsynchronousGeneratorTest) {
+
+  auto &G = JD.addGenerator(std::make_unique<SimpleAsyncGenerator>());
+
+  bool LookupCompleted = false;
+
+  ES.lookup(
+      LookupKind::Static, makeJITDylibSearchOrder(&JD), SymbolLookupSet(Foo),
+      SymbolState::Ready,
+      [&](Expected<SymbolMap> Result) {
+        LookupCompleted = true;
+        EXPECT_THAT_EXPECTED(Result, Succeeded());
+        if (Result) {
+          EXPECT_EQ(*Result, SymbolMap({{Foo, FooSym}}));
+        }
+      },
+      NoDependenciesToRegister);
+
+  EXPECT_FALSE(LookupCompleted);
+
+  cantFail(JD.define(absoluteSymbols({{Foo, FooSym}})));
+  G.takeLookup().LS.continueLookup(Error::success());
+
+  EXPECT_TRUE(LookupCompleted);
+}
+
+TEST_F(CoreAPIsStandardTest, ErrorFromSuspendedAsynchronousGeneratorTest) {
+
+  auto &G = JD.addGenerator(std::make_unique<SimpleAsyncGenerator>());
+
+  bool LookupCompleted = false;
+
+  ES.lookup(
+      LookupKind::Static, makeJITDylibSearchOrder(&JD), SymbolLookupSet(Foo),
+      SymbolState::Ready,
+      [&](Expected<SymbolMap> Result) {
+        LookupCompleted = true;
+        EXPECT_THAT_EXPECTED(Result, Failed());
+      },
+      NoDependenciesToRegister);
+
+  EXPECT_FALSE(LookupCompleted);
+
+  G.takeLookup().LS.continueLookup(
+      make_error<StringError>("boom", inconvertibleErrorCode()));
+
+  EXPECT_TRUE(LookupCompleted);
+}
+
+TEST_F(CoreAPIsStandardTest, ErrorFromAutoSuspendedAsynchronousGeneratorTest) {
+
+  auto &G = JD.addGenerator(std::make_unique<SimpleAsyncGenerator>());
+
+  std::atomic_size_t LookupsCompleted = 0;
+
+  ES.lookup(
+      LookupKind::Static, makeJITDylibSearchOrder(&JD), SymbolLookupSet(Foo),
+      SymbolState::Ready,
+      [&](Expected<SymbolMap> Result) {
+        ++LookupsCompleted;
+        EXPECT_THAT_EXPECTED(Result, Failed());
+      },
+      NoDependenciesToRegister);
+
+  EXPECT_EQ(LookupsCompleted, 0U);
+
+  // Suspend the first lookup.
+  auto LS1 = std::move(G.takeLookup().LS);
+
+  // Start a second lookup that should be auto-suspended.
+  ES.lookup(
+      LookupKind::Static, makeJITDylibSearchOrder(&JD), SymbolLookupSet(Foo),
+      SymbolState::Ready,
+      [&](Expected<SymbolMap> Result) {
+        ++LookupsCompleted;
+        EXPECT_THAT_EXPECTED(Result, Failed());
+      },
+      NoDependenciesToRegister);
+
+  EXPECT_EQ(LookupsCompleted, 0U);
+
+  // Unsuspend the first lookup.
+  LS1.continueLookup(make_error<StringError>("boom", inconvertibleErrorCode()));
+
+  // Unsuspend the second.
+  G.takeLookup().LS.continueLookup(
+      make_error<StringError>("boom", inconvertibleErrorCode()));
+
+  EXPECT_EQ(LookupsCompleted, 2U);
+}
+
+TEST_F(CoreAPIsStandardTest, BlockedGeneratorAutoSuspensionTest) {
+  // Test that repeated lookups while a generator is in use cause automatic
+  // lookup suspension / resumption.
+
+  auto &G = JD.addGenerator(std::make_unique<SimpleAsyncGenerator>());
+
+  bool Lookup1Completed = false;
+  bool Lookup2Completed = false;
+  bool Lookup3Completed = false;
+  bool Lookup4Completed = false;
+
+  // Add lookup 1.
+  //
+  // Tests that tryToGenerate-suspended lookups resume auto-suspended lookups
+  // when the tryToGenerate-suspended lookup continues (i.e. the call to
+  // OL_resumeLookupAfterGeneration at the top of OL_applyQueryPhase1).
+  ES.lookup(
+      LookupKind::Static, makeJITDylibSearchOrder(&JD), SymbolLookupSet(Foo),
+      SymbolState::Ready,
+      [&](Expected<SymbolMap> Result) {
+        Lookup1Completed = true;
+        EXPECT_THAT_EXPECTED(Result, Succeeded());
+        if (Result) {
+          EXPECT_EQ(*Result, SymbolMap({{Foo, FooSym}}));
+        }
+      },
+      NoDependenciesToRegister);
+
+  // The generator should immediately see the first lookup.
+  EXPECT_NE(G.Lookup, std::nullopt);
+
+  // Add lookup 2.
+  //
+  // Tests that lookups that pass through tryToGenerate without being captured
+  // resume auto-suspended lookups. We set a one-shot TryToGenerateOverride to
+  // prevent capture of lookup 2 by tryToGenerate. This tests the call to
+  // OL_resumeLookupAfterGeneration inside the generator loop.
+  G.TryToGenerateOverride = [&](LookupState &LS, LookupKind K, JITDylib &JD,
+                                JITDylibLookupFlags JDLookupFlags,
+                                const SymbolLookupSet &Names) -> Error {
+    cantFail(JD.define(absoluteSymbols({{Bar, BarSym}})));
+    G.TryToGenerateOverride = nullptr;
+    return Error::success();
+  };
+
+  ES.lookup(
+      LookupKind::Static, makeJITDylibSearchOrder(&JD), SymbolLookupSet(Bar),
+      SymbolState::Ready,
+      [&](Expected<SymbolMap> Result) {
+        Lookup2Completed = true;
+        EXPECT_THAT_EXPECTED(Result, Succeeded());
+        if (Result) {
+          EXPECT_EQ(*Result, SymbolMap({{Bar, BarSym}}));
+        }
+      },
+      NoDependenciesToRegister);
+
+  // Add lookup 3.
+  //
+  // Test that if a lookup's symbols have already been generated (and it
+  // consequently skips the generator loop entirely) it still resumes the next
+  // suspended lookup. This tests the call to OL_resumeLookupAfterGeneration
+  // just above the generator loop.
+  ES.lookup(
+      LookupKind::Static, makeJITDylibSearchOrder(&JD), SymbolLookupSet(Bar),
+      SymbolState::Ready,
+      [&](Expected<SymbolMap> Result) {
+        Lookup3Completed = true;
+        EXPECT_THAT_EXPECTED(Result, Succeeded());
+        if (Result) {
+          EXPECT_EQ(*Result, SymbolMap({{Bar, BarSym}}));
+        }
+      },
+      NoDependenciesToRegister);
+
+  // Add lookup 4.
+  //
+  // This is just used to verify that lookup 3 triggered resumption of the next
+  // lookup as expected.
+  ES.lookup(
+      LookupKind::Static, makeJITDylibSearchOrder(&JD), SymbolLookupSet(Baz),
+      SymbolState::Ready,
+      [&](Expected<SymbolMap> Result) {
+        Lookup4Completed = true;
+        EXPECT_THAT_EXPECTED(Result, Succeeded());
+        if (Result) {
+          EXPECT_EQ(*Result, SymbolMap({{Baz, BazSym}}));
+        }
+      },
+      NoDependenciesToRegister);
+
+  // All lookups have been started, but none should have been completed yet.
+  EXPECT_FALSE(Lookup1Completed);
+  EXPECT_FALSE(Lookup2Completed);
+  EXPECT_FALSE(Lookup3Completed);
+  EXPECT_FALSE(Lookup4Completed);
+
+  // Start continuing lookups.
+
+  // First Define foo and continue lookup 1. We expect this to complete lookups
+  // 1, 2 and 3: the TryToGenerateOverride set above will define bar, which will
+  // allow both 2 and 3 to complete.
+  cantFail(JD.define(absoluteSymbols({{Foo, FooSym}})));
+  G.takeLookup().LS.continueLookup(Error::success());
+
+  EXPECT_TRUE(Lookup1Completed);
+  EXPECT_TRUE(Lookup2Completed);
+  EXPECT_TRUE(Lookup3Completed);
+  EXPECT_FALSE(Lookup4Completed);
+  EXPECT_NE(G.Lookup, std::nullopt);
+
+  // Check that the most recently captured lookup is lookup 4 (for baz).
+  if (G.Lookup) {
+    EXPECT_EQ(G.Lookup->Names.begin()->first, Baz);
+  }
+
+  cantFail(JD.define(absoluteSymbols({{Baz, BazSym}})));
+  G.takeLookup().LS.continueLookup(Error::success());
+
+  EXPECT_TRUE(Lookup4Completed);
+}
+
 TEST_F(CoreAPIsStandardTest, FailResolution) {
   auto MU = std::make_unique<SimpleMaterializationUnit>(
       SymbolFlagsMap({{Foo, JITSymbolFlags::Exported | JITSymbolFlags::Weak},
                       {Bar, JITSymbolFlags::Exported | JITSymbolFlags::Weak}}),
-      [&](MaterializationResponsibility R) {
-        R.failMaterialization();
+      [&](std::unique_ptr<MaterializationResponsibility> R) {
+        R->failMaterialization();
       });
 
   cantFail(JD.define(MU));
@@ -1111,24 +1451,21 @@ TEST_F(CoreAPIsStandardTest, FailEmissionAfterResolution) {
 
   auto MU = std::make_unique<SimpleMaterializationUnit>(
       SymbolFlagsMap({{Foo, FooSym.getFlags()}, {Bar, BarSym.getFlags()}}),
-      [&](MaterializationResponsibility R) {
-        cantFail(R.notifyResolved(SymbolMap({{Foo, FooSym}, {Bar, BarSym}})));
-
+      [&](std::unique_ptr<MaterializationResponsibility> R) {
+        cantFail(R->notifyResolved(SymbolMap({{Foo, FooSym}, {Bar, BarSym}})));
         ES.lookup(
             LookupKind::Static, makeJITDylibSearchOrder(&JD),
             SymbolLookupSet({Baz}), SymbolState::Resolved,
-            [&R](Expected<SymbolMap> Result) {
+            [&](Expected<SymbolMap> Result) {
               // Called when "baz" is resolved. We don't actually depend
               // on or care about baz, but use it to trigger failure of
               // this materialization before Baz has been finalized in
               // order to test that error propagation is correct in this
               // scenario.
               cantFail(std::move(Result));
-              R.failMaterialization();
+              R->failMaterialization();
             },
-            [&](const SymbolDependenceMap &Deps) {
-              R.addDependenciesForAll(Deps);
-            });
+            NoDependenciesToRegister);
       });
 
   cantFail(JD.define(MU));
@@ -1147,7 +1484,9 @@ TEST_F(CoreAPIsStandardTest, FailAfterPartialResolution) {
   // Fail materialization of bar.
   auto BarMU = std::make_unique<SimpleMaterializationUnit>(
       SymbolFlagsMap({{Bar, BarSym.getFlags()}}),
-      [&](MaterializationResponsibility R) { R.failMaterialization(); });
+      [&](std::unique_ptr<MaterializationResponsibility> R) {
+        R->failMaterialization();
+      });
 
   cantFail(JD.define(std::move(BarMU)));
 
@@ -1164,12 +1503,46 @@ TEST_F(CoreAPIsStandardTest, FailAfterPartialResolution) {
   EXPECT_TRUE(QueryHandlerRun) << "Query handler never ran";
 }
 
+TEST_F(CoreAPIsStandardTest, FailDefineMaterializingDueToDefunctTracker) {
+  // Check that a defunct resource tracker causes defineMaterializing to error
+  // immediately.
+
+  std::unique_ptr<MaterializationResponsibility> FooMR;
+  auto MU = std::make_unique<SimpleMaterializationUnit>(
+      SymbolFlagsMap({{Foo, FooSym.getFlags()}}),
+      [&](std::unique_ptr<MaterializationResponsibility> R) {
+        FooMR = std::move(R);
+      });
+
+  auto RT = JD.createResourceTracker();
+  cantFail(JD.define(std::move(MU), RT));
+
+  bool OnCompletionRan = false;
+  auto OnCompletion = [&](Expected<SymbolMap> Result) {
+    EXPECT_THAT_EXPECTED(Result, Failed());
+    OnCompletionRan = true;
+  };
+
+  ES.lookup(LookupKind::Static, makeJITDylibSearchOrder(&JD),
+            SymbolLookupSet(Foo), SymbolState::Ready, OnCompletion,
+            NoDependenciesToRegister);
+
+  cantFail(RT->remove());
+
+  EXPECT_THAT_ERROR(FooMR->defineMaterializing(SymbolFlagsMap()), Failed())
+      << "defineMaterializing should have failed due to a defunct tracker";
+
+  FooMR->failMaterialization();
+
+  EXPECT_TRUE(OnCompletionRan) << "OnCompletion handler did not run.";
+}
+
 TEST_F(CoreAPIsStandardTest, TestLookupWithUnthreadedMaterialization) {
   auto MU = std::make_unique<SimpleMaterializationUnit>(
       SymbolFlagsMap({{Foo, JITSymbolFlags::Exported}}),
-      [&](MaterializationResponsibility R) {
-        cantFail(R.notifyResolved({{Foo, FooSym}}));
-        cantFail(R.notifyEmitted());
+      [&](std::unique_ptr<MaterializationResponsibility> R) {
+        cantFail(R->notifyResolved({{Foo, FooSym}}));
+        cantFail(R->notifyEmitted({}));
       });
 
   cantFail(JD.define(MU));
@@ -1185,16 +1558,13 @@ TEST_F(CoreAPIsStandardTest, TestLookupWithUnthreadedMaterialization) {
 TEST_F(CoreAPIsStandardTest, TestLookupWithThreadedMaterialization) {
 #if LLVM_ENABLE_THREADS
 
-  std::thread MaterializationThread;
-  ES.setDispatchMaterialization([&](std::unique_ptr<MaterializationUnit> MU,
-                                    MaterializationResponsibility MR) {
-    auto SharedMR =
-        std::make_shared<MaterializationResponsibility>(std::move(MR));
-    MaterializationThread =
-        std::thread([MU = std::move(MU), MR = std::move(SharedMR)] {
-          MU->materialize(std::move(*MR));
-        });
-  });
+  std::mutex WorkThreadsMutex;
+  SmallVector<std::thread, 0> WorkThreads;
+  DispatchOverride = [&](std::unique_ptr<Task> T) {
+    std::lock_guard<std::mutex> Lock(WorkThreadsMutex);
+    WorkThreads.push_back(
+        std::thread([T = std::move(T)]() mutable { T->run(); }));
+  };
 
   cantFail(JD.define(absoluteSymbols({{Foo, FooSym}})));
 
@@ -1204,7 +1574,16 @@ TEST_F(CoreAPIsStandardTest, TestLookupWithThreadedMaterialization) {
       << "lookup returned an incorrect address";
   EXPECT_EQ(FooLookupResult.getFlags(), FooSym.getFlags())
       << "lookup returned incorrect flags";
-  MaterializationThread.join();
+
+  std::unique_lock<std::mutex> Lock(WorkThreadsMutex);
+  // This works because every child thread that is allowed to use WorkThreads
+  // must either be in WorkThreads or its parent must be in WorkThreads.
+  while (!WorkThreads.empty()) {
+    auto WT = WorkThreads.pop_back_val();
+    Lock.unlock();
+    WT.join();
+    Lock.lock();
+  }
 #endif
 }
 
@@ -1213,30 +1592,28 @@ TEST_F(CoreAPIsStandardTest, TestGetRequestedSymbolsAndReplace) {
   // have pending queries, and test that MaterializationResponsibility's
   // replace method can be used to return definitions to the JITDylib in a new
   // MaterializationUnit.
-  SymbolNameSet Names({Foo, Bar});
-
   bool FooMaterialized = false;
   bool BarMaterialized = false;
 
   auto MU = std::make_unique<SimpleMaterializationUnit>(
       SymbolFlagsMap({{Foo, FooSym.getFlags()}, {Bar, BarSym.getFlags()}}),
-      [&](MaterializationResponsibility R) {
-        auto Requested = R.getRequestedSymbols();
+      [&](std::unique_ptr<MaterializationResponsibility> R) {
+        auto Requested = R->getRequestedSymbols();
         EXPECT_EQ(Requested.size(), 1U) << "Expected one symbol requested";
         EXPECT_EQ(*Requested.begin(), Foo) << "Expected \"Foo\" requested";
 
         auto NewMU = std::make_unique<SimpleMaterializationUnit>(
             SymbolFlagsMap({{Bar, BarSym.getFlags()}}),
-            [&](MaterializationResponsibility R2) {
-              cantFail(R2.notifyResolved(SymbolMap({{Bar, BarSym}})));
-              cantFail(R2.notifyEmitted());
+            [&](std::unique_ptr<MaterializationResponsibility> R2) {
+              cantFail(R2->notifyResolved(SymbolMap({{Bar, BarSym}})));
+              cantFail(R2->notifyEmitted({}));
               BarMaterialized = true;
             });
 
-        R.replace(std::move(NewMU));
+        cantFail(R->replace(std::move(NewMU)));
 
-        cantFail(R.notifyResolved(SymbolMap({{Foo, FooSym}})));
-        cantFail(R.notifyEmitted());
+        cantFail(R->notifyResolved(SymbolMap({{Foo, FooSym}})));
+        cantFail(R->notifyEmitted({}));
 
         FooMaterialized = true;
       });
@@ -1262,13 +1639,13 @@ TEST_F(CoreAPIsStandardTest, TestGetRequestedSymbolsAndReplace) {
 TEST_F(CoreAPIsStandardTest, TestMaterializationResponsibilityDelegation) {
   auto MU = std::make_unique<SimpleMaterializationUnit>(
       SymbolFlagsMap({{Foo, FooSym.getFlags()}, {Bar, BarSym.getFlags()}}),
-      [&](MaterializationResponsibility R) {
-        auto R2 = R.delegate({Bar});
+      [&](std::unique_ptr<MaterializationResponsibility> R) {
+        auto R2 = cantFail(R->delegate({Bar}));
 
-        cantFail(R.notifyResolved({{Foo, FooSym}}));
-        cantFail(R.notifyEmitted());
-        cantFail(R2.notifyResolved({{Bar, BarSym}}));
-        cantFail(R2.notifyEmitted());
+        cantFail(R->notifyResolved({{Foo, FooSym}}));
+        cantFail(R->notifyEmitted({}));
+        cantFail(R2->notifyResolved({{Bar, BarSym}}));
+        cantFail(R2->notifyEmitted({}));
       });
 
   cantFail(JD.define(MU));
@@ -1291,12 +1668,11 @@ TEST_F(CoreAPIsStandardTest, TestMaterializeWeakSymbol) {
   JITSymbolFlags WeakExported = JITSymbolFlags::Exported;
   WeakExported &= JITSymbolFlags::Weak;
 
-  std::unique_ptr<MaterializationResponsibility> FooResponsibility;
+  std::unique_ptr<MaterializationResponsibility> FooR;
   auto MU = std::make_unique<SimpleMaterializationUnit>(
       SymbolFlagsMap({{Foo, FooSym.getFlags()}}),
-      [&](MaterializationResponsibility R) {
-        FooResponsibility =
-            std::make_unique<MaterializationResponsibility>(std::move(R));
+      [&](std::unique_ptr<MaterializationResponsibility> R) {
+        FooR = std::move(R);
       });
 
   cantFail(JD.define(MU));
@@ -1310,7 +1686,7 @@ TEST_F(CoreAPIsStandardTest, TestMaterializeWeakSymbol) {
 
   auto MU2 = std::make_unique<SimpleMaterializationUnit>(
       SymbolFlagsMap({{Foo, JITSymbolFlags::Exported}}),
-      [](MaterializationResponsibility R) {
+      [](std::unique_ptr<MaterializationResponsibility> R) {
         llvm_unreachable("This unit should never be materialized");
       });
 
@@ -1321,8 +1697,203 @@ TEST_F(CoreAPIsStandardTest, TestMaterializeWeakSymbol) {
   consumeError(std::move(Err));
 
   // No dependencies registered, can't fail:
-  cantFail(FooResponsibility->notifyResolved(SymbolMap({{Foo, FooSym}})));
-  cantFail(FooResponsibility->notifyEmitted());
+  cantFail(FooR->notifyResolved(SymbolMap({{Foo, FooSym}})));
+  cantFail(FooR->notifyEmitted({}));
+}
+
+static bool linkOrdersEqual(const std::vector<JITDylibSP> &LHS,
+                            ArrayRef<JITDylib *> RHS) {
+  if (LHS.size() != RHS.size())
+    return false;
+  auto *RHSE = RHS.begin();
+  for (auto &LHSE : LHS)
+    if (LHSE.get() != *RHSE)
+      return false;
+    else
+      ++RHSE;
+  return true;
+}
+
+TEST(JITDylibTest, GetDFSLinkOrderTree) {
+  // Test that DFS ordering behaves as expected when the linkage relationships
+  // form a tree.
+
+  ExecutionSession ES{std::make_unique<UnsupportedExecutorProcessControl>()};
+  auto _ = make_scope_exit([&]() { cantFail(ES.endSession()); });
+
+  auto &LibA = ES.createBareJITDylib("A");
+  auto &LibB = ES.createBareJITDylib("B");
+  auto &LibC = ES.createBareJITDylib("C");
+  auto &LibD = ES.createBareJITDylib("D");
+  auto &LibE = ES.createBareJITDylib("E");
+  auto &LibF = ES.createBareJITDylib("F");
+
+  // Linkage relationships:
+  // A --- B -- D
+  //  \      \- E
+  //    \- C -- F
+  LibA.setLinkOrder(makeJITDylibSearchOrder({&LibB, &LibC}));
+  LibB.setLinkOrder(makeJITDylibSearchOrder({&LibD, &LibE}));
+  LibC.setLinkOrder(makeJITDylibSearchOrder({&LibF}));
+
+  auto DFSOrderFromB = cantFail(JITDylib::getDFSLinkOrder({&LibB}));
+  EXPECT_TRUE(linkOrdersEqual(DFSOrderFromB, {&LibB, &LibD, &LibE}))
+      << "Incorrect DFS link order for LibB";
+
+  auto DFSOrderFromA = cantFail(JITDylib::getDFSLinkOrder({&LibA}));
+  EXPECT_TRUE(linkOrdersEqual(DFSOrderFromA,
+                              {&LibA, &LibB, &LibD, &LibE, &LibC, &LibF}))
+      << "Incorrect DFS link order for libA";
+
+  auto DFSOrderFromAB = cantFail(JITDylib::getDFSLinkOrder({&LibA, &LibB}));
+  EXPECT_TRUE(linkOrdersEqual(DFSOrderFromAB,
+                              {&LibA, &LibB, &LibD, &LibE, &LibC, &LibF}))
+      << "Incorrect DFS link order for { libA, libB }";
+
+  auto DFSOrderFromBA = cantFail(JITDylib::getDFSLinkOrder({&LibB, &LibA}));
+  EXPECT_TRUE(linkOrdersEqual(DFSOrderFromBA,
+                              {&LibB, &LibD, &LibE, &LibA, &LibC, &LibF}))
+      << "Incorrect DFS link order for { libB, libA }";
+}
+
+TEST(JITDylibTest, GetDFSLinkOrderDiamond) {
+  // Test that DFS ordering behaves as expected when the linkage relationships
+  // contain a diamond.
+
+  ExecutionSession ES{std::make_unique<UnsupportedExecutorProcessControl>()};
+  auto _ = make_scope_exit([&]() { cantFail(ES.endSession()); });
+
+  auto &LibA = ES.createBareJITDylib("A");
+  auto &LibB = ES.createBareJITDylib("B");
+  auto &LibC = ES.createBareJITDylib("C");
+  auto &LibD = ES.createBareJITDylib("D");
+
+  // Linkage relationships:
+  // A -- B --- D
+  //  \-- C --/
+  LibA.setLinkOrder(makeJITDylibSearchOrder({&LibB, &LibC}));
+  LibB.setLinkOrder(makeJITDylibSearchOrder({&LibD}));
+  LibC.setLinkOrder(makeJITDylibSearchOrder({&LibD}));
+
+  auto DFSOrderFromA = cantFail(JITDylib::getDFSLinkOrder({&LibA}));
+  EXPECT_TRUE(linkOrdersEqual(DFSOrderFromA, {&LibA, &LibB, &LibD, &LibC}))
+      << "Incorrect DFS link order for libA";
+}
+
+TEST(JITDylibTest, GetDFSLinkOrderCycle) {
+  // Test that DFS ordering behaves as expected when the linkage relationships
+  // contain a cycle.
+
+  ExecutionSession ES{std::make_unique<UnsupportedExecutorProcessControl>()};
+  auto _ = make_scope_exit([&]() { cantFail(ES.endSession()); });
+
+  auto &LibA = ES.createBareJITDylib("A");
+  auto &LibB = ES.createBareJITDylib("B");
+  auto &LibC = ES.createBareJITDylib("C");
+
+  // Linkage relationships:
+  // A -- B --- C -- A
+  LibA.setLinkOrder(makeJITDylibSearchOrder({&LibB}));
+  LibB.setLinkOrder(makeJITDylibSearchOrder({&LibC}));
+  LibC.setLinkOrder(makeJITDylibSearchOrder({&LibA}));
+
+  auto DFSOrderFromA = cantFail(JITDylib::getDFSLinkOrder({&LibA}));
+  EXPECT_TRUE(linkOrdersEqual(DFSOrderFromA, {&LibA, &LibB, &LibC}))
+      << "Incorrect DFS link order for libA";
+
+  auto DFSOrderFromB = cantFail(JITDylib::getDFSLinkOrder({&LibB}));
+  EXPECT_TRUE(linkOrdersEqual(DFSOrderFromB, {&LibB, &LibC, &LibA}))
+      << "Incorrect DFS link order for libB";
+
+  auto DFSOrderFromC = cantFail(JITDylib::getDFSLinkOrder({&LibC}));
+  EXPECT_TRUE(linkOrdersEqual(DFSOrderFromC, {&LibC, &LibA, &LibB}))
+      << "Incorrect DFS link order for libC";
+}
+
+TEST_F(CoreAPIsStandardTest, RemoveJITDylibs) {
+  // Foo will be fully materialized.
+  cantFail(JD.define(absoluteSymbols({{Foo, FooSym}})));
+
+  // Bar should not be materialized at all.
+  bool BarMaterializerDestroyed = false;
+  cantFail(JD.define(std::make_unique<SimpleMaterializationUnit>(
+      SymbolFlagsMap({{Bar, BarSym.getFlags()}}),
+      [&](std::unique_ptr<MaterializationResponsibility> MR) {
+        llvm_unreachable("Unexpected call to materialize");
+      },
+      nullptr,
+      [](const JITDylib &, SymbolStringPtr Name) {
+        llvm_unreachable("Unexpected call to discard");
+      },
+      [&]() { BarMaterializerDestroyed = true; })));
+
+  // Baz will be in the materializing state.
+  std::unique_ptr<MaterializationResponsibility> BazMR;
+  cantFail(JD.define(std::make_unique<SimpleMaterializationUnit>(
+      SymbolFlagsMap({{Baz, BazSym.getFlags()}}),
+      [&](std::unique_ptr<MaterializationResponsibility> MR) {
+        BazMR = std::move(MR);
+      })));
+
+  // Lookup to force materialization of Foo.
+  cantFail(ES.lookup(makeJITDylibSearchOrder(&JD), SymbolLookupSet({Foo})));
+
+  // Start a lookup to force materialization of Baz.
+  bool BazLookupFailed = false;
+  ES.lookup(
+      LookupKind::Static, makeJITDylibSearchOrder(&JD), SymbolLookupSet({Baz}),
+      SymbolState::Ready,
+      [&](Expected<SymbolMap> Result) {
+        if (!Result) {
+          BazLookupFailed = true;
+          consumeError(Result.takeError());
+        }
+      },
+      NoDependenciesToRegister);
+
+  // Remove the JITDylib.
+  auto Err = ES.removeJITDylib(JD);
+  EXPECT_THAT_ERROR(std::move(Err), Succeeded());
+
+  EXPECT_TRUE(BarMaterializerDestroyed);
+  EXPECT_TRUE(BazLookupFailed);
+
+  EXPECT_THAT_ERROR(BazMR->notifyResolved({{Baz, BazSym}}), Failed());
+
+  EXPECT_THAT_EXPECTED(JD.getDFSLinkOrder(), Failed());
+
+  BazMR->failMaterialization();
+}
+
+TEST(CoreAPIsExtraTest, SessionTeardownByFailedToMaterialize) {
+
+  auto RunTestCase = []() -> Error {
+    ExecutionSession ES{std::make_unique<UnsupportedExecutorProcessControl>(
+        std::make_shared<SymbolStringPool>())};
+    auto Foo = ES.intern("foo");
+    auto FooFlags = JITSymbolFlags::Exported;
+
+    auto &JD = ES.createBareJITDylib("Foo");
+    cantFail(JD.define(std::make_unique<SimpleMaterializationUnit>(
+        SymbolFlagsMap({{Foo, FooFlags}}),
+        [&](std::unique_ptr<MaterializationResponsibility> R) {
+          R->failMaterialization();
+        })));
+
+    auto Sym = ES.lookup({&JD}, Foo);
+    assert(!Sym && "Query should have failed");
+    cantFail(ES.endSession());
+    return Sym.takeError();
+  };
+
+  auto Err = RunTestCase();
+  EXPECT_TRUE(!!Err); // Expect that error occurred.
+  EXPECT_TRUE(
+      Err.isA<FailedToMaterialize>()); // Expect FailedToMaterialize error.
+
+  // Make sure that we can log errors, even though the session has been
+  // destroyed.
+  logAllUnhandledErrors(std::move(Err), nulls(), "");
 }
 
 } // namespace

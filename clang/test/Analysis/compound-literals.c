@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -triple=i386-apple-darwin10 -verify %s -analyze \
+// RUN: %clang_analyze_cc1 -triple=i386-apple-darwin10 -verify %s \
 // RUN:   -analyzer-checker=debug.ExprInspection
 
 #define NULL 0
@@ -11,7 +11,7 @@ void foo(void) {
 }
 
 // check that we propagate info through compound literal regions
-void bar() {
+void bar(void) {
   int *integers = (int[]){1, 2, 3};
   clang_analyzer_eval(integers[0] == 1); // expected-warning{{TRUE}}
   clang_analyzer_eval(integers[1] == 2); // expected-warning{{TRUE}}

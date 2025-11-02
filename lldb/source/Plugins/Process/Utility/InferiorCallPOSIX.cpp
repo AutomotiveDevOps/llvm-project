@@ -8,17 +8,17 @@
 
 #include "InferiorCallPOSIX.h"
 #include "lldb/Core/Address.h"
-#include "lldb/Core/StreamFile.h"
-#include "lldb/Core/ValueObject.h"
+#include "lldb/Core/Module.h"
 #include "lldb/Expression/DiagnosticManager.h"
 #include "lldb/Host/Config.h"
-#include "lldb/Symbol/TypeSystem.h"
 #include "lldb/Symbol/SymbolContext.h"
+#include "lldb/Symbol/TypeSystem.h"
 #include "lldb/Target/ExecutionContext.h"
 #include "lldb/Target/Platform.h"
 #include "lldb/Target/Process.h"
 #include "lldb/Target/Target.h"
 #include "lldb/Target/ThreadPlanCallFunction.h"
+#include "lldb/ValueObject/ValueObject.h"
 
 #if LLDB_ENABLE_POSIX
 #include <sys/mman.h>
@@ -41,19 +41,17 @@ bool lldb_private::InferiorCallMmap(Process *process, addr_t &allocated_addr,
   if (thread == nullptr)
     return false;
 
-  const bool include_symbols = true;
-  const bool include_inlines = false;
+  ModuleFunctionSearchOptions function_options;
+  function_options.include_symbols = true;
+  function_options.include_inlines = false;
+
   SymbolContextList sc_list;
   process->GetTarget().GetImages().FindFunctions(
-      ConstString("mmap"), eFunctionNameTypeFull, include_symbols,
-      include_inlines, sc_list);
+      ConstString("mmap"), eFunctionNameTypeFull, function_options, sc_list);
   const uint32_t count = sc_list.GetSize();
   if (count > 0) {
     SymbolContext sc;
     if (sc_list.GetContextAtIndex(0, sc)) {
-      const uint32_t range_scope =
-          eSymbolContextFunction | eSymbolContextSymbol;
-      const bool use_inline_block_range = false;
       EvaluateExpressionOptions options;
       options.SetStopOthers(true);
       options.SetUnwindOnError(true);
@@ -76,9 +74,8 @@ bool lldb_private::InferiorCallMmap(Process *process, addr_t &allocated_addr,
           prot_arg |= PROT_WRITE;
       }
 
-      AddressRange mmap_range;
-      if (sc.GetAddressRange(range_scope, 0, use_inline_block_range,
-                             mmap_range)) {
+      Address mmap_addr = sc.GetFunctionOrSymbolAddress();
+      if (mmap_addr.IsValid()) {
         auto type_system_or_err =
             process->GetTarget().GetScratchTypeSystemForLanguage(
                 eLanguageTypeC);
@@ -86,16 +83,17 @@ bool lldb_private::InferiorCallMmap(Process *process, addr_t &allocated_addr,
           llvm::consumeError(type_system_or_err.takeError());
           return false;
         }
+        auto ts = *type_system_or_err;
+        if (!ts)
+          return false;
         CompilerType void_ptr_type =
-            type_system_or_err->GetBasicTypeFromAST(eBasicTypeVoid)
-                .GetPointerType();
+            ts->GetBasicTypeFromAST(eBasicTypeVoid).GetPointerType();
         const ArchSpec arch = process->GetTarget().GetArchitecture();
         MmapArgList args =
             process->GetTarget().GetPlatform()->GetMmapArgumentList(
                 arch, addr, length, prot_arg, flags, fd, offset);
-        lldb::ThreadPlanSP call_plan_sp(
-            new ThreadPlanCallFunction(*thread, mmap_range.GetBaseAddress(),
-                                       void_ptr_type, args, options));
+        lldb::ThreadPlanSP call_plan_sp(new ThreadPlanCallFunction(
+            *thread, mmap_addr, void_ptr_type, args, options));
         if (call_plan_sp) {
           DiagnosticManager diagnostics;
 
@@ -135,19 +133,17 @@ bool lldb_private::InferiorCallMunmap(Process *process, addr_t addr,
   if (thread == nullptr)
     return false;
 
-  const bool include_symbols = true;
-  const bool include_inlines = false;
+  ModuleFunctionSearchOptions function_options;
+  function_options.include_symbols = true;
+  function_options.include_inlines = false;
+
   SymbolContextList sc_list;
   process->GetTarget().GetImages().FindFunctions(
-      ConstString("munmap"), eFunctionNameTypeFull, include_symbols,
-      include_inlines, sc_list);
+      ConstString("munmap"), eFunctionNameTypeFull, function_options, sc_list);
   const uint32_t count = sc_list.GetSize();
   if (count > 0) {
     SymbolContext sc;
     if (sc_list.GetContextAtIndex(0, sc)) {
-      const uint32_t range_scope =
-          eSymbolContextFunction | eSymbolContextSymbol;
-      const bool use_inline_block_range = false;
       EvaluateExpressionOptions options;
       options.SetStopOthers(true);
       options.SetUnwindOnError(true);
@@ -157,13 +153,11 @@ bool lldb_private::InferiorCallMunmap(Process *process, addr_t addr,
       options.SetTimeout(process->GetUtilityExpressionTimeout());
       options.SetTrapExceptions(false);
 
-      AddressRange munmap_range;
-      if (sc.GetAddressRange(range_scope, 0, use_inline_block_range,
-                             munmap_range)) {
+      Address munmap_addr = sc.GetFunctionOrSymbolAddress();
+      if (munmap_addr.IsValid()) {
         lldb::addr_t args[] = {addr, length};
-        lldb::ThreadPlanSP call_plan_sp(
-            new ThreadPlanCallFunction(*thread, munmap_range.GetBaseAddress(),
-                                       CompilerType(), args, options));
+        lldb::ThreadPlanSP call_plan_sp(new ThreadPlanCallFunction(
+            *thread, munmap_addr, CompilerType(), args, options));
         if (call_plan_sp) {
           DiagnosticManager diagnostics;
 

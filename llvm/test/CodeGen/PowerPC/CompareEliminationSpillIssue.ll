@@ -9,13 +9,19 @@
 ; RUN: llc -verify-machineinstrs -mtriple=powerpc64le-unknown-linux-gnu -O2 \
 ; RUN:   -ppc-gpr-icmps=all -ppc-asm-full-reg-names -mcpu=pwr8 < %s | FileCheck %s \
 ; RUN:  --implicit-check-not cmpw --implicit-check-not cmpd --implicit-check-not cmpl
+; RUN: llc -verify-machineinstrs -mtriple=powerpc64-unknown-linux-gnu -O2 \
+; RUN:     -ppc-asm-full-reg-names -mcpu=pwr10 < %s | \
+; RUN:     FileCheck %s --check-prefix=CHECK-P10
+; RUN: llc -verify-machineinstrs -mtriple=powerpc64le-unknown-linux-gnu -O2 \
+; RUN:     -ppc-asm-full-reg-names -mcpu=pwr10 < %s | \
+; RUN:     FileCheck %s --check-prefix=CHECK-P10
 @glob = local_unnamed_addr global i64 0, align 8
 @.str = private unnamed_addr constant [12 x i8] c"Value = %d\0A\00", align 1
 
 ; Function Attrs: noinline nounwind
 define void @call(i64 %a) local_unnamed_addr #0 {
 entry:
-  store i64 %a, i64* @glob, align 8
+  store i64 %a, ptr @glob, align 8
   tail call void asm sideeffect "#Do Nothing", "~{memory}"()
   ret void
 }
@@ -36,21 +42,30 @@ entry:
 ; CHECK: extsw r3,
 ; CHECK: bl call
 ; CHECK: sub r3,
-; CHECK: rldicl r3, r3, 1, 63
 ; CHECK: std r3, [[OFF:[0-9]+]](r1)
 ; CHECK: #APP
 ; CHECK: ld r3, [[OFF]](r1)
+; CHECK: rldicl r3, r3, 1, 63
 ; CHECK: xori r3, r3, 1
 ; CHECK: blr
+
+; CHECK-P10-LABEL: test
+; CHECK-P10: sub r3,
+; CHECK-P10: extsw r3,
+; CHECK-P10: bl call
+; CHECK-P10: cmpw r29, r30
+; CHECK-P10: #APP
+; CHECK-P10: setbcr r3, gt
+; CHECK-P10: blr
 }
 
 ; Function Attrs: nounwind
 define signext i32 @main() local_unnamed_addr #1 {
 entry:
   %call = tail call signext i32 @test(i32 signext 10, i32 signext -15, i32 signext 0)
-  %call1 = tail call signext i32 (i8*, ...) @printf(i8* getelementptr inbounds ([12 x i8], [12 x i8]* @.str, i64 0, i64 0), i32 signext %call)
+  %call1 = tail call signext i32 (ptr, ...) @printf(ptr @.str, i32 signext %call)
   ret i32 0
 }
 
 ; Function Attrs: nounwind
-declare signext i32 @printf(i8* nocapture readonly, ...) local_unnamed_addr #2
+declare signext i32 @printf(ptr nocapture readonly, ...) local_unnamed_addr #2

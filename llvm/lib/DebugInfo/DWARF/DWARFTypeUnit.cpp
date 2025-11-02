@@ -8,9 +8,7 @@
 
 #include "llvm/DebugInfo/DWARF/DWARFTypeUnit.h"
 #include "llvm/DebugInfo/DIContext.h"
-#include "llvm/DebugInfo/DWARF/DWARFDebugAbbrev.h"
 #include "llvm/DebugInfo/DWARF/DWARFDie.h"
-#include "llvm/DebugInfo/DWARF/DWARFUnit.h"
 #include "llvm/Support/Format.h"
 #include "llvm/Support/raw_ostream.h"
 #include <cinttypes>
@@ -32,12 +30,14 @@ void DWARFTypeUnit::dump(raw_ostream &OS, DIDumpOptions DumpOpts) {
 
   OS << format("0x%08" PRIx64, getOffset()) << ": Type Unit:"
      << " length = " << format("0x%0*" PRIx64, OffsetDumpWidth, getLength())
+     << ", format = " << dwarf::FormatString(getFormat())
      << ", version = " << format("0x%04x", getVersion());
   if (getVersion() >= 5)
     OS << ", unit_type = " << dwarf::UnitTypeString(getUnitType());
-  OS << ", abbr_offset = "
-     << format("0x%04" PRIx64, getAbbreviations()->getOffset())
-     << ", addr_size = " << format("0x%02x", getAddressByteSize())
+  OS << ", abbr_offset = " << format("0x%04" PRIx64, getAbbrOffset());
+  if (!getAbbreviations())
+    OS << " (invalid)";
+  OS << ", addr_size = " << format("0x%02x", getAddressByteSize())
      << ", name = '" << Name << "'"
      << ", type_signature = " << format("0x%016" PRIx64, getTypeHash())
      << ", type_offset = " << format("0x%04" PRIx64, getTypeOffset())

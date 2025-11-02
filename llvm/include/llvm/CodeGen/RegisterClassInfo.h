@@ -20,8 +20,8 @@
 #include "llvm/ADT/BitVector.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/CodeGen/TargetRegisterInfo.h"
-#include "llvm/MC/MCRegisterInfo.h"
-#include <cassert>
+#include "llvm/MC/MCRegister.h"
+#include "llvm/Support/Compiler.h"
 #include <cstdint>
 #include <memory>
 
@@ -39,7 +39,7 @@ class RegisterClassInfo {
     RCInfo() = default;
 
     operator ArrayRef<MCPhysReg>() const {
-      return makeArrayRef(Order.get(), NumRegs);
+      return ArrayRef(Order.get(), NumRegs);
     }
   };
 
@@ -50,24 +50,32 @@ class RegisterClassInfo {
   // entry is valid when its tag matches.
   unsigned Tag = 0;
 
+  bool Reverse = false;
+
   const MachineFunction *MF = nullptr;
   const TargetRegisterInfo *TRI = nullptr;
 
-  // Callee saved registers of last MF. Assumed to be valid until the next
-  // runOnFunction() call.
-  // Used only to determine if an update was made to CalleeSavedAliases.
-  const MCPhysReg *CalleeSavedRegs = nullptr;
+  // Callee saved registers of last MF.
+  // Used only to determine if an update for CalleeSavedAliases is necessary.
+  SmallVector<MCPhysReg, 16> LastCalleeSavedRegs;
 
-  // Map register alias to the callee saved Register.
-  SmallVector<MCPhysReg, 4> CalleeSavedAliases;
+  // Map regunit to the callee saved Register.
+  SmallVector<MCPhysReg> CalleeSavedAliases;
+
+  // Indicate if a specified callee saved register be in the allocation order
+  // exactly as written in the tablegen descriptions or listed later.
+  BitVector IgnoreCSRForAllocOrder;
 
   // Reserved registers in the current MF.
   BitVector Reserved;
 
   std::unique_ptr<unsigned[]> PSetLimits;
 
+  // The register cost values.
+  ArrayRef<uint8_t> RegCosts;
+
   // Compute all information about RC.
-  void compute(const TargetRegisterClass *RC) const;
+  LLVM_ABI void compute(const TargetRegisterClass *RC) const;
 
   // Return an up-to-date RCInfo for RC.
   const RCInfo &get(const TargetRegisterClass *RC) const {
@@ -78,11 +86,13 @@ class RegisterClassInfo {
   }
 
 public:
-  RegisterClassInfo();
+  LLVM_ABI RegisterClassInfo();
 
-  /// runOnFunction - Prepare to answer questions about MF. This must be called
+  /// runOnFunction - Prepare to answer questions about MF. Rev indicates to
+  /// use reversed raw order when compute register order. This must be called
   /// before any other methods are used.
-  void runOnMachineFunction(const MachineFunction &MF);
+  LLVM_ABI void runOnMachineFunction(const MachineFunction &MF,
+                                     bool Rev = false);
 
   /// getNumAllocatableRegs - Returns the number of actually allocatable
   /// registers in RC in the current function.
@@ -108,26 +118,30 @@ public:
   }
 
   /// getLastCalleeSavedAlias - Returns the last callee saved register that
-  /// overlaps PhysReg, or 0 if Reg doesn't overlap a CalleeSavedAliases.
-  unsigned getLastCalleeSavedAlias(unsigned PhysReg) const {
-    assert(Register::isPhysicalRegister(PhysReg));
-    if (PhysReg < CalleeSavedAliases.size())
-      return CalleeSavedAliases[PhysReg];
-    return 0;
+  /// overlaps PhysReg, or NoRegister if PhysReg doesn't overlap a
+  /// CalleeSavedAliases.
+  MCRegister getLastCalleeSavedAlias(MCRegister PhysReg) const {
+    MCRegister CSR;
+    for (MCRegUnit Unit : TRI->regunits(PhysReg)) {
+      CSR = CalleeSavedAliases[Unit];
+      if (CSR)
+        break;
+    }
+    return CSR;
   }
 
   /// Get the minimum register cost in RC's allocation order.
-  /// This is the smallest value returned by TRI->getCostPerUse(Reg) for all
+  /// This is the smallest value in RegCosts[Reg] for all
   /// the registers in getOrder(RC).
-  unsigned getMinCost(const TargetRegisterClass *RC) {
+  uint8_t getMinCost(const TargetRegisterClass *RC) const {
     return get(RC).MinCost;
   }
 
   /// Get the position of the last cost change in getOrder(RC).
   ///
   /// All registers in getOrder(RC).slice(getLastCostChange(RC)) will have the
-  /// same cost according to TRI->getCostPerUse().
-  unsigned getLastCostChange(const TargetRegisterClass *RC) {
+  /// same cost according to RegCosts[Reg].
+  unsigned getLastCostChange(const TargetRegisterClass *RC) const {
     return get(RC).LastCostChange;
   }
 
@@ -141,7 +155,7 @@ public:
   }
 
 protected:
-  unsigned computePSetLimit(unsigned Idx) const;
+  LLVM_ABI unsigned computePSetLimit(unsigned Idx) const;
 };
 
 } // end namespace llvm

@@ -19,7 +19,7 @@ extern id get();
 extern bool condition();
 #define nil ((id)0)
 
-void sanity(Test *a) {
+void basicCorrectnessTest(Test *a) {
   use(a.weakProp); // expected-warning{{weak property 'weakProp' is accessed multiple times in this function but may be unpredictably set to nil; assign to a strong variable to keep the object alive}}
   use(a.weakProp); // expected-note{{also accessed here}}
 
@@ -290,12 +290,24 @@ void doWhileLoop(Test *a) {
   } while(0);
 }
 
+struct S {
+  int a;
+  id b;
+};
+
+@interface C
+@property S p;
+@end
+
+void test_list_init(C *c) {
+  c.p = {0, c.p.b};
+}
 
 @interface Test (Methods)
 @end
 
 @implementation Test (Methods)
-- (void)sanity {
+- (void)basicCorrectnessTest {
   use(self.weakProp); // expected-warning{{weak property 'weakProp' is accessed multiple times in this method but may be unpredictably set to nil; assign to a strong variable to keep the object alive}}
   use(self.weakProp); // expected-note{{also accessed here}}
 }
@@ -411,7 +423,6 @@ void doubleLevelAccessIvar(Test *a, Test *b) {
   use(a.strongProp.weakProp); // no-warning
 }
 
-// rdar://13942025
 @interface X
 @end
 
@@ -426,7 +437,6 @@ void doubleLevelAccessIvar(Test *a, Test *b) {
 }
 @end
 
-// rdar://19053620
 @interface NSNull
 + (NSNull *)null;
 @end
@@ -485,3 +495,17 @@ void foo1() {
 
 @class NSString;
 static NSString* const kGlobal = @"";
+
+@interface NSDictionary
+- (id)objectForKeyedSubscript:(id)key;
+@end
+
+@interface WeakProp
+@property (weak) NSDictionary *nd;
+@end
+
+@implementation WeakProp
+-(void)m {
+  (void)self.nd[@""]; // no warning
+}
+@end

@@ -32,9 +32,9 @@ std::string lld::relativeToRoot(StringRef path) {
   // of the result.
   SmallString<128> res;
   StringRef root = path::root_name(abs);
-  if (root.endswith(":"))
+  if (root.ends_with(":"))
     res = root.drop_back();
-  else if (root.startswith("//"))
+  else if (root.starts_with("//"))
     res = root.substr(2);
 
   path::append(res, path::relative_path(abs));
@@ -54,7 +54,12 @@ std::string lld::toString(const opt::Arg &arg) {
   std::string k = std::string(arg.getSpelling());
   if (arg.getNumValues() == 0)
     return k;
-  std::string v = quote(arg.getValue());
+  std::string v;
+  for (size_t i = 0; i < arg.getNumValues(); ++i) {
+    if (i > 0)
+      v.push_back(' ');
+    v += quote(arg.getValue(i));
+  }
   if (arg.getOption().getRenderStyle() == opt::Option::RenderJoinedStyle)
     return k + v;
   return k + " " + v;

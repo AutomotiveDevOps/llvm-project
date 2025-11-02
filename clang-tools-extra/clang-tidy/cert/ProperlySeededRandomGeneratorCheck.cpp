@@ -1,4 +1,4 @@
-//===--- ProperlySeededRandomGeneratorCheck.cpp - clang-tidy---------------===//
+//===----------------------------------------------------------------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -13,16 +13,14 @@
 
 using namespace clang::ast_matchers;
 
-namespace clang {
-namespace tidy {
-namespace cert {
+namespace clang::tidy::cert {
 
 ProperlySeededRandomGeneratorCheck::ProperlySeededRandomGeneratorCheck(
     StringRef Name, ClangTidyContext *Context)
     : ClangTidyCheck(Name, Context),
       RawDisallowedSeedTypes(
           Options.get("DisallowedSeedTypes", "time_t,std::time_t")) {
-  StringRef(RawDisallowedSeedTypes).split(DisallowedSeedTypes, ',');
+  RawDisallowedSeedTypes.split(DisallowedSeedTypes, ',');
 }
 
 void ProperlySeededRandomGeneratorCheck::storeOptions(
@@ -62,7 +60,7 @@ void ProperlySeededRandomGeneratorCheck::registerMatchers(MatchFinder *Finder) {
   // std::mt19937 engine(x);
   //              ^
   Finder->addMatcher(
-      traverse(ast_type_traits::TK_AsIs,
+      traverse(TK_AsIs,
                cxxConstructExpr(RandomGeneratorEngineTypeMatcher).bind("ctor")),
       this);
 
@@ -112,7 +110,7 @@ void ProperlySeededRandomGeneratorCheck::checkSeed(
 
   const std::string SeedType(
       Func->getArg(0)->IgnoreCasts()->getType().getAsString());
-  if (llvm::find(DisallowedSeedTypes, SeedType) != DisallowedSeedTypes.end()) {
+  if (llvm::is_contained(DisallowedSeedTypes, SeedType)) {
     diag(Func->getExprLoc(),
          "random number generator seeded with a disallowed source of seed "
          "value will generate a predictable sequence of values");
@@ -120,6 +118,4 @@ void ProperlySeededRandomGeneratorCheck::checkSeed(
   }
 }
 
-} // namespace cert
-} // namespace tidy
-} // namespace clang
+} // namespace clang::tidy::cert

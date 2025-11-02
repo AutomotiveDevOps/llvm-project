@@ -3,19 +3,19 @@
 
 %struct.Dtor = type { i8 }
 
-define void @simple_cleanup() #0 personality i8* bitcast (i32 (...)* @__CxxFrameHandler3 to i8*) {
+define void @simple_cleanup() #0 personality ptr @__CxxFrameHandler3 {
 entry:
   %o = alloca %struct.Dtor, align 1
   invoke void @f(i32 1)
           to label %invoke.cont unwind label %ehcleanup
 
 invoke.cont:                                      ; preds = %entry
-  call x86_thiscallcc void @"\01??1Dtor@@QAE@XZ"(%struct.Dtor* %o) #2
+  call x86_thiscallcc void @"\01??1Dtor@@QAE@XZ"(ptr %o) #2
   ret void
 
 ehcleanup:                                        ; preds = %entry
   %0 = cleanuppad within none []
-  call x86_thiscallcc void @"\01??1Dtor@@QAE@XZ"(%struct.Dtor* %o) #2 [ "funclet"(token %0) ]
+  call x86_thiscallcc void @"\01??1Dtor@@QAE@XZ"(ptr %o) #2 [ "funclet"(token %0) ]
   cleanupret from %0 unwind to caller
 }
 
@@ -39,11 +39,11 @@ ehcleanup:                                        ; preds = %entry
 ; CHECK: $cppxdata$simple_cleanup:
 ; CHECK-NEXT:         .long   429065506
 ; CHECK-NEXT:         .long   1
-; CHECK-NEXT:         .long   ($stateUnwindMap$simple_cleanup)@IMGREL
+; CHECK-NEXT:         .long   $stateUnwindMap$simple_cleanup@IMGREL
 ; CHECK-NEXT:         .long   0
 ; CHECK-NEXT:         .long   0
 ; CHECK-NEXT:         .long   3
-; CHECK-NEXT:         .long   ($ip2state$simple_cleanup)@IMGREL
+; CHECK-NEXT:         .long   $ip2state$simple_cleanup@IMGREL
 ; UnwindHelp offset should match the -2 store above
 ; CHECK-NEXT:         .long   40
 ; CHECK-NEXT:         .long   0
@@ -54,12 +54,12 @@ declare void @f(i32) #0
 declare i32 @__CxxFrameHandler3(...)
 
 ; Function Attrs: nounwind
-declare x86_thiscallcc void @"\01??1Dtor@@QAE@XZ"(%struct.Dtor*) #1
+declare x86_thiscallcc void @"\01??1Dtor@@QAE@XZ"(ptr) #1
 
-define void @nested_cleanup() #0 personality i8* bitcast (i32 (...)* @__CxxFrameHandler3 to i8*) {
+define void @nested_cleanup() #0 personality ptr @__CxxFrameHandler3 {
 entry:
-  %o1 = alloca %struct.Dtor, align 1
-  %o2 = alloca %struct.Dtor, align 1
+  %o1 = alloca %struct.Dtor, align 8
+  %o2 = alloca %struct.Dtor, align 8
   invoke void @f(i32 1)
           to label %invoke.cont unwind label %cleanup.outer
 
@@ -68,22 +68,22 @@ invoke.cont:                                      ; preds = %entry
           to label %invoke.cont.1 unwind label %cleanup.inner
 
 invoke.cont.1:                                    ; preds = %invoke.cont
-  call x86_thiscallcc void @"\01??1Dtor@@QAE@XZ"(%struct.Dtor* %o2) #2
+  call x86_thiscallcc void @"\01??1Dtor@@QAE@XZ"(ptr %o2) #2
   invoke void @f(i32 3)
           to label %invoke.cont.2 unwind label %cleanup.outer
 
 invoke.cont.2:                                    ; preds = %invoke.cont.1
-  call x86_thiscallcc void @"\01??1Dtor@@QAE@XZ"(%struct.Dtor* %o1) #2
+  call x86_thiscallcc void @"\01??1Dtor@@QAE@XZ"(ptr %o1) #2
   ret void
 
 cleanup.inner:                                        ; preds = %invoke.cont
   %0 = cleanuppad within none []
-  call x86_thiscallcc void @"\01??1Dtor@@QAE@XZ"(%struct.Dtor* %o2) #2 [ "funclet"(token %0) ]
+  call x86_thiscallcc void @"\01??1Dtor@@QAE@XZ"(ptr %o2) #2 [ "funclet"(token %0) ]
   cleanupret from %0 unwind label %cleanup.outer
 
 cleanup.outer:                                      ; preds = %invoke.cont.1, %cleanup.inner, %entry
   %1 = cleanuppad within none []
-  call x86_thiscallcc void @"\01??1Dtor@@QAE@XZ"(%struct.Dtor* %o1) #2 [ "funclet"(token %1) ]
+  call x86_thiscallcc void @"\01??1Dtor@@QAE@XZ"(ptr %o1) #2 [ "funclet"(token %1) ]
   cleanupret from %1 unwind to caller
 }
 
@@ -114,7 +114,7 @@ cleanup.outer:                                      ; preds = %invoke.cont.1, %c
 ; X86: L__ehtable$nested_cleanup:
 ; X86:         .long   429065506
 ; X86:         .long   2
-; X86:         .long   ($stateUnwindMap$nested_cleanup)
+; X86:         .long   $stateUnwindMap$nested_cleanup
 ; X86:         .long   0
 ; X86:         .long   0
 ; X86:         .long   0
@@ -167,11 +167,11 @@ cleanup.outer:                                      ; preds = %invoke.cont.1, %c
 ; X64: $cppxdata$nested_cleanup:
 ; X64-NEXT: .long   429065506
 ; X64-NEXT: .long   2
-; X64-NEXT: .long   ($stateUnwindMap$nested_cleanup)@IMGREL
+; X64-NEXT: .long   $stateUnwindMap$nested_cleanup@IMGREL
 ; X64-NEXT: .long   0
 ; X64-NEXT: .long   0
 ; X64-NEXT: .long   5
-; X64-NEXT: .long   ($ip2state$nested_cleanup)@IMGREL
+; X64-NEXT: .long   $ip2state$nested_cleanup@IMGREL
 ; X64-NEXT: .long   56
 ; X64-NEXT: .long   0
 ; X64-NEXT: .long   1
@@ -191,9 +191,9 @@ cleanup.outer:                                      ; preds = %invoke.cont.1, %c
 ; X64-NEXT: .long   1
 ; X64-NEXT: .long   .Ltmp6@IMGREL
 ; X64-NEXT: .long   0
-; X64-NEXT: .long   .Ltmp7@IMGREL+1
+; X64-NEXT: .long   .Ltmp7@IMGREL
 ; X64-NEXT: .long   -1
 
-attributes #0 = { "disable-tail-calls"="false" "less-precise-fpmad"="false" "frame-pointer"="none" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-realign-stack" "stack-protector-buffer-size"="8" "unsafe-fp-math"="false" "use-soft-float"="false" }
-attributes #1 = { nounwind "disable-tail-calls"="false" "less-precise-fpmad"="false" "frame-pointer"="none" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-realign-stack" "stack-protector-buffer-size"="8" "unsafe-fp-math"="false" "use-soft-float"="false" }
+attributes #0 = { "disable-tail-calls"="false" "less-precise-fpmad"="false" "frame-pointer"="none" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-realign-stack" "stack-protector-buffer-size"="8" "use-soft-float"="false" }
+attributes #1 = { nounwind "disable-tail-calls"="false" "less-precise-fpmad"="false" "frame-pointer"="none" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-realign-stack" "stack-protector-buffer-size"="8" "use-soft-float"="false" }
 attributes #2 = { nounwind }

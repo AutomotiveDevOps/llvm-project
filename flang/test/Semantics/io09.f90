@@ -1,8 +1,8 @@
-! RUN: %S/test_errors.sh %s %t %f18
-  !ERROR: String edit descriptor in READ format expression
+! RUN: %python %S/test_errors.py %s %flang_fc1 -pedantic
+  !WARNING: String edit descriptor in READ format expression
   read(*,'("abc")')
 
-  !ERROR: String edit descriptor in READ format expression
+  !ERROR: Unterminated string
   !ERROR: Unterminated format expression
   read(*,'("abc)')
 

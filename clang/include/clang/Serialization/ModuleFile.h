@@ -15,11 +15,13 @@
 #define LLVM_CLANG_SERIALIZATION_MODULEFILE_H
 
 #include "clang/Basic/FileManager.h"
+#include "clang/Basic/LLVM.h"
 #include "clang/Basic/Module.h"
 #include "clang/Basic/SourceLocation.h"
 #include "clang/Serialization/ASTBitCodes.h"
 #include "clang/Serialization/ContinuousRangeMap.h"
 #include "clang/Serialization/ModuleFileExtension.h"
+#include "llvm/ADT/BitVector.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/PointerIntPair.h"
 #include "llvm/ADT/SetVector.h"
@@ -58,6 +60,24 @@ enum ModuleKind {
   MK_PrebuiltModule
 };
 
+/// The input file info that has been loaded from an AST file.
+struct InputFileInfo {
+  StringRef UnresolvedImportedFilenameAsRequested;
+  StringRef UnresolvedImportedFilename;
+
+  uint64_t ContentHash;
+  off_t StoredSize;
+  time_t StoredTime;
+  bool Overridden;
+  bool Transient;
+  bool TopLevel;
+  bool ModuleMap;
+
+  bool isValid() const {
+    return !UnresolvedImportedFilenameAsRequested.empty();
+  }
+};
+
 /// The input file that has been loaded from this AST file, along with
 /// bools indicating whether this was an overridden buffer or if it was
 /// out-of-date or not-found.
@@ -67,21 +87,21 @@ class InputFile {
     OutOfDate = 2,
     NotFound = 3
   };
-  llvm::PointerIntPair<const FileEntry *, 2, unsigned> Val;
+  llvm::PointerIntPair<const FileEntryRef::MapEntry *, 2, unsigned> Val;
 
 public:
   InputFile() = default;
 
-  InputFile(const FileEntry *File,
-            bool isOverridden = false, bool isOutOfDate = false) {
-    assert(!(isOverridden && isOutOfDate) &&
-           "an overridden cannot be out-of-date");
+  InputFile(FileEntryRef File, bool isOverridden = false,
+            bool isOutOfDate = false) {
     unsigned intVal = 0;
-    if (isOverridden)
-      intVal = Overridden;
-    else if (isOutOfDate)
+    // Make isOutOfDate with higher priority than isOverridden.
+    // It is possible if the recorded hash value mismatches.
+    if (isOutOfDate)
       intVal = OutOfDate;
-    Val.setPointerAndInt(File, intVal);
+    else if (isOverridden)
+      intVal = Overridden;
+    Val.setPointerAndInt(&File.getMapEntry(), intVal);
   }
 
   static InputFile getNotFound() {
@@ -90,7 +110,11 @@ public:
     return File;
   }
 
-  const FileEntry *getFile() const { return Val.getPointer(); }
+  OptionalFileEntryRef getFile() const {
+    if (auto *P = Val.getPointer())
+      return FileEntryRef(*P);
+    return std::nullopt;
+  }
   bool isOverridden() const { return Val.getInt() == Overridden; }
   bool isOutOfDate() const { return Val.getInt() == OutOfDate; }
   bool isNotFound() const { return Val.getInt() == NotFound; }
@@ -105,8 +129,8 @@ public:
 /// other modules.
 class ModuleFile {
 public:
-  ModuleFile(ModuleKind Kind, unsigned Generation)
-      : Kind(Kind), Generation(Generation) {}
+  ModuleFile(ModuleKind Kind, FileEntryRef File, unsigned Generation)
+      : Kind(Kind), File(File), Generation(Generation) {}
   ~ModuleFile();
 
   // === General information ===
@@ -126,8 +150,8 @@ public:
   /// The base directory of the module.
   std::string BaseDirectory;
 
-  std::string getTimestampFilename() const {
-    return FileName + ".timestamp";
+  static std::string getTimestampFilename(StringRef FileName) {
+    return (FileName + ".timestamp").str();
   }
 
   /// The original source file name that was used to build the
@@ -143,30 +167,36 @@ public:
   /// build this AST file.
   FileID OriginalSourceFileID;
 
-  /// The directory that the PCH was originally created in. Used to
-  /// allow resolving headers even after headers+PCH was moved to a new path.
-  std::string OriginalDir;
-
   std::string ModuleMapPath;
 
   /// Whether this precompiled header is a relocatable PCH file.
   bool RelocatablePCH = false;
 
+  /// Whether this module file is a standard C++ module.
+  bool StandardCXXModule = false;
+
   /// Whether timestamps are included in this module file.
   bool HasTimestamps = false;
-
-  /// Whether the PCH has a corresponding object file.
-  bool PCHHasObjectFile = false;
 
   /// Whether the top-level module has been read from the AST file.
   bool DidReadTopLevelSubmodule = false;
 
   /// The file entry for the module file.
-  const FileEntry *File = nullptr;
+  FileEntryRef File;
 
   /// The signature of the module file, which may be used instead of the size
   /// and modification time to identify this particular file.
   ASTFileSignature Signature;
+
+  /// The signature of the AST block of the module file, this can be used to
+  /// unique module files based on AST contents.
+  ASTFileSignature ASTBlockHash;
+
+  /// The bit vector denoting usage of each header search entry (true = used).
+  llvm::BitVector SearchPathUsage;
+
+  /// The bit vector denoting usage of each VFS entry (true = used).
+  llvm::BitVector VFSUsage;
 
   /// Whether this module has been directly imported by the
   /// user.
@@ -177,13 +207,16 @@ public:
 
   /// The memory buffer that stores the data associated with
   /// this AST file, owned by the InMemoryModuleCache.
-  llvm::MemoryBuffer *Buffer;
+  llvm::MemoryBuffer *Buffer = nullptr;
 
   /// The size of this file, in bits.
   uint64_t SizeInBits = 0;
 
   /// The global bit offset (or base) of this module
   uint64_t GlobalBitOffset = 0;
+
+  /// The bit offset of the AST block of this module.
+  uint64_t ASTBlockStartOffset = 0;
 
   /// The serialized bitstream data for this file.
   StringRef Data;
@@ -221,11 +254,17 @@ public:
   /// The cursor to the start of the input-files block.
   llvm::BitstreamCursor InputFilesCursor;
 
-  /// Offsets for all of the input file entries in the AST file.
+  /// Absolute offset of the start of the input-files block.
+  uint64_t InputFilesOffsetBase = 0;
+
+  /// Relative offsets for all of the input file entries in the AST file.
   const llvm::support::unaligned_uint64_t *InputFileOffsets = nullptr;
 
   /// The input files that have been loaded from this AST file.
   std::vector<InputFile> InputFilesLoaded;
+
+  /// The input file infos that have been loaded from this AST file.
+  std::vector<InputFileInfo> InputFileInfosLoaded;
 
   // All user input files reside at the index range [0, NumUserInputFiles), and
   // system input files reside at [NumUserInputFiles, InputFilesLoaded.size()).
@@ -242,6 +281,9 @@ public:
   /// Cursor used to read source location entries.
   llvm::BitstreamCursor SLocEntryCursor;
 
+  /// The bit offset to the start of the SOURCE_MANAGER_BLOCK.
+  uint64_t SourceManagerBlockStartOffset = 0;
+
   /// The number of source location entries in this AST file.
   unsigned LocalNumSLocEntries = 0;
 
@@ -249,7 +291,7 @@ public:
   int SLocEntryBaseID = 0;
 
   /// The base offset in the source manager's view of this module.
-  unsigned SLocEntryBaseOffset = 0;
+  SourceLocation::UIntTy SLocEntryBaseOffset = 0;
 
   /// Base file offset for the offsets in SLocEntryOffsets. Real file offset
   /// for the entry is SLocEntryOffsetsBase + SLocEntryOffsets[i].
@@ -258,12 +300,6 @@ public:
   /// Offsets for all of the source location entries in the
   /// AST file.
   const uint32_t *SLocEntryOffsets = nullptr;
-
-  /// SLocEntries that we're going to preload.
-  SmallVector<uint64_t, 4> PreloadSLocEntries;
-
-  /// Remapping table for source locations in this module.
-  ContinuousRangeMap<uint32_t, int, 2> SLocRemap;
 
   // === Identifiers ===
 
@@ -278,16 +314,13 @@ public:
   const uint32_t *IdentifierOffsets = nullptr;
 
   /// Base identifier ID for identifiers local to this module.
-  serialization::IdentID BaseIdentifierID = 0;
-
-  /// Remapping table for identifier IDs in this module.
-  ContinuousRangeMap<uint32_t, int, 2> IdentifierRemap;
+  serialization::IdentifierID BaseIdentifierID = 0;
 
   /// Actual data for the on-disk hash table of identifiers.
   ///
   /// This pointer points into a memory buffer, where the on-disk hash
   /// table for identifiers actually lives.
-  const char *IdentifierTableData = nullptr;
+  const unsigned char *IdentifierTableData = nullptr;
 
   /// A pointer to an on-disk hash table of opaque type
   /// IdentifierHashTable.
@@ -409,10 +442,13 @@ public:
 
   // === Declarations ===
 
-  /// DeclsCursor - This is a cursor to the start of the DECLS_BLOCK block. It
-  /// has read all the abbreviations at the start of the block and is ready to
-  /// jump around with these in context.
+  /// DeclsCursor - This is a cursor to the start of the DECLTYPES_BLOCK block.
+  /// It has read all the abbreviations at the start of the block and is ready
+  /// to jump around with these in context.
   llvm::BitstreamCursor DeclsCursor;
+
+  /// The offset to the start of the DECLTYPES_BLOCK block.
+  uint64_t DeclsBlockStartOffset = 0;
 
   /// The number of declarations in this AST file.
   unsigned LocalNumDecls = 0;
@@ -421,23 +457,11 @@ public:
   /// by the declaration ID (-1).
   const DeclOffset *DeclOffsets = nullptr;
 
-  /// Base declaration ID for declarations local to this module.
-  serialization::DeclID BaseDeclID = 0;
-
-  /// Remapping table for declaration IDs in this module.
-  ContinuousRangeMap<uint32_t, int, 2> DeclRemap;
-
-  /// Mapping from the module files that this module file depends on
-  /// to the base declaration ID for that module as it is understood within this
-  /// module.
-  ///
-  /// This is effectively a reverse global-to-local mapping for declaration
-  /// IDs, so that we can interpret a true global ID (for this translation unit)
-  /// as a local ID (for this module file).
-  llvm::DenseMap<ModuleFile *, serialization::DeclID> GlobalToLocalDeclIDs;
+  /// Base declaration index in ASTReader for declarations local to this module.
+  unsigned BaseDeclIndex = 0;
 
   /// Array of file-level DeclIDs sorted by file.
-  const serialization::DeclID *FileSortedDecls = nullptr;
+  const serialization::unaligned_decl_id_t *FileSortedDecls = nullptr;
   unsigned NumFileSortedDecls = 0;
 
   /// Array of category list location information within this
@@ -458,14 +482,11 @@ public:
 
   /// Offset of each type within the bitstream, indexed by the
   /// type ID, or the representation of a Type*.
-  const UnderalignedInt64 *TypeOffsets = nullptr;
+  const UnalignedUInt64 *TypeOffsets = nullptr;
 
   /// Base type ID for types local to this module as represented in
   /// the global type ID space.
   serialization::TypeID BaseTypeIndex = 0;
-
-  /// Remapping table for type IDs in this module.
-  ContinuousRangeMap<uint32_t, int, 2> TypeRemap;
 
   // === Miscellaneous ===
 
@@ -475,8 +496,16 @@ public:
   /// List of modules which depend on this module
   llvm::SetVector<ModuleFile *> ImportedBy;
 
-  /// List of modules which this module depends on
+  /// List of modules which this module directly imported
   llvm::SetVector<ModuleFile *> Imports;
+
+  /// List of modules which this modules dependent on. Different
+  /// from `Imports`, this includes indirectly imported modules too.
+  /// The order of TransitiveImports is significant. It should keep
+  /// the same order with that module file manager when we write
+  /// the current module file. The value of the member will be initialized
+  /// in `ASTReader::ReadModuleOffsetMap`.
+  llvm::SmallVector<ModuleFile *, 16> TransitiveImports;
 
   /// Determine whether this module was directly imported at
   /// any point during translation.

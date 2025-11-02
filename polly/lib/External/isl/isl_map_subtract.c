@@ -235,8 +235,8 @@ static int tab_freeze_constraints(struct isl_tab *tab)
 }
 
 /* Check for redundant constraints starting at offset.
- * Put the indices of the redundant constraints in index
- * and return the number of redundant constraints.
+ * Put the indices of the non-redundant constraints in index
+ * and return the number of non-redundant constraints.
  */
 static int n_non_redundant(isl_ctx *ctx, struct isl_tab *tab,
 	int offset, int **index)
@@ -585,7 +585,8 @@ error:
 	return NULL;
 }
 
-struct isl_set *isl_set_subtract(struct isl_set *set1, struct isl_set *set2)
+__isl_give isl_set *isl_set_subtract(__isl_take isl_set *set1,
+	__isl_take isl_set *set2)
 {
 	return set_from_map(isl_map_subtract(set_to_map(set1),
 					    set_to_map(set2)));
@@ -642,7 +643,7 @@ error:
 }
 
 /* A diff collector that aborts as soon as its add function is called,
- * setting empty to 0.
+ * setting empty to isl_false.
  */
 struct isl_is_empty_diff_collector {
 	struct isl_diff_collector dc;
