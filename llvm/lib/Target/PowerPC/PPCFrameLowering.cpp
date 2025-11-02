@@ -1660,8 +1660,9 @@ void PPCFrameLowering::emitEpilogue(MachineFunction &MF,
     unsigned RetOpcode = MBBI->getOpcode();
     
     // For interrupt handlers, replace BLR/BLR8 with RFI (Return From Interrupt).
-    // RFI is used for BookE targets; for VLE mode, we would use e_rfi, but
-    // that requires VLE instruction support which may not be fully implemented.
+    // RFI is used for BookE targets (standard PowerPC); for VLE mode, e_rfi
+    // should be used, but it requires VLE instruction support to be fully implemented.
+    // For now, RFI works on all BookE targets including e200 cores.
     if (MF.getFunction().hasFnAttribute("interrupt") &&
         (RetOpcode == PPC::BLR || RetOpcode == PPC::BLR8)) {
       // Erase the BLR instruction.
@@ -1669,11 +1670,19 @@ void PPCFrameLowering::emitEpilogue(MachineFunction &MF,
       
       // Emit RFI instruction instead. RFI requires BookE, which is typical
       // for embedded PowerPC targets that use interrupt handlers.
-      // Note: If the target doesn't support BookE, this will fail at instruction
-      // selection time. For standard PowerPC targets, RFI may not be available,
-      // but interrupt handlers are typically used on embedded BookE targets.
-      // RFI is the same for both 32-bit and 64-bit on BookE.
-      BuildMI(MBB, MBBI, dl, TII.get(PPC::RFI));
+      // For VLE-enabled targets (e200 cores with -mvle), ideally we would emit
+      // e_rfi (VLE return from interrupt), but that requires e_rfi to be defined
+      // in PPCInstrVLE.td. For now, RFI works on all BookE targets.
+      // TODO: Add e_rfi instruction definition and use it when VLE is enabled
+      const PPCSubtarget &Subtarget = MF.getSubtarget<PPCSubtarget>();
+      if (Subtarget.hasVLE()) {
+        // For VLE mode, use RFI for now (e_rfi can be added when VLE instruction
+        // definitions are more complete)
+        BuildMI(MBB, MBBI, dl, TII.get(PPC::RFI));
+      } else {
+        // Standard BookE mode
+        BuildMI(MBB, MBBI, dl, TII.get(PPC::RFI));
+      }
       return;
     }
     
@@ -1841,32 +1850,46 @@ void PPCFrameLowering::determineCalleeSaves(MachineFunction &MF,
   }
 
   // For interrupt handlers, we must save LR, CR, and all used GPRs.
+  // Interrupt handlers must preserve complete processor state, so we need to
+  // save all registers that may be modified, including caller-saved registers.
   if (MF.getFunction().hasFnAttribute("interrupt")) {
-    // Force save LR.
+    // Force save LR (Link Register) - required for interrupt context
     SavedRegs.set(LR);
     FI->setMustSaveLR(true);
 
     // Force save CR (the entire condition register).
+    // Interrupt handlers must save all CR fields (CR0-CR7) to preserve state.
     // On 64-bit SVR4 and AIX, we save CR at SP+8. On 32-bit SVR4, we save
-    // it in the callee-saved area.
+    // it in the callee-saved area. For interrupts, we need to ensure CR spill
+    // slot is allocated if any CR fields are used.
     if (!SavedRegs.test(PPC::CR2) && !SavedRegs.test(PPC::CR3) &&
         !SavedRegs.test(PPC::CR4)) {
-      SavedRegs.set(PPC::CR2);
-      SavedRegs.set(PPC::CR3);
-      SavedRegs.set(PPC::CR4);
-      FI->addMustSaveCR(PPC::CR2);
-      FI->addMustSaveCR(PPC::CR3);
-      FI->addMustSaveCR(PPC::CR4);
+      // Check if any CR fields are used - if so, allocate CR spill slot
+      bool CRUsed = false;
+      for (unsigned CR = PPC::CR0; CR <= PPC::CR7; ++CR) {
+        if (MF.getRegInfo().isPhysRegUsed(CR)) {
+          CRUsed = true;
+          break;
+        }
+      }
+      if (CRUsed) {
+        SavedRegs.set(PPC::CR2);
+        SavedRegs.set(PPC::CR3);
+        SavedRegs.set(PPC::CR4);
+        FI->addMustSaveCR(PPC::CR2);
+        FI->addMustSaveCR(PPC::CR3);
+        FI->addMustSaveCR(PPC::CR4);
 
-      // Create the CR spill slot if it doesn't exist.
-      if (!FI->getCRSpillFrameIndex()) {
-        const uint64_t SpillSize = 4;
-        const int64_t SpillOffset =
-            Subtarget.isPPC64() ? 8 : Subtarget.isAIXABI() ? 4 : -4;
-        int FrameIdx =
-            MFI.CreateFixedObject(SpillSize, SpillOffset,
-                                  /* IsImmutable */ true, /* IsAliased */ false);
-        FI->setCRSpillFrameIndex(FrameIdx);
+        // Create the CR spill slot if it doesn't exist.
+        if (!FI->getCRSpillFrameIndex()) {
+          const uint64_t SpillSize = 4;
+          const int64_t SpillOffset =
+              Subtarget.isPPC64() ? 8 : Subtarget.isAIXABI() ? 4 : -4;
+          int FrameIdx =
+              MFI.CreateFixedObject(SpillSize, SpillOffset,
+                                    /* IsImmutable */ true, /* IsAliased */ false);
+          FI->setCRSpillFrameIndex(FrameIdx);
+        }
       }
     }
 

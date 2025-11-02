@@ -3601,6 +3601,20 @@ SDValue PPCTargetLowering::LowerFormalArguments_32SVR4(
     const SmallVectorImpl<ISD::InputArg> &Ins, const SDLoc &dl,
     SelectionDAG &DAG, SmallVectorImpl<SDValue> &InVals) const {
 
+  MachineFunction &MF = DAG.getMachineFunction();
+  const Function &Func = MF.getFunction();
+  
+  // Validate interrupt handler attributes
+  if (Func.hasFnAttribute("interrupt")) {
+    // Interrupt handlers cannot have arguments
+    if (!Ins.empty())
+      report_fatal_error(
+          "Functions with the interrupt attribute cannot have arguments!");
+    
+    // Interrupt handlers must have void return type
+    // This is checked at LowerReturn, but we validate here for consistency
+  }
+
   // 32-bit SVR4 ABI Stack Frame Layout:
   //              +-----------------------------------+
   //        +-->  |            Back chain             |
@@ -7666,6 +7680,17 @@ PPCTargetLowering::LowerReturn(SDValue Chain, CallingConv::ID CallConv,
                                const SmallVectorImpl<ISD::OutputArg> &Outs,
                                const SmallVectorImpl<SDValue> &OutVals,
                                const SDLoc &dl, SelectionDAG &DAG) const {
+  MachineFunction &MF = DAG.getMachineFunction();
+  const Function &Func = MF.getFunction();
+  
+  // Validate interrupt handler return type
+  if (Func.hasFnAttribute("interrupt")) {
+    // Interrupt handlers must have void return type
+    if (!Outs.empty())
+      report_fatal_error(
+          "Functions with the interrupt attribute must have void return type!");
+  }
+
   SmallVector<CCValAssign, 16> RVLocs;
   CCState CCInfo(CallConv, isVarArg, DAG.getMachineFunction(), RVLocs,
                  *DAG.getContext());

@@ -179,6 +179,24 @@ PPCRegisterInfo::getCalleeSavedRegs(const MachineFunction *MF) const {
       return CSR_SVR32_ColdCC_SPE_SaveList;
     return CSR_SVR32_ColdCC_SaveList;
   }
+  // Interrupt handler callee-saved registers.
+  // Interrupt handlers must save all registers that may be modified, including
+  // both caller-saved and callee-saved registers, as interrupts can occur at
+  // any point and must preserve complete processor state.
+  if (MF->getFunction().hasFnAttribute("interrupt")) {
+    // 32-bit targets only (interrupt attribute primarily for embedded e200)
+    if (TM.isPPC64())
+      report_fatal_error("Interrupt attribute not supported for 64-bit PowerPC");
+    
+    // Return interrupt-specific callee-saved registers based on available extensions
+    // e200z4, e200z7 have SPE; e200z6 has FPU
+    if (Subtarget.hasSPE())
+      return CSR_Interrupt_32_SPE_SaveList;
+    else if (Subtarget.hasFPU())
+      return CSR_Interrupt_32_FPU_SaveList;
+    return CSR_Interrupt_32_SaveList;
+  }
+
   // Standard calling convention CSRs.
   if (TM.isPPC64()) {
     if (Subtarget.hasAltivec())
@@ -200,6 +218,20 @@ const uint32_t *
 PPCRegisterInfo::getCallPreservedMask(const MachineFunction &MF,
                                       CallingConv::ID CC) const {
   const PPCSubtarget &Subtarget = MF.getSubtarget<PPCSubtarget>();
+  
+  // Interrupt handler preserved registers (all registers must be preserved)
+  if (MF.getFunction().hasFnAttribute("interrupt")) {
+    if (TM.isPPC64())
+      report_fatal_error("Interrupt attribute not supported for 64-bit PowerPC");
+    
+    // Return interrupt-specific preserved register masks
+    if (Subtarget.hasSPE())
+      return CSR_Interrupt_32_SPE_RegMask;
+    else if (Subtarget.hasFPU())
+      return CSR_Interrupt_32_FPU_RegMask;
+    return CSR_Interrupt_32_RegMask;
+  }
+  
   if (CC == CallingConv::AnyReg) {
     if (Subtarget.hasVSX())
       return CSR_64_AllRegs_VSX_RegMask;
