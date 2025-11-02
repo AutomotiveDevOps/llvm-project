@@ -122,6 +122,12 @@ VLE is a critical feature for e200 cores, providing:
 
 The VLE instruction set is documented in the PowerPC Book E specification, VLE Appendix.
 
+## Background and Context
+
+**For the full story behind why VLE support exists**, see `../VLE_WHY.md` - a humorous tale of rejected patches, burning platforms, and billions of devices running on 11-year-old compiler forks.
+
+The short version: GCC rejected VLE support as "too invasive" in 2013, leaving the embedded PowerPC ecosystem stuck with either expensive proprietary toolchains (Green Hills: $10k+/seat) or 11-year-old compiler forks. This LLVM implementation aims to fix that wrong.
+
 ## Links
 - [NXP PowerPC e200 Documentation](https://www.nxp.com/products/processors-and-microcontrollers/power-architecture-processors/powerpc-cores/e200-powerpc-core:E200_POWERPC_CORE)
 - [Freescale/NXP Technical Documentation](https://www.nxp.com/support/developer-resources)
