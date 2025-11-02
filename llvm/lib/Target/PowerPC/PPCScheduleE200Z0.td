@@ -104,7 +104,8 @@ def PPCE200Z0Itineraries : ProcessorItineraries<
                                    InstrStage<1, [E200Z0_DECODE], 0>,
                                    InstrStage<1, [E200Z0_EX, E200Z0_MUL], 0>,
                                    InstrStage<3, [E200Z0_EX, E200Z0_MUL]>,
-                                  [6, 1, 1, 1], // Latency = 4 (worst case), Repeat rate = 1
+                                   InstrStage<1, [E200Z0_WB]>],
+                                  [7, 1, 1, 1, 1], // Latency = 4 (worst case), Repeat rate = 1
                                   // Manual: 1-4 cycles (data-dependent, early out), worst case 4 cycles
                                   // Note: Early out can complete in 1 cycle for simple cases
                                   [E200Z0_GPR_Bypass,
@@ -170,28 +171,32 @@ def PPCE200Z0Itineraries : ProcessorItineraries<
   InstrItinData<IIC_LdStLoadUpdX,[InstrStage<1, [E200Z0_FETCH], 0>,
                                    InstrStage<1, [E200Z0_DECODE], 0>,
                                    InstrStage<1, [E200Z0_EX, E200Z0_ALU], 0>,
-                                   InstrStage<2, [E200Z0_EX, E200Z0_LSU]>,
+                                   InstrStage<1, [E200Z0_EX, E200Z0_LSU]>,
                                    InstrStage<1, [E200Z0_WB]>],
-                                  [6, 1, 1, 1, 1], // Latency = 3
+                                  [5, 1, 1, 1, 1], // Latency = 1 (same as regular load)
+                                  // Manual: 1 cycle latency when free of EA dependency
                                   [E200Z0_GPR_Bypass, E200Z0_GPR_Bypass],
                                   2>, // 2 micro-ops
   InstrItinData<IIC_LdStStore,   [InstrStage<1, [E200Z0_FETCH], 0>,
                                    InstrStage<1, [E200Z0_DECODE], 0>,
-                                   InstrStage<2, [E200Z0_EX, E200Z0_LSU]>],
-                                  [5, 1, 1], // Latency = 3
+                                   InstrStage<1, [E200Z0_EX, E200Z0_LSU]>],
+                                  [4, 1, 1], // Latency = 1
+                                  // Manual: 1 cycle latency (similar to load) when free of EA dependency
                                   [NoBypass, E200Z0_GPR_Bypass]>,
   InstrItinData<IIC_LdStSTU,     [InstrStage<1, [E200Z0_FETCH], 0>,
                                    InstrStage<1, [E200Z0_DECODE], 0>,
                                    InstrStage<1, [E200Z0_EX, E200Z0_ALU], 0>,
-                                   InstrStage<2, [E200Z0_EX, E200Z0_LSU]>],
-                                  [6, 1, 1, 1], // Latency = 3
+                                   InstrStage<1, [E200Z0_EX, E200Z0_LSU]>],
+                                  [5, 1, 1, 1], // Latency = 1 (same as regular store)
+                                  // Manual: 1 cycle latency when free of EA dependency
                                   [NoBypass, E200Z0_GPR_Bypass],
                                   2>, // 2 micro-ops
   InstrItinData<IIC_LdStSTUX,    [InstrStage<1, [E200Z0_FETCH], 0>,
                                    InstrStage<1, [E200Z0_DECODE], 0>,
                                    InstrStage<1, [E200Z0_EX, E200Z0_ALU], 0>,
-                                   InstrStage<2, [E200Z0_EX, E200Z0_LSU]>],
-                                  [6, 1, 1, 1], // Latency = 3
+                                   InstrStage<1, [E200Z0_EX, E200Z0_LSU]>],
+                                  [5, 1, 1, 1], // Latency = 1 (same as regular store)
+                                  // Manual: 1 cycle latency when free of EA dependency
                                   [NoBypass, E200Z0_GPR_Bypass],
                                   2>, // 2 micro-ops
   InstrItinData<IIC_SprMFSPR,    [InstrStage<1, [E200Z0_FETCH], 0>,
@@ -213,7 +218,9 @@ def PPCE200Z0Itineraries : ProcessorItineraries<
 
 def PPCE200Z0Model : SchedMachineModel {
   let IssueWidth = 1;  // Single-issue in-order processor.
-  let LoadLatency = 4; // Load-to-use latency (3 cycles + 1 for writeback).
+  let LoadLatency = 2; // Load-to-use latency (manual: 1 cycle latency, 1 cycle writeback).
+                       // Load followed by dependent instruction has no pipeline stall
+                       // (except when dependent uses load data for EA calculation).
                        // This is overriden by OperandCycles if the
                        // Itineraries are queried instead.
   let MicroOpBufferSize = 0; // In-order processor, no reorder buffer.

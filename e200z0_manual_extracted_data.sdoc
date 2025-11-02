@@ -1,0 +1,151 @@
+[TITLE:e200z0 Manual Extracted Data - Critical Specifications]
+
+[INTRO]
+This document contains key specifications extracted directly from the e200z0 Core
+Reference Manual (E200Z0CRM, Rev. 0) for validation against LLVM implementation.
+
+MANUAL_SOURCE: https://www.elektronikjk.com/elementy_czynne/IC/E200Z0.pdf
+EXTRACTION_DATE: 2025-11-02
+EXTRACTION_METHOD: pdftotext + manual review
+
+[CHAPTER-4-TIMING]
+UID: CH4-TIMING
+
+TITLE: Instruction Timing Specifications
+
+LOCATION: Chapter 4.2 (Execution Units)
+
+INTEGER_INSTRUCTIONS:
+- Simple integer (adds, subtracts, compares, shifts, rotates, count leading zeros): 
+  1 cycle latency, single cycle execution
+  
+- Multiply instructions: 
+  Latency: 1-4 cycles (data-dependent, early out)
+  Worst case: 4 cycles
+  Throughput: Variable based on data
+  
+- Divide instructions:
+  Latency: 5-34 cycles (data-dependent)
+  Worst case: 34 cycles
+  Throughput: Blocking (pipeline unavailable during divide)
+
+LOAD_STORE_INSTRUCTIONS:
+- Load instructions:
+  Latency: 1 cycle (when free of EA calculation dependency)
+  Throughput: 1 per cycle (maximum)
+  Note: Load followed by dependent instruction does not incur pipeline stall,
+        except when dependent instruction uses load data for EA calculation
+        (then 1 cycle "register-busy" pipeline stall)
+  
+- Store instructions:
+  Latency: Similar to load (1 cycle when free of EA dependency)
+  Throughput: 1 per cycle (maximum)
+  Store data can be fed-forward from immediately preceding load (no stall)
+
+BRANCH_INSTRUCTIONS:
+- Conditional branches: 1 or 2 cycles
+- Simple change of flow instructions: 2 cycles to refill pipeline
+- Branch target prefetching can reduce timing for taken branches
+
+VALIDATION_STATUS:
+- ✓ Integer simple: 1 cycle - MATCHES
+- ✓ Multiply: 1-4 cycles - DISCREPANCY (code says 4 cycles worst case - OK, but should note early out)
+- ✓ Divide: 5-34 cycles - MATCHES (code correctly uses worst case 34)
+- ✗ Load: 1 cycle - DISCREPANCY (code says 3 cycles)
+- ✗ Store: 1 cycle - DISCREPANCY (code says 3 cycles)
+- ✓ Branch: 1-2 cycles - MATCHES
+
+[CHAPTER-4-PIPELINE]
+UID: CH4-PIPELINE
+
+TITLE: Pipeline Stages
+
+LOCATION: Chapter 4.3, Table 4-1
+
+STAGES:
+1. IFETCH - Instruction Fetch From Memory
+2. DECODE/EA - Instruction Decode / Register Read/ Operand Forwarding / EA Calculation
+3. EXECUTE/MEM - Instruction Execution / Memory Access
+4. WB - Write Back to Registers
+
+VALIDATION_STATUS: ✓ MATCHES
+- Code has: IF, ID, EX, WB (4 stages)
+- Manual confirms: IFETCH, DECODE/EA, EXECUTE/MEM, WB
+- Note: Memory operations occur in EXECUTE/MEM stage (no separate MEM stage)
+
+[CHAPTER-5-INTERRUPTS]
+UID: CH5-INTERRUPTS
+
+TITLE: Interrupt Handling
+
+LOCATION: Chapter 5.7 (Interrupt Definitions)
+
+CRITICAL_INTERRUPT (IVOR0):
+- Uses CSRR0/CSRR1 (Critical Save/Restore Registers)
+- Hardware automatically saves:
+  - CSRR0: Instruction address
+  - CSRR1: MSR contents
+- Return instruction: RFCI (Return From Critical Interrupt)
+
+EXTERNAL_INTERRUPT (IVOR4):
+- Should use SRR0/SRR1 (Standard Save/Restore Registers)
+- Hardware automatically saves:
+  - SRR0: Instruction address (if external interrupt)
+  - SRR1: MSR contents (if external interrupt)
+- Return instruction: RFI (Return From Interrupt)
+
+NOTE: e200z0 manual confirms same pattern as e200z4:
+- Critical interrupts use CSRR0/CSRR1 → RFCI
+- External interrupts use SRR0/SRR1 → RFI
+
+VALIDATION_STATUS: ⚠ NEEDS IMPLEMENTATION
+LLVM_CURRENT_STATE: No differentiation between critical and external interrupts
+
+[CRITICAL-DISCREPANCIES]
+UID: DISCREPANCIES
+
+DISCREPANCY_001: Load Instruction Latency
+Manual: 1 cycle latency (when free of EA dependency)
+Code: 3 cycles (PPCScheduleE200Z0.td:149-154)
+Impact: WCET analysis will be highly pessimistic (3x slower)
+Priority: CRITICAL
+
+DISCREPANCY_002: Store Instruction Latency
+Manual: 1 cycle latency (similar to load)
+Code: 3 cycles (PPCScheduleE200Z0.td:171-175)
+Impact: WCET analysis will be highly pessimistic (3x slower)
+Priority: CRITICAL
+
+DISCREPANCY_003: Multiply Instruction Latency
+Manual: 1-4 cycles (data-dependent, early out, worst case 4)
+Code: 4 cycles (PPCScheduleE200Z0.td:84-91)
+Status: Acceptable (matches worst case), but should note early out capability
+
+DISCREPANCY_004: Interrupt Type Differentiation
+Manual: Critical uses CSRR0/CSRR1+RFCI, External uses SRR0/SRR1+RFI
+Code: All interrupts use RFI (no differentiation)
+Impact: Incorrect interrupt handling for critical interrupts
+Priority: HIGH
+
+[NEXT-ACTIONS]
+UID: ACTIONS
+
+IMMEDIATE:
+1. Fix instruction latencies to match manual:
+   - Load: 1 cycle (currently 3) - CRITICAL
+   - Store: 1 cycle (currently 3) - CRITICAL
+   - Multiply: Keep 4 cycles worst case, add comment about 1-4 range
+   - Divide: Keep 34 cycles worst case (matches manual)
+
+2. Add interrupt type differentiation:
+   - Critical interrupts → RFCI (restores from CSRR0/CSRR1)
+   - External interrupts → RFI (restores from SRR0/SRR1)
+   - Read interrupt attribute value ("critical" vs "external")
+
+THEN:
+3. Verify pipeline stage modeling matches manual (4-stage confirmed)
+4. Update LoadLatency field to match corrected load timing
+
+FINALLY:
+5. Update WCET analysis tests with correct latencies
+
