@@ -266,7 +266,7 @@ def PPCbctrl_load_toc : SDNode<"PPCISD::BCTRL_LOAD_TOC",
                                 SDNPVariadic]>;
 
 def retflag       : SDNode<"PPCISD::RET_FLAG", SDTNone,
-                         [SDNPHasChain, SDNPOptInGlue, SDNPOptOutGlue]>;
+                         [SDNPHasChain, SDNPOptInGlue, SDNPOutGlue]>;
 def rfiflag       : SDNode<"PPCISD::RFI_FLAG", SDTNone,
                            [SDNPHasChain, SDNPOptInGlue, SDNPVariadic]>;
 
@@ -1006,6 +1006,7 @@ def HasSYNC   : Predicate<"!PPCSubTarget->hasOnlyMSYNC()">;
 def IsPPC4xx  : Predicate<"PPCSubTarget->isPPC4xx()">;
 def IsPPC6xx  : Predicate<"PPCSubTarget->isPPC6xx()">;
 def IsE500  : Predicate<"PPCSubTarget->isE500()">;
+def IsVLE   : Predicate<"PPCSubTarget->hasVLE()">;
 def HasSPE  : Predicate<"PPCSubTarget->hasSPE()">;
 def HasICBT : Predicate<"PPCSubTarget->hasICBT()">;
 def HasPartwordAtomics : Predicate<"PPCSubTarget->hasPartwordAtomics()">;
@@ -3418,7 +3419,6 @@ include "PPCInstrVLE.td"
 include "PPCInstrVSX.td"
 include "PPCInstrQPX.td"
 include "PPCInstrHTM.td"
-include "PPCInstrVLE.td"
 
 def crnot : OutPatFrag<(ops node:$in),
                        (CRNOR $in, $in)>;
@@ -4361,7 +4361,7 @@ def TLBSX2D : XForm_base_r3xo<31, 914, (outs),
                               "tlbsx. $RST, $A, $B", IIC_LdStLoad, []>,
                               Requires<[IsPPC4xx]>, isRecordForm;
 
-def RFID : XForm_0<19, 18, (outs), (ins), "rfid", IIC_IntRFID, []>;
+// RFID is defined in PPCInstr64Bit.td for 64-bit mode
 
 def RFI : XForm_0<19, 50, (outs), (ins), "rfi", IIC_SprRFI, [(rfiflag)]>,
                   Requires<[IsBookE]>;

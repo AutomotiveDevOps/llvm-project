@@ -1999,7 +1999,7 @@ void PPCFrameLowering::determineCalleeSaves(MachineFunction &MF,
       // Check for any FPR usage in the interrupt handler
       bool UsesFPR = false;
       for (unsigned i = 0; i < 32; ++i) {
-        unsigned FPR = isPPC64 ? PPC::F8_First + i : PPC::F0 + i;
+        unsigned FPR = PPC::F0 + i;
         if (MRI.isPhysRegUsed(FPR)) {
           UsesFPR = true;
           break;

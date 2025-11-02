@@ -135,7 +135,7 @@ def PPCE200Z3Itineraries : ProcessorItineraries<
                                   InstrStage<1, [E200Z3_LSU]>],
                                  [2, 1], // Latency = 1
                                  [E200Z3_GPR_Bypass]>,
-  InstrItinData<IIC_LdStStoreUpd,[InstrStage<1, [E200Z3_DIS], 0>,
+  InstrItinData<IIC_LdStStore,   [InstrStage<1, [E200Z3_DIS], 0>,
                                   InstrStage<1, [E200Z3_LSU]>],
                                  [2, 1, 1], // Latency = 1
                                  [E200Z3_GPR_Bypass,
@@ -144,6 +144,10 @@ def PPCE200Z3Itineraries : ProcessorItineraries<
                                   InstrStage<3, [E200Z3_LSU]>],
                                  [4, 1], // Latency = 3
                                  [E200Z3_GPR_Bypass]>,
+  InstrItinData<IIC_SprRFI,     [InstrStage<1, [E200Z3_DIS], 0>,
+                                  InstrStage<1, [E200Z3_BU]>],
+                                 [2, 1], // Latency = 1
+                                 [NoBypass, NoBypass]>,
   InstrItinData<IIC_LdStSTWCX,   [InstrStage<1, [E200Z3_DIS], 0>,
                                   InstrStage<2, [E200Z3_LSU]>],
                                  [3, 1], // Latency = 2
@@ -176,6 +180,7 @@ def PPCE200Z3Model : SchedMachineModel {
   let MicroOpBufferSize = 0;
   let LoadLatency = 2;  // Load latency for cache
   let MispredictPenalty = 3;
+  let CompleteModel = 0;  // Incomplete: Some pseudo-instructions may not have explicit scheduling
   let Itineraries = PPCE200Z3Itineraries;
 }
 

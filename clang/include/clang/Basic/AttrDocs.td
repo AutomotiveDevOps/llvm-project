@@ -1893,34 +1893,6 @@ Version 1.10.
   }];
 }
 
-def PowerPCInterruptDocs : Documentation {
-  let Category = DocCatFunction;
-  let Heading = "interrupt (PowerPC)";
-  let Content = [{
-Clang supports the GNU style ``__attribute__((interrupt))`` attribute on PowerPC
-targets. This attribute may be attached to a function definition and instructs
-the backend to generate appropriate function entry/exit code so that it can be
-used directly as an interrupt service routine.
-
-Permissible values for this parameter are ``critical``, ``external``, or no
-parameter (defaults to generic interrupt). The attribute causes the backend to
-automatically save and restore the Link Register (LR), Condition Register (CR),
-and all used general purpose registers (GPRs) in the function prologue and
-epilogue. The function returns using the ``rfi`` instruction (for BookE targets
-in VLE mode) or ``rfi`` (for standard PowerPC targets), which properly restores
-machine state from the interrupt context.
-
-Semantic checks:
-- The function must have no parameters.
-- The function must return void.
-- The function may be called from interrupt context.
-
-Refer to:
-https://gcc.gnu.org/onlinedocs/gcc/Function-Attributes.html
-PowerPC Embedded Application Binary Interface Specification
-  }];
-}
-
 def AVRInterruptDocs : Documentation {
   let Category = DocCatFunction;
   let Heading = "interrupt (AVR)";

@@ -4520,8 +4520,8 @@ public:
     const char *Kind;
     switch (Attr->getInterrupt()) {
     case PowerPCInterruptAttr::Generic: Kind = ""; break;
-    case PowerPCInterruptAttr::Critical: Kind = "critical"; break;
-    case PowerPCInterruptAttr::External: Kind = "external"; break;
+    case PowerPCInterruptAttr::critical: Kind = "critical"; break;
+    case PowerPCInterruptAttr::external: Kind = "external"; break;
     }
 
     llvm::Function *Fn = cast<llvm::Function>(GV);
@@ -4535,27 +4535,6 @@ public:
 
   bool initDwarfEHRegSizeTable(CodeGen::CodeGenFunction &CGF,
                                llvm::Value *Address) const override;
-
-  void setTargetAttributes(const Decl *D, llvm::GlobalValue *GV,
-                           CodeGen::CodeGenModule &CGM) const override {
-    const auto *FD = dyn_cast_or_null<FunctionDecl>(D);
-    if (!FD)
-      return;
-
-    const auto *Attr = FD->getAttr<PowerPCInterruptAttr>();
-    if (!Attr)
-      return;
-
-    const char *Kind;
-    switch (Attr->getInterrupt()) {
-    case PowerPCInterruptAttr::critical: Kind = "critical"; break;
-    case PowerPCInterruptAttr::external: Kind = "external"; break;
-    case PowerPCInterruptAttr::standard: Kind = "standard"; break;
-    }
-
-    auto *Fn = cast<llvm::Function>(GV);
-    Fn->addFnAttr("interrupt", Kind);
-  }
 };
 }
 
@@ -4918,8 +4897,8 @@ public:
     const char *Kind;
     switch (Attr->getInterrupt()) {
     case PowerPCInterruptAttr::Generic: Kind = ""; break;
-    case PowerPCInterruptAttr::Critical: Kind = "critical"; break;
-    case PowerPCInterruptAttr::External: Kind = "external"; break;
+    case PowerPCInterruptAttr::critical: Kind = "critical"; break;
+    case PowerPCInterruptAttr::external: Kind = "external"; break;
     }
 
     llvm::Function *Fn = cast<llvm::Function>(GV);
@@ -4954,8 +4933,8 @@ public:
     const char *Kind;
     switch (Attr->getInterrupt()) {
     case PowerPCInterruptAttr::Generic: Kind = ""; break;
-    case PowerPCInterruptAttr::Critical: Kind = "critical"; break;
-    case PowerPCInterruptAttr::External: Kind = "external"; break;
+    case PowerPCInterruptAttr::critical: Kind = "critical"; break;
+    case PowerPCInterruptAttr::external: Kind = "external"; break;
     }
 
     llvm::Function *Fn = cast<llvm::Function>(GV);

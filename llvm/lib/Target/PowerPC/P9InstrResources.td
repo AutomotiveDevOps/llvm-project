@@ -1399,6 +1399,7 @@ def : InstRW<[],
 def : InstRW<[],
     (instrs
   (instregex "(H)?RFI(D)?$"),
+  E_RFI,
   (instregex "DSS(ALL)?$"),
   (instregex "DST(ST)?(T)?(64)?$"),
   (instregex "ICBL(C|Q)$"),

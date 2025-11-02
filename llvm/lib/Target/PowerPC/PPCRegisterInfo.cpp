@@ -406,7 +406,7 @@ unsigned PPCRegisterInfo::getRegPressureLimit(const TargetRegisterClass *RC,
     // limit register pressure to encourage use of R0-R7 for 16-bit VLE instructions.
     // This helps the register allocator prefer the lower registers when beneficial.
     if (Subtarget.hasVLE() && 
-        (MF.getFunction().optForSize() || MF.getFunction().hasMinSize())) {
+        (MF.getFunction().hasOptSize() || MF.getFunction().hasMinSize())) {
       // Encourage use of R0-R7 by slightly reducing pressure limit
       // This makes register allocator more likely to use lower registers
       return 30 - FP - DefaultSafety;

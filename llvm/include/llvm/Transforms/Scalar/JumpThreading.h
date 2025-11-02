@@ -23,6 +23,7 @@
 #include "llvm/Analysis/BlockFrequencyInfo.h"
 #include "llvm/Analysis/BranchProbabilityInfo.h"
 #include "llvm/Analysis/DomTreeUpdater.h"
+#include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/IR/ValueHandle.h"
 #include <memory>
 #include <utility>

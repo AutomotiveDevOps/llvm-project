@@ -11,9 +11,9 @@
 // 16-bit (SE_* prefix) or 32-bit (E_* prefix) forms.
 //
 //===----------------------------------------------------------------------===//
-
-include "PPCInstrFormats.td"
-include "PPCInstrInfo.td"
+// Note: This file is included by PPCInstrInfo.td, which already includes
+// PPCInstrFormats.td. Do not include PPCInstrInfo.td here to avoid circular
+// dependencies.
 
 //===----------------------------------------------------------------------===//
 // Immediate Range Predicates and Operands for VLE Instructions
@@ -121,23 +121,9 @@ def gprc_vle_r0_r7_pred : PatLeaf<(i32 gprc:$reg), [{
 //===----------------------------------------------------------------------===//
 
 // Pattern fragments for VLE immediate checking
-// These can be used in instruction patterns to ensure immediate values
+// These are defined as PatLeaf predicates above (s6imm_pred, u5imm_vle_pred, etc.)
+// and can be used directly in instruction patterns to ensure immediate values
 // fit in VLE constraints before selecting 16-bit forms
-
-def vle_s6imm : PatFrag<(ops node:$imm), (imm), [{
-  int64_t Imm = (cast<ConstantSDNode>(N->getOperand(0))->getSExtValue());
-  return Imm >= -32 && Imm <= 31;
-}]>;
-
-def vle_u5imm : PatFrag<(ops node:$imm), (imm), [{
-  int64_t Imm = (cast<ConstantSDNode>(N->getOperand(0))->getSExtValue());
-  return Imm >= 0 && Imm <= 31;
-}]>;
-
-def vle_u7imm : PatFrag<(ops node:$imm), (imm), [{
-  int64_t Imm = (cast<ConstantSDNode>(N->getOperand(0))->getSExtValue());
-  return Imm >= 0 && Imm <= 127;
-}]>;
 
 //===----------------------------------------------------------------------===//
 // VLE Register Class for 16-bit Instructions

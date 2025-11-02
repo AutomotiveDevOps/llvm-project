@@ -4658,7 +4658,7 @@ void PPCDAGToDAGISel::Select(SDNode *N) {
   // 3. Explicit VLE pattern matching here when PreferVLE is true
   // 4. Register allocation preferences for R0-R7 (handled in PPCRegisterInfo)
   bool PreferVLE = PPCSubTarget && PPCSubTarget->hasVLE() &&
-                   (MF->getFunction().optForSize() || 
+                   (MF->getFunction().hasOptSize() || 
                     MF->getFunction().hasMinSize());
   
   // When optimizing for code size with VLE, try VLE-specific patterns first

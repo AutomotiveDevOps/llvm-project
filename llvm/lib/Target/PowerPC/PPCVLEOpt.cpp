@@ -161,7 +161,7 @@ bool PPCVLEOpt::optimizeLogicalForVLE(MachineInstr &MI, MachineBasicBlock &MBB) 
   // Check for andi/ori/xori that could use se_andi/se_ori/se_xori
   unsigned Opc = MI.getOpcode();
   if (Opc != PPC::ANDI_rec && Opc != PPC::ORI && 
-      Opc != PPC::XORI && Opc != PPC::ANDIo)
+      Opc != PPC::XORI)
     return false;
   
   // Must have immediate operand

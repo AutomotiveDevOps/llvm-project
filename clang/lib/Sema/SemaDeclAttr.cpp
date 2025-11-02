@@ -6057,13 +6057,8 @@ static void handleInterruptAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
   case llvm::Triple::msp430:
     handleMSP430InterruptAttr(S, D, AL);
     break;
-  case llvm::Triple::powerpc:
   case llvm::Triple::ppc:
-  case llvm::Triple::powerpc64:
   case llvm::Triple::ppc64:
-  case llvm::Triple::powerpcle:
-  case llvm::Triple::ppcle:
-  case llvm::Triple::powerpc64le:
   case llvm::Triple::ppc64le:
     handlePowerPCInterruptAttr(S, D, AL);
     break;
@@ -6077,11 +6072,6 @@ static void handleInterruptAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
     break;
   case llvm::Triple::avr:
     handleAVRInterruptAttr(S, D, AL);
-    break;
-  case llvm::Triple::ppc:
-  case llvm::Triple::ppc64:
-  case llvm::Triple::ppc64le:
-    handlePowerPCInterruptAttr(S, D, AL);
     break;
   case llvm::Triple::riscv32:
   case llvm::Triple::riscv64:

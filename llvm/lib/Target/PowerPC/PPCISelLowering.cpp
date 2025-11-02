@@ -3645,7 +3645,6 @@ SDValue PPCTargetLowering::LowerFormalArguments_32SVR4(
   //   System V Application Binary Interface PowerPC Processor Supplement
   //   AltiVec Technology Programming Interface Manual
 
-  MachineFunction &MF = DAG.getMachineFunction();
   MachineFrameInfo &MFI = MF.getFrameInfo();
   PPCFunctionInfo *FuncInfo = MF.getInfo<PPCFunctionInfo>();
 
@@ -7749,7 +7748,6 @@ PPCTargetLowering::LowerReturn(SDValue Chain, CallingConv::ID CallConv,
     RetOps.push_back(Flag);
 
   // Interrupt service routines use different return instructions.
-  const Function &Func = DAG.getMachineFunction().getFunction();
   if (Func.hasFnAttribute("interrupt")) {
     if (!Func.getReturnType()->isVoidTy())
       report_fatal_error(

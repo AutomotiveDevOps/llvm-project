@@ -242,8 +242,9 @@ static std::string generateE200LinkerScript(const Driver &D, Compilation &C,
   const char *ScriptFile;
   if (D.isSaveTempsEnabled()) {
     // Use output filename base + .ld extension for save-temps
-    std::string OutputBase = llvm::sys::path::stem(
-        C.getJobs().getDefaultOutputFile(JA, "out"));
+    std::string OutputBase = "out";
+    if (Arg *FinalOutput = C.getArgs().getLastArg(options::OPT_o))
+      OutputBase = llvm::sys::path::stem(FinalOutput->getValue()).str();
     ScriptFile = C.getArgs().MakeArgString(OutputBase + ".ld");
   } else {
     // Create temporary file
@@ -358,7 +359,7 @@ static std::string generateE200LinkerScript(const Driver &D, Compilation &C,
       : StringRef(ScriptPath);
   llvm::raw_fd_ostream ScriptFileStream(ScriptPathToWrite, EC, llvm::sys::fs::OF_None);
   if (EC) {
-    D.Diag(diag::err_drv_unable_to_make_temp) << ScriptPathToWrite << EC.message();
+    D.Diag(clang::diag::err_unable_to_make_temp) << ScriptPathToWrite << EC.message();
     return "";
   }
   ScriptFileStream << ScriptContent;

@@ -364,7 +364,6 @@ def TargetAnyMips : TargetArch<["mips", "mipsel", "mips64", "mips64el"]>;
 def TargetMSP430 : TargetArch<["msp430"]>;
 def TargetPowerPC : TargetArch<["ppc", "ppc64", "ppc64le"]>;
 def TargetRISCV : TargetArch<["riscv32", "riscv64"]>;
-def TargetPowerPC : TargetArch<["powerpc", "powerpc64", "powerpcle", "powerpc64le"]>;
 def TargetX86 : TargetArch<["x86"]>;
 def TargetAnyX86 : TargetArch<["x86", "x86_64"]>;
 def TargetWebAssembly : TargetArch<["wasm32", "wasm64"]>;

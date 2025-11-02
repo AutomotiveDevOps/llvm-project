@@ -324,13 +324,7 @@ def G8RC_NOX0 : RegisterClass<"PPC", [i64], 64, (add (sub G8RC, X0), ZERO8)> {
 // VLE register class for 16-bit instructions: Only R0-R7 are encodable
 // in 16-bit VLE instructions due to 3-bit register field limitation.
 // This register class enforces the constraint at instruction selection time.
-def GPRC_VLE_R0_R7 : RegisterClass<"PPC", [i32,f32], 32, (add R0, R1, R2, R3, R4, R5, R6, R7)> {
-  let AltOrders = [GPRC_VLE_R0_R7];  // No alternative ordering needed
-  let AltOrderSelect = [{
-    // Always use default order for VLE R0-R7 register class
-    return 0;
-  }];
-}
+def GPRC_VLE_R0_R7 : RegisterClass<"PPC", [i32,f32], 32, (add R0, R1, R2, R3, R4, R5, R6, R7)>;
 
 def SPERC : RegisterClass<"PPC", [f64], 64, (add (sequence "S%u", 2, 12),
                                                 (sequence "S%u", 30, 13),

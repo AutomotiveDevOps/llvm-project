@@ -82,8 +82,6 @@ def FeatureAltivec   : SubtargetFeature<"altivec","HasAltivec", "true",
 def FeatureSPE       : SubtargetFeature<"spe","HasSPE", "true",
                                         "Enable SPE instructions",
                                         [FeatureHardFloat]>;
-def FeatureVLE       : SubtargetFeature<"vle","HasVLE", "true",
-                                        "Enable VLE (Variable Length Encoding) instructions">;
 def FeatureMFOCRF    : SubtargetFeature<"mfocrf","HasMFOCRF", "true",
                                         "Enable the MFOCRF instruction">;
 def FeatureFSqrt     : SubtargetFeature<"fsqrt","HasFSQRT", "true",
