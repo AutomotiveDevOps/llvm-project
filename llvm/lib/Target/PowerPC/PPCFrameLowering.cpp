@@ -1658,6 +1658,25 @@ void PPCFrameLowering::emitEpilogue(MachineFunction &MF,
   // call optimization
   if (IsReturnBlock) {
     unsigned RetOpcode = MBBI->getOpcode();
+    
+    // For interrupt handlers, replace BLR/BLR8 with RFI (Return From Interrupt).
+    // RFI is used for BookE targets; for VLE mode, we would use e_rfi, but
+    // that requires VLE instruction support which may not be fully implemented.
+    if (MF.getFunction().hasFnAttribute("interrupt") &&
+        (RetOpcode == PPC::BLR || RetOpcode == PPC::BLR8)) {
+      // Erase the BLR instruction.
+      MBBI = MBB.erase(MBBI);
+      
+      // Emit RFI instruction instead. RFI requires BookE, which is typical
+      // for embedded PowerPC targets that use interrupt handlers.
+      // Note: If the target doesn't support BookE, this will fail at instruction
+      // selection time. For standard PowerPC targets, RFI may not be available,
+      // but interrupt handlers are typically used on embedded BookE targets.
+      // RFI is the same for both 32-bit and 64-bit on BookE.
+      BuildMI(MBB, MBBI, dl, TII.get(PPC::RFI));
+      return;
+    }
+    
     if (MF.getTarget().Options.GuaranteedTailCallOpt &&
         (RetOpcode == PPC::BLR || RetOpcode == PPC::BLR8) &&
         MF.getFunction().getCallingConv() == CallingConv::Fast) {
@@ -1819,6 +1838,50 @@ void PPCFrameLowering::determineCalleeSaves(MachineFunction &MF,
         MFI.CreateFixedObject(SpillSize, SpillOffset,
                               /* IsImmutable */ true, /* IsAliased */ false);
     FI->setCRSpillFrameIndex(FrameIdx);
+  }
+
+  // For interrupt handlers, we must save LR, CR, and all used GPRs.
+  if (MF.getFunction().hasFnAttribute("interrupt")) {
+    // Force save LR.
+    SavedRegs.set(LR);
+    FI->setMustSaveLR(true);
+
+    // Force save CR (the entire condition register).
+    // On 64-bit SVR4 and AIX, we save CR at SP+8. On 32-bit SVR4, we save
+    // it in the callee-saved area.
+    if (!SavedRegs.test(PPC::CR2) && !SavedRegs.test(PPC::CR3) &&
+        !SavedRegs.test(PPC::CR4)) {
+      SavedRegs.set(PPC::CR2);
+      SavedRegs.set(PPC::CR3);
+      SavedRegs.set(PPC::CR4);
+      FI->addMustSaveCR(PPC::CR2);
+      FI->addMustSaveCR(PPC::CR3);
+      FI->addMustSaveCR(PPC::CR4);
+
+      // Create the CR spill slot if it doesn't exist.
+      if (!FI->getCRSpillFrameIndex()) {
+        const uint64_t SpillSize = 4;
+        const int64_t SpillOffset =
+            Subtarget.isPPC64() ? 8 : Subtarget.isAIXABI() ? 4 : -4;
+        int FrameIdx =
+            MFI.CreateFixedObject(SpillSize, SpillOffset,
+                                  /* IsImmutable */ true, /* IsAliased */ false);
+        FI->setCRSpillFrameIndex(FrameIdx);
+      }
+    }
+
+    // Force save all used GPRs. In interrupt context, we need to preserve
+    // all registers that the function uses.
+    const TargetRegisterInfo *TRI = RegInfo;
+    const MCPhysReg *CSRegs = RegInfo->getCalleeSavedRegs(&MF);
+    for (unsigned i = 0; CSRegs[i]; ++i) {
+      unsigned Reg = CSRegs[i];
+      if (PPC::GPRCRegClass.contains(Reg) || PPC::G8RCRegClass.contains(Reg)) {
+        // Check if this register is actually used in the function.
+        if (MF.getRegInfo().isPhysRegUsed(Reg))
+          SavedRegs.set(Reg);
+      }
+    }
   }
 }
 

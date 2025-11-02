@@ -315,6 +315,7 @@ public:
   bool isU4Imm() const { return Kind == Immediate && isUInt<4>(getImm()); }
   bool isU5Imm() const { return Kind == Immediate && isUInt<5>(getImm()); }
   bool isS5Imm() const { return Kind == Immediate && isInt<5>(getImm()); }
+  bool isS6Imm() const { return Kind == Immediate && isInt<6>(getImm()); }
   bool isU6Imm() const { return Kind == Immediate && isUInt<6>(getImm()); }
   bool isU6ImmX2() const { return Kind == Immediate &&
                                   isUInt<6>(getImm()) &&
@@ -402,6 +403,8 @@ public:
                                   (getImm() & 3) == 0); }
   bool isImmZero() const { return Kind == Immediate && getImm() == 0; }
   bool isRegNumber() const { return Kind == Immediate && isUInt<5>(getImm()); }
+  // VLE 16-bit instructions require registers in R0-R7 range (3-bit encoding)
+  bool isVLERegNumber() const { return Kind == Immediate && isUInt<3>(getImm()); }
   bool isVSRegNumber() const {
     return Kind == Immediate && isUInt<6>(getImm());
   }
@@ -1174,6 +1177,63 @@ bool PPCAsmParser::MatchAndEmitInstruction(SMLoc IDLoc, unsigned &Opcode,
 
       ErrorLoc = ((PPCOperand &)*Operands[ErrorInfo]).getStartLoc();
       if (ErrorLoc == SMLoc()) ErrorLoc = IDLoc;
+      
+      // Provide specific error messages for VLE operand range violations
+      const PPCOperand &Op = (PPCOperand &)*Operands[ErrorInfo];
+      StringRef Mnemonic = ((PPCOperand &)*Operands[0]).getToken();
+      
+      // Check for VLE instruction mnemonics (se_* prefix)
+      if (Mnemonic.startswith("se_")) {
+        // Check if this is an immediate operand out of range
+        if (Op.isImm()) {
+          int64_t Imm = Op.getImm();
+          
+          // Check for s6imm range violations (-32 to 31)
+          if (Mnemonic == "se_addi" || Mnemonic == "se_subi" || 
+              Mnemonic == "se_cmpi" || Mnemonic == "se_cmplwi") {
+            if (!Op.isS6Imm()) {
+              if (Imm < -32 || Imm > 31) {
+                return Error(ErrorLoc, 
+                    "immediate operand out of range for 16-bit VLE instruction: "
+                    "must be in range [-32, 31] (6-bit signed immediate)");
+              }
+            }
+          }
+          
+          // Check for u5imm range violations (0 to 31)
+          if (Mnemonic == "se_stw" || Mnemonic == "se_lwz") {
+            if (!Op.isU5Imm() && Op.isImm()) {
+              if (Imm < 0 || Imm > 31) {
+                return Error(ErrorLoc,
+                    "displacement out of range for 16-bit VLE instruction: "
+                    "must be in range [0, 31] (5-bit unsigned immediate)");
+              }
+            }
+          }
+          
+          // Check for u4imm range violations (0 to 15)
+          if (Mnemonic == "se_stb" || Mnemonic == "se_sth" ||
+              Mnemonic == "se_lbz" || Mnemonic == "se_lhz") {
+            if (!Op.isU4Imm() && Op.isImm()) {
+              if (Imm < 0 || Imm > 15) {
+                return Error(ErrorLoc,
+                    "displacement out of range for 16-bit VLE instruction: "
+                    "must be in range [0, 15] (4-bit unsigned immediate)");
+              }
+            }
+          }
+        }
+        
+        // Check for register range violations (R0-R7 for 16-bit VLE)
+        if (Op.isRegNumber() && !Op.isVLERegNumber()) {
+          unsigned RegNum = Op.getReg();
+          if (RegNum > 7) {
+            return Error(ErrorLoc,
+                "register operand out of range for 16-bit VLE instruction: "
+                "must be R0-R7 (3-bit register encoding)");
+          }
+        }
+      }
     }
 
     return Error(ErrorLoc, "invalid operand for instruction");
@@ -1576,6 +1636,29 @@ bool PPCAsmParser::ParseOperand(OperandVector &Operands) {
 /// Parse an instruction mnemonic followed by its operands.
 bool PPCAsmParser::ParseInstruction(ParseInstructionInfo &Info, StringRef Name,
                                     SMLoc NameLoc, OperandVector &Operands) {
+  // Handle VLE simplified branch mnemonics (e.g., se_beq for se_bc eq)
+  // These are aliases for se_bc with specific condition codes
+  StringRef LowerName = Name.lower();
+  if (LowerName.startswith("se_b")) {
+    // Map simplified condition codes to se_bc bo values
+    // bo encoding: bit 0 = decrement CTR, bit 1 = test CTR, bit 2 = test CR bit
+    // se_beq -> se_bc 12, bi, dst  (12 = 0b1100: test CR bit, branch if eq)
+    // se_bne -> se_bc 4, bi, dst   (4 = 0b0100: test CR bit, branch if ne)
+    // se_blt -> se_bc 12, bi, dst  (12 = 0b1100: test CR bit, branch if lt)
+    // se_bgt -> se_bc 44, bi, dst  (44 = 0b101100: test CR bit, branch if gt)
+    // se_ble -> se_bc 36, bi, dst  (36 = 0b100100: test CR bit, branch if le)
+    // se_bge -> se_bc 20, bi, dst  (20 = 0b10100: test CR bit, branch if ge)
+    Name = StringSwitch<StringRef>(LowerName)
+               .Case("se_beq", "se_bc")
+               .Case("se_bne", "se_bc")
+               .Case("se_blt", "se_bc")
+               .Case("se_bgt", "se_bc")
+               .Case("se_ble", "se_bc")
+               .Case("se_bge", "se_bc")
+               .Case("se_ba", "se_b")    // se_ba is unconditional branch
+               .Default(Name);
+  }
+  
   // The first operand is the token for the instruction name.
   // If the next character is a '+' or '-', we need to add it to the
   // instruction name, to match what TableGen is doing.

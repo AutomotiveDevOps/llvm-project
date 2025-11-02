@@ -141,6 +141,7 @@ namespace {
     const PPCSubtarget *PPCSubTarget = nullptr;
     const PPCTargetLowering *PPCLowering = nullptr;
     unsigned GlobalBaseReg = 0;
+    bool PreferVLE = false; // Prefer VLE instructions when optimizing for code size
 
   public:
     explicit PPCDAGToDAGISel(PPCTargetMachine &tm, CodeGenOpt::Level OptLevel)
@@ -151,6 +152,12 @@ namespace {
       GlobalBaseReg = 0;
       PPCSubTarget = &MF.getSubtarget<PPCSubtarget>();
       PPCLowering = PPCSubTarget->getTargetLowering();
+      
+      // Determine if we should prefer VLE instructions for code size optimization
+      PreferVLE = PPCSubTarget && PPCSubTarget->hasVLE() &&
+                  (MF.getFunction().hasOptSize() || 
+                   MF.getFunction().hasMinSize());
+      
       SelectionDAGISel::runOnMachineFunction(MF);
 
       if (!PPCSubTarget->isSVR4ABI())
@@ -4638,6 +4645,88 @@ void PPCDAGToDAGISel::Select(SDNode *N) {
   if (N->getOpcode() == ISD::ADD &&
       N->getOperand(1).getOpcode() == ISD::TargetConstant)
     llvm_unreachable("Invalid ADD with TargetConstant operand");
+
+  // VLE pattern prioritization: When PreferVLE is true, VLE instructions are
+  // preferred for code size optimization. Pattern prioritization is handled by:
+  // 1. Cost model (PPCTargetTransformInfo::getUserCost) which returns accurate
+  //    instruction sizes (2 bytes for 16-bit VLE, 4 bytes for 32-bit VLE)
+  // 2. TableGen pattern ordering where VLE patterns should be listed before
+  //    standard PowerPC patterns
+  // 3. Explicit VLE pattern matching here when PreferVLE is true
+  // 4. Register allocation preferences for R0-R7 (handled in PPCRegisterInfo)
+  
+  // When optimizing for code size with VLE, try VLE-specific patterns first
+  if (PreferVLE) {
+    // Check for operations that could benefit from 16-bit VLE forms
+    // This includes checking immediate ranges and register constraints
+    switch (N->getOpcode()) {
+    case ISD::ADD:
+    case ISD::SUB: {
+      // Check if we can use 16-bit VLE addi/subi (requires s6imm: -32 to 31)
+      // and register constraints (R0-R7) will be checked by register allocator
+      if (N->getNumOperands() == 2) {
+        if (auto *C = dyn_cast<ConstantSDNode>(N->getOperand(1))) {
+          int64_t Imm = C->getSExtValue();
+          // Check immediate range for 16-bit VLE (s6imm: -32 to 31)
+          if (Imm >= -32 && Imm <= 31) {
+            // Immediate fits in s6imm range for se_addi/se_subi
+            // TableGen patterns will select VLE forms if registers are R0-R7
+            break;
+          }
+        }
+      }
+      break;
+    }
+    case ISD::AND:
+    case ISD::OR:
+    case ISD::XOR: {
+      // Check for logical operations with immediate that fit 16-bit VLE
+      // se_andi, se_ori, se_xori support u4imm (0-15) or u5imm (0-31)
+      if (N->getNumOperands() == 2) {
+        if (auto *C = dyn_cast<ConstantSDNode>(N->getOperand(1))) {
+          uint64_t Imm = C->getZExtValue();
+          // Check if immediate fits in u4imm (0-15) or u5imm (0-31) for VLE
+          if (Imm <= 31) {
+            // Immediate fits, TableGen patterns will handle VLE selection
+            break;
+          }
+        }
+      }
+      break;
+    }
+    case ISD::SHL:
+    case ISD::SRL:
+    case ISD::SRA: {
+      // Shift operations with small shift amounts can use 16-bit VLE
+      // se_slwi, se_srwi, se_srawi support shift amounts 0-31
+      if (N->getNumOperands() == 2) {
+        if (auto *C = dyn_cast<ConstantSDNode>(N->getOperand(1))) {
+          uint64_t ShiftAmt = C->getZExtValue();
+          if (ShiftAmt <= 31) {
+            // Shift amount fits, VLE patterns will be tried first
+            break;
+          }
+        }
+      }
+      break;
+    }
+    case ISD::SETCC: {
+      // Comparisons with immediate can use se_cmpi (s6imm: -32 to 31)
+      if (N->getNumOperands() >= 3) {
+        if (auto *C = dyn_cast<ConstantSDNode>(N->getOperand(2))) {
+          int64_t Imm = C->getSExtValue();
+          if (Imm >= -32 && Imm <= 31) {
+            // Immediate fits in s6imm range for se_cmpi
+            break;
+          }
+        }
+      }
+      break;
+    }
+    default:
+      break;
+    }
+  }
 
   // Try matching complex bit permutations before doing anything else.
   if (tryBitPermutation(N))

@@ -204,15 +204,58 @@ def PPCE200Z4Itineraries : ProcessorItineraries<
                                    InstrStage<1, [E200Z4_MEM]>,
                                    InstrStage<1, [E200Z4_WB]>],
                                   [5, 1, 1, 1, 1], // Latency = 1, Repeat rate = 1
-                                  [E200Z4_CR_Bypass, E200Z4_GPR_Bypass]>
+                                  [E200Z4_CR_Bypass, E200Z4_GPR_Bypass]>,
+  // SPE instructions - cannot pair, must use ALU0
+  // SPE simple operations: evaddw, evsubfw, evand, etc. - 1 cycle latency
+  InstrItinData<IIC_VecGeneral,  [InstrStage<1, [E200Z4_FETCH, E200Z4_ICache], 0>,
+                                   InstrStage<1, [E200Z4_DIS0], 0>,
+                                   InstrStage<1, [E200Z4_SPE]>],
+                                  [4, 1, 1], // Latency = 1, Repeat rate = 1
+                                  [E200Z4_SPE_Bypass]>,
+  // SPE complex operations: evaddsmiaaw, evsubfssiaaw, etc. - 4 cycle latency
+  InstrItinData<IIC_VecComplex,  [InstrStage<1, [E200Z4_FETCH, E200Z4_ICache], 0>,
+                                   InstrStage<1, [E200Z4_DIS0], 0>,
+                                   InstrStage<1, [E200Z4_SPE], 0>,
+                                   InstrStage<3, [E200Z4_SPE]>],
+                                  [7, 1, 1], // Latency = 4, Repeat rate = 1
+                                  [E200Z4_SPE_Bypass]>,
+  // SPE FPU operations - cannot pair
+  InstrItinData<IIC_FPGeneral,   [InstrStage<1, [E200Z4_FETCH, E200Z4_ICache], 0>,
+                                   InstrStage<1, [E200Z4_DIS0], 0>,
+                                   InstrStage<1, [E200Z4_SPE], 0>,
+                                   InstrStage<2, [E200Z4_SPE]>],
+                                  [6, 1, 1, 1], // Latency = 3, Repeat rate = 1
+                                  [E200Z4_SPE_Bypass,
+                                   E200Z4_SPE_Bypass, E200Z4_SPE_Bypass]>,
+  InstrItinData<IIC_FPAddSub,    [InstrStage<1, [E200Z4_FETCH, E200Z4_ICache], 0>,
+                                   InstrStage<1, [E200Z4_DIS0], 0>,
+                                   InstrStage<1, [E200Z4_SPE], 0>,
+                                   InstrStage<3, [E200Z4_SPE]>],
+                                  [7, 1, 1, 1], // Latency = 4, Repeat rate = 1
+                                  [E200Z4_SPE_Bypass,
+                                   E200Z4_SPE_Bypass, E200Z4_SPE_Bypass]>,
+  InstrItinData<IIC_FPCompare,   [InstrStage<1, [E200Z4_FETCH, E200Z4_ICache], 0>,
+                                   InstrStage<1, [E200Z4_DIS0], 0>,
+                                   InstrStage<1, [E200Z4_SPE], 0>,
+                                   InstrStage<2, [E200Z4_SPE]>],
+                                  [6, 1, 1, 1], // Latency = 3, Repeat rate = 1
+                                  [E200Z4_CR_Bypass,
+                                   E200Z4_SPE_Bypass, E200Z4_SPE_Bypass]>,
+  InstrItinData<IIC_FPDivS,      [InstrStage<1, [E200Z4_FETCH, E200Z4_ICache], 0>,
+                                   InstrStage<1, [E200Z4_DIS0], 0>,
+                                   InstrStage<1, [E200Z4_SPE], 0>,
+                                   InstrStage<24, [E200Z4_SPE]>],
+                                  [29, 1, 1, 1], // Latency = 25, Repeat rate = 25
+                                  [E200Z4_SPE_Bypass,
+                                   E200Z4_SPE_Bypass, E200Z4_SPE_Bypass]>
 ]>;
 
 // ===---------------------------------------------------------------------===//
 // e200z4 machine model for scheduling and other instruction cost heuristics.
 
 def PPCE200Z4Model : SchedMachineModel {
-  let IssueWidth = 1;  // Single-issue in-order processor.
-  let LoadLatency = 4; // Load-to-use latency (3 cycles + 1 for writeback).
+  let IssueWidth = 2;  // Dual-issue in-order processor.
+  let LoadLatency = 4; // Load-to-use latency (optimistic with bypass).
                        // This is overriden by OperandCycles if the
                        // Itineraries are queried instead.
   let MicroOpBufferSize = 0; // In-order processor, no reorder buffer.

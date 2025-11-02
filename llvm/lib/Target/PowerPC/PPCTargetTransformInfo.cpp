@@ -219,6 +219,223 @@ PPCTTIImpl::getUserCost(const User *U, ArrayRef<const Value *> Operands,
     return LT.first * BaseT::getUserCost(U, Operands, CostKind);
   }
 
+  // VLE code size optimization cost model:
+  // When optimizing for code size and VLE is enabled, return actual instruction sizes
+  // (2 bytes for 16-bit VLE, 4 bytes for 32-bit VLE/standard) instead of heuristic assumptions.
+  // This comprehensive cost model accounts for:
+  // - 16-bit VLE immediate constraints (s6imm: -32..31, u5imm: 0..31, u7imm: 0..127)
+  // - Register constraints (R0-R7 required for 16-bit encoding, 3-bit register field)
+  // - Load/store displacement constraints (u4imm: 0..15 for some, u5imm for others)
+  // 
+  // The cost model helps achieve the 20-30% code size reduction promised by VLE by
+  // accurately guiding instruction selection and register allocation to prefer:
+  // - 16-bit VLE instructions when immediate and register constraints are met
+  // - R0-R7 register allocation when optimizing for code size
+  // - Smaller immediate values that fit in VLE constraints
+  if (CostKind == TTI::TCK_CodeSize && ST->hasVLE()) {
+    if (const Instruction *I = dyn_cast<Instruction>(U)) {
+      // Comprehensive VLE immediate range checking
+      // Reference: VLEPIM and PowerPC Book E VLE Appendix
+      auto fitsInVLE16Immediate = [](int64_t Imm, unsigned Opcode, 
+                                      bool &IsS6Imm, bool &IsU5Imm, bool &IsU7Imm) -> bool {
+        IsS6Imm = false;
+        IsU5Imm = false;
+        IsU7Imm = false;
+        
+        // s6imm: -32 to 31 (6-bit signed immediate)
+        // Used for: se_addi, se_subi, se_cmpi, se_lwz, se_stw (displacement)
+        if (Imm >= -32 && Imm <= 31) {
+          IsS6Imm = true;
+          return true;
+        }
+        
+        // u5imm: 0 to 31 (5-bit unsigned immediate)
+        // Used for: shift amounts (se_slwi, se_srwi, se_srawi), 
+        //           logical operations (se_andi, se_ori, se_xori with small masks)
+        if (Imm >= 0 && Imm <= 31) {
+          if (Opcode == Instruction::Shl || Opcode == Instruction::LShr ||
+              Opcode == Instruction::AShr || Opcode == Instruction::And ||
+              Opcode == Instruction::Or || Opcode == Instruction::Xor) {
+            IsU5Imm = true;
+            return true;
+          }
+        }
+        
+        // u7imm: 0 to 127 (7-bit unsigned immediate)
+        // Used for: se_li (load immediate), extended se_addi range
+        if (Imm >= 0 && Imm <= 127 && 
+            (Opcode == Instruction::Add || Opcode == Instruction::Sub ||
+             Opcode == Instruction::Store || Opcode == Instruction::Load)) {
+          IsU7Imm = true;
+          return true;
+        }
+        
+        // u4imm: 0 to 15 (4-bit unsigned immediate)
+        // Used for: some memory displacement forms in 16-bit VLE
+        // Note: Checked separately for load/store instructions
+        return false;
+      };
+      
+      // Helper to estimate register constraint cost impact
+      // Returns a factor indicating how likely we are to get R0-R7 registers
+      // This is heuristic since we can't check actual register allocation at IR level
+      auto estimateRegisterConstraintCost = [](const Instruction *I) -> unsigned {
+        // If optimizing for code size, register allocator will prefer R0-R7
+        // (see PPCRegisterInfo.td AltOrders), so we weight this positively
+        // However, we add a small penalty (1 byte) if the operation uses many operands
+        // or complex addressing, as these are less likely to fit R0-R7 constraints
+        
+        // Simple operations (add, sub, logical) with few operands -> likely R0-R7
+        if (I->getNumOperands() <= 3) {
+          return 0; // No penalty, likely can use R0-R7
+        }
+        
+        // Complex operations (many operands, PHI nodes) -> less likely R0-R7
+        return 1; // Small penalty, may need R8-R31
+      };
+
+      // Determine instruction size based on operation and operands
+      bool IsS6Imm = false, IsU5Imm = false, IsU7Imm = false;
+      unsigned RegConstraintCost = estimateRegisterConstraintCost(I);
+      
+      switch (I->getOpcode()) {
+      case Instruction::Add:
+      case Instruction::Sub: {
+        // Check if immediate operand fits 16-bit VLE constraints
+        // VLE forms: se_addi (s6imm or u7imm), se_subi (s6imm)
+        // Note: Register allocator will prefer R0-R7 for code size (see PPCRegisterInfo.td),
+        // but we can't verify this at IR level, so we estimate based on operand complexity
+        for (unsigned i = 0, e = I->getNumOperands(); i != e; ++i) {
+          if (const ConstantInt *CI = dyn_cast<ConstantInt>(I->getOperand(i))) {
+            int64_t Imm = CI->getSExtValue();
+            if (fitsInVLE16Immediate(Imm, I->getOpcode(), IsS6Imm, IsU5Imm, IsU7Imm)) {
+              // If immediate fits and register constraint is favorable, return 16-bit cost
+              // Otherwise, add small penalty but still prefer 16-bit if possible
+              return 2 + RegConstraintCost; // 2 bytes for 16-bit, +1 if register constraint unfavorable
+            }
+          }
+        }
+        // No immediate operand or immediate doesn't fit -> 32-bit form required
+        return 4; // 32-bit VLE (e_add, e_sub) or standard PowerPC - 4 bytes
+      }
+      case Instruction::And:
+      case Instruction::Or:
+      case Instruction::Xor: {
+        // Check for immediate masks that fit 16-bit VLE (u5imm: 0..31)
+        // VLE forms: se_andi, se_ori, se_xori
+        for (unsigned i = 0, e = I->getNumOperands(); i != e; ++i) {
+          if (const ConstantInt *CI = dyn_cast<ConstantInt>(I->getOperand(i))) {
+            int64_t Imm = CI->getSExtValue();
+            if (fitsInVLE16Immediate(Imm, I->getOpcode(), IsS6Imm, IsU5Imm, IsU7Imm)) {
+              if (IsU5Imm) {
+                return 2 + RegConstraintCost; // se_andi/ori/xori are 16-bit (2 bytes)
+              }
+            }
+          }
+        }
+        return 4; // 32-bit VLE (e_and, e_or, e_xor) or standard - 4 bytes
+      }
+      case Instruction::Shl:
+      case Instruction::LShr:
+      case Instruction::AShr: {
+        // Shifts with small amounts (u5imm: 0..31) can use 16-bit VLE
+        // VLE forms: se_slwi, se_srwi, se_srawi
+        if (I->getNumOperands() >= 2) {
+          if (const ConstantInt *CI = dyn_cast<ConstantInt>(I->getOperand(1))) {
+            int64_t ShiftAmt = CI->getSExtValue();
+            if (fitsInVLE16Immediate(ShiftAmt, I->getOpcode(), IsS6Imm, IsU5Imm, IsU7Imm)) {
+              if (IsU5Imm) {
+                return 2 + RegConstraintCost; // se_slwi/srwi/srawi are 16-bit (2 bytes)
+              }
+            }
+          }
+        }
+        return 4; // 32-bit VLE or standard PowerPC - 4 bytes
+      }
+      case Instruction::ICmp: {
+        // Comparisons with small immediates (s6imm: -32..31) can use 16-bit VLE (se_cmpi)
+        // VLE form: se_cmpi (16-bit), se_cmp (32-bit register-to-register)
+        if (I->getNumOperands() >= 2) {
+          if (const ConstantInt *CI = dyn_cast<ConstantInt>(I->getOperand(1))) {
+            int64_t Imm = CI->getSExtValue();
+            if (fitsInVLE16Immediate(Imm, I->getOpcode(), IsS6Imm, IsU5Imm, IsU7Imm)) {
+              if (IsS6Imm) {
+                return 2 + RegConstraintCost; // se_cmpi is 16-bit (2 bytes)
+              }
+            }
+          }
+        }
+        return 4; // se_cmp (register-to-register) or standard PowerPC - 4 bytes
+      }
+      case Instruction::Load:
+      case Instruction::Store: {
+        // Load/store instructions can use 16-bit VLE forms when:
+        // - Displacement fits in s6imm (-32..31) for se_lwz/se_stw
+        // - Displacement fits in u4imm (0..15) for some 16-bit forms
+        // - Base register is R0-R7 (3-bit encoding required)
+        // Analysis at IR level is limited, so we estimate:
+        // - Simple address calculation -> likely 16-bit form possible
+        // - Complex address calculation -> 32-bit form required
+        
+        // Check if address computation uses a simple constant offset
+        Value *Ptr = (I->getOpcode() == Instruction::Load) ? 
+                     I->getOperand(0) : I->getOperand(1);
+        
+        // Try to extract constant displacement from GEP or constant pointer
+        if (const GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(Ptr)) {
+          // Check if GEP has constant offset that fits VLE displacement
+          if (GEP->hasAllConstantIndices()) {
+            // Estimate: if indices are small, displacement might fit s6imm
+            // This is conservative - actual analysis happens in instruction selector
+            bool SmallOffset = true;
+            for (unsigned i = 1, e = GEP->getNumOperands(); i != e; ++i) {
+              if (const ConstantInt *CI = dyn_cast<ConstantInt>(GEP->getOperand(i))) {
+                int64_t Val = CI->getSExtValue();
+                // If any offset component is large, likely needs 32-bit form
+                if (Val < -32 || Val > 31) {
+                  SmallOffset = false;
+                  break;
+                }
+              }
+            }
+            if (SmallOffset) {
+              return 2 + RegConstraintCost; // Potential 16-bit form (se_lwz/se_stw)
+            }
+          }
+        } else if (isa<ConstantPointerNull>(Ptr) || isa<GlobalValue>(Ptr)) {
+          // Direct constant address -> likely simple, but still needs 32-bit form
+          // (absolute addressing typically requires 32-bit)
+          return 4;
+        }
+        
+        // Default: 32-bit form (e_lwz, e_stw, or standard PowerPC)
+        // Instruction selector will optimize based on actual displacement
+        return 4; // 32-bit VLE or standard PowerPC - 4 bytes
+      }
+      case Instruction::Select:
+      case Instruction::PHI: {
+        // PHI and Select instructions don't map directly to single instructions,
+        // but their register usage affects VLE encoding opportunities
+        // Return base cost plus register constraint penalty
+        return 4 + RegConstraintCost;
+      }
+      case Instruction::Call:
+      case Instruction::Invoke: {
+        // Function calls typically use standard calling convention,
+        // but register allocator preference for R0-R7 still helps overall code size
+        return 4; // Standard function call overhead
+      }
+      default: {
+        // Most other PowerPC instructions have e_ prefix 32-bit VLE equivalents.
+        // Return 4 bytes (same as standard), which still encourages VLE pattern
+        // selection over standard PowerPC when patterns match.
+        // Complex instructions are less likely to benefit from 16-bit encoding
+        return 4;
+      }
+      }
+    }
+  }
+
   return BaseT::getUserCost(U, Operands, CostKind);
 }
 
@@ -859,6 +1076,44 @@ int PPCTTIImpl::getMemoryOpCost(unsigned Opcode, Type *Src,
   std::pair<int, MVT> LT = TLI->getTypeLegalizationCost(DL, Src);
   assert((Opcode == Instruction::Load || Opcode == Instruction::Store) &&
          "Invalid Opcode");
+
+  // VLE code size optimization: When optimizing for code size with VLE enabled,
+  // account for potential 16-bit VLE load/store forms (se_lwz, se_stw) which are
+  // 2 bytes vs 4 bytes for 32-bit forms. However, 16-bit forms require:
+  // - Displacement in s6imm range (-32..31) for base+offset addressing
+  // - Base register in R0-R7 (3-bit encoding)
+  // Since we can't determine these at IR level, we return base cost and let
+  // instruction selector optimize based on actual displacement values.
+  if (CostKind == TTI::TCK_CodeSize && ST->hasVLE() && I) {
+    // Estimate: Simple address calculations are more likely to use 16-bit forms
+    Value *Ptr = (Opcode == Instruction::Load) ? I->getOperand(0) : I->getOperand(1);
+    
+    // If address is a simple GEP with small constant offsets, might use 16-bit form
+    if (const GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(Ptr)) {
+      if (GEP->hasAllConstantIndices()) {
+        bool SmallOffset = true;
+        for (unsigned i = 1, e = GEP->getNumOperands(); i != e; ++i) {
+          if (const ConstantInt *CI = dyn_cast<ConstantInt>(GEP->getOperand(i))) {
+            int64_t Val = CI->getSExtValue();
+            // If offset fits s6imm range, might use 16-bit form
+            if (Val < -32 || Val > 31) {
+              SmallOffset = false;
+              break;
+            }
+          }
+        }
+        if (SmallOffset) {
+          // Estimate: 2 bytes for potential 16-bit form, but add 1 byte penalty
+          // for register constraint uncertainty (may need R8-R31)
+          int BaseCost = BaseT::getMemoryOpCost(Opcode, Src, Alignment, AddressSpace,
+                                                 CostKind);
+          // Return reduced cost for potential 16-bit VLE form
+          return std::max(2, BaseCost - 1);
+        }
+      }
+    }
+    // For other address forms, default to base cost (32-bit VLE or standard)
+  }
 
   int Cost = BaseT::getMemoryOpCost(Opcode, Src, Alignment, AddressSpace,
                                     CostKind);

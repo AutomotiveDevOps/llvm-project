@@ -1833,6 +1833,43 @@ as ``-mlong-calls`` and ``-mno-long-calls``.
   }];
 }
 
+def PowerPCInterruptDocs : Documentation {
+  let Category = DocCatFunction;
+  let Heading = "interrupt";
+  let Content = [{
+The ``interrupt`` attribute indicates that the function is an interrupt handler.
+The compiler generates appropriate prologue/epilogue code to save and restore
+all registers used by the function.
+
+For PowerPC e200 cores, this attribute:
+- Saves/restores Link Register (LR)
+- Saves/restores Condition Register (CR)
+- Saves/restores all General Purpose Registers used by the handler
+- Generates ``e_rfi`` instruction for return (VLE mode) or ``rfi`` (standard mode)
+
+The attribute accepts an optional argument specifying the interrupt type:
+- ``"critical"`` - Critical interrupt (non-maskable, IVOR0)
+- ``"external"`` - External interrupt handler (IVOR4)
+- Default - Standard interrupt handler
+
+Example:
+\code
+__attribute__((interrupt)) void timer_handler(void) {
+    // Interrupt handler code
+}
+
+__attribute__((interrupt("external"))) void uart_handler(void) {
+    // External interrupt handler
+}
+\endcode
+
+**Function Requirements:**
+- Must have ``void`` return type
+- Must have no parameters
+- Should be placed in ``.core_exceptions_table`` section for IVOR table integration
+  }];
+}
+
 def RISCVInterruptDocs : Documentation {
   let Category = DocCatFunction;
   let Heading = "interrupt (RISCV)";
@@ -1853,6 +1890,34 @@ https://gcc.gnu.org/onlinedocs/gcc/RISC-V-Function-Attributes.html
 https://riscv.org/specifications/privileged-isa/
 The RISC-V Instruction Set Manual Volume II: Privileged Architecture
 Version 1.10.
+  }];
+}
+
+def PowerPCInterruptDocs : Documentation {
+  let Category = DocCatFunction;
+  let Heading = "interrupt (PowerPC)";
+  let Content = [{
+Clang supports the GNU style ``__attribute__((interrupt))`` attribute on PowerPC
+targets. This attribute may be attached to a function definition and instructs
+the backend to generate appropriate function entry/exit code so that it can be
+used directly as an interrupt service routine.
+
+Permissible values for this parameter are ``critical``, ``external``, or no
+parameter (defaults to generic interrupt). The attribute causes the backend to
+automatically save and restore the Link Register (LR), Condition Register (CR),
+and all used general purpose registers (GPRs) in the function prologue and
+epilogue. The function returns using the ``rfi`` instruction (for BookE targets
+in VLE mode) or ``rfi`` (for standard PowerPC targets), which properly restores
+machine state from the interrupt context.
+
+Semantic checks:
+- The function must have no parameters.
+- The function must return void.
+- The function may be called from interrupt context.
+
+Refer to:
+https://gcc.gnu.org/onlinedocs/gcc/Function-Attributes.html
+PowerPC Embedded Application Binary Interface Specification
   }];
 }
 

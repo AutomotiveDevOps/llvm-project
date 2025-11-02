@@ -258,9 +258,24 @@ def GPRC : RegisterClass<"PPC", [i32,f32], 32, (add (sequence "R%u", 2, 12),
                                                     R31, R0, R1, FP, BP)> {
   // On non-Darwin PPC64 systems, R2 can be allocated, but must be restored, so
   // put it at the end of the list.
-  let AltOrders = [(add (sub GPRC, R2), R2)];
+  let AltOrders = [(add (sub GPRC, R2), R2),
+                   // VLE code size optimization: Prefer R0-R7 for 16-bit VLE instructions
+                   // This alternative order prioritizes R0-R7 which are required
+                   // for 16-bit VLE encoding (3-bit register field)
+                   (add R0, R1, R2, R3, R4, R5, R6, R7,
+                        (sequence "R%u", 8, 12),
+                        (sequence "R%u", 30, 13), R31, FP, BP)];
   let AltOrderSelect = [{
-    return MF.getSubtarget<PPCSubtarget>().is64BitELFABI();
+    const PPCSubtarget &Subtarget = MF.getSubtarget<PPCSubtarget>();
+    // Use 64-bit ELF ABI order when needed
+    if (Subtarget.is64BitELFABI())
+      return 1;
+    // Use VLE-preferred order (R0-R7 first) when optimizing for code size and VLE is enabled
+    if (Subtarget.hasVLE() &&
+        (MF.getFunction().hasOptSize() || MF.getFunction().hasMinSize()))
+      return 2;
+    // Default order
+    return 0;
   }];
 }
 
