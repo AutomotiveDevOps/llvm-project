@@ -94,32 +94,36 @@ def PPCE200Z4Itineraries : ProcessorItineraries<
   InstrItinData<IIC_IntDivW,     [InstrStage<1, [E200Z4_FETCH], 0>,
                                    InstrStage<1, [E200Z4_DECODE], 0>,
                                    InstrStage<1, [E200Z4_EX, E200Z4_ALU], 0>,
-                                   InstrStage<34, [E200Z4_EX, E200Z4_ALU]>],
-                                  [38, 1, 1], // Latency = 34, Repeat rate = 34
+                                   InstrStage<13, [E200Z4_EX, E200Z4_ALU]>],
+                                  [17, 1, 1], // Latency = 14 (worst case), Repeat rate = 14
+                                  // Manual: Variable 4-14 cycles, worst case 14 cycles (blocking)
                                   [E200Z4_GPR_Bypass,
                                    E200Z4_GPR_Bypass, E200Z4_GPR_Bypass]>,
   InstrItinData<IIC_IntMulHW,    [InstrStage<1, [E200Z4_FETCH], 0>,
                                    InstrStage<1, [E200Z4_DECODE], 0>,
                                    InstrStage<1, [E200Z4_EX, E200Z4_MUL]>,
-                                   InstrStage<4, [E200Z4_MEM]>,
+                                   InstrStage<1, [E200Z4_MEM]>,
                                    InstrStage<1, [E200Z4_WB]>],
-                                  [8, 1, 1, 1, 1], // Latency = 4, Repeat rate = 1
+                                  [6, 1, 1, 1, 1], // Latency = 2, Repeat rate = 1
+                                  // Manual: 2 cycles latency, 1 per cycle throughput (pipelined)
                                   [E200Z4_GPR_Bypass,
                                    E200Z4_GPR_Bypass, E200Z4_GPR_Bypass]>,
   InstrItinData<IIC_IntMulHWU,   [InstrStage<1, [E200Z4_FETCH], 0>,
                                    InstrStage<1, [E200Z4_DECODE], 0>,
                                    InstrStage<1, [E200Z4_EX, E200Z4_MUL]>,
-                                   InstrStage<4, [E200Z4_MEM]>,
+                                   InstrStage<1, [E200Z4_MEM]>,
                                    InstrStage<1, [E200Z4_WB]>],
-                                  [8, 1, 1, 1, 1], // Latency = 4, Repeat rate = 1
+                                  [6, 1, 1, 1, 1], // Latency = 2, Repeat rate = 1
+                                  // Manual: 2 cycles latency, 1 per cycle throughput (pipelined)
                                   [E200Z4_GPR_Bypass,
                                    E200Z4_GPR_Bypass, E200Z4_GPR_Bypass]>,
   InstrItinData<IIC_IntMulLI,    [InstrStage<1, [E200Z4_FETCH], 0>,
                                    InstrStage<1, [E200Z4_DECODE], 0>,
                                    InstrStage<1, [E200Z4_EX, E200Z4_MUL]>,
-                                   InstrStage<4, [E200Z4_MEM]>,
+                                   InstrStage<1, [E200Z4_MEM]>,
                                    InstrStage<1, [E200Z4_WB]>],
-                                  [8, 1, 1, 1, 1], // Latency = 4, Repeat rate = 1
+                                  [6, 1, 1, 1, 1], // Latency = 2, Repeat rate = 1
+                                  // Manual: 2 cycles latency, 1 per cycle throughput (pipelined)
                                   [E200Z4_GPR_Bypass,
                                    E200Z4_GPR_Bypass, E200Z4_GPR_Bypass]>,
   InstrItinData<IIC_IntRotate,   [InstrStage<1, [E200Z4_FETCH], 0>,
@@ -168,17 +172,19 @@ def PPCE200Z4Itineraries : ProcessorItineraries<
                                   [E200Z4_CR_Bypass, E200Z4_GPR_Bypass]>,
   InstrItinData<IIC_LdStLoad,    [InstrStage<1, [E200Z4_FETCH], 0>,
                                    InstrStage<1, [E200Z4_DECODE], 0>,
-                                   InstrStage<1, [E200Z4_EX]>,
+                                   InstrStage<1, [E200Z4_EX, E200Z4_LSU]>,
                                    InstrStage<1, [E200Z4_MEM, E200Z4_LSU]>,
                                    InstrStage<1, [E200Z4_WB]>],
-                                  [6, 1, 1, 1, 1], // Latency = 3
+                                  [6, 1, 1, 1, 1], // Latency = 2
+                                  // Manual: 2 cycles latency, 1 per cycle throughput, single stall cycle if dependent
                                   [E200Z4_GPR_Bypass, E200Z4_GPR_Bypass]>,
   InstrItinData<IIC_LdStLoadUpd, [InstrStage<1, [E200Z4_FETCH], 0>,
                                    InstrStage<1, [E200Z4_DECODE], 0>,
                                    InstrStage<1, [E200Z4_EX, E200Z4_ALU], 0>,
                                    InstrStage<1, [E200Z4_MEM, E200Z4_LSU]>,
                                    InstrStage<1, [E200Z4_WB]>],
-                                  [6, 1, 1, 1, 1], // Latency = 3
+                                  [6, 1, 1, 1, 1], // Latency = 2 (same as regular load)
+                                  // Manual: 2 cycles latency for load
                                   [E200Z4_GPR_Bypass, E200Z4_GPR_Bypass],
                                   2>, // 2 micro-ops
   InstrItinData<IIC_LdStLoadUpdX,[InstrStage<1, [E200Z4_FETCH], 0>,
@@ -186,27 +192,31 @@ def PPCE200Z4Itineraries : ProcessorItineraries<
                                    InstrStage<1, [E200Z4_EX, E200Z4_ALU], 0>,
                                    InstrStage<1, [E200Z4_MEM, E200Z4_LSU]>,
                                    InstrStage<1, [E200Z4_WB]>],
-                                  [6, 1, 1, 1, 1], // Latency = 3
+                                  [6, 1, 1, 1, 1], // Latency = 2 (same as regular load)
+                                  // Manual: 2 cycles latency for load
                                   [E200Z4_GPR_Bypass, E200Z4_GPR_Bypass],
                                   2>, // 2 micro-ops
   InstrItinData<IIC_LdStStore,   [InstrStage<1, [E200Z4_FETCH], 0>,
                                    InstrStage<1, [E200Z4_DECODE], 0>,
-                                   InstrStage<1, [E200Z4_EX]>,
+                                   InstrStage<1, [E200Z4_EX, E200Z4_LSU]>,
                                    InstrStage<1, [E200Z4_MEM, E200Z4_LSU]>],
-                                  [5, 1, 1, 1], // Latency = 3
+                                  [5, 1, 1, 1], // Latency = 2
+                                  // Manual: 2 cycles latency, 1 per cycle throughput
                                   [NoBypass, E200Z4_GPR_Bypass]>,
   InstrItinData<IIC_LdStSTU,     [InstrStage<1, [E200Z4_FETCH], 0>,
                                    InstrStage<1, [E200Z4_DECODE], 0>,
                                    InstrStage<1, [E200Z4_EX, E200Z4_ALU], 0>,
                                    InstrStage<1, [E200Z4_MEM, E200Z4_LSU]>],
-                                  [5, 1, 1, 1], // Latency = 3
+                                  [5, 1, 1, 1], // Latency = 2 (same as regular store)
+                                  // Manual: 2 cycles latency for store
                                   [NoBypass, E200Z4_GPR_Bypass],
                                   2>, // 2 micro-ops
   InstrItinData<IIC_LdStSTUX,    [InstrStage<1, [E200Z4_FETCH], 0>,
                                    InstrStage<1, [E200Z4_DECODE], 0>,
                                    InstrStage<1, [E200Z4_EX, E200Z4_ALU], 0>,
                                    InstrStage<1, [E200Z4_MEM, E200Z4_LSU]>],
-                                  [5, 1, 1, 1], // Latency = 3
+                                  [5, 1, 1, 1], // Latency = 2 (same as regular store)
+                                  // Manual: 2 cycles latency for store
                                   [NoBypass, E200Z4_GPR_Bypass],
                                   2>, // 2 micro-ops
   InstrItinData<IIC_SprMFSPR,    [InstrStage<1, [E200Z4_FETCH], 0>,
@@ -242,29 +252,33 @@ def PPCE200Z4Itineraries : ProcessorItineraries<
   InstrItinData<IIC_FPGeneral,   [InstrStage<1, [E200Z4_FETCH, E200Z4_ICache], 0>,
                                    InstrStage<1, [E200Z4_DIS0], 0>,
                                    InstrStage<1, [E200Z4_SPE], 0>,
-                                   InstrStage<2, [E200Z4_SPE]>],
-                                  [6, 1, 1, 1], // Latency = 3, Repeat rate = 1
+                                   InstrStage<1, [E200Z4_SPE]>],
+                                  [5, 1, 1, 1], // Latency = 2, Repeat rate = 1
+                                  // Manual: FP add/subtract/compare/multiply/MAC have 2 cycles latency
                                   [E200Z4_SPE_Bypass,
                                    E200Z4_SPE_Bypass, E200Z4_SPE_Bypass]>,
   InstrItinData<IIC_FPAddSub,    [InstrStage<1, [E200Z4_FETCH, E200Z4_ICache], 0>,
                                    InstrStage<1, [E200Z4_DIS0], 0>,
                                    InstrStage<1, [E200Z4_SPE], 0>,
-                                   InstrStage<3, [E200Z4_SPE]>],
-                                  [7, 1, 1, 1], // Latency = 4, Repeat rate = 1
+                                   InstrStage<1, [E200Z4_SPE]>],
+                                  [5, 1, 1, 1], // Latency = 2, Repeat rate = 1
+                                  // Manual: FP add/subtract have 2 cycles latency
                                   [E200Z4_SPE_Bypass,
                                    E200Z4_SPE_Bypass, E200Z4_SPE_Bypass]>,
   InstrItinData<IIC_FPCompare,   [InstrStage<1, [E200Z4_FETCH, E200Z4_ICache], 0>,
                                    InstrStage<1, [E200Z4_DIS0], 0>,
                                    InstrStage<1, [E200Z4_SPE], 0>,
-                                   InstrStage<2, [E200Z4_SPE]>],
-                                  [6, 1, 1, 1], // Latency = 3, Repeat rate = 1
+                                   InstrStage<1, [E200Z4_SPE]>],
+                                  [5, 1, 1, 1], // Latency = 2, Repeat rate = 1
+                                  // Manual: FP compare has 2 cycles latency
                                   [E200Z4_CR_Bypass,
                                    E200Z4_SPE_Bypass, E200Z4_SPE_Bypass]>,
   InstrItinData<IIC_FPDivS,      [InstrStage<1, [E200Z4_FETCH, E200Z4_ICache], 0>,
                                    InstrStage<1, [E200Z4_DIS0], 0>,
                                    InstrStage<1, [E200Z4_SPE], 0>,
-                                   InstrStage<24, [E200Z4_SPE]>],
-                                  [29, 1, 1, 1], // Latency = 25, Repeat rate = 25
+                                   InstrStage<12, [E200Z4_SPE]>],
+                                  [17, 1, 1, 1], // Latency = 13, Repeat rate = 13
+                                  // Manual: SPE floating-point divide has 13 cycles latency (blocking)
                                   [E200Z4_SPE_Bypass,
                                    E200Z4_SPE_Bypass, E200Z4_SPE_Bypass]>
 ]>;
@@ -272,25 +286,45 @@ def PPCE200Z4Itineraries : ProcessorItineraries<
 // ===---------------------------------------------------------------------===//
 // e200z4 machine model for scheduling and other instruction cost heuristics.
 //
-// DUAL-ISSUE PAIRING RULES (from e200z4RM manual, Chapter 4):
-// NOTE: Exact pairing rules table needs to be extracted from manual Chapter 4.
-// The scheduler does not currently enforce explicit pairing constraints.
-// Known restrictions based on code comments:
-// - SPE instructions cannot pair (must use DIS0 only)
-// - Some instructions are restricted to SU0 only (not SU1)
-// - Dispatch ports: DIS0 and DIS1 for dual-issue capability
+// DUAL-ISSUE PAIRING RULES (from e200z4RM manual, Chapter 4, Table 4-1):
+// Extracted from e200z4 Core Reference Manual Rev. 0, 10/2009
 //
-// TODO: Extract complete pairing rules table from e200z4 Core Reference Manual
-// Chapter 4, Section 4.X (Instruction Pipeline and Execution Timing) to:
-// 1. Document which instruction types can pair
-// 2. Specify exact pairing combinations
-// 3. List SU0-only instruction restrictions
-// 4. Model resource conflicts and pairing constraints
-// 5. Set CompleteModel = 1 after validation
+// Instruction pairs marked with "4" can dual-issue together.
+// Instruction pairs marked with "—" cannot dual-issue together.
+//
+// Pairing Matrix (from manual Table 4-1):
+//   First \ Second | Branch | Load/Store | Scalar Int | Scalar Float | Vector Int | Vector Float | Special
+//   --------------|--------|------------|------------|--------------|------------|--------------|--------
+//   Branch         |   —    |     4      |     4      |      4       |     4      |       4       |    —
+//   Load/Store     |   4    |     —      |     4      |      4       |     4      |       4       |    —
+//   Scalar Integer |   4    |     4      |     41     |      4       |     42     |       4       |    —
+//   Scalar Float   |   4    |     4      |     4      |      4       |     4      |       —       |    —
+//   Vector Integer |   4    |     4      |     42     |      4       |     43     |       4       |    —
+//   Vector Float   |   4    |     4      |     4      |      —       |     4      |       —       |    —
+//   Special        |   —    |     —      |     —      |      —       |     —      |       —       |    —
+//
+// Footnotes:
+//   1: Excludes divide class instructions occurring in both issue slots
+//   2: Excludes vector MAC/multiply class instructions occurring with scalar multiply,
+//      or divide class instructions occurring in both issue slots
+//   3: Excludes vector MAC/multiply class instructions occurring in both issue slots,
+//      or divide class instructions occurring in both issue slots
+//
+// KEY RESTRICTIONS:
+// - Two divide instructions cannot issue simultaneously (single divide unit, blocking)
+// - Divide instructions cannot pair with each other
+// - Vector MAC/multiply cannot pair with scalar multiply
+// - Vector MAC/multiply cannot pair with each other (in both slots)
+// - Special instructions cannot pair with anything
+// - SPE instructions cannot pair (must use DIS0 only) - modeled via DIS0 resource constraint
+//
+// NOTE: The scheduler currently relies on resource conflicts (single divide unit, single LSU)
+// to prevent invalid pairings. Complete explicit pairing rule enforcement would require
+// a custom hazard recognizer or enhanced resource reservation model.
 
 def PPCE200Z4Model : SchedMachineModel {
   let IssueWidth = 2;  // Dual-issue in-order processor.
-  let LoadLatency = 4; // Load-to-use latency (optimistic with bypass).
+  let LoadLatency = 3; // Load-to-use latency (manual: 2 cycles + 1 stall cycle if dependent).
                        // This is overriden by OperandCycles if the
                        // Itineraries are queried instead.
   let MicroOpBufferSize = 0; // In-order processor, no reorder buffer.

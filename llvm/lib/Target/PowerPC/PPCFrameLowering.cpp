@@ -1668,20 +1668,43 @@ void PPCFrameLowering::emitEpilogue(MachineFunction &MF,
   if (IsReturnBlock) {
     unsigned RetOpcode = MBBI->getOpcode();
     
-    // For interrupt handlers, replace BLR/BLR8 with RFI (Return From Interrupt).
-    // RFI is used for BookE targets (standard PowerPC). For VLE mode, e_rfi
-    // should be used (VLE 32-bit form of RFI).
+    // For interrupt handlers, replace BLR/BLR8 with RFI (Return From Interrupt)
+    // or RFCI (Return From Critical Interrupt).
+    // - Critical interrupts (IVOR0): Hardware saves to CSRR0/CSRR1, use RFCI
+    // - External interrupts (IVOR4): Hardware saves to SRR0/SRR1, use RFI
+    // - Default interrupts: Use RFI (same as external)
+    // For VLE mode, e_rfi should be used (VLE 32-bit form of RFI).
+    // Note: RFCI is for critical interrupts only (non-maskable, IVOR0).
     if (isInterruptHandler(MF) &&
         (RetOpcode == PPC::BLR || RetOpcode == PPC::BLR8)) {
       // Erase the BLR instruction.
       MBBI = MBB.erase(MBBI);
       
-      // Emit RFI or e_rfi instruction depending on VLE mode.
-      // RFI/e_rfi requires BookE, which is typical for embedded PowerPC
-      // targets that use interrupt handlers.
+      // Check interrupt type from function attribute
+      const Function &F = MF.getFunction();
+      StringRef InterruptType = "";
+      if (F.hasFnAttribute("interrupt")) {
+        Attribute Attr = F.getFnAttribute("interrupt");
+        if (Attr.isStringAttribute()) {
+          InterruptType = Attr.getValueAsString();
+        }
+      }
+      
+      // Emit RFCI for critical interrupts, RFI/e_rfi for others
       const PPCSubtarget &Subtarget = MF.getSubtarget<PPCSubtarget>();
-      unsigned RFIOpcode = Subtarget.hasVLE() ? PPC::E_RFI : PPC::RFI;
-      BuildMI(MBB, MBBI, dl, TII.get(RFIOpcode));
+      unsigned ReturnOpcode;
+      if (InterruptType == "critical") {
+        // Critical interrupt: use RFCI (Return From Critical Interrupt)
+        // Hardware automatically saves to CSRR0/CSRR1 for critical interrupts
+        // RFCI restores from CSRR0/CSRR1
+        ReturnOpcode = PPC::RFCI;
+      } else {
+        // External or default interrupt: use RFI/e_rfi
+        // Hardware automatically saves to SRR0/SRR1 for external interrupts
+        // RFI restores from SRR0/SRR1
+        ReturnOpcode = Subtarget.hasVLE() ? PPC::E_RFI : PPC::RFI;
+      }
+      BuildMI(MBB, MBBI, dl, TII.get(ReturnOpcode));
       return;
     }
     
