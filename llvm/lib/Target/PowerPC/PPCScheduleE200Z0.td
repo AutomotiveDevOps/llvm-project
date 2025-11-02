@@ -78,7 +78,8 @@ def PPCE200Z0Itineraries : ProcessorItineraries<
                                    InstrStage<1, [E200Z0_DECODE], 0>,
                                    InstrStage<1, [E200Z0_EX, E200Z0_ALU], 0>,
                                    InstrStage<34, [E200Z0_EX, E200Z0_ALU]>],
-                                  [38, 1, 1], // Latency = 34, Repeat rate = 34
+                                  [38, 1, 1], // Latency = 34 (worst case), Repeat rate = 34
+                                  // Manual: 5-34 cycles (data-dependent), worst case 34 cycles (blocking)
                                   [E200Z0_GPR_Bypass,
                                    E200Z0_GPR_Bypass, E200Z0_GPR_Bypass]>,
   InstrItinData<IIC_IntMulHW,    [InstrStage<1, [E200Z0_FETCH], 0>,
@@ -86,7 +87,8 @@ def PPCE200Z0Itineraries : ProcessorItineraries<
                                    InstrStage<1, [E200Z0_EX, E200Z0_MUL], 0>,
                                    InstrStage<3, [E200Z0_EX, E200Z0_MUL]>,
                                    InstrStage<1, [E200Z0_WB]>],
-                                  [7, 1, 1, 1, 1], // Latency = 4, Repeat rate = 1
+                                  [7, 1, 1, 1, 1], // Latency = 4 (worst case), Repeat rate = 1
+                                  // Manual: 1-4 cycles (data-dependent, early out), worst case 4 cycles
                                   [E200Z0_GPR_Bypass,
                                    E200Z0_GPR_Bypass, E200Z0_GPR_Bypass]>,
   InstrItinData<IIC_IntMulHWU,   [InstrStage<1, [E200Z0_FETCH], 0>,
@@ -94,15 +96,17 @@ def PPCE200Z0Itineraries : ProcessorItineraries<
                                    InstrStage<1, [E200Z0_EX, E200Z0_MUL], 0>,
                                    InstrStage<3, [E200Z0_EX, E200Z0_MUL]>,
                                    InstrStage<1, [E200Z0_WB]>],
-                                  [7, 1, 1, 1, 1], // Latency = 4, Repeat rate = 1
+                                  [7, 1, 1, 1, 1], // Latency = 4 (worst case), Repeat rate = 1
+                                  // Manual: 1-4 cycles (data-dependent, early out), worst case 4 cycles
                                   [E200Z0_GPR_Bypass,
                                    E200Z0_GPR_Bypass, E200Z0_GPR_Bypass]>,
   InstrItinData<IIC_IntMulLI,    [InstrStage<1, [E200Z0_FETCH], 0>,
                                    InstrStage<1, [E200Z0_DECODE], 0>,
                                    InstrStage<1, [E200Z0_EX, E200Z0_MUL], 0>,
                                    InstrStage<3, [E200Z0_EX, E200Z0_MUL]>,
-                                   InstrStage<1, [E200Z0_WB]>],
-                                  [7, 1, 1, 1, 1], // Latency = 4, Repeat rate = 1
+                                  [6, 1, 1, 1], // Latency = 4 (worst case), Repeat rate = 1
+                                  // Manual: 1-4 cycles (data-dependent, early out), worst case 4 cycles
+                                  // Note: Early out can complete in 1 cycle for simple cases
                                   [E200Z0_GPR_Bypass,
                                    E200Z0_GPR_Bypass, E200Z0_GPR_Bypass]>,
   InstrItinData<IIC_IntRotate,   [InstrStage<1, [E200Z0_FETCH], 0>,
@@ -148,16 +152,19 @@ def PPCE200Z0Itineraries : ProcessorItineraries<
                                   [E200Z0_CR_Bypass, E200Z0_GPR_Bypass]>,
   InstrItinData<IIC_LdStLoad,    [InstrStage<1, [E200Z0_FETCH], 0>,
                                    InstrStage<1, [E200Z0_DECODE], 0>,
-                                   InstrStage<2, [E200Z0_EX, E200Z0_LSU]>,
+                                   InstrStage<1, [E200Z0_EX, E200Z0_LSU]>,
                                    InstrStage<1, [E200Z0_WB]>],
-                                  [5, 1, 1, 1], // Latency = 3 (FETCH+DECODE+EX(2)+WB)
+                                  [4, 1, 1, 1], // Latency = 1
+                                  // Manual: 1 cycle latency when free of EA calculation dependency
+                                  // Load-to-use: No pipeline bubbles for aligned transfers
                                   [E200Z0_GPR_Bypass, E200Z0_GPR_Bypass]>,
   InstrItinData<IIC_LdStLoadUpd, [InstrStage<1, [E200Z0_FETCH], 0>,
                                    InstrStage<1, [E200Z0_DECODE], 0>,
                                    InstrStage<1, [E200Z0_EX, E200Z0_ALU], 0>,
-                                   InstrStage<2, [E200Z0_EX, E200Z0_LSU]>,
+                                   InstrStage<1, [E200Z0_EX, E200Z0_LSU]>,
                                    InstrStage<1, [E200Z0_WB]>],
-                                  [6, 1, 1, 1, 1], // Latency = 3
+                                  [5, 1, 1, 1, 1], // Latency = 1 (same as regular load)
+                                  // Manual: 1 cycle latency when free of EA dependency
                                   [E200Z0_GPR_Bypass, E200Z0_GPR_Bypass],
                                   2>, // 2 micro-ops
   InstrItinData<IIC_LdStLoadUpdX,[InstrStage<1, [E200Z0_FETCH], 0>,
