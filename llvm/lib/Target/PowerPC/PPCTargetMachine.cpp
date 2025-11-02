@@ -477,9 +477,8 @@ void PPCPassConfig::addMachineSSAOptimization() {
     addPass(createPPCBranchCoalescingPass());
   TargetPassConfig::addMachineSSAOptimization();
   // VLE optimization pass - convert standard PowerPC to VLE for code size
-  // Run when VLE is enabled and optimizing for size (-Oz) or VLE explicitly enabled
-  const PPCSubtarget *STI = &MF.getSubtarget<PPCSubtarget>();
-  if (STI->hasVLE() && (getOptLevel() >= CodeGenOpt::Default))
+  // Run when optimizing (VLE pass will check if VLE is enabled)
+  if (getOptLevel() >= CodeGenOpt::Default)
     addPass(createPPCVLEOptPass());
   // For little endian, remove where possible the vector swap instructions
   // introduced at code generation to normalize vector element order.
