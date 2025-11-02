@@ -98,14 +98,18 @@ bool PPCVLEOpt::runOnMachineFunction(MachineFunction &MF) {
   if (!STI->hasVLE())
     return false;
   
-  // Only optimize for code size
-  if (MF.getFunction().getAttributes().hasFnAttr(
-          Attribute::OptimizeForSize) ||
-      MF.getFunction().getAttributes().hasFnAttr(Attribute::MinSize)) {
-    // Good - optimizing for size
-  } else {
-    // Could also check for -Oz flag, but for now be conservative
-    // and only optimize when explicitly requested
+  // Optimize when:
+  // 1. Function is marked for size optimization, OR
+  // 2. VLE is explicitly enabled (user wants VLE)
+  // Note: Post-RA pass would be more accurate for register constraints
+  bool OptForSize = MF.getFunction().getAttributes().hasFnAttr(
+                       Attribute::OptimizeForSize) ||
+                    MF.getFunction().getAttributes().hasFnAttr(
+                       Attribute::MinSize);
+  bool VLEExplicit = STI->hasVLE(); // VLE explicitly enabled
+  
+  if (!OptForSize && !VLEExplicit) {
+    // Only optimize when size matters or VLE is explicitly enabled
     return false;
   }
   
