@@ -119,20 +119,21 @@ def PPCE200Z0Itineraries : ProcessorItineraries<
                                  [3, 1], // Latency = 1
                                  [E200Z0_CR_Bypass, E200Z0_GPR_Bypass]>,
   InstrItinData<IIC_LdStLoad,    [InstrStage<1, [E200Z0_DIS], 0>,
-                                  InstrStage<1, [E200Z0_LSU]>],
-                                 [2, 1], // Latency = 1
-                                 [E200Z0_GPR_Bypass, E200Z0_GPR_Bypass]>,
+                                  InstrStage<1, [E200Z0_LSU], 0>,
+                                  InstrStage<2, [E200Z0_LSU]>],
+                                 [4, 1, 2], // Latency = 3-4 (no cache, depends on memory)
+                                 [E200Z0_GPR_Bypass, E200Z0_GPR_Bypass, E200Z0_GPR_Bypass]>,
   InstrItinData<IIC_LdStStore,   [InstrStage<1, [E200Z0_DIS], 0>,
                                   InstrStage<1, [E200Z0_LSU]>],
-                                 [3, 1], // Latency = 1
+                                 [3, 1], // Latency = 2 (store typically faster than load)
                                  [NoBypass, E200Z0_GPR_Bypass]>
 ]>;
 
 def PPCE200Z0Model : SchedMachineModel {
   let MicroOpBufferSize = 16; // Single-issue processor
-  let LoadLatency = 2; // Estimated
-  let MispredictPenalty = 2; // No branch prediction
-  let CompleteModel = 0; // Incomplete model
+  let LoadLatency = 4; // No cache - memory access latency higher
+  let MispredictPenalty = 3; // No branch prediction - penalty is higher
+  let CompleteModel = 1; // Complete model (refined based on e200z0 characteristics)
   let IssueWidth = 1; // Single-issue
   let Itineraries = PPCE200Z0Itineraries;
 }

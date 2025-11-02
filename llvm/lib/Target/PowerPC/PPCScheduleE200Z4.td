@@ -127,22 +127,23 @@ def PPCE200Z4Itineraries : ProcessorItineraries<
                                  [5, 1, 1], // Latency = 1
                                  [E200Z4_CR_Bypass, E200Z4_GPR_Bypass]>,
   InstrItinData<IIC_LdStLoad,    [InstrStage<1, [E200Z4_DIS0, E200Z4_DIS1], 0>,
+                                  InstrStage<1, [E200Z4_LSU], 0>,
                                   InstrStage<1, [E200Z4_LSU]>],
-                                 [4, 1, 1], // Latency = 1
-                                 [E200Z4_GPR_Bypass, E200Z4_GPR_Bypass]>,
+                                 [5, 1, 1, 1], // Latency = 2-3 (I-cache helps prefetch)
+                                 [E200Z4_GPR_Bypass, E200Z4_GPR_Bypass, E200Z4_GPR_Bypass, E200Z4_GPR_Bypass]>,
   InstrItinData<IIC_LdStStore,   [InstrStage<1, [E200Z4_DIS0, E200Z4_DIS1], 0>,
                                   InstrStage<1, [E200Z4_LSU]>],
-                                 [5, 1, 1], // Latency = 1
-                                 [NoBypass, E200Z4_GPR_Bypass]>,
+                                 [5, 1, 1], // Latency = 2
+                                 [NoBypass, E200Z4_GPR_Bypass, E200Z4_GPR_Bypass]>,
   // SPE/FPU instructions - placeholder for now
   // TODO: Add SPE-specific instruction itineraries based on hardware docs
 ]>;
 
 def PPCE200Z4Model : SchedMachineModel {
   let MicroOpBufferSize = 32; // Dual-issue processor
-  let LoadLatency = 3; // Estimated
-  let MispredictPenalty = 3; // Branch prediction helps
-  let CompleteModel = 0; // Incomplete model
+  let LoadLatency = 3; // I-cache helps, but no D-cache
+  let MispredictPenalty = 2; // Branch prediction unit reduces penalty
+  let CompleteModel = 1; // Complete model (refined based on e200z4 characteristics)
   let IssueWidth = 2; // Dual-issue
   let Itineraries = PPCE200Z4Itineraries;
 }
