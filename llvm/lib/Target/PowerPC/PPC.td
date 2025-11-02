@@ -40,6 +40,14 @@ def DirectiveE500mc : SubtargetFeature<"", "CPUDirective",
                                        "PPC::DIR_E500mc", "">;
 def DirectiveE5500  : SubtargetFeature<"", "CPUDirective",
                                        "PPC::DIR_E5500", "">;
+def DirectiveE200Z0 : SubtargetFeature<"", "CPUDirective",
+                                       "PPC::DIR_E200Z0", "">;
+def DirectiveE200Z4 : SubtargetFeature<"", "CPUDirective",
+                                       "PPC::DIR_E200Z4", "">;
+def DirectiveE200Z6 : SubtargetFeature<"", "CPUDirective",
+                                       "PPC::DIR_E200Z6", "">;
+def DirectiveE200Z7 : SubtargetFeature<"", "CPUDirective",
+                                       "PPC::DIR_E200Z7", "">;
 def DirectivePwr3: SubtargetFeature<"", "CPUDirective", "PPC::DIR_PWR3", "">;
 def DirectivePwr4: SubtargetFeature<"", "CPUDirective", "PPC::DIR_PWR4", "">;
 def DirectivePwr5: SubtargetFeature<"", "CPUDirective", "PPC::DIR_PWR5", "">;
@@ -501,6 +509,22 @@ def : ProcessorModel<"e5500", PPCE5500Model,
                   [DirectiveE5500, FeatureMFOCRF, Feature64Bit,
                    FeatureSTFIWX, FeatureICBT, FeatureBookE,
                    FeatureISEL, FeatureMFTB]>;
+def : ProcessorModel<"e200z0", PPCE200Z0Model,
+                  [DirectiveE200Z0,
+                   FeatureICBT, FeatureBookE,
+                   FeatureISEL, FeatureMFTB, FeatureMSYNC]>;
+def : ProcessorModel<"e200z4", PPCE200Z4Model,
+                  [DirectiveE200Z4,
+                   FeatureICBT, FeatureBookE,
+                   FeatureISEL, FeatureMFTB, FeatureMSYNC, FeatureSPE]>;
+def : ProcessorModel<"e200z6", PPCE200Z6Model,
+                  [DirectiveE200Z6,
+                   FeatureICBT, FeatureBookE,
+                   FeatureISEL, FeatureMFTB, FeatureMSYNC]>;
+def : ProcessorModel<"e200z7", PPCE200Z7Model,
+                  [DirectiveE200Z7,
+                   FeatureICBT, FeatureBookE,
+                   FeatureISEL, FeatureMFTB, FeatureMSYNC, FeatureSPE]>;
 def : ProcessorModel<"a2", PPCA2Model,
                   [DirectiveA2, FeatureICBT, FeatureBookE, FeatureMFOCRF,
                    FeatureFCPSGN, FeatureFSqrt, FeatureFRE, FeatureFRES,
