@@ -363,6 +363,7 @@ def TargetMips32 : TargetArch<["mips", "mipsel"]>;
 def TargetAnyMips : TargetArch<["mips", "mipsel", "mips64", "mips64el"]>;
 def TargetMSP430 : TargetArch<["msp430"]>;
 def TargetRISCV : TargetArch<["riscv32", "riscv64"]>;
+def TargetPowerPC : TargetArch<["powerpc", "powerpc64", "powerpcle", "powerpc64le"]>;
 def TargetX86 : TargetArch<["x86"]>;
 def TargetAnyX86 : TargetArch<["x86", "x86_64"]>;
 def TargetWebAssembly : TargetArch<["wasm32", "wasm64"]>;
@@ -1621,6 +1622,17 @@ def RISCVInterrupt : InheritableAttr, TargetSpecificAttr<TargetRISCV> {
                            1>];
   let ParseKind = "Interrupt";
   let Documentation = [RISCVInterruptDocs];
+}
+
+def PowerPCInterrupt : InheritableAttr, TargetSpecificAttr<TargetPowerPC> {
+  let Spellings = [GCC<"interrupt">];
+  let Subjects = SubjectList<[Function]>;
+  let Args = [EnumArgument<"Interrupt", "InterruptType",
+                           ["critical", "external", ""],
+                           ["critical", "external", "standard"],
+                           1>];
+  let ParseKind = "Interrupt";
+  let Documentation = [PowerPCInterruptDocs];
 }
 
 // This is not a TargetSpecificAttr so that is silently accepted and

@@ -40,11 +40,7 @@ BareMetal::~BareMetal() {}
 /// Is the triple {arm,thumb}-none-none-{eabi,eabihf} ?
 ///
 /// This function identifies ARM bare-metal triples for which the BareMetal
-/// toolchain should be used. Currently only ARM targets are supported.
-///
-/// TODO: Extend to support PowerPC embedded targets:
-///   - powerpc-none-elf
-///   - powerpc-none-eabivle (with VLE support)
+/// toolchain should be used.
 ///
 /// \param Triple The target triple to check
 /// \returns true if this is an ARM bare-metal triple
@@ -66,15 +62,52 @@ static bool isARMBareMetal(const llvm::Triple &Triple) {
   return true;
 }
 
+/// Is the triple powerpc{64}?-none-none-{elf,eabi,eabivle} ?
+///
+/// This function identifies PowerPC bare-metal triples for which the BareMetal
+/// toolchain should be used. Supports both 32-bit and 64-bit PowerPC targets.
+///
+/// Recognized triples:
+///   - powerpc-none-elf (UnknownEnvironment, ELF format)
+///   - powerpc-none-eabi (EABI environment)
+///   - powerpc-none-eabivle (parsed as EABI, with VLE support)
+///   - powerpc64-none-elf (64-bit variants)
+///
+/// \param Triple The target triple to check
+/// \returns true if this is a PowerPC bare-metal triple
+static bool isPowerPCBareMetal(const llvm::Triple &Triple) {
+  if (Triple.getArch() != llvm::Triple::ppc &&
+      Triple.getArch() != llvm::Triple::ppc64 &&
+      Triple.getArch() != llvm::Triple::ppc64le)
+    return false;
+
+  if (Triple.getVendor() != llvm::Triple::UnknownVendor)
+    return false;
+
+  if (Triple.getOS() != llvm::Triple::UnknownOS)
+    return false;
+
+  // Accept EABI (covers "eabi" and "eabivle"), GNU, or UnknownEnvironment (covers "elf")
+  // Note: "eabivle" parses as EABI because Triple parsing checks StartsWith("eabi")
+  //       "elf" is an object format, so those triples have UnknownEnvironment
+  if (Triple.getEnvironment() != llvm::Triple::EABI &&
+      Triple.getEnvironment() != llvm::Triple::GNU &&
+      Triple.getEnvironment() != llvm::Triple::UnknownEnvironment)
+    return false;
+
+  return true;
+}
+
 /// Check if the BareMetal toolchain should handle the given target triple.
 ///
-/// Currently only handles ARM bare-metal targets. Future work: extend to
-/// support PowerPC embedded targets (powerpc-none-elf, powerpc-none-eabivle).
+/// Handles ARM and PowerPC bare-metal targets:
+///   - ARM: {arm,thumb}-none-none-{eabi,eabihf}
+///   - PowerPC: powerpc{64}?-none-none-{elf,eabi,eabivle}
 ///
 /// \param Triple The target triple to check
 /// \returns true if this toolchain should handle the target
 bool BareMetal::handlesTarget(const llvm::Triple &Triple) {
-  return isARMBareMetal(Triple);
+  return isARMBareMetal(Triple) || isPowerPCBareMetal(Triple);
 }
 
 Tool *BareMetal::buildLinker() const {
@@ -186,6 +219,51 @@ void baremetal::Linker::ConstructJob(Compilation &C, const JobAction &JA,
 
   auto &TC = static_cast<const toolchains::BareMetal &>(getToolChain());
 
+  // Add startup files (crt0, crtbegin) if not disabled
+  bool WantCRTs =
+      !Args.hasArg(options::OPT_nostdlib, options::OPT_nostartfiles);
+  
+  if (WantCRTs) {
+    const llvm::Triple &Triple = TC.getTriple();
+    bool IsPowerPC = Triple.getArch() == llvm::Triple::ppc ||
+                     Triple.getArch() == llvm::Triple::ppc64 ||
+                     Triple.getArch() == llvm::Triple::ppc64le;
+    
+    if (IsPowerPC) {
+      // For PowerPC baremetal, link crt0 (startup code)
+      // Use VLE version if targeting powerpc-none-eabivle
+      bool IsVLE = Triple.getEnvironment() == llvm::Triple::EABI &&
+                   Triple.getTriple().find("eabivle") != std::string::npos;
+      
+      if (IsVLE) {
+        // Try to find VLE crt0
+        std::string Crt0VLE = TC.getCompilerRT(Args, "crt0-vle",
+                                                ToolChain::FT_Object);
+        if (TC.getVFS().exists(Crt0VLE)) {
+          CmdArgs.push_back(Args.MakeArgString(Crt0VLE));
+        } else {
+          // Fallback to standard crt0
+          std::string Crt0 = TC.getCompilerRT(Args, "crt0",
+                                               ToolChain::FT_Object);
+          if (TC.getVFS().exists(Crt0))
+            CmdArgs.push_back(Args.MakeArgString(Crt0));
+        }
+      } else {
+        // Standard PowerPC crt0
+        std::string Crt0 = TC.getCompilerRT(Args, "crt0",
+                                             ToolChain::FT_Object);
+        if (TC.getVFS().exists(Crt0))
+          CmdArgs.push_back(Args.MakeArgString(Crt0));
+      }
+      
+      // Add crtbegin for C++ support
+      std::string CrtBegin = TC.getCompilerRT(Args, "crtbegin",
+                                               ToolChain::FT_Object);
+      if (TC.getVFS().exists(CrtBegin))
+        CmdArgs.push_back(Args.MakeArgString(CrtBegin));
+    }
+  }
+
   AddLinkerInputs(TC, Inputs, Args, CmdArgs, JA);
 
   CmdArgs.push_back("-Bstatic");
@@ -203,6 +281,21 @@ void baremetal::Linker::ConstructJob(Compilation &C, const JobAction &JA,
     CmdArgs.push_back("-lm");
 
     TC.AddLinkRuntimeLib(Args, CmdArgs);
+  }
+  
+  // Add crtend for C++ support (after libraries, before end)
+  if (WantCRTs) {
+    const llvm::Triple &Triple = TC.getTriple();
+    bool IsPowerPC = Triple.getArch() == llvm::Triple::ppc ||
+                     Triple.getArch() == llvm::Triple::ppc64 ||
+                     Triple.getArch() == llvm::Triple::ppc64le;
+    
+    if (IsPowerPC) {
+      std::string CrtEnd = TC.getCompilerRT(Args, "crtend",
+                                             ToolChain::FT_Object);
+      if (TC.getVFS().exists(CrtEnd))
+        CmdArgs.push_back(Args.MakeArgString(CrtEnd));
+    }
   }
 
   CmdArgs.push_back("-o");

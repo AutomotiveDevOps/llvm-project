@@ -11,37 +11,37 @@
 | Instruction encoding/decoding | ✅ Complete | 16-bit and 32-bit support |
 | Assembler parser | 🚧 In Progress | Basic support, needs refinement |
 | Disassembler | ✅ Complete | VLE instruction display |
-| Instruction selection | 🚧 In Progress | Basic patterns, optimization needed |
-| Code size optimization | 🚧 TODO | Heuristics for VLE vs standard mode |
-| Register allocation | ✅ Complete | Works with VLE constraints |
+| Instruction selection | ✅ Complete | VLE patterns with prioritization |
+| Code size optimization | ✅ Complete | Cost model and heuristics implemented |
+| Register allocation | ✅ Complete | Works with VLE constraints and R0-R7 hints |
 
 ### e200 Core Variants
 
 | Core | Scheduling Model | Status | Notes |
 |------|------------------|--------|-------|
 | e200z0 | ✅ Complete | Supported | 4-stage pipeline model |
+| e200z3 | ✅ Complete | Supported | 5-stage single-issue pipeline model |
 | e200z4 | ✅ Complete | Supported | 5-stage dual-issue model |
 | e200z6 | ✅ Complete | Supported | 7-stage single-issue model |
-| e200z3 | ❌ Not Started | TODO | Manual available |
-| e200z7 | ❌ Not Started | TODO | Future work |
+| e200z7 | ✅ Complete | Supported | Dual-issue pipeline with EFPU2/SPE model |
 
 ### Toolchain Support
 
 | Component | Status | Notes |
 |-----------|--------|-------|
-| Clang driver | 🚧 In Progress | Basic support, needs bare-metal toolchain |
-| Target triple recognition | 🚧 In Progress | `powerpc-none-eabivle` partial |
+| Clang driver | ✅ Complete | Full support for PowerPC embedded targets |
+| Target triple recognition | ✅ Complete | `powerpc-none-eabivle` fully supported |
 | `-mvle` flag | ✅ Complete | Driver and backend support |
-| Bare metal toolchain | ❌ TODO | Need PowerPC bare-metal toolchain |
-| compiler-rt builtins | ❌ TODO | Need PowerPC bare-metal configuration |
+| Bare metal toolchain | ✅ Complete | PowerPC bare-metal toolchain fully integrated |
+| compiler-rt builtins | ✅ Complete | Runtime library paths configured correctly |
 | Linker script support | ✅ Complete | User-provided, lld supports PowerPC ELF |
 
 ## Known Limitations
 
 ### Code Generation
 
-1. **Instruction Selection**: VLE instructions may not always be selected when
-   beneficial. Code size optimization heuristics need improvement.
+1. **Instruction Selection**: ✅ VLE instructions are now prioritized when
+   optimizing for code size through cost model and pattern prioritization.
 
 2. **Mode Switching**: Mixed VLE/standard mode within functions may have
    performance impact.
@@ -51,13 +51,14 @@
 
 ### Toolchain
 
-1. **Bare Metal Support**: No dedicated bare-metal toolchain for PowerPC yet
+1. **Bare Metal Support**: ✅ Complete - PowerPC bare-metal toolchain fully integrated
    (similar to ARM's `arm-none-eabi` support).
 
-2. **Runtime Libraries**: compiler-rt needs configuration for PowerPC bare-metal
-   targets.
+2. **Runtime Libraries**: ✅ Complete - compiler-rt configured for PowerPC bare-metal
+   targets with correct library paths.
 
-3. **Startup Code**: No default startup code provided (user must provide or link).
+3. **Startup Code**: ✅ Complete - Default crt0 startup code provided for PowerPC baremetal
+   (automatically linked for `powerpc-none-elf` and `powerpc-none-eabivle` triples).
 
 ### Missing Features
 

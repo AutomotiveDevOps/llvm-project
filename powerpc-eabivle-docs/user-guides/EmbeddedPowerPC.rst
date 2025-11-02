@@ -49,8 +49,10 @@ CPU Selection
 Supported e200 cores:
 
 * ``e200z0`` - 4-stage pipeline, minimal features
+* ``e200z3`` - 5-stage single-issue pipeline, MMU support
 * ``e200z4`` - 5-stage dual-issue pipeline, SPE, FPU
 * ``e200z6`` - 7-stage single-issue pipeline, FPU, unified cache
+* ``e200z7`` - Dual-issue pipeline, EFPU2, SPE, enhanced features
 
 Example: ``-mcpu=e200z4``
 
@@ -204,6 +206,21 @@ Minimal startup code example:
 Runtime Libraries
 =================
 
+Bare-Metal Toolchain
+--------------------
+
+Clang now provides full bare-metal toolchain support for PowerPC embedded targets.
+When using ``powerpc-none-elf`` or ``powerpc-none-eabivle`` triples, Clang
+automatically uses the BareMetal toolchain which provides:
+
+- Correct runtime library paths
+- Static linking configuration
+- Proper include paths for bare-metal targets
+- Integration with compiler-rt builtins
+
+The bare-metal toolchain automatically links compiler-rt builtins from:
+``<resource-dir>/lib/baremetal/clang_rt.builtins-powerpc.a``
+
 Compiler Runtime (compiler-rt)
 -------------------------------
 
@@ -336,7 +353,7 @@ See Also
 
 For more information on:
 
-* Building Clang for embedded targets: :doc:`../llvm/HowToBuildPowerPCEmbedded`
-* Backend implementation details: ``llvm/lib/Target/PowerPC/README_VLE.md``
+* Building Clang for embedded targets: :doc:`HowToBuildPowerPCEmbedded`
+* Backend implementation details: ``../implementation/README_VLE.md``
 * Runtime library setup: ``compiler-rt/docs/PowerPCBareMetal.rst``
 

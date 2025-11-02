@@ -47,7 +47,7 @@ Quick reference for all available documentation sources.
 
 Once downloaded, place all PDF files in:
 ```
-/projects/llvm-project/llvm/lib/Target/PowerPC/reference/
+powerpc-eabivle-docs/reference/
 ```
 
 ## Usage Priority

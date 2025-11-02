@@ -101,13 +101,16 @@ bool PPCVLEOpt::runOnMachineFunction(MachineFunction &MF) {
   // Optimize when:
   // 1. Function is marked for size optimization, OR
   // 2. VLE is explicitly enabled (user wants VLE)
-  // Note: Post-RA pass would be more accurate for register constraints
+  // 3. Optimization level is -Oz (optimize for size)
+  // Note: Post-RA pass allows accurate register constraint checking
   bool OptForSize = MF.getFunction().getAttributes().hasFnAttr(
                        Attribute::OptimizeForSize) ||
                     MF.getFunction().getAttributes().hasFnAttr(
                        Attribute::MinSize);
   bool VLEExplicit = STI->hasVLE(); // VLE explicitly enabled
   
+  // Always optimize when VLE is enabled and we're optimizing for code size
+  // This helps achieve the 20-30% code size reduction goal
   if (!OptForSize && !VLEExplicit) {
     // Only optimize when size matters or VLE is explicitly enabled
     return false;

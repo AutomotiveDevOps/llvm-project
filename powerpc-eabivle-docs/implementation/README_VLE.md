@@ -147,5 +147,5 @@ define i32 @test_add(i32 %a, i32 %b) {
 - PowerPC Book E Enhanced Architecture (VLE Appendix)
 - VLE Programming Interface Manual (VLEPIM)
 - e200 Core Reference Manuals
-- `llvm/lib/Target/PowerPC/reference/README.md` for documentation sources
+- `../reference/README.md` for documentation sources
 

@@ -73,6 +73,27 @@ int PPCTTIImpl::getIntImmCost(const APInt &Imm, Type *Ty,
   if (Imm == 0)
     return TTI::TCC_Free;
 
+  // VLE code size optimization: For VLE targets, small immediates that fit in
+  // VLE immediate fields have lower cost when optimizing for code size.
+  if (CostKind == TTI::TCK_CodeSize && ST->hasVLE()) {
+    int64_t ImmVal = Imm.getSExtValue();
+    // VLE 16-bit instructions support:
+    // - s6imm: signed 6-bit (-32 to 31) for addi, cmpi
+    // - u5imm: unsigned 5-bit (0 to 31) for andi, ori, xori
+    // - u7imm: unsigned 7-bit (0 to 127) for some operations
+    if (ImmVal >= -32 && ImmVal <= 31) {
+      // Fits in s6imm: can use se_addi, se_cmpi (16-bit VLE = 2 bytes)
+      // vs standard ADDI (32-bit = 4 bytes)
+      return TTI::TCC_Free; // Lower cost encourages use
+    } else if (ImmVal >= 0 && ImmVal <= 31) {
+      // Fits in u5imm: can use se_andi, se_ori, se_xori
+      return TTI::TCC_Free;
+    } else if (ImmVal >= 0 && ImmVal <= 127) {
+      // Fits in u7imm: some VLE operations
+      return TTI::TCC_Basic;
+    }
+  }
+
   if (Imm.getBitWidth() <= 64) {
     if (isInt<16>(Imm.getSExtValue()))
       return TTI::TCC_Basic;
@@ -217,6 +238,46 @@ PPCTTIImpl::getUserCost(const User *U, ArrayRef<const Value *> Operands,
     // Instructions that need to be split should cost more.
     std::pair<int, MVT> LT = TLI->getTypeLegalizationCost(DL, U->getType());
     return LT.first * BaseT::getUserCost(U, Operands, CostKind);
+  }
+
+  // VLE code size optimization: when optimizing for code size and VLE is enabled,
+  // prefer VLE instructions which are smaller than standard PowerPC instructions.
+  if (CostKind == TTI::TCK_CodeSize && ST->hasVLE()) {
+    // Check if this instruction could use a VLE form
+    if (const Instruction *I = dyn_cast<Instruction>(U)) {
+      // For VLE, 16-bit instructions are 2 bytes, 32-bit VLE are 4 bytes,
+      // standard PowerPC are 4 bytes. We want to prefer smaller forms.
+      
+      // Basic cost: standard PowerPC instruction is 4 bytes
+      unsigned BaseCost = 4;
+      
+      // Check if this operation has a VLE equivalent
+      switch (I->getOpcode()) {
+      case Instruction::Add:
+      case Instruction::Sub:
+      case Instruction::And:
+      case Instruction::Or:
+      case Instruction::Xor:
+      case Instruction::ICmp:
+      case Instruction::Load:
+      case Instruction::Store:
+      case Instruction::Shl:
+      case Instruction::LShr:
+      case Instruction::AShr:
+        // These operations have VLE equivalents. Estimate cost:
+        // If registers could be R0-R7 and immediates fit, use 16-bit VLE (2 bytes)
+        // Otherwise, 32-bit VLE or standard PowerPC (4 bytes)
+        // For now, assume 50% chance of fitting 16-bit VLE (heuristic)
+        // This will be refined by actual instruction selection
+        BaseCost = 3; // Slightly prefer VLE-capable instructions
+        break;
+      default:
+        // Keep standard cost for other operations
+        break;
+      }
+      
+      return BaseCost;
+    }
   }
 
   return BaseT::getUserCost(U, Operands, CostKind);

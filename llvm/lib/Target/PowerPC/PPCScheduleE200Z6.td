@@ -128,8 +128,31 @@ def PPCE200Z6Itineraries : ProcessorItineraries<
   InstrItinData<IIC_LdStStore,   [InstrStage<1, [E200Z6_DIS], 0>,
                                   InstrStage<1, [E200Z6_LSU]>],
                                  [3, 1], // Latency = 2
-                                 [NoBypass, E200Z6_GPR_Bypass]>
-  // TODO: Add FPU instruction itineraries based on hardware documentation
+                                 [NoBypass, E200Z6_GPR_Bypass]>,
+  // FPU floating-point instructions
+  // e200z6 has a single-precision FPU (not EFPU2 like e200z7)
+  InstrItinData<IIC_FPGeneral,   [InstrStage<1, [E200Z6_DIS], 0>,
+                                  InstrStage<3, [E200Z6_FPU]>],
+                                 [4, 1], // Latency = 3
+                                 [E200Z6_GPR_Bypass, E200Z6_GPR_Bypass]>,
+  InstrItinData<IIC_FPAddSub,    [InstrStage<1, [E200Z6_DIS], 0>,
+                                  InstrStage<3, [E200Z6_FPU]>],
+                                 [4, 1], // Latency = 3
+                                 [E200Z6_GPR_Bypass, E200Z6_GPR_Bypass]>,
+  InstrItinData<IIC_FPCompare,   [InstrStage<1, [E200Z6_DIS], 0>,
+                                  InstrStage<2, [E200Z6_FPU]>],
+                                 [3, 1], // Latency = 2
+                                 [E200Z6_CR_Bypass, E200Z6_GPR_Bypass]>,
+  InstrItinData<IIC_FPDivS,      [InstrStage<1, [E200Z6_DIS], 0>,
+                                  InstrStage<1, [E200Z6_FPU], 0>,
+                                  InstrStage<12, [E200Z6_FPU]>],
+                                 [14, 1], // Latency = 13
+                                 [E200Z6_GPR_Bypass, E200Z6_GPR_Bypass]>,
+  InstrItinData<IIC_FPSqrtS,     [InstrStage<1, [E200Z6_DIS], 0>,
+                                  InstrStage<1, [E200Z6_FPU], 0>,
+                                  InstrStage<12, [E200Z6_FPU]>],
+                                 [14, 1], // Latency = 13
+                                 [E200Z6_GPR_Bypass, E200Z6_GPR_Bypass]>
 ]>;
 
 def PPCE200Z6Model : SchedMachineModel {

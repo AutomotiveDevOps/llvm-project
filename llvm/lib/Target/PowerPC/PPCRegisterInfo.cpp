@@ -390,6 +390,7 @@ unsigned PPCRegisterInfo::getRegPressureLimit(const TargetRegisterClass *RC,
                                               MachineFunction &MF) const {
   const PPCFrameLowering *TFI = getFrameLowering(MF);
   const unsigned DefaultSafety = 1;
+  const PPCSubtarget &Subtarget = MF.getSubtarget<PPCSubtarget>();
 
   switch (RC->getID()) {
   default:
@@ -400,6 +401,17 @@ unsigned PPCRegisterInfo::getRegPressureLimit(const TargetRegisterClass *RC,
   case PPC::G8RCRegClassID:
   case PPC::GPRCRegClassID: {
     unsigned FP = TFI->hasFP(MF) ? 1 : 0;
+    
+    // VLE code size optimization: For VLE targets optimizing for code size,
+    // limit register pressure to encourage use of R0-R7 for 16-bit VLE instructions.
+    // This helps the register allocator prefer the lower registers when beneficial.
+    if (Subtarget.hasVLE() && 
+        (MF.getFunction().optForSize() || MF.getFunction().hasMinSize())) {
+      // Encourage use of R0-R7 by slightly reducing pressure limit
+      // This makes register allocator more likely to use lower registers
+      return 30 - FP - DefaultSafety;
+    }
+    
     return 32 - FP - DefaultSafety;
   }
   case PPC::F8RCRegClassID:

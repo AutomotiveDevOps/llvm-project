@@ -1833,6 +1833,43 @@ as ``-mlong-calls`` and ``-mno-long-calls``.
   }];
 }
 
+def PowerPCInterruptDocs : Documentation {
+  let Category = DocCatFunction;
+  let Heading = "interrupt";
+  let Content = [{
+The ``interrupt`` attribute indicates that the function is an interrupt handler.
+The compiler generates appropriate prologue/epilogue code to save and restore
+all registers used by the function.
+
+For PowerPC e200 cores, this attribute:
+- Saves/restores Link Register (LR)
+- Saves/restores Condition Register (CR)
+- Saves/restores all General Purpose Registers used by the handler
+- Generates ``e_rfi`` instruction for return (VLE mode) or ``rfi`` (standard mode)
+
+The attribute accepts an optional argument specifying the interrupt type:
+- ``"critical"`` - Critical interrupt (non-maskable, IVOR0)
+- ``"external"`` - External interrupt handler (IVOR4)
+- Default - Standard interrupt handler
+
+Example:
+\code
+__attribute__((interrupt)) void timer_handler(void) {
+    // Interrupt handler code
+}
+
+__attribute__((interrupt("external"))) void uart_handler(void) {
+    // External interrupt handler
+}
+\endcode
+
+**Function Requirements:**
+- Must have ``void`` return type
+- Must have no parameters
+- Should be placed in ``.core_exceptions_table`` section for IVOR table integration
+  }];
+}
+
 def RISCVInterruptDocs : Documentation {
   let Category = DocCatFunction;
   let Heading = "interrupt (RISCV)";

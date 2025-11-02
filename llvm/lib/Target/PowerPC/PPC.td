@@ -525,11 +525,21 @@ def : ProcessorModel<"e200z4", PPCE200Z4Model,
                    FeatureICBT, FeatureBookE,
                    FeatureISEL, FeatureMFTB, FeatureE200,
                    FeatureSPE, FeatureFPU, FeatureVLE]>;
+def : ProcessorModel<"e200z3", PPCE200Z3Model,
+                  [DirectiveE200Z3,
+                   FeatureICBT, FeatureBookE,
+                   FeatureISEL, FeatureMFTB, FeatureE200,
+                   FeatureVLE]>;
 def : ProcessorModel<"e200z6", PPCE200Z6Model,
                   [DirectiveE200Z6,
                    FeatureICBT, FeatureBookE,
                    FeatureISEL, FeatureMFTB, FeatureE200,
                    FeatureFPU, FeatureVLE]>;
+def : ProcessorModel<"e200z7", PPCE200Z7Model,
+                  [DirectiveE200Z7,
+                   FeatureICBT, FeatureBookE,
+                   FeatureISEL, FeatureMFTB, FeatureE200,
+                   FeatureSPE, FeatureFPU, FeatureVLE]>;
 def : ProcessorModel<"a2", PPCA2Model,
                   [DirectiveA2, FeatureICBT, FeatureBookE, FeatureMFOCRF,
                    FeatureFCPSGN, FeatureFSqrt, FeatureFRE, FeatureFRES,

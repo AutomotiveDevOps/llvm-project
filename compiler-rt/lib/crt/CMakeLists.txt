@@ -112,3 +112,28 @@ foreach(arch ${CRT_SUPPORTED_ARCH})
     CFLAGS ${CRT_CFLAGS}
     PARENT_TARGET crt)
 endforeach()
+
+# PowerPC baremetal crt0 support
+# Build crt0 when targeting PowerPC baremetal (powerpc-none-elf or powerpc-none-eabivle)
+# This is needed for baremetal targets even if powerpc is not in CRT_SUPPORTED_ARCH
+if(COMPILER_RT_DEFAULT_TARGET_TRIPLE MATCHES "powerpc.*-none-.*")
+  # Build crt0 for PowerPC baremetal (standard PowerPC mode)
+  # Use powerpc64 as the architecture (it's in the supported list)
+  # The compiler will generate appropriate 32-bit code for powerpc-none targets
+  add_compiler_rt_runtime(clang_rt.crt0
+    OBJECT
+    ARCHS powerpc64
+    SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/crt0_ppc.c
+    CFLAGS ${CRT_CFLAGS} -ffreestanding -nostdlib -m32
+    PARENT_TARGET crt)
+  
+  # Build crt0 for PowerPC VLE baremetal (VLE mode)
+  # This will be compiled with -mvle when targeting powerpc-none-eabivle
+  add_compiler_rt_runtime(clang_rt.crt0_vle
+    OBJECT
+    ARCHS powerpc64
+    SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/crt0_ppc.c
+    CFLAGS ${CRT_CFLAGS} -ffreestanding -nostdlib -m32 -mvle
+    PARENT_TARGET crt
+    OUTPUT_NAME clang_rt.crt0-vle)
+endif()

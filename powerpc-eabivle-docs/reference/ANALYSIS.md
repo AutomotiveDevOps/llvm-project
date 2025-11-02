@@ -56,7 +56,7 @@ The fork appears to be standard GCC 4.9.4 with e500 support, but without e200/VL
 
 ### 2. Reference Directory Status
 
-**Location**: `/projects/llvm-project/llvm/lib/Target/PowerPC/reference/`
+**Location**: `powerpc-eabivle-docs/reference/` (this directory)
 
 **Current Contents**:
 - `README.md` - Placeholder documenting what needs to be added
@@ -180,7 +180,7 @@ Based on research and analysis, the following documentation is required:
 ### Immediate Actions
 1. ✅ **Download VLEPIM**: COMPLETED
    - File: `VLEPIM.pdf` (905K)
-   - Location: `/projects/llvm-project/llvm/lib/Target/PowerPC/reference/VLEPIM.pdf`
+   - Location: `VLEPIM.pdf` (in this directory)
 
 2. **Obtain PowerPC Book E**: Locate or request specification document
    - Contains VLE appendix
@@ -189,11 +189,11 @@ Based on research and analysis, the following documentation is required:
 
 3. ✅ **Download e200z6 Reference Manual**: COMPLETED
    - File: `E200Z6_Core_Reference_Manual.pdf` (2.7M)
-   - Location: `/projects/llvm-project/llvm/lib/Target/PowerPC/reference/E200Z6_Core_Reference_Manual.pdf`
+   - Location: `E200Z6_Core_Reference_Manual.pdf` (in this directory)
 
 4. ✅ **Download e200z0 Reference Manual**: COMPLETED
    - File: `E200Z0_Core_Reference_Manual.pdf` (3.4M)
-   - Location: `/projects/llvm-project/llvm/lib/Target/PowerPC/reference/E200Z0_Core_Reference_Manual.pdf`
+   - Location: `E200Z0_Core_Reference_Manual.pdf` (in this directory)
    
 5. **Request e200z4 Manual**: Contact NXP/Freescale for e200z4 core reference manual
    - Status: Still needed

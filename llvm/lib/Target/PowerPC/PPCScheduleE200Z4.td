@@ -135,8 +135,41 @@ def PPCE200Z4Itineraries : ProcessorItineraries<
                                   InstrStage<1, [E200Z4_LSU]>],
                                  [5, 1, 1], // Latency = 2
                                  [NoBypass, E200Z4_GPR_Bypass, E200Z4_GPR_Bypass]>,
-  // SPE/FPU instructions - placeholder for now
-  // TODO: Add SPE-specific instruction itineraries based on hardware docs
+  // SPE/FPU instructions
+  // e200z4 has SPE (Signal Processing Extension) with SIMD-capable single-precision FPU
+  // SPE provides vector floating-point operations that can execute on the FPU pipeline
+  InstrItinData<IIC_FPGeneral,   [InstrStage<1, [E200Z4_DIS0, E200Z4_DIS1], 0>,
+                                  InstrStage<3, [E200Z4_FPU]>],
+                                 [6, 1, 1], // Latency = 3
+                                 [E200Z4_GPR_Bypass, E200Z4_GPR_Bypass, E200Z4_GPR_Bypass]>,
+  InstrItinData<IIC_FPAddSub,    [InstrStage<1, [E200Z4_DIS0, E200Z4_DIS1], 0>,
+                                  InstrStage<3, [E200Z4_FPU]>],
+                                 [6, 1, 1], // Latency = 3
+                                 [E200Z4_GPR_Bypass, E200Z4_GPR_Bypass, E200Z4_GPR_Bypass]>,
+  InstrItinData<IIC_FPCompare,   [InstrStage<1, [E200Z4_DIS0, E200Z4_DIS1], 0>,
+                                  InstrStage<2, [E200Z4_FPU]>],
+                                 [5, 1, 1], // Latency = 2
+                                 [E200Z4_CR_Bypass, E200Z4_GPR_Bypass, E200Z4_GPR_Bypass]>,
+  InstrItinData<IIC_FPDivS,      [InstrStage<1, [E200Z4_DIS0, E200Z4_DIS1], 0>,
+                                  InstrStage<1, [E200Z4_FPU], 0>,
+                                  InstrStage<12, [E200Z4_FPU]>],
+                                 [15, 1, 1], // Latency = 13
+                                 [E200Z4_GPR_Bypass, E200Z4_GPR_Bypass, E200Z4_GPR_Bypass]>,
+  InstrItinData<IIC_FPSqrtS,     [InstrStage<1, [E200Z4_DIS0, E200Z4_DIS1], 0>,
+                                  InstrStage<1, [E200Z4_FPU], 0>,
+                                  InstrStage<12, [E200Z4_FPU]>],
+                                 [15, 1, 1], // Latency = 13
+                                 [E200Z4_GPR_Bypass, E200Z4_GPR_Bypass, E200Z4_GPR_Bypass]>,
+  // SPE vector operations (SIMD) use the same FPU pipeline
+  // Vector FP operations can benefit from dual-issue when paired with integer ops
+  InstrItinData<IIC_VecFP,       [InstrStage<1, [E200Z4_DIS0, E200Z4_DIS1], 0>,
+                                  InstrStage<3, [E200Z4_FPU]>],
+                                 [6, 1, 1], // Latency = 3
+                                 [E200Z4_GPR_Bypass, E200Z4_GPR_Bypass, E200Z4_GPR_Bypass]>,
+  InstrItinData<IIC_VecFPCompare, [InstrStage<1, [E200Z4_DIS0, E200Z4_DIS1], 0>,
+                                  InstrStage<2, [E200Z4_FPU]>],
+                                 [5, 1, 1], // Latency = 2
+                                 [E200Z4_CR_Bypass, E200Z4_GPR_Bypass, E200Z4_GPR_Bypass]>
 ]>;
 
 def PPCE200Z4Model : SchedMachineModel {
