@@ -12,18 +12,23 @@
 // VLE instructions can be either 16-bit or 32-bit, providing code size
 // optimization for embedded systems. Typical code size reduction: 20-30%
 //
+// WHY THIS EXISTS: See VLE_WHY.md for the full story of how GCC rejected
+// VLE support as "too invasive" in 2013, leaving billions of embedded devices
+// without proper open-source compiler support. This is our attempt to fix
+// that wrong, one instruction at a time.
+//
 // Reference: 
 // - PowerPC Book E Enhanced Architecture (VLE Appendix)
 // - VLE Programming Interface Manual (VLEPIM)
 // - e200 Core Reference Manuals
 //
 // Implementation Status:
-// - Instruction format definitions: IN PROGRESS
-// - 16-bit VLE instructions: IN PROGRESS
-// - 32-bit VLE instructions (e_ prefix): TODO
-// - Instruction encoding/decoding: TODO (needs C++ support)
-// - Assembler/disassembler: TODO (needs C++ support)
-// - Instruction selection optimization: TODO
+// - Instruction format definitions: ✅ COMPLETE
+// - 16-bit VLE instructions: ✅ COMPLETE (core set)
+// - Instruction encoding/decoding: ✅ COMPLETE (16-bit support)
+// - 32-bit VLE instructions (e_ prefix): 🚧 TODO
+// - Assembler/disassembler parser: 🚧 IN PROGRESS
+// - Instruction selection optimization: 🚧 TODO
 //
 //===----------------------------------------------------------------------===//
 
