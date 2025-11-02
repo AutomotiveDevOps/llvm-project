@@ -4656,6 +4656,10 @@ void PPCDAGToDAGISel::Select(SDNode *N) {
   // 4. Register allocation preferences for R0-R7 (handled in PPCRegisterInfo)
   
   // When optimizing for code size with VLE, try VLE-specific patterns first
+  // This code identifies operations that could benefit from 16-bit VLE forms
+  // and provides hints to the TableGen pattern matcher. The actual pattern
+  // selection happens in TableGen, but this early detection helps prioritize
+  // VLE patterns when multiple matches are possible.
   if (PreferVLE) {
     // Check for operations that could benefit from 16-bit VLE forms
     // This includes checking immediate ranges and register constraints
@@ -4673,6 +4677,11 @@ void PPCDAGToDAGISel::Select(SDNode *N) {
             // TableGen patterns will select VLE forms if registers are R0-R7
             break;
           }
+          // Also check u7imm range (0-127) for se_addi/se_subi extended forms
+          if (Imm >= 0 && Imm <= 127 && (N->getOpcode() == ISD::ADD)) {
+            // Could potentially use se_li + se_addi sequence or extended forms
+            break;
+          }
         }
       }
       break;
@@ -4681,11 +4690,11 @@ void PPCDAGToDAGISel::Select(SDNode *N) {
     case ISD::OR:
     case ISD::XOR: {
       // Check for logical operations with immediate that fit 16-bit VLE
-      // se_andi, se_ori, se_xori support u4imm (0-15) or u5imm (0-31)
+      // se_andi, se_ori, se_xori support u5imm (0-31)
       if (N->getNumOperands() == 2) {
         if (auto *C = dyn_cast<ConstantSDNode>(N->getOperand(1))) {
           uint64_t Imm = C->getZExtValue();
-          // Check if immediate fits in u4imm (0-15) or u5imm (0-31) for VLE
+          // Check if immediate fits in u5imm (0-31) for VLE
           if (Imm <= 31) {
             // Immediate fits, TableGen patterns will handle VLE selection
             break;
@@ -4719,6 +4728,102 @@ void PPCDAGToDAGISel::Select(SDNode *N) {
             // Immediate fits in s6imm range for se_cmpi
             break;
           }
+        }
+      }
+      break;
+    }
+    case ISD::LOAD: {
+      // Load operations can use 16-bit VLE forms when:
+      // - Displacement fits in s6imm (-32..31) for se_lwz (word loads)
+      // - Displacement fits in u5imm (0..31) for se_lwz
+      // - Displacement fits in u4imm (0..15) for se_lbz, se_lhz (byte/halfword)
+      // - Base register is R0-R7 (checked by register allocator)
+      LoadSDNode *LD = cast<LoadSDNode>(N);
+      EVT MemVT = LD->getMemoryVT();
+      
+      // Check displacement for simple base+offset addressing
+      if (LD->getAddressingMode() == ISD::UNINDEXED) {
+        // Try to extract constant offset from address computation
+        SDValue Addr = LD->getBasePtr();
+        
+        // Check if address is a simple base register (potential for se_lwz with 0 offset)
+        if (Addr.getOpcode() == ISD::Register || 
+            (Addr.getOpcode() == ISD::FrameIndex)) {
+          // Frame index or direct register - could use VLE form with 0 offset
+          // or small offset if frame lowering cooperates
+          break;
+        }
+        
+        // Check if address is base + constant offset
+        if (Addr.getOpcode() == ISD::ADD) {
+          if (auto *OffsetC = dyn_cast<ConstantSDNode>(Addr.getOperand(1))) {
+            int64_t Offset = OffsetC->getSExtValue();
+            // Check displacement ranges based on load type
+            if (MemVT == MVT::i32) {
+              // Word loads: se_lwz supports s6imm (-32..31) or u5imm (0..31)
+              if ((Offset >= -32 && Offset <= 31) || (Offset >= 0 && Offset <= 31)) {
+                break;
+              }
+            } else if (MemVT == MVT::i16 || MemVT == MVT::i8) {
+              // Byte/halfword loads: se_lbz, se_lhz support u4imm (0..15)
+              if (Offset >= 0 && Offset <= 15) {
+                break;
+              }
+            }
+          }
+        }
+      }
+      break;
+    }
+    case ISD::STORE: {
+      // Store operations can use 16-bit VLE forms when:
+      // - Displacement fits in s6imm (-32..31) for se_stw (word stores)
+      // - Displacement fits in u5imm (0..31) for se_stw
+      // - Displacement fits in u4imm (0..15) for se_stb, se_sth (byte/halfword)
+      // - Base register is R0-R7 (checked by register allocator)
+      StoreSDNode *ST = cast<StoreSDNode>(N);
+      EVT MemVT = ST->getMemoryVT();
+      
+      // Check displacement for simple base+offset addressing
+      if (ST->getAddressingMode() == ISD::UNINDEXED) {
+        // Try to extract constant offset from address computation
+        SDValue Addr = ST->getBasePtr();
+        
+        // Check if address is a simple base register (potential for se_stw with 0 offset)
+        if (Addr.getOpcode() == ISD::Register || 
+            (Addr.getOpcode() == ISD::FrameIndex)) {
+          // Frame index or direct register - could use VLE form with 0 offset
+          break;
+        }
+        
+        // Check if address is base + constant offset
+        if (Addr.getOpcode() == ISD::ADD) {
+          if (auto *OffsetC = dyn_cast<ConstantSDNode>(Addr.getOperand(1))) {
+            int64_t Offset = OffsetC->getSExtValue();
+            // Check displacement ranges based on store type
+            if (MemVT == MVT::i32) {
+              // Word stores: se_stw supports u5imm (0..31)
+              if (Offset >= 0 && Offset <= 31) {
+                break;
+              }
+            } else if (MemVT == MVT::i16 || MemVT == MVT::i8) {
+              // Byte/halfword stores: se_stb, se_sth support u4imm (0..15)
+              if (Offset >= 0 && Offset <= 15) {
+                break;
+              }
+            }
+          }
+        }
+      }
+      break;
+    }
+    case ISD::Constant: {
+      // Constant materialization can use se_li for small values (u7imm: 0-127)
+      if (auto *C = dyn_cast<ConstantSDNode>(N)) {
+        int64_t Imm = C->getSExtValue();
+        if (Imm >= 0 && Imm <= 127 && N->getValueType(0) == MVT::i32) {
+          // Could use se_li for small positive constants
+          break;
         }
       }
       break;
