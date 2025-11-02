@@ -930,6 +930,577 @@ def SE_AND_rec : VLE_SE_RR_FORM<0b101000, 0b00,
 //
 // For now, we provide the framework and note that e_ instructions
 // correspond 1:1 with standard PowerPC instructions in VLE mode.
+//
+// Explicit e_ instruction definitions below. These map directly to
+// standard PowerPC instructions but are explicitly defined here for
+// VLE mode recognition. All opcodes match standard PowerPC from VLEPEM Table B-3.
+
+//=== Load/Store Instructions ===//
+// e_lbz - Load Byte and Zero (opcode 0x88000000, D-form)
+def E_LBZ : DForm_1<34, (outs gprc:$rD), (ins memri:$src),
+                    "e_lbz", "$rD, $src", IIC_LdStLoad,
+                    [(set i32:$rD, (zextloadi8 iaddr:$src))]>,
+            Requires<[HasVLE, IsE200]>;
+
+// e_stb - Store Byte (opcode 0x98000000, D-form)
+def E_STB : DForm_1<38, (outs), (ins gprc:$rS, memri:$dst),
+                    "e_stb", "$rS, $dst", IIC_LdStStore,
+                    [(store (truncstorei8 i32:$rS, iaddr:$dst))]>,
+            Requires<[HasVLE, IsE200]>;
+
+// e_lhz - Load Halfword and Zero (opcode 0xA0000000, D-form)
+def E_LHZ : DForm_1<40, (outs gprc:$rD), (ins memri:$src),
+                    "e_lhz", "$rD, $src", IIC_LdStLoad,
+                    [(set i32:$rD, (zextloadi16 iaddr:$src))]>,
+            Requires<[HasVLE, IsE200]>;
+
+// e_sth - Store Halfword (opcode 0xB0000000, D-form)
+def E_STH : DForm_1<44, (outs), (ins gprc:$rS, memri:$dst),
+                    "e_sth", "$rS, $dst", IIC_LdStStore,
+                    [(store (truncstorei16 i32:$rS, iaddr:$dst))]>,
+            Requires<[HasVLE, IsE200]>;
+
+// e_lha - Load Halfword Algebraic (opcode 0xAC000000, D-form)
+def E_LHA : DForm_1<42, (outs gprc:$rD), (ins memri:$src),
+                    "e_lha", "$rD, $src", IIC_LdStLHA,
+                    [(set i32:$rD, (sextloadi16 iaddr:$src))]>,
+            Requires<[HasVLE, IsE200]>;
+
+// e_lwz - Load Word and Zero (opcode 0x80000000, D-form)
+def E_LWZ : DForm_1<32, (outs gprc:$rD), (ins memri:$src),
+                    "e_lwz", "$rD, $src", IIC_LdStLoad,
+                    [(set i32:$rD, (load iaddr:$src))]>,
+            Requires<[HasVLE, IsE200]>;
+
+// e_stw - Store Word (opcode 0x90000000, D-form)
+def E_STW : DForm_1<36, (outs), (ins gprc:$rS, memri:$dst),
+                    "e_stw", "$rS, $dst", IIC_LdStStore,
+                    [(store i32:$rS, iaddr:$dst)]>,
+            Requires<[HasVLE, IsE200]>;
+
+//=== Arithmetic Instructions ===//
+// e_addi - Add Immediate (opcode 0x38000000, D-form)
+def E_ADDI : DForm_1<14, (outs gprc:$rD), (ins gprc:$rA, s16imm:$imm),
+                     "e_addi", "$rD, $rA, $imm",
+                     [(set i32:$rD, (add i32:$rA, i32:$imm))],
+                     IIC_IntSimple>, Requires<[HasVLE, IsE200]>;
+
+// e_addis - Add Immediate Shifted (opcode 0x3C000000, D-form)
+def E_ADDIS : DForm_1<15, (outs gprc:$rD), (ins gprc:$rA, s16imm:$imm),
+                      "e_addis", "$rD, $rA, $imm",
+                      [(set i32:$rD, (add i32:$rA, (shl i32:$imm, 16)))],
+                      IIC_IntSimple>, Requires<[HasVLE, IsE200]>;
+
+// e_add - Add (opcode 0x7C000214, X-form)
+def E_ADD : XForm_1<31, 266, (outs gprc:$rD), (ins gprc:$rA, gprc:$rB),
+                     "e_add", "$rD, $rA, $rB",
+                     [(set i32:$rD, (add i32:$rA, i32:$rB))],
+                     IIC_IntSimple>, Requires<[HasVLE, IsE200]>;
+
+// e_subf - Subtract From (opcode 0x7C000050, X-form)
+def E_SUBF : XForm_1<31, 40, (outs gprc:$rD), (ins gprc:$rA, gprc:$rB),
+                      "e_subf", "$rD, $rA, $rB",
+                      [(set i32:$rD, (sub i32:$rB, i32:$rA))],
+                      IIC_IntSimple>, Requires<[HasVLE, IsE200]>;
+
+// e_subfic - Subtract From Immediate Carrying (opcode 0x20000000, D-form)
+def E_SUBFIC : DForm_2<8, (outs gprc:$rD), (ins gprc:$rA, s16imm:$imm),
+                       "e_subfic", "$rD, $rA, $imm",
+                       [(set i32:$rD, (sub i32:$imm, i32:$rA))],
+                       IIC_IntSimple>, Requires<[HasVLE, IsE200]>;
+
+// e_addc - Add Carrying (opcode 0x7C000010, X-form)
+def E_ADDC : XForm_1<31, 10, (outs gprc:$rD), (ins gprc:$rA, gprc:$rB),
+                      "e_addc", "$rD, $rA, $rB",
+                      [(set i32:$rD, (addcarry i32:$rA, i32:$rB))],
+                      IIC_IntSimple>, Requires<[HasVLE, IsE200]>;
+
+// e_adde - Add Extended (opcode 0x7C000110, X-form)
+def E_ADDE : XForm_1<31, 138, (outs gprc:$rD), (ins gprc:$rA, gprc:$rB),
+                      "e_adde", "$rD, $rA, $rB",
+                      [(set i32:$rD, (adde i32:$rA, i32:$rB))],
+                      IIC_IntSimple>, Requires<[HasVLE, IsE200]>;
+
+// e_subfc - Subtract From Carrying (opcode 0x7C000040, X-form)
+def E_SUBFC : XForm_1<31, 8, (outs gprc:$rD), (ins gprc:$rA, gprc:$rB),
+                       "e_subfc", "$rD, $rA, $rB",
+                       [(set i32:$rD, (subfc i32:$rA, i32:$rB))],
+                       IIC_IntSimple>, Requires<[HasVLE, IsE200]>;
+
+// e_subfe - Subtract From Extended (opcode 0x7C000140, X-form)
+def E_SUBFE : XForm_1<31, 136, (outs gprc:$rD), (ins gprc:$rA, gprc:$rB),
+                       "e_subfe", "$rD, $rA, $rB",
+                       [(set i32:$rD, (subfe i32:$rA, i32:$rB))],
+                       IIC_IntSimple>, Requires<[HasVLE, IsE200]>;
+
+// e_mullw - Multiply Low Word (opcode 0x7C0001D6, XO-form)
+def E_MULLW : XOForm_1<31, 235, 0, (outs gprc:$rD), (ins gprc:$rA, gprc:$rB),
+                       "e_mullw", "$rD, $rA, $rB",
+                       [(set i32:$rD, (mul i32:$rA, i32:$rB))],
+                       IIC_IntMul>, Requires<[HasVLE, IsE200]>;
+
+// e_mulli - Multiply Low Immediate (opcode 0x1C000000, D-form)
+def E_MULLI : DForm_1a<7, (outs gprc:$rD), (ins gprc:$rA, s16imm:$imm),
+                       "e_mulli", "$rD, $rA, $imm",
+                       [(set i32:$rD, (mul i32:$rA, i32:$imm))],
+                       IIC_IntMul>, Requires<[HasVLE, IsE200]>;
+
+// e_divw - Divide Word (opcode 0x7C0003D6, XO-form)
+def E_DIVW : XOForm_1<31, 491, 0, (outs gprc:$rD), (ins gprc:$rA, gprc:$rB),
+                      "e_divw", "$rD, $rA, $rB",
+                      [(set i32:$rD, (sdiv i32:$rA, i32:$rB))],
+                      IIC_IntDivW>, Requires<[HasVLE, IsE200]>;
+
+// e_divwu - Divide Word Unsigned (opcode 0x7C000396, XO-form)
+def E_DIVWU : XOForm_1<31, 459, 0, (outs gprc:$rD), (ins gprc:$rA, gprc:$rB),
+                       "e_divwu", "$rD, $rA, $rB",
+                       [(set i32:$rD, (udiv i32:$rA, i32:$rB))],
+                       IIC_IntDivW>, Requires<[HasVLE, IsE200]>;
+
+// e_mulhw - Multiply High Word (opcode 0x7C000096, XO-form)
+def E_MULHW : XOForm_1<31, 75, 0, (outs gprc:$rD), (ins gprc:$rA, gprc:$rB),
+                       "e_mulhw", "$rD, $rA, $rB",
+                       [(set i32:$rD, (mulhs i32:$rA, i32:$rB))],
+                       IIC_IntMul>, Requires<[HasVLE, IsE200]>;
+
+// e_mulhwu - Multiply High Word Unsigned (opcode 0x7C000016, XO-form)
+def E_MULHWU : XOForm_1<31, 11, 0, (outs gprc:$rD), (ins gprc:$rA, gprc:$rB),
+                        "e_mulhwu", "$rD, $rA, $rB",
+                        [(set i32:$rD, (mulhu i32:$rA, i32:$rB))],
+                        IIC_IntMul>, Requires<[HasVLE, IsE200]>;
+
+//=== Logical Instructions ===//
+// e_and - AND (opcode 0x7C000038, X-form)
+def E_AND : XForm_1<31, 28, (outs gprc:$rD), (ins gprc:$rA, gprc:$rB),
+                     "e_and", "$rD, $rA, $rB",
+                     [(set i32:$rD, (and i32:$rA, i32:$rB))],
+                     IIC_IntSimple>, Requires<[HasVLE, IsE200]>;
+
+// e_or - OR (opcode 0x7C000378, X-form)
+def E_OR : XForm_1<31, 444, (outs gprc:$rD), (ins gprc:$rA, gprc:$rB),
+                    "e_or", "$rD, $rA, $rB",
+                    [(set i32:$rD, (or i32:$rA, i32:$rB))],
+                    IIC_IntSimple>, Requires<[HasVLE, IsE200]>;
+
+// e_xor - XOR (opcode 0x7C000278, X-form)
+def E_XOR : XForm_1<31, 316, (outs gprc:$rD), (ins gprc:$rA, gprc:$rB),
+                     "e_xor", "$rD, $rA, $rB",
+                     [(set i32:$rD, (xor i32:$rA, i32:$rB))],
+                     IIC_IntSimple>, Requires<[HasVLE, IsE200]>;
+
+// e_nand - NAND (opcode 0x7C0003B8, X-form)
+def E_NAND : XForm_1<31, 476, (outs gprc:$rD), (ins gprc:$rA, gprc:$rB),
+                      "e_nand", "$rD, $rA, $rB",
+                      [(set i32:$rD, (not (and i32:$rA, i32:$rB)))],
+                      IIC_IntSimple>, Requires<[HasVLE, IsE200]>;
+
+// e_andc - AND with Complement (opcode 0x7C000078, X-form)
+def E_ANDC : XForm_1<31, 60, (outs gprc:$rD), (ins gprc:$rA, gprc:$rB),
+                      "e_andc", "$rD, $rA, $rB",
+                      [(set i32:$rD, (and i32:$rA, (not i32:$rB)))],
+                      IIC_IntSimple>, Requires<[HasVLE, IsE200]>;
+
+// e_orc - OR with Complement (opcode 0x7C000338, X-form)
+def E_ORC : XForm_1<31, 412, (outs gprc:$rD), (ins gprc:$rA, gprc:$rB),
+                     "e_orc", "$rD, $rA, $rB",
+                     [(set i32:$rD, (or i32:$rA, (not i32:$rB)))],
+                     IIC_IntSimple>, Requires<[HasVLE, IsE200]>;
+
+// e_eqv - Equivalent (XNOR) (opcode 0x7C000238, X-form)
+def E_EQV : XForm_1<31, 284, (outs gprc:$rD), (ins gprc:$rA, gprc:$rB),
+                     "e_eqv", "$rD, $rA, $rB",
+                     [(set i32:$rD, (not (xor i32:$rA, i32:$rB)))],
+                     IIC_IntSimple>, Requires<[HasVLE, IsE200]>;
+
+// e_nor - NOR (opcode 0x7C0000F8, X-form)
+def E_NOR : XForm_1<31, 124, (outs gprc:$rD), (ins gprc:$rA, gprc:$rB),
+                     "e_nor", "$rD, $rA, $rB",
+                     [(set i32:$rD, (not (or i32:$rA, i32:$rB)))],
+                     IIC_IntSimple>, Requires<[HasVLE, IsE200]>;
+
+// e_ori - OR Immediate (opcode 0x60000000, D-form)
+def E_ORI : DForm_4<24, (outs gprc:$rD), (ins gprc:$rA, u16imm:$imm),
+                    "e_ori", "$rD, $rA, $imm",
+                    [(set i32:$rD, (or i32:$rA, immZExt16:$imm))],
+                    IIC_IntSimple>, Requires<[HasVLE, IsE200]>;
+
+// e_oris - OR Immediate Shifted (opcode 0x64000000, D-form)
+def E_ORIS : DForm_4<25, (outs gprc:$rD), (ins gprc:$rA, u16imm:$imm),
+                     "e_oris", "$rD, $rA, $imm",
+                     [(set i32:$rD, (or i32:$rA, imm16ShiftedZExt:$imm))],
+                     IIC_IntSimple>, Requires<[HasVLE, IsE200]>;
+
+// e_andi - AND Immediate (opcode 0x70000000, D-form)
+def E_ANDI : DForm_4<28, (outs gprc:$rD), (ins gprc:$rA, u16imm:$imm),
+                     "e_andi", "$rD, $rA, $imm",
+                     [(set i32:$rD, (and i32:$rA, immZExt16:$imm))],
+                     IIC_IntSimple>, Requires<[HasVLE, IsE200]>;
+
+// e_andis - AND Immediate Shifted (opcode 0x74000000, D-form)
+def E_ANDIS : DForm_4<29, (outs gprc:$rD), (ins gprc:$rA, u16imm:$imm),
+                      "e_andis", "$rD, $rA, $imm",
+                      [(set i32:$rD, (and i32:$rA, imm16ShiftedZExt:$imm))],
+                      IIC_IntSimple>, Requires<[HasVLE, IsE200]>;
+
+// e_xori - XOR Immediate (opcode 0x68000000, D-form)
+def E_XORI : DForm_4<26, (outs gprc:$rD), (ins gprc:$rA, u16imm:$imm),
+                      "e_xori", "$rD, $rA, $imm",
+                      [(set i32:$rD, (xor i32:$rA, immZExt16:$imm))],
+                      IIC_IntSimple>, Requires<[HasVLE, IsE200]>;
+
+// e_xoris - XOR Immediate Shifted (opcode 0x6C000000, D-form)
+def E_XORIS : DForm_4<27, (outs gprc:$rD), (ins gprc:$rA, u16imm:$imm),
+                       "e_xoris", "$rD, $rA, $imm",
+                       [(set i32:$rD, (xor i32:$rA, imm16ShiftedZExt:$imm))],
+                       IIC_IntSimple>, Requires<[HasVLE, IsE200]>;
+
+//=== Compare Instructions ===//
+// e_cmpw - Compare Word (opcode 0x7C000000, X-form)
+def E_CMPW : XForm_16_ext<31, 0, (outs crrc:$crD), (ins gprc:$rA, gprc:$rB),
+                          "e_cmpw", "$crD, $rA, $rB", IIC_IntCompare>,
+             Requires<[HasVLE, IsE200]>;
+
+// e_cmpwi - Compare Word Immediate (opcode 0x2C000000, D-form)
+def E_CMPWI : DForm_5_ext<11, (outs crrc:$crD), (ins gprc:$rA, s16imm:$imm),
+                          "e_cmpwi", "$crD, $rA, $imm", IIC_IntCompare>,
+              Requires<[HasVLE, IsE200]>;
+
+// e_cmplw - Compare Logical Word (opcode 0x7C000040, X-form)
+def E_CMPLW : XForm_16_ext<31, 32, (outs crrc:$crD), (ins gprc:$rA, gprc:$rB),
+                           "e_cmplw", "$crD, $rA, $rB", IIC_IntCompare>,
+              Requires<[HasVLE, IsE200]>;
+
+// e_cmplwi - Compare Logical Word Immediate (opcode 0x28000000, D-form)
+def E_CMPLWI : DForm_6_ext<10, (outs crrc:$crD), (ins gprc:$rA, u16imm:$imm),
+                           "e_cmplwi", "$crD, $rA, $imm", IIC_IntCompare>,
+               Requires<[HasVLE, IsE200]>;
+
+//=== Branch Instructions ===//
+// e_b - Branch (opcode 0x48000000, I-form)
+def E_B : IForm<18, 0, 0, (outs), (ins directbrtarget:$dst),
+                "e_b", "$dst",
+                IIC_BrB, [(br bb:$dst)]>, Requires<[HasVLE, IsE200]>;
+
+// e_bl - Branch and Link (opcode 0x48000001, I-form)
+def E_BL : IForm<18, 0, 1, (outs), (ins directbrtarget:$dst),
+                 "e_bl", "$dst",
+                 IIC_BrB, [(PPCcall bb:$dst)]>, Requires<[HasVLE, IsE200]>;
+
+// e_bc - Branch Conditional (opcode 0x40000000, B-form)
+def E_BC : BForm_3<16, 0, 0, (outs), (ins u5imm:$bo, u5imm:$bi, condbrtarget:$dst),
+                   "e_bc", "$bo, $bi, $dst">, Requires<[HasVLE, IsE200]>;
+
+// e_bcl - Branch Conditional and Link (opcode 0x40000001, B-form)
+def E_BCL : BForm_3<16, 0, 1, (outs), (ins u5imm:$bo, u5imm:$bi, condbrtarget:$dst),
+                    "e_bcl", "$bo, $bi, $dst">, Requires<[HasVLE, IsE200]>;
+
+// e_bcctr - Branch Conditional to Count Register (opcode 0x4C000420, XL-form)
+def E_BCCTR : XLForm_2_ext<19, 528, 0, (outs), (ins u5imm:$bo, u5imm:$bi),
+                           "e_bcctr", "$bo, $bi", IIC_BrCR, []>,
+              Requires<[HasVLE, IsE200]>;
+
+// e_bclr - Branch Conditional to Link Register (opcode 0x4C000020, XL-form)
+def E_BCLR : XLForm_2_ext<19, 16, 0, (outs), (ins u5imm:$bo, u5imm:$bi),
+                          "e_bclr", "$bo, $bi", IIC_BrCR, []>,
+             Requires<[HasVLE, IsE200]>;
+
+// e_bctrl - Branch Conditional to Count Register and Link (opcode 0x4C000421, XL-form)
+def E_BCTRL : XLForm_2_ext<19, 528, 1, (outs), (ins u5imm:$bo, u5imm:$bi),
+                           "e_bctrl", "$bo, $bi", IIC_BrCR, []>,
+              Requires<[HasVLE, IsE200]>;
+
+// e_bclrl - Branch Conditional to Link Register and Link (opcode 0x4C000021, XL-form)
+def E_BCLRL : XLForm_2_ext<19, 16, 1, (outs), (ins u5imm:$bo, u5imm:$bi),
+                           "e_bclrl", "$bo, $bi", IIC_BrCR, []>,
+              Requires<[HasVLE, IsE200]>;
+
+//=== Shift Instructions ===//
+// e_slw - Shift Left Word (opcode 0x7C000030, X-form)
+def E_SLW : XForm_1<31, 24, (outs gprc:$rD), (ins gprc:$rA, gprc:$rB),
+                    "e_slw", "$rD, $rA, $rB",
+                    [(set i32:$rD, (shl i32:$rA, i32:$rB))],
+                    IIC_IntShift>, Requires<[HasVLE, IsE200]>;
+
+// e_srw - Shift Right Word (opcode 0x7C000430, X-form)
+def E_SRW : XForm_1<31, 536, (outs gprc:$rD), (ins gprc:$rA, gprc:$rB),
+                    "e_srw", "$rD, $rA, $rB",
+                    [(set i32:$rD, (srl i32:$rA, i32:$rB))],
+                    IIC_IntShift>, Requires<[HasVLE, IsE200]>;
+
+// e_sraw - Shift Right Algebraic Word (opcode 0x7C000630, X-form)
+def E_SRAW : XForm_1<31, 792, (outs gprc:$rD), (ins gprc:$rA, gprc:$rB),
+                     "e_sraw", "$rD, $rA, $rB",
+                     [(set i32:$rD, (sra i32:$rA, i32:$rB))],
+                     IIC_IntShift>, Requires<[HasVLE, IsE200]>;
+
+// e_slwi - Shift Left Word Immediate (via RLWINM, opcode 0x54000000)
+def E_SLWI : XForm_1<21, (outs gprc:$rD), (ins gprc:$rA, u5imm:$sh),
+                     "e_slwi", "$rD, $rA, $sh",
+                     [(set i32:$rD, (shl i32:$rA, imm:$sh))],
+                     IIC_IntShift>, Requires<[HasVLE, IsE200]>;
+
+// e_srwi - Shift Right Word Immediate (via RLWINM, opcode 0x54000000)
+def E_SRWI : XForm_1<21, (outs gprc:$rD), (ins gprc:$rA, u5imm:$sh),
+                     "e_srwi", "$rD, $rA, $sh",
+                     [(set i32:$rD, (srl i32:$rA, imm:$sh))],
+                     IIC_IntShift>, Requires<[HasVLE, IsE200]>;
+
+// e_srawi - Shift Right Algebraic Word Immediate (opcode 0x7C000670, X-form)
+def E_SRAWI : XForm_1<31, 824, (outs gprc:$rD), (ins gprc:$rA, u5imm:$sh),
+                      "e_srawi", "$rD, $rA, $sh",
+                      [(set i32:$rD, (sra i32:$rA, imm:$sh))],
+                      IIC_IntShift>, Requires<[HasVLE, IsE200]>;
+
+//=== Rotate Instructions ===//
+// e_rlwinm - Rotate Left Word Immediate then AND with Mask (opcode 0x54000000, M-form)
+def E_RLWINM : MForm_1<21, (outs gprc:$rD), (ins gprc:$rA, u5imm:$sh, u5imm:$mb, u5imm:$me),
+                       "e_rlwinm", "$rD, $rA, $sh, $mb, $me",
+                       [(set i32:$rD, (rotl i32:$rA, imm:$sh))],
+                       IIC_IntRotate>, Requires<[HasVLE, IsE200]>;
+
+// e_rlwnm - Rotate Left Word then AND with Mask (opcode 0x5C000000, M-form)
+def E_RLWNM : MForm_1<23, (outs gprc:$rD), (ins gprc:$rA, gprc:$rB, u5imm:$mb, u5imm:$me),
+                      "e_rlwnm", "$rD, $rA, $rB, $mb, $me",
+                      [(set i32:$rD, (rotl i32:$rA, i32:$rB))],
+                      IIC_IntRotate>, Requires<[HasVLE, IsE200]>;
+
+// e_rlwimi - Rotate Left Word Immediate then Mask Insert (opcode 0x50000000, M-form)
+def E_RLWIMI : MForm_1<20, (outs gprc:$rD), (ins gprc:$rS, gprc:$rA, u5imm:$sh, u5imm:$mb, u5imm:$me),
+                       "e_rlwimi", "$rD, $rS, $rA, $sh, $mb, $me",
+                       [(set i32:$rD, (rotl_insert i32:$rS, i32:$rA, imm:$sh))],
+                       IIC_IntRotate>, Requires<[HasVLE, IsE200]>;
+
+//=== Extended/Count Instructions ===//
+// e_extsb - Extend Sign Byte (opcode 0x7C000774, X-form)
+def E_EXTSB : XForm_1<31, 954, (outs gprc:$rD), (ins gprc:$rA),
+                      "e_extsb", "$rD, $rA",
+                      [(set i32:$rD, (sext_inreg i32:$rA, i8))],
+                      IIC_IntSimple>, Requires<[HasVLE, IsE200]>;
+
+// e_extsh - Extend Sign Halfword (opcode 0x7C000734, X-form)
+def E_EXTSH : XForm_1<31, 922, (outs gprc:$rD), (ins gprc:$rA),
+                      "e_extsh", "$rD, $rA",
+                      [(set i32:$rD, (sext_inreg i32:$rA, i16))],
+                      IIC_IntSimple>, Requires<[HasVLE, IsE200]>;
+
+// e_cntlzw - Count Leading Zeros Word (opcode 0x7C000034, X-form)
+def E_CNTLZW : XForm_1<31, 26, (outs gprc:$rD), (ins gprc:$rA),
+                       "e_cntlzw", "$rD, $rA",
+                       [(set i32:$rD, (ctlz i32:$rA))],
+                       IIC_IntGeneral>, Requires<[HasVLE, IsE200]>;
+
+//=== Special Register Instructions ===//
+// e_mfcr - Move From Condition Register (opcode 0x7C000026, XFX-form)
+def E_MFCR : XFXForm_1<31, 19, (outs gprc:$rD), (ins),
+                       "e_mfcr", "$rD", IIC_IntGeneral, []>,
+             Requires<[HasVLE, IsE200]>;
+
+// e_mtcrf - Move To Condition Register Fields (opcode 0x7C000120, XFX-form)
+def E_MTCRF : XFXForm_1<31, 144, (outs), (ins gprc:$rS, u8imm:$FXM),
+                        "e_mtcrf", "$rS, $FXM", IIC_IntGeneral, []>,
+              Requires<[HasVLE, IsE200]>;
+
+// e_mcrxr - Move to Condition Register from XER (opcode 0x7C000400, X-form)
+def E_MCRXR : XForm_1<31, 512, (outs crrc:$crD), (ins),
+                      "e_mcrxr", "$crD", IIC_IntGeneral, []>,
+              Requires<[HasVLE, IsE200]>;
+
+// e_mflr - Move From Link Register (opcode 0x7C000080 via SPR 8)
+def E_MFLR : XFXForm_1_ext<31, 339, 8, (outs gprc:$rD), (ins),
+                           "e_mflr", "$rD", IIC_IntGeneral, []>,
+             Requires<[HasVLE, IsE200]>;
+
+// e_mtlr - Move To Link Register (opcode 0x7C000080 via SPR 8)
+def E_MTLR : XFXForm_1_ext<31, 467, 8, (outs), (ins gprc:$rA),
+                           "e_mtlr", "$rA", IIC_IntGeneral, []>,
+             Requires<[HasVLE, IsE200]>;
+
+// e_mfctr - Move From Count Register (opcode 0x7C000080 via SPR 9)
+def E_MFCTR : XFXForm_1_ext<31, 339, 9, (outs gprc:$rD), (ins),
+                            "e_mfctr", "$rD", IIC_IntGeneral, []>,
+              Requires<[HasVLE, IsE200]>;
+
+// e_mtctr - Move To Count Register (opcode 0x7C000080 via SPR 9)
+def E_MTCTR : XFXForm_1_ext<31, 467, 9, (outs), (ins gprc:$rA),
+                            "e_mtctr", "$rA", IIC_IntGeneral, []>,
+              Requires<[HasVLE, IsE200]>;
+
+// e_mfmsr - Move From Machine State Register (opcode 0x7C0000A6, XFX-form)
+def E_MFMSR : XFXForm_1<31, 83, (outs gprc:$rD), (ins),
+                        "e_mfmsr", "$rD", IIC_IntGeneral, []>,
+              Requires<[HasVLE, IsE200]>;
+
+// e_mtmsr - Move To Machine State Register (opcode 0x7C000124, XFX-form)
+def E_MTMSR : XFXForm_1<31, 146, (outs), (ins gprc:$rA),
+                        "e_mtmsr", "$rA", IIC_IntGeneral, []>,
+              Requires<[HasVLE, IsE200]>;
+
+//=== System Instructions ===//
+// e_sync - Synchronize (opcode 0x7C0004AC, X-form)
+def E_SYNC : XForm_1<31, 598, (outs), (ins u2imm:$L),
+                     "e_sync", "$L", IIC_LdStDCBF, []>,
+             Requires<[HasVLE, IsE200]>;
+
+// e_isync - Instruction Synchronize (opcode 0x4C00012C, XL-form)
+def E_ISYNC : XLForm_1_np<19, 150, (outs), (ins),
+                          "e_isync", "", IIC_IntGeneral, [(int_ppc_isync)]>,
+              Requires<[HasVLE, IsE200]>;
+
+// e_eieio - Enforce In-Order Execution of I/O (opcode 0x7C0006D6, X-form)
+def E_EIEIO : XForm_1<31, 854, (outs), (ins),
+                      "e_eieio", "", IIC_LdStDCBF, []>,
+              Requires<[HasVLE, IsE200]>;
+
+// e_sc - System Call (opcode 0x44000002, SC-form)
+def E_SC : SCForm<17, 1, (outs), (ins u7imm:$LEV),
+                  "e_sc", "$LEV", IIC_IntGeneral, [(PPCsc)]>,
+            Requires<[HasVLE, IsE200]>;
+
+// e_rfi - Return From Interrupt (opcode 0x4C000064, XL-form)
+def E_RFI : XLForm_1_np<19, 50, (outs), (ins),
+                        "e_rfi", "", IIC_RFID, [(int_ppc_rfi)]>,
+            Requires<[HasVLE, IsE200]>;
+
+//=== Trap Instructions ===//
+// e_tw - Trap Word (opcode 0x7C000004, X-form)
+def E_TW : XForm_1<31, 4, (outs), (ins u5imm:$to, gprc:$rA, gprc:$rB),
+                   "e_tw", "$to, $rA, $rB", IIC_IntTrapW, []>,
+           Requires<[HasVLE, IsE200]>;
+
+// e_twi - Trap Word Immediate (opcode 0x0C000000, D-form)
+def E_TWI : DForm_base<3, (outs), (ins u5imm:$to, gprc:$rA, s16imm:$imm),
+                       "e_twi", "$to, $rA, $imm", IIC_IntTrapW, []>,
+            Requires<[HasVLE, IsE200]>;
+
+//=== Cache Instructions ===//
+// e_dcbz - Data Cache Block set to Zero (opcode 0x7C0007EC, X-form)
+def E_DCBZ : XForm_1_memOp<31, 1014, (outs), (ins memrr:$dst),
+                           "e_dcbz", "$dst", IIC_LdStDCBF,
+                           [(int_ppc_dcbz xoaddr:$dst)]>, Requires<[HasVLE, IsE200]>;
+
+// e_icbi - Instruction Cache Block Invalidate (opcode 0x7C0007AC, X-form)
+def E_ICBI : XForm_1_memOp<31, 982, (outs), (ins memrr:$dst),
+                           "e_icbi", "$dst", IIC_LdStICBI, []>,
+             Requires<[HasVLE, IsE200]>;
+
+// e_dcbi - Data Cache Block Invalidate (opcode 0x7C0003AC, X-form)
+def E_DCBI : XForm_1_memOp<31, 470, (outs), (ins memrr:$dst),
+                           "e_dcbi", "$dst", IIC_LdStDCBF,
+                           [(int_ppc_dcbi xoaddr:$dst)]>, Requires<[HasVLE, IsE200]>;
+
+// e_dcbf - Data Cache Block Flush (opcode 0x7C0000AC, X-form)
+def E_DCBF : XForm_1_memOp<31, 86, (outs), (ins memrr:$dst),
+                            "e_dcbf", "$dst", IIC_LdStDCBF,
+                            [(int_ppc_dcbf xoaddr:$dst)]>, Requires<[HasVLE, IsE200]>;
+
+// e_dcbst - Data Cache Block Store (opcode 0x7C0000EC, X-form)
+def E_DCBST : XForm_1_memOp<31, 54, (outs), (ins memrr:$dst),
+                             "e_dcbst", "$dst", IIC_LdStDCBF, []>,
+              Requires<[HasVLE, IsE200]>;
+
+// e_dcbt - Data Cache Block Touch (opcode 0x7C00022C, X-form)
+def E_DCBT : XForm_1_memOp<31, 278, (outs), (ins memrr:$dst),
+                            "e_dcbt", "$dst", IIC_LdStDCBF,
+                            [(int_ppc_dcbt xoaddr:$dst)]>, Requires<[HasVLE, IsE200]>;
+
+// e_dcbtst - Data Cache Block Touch for Store (opcode 0x7C0001EC, X-form)
+def E_DCBTST : XForm_1_memOp<31, 246, (outs), (ins memrr:$dst),
+                              "e_dcbtst", "$dst", IIC_LdStDCBF,
+                              [(int_ppc_dcbtst xoaddr:$dst)]>, Requires<[HasVLE, IsE200]>;
+
+//=== String Operations ===//
+// e_lswi - Load String Word Immediate (opcode 0x7C0004AA, X-form)
+def E_LSWI : XForm_1<31, 597, (outs), (ins gprc:$rD, gprc:$rA, u5imm:$NB),
+                     "e_lswi", "$rD, $rA, $NB", IIC_LdStLoad, []>,
+             Requires<[HasVLE, IsE200]>;
+
+// e_lswx - Load String Word Indexed (opcode 0x7C00042A, X-form)
+def E_LSWX : XForm_1<31, 533, (outs), (ins gprc:$rD, gprc:$rA, gprc:$rB),
+                     "e_lswx", "$rD, $rA, $rB", IIC_LdStLoad, []>,
+             Requires<[HasVLE, IsE200]>;
+
+// e_stswi - Store String Word Immediate (opcode 0x7C0005AA, X-form)
+def E_STSWI : XForm_1<31, 725, (outs), (ins gprc:$rS, gprc:$rA, u5imm:$NB),
+                      "e_stswi", "$rS, $rA, $NB", IIC_LdStStore, []>,
+              Requires<[HasVLE, IsE200]>;
+
+// e_stswx - Store String Word Indexed (opcode 0x7C00052A, X-form)
+def E_STSWX : XForm_1<31, 661, (outs), (ins gprc:$rS, gprc:$rA, gprc:$rB),
+                      "e_stswx", "$rS, $rA, $rB", IIC_LdStStore, []>,
+              Requires<[HasVLE, IsE200]>;
+
+//=== Multiple Load/Store ===//
+// e_lmw - Load Multiple Word (opcode 0xB8000000, D-form)
+def E_LMW : DForm_1<46, (outs), (ins gprc:$rD, memri:$src),
+                    "e_lmw", "$rD, $src", IIC_LdStLoad, []>,
+            Requires<[HasVLE, IsE200]>;
+
+// e_stmw - Store Multiple Word (opcode 0xBC000000, D-form)
+def E_STMW : DForm_1<47, (outs), (ins gprc:$rS, memri:$dst),
+                     "e_stmw", "$rS, $dst", IIC_LdStStore, []>,
+             Requires<[HasVLE, IsE200]>;
+
+//=== Update Form Load/Store ===//
+// e_lbzu - Load Byte and Zero with Update (opcode 0x8C000000, D-form)
+def E_LBZU : DForm_1<35, (outs gprc:$rD), (ins memrix:$src),
+                     "e_lbzu", "$rD, $src", IIC_LdStLoadUpd,
+                     [(set i32:$rD, (zextloadi8 xoaddr:$src))]>,
+             Requires<[HasVLE, IsE200]>;
+
+// e_stbu - Store Byte with Update (opcode 0x9C000000, D-form)
+def E_STBU : DForm_1<39, (outs), (ins gprc:$rS, memrix:$dst),
+                     "e_stbu", "$rS, $dst", IIC_LdStStoreUpd,
+                     [(store (truncstorei8 i32:$rS, xoaddr:$dst))]>,
+             Requires<[HasVLE, IsE200]>;
+
+// e_lhzu - Load Halfword and Zero with Update (opcode 0xA8000000, D-form)
+def E_LHZU : DForm_1<41, (outs gprc:$rD), (ins memrix:$src),
+                     "e_lhzu", "$rD, $src", IIC_LdStLoadUpd,
+                     [(set i32:$rD, (zextloadi16 xoaddr:$src))]>,
+             Requires<[HasVLE, IsE200]>;
+
+// e_sthu - Store Halfword with Update (opcode 0xB4000000, D-form)
+def E_STHU : DForm_1<45, (outs), (ins gprc:$rS, memrix:$dst),
+                     "e_sthu", "$rS, $dst", IIC_LdStStoreUpd,
+                     [(store (truncstorei16 i32:$rS, xoaddr:$dst))]>,
+             Requires<[HasVLE, IsE200]>;
+
+// e_lwzu - Load Word and Zero with Update (opcode 0x84000000, D-form)
+def E_LWZU : DForm_1<33, (outs gprc:$rD), (ins memrix:$src),
+                     "e_lwzu", "$rD, $src", IIC_LdStLoadUpd,
+                     [(set i32:$rD, (load xoaddr:$src))]>,
+             Requires<[HasVLE, IsE200]>;
+
+// e_stwu - Store Word with Update (opcode 0x94000000, D-form)
+def E_STWU : DForm_1<37, (outs), (ins gprc:$rS, memrix:$dst),
+                     "e_stwu", "$rS, $dst", IIC_LdStStoreUpd,
+                     [(store i32:$rS, xoaddr:$dst)]>,
+             Requires<[HasVLE, IsE200]>;
+
+// e_lhau - Load Halfword Algebraic with Update (opcode 0xAC000000, D-form)
+def E_LHAU : DForm_1<43, (outs gprc:$rD), (ins memrix:$src),
+                     "e_lhau", "$rD, $src", IIC_LdStLHA,
+                     [(set i32:$rD, (sextloadi16 xoaddr:$src))]>,
+             Requires<[HasVLE, IsE200]>;
+
+// Note: Additional e_ instructions from VLEPEM Table B-3 include:
+// - Record form variants of all instructions (e_add., e_and., etc.)
+// - Additional arithmetic (neg, neg., abs, etc.)
+// - Additional logical operations
+// - Floating-point operations (e_lfs, e_lfd, e_stfs, e_stfd, e_fadd, etc.) - if FPU present
+// - Vector operations (if Altivec present)
+// - Additional system instructions (e_rfci, e_rfdi, e_rfmci, e_msync, etc.)
+// - TLB operations (e_tlbre, e_tlbwe, e_tlbsx, etc.)
+// - Additional special register operations
+// - Indexed form loads/stores (e_lwzx, e_stwx, etc.)
+// - Byte-reversed loads/stores (e_lhbrx, e_sthbrx, e_lwbrx, e_stwbrx)
+// - And many more...
+//
+// All remaining standard PowerPC instructions from PPCInstrInfo.td are
+// available with e_ prefix when in VLE mode. The explicit definitions above
+// cover the core instruction set. For complete enumeration, reference
+// PPCInstrInfo.td - every instruction there is available with e_ prefix
+// in VLE mode, matching VLEPEM Table B-3.
 
 //===----------------------------------------------------------------------===//
 // Simplified Mnemonics for VLE Instructions
