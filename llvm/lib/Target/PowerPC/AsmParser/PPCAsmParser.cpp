@@ -1179,58 +1179,108 @@ bool PPCAsmParser::MatchAndEmitInstruction(SMLoc IDLoc, unsigned &Opcode,
       if (ErrorLoc == SMLoc()) ErrorLoc = IDLoc;
       
       // Provide specific error messages for VLE operand range violations
+      // VLE instructions have strict immediate and register constraints
       const PPCOperand &Op = (PPCOperand &)*Operands[ErrorInfo];
       StringRef Mnemonic = ((PPCOperand &)*Operands[0]).getToken();
       
-      // Check for VLE instruction mnemonics (se_* prefix)
-      if (Mnemonic.startswith("se_")) {
+      // Check for VLE instruction mnemonics (se_* prefix for 16-bit, e_* for 32-bit)
+      bool IsVLE16Bit = Mnemonic.startswith("se_");
+      bool IsVLE32Bit = Mnemonic.startswith("e_") && !Mnemonic.startswith("ev_");
+      
+      if (IsVLE16Bit || IsVLE32Bit) {
         // Check if this is an immediate operand out of range
         if (Op.isImm()) {
           int64_t Imm = Op.getImm();
           
-          // Check for s6imm range violations (-32 to 31)
-          if (Mnemonic == "se_addi" || Mnemonic == "se_subi" || 
-              Mnemonic == "se_cmpi" || Mnemonic == "se_cmplwi") {
-            if (!Op.isS6Imm()) {
-              if (Imm < -32 || Imm > 31) {
+          // 16-bit VLE instructions (se_*) have stricter constraints
+          if (IsVLE16Bit) {
+            // Check for s6imm range violations (-32 to 31)
+            // Used in: se_addi, se_subi, se_cmpi, se_cmplwi, se_cmplw
+            if (Mnemonic == "se_addi" || Mnemonic == "se_subi" || 
+                Mnemonic == "se_cmpi" || Mnemonic == "se_cmplwi" ||
+                Mnemonic == "se_cmplw") {
+              if (!Op.isS6Imm()) {
                 return Error(ErrorLoc, 
-                    "immediate operand out of range for 16-bit VLE instruction: "
-                    "must be in range [-32, 31] (6-bit signed immediate)");
+                    Twine("immediate operand out of range for 16-bit VLE instruction '") + 
+                    Mnemonic + "': must be in range [-32, 31] (s6imm: 6-bit signed immediate). "
+                    "Use 32-bit form (e_addi/e_subi) or materialize constant in register for values outside this range.");
+              }
+            }
+            
+            // Check for u5imm range violations (0 to 31)
+            // Used in: se_stw, se_lwz displacement, se_slwi, se_srwi, se_srawi shift amounts
+            //          se_andi, se_ori, se_xori with small masks
+            if (Mnemonic == "se_stw" || Mnemonic == "se_lwz") {
+              if (!Op.isU5Imm()) {
+                return Error(ErrorLoc,
+                    Twine("displacement out of range for 16-bit VLE instruction '") + Mnemonic + 
+                    "': must be in range [0, 31] (u5imm: 5-bit unsigned immediate). "
+                    "Use 32-bit form (e_stw/e_lwz) for larger displacements.");
+              }
+            }
+            
+            if (Mnemonic == "se_slwi" || Mnemonic == "se_srwi" || Mnemonic == "se_srawi") {
+              if (!Op.isU5Imm()) {
+                return Error(ErrorLoc,
+                    Twine("shift amount out of range for 16-bit VLE instruction '") + Mnemonic + 
+                    "': must be in range [0, 31] (u5imm: 5-bit unsigned immediate). "
+                    "Use 32-bit form (e_slwi/e_srwi/e_srawi) for larger shift amounts.");
+              }
+            }
+            
+            if (Mnemonic == "se_andi" || Mnemonic == "se_ori" || Mnemonic == "se_xori") {
+              if (!Op.isU5Imm()) {
+                return Error(ErrorLoc,
+                    Twine("immediate mask out of range for 16-bit VLE instruction '") + Mnemonic + 
+                    "': must be in range [0, 31] (u5imm: 5-bit unsigned immediate). "
+                    "Use 32-bit form (e_andi/e_ori/e_xori) for larger masks.");
+              }
+            }
+            
+            // Check for u7imm range violations (0 to 127)
+            // Used in: se_li (load immediate)
+            if (Mnemonic == "se_li") {
+              if (!Op.isU7Imm()) {
+                return Error(ErrorLoc,
+                    Twine("immediate value out of range for 16-bit VLE instruction '") + Mnemonic + 
+                    "': must be in range [0, 127] (u7imm: 7-bit unsigned immediate). "
+                    "Use 32-bit form (e_li) or materialize constant in register for larger values.");
+              }
+            }
+            
+            // Check for u4imm range violations (0 to 15)
+            // Used in: se_stb, se_sth, se_lbz, se_lhz (byte/halfword displacements)
+            if (Mnemonic == "se_stb" || Mnemonic == "se_sth" ||
+                Mnemonic == "se_lbz" || Mnemonic == "se_lhz") {
+              if (!Op.isU4Imm()) {
+                return Error(ErrorLoc,
+                    Twine("displacement out of range for 16-bit VLE instruction '") + Mnemonic + 
+                    "': must be in range [0, 15] (u4imm: 4-bit unsigned immediate). "
+                    "Use 32-bit form (e_stb/e_sth/e_lbz/e_lhz) for larger displacements.");
               }
             }
           }
           
-          // Check for u5imm range violations (0 to 31)
-          if (Mnemonic == "se_stw" || Mnemonic == "se_lwz") {
-            if (!Op.isU5Imm() && Op.isImm()) {
-              if (Imm < 0 || Imm > 31) {
-                return Error(ErrorLoc,
-                    "displacement out of range for 16-bit VLE instruction: "
-                    "must be in range [0, 31] (5-bit unsigned immediate)");
-              }
-            }
-          }
-          
-          // Check for u4imm range violations (0 to 15)
-          if (Mnemonic == "se_stb" || Mnemonic == "se_sth" ||
-              Mnemonic == "se_lbz" || Mnemonic == "se_lhz") {
-            if (!Op.isU4Imm() && Op.isImm()) {
-              if (Imm < 0 || Imm > 15) {
-                return Error(ErrorLoc,
-                    "displacement out of range for 16-bit VLE instruction: "
-                    "must be in range [0, 15] (4-bit unsigned immediate)");
-              }
-            }
-          }
+          // 32-bit VLE instructions (e_*) have wider immediate ranges but may still
+          // have constraints that need validation (though less strict than 16-bit)
+          // Most e_* instructions use standard 16-bit signed immediates
         }
         
         // Check for register range violations (R0-R7 for 16-bit VLE)
-        if (Op.isRegNumber() && !Op.isVLERegNumber()) {
+        // 16-bit VLE instructions require 3-bit register encoding (R0-R7)
+        // Note: isRegNumber() checks if immediate represents register 0-31
+        //       isVLERegNumber() checks if immediate represents register 0-7
+        //       So if isRegNumber() is true but isVLERegNumber() is false, it's R8-R31
+        if (IsVLE16Bit && Op.isRegNumber() && !Op.isVLERegNumber()) {
+          // Safe to call getReg() since isRegNumber() ensures it's a valid register number
           unsigned RegNum = Op.getReg();
-          if (RegNum > 7) {
+          // Double-check it's actually > 7 (should be guaranteed by !isVLERegNumber())
+          if (RegNum > 7 && RegNum <= 31) {
             return Error(ErrorLoc,
-                "register operand out of range for 16-bit VLE instruction: "
-                "must be R0-R7 (3-bit register encoding)");
+                Twine("register operand R") + Twine(RegNum) + 
+                Twine(" out of range for 16-bit VLE instruction '") + Mnemonic + 
+                Twine("': must be R0-R7 (3-bit register encoding required). "
+                "Use 32-bit form (e_* prefix) or use lower registers (R0-R7) for 16-bit encoding."));
           }
         }
       }
