@@ -11,10 +11,13 @@
 
 #include "mlir/IR/Region.h"
 #include "mlir/IR/Value.h"
+#include "mlir/IR/ValueRange.h"
 
 #include "llvm/ADT/SetVector.h"
 
 namespace mlir {
+class DominanceInfo;
+class RewriterBase;
 
 /// Check if all values in the provided range are defined above the `limit`
 /// region.  That is, if they are defined in a region that is a proper ancestor
@@ -43,18 +46,71 @@ void visitUsedValuesDefinedAbove(MutableArrayRef<Region> regions,
 /// Fill `values` with a list of values defined at the ancestors of the `limit`
 /// region and used within `region` or its descendants.
 void getUsedValuesDefinedAbove(Region &region, Region &limit,
-                               llvm::SetVector<Value> &values);
+                               SetVector<Value> &values);
 
 /// Fill `values` with a list of values used within any of the regions provided
 /// but defined in one of the ancestors.
 void getUsedValuesDefinedAbove(MutableArrayRef<Region> regions,
-                               llvm::SetVector<Value> &values);
+                               SetVector<Value> &values);
+
+/// Make a region isolated from above
+/// - Capture the values that are defined above the region and used within it.
+/// - Append to the entry block arguments that represent the captured values
+/// (one per captured value).
+/// - Replace all uses within the region of the captured values with the
+///   newly added arguments.
+/// - `cloneOperationIntoRegion` is a callback that allows caller to specify
+///   if the operation defining an `OpOperand` needs to be cloned into the
+///   region. Then the operands of this operation become part of the captured
+///   values set (unless the operations that define the operands themeselves
+///   are to be cloned). The cloned operations are added to the entry block
+///   of the region.
+/// Return the set of captured values for the operation.
+SmallVector<Value> makeRegionIsolatedFromAbove(
+    RewriterBase &rewriter, Region &region,
+    llvm::function_ref<bool(Operation *)> cloneOperationIntoRegion =
+        [](Operation *) { return false; });
+
+/// Move SSA values used within an operation before an insertion point,
+/// so that the operation itself (or its replacement) can be moved to
+/// the insertion point. Current support is only for movement of
+/// dependencies of `op` before `insertionPoint` in the same basic block.
+LogicalResult moveOperationDependencies(RewriterBase &rewriter, Operation *op,
+                                        Operation *insertionPoint,
+                                        DominanceInfo &dominance);
+LogicalResult moveOperationDependencies(RewriterBase &rewriter, Operation *op,
+                                        Operation *insertionPoint);
+
+/// Move definitions of `values` before an insertion point. Current support is
+/// only for movement of definitions within the same basic block. Note that this
+/// is an all-or-nothing approach. Either definitions of all values are moved
+/// before insertion point, or none of them are.
+LogicalResult moveValueDefinitions(RewriterBase &rewriter, ValueRange values,
+                                   Operation *insertionPoint,
+                                   DominanceInfo &dominance);
+LogicalResult moveValueDefinitions(RewriterBase &rewriter, ValueRange values,
+                                   Operation *insertionPoint);
 
 /// Run a set of structural simplifications over the given regions. This
 /// includes transformations like unreachable block elimination, dead argument
 /// elimination, as well as some other DCE. This function returns success if any
-/// of the regions were simplified, failure otherwise.
-LogicalResult simplifyRegions(MutableArrayRef<Region> regions);
+/// of the regions were simplified, failure otherwise. The provided rewriter is
+/// used to notify callers of operation and block deletion.
+/// Structurally similar blocks will be merged if the `mergeBlock` argument is
+/// true. Note this can lead to merged blocks with extra arguments.
+LogicalResult simplifyRegions(RewriterBase &rewriter,
+                              MutableArrayRef<Region> regions,
+                              bool mergeBlocks = true);
+
+/// Erase the unreachable blocks within the provided regions. Returns success
+/// if any blocks were erased, failure otherwise.
+LogicalResult eraseUnreachableBlocks(RewriterBase &rewriter,
+                                     MutableArrayRef<Region> regions);
+
+/// This function returns success if any operations or arguments were deleted,
+/// failure otherwise.
+LogicalResult runRegionDCE(RewriterBase &rewriter,
+                           MutableArrayRef<Region> regions);
 
 } // namespace mlir
 

@@ -1,0 +1,1192 @@
+Power ISA 2.07 (Book VLE) Instruction List
+============================================================
+
+
+64-bit (3 instructions):
+------------------------------------------------------------
+  mulhd                XO         SR, 64               Multiply High Doubleword
+  mulhdu               XO         SR, 64               Multiply High Doubleword Unsigned
+  sradi                XS         SR, 64               Shift Right Algebraic Doubleword Immedia
+
+Base (Book I) (22 instructions):
+------------------------------------------------------------
+  and                  I16A       SR, VLE, e_add2i., Add, (2, operand), Immediate Record
+  e_addi               SCI8       SR, VLE              Add Scaled Immediate
+  e_addic              SCI8       SR, VLE              Add Scaled Immediate Carrying
+  e_andi               SCI8       SR, VLE              AND Scaled Immediate
+  e_ori                SCI8       SR, VLE              OR Scaled Immediate
+  e_subfic             SCI8       SR, VLE              Subtract From Scaled Immediate Carrying
+  e_xori               SCI8       SR, VLE              XOR Scaled Immediate
+  mfcr                 XFX        B                    Move From Condition Register
+  mfocrf               XFX        B                    Move From One Condition Register Field
+  mfspr                XFX        O, B                 Move From Special Purpose Register
+  mtcrf                XFX        B                    Move To Condition Register Fields
+  mtocrf               XFX        B                    Move To One Condition Register Field
+  mtspr                XFX        O, B                 Move To Special Purpose Register
+  mulhd                XO         SR, 64               Multiply High Doubleword
+  mulhdu               XO         SR, 64               Multiply High Doubleword Unsigned
+  mulhw                XO         SR, B                Multiply High Word
+  mulhw                XO         SR, B                Multiply High Word
+  mulhwu               XO         SR, B                Multiply High Word Unsigned
+  mulhwu               XO         SR, B                Multiply High Word Unsigned
+  sradi                XS         SR, 64               Shift Right Algebraic Doubleword Immedia
+  to                   XO         SR, B, addme[o][.], Add Minus One Extended
+  to                   XO         SR, B, addme[o][.], Add Minus One Extended
+
+Category: (2 (1 instructions):
+------------------------------------------------------------
+  and                  I16A       SR, VLE, e_add2i., Add, (2, operand), Immediate Record
+
+Category: Add (2 instructions):
+------------------------------------------------------------
+  and                  I16A       SR, VLE, e_add2i., Add, (2, operand), Immediate Record
+  to                   XO         SR, B, addme[o][.], Add Minus One Extended
+
+Category: CT (1 instructions):
+------------------------------------------------------------
+  e_bc                 BD15       CT, VLE              Branch Conditional [and Link]
+
+Category: E.DC (2 instructions):
+------------------------------------------------------------
+  mfdcr                XFX        P, E.DC              Move From Device Control Register
+  mtdcr                XFX        P, E.DC              Move To Device Control Register
+
+Category: E.HV (1 instructions):
+------------------------------------------------------------
+  ehpriv               XL         E.HV                 Embedded Hypervisor Privilege
+
+Category: E.PD (2 instructions):
+------------------------------------------------------------
+  evlddepx             EVX        P, E.PD              Vector Load Doubleword into Doubleword b
+  evstddepx            EVX        P, E.PD              Vector Store Doubleword into Doubleword 
+
+Category: E.PM (2 instructions):
+------------------------------------------------------------
+  mfpmr                XFX        O, E.PM              Move From Performance Monitor Register
+  mtpmr                XFX        O, E.PM              Move To Performance Monitor Register
+
+Category: Immediate (1 instructions):
+------------------------------------------------------------
+  and                  I16A       SR, VLE, e_add2i., Add, (2, operand), Immediate Record
+
+Category: O (4 instructions):
+------------------------------------------------------------
+  mfpmr                XFX        O, E.PM              Move From Performance Monitor Register
+  mfspr                XFX        O, B                 Move From Special Purpose Register
+  mtpmr                XFX        O, E.PM              Move To Performance Monitor Register
+  mtspr                XFX        O, B                 Move To Special Purpose Register
+
+Category: P (4 instructions):
+------------------------------------------------------------
+  evlddepx             EVX        P, E.PD              Vector Load Doubleword into Doubleword b
+  evstddepx            EVX        P, E.PD              Vector Store Doubleword into Doubleword 
+  mfdcr                XFX        P, E.DC              Move From Device Control Register
+  mtdcr                XFX        P, E.DC              Move To Device Control Register
+
+Category: V (144 instructions):
+------------------------------------------------------------
+  mfvscr               VX         V                    Move From VSCR
+  mtvscr               VX         V                    Move To VSCR
+  vaddcuw              VX         V                    Vector Add and write Carry-out Unsigned 
+  vaddfp               VX         V                    Vector Add Single-Precision
+  vaddsbs              VX         V                    Vector Add Signed Byte Saturate
+  vaddshs              VX         V                    Vector Add Signed Halfword Saturate
+  vaddsws              VX         V                    Vector Add Signed Word Saturate
+  vaddubm              VX         V                    Vector Add Unsigned Byte Modulo
+  vaddubs              VX         V                    Vector Add Unsigned Byte Saturate
+  vadduhm              VX         V                    Vector Add Unsigned Halfword Modulo
+  vadduhs              VX         V                    Vector Add Unsigned Halfword Saturate
+  vadduwm              VX         V                    Vector Add Unsigned Word Modulo
+  vadduws              VX         V                    Vector Add Unsigned Word Saturate
+  vand                 VX         V                    Vector Logical AND
+  vandc                VX         V                    Vector Logical AND with Complement
+  vavgsb               VX         V                    Vector Average Signed Byte
+  vavgsh               VX         V                    Vector Average Signed Halfword
+  vavgsw               VX         V                    Vector Average Signed Word
+  vavgub               VX         V                    Vector Average Unsigned Byte
+  vavguh               VX         V                    Vector Average Unsigned Halfword
+  vavguw               VX         V                    Vector Average Unsigned Word
+  vcfsx                VX         V                    Vector Convert From Signed Fixed-Point W
+  vcfux                VX         V                    Vector Convert From
+  vcmpbfp              VC         V                    Vector Compare Bounds Single-Precision
+  vcmpeqfp             VC         V                    Vector Compare Equal To Single-Precision
+  vcmpequb             VC         V                    Vector Compare Equal To Unsigned Byte
+  vcmpequh             VC         V                    Vector Compare Equal To Unsigned Halfwor
+  vcmpequw             VC         V                    Vector Compare Equal To Unsigned Word
+  vcmpgefp             VC         V                    Vector Compare Greater Than or Equal To 
+  vcmpgtfp             VC         V                    Vector Compare Greater Than Single-Preci
+  vcmpgtsb             VC         V                    Vector Compare Greater Than Signed Byte
+  vcmpgtsh             VC         V                    Vector Compare Greater Than Signed Halfw
+  vcmpgtsw             VC         V                    Vector Compare Greater Than Signed Word
+  vcmpgtub             VC         V                    Vector Compare Greater Than Unsigned Byt
+  vcmpgtuh             VC         V                    Vector Compare Greater Than Unsigned Hal
+  vcmpgtuw             VC         V                    Vector Compare Greater Than Unsigned Wor
+  vctsxs               VX         V                    Vector Convert To Signed Fixed-Point Wor
+  vctuxs               VX         V                    Vector Convert To Unsigned Fixed-Point W
+  vexptefp             VX         V                    Vector 2 Raised to the Exponent Estimate
+  vlogefp              VX         V                    Vector Log Base 2 Estimate Floating-Poin
+  vmaddfp              VA         V                    Vector Multiply-Add Single-Precision
+  vmaxfp               VX         V                    Vector Maximum Single-Precision
+  vmaxsb               VX         V                    Vector Maximum Signed Byte
+  vmaxsh               VX         V                    Vector Maximum Signed Halfword
+  vmaxsw               VX         V                    Vector Maximum Signed Word
+  vmaxub               VX         V                    Vector Maximum Unsigned Byte
+  vmaxuh               VX         V                    Vector Maximum Unsigned Halfword
+  vmaxuw               VX         V                    Vector Maximum Unsigned Word
+  vmhaddshs            VA         V                    Vector Multiply-High-Add Signed Halfword
+  vmhraddshs           VA         V                    Vector Multiply-High-Round-Add Signed Ha
+  vminfp               VX         V                    Vector Minimum Single-Precision
+  vminsb               VX         V                    Vector Minimum Signed Byte
+  vminsh               VX         V                    Vector Minimum Signed Halfword
+  vminsw               VX         V                    Vector Minimum Signed Word
+  vminub               VX         V                    Vector Minimum Unsigned Byte
+  vminuh               VX         V                    Vector Minimum Unsigned Halfword
+  vminuw               VX         V                    Vector Minimum Unsigned Word
+  vmladduhm            VA         V                    Vector Multiply-Low-Add Unsigned Halfwor
+  vmrghb               VX         V                    Vector Merge High Byte
+  vmrghh               VX         V                    Vector Merge High Halfword
+  vmrghw               VX         V                    Vector Merge High Word
+  vmrglb               VX         V                    Vector Merge Low Byte
+  vmrglh               VX         V                    Vector Merge Low Halfword
+  vmrglw               VX         V                    Vector Merge Low Word
+  vmsummbm             VA         V                    Vector Multiply-Sum Mixed Byte Modulo
+  vmsumshm             VA         V                    Vector Multiply-Sum Signed Halfword Modu
+  vmsumshs             VA         V                    Vector Multiply-Sum Signed Halfword Satu
+  vmsumubm             VA         V                    Vector Multiply-Sum Unsigned Byte Modulo
+  vmsumuhm             VA         V                    Vector Multiply-Sum Unsigned Halfword Mo
+  vmsumuhs             VA         V                    Vector Multiply-Sum Unsigned Halfword Sa
+  vmulesb              VX         V                    Vector Multiply Even Signed Byte
+  vmulesh              VX         V                    Vector Multiply Even Signed Halfword
+  vmuleub              VX         V                    Vector Multiply Even Unsigned Byte
+  vmuleuh              VX         V                    Vector Multiply Even Unsigned Halfword
+  vmulosb              VX         V                    Vector Multiply Odd Signed Byte
+  vmulosh              VX         V                    Vector Multiply Odd Signed Halfword
+  vmuloub              VX         V                    Vector Multiply Odd Unsigned Byte
+  vmulouh              VX         V                    Vector Multiply Odd Unsigned Halfword
+  vnmsubfp             VA         V                    Vector Negative Multiply-Subtract Single
+  vnor                 VX         V                    Vector Logical NOR
+  vor                  VX         V                    Vector Logical OR
+  vperm                VA         V                    Vector Permute
+  vpkpx                VX         V                    Vector Pack Pixel
+  vpkshss              VX         V                    Vector Pack Signed Halfword Signed Satur
+  vpkshus              VX         V                    Vector Pack Signed Halfword Unsigned Sat
+  vpkswss              VX         V                    Vector Pack Signed Word Signed Saturate
+  vpkswus              VX         V                    Vector Pack Signed Word Unsigned Saturat
+  vpkuhum              VX         V                    Vector Pack Unsigned Halfword Unsigned M
+  vpkuhus              VX         V                    Vector Pack Unsigned Halfword Unsigned S
+  vpkuwum              VX         V                    Vector Pack Unsigned Word Unsigned Modul
+  vpkuwus              VX         V                    Vector Pack Unsigned Word Unsigned Satur
+  vrefp                VX         V                    Vector Reciprocal Estimate Single-Precis
+  vrfim                VX         V                    Vector Round to Single-Precision Integer
+  vrfin                VX         V                    Vector Round to Single-Precision Integer
+  vrfip                VX         V                    Vector Round to Single-Precision Integer
+  vrfiz                VX         V                    Vector Round to Single-Precision Integer
+  vrlb                 VX         V                    Vector Rotate Left Byte
+  vrlh                 VX         V                    Vector Rotate Left Halfword
+  vrlw                 VX         V                    Vector Rotate Left Word
+  vrsqrtefp            VX         V                    Vector Reciprocal Square Root Estimate S
+  vsel                 VA         V                    Vector Select
+  vsl                  VX         V                    Vector Shift Left
+  vslb                 VX         V                    Vector Shift Left Byte
+  vsldoi               VA         V                    Vector Shift Left Double by Octet Immedi
+  vslh                 VX         V                    Vector Shift Left Halfword
+  vslo                 VX         V                    Vector Shift Left by Octet
+  vslw                 VX         V                    Vector Shift Left Word
+  vspltb               VX         V                    Vector Splat Byte
+  vsplth               VX         V                    Vector Splat Halfword
+  vspltisb             VX         V                    Vector Splat Immediate Signed Byte
+  vspltish             VX         V                    Vector Splat Immediate Signed Halfword
+  vspltisw             VX         V                    Vector Splat Immediate Signed Word
+  vspltw               VX         V                    Vector Splat Word
+  vsr                  VX         V                    Vector Shift Right
+  vsrab                VX         V                    Vector Shift Right Algebraic Word
+  vsrah                VX         V                    Vector Shift Right Algebraic Halfword
+  vsraw                VX         V                    Vector Shift Right Algebraic Word
+  vsrb                 VX         V                    Vector Shift Right Byte
+  vsrh                 VX         V                    Vector Shift Right Halfword
+  vsro                 VX         V                    Vector Shift Right by Octet
+  vsrw                 VX         V                    Vector Shift Right Word
+  vsubcuw              VX         V                    Vector Subtract and Write Carry-Out Unsi
+  vsubfp               VX         V                    Vector Subtract Single-Precision
+  vsubsbs              VX         V                    Vector Subtract Signed Byte Saturate
+  vsubshs              VX         V                    Vector Subtract Signed Halfword Saturate
+  vsubsws              VX         V                    Vector Subtract Signed Word Saturate
+  vsububm              VX         V                    Vector Subtract Unsigned Byte Modulo
+  vsububs              VX         V                    Vector Subtract Unsigned Byte Saturate
+  vsubuhm              VX         V                    Vector Subtract Unsigned Halfword Modulo
+  vsubuhs              VX         V                    Vector Subtract Unsigned Halfword Satura
+  vsubuwm              VX         V                    Vector Subtract Unsigned Word Modulo
+  vsubuws              VX         V                    Vector Subtract Unsigned Word Saturate
+  vsum2sws             VX         V                    Vector Sum across Half Signed Word Satur
+  vsum4sbs             VX         V                    Vector Sum across Quarter Signed Byte Sa
+  vsum4shs             VX         V                    Vector Sum across Quarter Signed Halfwor
+  vsum4ubs             VX         V                    Vector Sum across Quarter Unsigned Byte 
+  vsumsws              VX         V                    Vector Sum across Signed Word Saturate
+  vupkhpx              VX         V                    Vector Unpack High Pixel
+  vupkhsb              VX         V                    Vector Unpack High Signed Byte
+  vupkhsh              VX         V                    Vector Unpack High Signed Halfword
+  vupklpx              VX         V                    Vector Unpack Low Pixel
+  vupklsb              VX         V                    Vector Unpack Low Signed Byte
+  vupklsh              VX         V                    Vector Unpack Low Signed Halfword
+  vxor                 VX         V                    Vector Logical XOR
+
+Category: VLE, (1 instructions):
+------------------------------------------------------------
+  e_sc                 ESC        VLE,                 System Call
+
+Category: addme[o][.] (1 instructions):
+------------------------------------------------------------
+  to                   XO         SR, B, addme[o][.], Add Minus One Extended
+
+Category: e_add2i. (1 instructions):
+------------------------------------------------------------
+  and                  I16A       SR, VLE, e_add2i., Add, (2, operand), Immediate Record
+
+Category: operand) (1 instructions):
+------------------------------------------------------------
+  and                  I16A       SR, VLE, e_add2i., Add, (2, operand), Immediate Record
+
+SPE (Signal Processing Engine) (248 instructions):
+------------------------------------------------------------
+  brinc                EVX        SP                   Bit Reversed Increment
+  efdabs               EVX        SP.FD                Floating-Point Double-Precision Absolute
+  efdadd               EVX        SP.FD                Floating-Point Double-Precision Add
+  efdcfs               EVX        SP.FD                Floating-Point Double-Precision Convert 
+  efdcfsf              EVX        SP.FD                Convert Floating-Point Double-Precision 
+  efdcfsi              EVX        SP.FD                Convert Floating-Point Double-Precision 
+  efdcfsid             EVX        SP.FD                Convert Floating-Point Double-Precision 
+  efdcfuf              EVX        SP.FD                Convert Floating-Point Double-Precision 
+  efdcfui              EVX        SP.FD                Convert Floating-Point Double-Precision 
+  efdcfuid             EVX        SP.FD                Convert Floating-Point Double-Precision 
+  efdcmpeq             EVX        SP.FD                Floating-Point Double-Precision Compare 
+  efdcmpgt             EVX        SP.FD                Floating-Point Double-Precision Compare 
+  efdcmplt             EVX        SP.FD                Floating-Point Double-Precision Compare 
+  efdctsf              EVX        SP.FD                Convert Floating-Point Double-Precision 
+  efdctsi              EVX        SP.FD                Convert Floating-Point Double-Precision 
+  efdctsidz            EVX        SP.FD                Convert Floating-Point Double-Precision 
+  efdctsiz             EVX        SP.FD                Convert Floating-Point Double-Precision 
+  efdctuf              EVX        SP.FD                Convert Floating-Point Double-Precision 
+  efdctui              EVX        SP.FD                Convert Floating-Point Double-Precision 
+  efdctuidz            EVX        SP.FD                Convert Floating-Point Double-Precision 
+  efdctuiz             EVX        SP.FD                Convert Floating-Point Double-Precision 
+  efddiv               EVX        SP.FD                Floating-Point Double-Precision Divide
+  efdmul               EVX        SP.FD                Floating-Point Double-Precision Multiply
+  efdnabs              EVX        SP.FD                Floating-Point Double-Precision Negative
+  efdneg               EVX        SP.FD                Floating-Point Double-Precision Negate
+  efdsub               EVX        SP.FD                Floating-Point Double-Precision Subtract
+  efdtsteq             EVX        SP.FD                Floating-Point Double-Precision Test Equ
+  efdtstgt             EVX        SP.FD                Floating-Point Double-Precision Test Gre
+  efdtstlt             EVX        SP.FD                Floating-Point Double-Precision Test Les
+  efsabs               EVX        SP.FS                Floating-Point Single-Precision Absolute
+  efsadd               EVX        SP.FS                Floating-Point Single-Precision Add
+  efscfd               EVX        SP.FD                Floating-Point Single-Precision Convert 
+  efscfsf              EVX        SP.FS                Convert Floating-Point Single-Precision 
+  efscfsi              EVX        SP.FS                Convert Floating-Point Single-Precision 
+  efscfuf              EVX        SP.FS                Convert Floating-Point Single-Precision 
+  efscfui              EVX        SP.FS                Convert Floating-Point Single-Precision 
+  efscmpeq             EVX        SP.FS                Floating-Point Single-Precision Compare 
+  efscmpgt             EVX        SP.FS                Floating-Point Single-Precision Compare 
+  efscmplt             EVX        SP.FS                Floating-Point Single-Precision Compare 
+  efsctsf              EVX        SP.FS                Convert Floating-Point Single-Precision 
+  efsctsi              EVX        SP.FS                Convert Floating-Point Single-Precision 
+  efsctsiz             EVX        SP.FS                Convert Floating-Point Single-Precision 
+  efsctuf              EVX        SP.FS                Convert Floating-Point Single-Precision 
+  efsctui              EVX        SP.FS                Convert Floating-Point Single-Precision 
+  efsctuiz             EVX        SP.FS                Convert Floating-Point Single-Precision 
+  efsdiv               EVX        SP.FS                Floating-Point Single-Precision Divide
+  efsmul               EVX        SP.FS                Floating-Point Single-Precision Multiply
+  efsnabs              EVX        SP.FS                Floating-Point Single-Precision Negative
+  efsneg               EVX        SP.FS                Floating-Point Single-Precision Negate
+  efssub               EVX        SP.FS                Floating-Point Single-Precision Subtract
+  efststeq             EVX        SP.FS                Floating-Point Single-Precision Test Equ
+  efststgt             EVX        SP.FS                Floating-Point Single-Precision Test Gre
+  efststlt             EVX        SP.FS                Floating-Point Single-Precision Test Les
+  evabs                EVX        SP                   Vector Absolute Value
+  evaddiw              EVX        SP                   Vector Add Immediate Word
+  evaddsmiaaw          EVX        SP                   Vector Add Signed, Modulo, Integer to Ac
+  evaddssiaaw          EVX        SP                   Vector Add Signed, Saturate, Integer to 
+  evaddumiaaw          EVX        SP                   Vector Add Unsigned, Modulo, Integer to 
+  evaddusiaaw          EVX        SP                   Vector Add Unsigned, Saturate, Integer t
+  evaddw               EVX        SP                   Vector Add Word
+  evand                EVX        SP                   Vector AND
+  evandc               EVX        SP                   Vector AND with Complement
+  evcmpeq              EVX        SP                   Vector Compare Equal
+  evcmpgts             EVX        SP                   Vector Compare Greater Than Signed
+  evcmpgtu             EVX        SP                   Vector Compare Greater Than Unsigned
+  evcmplts             EVX        SP                   Vector Compare Less Than Signed
+  evcmpltu             EVX        SP                   Vector Compare Less Than Unsigned
+  evcntlsw             EVX        SP                   Vector Count Leading Signed Bits Word
+  evcntlzw             EVX        SP                   Vector Count Leading Zeros Word
+  evdivws              EVX        SP                   Vector Divide Word Signed
+  evdivwu              EVX        SP                   Vector Divide Word Unsigned
+  eveqv                EVX        SP                   Vector Equivalent
+  evextsb              EVX        SP                   Vector Extend Sign Byte
+  evextsh              EVX        SP                   Vector Extend Sign Halfword
+  evfsabs              EVX        SP.FV                Vector Floating-Point Single-Precision A
+  evfsadd              EVX        SP.FV                Vector Floating-Point Single-Precision A
+  evfscfsf             EVX        SP.FV                Vector Convert Floating-Point Single-Pre
+  evfscfsi             EVX        SP.FV                Vector Convert Floating-Point Single-Pre
+  evfscfuf             EVX        SP.FV                Vector Convert Floating-Point Single-Pre
+  evfscfui             EVX        SP.FV                Vector Convert Floating-Point Single-Pre
+  evfscmpeq            EVX        SP.FV                Vector Floating-Point Single-Precision C
+  evfscmpgt            EVX        SP.FV                Vector Floating-Point Single-Precision C
+  evfscmplt            EVX        SP.FV                Vector Floating-Point Single-Precision C
+  evfsctsf             EVX        SP.FV                Vector Convert Floating-Point Single-Pre
+  evfsctsi             EVX        SP.FV                Vector Convert Floating-Point Single-Pre
+  evfsctsiz            EVX        SP.FV                Vector Convert Floating-Point Single-Pre
+  evfsctuf             EVX        SP.FV                Vector Convert Floating-Point Single-Pre
+  evfsctui             EVX        SP.FV                Vector Convert Floating-Point Single-Pre
+  evfsctuiz            EVX        SP.FV                Vector Convert Floating-Point Single-Pre
+  evfsdiv              EVX        SP.FV                Vector Floating-Point Single-Precision D
+  evfsmul              EVX        SP.FV                Vector Floating-Point Single-Precision M
+  evfsnabs             EVX        SP.FV                Vector Floating-Point Single-Precision N
+  evfsneg              EVX        SP.FV                Vector Floating-Point Single-Precision N
+  evfssub              EVX        SP.FV                Vector Floating-Point Single-Precision S
+  evfststeq            EVX        SP.FV                Vector Floating-Point Single-Precision T
+  evfststgt            EVX        SP.FV                Vector Floating-Point Single-Precision T
+  evfststlt            EVX        SP.FV                Vector Floating-Point Single-Precision T
+  evldd                EVX        SP                   Vector Load Double Word into Double Word
+  evlddx               EVX        SP                   Vector Load Double Word into Double Word
+  evldh                EVX        SP                   Vector Load Double Word into Four Halfwo
+  evldhx               EVX        SP                   Vector Load Double Word into Four Halfwo
+  evldw                EVX        SP                   Vector Load Double Word into Two Words
+  evldwx               EVX        SP                   Vector Load Double Word into Two Words I
+  evlhhesplat          EVX        SP                   Vector Load Halfword into Halfwords Even
+  evlhhesplatx         EVX        SP                   Vector Load Halfword into Halfwords Even
+  evlhhossplat         EVX        SP                   Vector Load Halfword into Halfword Odd a
+  evlhhossplatx        EVX        SP                   Vector Load Halfword into Halfword Odd S
+  evlhhousplat         EVX        SP                   Vector Load Halfword into Halfword Odd U
+  evlhhousplatx        EVX        SP                   Vector Load Halfword into Halfword Odd U
+  evlwhe               EVX        SP                   Vector Load Word into Two Halfwords Even
+  evlwhex              EVX        SP                   Vector Load Word into Two Halfwords Even
+  evlwhos              EVX        SP                   Vector Load Word into Two Halfwords Odd 
+  evlwhosx             EVX        SP                   Vector Load Word into Two Halfwords Odd 
+  evlwhou              EVX        SP                   Vector Load Word into Two Halfwords Odd 
+  evlwhoux             EVX        SP                   Vector Load Word into Two Halfwords Odd 
+  evlwhsplat           EVX        SP                   Vector Load Word into Two Halfwords and 
+  evlwhsplatx          EVX        SP                   Vector Load Word into Two Halfwords and 
+  evlwwsplat           EVX        SP                   Vector Load Word into Word and Splat
+  evlwwsplatx          EVX        SP                   Vector Load Word into Word and Splat Ind
+  evmergehi            EVX        SP                   Vector Merge High
+  evmergehilo          EVX        SP                   Vector Merge High/Low
+  evmergelo            EVX        SP                   Vector Merge Low
+  evmergelohi          EVX        SP                   Vector Merge Low/High
+  evmhegsmfaa          EVX        SP                   Vector Multiply Halfwords, Even, Guarded
+  evmhegsmfan          EVX        SP                   Vector Multiply Halfwords, Even, Guarded
+  evmhegsmiaa          EVX        SP                   Vector Multiply Halfwords, Even, Guarded
+  evmhegsmian          EVX        SP                   Vector Multiply Halfwords, Even, Guarded
+  evmhegumiaa          EVX        SP                   Vector Multiply Halfwords, Even, Guarded
+  evmhegumian          EVX        SP                   Vector Multiply Halfwords, Even, Guarded
+  evmhesmf             EVX        SP                   Vector Multiply Halfwords, Even, Signed,
+  evmhesmfa            EVX        SP                   Vector Multiply Halfwords, Even, Signed,
+  evmhesmfaaw          EVX        SP                   Vector Multiply Halfwords, Even, Signed,
+  evmhesmfanw          EVX        SP                   Vector Multiply Halfwords, Even, Signed,
+  evmhesmi             EVX        SP                   Vector Multiply Halfwords, Even, Signed,
+  evmhesmia            EVX        SP                   Vector Multiply Halfwords, Even, Signed,
+  evmhesmiaaw          EVX        SP                   Vector Multiply Halfwords, Even, Signed,
+  evmhesmianw          EVX        SP                   Vector Multiply Halfwords, Even, Signed,
+  evmhessf             EVX        SP                   Vector Multiply Halfwords, Even, Signed,
+  evmhessfa            EVX        SP                   Vector Multiply Halfwords, Even, Signed,
+  evmhessfaaw          EVX        SP                   Vector Multiply Halfwords, Even, Signed,
+  evmhessfanw          EVX        SP                   Vector Multiply Halfwords, Even, Signed,
+  evmhessiaaw          EVX        SP                   Vector Multiply Halfwords, Even, Signed,
+  evmhessianw          EVX        SP                   Vector Multiply Halfwords, Even, Signed,
+  evmheumi             EVX        SP                   Vector Multiply Halfwords, Even, Unsigne
+  evmheumia            EVX        SP                   Vector Multiply Halfwords, Even, Unsigne
+  evmheumiaaw          EVX        SP                   Vector Multiply Halfwords, Even, Unsigne
+  evmheumianw          EVX        SP                   Vector Multiply Halfwords, Even, Unsigne
+  evmheusiaaw          EVX        SP                   Vector Multiply Halfwords, Even, Unsigne
+  evmheusianw          EVX        SP                   Vector Multiply Halfwords, Even, Unsigne
+  evmhogsmfaa          EVX        SP                   Vector Multiply Halfwords, Odd, Guarded,
+  evmhogsmfan          EVX        SP                   Vector Multiply Halfwords, Odd, Guarded,
+  evmhogsmiaa          EVX        SP                   Vector Multiply Halfwords, Odd, Guarded,
+  evmhogsmian          EVX        SP                   Vector Multiply Halfwords, Odd, Guarded,
+  evmhogumiaa          EVX        SP                   Vector Multiply Halfwords, Odd, Guarded,
+  evmhogumian          EVX        SP                   Vector Multiply Halfwords, Odd, Guarded,
+  evmhosmf             EVX        SP                   Vector Multiply Halfwords, Odd, Signed, 
+  evmhosmfa            EVX        SP                   Vector Multiply Halfwords, Odd, Signed, 
+  evmhosmfaaw          EVX        SP                   Vector Multiply Halfwords, Odd, Signed, 
+  evmhosmfanw          EVX        SP                   Vector Multiply Halfwords, Odd, Signed, 
+  evmhosmi             EVX        SP                   Vector Multiply Halfwords, Odd, Signed, 
+  evmhosmia            EVX        SP                   Vector Multiply Halfwords, Odd, Signed, 
+  evmhosmiaaw          EVX        SP                   Vector Multiply Halfwords, Odd, Signed, 
+  evmhosmianw          EVX        SP                   Vector Multiply Halfwords, Odd, Signed, 
+  evmhossf             EVX        SP                   Vector Multiply Halfwords, Odd, Signed, 
+  evmhossfa            EVX        SP                   Vector Multiply Halfwords, Odd, Signed, 
+  evmhossfaaw          EVX        SP                   Vector Multiply Halfwords, Odd, Signed, 
+  evmhossfanw          EVX        SP                   Vector Multiply Halfwords, Odd, Signed, 
+  evmhossiaaw          EVX        SP                   Vector Multiply Halfwords, Odd, Signed, 
+  evmhossianw          EVX        SP                   Vector Multiply Halfwords, Odd, Signed, 
+  evmhoumi             EVX        SP                   Vector Multiply Halfwords, Odd, Unsigned
+  evmhoumia            EVX        SP                   Vector Multiply Halfwords, Odd, Unsigned
+  evmhoumiaaw          EVX        SP                   Vector Multiply Halfwords, Odd, Unsigned
+  evmhoumianw          EVX        SP                   Vector Multiply Halfwords, Odd, Unsigned
+  evmhousiaaw          EVX        SP                   Vector Multiply Halfwords, Odd, Unsigned
+  evmhousianw          EVX        SP                   Vector Multiply Halfwords, Odd, Unsigned
+  evmra                EVX        SP                   Initialize Accumulator
+  evmwhsmf             EVX        SP                   Vector Multiply Word High Signed, Modulo
+  evmwhsmfa            EVX        SP                   Vector Multiply Word High Signed, Modulo
+  evmwhsmi             EVX        SP                   Vector Multiply Word High Signed, Modulo
+  evmwhsmia            EVX        SP                   Vector Multiply Word High Signed, Modulo
+  evmwhssf             EVX        SP                   Vector Multiply Word High Signed, Satura
+  evmwhssfa            EVX        SP                   Vector Multiply Word High Signed, Satura
+  evmwhumi             EVX        SP                   Vector Multiply Word High Unsigned, Modu
+  evmwhumia            EVX        SP                   Vector Multiply Word High Unsigned, Modu
+  evmwlsmiaaw          EVX        SP                   Vector Multiply Word Low Signed, Modulo,
+  evmwlsmianw          EVX        SP                   Vector Multiply Word Low Signed, Modulo,
+  evmwlssiaaw          EVX        SP                   Vector Multiply Word Low Signed, Saturat
+  evmwlssianw          EVX        SP                   Vector Multiply Word Low Signed, Saturat
+  evmwlumi             EVX        SP                   Vector Multiply Word Low Unsigned, Modul
+  evmwlumia            EVX        SP                   Vector Multiply Word Low Unsigned, Modul
+  evmwlumiaaw          EVX        SP                   Vector Multiply Word Low Unsigned, Modul
+  evmwlumianw          EVX        SP                   Vector Multiply Word Low Unsigned, Modul
+  evmwlusiaaw          EVX        SP                   Vector Multiply Word Low Unsigned, Satur
+  evmwlusianw          EVX        SP                   Vector Multiply Word Low Unsigned, Satur
+  evmwsmf              EVX        SP                   Vector Multiply Word Signed, Modulo, Fra
+  evmwsmfa             EVX        SP                   Vector Multiply Word Signed, Modulo, Fra
+  evmwsmfaa            EVX        SP                   Vector Multiply Word Signed, Modulo, Fra
+  evmwsmfan            EVX        SP                   Vector Multiply Word Signed, Modulo, Fra
+  evmwsmi              EVX        SP                   Vector Multiply Word Signed, Modulo, Int
+  evmwsmia             EVX        SP                   Vector Multiply Word Signed, Modulo, Int
+  evmwsmiaa            EVX        SP                   Vector Multiply Word Signed, Modulo, Int
+  evmwsmian            EVX        SP                   Vector Multiply Word Signed, Modulo, Int
+  evmwssf              EVX        SP                   Vector Multiply Word Signed, Saturate, F
+  evmwssfa             EVX        SP                   Vector Multiply Word Signed, Saturate, F
+  evmwssfaa            EVX        SP                   Vector Multiply Word Signed, Saturate, F
+  evmwssfan            EVX        SP                   Vector Multiply Word Signed, Saturate, F
+  evmwumi              EVX        SP                   Vector Multiply Word Unsigned, Modulo, I
+  evmwumia             EVX        SP                   Vector Multiply Word Unsigned, Modulo, I
+  evmwumiaa            EVX        SP                   Vector Multiply Word Unsigned, Modulo, I
+  evmwumian            EVX        SP                   Vector Multiply Word Unsigned, Modulo, I
+  evnand               EVX        SP                   Vector NAND
+  evneg                EVX        SP                   Vector Negate
+  evnor                EVX        SP                   Vector NOR
+  evor                 EVX        SP                   Vector OR
+  evorc                EVX        SP                   Vector OR with Complement
+  evrlw                EVX        SP                   Vector Rotate Left Word
+  evrlwi               EVX        SP                   Vector Rotate Left Word Immediate
+  evrndw               EVX        SP                   Vector Round Word
+  evsel                EVS        SP                   Vector Select
+  evslw                EVX        SP                   Vector Shift Left Word
+  evslwi               EVX        SP                   Vector Shift Left Word Immediate
+  evsplatfi            EVX        SP                   Vector Splat Fractional Immediate
+  evsplati             EVX        SP                   Vector Splat Immediate
+  evsrwis              EVX        SP                   Vector Shift Right Word Immediate Signed
+  evsrwiu              EVX        SP                   Vector Shift Right Word Immediate Unsign
+  evsrws               EVX        SP                   Vector Shift Right Word Signed
+  evsrwu               EVX        SP                   Vector Shift Right Word Unsigned
+  evstdd               EVX        SP                   Vector Store Double of Double
+  evstddx              EVX        SP                   Vector Store Doubleword of Doubleword In
+  evstdh               EVX        SP                   Vector Store Double of Four Halfwords
+  evstdhx              EVX        SP                   Vector Store Double of Four Halfwords In
+  evstdw               EVX        SP                   Vector Store Double of Two Words
+  evstdwx              EVX        SP                   Vector Store Double of Two Words Indexed
+  evstwhe              EVX        SP                   Vector Store Word of Two Halfwords from 
+  evstwhex             EVX        SP                   Vector Store Word of Two Halfwords from 
+  evstwho              EVX        SP                   Vector Store Word of Two Halfwords from 
+  evstwhox             EVX        SP                   Vector Store Word of Two Halfwords from 
+  evstwwe              EVX        SP                   Vector Store Word of Word from Even
+  evstwwex             EVX        SP                   Vector Store Word of Word from Even Inde
+  evstwwo              EVX        SP                   Vector Store Word of Word from Odd
+  evstwwox             EVX        SP                   Vector Store Word of Word from Odd Index
+  evsubfsmiaaw         EVX        SP                   Vector Subtract Signed, Modulo, Integer 
+  evsubfssiaaw         EVX        SP                   Vector Subtract Signed, Saturate, Intege
+  evsubfumiaaw         EVX        SP                   Vector Subtract Unsigned, Modulo, Intege
+  evsubfusiaaw         EVX        SP                   Vector Subtract Unsigned, Saturate, Inte
+  evsubfw              EVX        SP                   Vector Subtract from Word
+  evsubifw             EVX        SP                   Vector Subtract Immediate from Word
+  evxor                EVX        SP                   Vector XOR
+
+SPE Floating-Point (55 instructions):
+------------------------------------------------------------
+  efdabs               EVX        SP.FD                Floating-Point Double-Precision Absolute
+  efdadd               EVX        SP.FD                Floating-Point Double-Precision Add
+  efdcfs               EVX        SP.FD                Floating-Point Double-Precision Convert 
+  efdcfsf              EVX        SP.FD                Convert Floating-Point Double-Precision 
+  efdcfsi              EVX        SP.FD                Convert Floating-Point Double-Precision 
+  efdcfsid             EVX        SP.FD                Convert Floating-Point Double-Precision 
+  efdcfuf              EVX        SP.FD                Convert Floating-Point Double-Precision 
+  efdcfui              EVX        SP.FD                Convert Floating-Point Double-Precision 
+  efdcfuid             EVX        SP.FD                Convert Floating-Point Double-Precision 
+  efdcmpeq             EVX        SP.FD                Floating-Point Double-Precision Compare 
+  efdcmpgt             EVX        SP.FD                Floating-Point Double-Precision Compare 
+  efdcmplt             EVX        SP.FD                Floating-Point Double-Precision Compare 
+  efdctsf              EVX        SP.FD                Convert Floating-Point Double-Precision 
+  efdctsi              EVX        SP.FD                Convert Floating-Point Double-Precision 
+  efdctsidz            EVX        SP.FD                Convert Floating-Point Double-Precision 
+  efdctsiz             EVX        SP.FD                Convert Floating-Point Double-Precision 
+  efdctuf              EVX        SP.FD                Convert Floating-Point Double-Precision 
+  efdctui              EVX        SP.FD                Convert Floating-Point Double-Precision 
+  efdctuidz            EVX        SP.FD                Convert Floating-Point Double-Precision 
+  efdctuiz             EVX        SP.FD                Convert Floating-Point Double-Precision 
+  efddiv               EVX        SP.FD                Floating-Point Double-Precision Divide
+  efdmul               EVX        SP.FD                Floating-Point Double-Precision Multiply
+  efdnabs              EVX        SP.FD                Floating-Point Double-Precision Negative
+  efdneg               EVX        SP.FD                Floating-Point Double-Precision Negate
+  efdsub               EVX        SP.FD                Floating-Point Double-Precision Subtract
+  efdtsteq             EVX        SP.FD                Floating-Point Double-Precision Test Equ
+  efdtstgt             EVX        SP.FD                Floating-Point Double-Precision Test Gre
+  efdtstlt             EVX        SP.FD                Floating-Point Double-Precision Test Les
+  effect               Unknown                         on performance 753, 979, 983, 1003, 1213
+  effective            Unknown                         26                                      
+  efit                 Unknown                         to the restriction in this case since RA
+  efsabs               EVX        SP.FS                Floating-Point Single-Precision Absolute
+  efsadd               EVX        SP.FS                Floating-Point Single-Precision Add
+  efscfd               EVX        SP.FD                Floating-Point Single-Precision Convert 
+  efscfsf              EVX        SP.FS                Convert Floating-Point Single-Precision 
+  efscfsi              EVX        SP.FS                Convert Floating-Point Single-Precision 
+  efscfuf              EVX        SP.FS                Convert Floating-Point Single-Precision 
+  efscfui              EVX        SP.FS                Convert Floating-Point Single-Precision 
+  efscmpeq             EVX        SP.FS                Floating-Point Single-Precision Compare 
+  efscmpgt             EVX        SP.FS                Floating-Point Single-Precision Compare 
+  efscmplt             EVX        SP.FS                Floating-Point Single-Precision Compare 
+  efsctsf              EVX        SP.FS                Convert Floating-Point Single-Precision 
+  efsctsi              EVX        SP.FS                Convert Floating-Point Single-Precision 
+  efsctsiz             EVX        SP.FS                Convert Floating-Point Single-Precision 
+  efsctuf              EVX        SP.FS                Convert Floating-Point Single-Precision 
+  efsctui              EVX        SP.FS                Convert Floating-Point Single-Precision 
+  efsctuiz             EVX        SP.FS                Convert Floating-Point Single-Precision 
+  efsdiv               EVX        SP.FS                Floating-Point Single-Precision Divide
+  efsmul               EVX        SP.FS                Floating-Point Single-Precision Multiply
+  efsnabs              EVX        SP.FS                Floating-Point Single-Precision Negative
+  efsneg               EVX        SP.FS                Floating-Point Single-Precision Negate
+  efssub               EVX        SP.FS                Floating-Point Single-Precision Subtract
+  efststeq             EVX        SP.FS                Floating-Point Single-Precision Test Equ
+  efststgt             EVX        SP.FS                Floating-Point Single-Precision Test Gre
+  efststlt             EVX        SP.FS                Floating-Point Single-Precision Test Les
+
+SPE Vector (197 instructions):
+------------------------------------------------------------
+  evabs                EVX        SP                   Vector Absolute Value
+  evaddiw              EVX        SP                   Vector Add Immediate Word
+  evaddsmiaaw          EVX        SP                   Vector Add Signed, Modulo, Integer to Ac
+  evaddssiaaw          EVX        SP                   Vector Add Signed, Saturate, Integer to 
+  evaddumiaaw          EVX        SP                   Vector Add Unsigned, Modulo, Integer to 
+  evaddusiaaw          EVX        SP                   Vector Add Unsigned, Saturate, Integer t
+  evaddw               EVX        SP                   Vector Add Word
+  evand                EVX        SP                   Vector AND
+  evandc               EVX        SP                   Vector AND with Complement
+  evcmpeq              EVX        SP                   Vector Compare Equal
+  evcmpgts             EVX        SP                   Vector Compare Greater Than Signed
+  evcmpgtu             EVX        SP                   Vector Compare Greater Than Unsigned
+  evcmplts             EVX        SP                   Vector Compare Less Than Signed
+  evcmpltu             EVX        SP                   Vector Compare Less Than Unsigned
+  evcntlsw             EVX        SP                   Vector Count Leading Signed Bits Word
+  evcntlzw             EVX        SP                   Vector Count Leading Zeros Word
+  evdivws              EVX        SP                   Vector Divide Word Signed
+  evdivwu              EVX        SP                   Vector Divide Word Unsigned
+  eveqv                EVX        SP                   Vector Equivalent
+  evextsb              EVX        SP                   Vector Extend Sign Byte
+  evextsh              EVX        SP                   Vector Extend Sign Halfword
+  evfsabs              EVX        SP.FV                Vector Floating-Point Single-Precision A
+  evfsadd              EVX        SP.FV                Vector Floating-Point Single-Precision A
+  evfscfsf             EVX        SP.FV                Vector Convert Floating-Point Single-Pre
+  evfscfsi             EVX        SP.FV                Vector Convert Floating-Point Single-Pre
+  evfscfuf             EVX        SP.FV                Vector Convert Floating-Point Single-Pre
+  evfscfui             EVX        SP.FV                Vector Convert Floating-Point Single-Pre
+  evfscmpeq            EVX        SP.FV                Vector Floating-Point Single-Precision C
+  evfscmpgt            EVX        SP.FV                Vector Floating-Point Single-Precision C
+  evfscmplt            EVX        SP.FV                Vector Floating-Point Single-Precision C
+  evfsctsf             EVX        SP.FV                Vector Convert Floating-Point Single-Pre
+  evfsctsi             EVX        SP.FV                Vector Convert Floating-Point Single-Pre
+  evfsctsiz            EVX        SP.FV                Vector Convert Floating-Point Single-Pre
+  evfsctuf             EVX        SP.FV                Vector Convert Floating-Point Single-Pre
+  evfsctui             EVX        SP.FV                Vector Convert Floating-Point Single-Pre
+  evfsctuiz            EVX        SP.FV                Vector Convert Floating-Point Single-Pre
+  evfsdiv              EVX        SP.FV                Vector Floating-Point Single-Precision D
+  evfsmul              EVX        SP.FV                Vector Floating-Point Single-Precision M
+  evfsnabs             EVX        SP.FV                Vector Floating-Point Single-Precision N
+  evfsneg              EVX        SP.FV                Vector Floating-Point Single-Precision N
+  evfssub              EVX        SP.FV                Vector Floating-Point Single-Precision S
+  evfststeq            EVX        SP.FV                Vector Floating-Point Single-Precision T
+  evfststgt            EVX        SP.FV                Vector Floating-Point Single-Precision T
+  evfststlt            EVX        SP.FV                Vector Floating-Point Single-Precision T
+  evldd                EVX        SP                   Vector Load Double Word into Double Word
+  evlddepx             EVX        P, E.PD              Vector Load Doubleword into Doubleword b
+  evlddx               EVX        SP                   Vector Load Double Word into Double Word
+  evldh                EVX        SP                   Vector Load Double Word into Four Halfwo
+  evldhx               EVX        SP                   Vector Load Double Word into Four Halfwo
+  evldw                EVX        SP                   Vector Load Double Word into Two Words
+  evldwx               EVX        SP                   Vector Load Double Word into Two Words I
+  evlhhesplat          EVX        SP                   Vector Load Halfword into Halfwords Even
+  evlhhesplatx         EVX        SP                   Vector Load Halfword into Halfwords Even
+  evlhhossplat         EVX        SP                   Vector Load Halfword into Halfword Odd a
+  evlhhossplatx        EVX        SP                   Vector Load Halfword into Halfword Odd S
+  evlhhousplat         EVX        SP                   Vector Load Halfword into Halfword Odd U
+  evlhhousplatx        EVX        SP                   Vector Load Halfword into Halfword Odd U
+  evlwhe               EVX        SP                   Vector Load Word into Two Halfwords Even
+  evlwhex              EVX        SP                   Vector Load Word into Two Halfwords Even
+  evlwhos              EVX        SP                   Vector Load Word into Two Halfwords Odd 
+  evlwhosx             EVX        SP                   Vector Load Word into Two Halfwords Odd 
+  evlwhou              EVX        SP                   Vector Load Word into Two Halfwords Odd 
+  evlwhoux             EVX        SP                   Vector Load Word into Two Halfwords Odd 
+  evlwhsplat           EVX        SP                   Vector Load Word into Two Halfwords and 
+  evlwhsplatx          EVX        SP                   Vector Load Word into Two Halfwords and 
+  evlwwsplat           EVX        SP                   Vector Load Word into Word and Splat
+  evlwwsplatx          EVX        SP                   Vector Load Word into Word and Splat Ind
+  evmergehi            EVX        SP                   Vector Merge High
+  evmergehilo          EVX        SP                   Vector Merge High/Low
+  evmergelo            EVX        SP                   Vector Merge Low
+  evmergelohi          EVX        SP                   Vector Merge Low/High
+  evmhegsmfaa          EVX        SP                   Vector Multiply Halfwords, Even, Guarded
+  evmhegsmfan          EVX        SP                   Vector Multiply Halfwords, Even, Guarded
+  evmhegsmiaa          EVX        SP                   Vector Multiply Halfwords, Even, Guarded
+  evmhegsmian          EVX        SP                   Vector Multiply Halfwords, Even, Guarded
+  evmhegumiaa          EVX        SP                   Vector Multiply Halfwords, Even, Guarded
+  evmhegumian          EVX        SP                   Vector Multiply Halfwords, Even, Guarded
+  evmhesmf             EVX        SP                   Vector Multiply Halfwords, Even, Signed,
+  evmhesmfa            EVX        SP                   Vector Multiply Halfwords, Even, Signed,
+  evmhesmfaaw          EVX        SP                   Vector Multiply Halfwords, Even, Signed,
+  evmhesmfanw          EVX        SP                   Vector Multiply Halfwords, Even, Signed,
+  evmhesmi             EVX        SP                   Vector Multiply Halfwords, Even, Signed,
+  evmhesmia            EVX        SP                   Vector Multiply Halfwords, Even, Signed,
+  evmhesmiaaw          EVX        SP                   Vector Multiply Halfwords, Even, Signed,
+  evmhesmianw          EVX        SP                   Vector Multiply Halfwords, Even, Signed,
+  evmhessf             EVX        SP                   Vector Multiply Halfwords, Even, Signed,
+  evmhessfa            EVX        SP                   Vector Multiply Halfwords, Even, Signed,
+  evmhessfaaw          EVX        SP                   Vector Multiply Halfwords, Even, Signed,
+  evmhessfanw          EVX        SP                   Vector Multiply Halfwords, Even, Signed,
+  evmhessiaaw          EVX        SP                   Vector Multiply Halfwords, Even, Signed,
+  evmhessianw          EVX        SP                   Vector Multiply Halfwords, Even, Signed,
+  evmheumi             EVX        SP                   Vector Multiply Halfwords, Even, Unsigne
+  evmheumia            EVX        SP                   Vector Multiply Halfwords, Even, Unsigne
+  evmheumiaaw          EVX        SP                   Vector Multiply Halfwords, Even, Unsigne
+  evmheumianw          EVX        SP                   Vector Multiply Halfwords, Even, Unsigne
+  evmheusiaaw          EVX        SP                   Vector Multiply Halfwords, Even, Unsigne
+  evmheusianw          EVX        SP                   Vector Multiply Halfwords, Even, Unsigne
+  evmhogsmfaa          EVX        SP                   Vector Multiply Halfwords, Odd, Guarded,
+  evmhogsmfan          EVX        SP                   Vector Multiply Halfwords, Odd, Guarded,
+  evmhogsmiaa          EVX        SP                   Vector Multiply Halfwords, Odd, Guarded,
+  evmhogsmian          EVX        SP                   Vector Multiply Halfwords, Odd, Guarded,
+  evmhogumiaa          EVX        SP                   Vector Multiply Halfwords, Odd, Guarded,
+  evmhogumian          EVX        SP                   Vector Multiply Halfwords, Odd, Guarded,
+  evmhosmf             EVX        SP                   Vector Multiply Halfwords, Odd, Signed, 
+  evmhosmfa            EVX        SP                   Vector Multiply Halfwords, Odd, Signed, 
+  evmhosmfaaw          EVX        SP                   Vector Multiply Halfwords, Odd, Signed, 
+  evmhosmfanw          EVX        SP                   Vector Multiply Halfwords, Odd, Signed, 
+  evmhosmi             EVX        SP                   Vector Multiply Halfwords, Odd, Signed, 
+  evmhosmia            EVX        SP                   Vector Multiply Halfwords, Odd, Signed, 
+  evmhosmiaaw          EVX        SP                   Vector Multiply Halfwords, Odd, Signed, 
+  evmhosmianw          EVX        SP                   Vector Multiply Halfwords, Odd, Signed, 
+  evmhossf             EVX        SP                   Vector Multiply Halfwords, Odd, Signed, 
+  evmhossfa            EVX        SP                   Vector Multiply Halfwords, Odd, Signed, 
+  evmhossfaaw          EVX        SP                   Vector Multiply Halfwords, Odd, Signed, 
+  evmhossfanw          EVX        SP                   Vector Multiply Halfwords, Odd, Signed, 
+  evmhossiaaw          EVX        SP                   Vector Multiply Halfwords, Odd, Signed, 
+  evmhossianw          EVX        SP                   Vector Multiply Halfwords, Odd, Signed, 
+  evmhoumi             EVX        SP                   Vector Multiply Halfwords, Odd, Unsigned
+  evmhoumia            EVX        SP                   Vector Multiply Halfwords, Odd, Unsigned
+  evmhoumiaaw          EVX        SP                   Vector Multiply Halfwords, Odd, Unsigned
+  evmhoumianw          EVX        SP                   Vector Multiply Halfwords, Odd, Unsigned
+  evmhousiaaw          EVX        SP                   Vector Multiply Halfwords, Odd, Unsigned
+  evmhousianw          EVX        SP                   Vector Multiply Halfwords, Odd, Unsigned
+  evmra                EVX        SP                   Initialize Accumulator
+  evmwhsmf             EVX        SP                   Vector Multiply Word High Signed, Modulo
+  evmwhsmfa            EVX        SP                   Vector Multiply Word High Signed, Modulo
+  evmwhsmi             EVX        SP                   Vector Multiply Word High Signed, Modulo
+  evmwhsmia            EVX        SP                   Vector Multiply Word High Signed, Modulo
+  evmwhssf             EVX        SP                   Vector Multiply Word High Signed, Satura
+  evmwhssfa            EVX        SP                   Vector Multiply Word High Signed, Satura
+  evmwhumi             EVX        SP                   Vector Multiply Word High Unsigned, Modu
+  evmwhumia            EVX        SP                   Vector Multiply Word High Unsigned, Modu
+  evmwlsmiaaw          EVX        SP                   Vector Multiply Word Low Signed, Modulo,
+  evmwlsmianw          EVX        SP                   Vector Multiply Word Low Signed, Modulo,
+  evmwlssiaaw          EVX        SP                   Vector Multiply Word Low Signed, Saturat
+  evmwlssianw          EVX        SP                   Vector Multiply Word Low Signed, Saturat
+  evmwlumi             EVX        SP                   Vector Multiply Word Low Unsigned, Modul
+  evmwlumia            EVX        SP                   Vector Multiply Word Low Unsigned, Modul
+  evmwlumiaaw          EVX        SP                   Vector Multiply Word Low Unsigned, Modul
+  evmwlumianw          EVX        SP                   Vector Multiply Word Low Unsigned, Modul
+  evmwlusiaaw          EVX        SP                   Vector Multiply Word Low Unsigned, Satur
+  evmwlusianw          EVX        SP                   Vector Multiply Word Low Unsigned, Satur
+  evmwsmf              EVX        SP                   Vector Multiply Word Signed, Modulo, Fra
+  evmwsmfa             EVX        SP                   Vector Multiply Word Signed, Modulo, Fra
+  evmwsmfaa            EVX        SP                   Vector Multiply Word Signed, Modulo, Fra
+  evmwsmfan            EVX        SP                   Vector Multiply Word Signed, Modulo, Fra
+  evmwsmi              EVX        SP                   Vector Multiply Word Signed, Modulo, Int
+  evmwsmia             EVX        SP                   Vector Multiply Word Signed, Modulo, Int
+  evmwsmiaa            EVX        SP                   Vector Multiply Word Signed, Modulo, Int
+  evmwsmian            EVX        SP                   Vector Multiply Word Signed, Modulo, Int
+  evmwssf              EVX        SP                   Vector Multiply Word Signed, Saturate, F
+  evmwssfa             EVX        SP                   Vector Multiply Word Signed, Saturate, F
+  evmwssfaa            EVX        SP                   Vector Multiply Word Signed, Saturate, F
+  evmwssfan            EVX        SP                   Vector Multiply Word Signed, Saturate, F
+  evmwumi              EVX        SP                   Vector Multiply Word Unsigned, Modulo, I
+  evmwumia             EVX        SP                   Vector Multiply Word Unsigned, Modulo, I
+  evmwumiaa            EVX        SP                   Vector Multiply Word Unsigned, Modulo, I
+  evmwumian            EVX        SP                   Vector Multiply Word Unsigned, Modulo, I
+  evnand               EVX        SP                   Vector NAND
+  evneg                EVX        SP                   Vector Negate
+  evnor                EVX        SP                   Vector NOR
+  evor                 EVX        SP                   Vector OR
+  evorc                EVX        SP                   Vector OR with Complement
+  evrlw                EVX        SP                   Vector Rotate Left Word
+  evrlwi               EVX        SP                   Vector Rotate Left Word Immediate
+  evrndw               EVX        SP                   Vector Round Word
+  evsel                EVS        SP                   Vector Select
+  evslw                EVX        SP                   Vector Shift Left Word
+  evslwi               EVX        SP                   Vector Shift Left Word Immediate
+  evsplatfi            EVX        SP                   Vector Splat Fractional Immediate
+  evsplati             EVX        SP                   Vector Splat Immediate
+  evsrwis              EVX        SP                   Vector Shift Right Word Immediate Signed
+  evsrwiu              EVX        SP                   Vector Shift Right Word Immediate Unsign
+  evsrws               EVX        SP                   Vector Shift Right Word Signed
+  evsrwu               EVX        SP                   Vector Shift Right Word Unsigned
+  evstdd               EVX        SP                   Vector Store Double of Double
+  evstddepx            EVX        P, E.PD              Vector Store Doubleword into Doubleword 
+  evstddx              EVX        SP                   Vector Store Doubleword of Doubleword In
+  evstdh               EVX        SP                   Vector Store Double of Four Halfwords
+  evstdhx              EVX        SP                   Vector Store Double of Four Halfwords In
+  evstdw               EVX        SP                   Vector Store Double of Two Words
+  evstdwx              EVX        SP                   Vector Store Double of Two Words Indexed
+  evstwhe              EVX        SP                   Vector Store Word of Two Halfwords from 
+  evstwhex             EVX        SP                   Vector Store Word of Two Halfwords from 
+  evstwho              EVX        SP                   Vector Store Word of Two Halfwords from 
+  evstwhox             EVX        SP                   Vector Store Word of Two Halfwords from 
+  evstwwe              EVX        SP                   Vector Store Word of Word from Even
+  evstwwex             EVX        SP                   Vector Store Word of Word from Even Inde
+  evstwwo              EVX        SP                   Vector Store Word of Word from Odd
+  evstwwox             EVX        SP                   Vector Store Word of Word from Odd Index
+  evsubfsmiaaw         EVX        SP                   Vector Subtract Signed, Modulo, Integer 
+  evsubfssiaaw         EVX        SP                   Vector Subtract Signed, Saturate, Intege
+  evsubfumiaaw         EVX        SP                   Vector Subtract Unsigned, Modulo, Intege
+  evsubfusiaaw         EVX        SP                   Vector Subtract Unsigned, Saturate, Inte
+  evsubfw              EVX        SP                   Vector Subtract from Word
+  evsubifw             EVX        SP                   Vector Subtract Immediate from Word
+  evxor                EVX        SP                   Vector XOR
+
+Uncategorized (347 instructions):
+------------------------------------------------------------
+  abs                  Unknown                         Absolute
+  access               Unknown                         order 742
+  accessed             Unknown                         by processor 895                        
+  added                Unknown                         only when the optimization benefit clear
+  addic                Unknown                         addic.           addi           addis   
+  additional           Unknown                         information that is not directly related
+  address              Unknown                         23                                      
+  addresses            Unknown                         consistency 742
+  addressing           Unknown                         mode                                    
+  aliasing             Unknown                         742                                     
+  alignment            Unknown                         CSRR1 1147
+  all                  Unknown                         bits of the TB must be implemented.
+  also                 Unknown                         supported in VLE mode. The mnemonics, de
+  altered              Unknown                         except those set by the interrupt. Oth-
+  any                  Unknown                         value to these bits. However in POWER re
+  application          Unknown                         base. As a result, new platforms will be
+  applies              Unknown                         even if RA=0, although there is no obvio
+  are                  Unknown                         not defined below are treated as illegal
+  assembler            Unknown                         language                                
+  asynchronous         Unknown                         1156                                LT 3
+  atomic               Unknown                         operation 744                           
+  atomicity            Unknown                         737                                     
+  based                Unknown                         on the result, while fctiw and fctiwz se
+  because              Unknown                         all implementations must support at leas
+  been                 Unknown                         made nonprivileged in Power ISA. Any POW
+  before               Unknown                         being placed into the AMR; see the mtspr
+  bered                Unknown                         one, used by the instruction. For exampl
+  bilities             Unknown                         can, at least in principle, be detected 
+  bit                  Unknown                         positions which are not opcode, extended
+  bits                 Unknown                         comprise the LEV field.                 
+  boundedly            Unknown                         undefined. The instructions affected are
+  but                  Unknown                         privileged in Power ISA.                
+  category             Unknown                         Decorated Storage is supported in non-VL
+  cell                 Unknown                         in which the opcode or extended opcode i
+  cess                 Unknown                         ID Indexed
+  cific                Unknown                         are reserved.
+  classes              Unknown                         21                                Data S
+  clcs                 Unknown                         Cache Line Compute Size
+  clf                  Unknown                         Cache Line Flush
+  cli                  Unknown                         (*)               31          502
+  cmp                  Unknown                         CR0 is undefined if Rc=1 and BF≠0       
+  cmpl                 Unknown                         CR0 is undefined if Rc=1 and BF≠0       
+  column               Unknown                         of a table. The instruction mnemonic is
+  compute              Unknown                         the effective address if RA=0.) If the P
+  computing            Unknown                         the EA, while for tlbie these bits conta
+  consists             Unknown                         of primary opcodes that have 10-bit exte
+  context              Unknown                         841, 1026                               
+  critical             Unknown                         input exception 1165                    
+  cute                 Unknown                         normally (i.e., as if the bit contained 
+  cutes                Unknown                         as if the bit contained 0 except as foll
+  data                 Unknown                         storage 735                             
+  dcba                 Unknown                         instruction 770, 1118                   
+  dcbf                 Unknown                         instruction 773                         
+  dcbst                Unknown                         instruction 751, 773, 955, 963          
+  dcbt                 Unknown                         instruction 770, 1063, 1122             
+  dcbtls               Unknown                         1123                                    
+  dcbtst               Unknown                         instruction 771, 1066, 1122             
+  dcbz                 Unknown                         (dclz in POWER)
+  dclst                Unknown                         31          630
+  decimal              Unknown                         Cat2
+  defined              Unknown                         in the Power ISA.
+  definition           Unknown                         840, 1025                               
+  denormalization      Unknown                         121, 331                                
+  denormalized         Unknown                         number 120, 330                         
+  denotes              Unknown                         an additional cell, after the lowest-num
+  determined           Unknown                         from the opcode maps in Appendix F of
+  div                  Unknown                         31          331
+  divs                 Unknown                         31          363
+  doublewords          Unknown                         3                                       
+  doz                  Unknown                         31          264
+  dozi                 Unknown                         09          -
+  dropped              Unknown                         from the Power ISA.
+  each                 Unknown                         cell is in the following format.
+  eciwx                Unknown                         instruction 825, 826, 955, 958, 963, 100
+  ecowx                Unknown                         instruction 825, 826, 955, 958, 963, 100
+  effect               Unknown                         on performance 753, 979, 983, 1003, 1213
+  effective            Unknown                         26                                      
+  efit                 Unknown                         to the restriction in this case since RA
+  egories              Unknown                         chosen based on the target market for th
+  eieio                Unknown                         instruction 742, 790, 1092
+  emulation            Unknown                         assist 840, 1025
+  eration              Unknown                         of interrupts for floating-point enabled
+  erwise               Unknown                         no operation is performed. (See         
+  esid                 Unknown                         to vsid 891                             
+  essentially          Unknown                         all POWER programs contain zero in these
+  except               Unknown                         for svc); if Rc=1, Condition Register Fi
+  exception            Unknown                         1145                                    
+  execution            Unknown                         models 129, 337
+  explicitly           Unknown                         (via the BF field) and also, in POWER, u
+  extended             Unknown                         opcode, and other fields with fixed valu
+  external             Unknown                         input exception 1170                    
+  fcir                 Unknown                         and fcirz set the FPRF field of the FPSC
+  fcmpo                Unknown                         CR1 is undefined if Rc=1                
+  fcmpu                Unknown                         CR1 is undefined if Rc=1
+  fdiv                 Unknown                         fsub    fadd    fsqrt    fsel     fre   
+  fdivs                Unknown                         fsubs   fadds   fsqrts            fres  
+  field                Unknown                         for these instructions and is ignored by
+  fields               Unknown                         in POWER instructions indeed contain zer
+  for                  Unknown                         those instructions are identical to thos
+  form                 Unknown                         is invalid.
+  formats              Unknown                         mfmsr 857, 888, 1056
+  forms                Unknown                         22                         imprecise 946
+  functions            Unknown                         differ in the following respects.       
+  future               Unknown                         version of the Power ISA may define any 
+  ger                  Unknown                         Doubleword with Round toward Zero
+  get                  Unknown                         FPR to 0xFFFF_FFFF, while fctiw and fcti
+  gle                  Unknown                         Instructions                            
+  gory                 Unknown                         VLE are identical to those defined in Bo
+  gram                 Unknown                         has the “wrong” value for these bits, th
+  group                Unknown                         consists of the primary opcodes that hav
+  groups               Unknown                         are rotated.                            
+  guidelines           Unknown                         for system software 1189
+  halfwords            Unknown                         3                                       
+  hardware             Unknown                         DS 18
+  hashed               Unknown                         page table                              
+  have                 Unknown                         been renamed in the Power ISA are listed
+  hint                 Unknown                         (BH) field in Power ISA. Because these b
+  how                  Unknown                         the branch is likely to behave. If a POW
+  hrfid                Unknown                         instruction 857, 971                    
+  hypervisor           Unknown                         state (see Chapter 2 of Book III-S or Ch
+  icbi                 Unknown                         751, 762, 955, 963                   ins
+  icbt                 Unknown                         762                                  ins
+  ied                  Unknown                         in a unique hardware platform, this appe
+  ignored              Unknown                         by the processor. The Power ISA states t
+  ilege                Unknown                         state in which it is accessed. See Secti
+  ileged               Unknown                         or nonprivileged (or hypervisor, for
+  illegal              Unknown                         instruction exception 1171              
+  implicit             Unknown                         accesses 895                            
+  incompatible         Unknown                         with POWER for Move To/From Special
+  infinity             Unknown                         120, 330
+  information          Unknown                         as (RB).                                
+  ing                  Unknown                         to continue at any one of 128 locations.
+  instruction          Unknown                         (dcs) contain zero. (This assumption
+  instructions         Unknown                         are also supported in VLE mode. The mne-
+  interrupt            Unknown                         occurs if MSRAL=1 (the low-order two bit
+  interrupts           Unknown                         for floating-point enabled exceptions, a
+  into                 Unknown                         the DSISR and the DAR when an Alignment 
+  invalid              Unknown                         instruction forms 22
+  invoked              Unknown                         for all members of the POWER family, and
+  isync                Unknown                         (ics in POWER)                          
+  ivpr                 Unknown                         1148, 1149                              
+  lacks                Unknown                         an RA field and computes the EA and rela
+  large                Unknown                         to be represented as a 32-bit signed
+  latter               Unknown                         to OE=1. Similarly, sradi occupies cells
+  leaves               Unknown                         the contents of RT undefined (if RT≠RA a
+  lfdp                 Unknown                         LSQ
+  lfdx                 Unknown                         lfdepx
+  lfq                  Unknown                         lq        56             -
+  lfqu                 Unknown                         lfdp      57             0
+  lfqux                Unknown                         -         31            823
+  lfqx                 Unknown                         lfdpx     31            791
+  lfs                  Unknown                         lfsu            lfd             lfdu    
+  lfsux                Unknown                         Res’d
+  lhz                  Unknown                         lhzu            lha             lhau    
+  line                 Unknown                         gives the Power ISA mnemonic and the pag
+  listed               Unknown                         in Section A.31, “Discontinued Opcodes”
+  lmw                  Unknown                         (lm in POWER)                           
+  location             Unknown                         to another by means of lfs followed by  
+  lookaside            Unknown                         buffer 918
+  lscbx                Unknown                         31          277
+  lswi                 Unknown                         (lsi in POWER)                          
+  lswx                 Unknown                         (lsx in POWER)                          
+  lwz                  Unknown                         lwzu            lbz              lbzu   
+  machine              Unknown                         check exception 1165                    
+  main                 Unknown                         storage 735                             
+  mance                Unknown                         may be affected.
+  mapped               Unknown                         internally to a 10-bit “compressed
+  maskg                Unknown                         31          29
+  masking              Unknown                         1187
+  maskir               Unknown                         31          541
+  mbar                 Unknown                         instruction 790                         
+  mcrf                 Unknown                          POWER provides a version of the Superv
+  mcrfs                Unknown                         CR1 is undefined if Rc=1 and BF≠1
+  mcrxr                Unknown                         CR0 is undefined if Rc=1 and BF≠0
+  memory               Unknown                         barrier 742                             
+  ment                 Unknown                         is being phased in.
+  mentations           Unknown                         of the POWER Architecture but have been
+  mented               Unknown                         by category VLE are identical to those d
+  ments                Unknown                         the association between a platform and t
+  mffs                 Unknown                         to be 0xFFFF_FFFF, while Power ISA copie
+  mfmsr                Unknown                         instruction 857, 888, 1056              
+  mfsr                 Unknown                         instruction 927                         
+  mfsri                Unknown                         31          627
+  mfsrin               Unknown                         instruction 927                         
+  mftb                 Unknown                         813
+  mnemonics            Unknown                         that have been changed in the Power ISA 
+  mode                 Unknown                         change 889, 1076                        
+  move                 Unknown                         to machine state register 1055          
+  mtmsr                Unknown                         857, 886, 971
+  mtmsrd               Unknown                         instruction 857, 887, 971               
+  mtsr                 Unknown                         instruction 926                         
+  mtsrin               Unknown                         and mfsrin have no RA field and
+  mul                  Unknown                         31          107
+  mulate               Unknown                         Negative
+  must                 Unknown                         be managed in the migration from the POW
+  nabs                 Unknown                         31          488
+  new                  Unknown                         MSR 950
+  normal               Unknown                         way. Power ISA specifies that this instr
+  normalization        Unknown                         121, 331
+  normalized           Unknown                         number 120, 330                         
+  not                  Unknown                         opcode bits; dashes are used following t
+  occurrence           Unknown                         of the interrupt (in POWER all floating-
+  only                 Unknown                         in hypervisor state.
+  opcode               Unknown                         and extended opcode in the corresponding
+  opcodes              Unknown                         in Power ISA as in POWER. mfsri (POWER) 
+  opment               Unknown                         of operating systems and applications fo
+  optimization         Unknown                         by clearly identifying a unique set of c
+  optional             Unknown                         in Power ISA.
+  order                Unknown                         of primary opcode within three groups. T
+  ordering             Unknown                         1187, 1189                              
+  ori                  Unknown                         oris          xori             xoris    
+  other                Unknown                         fields with fixed values in the correspo
+  overflow             Unknown                         127, 351                                
+  overview             Unknown                         895
+  page                 Unknown                         table entry 900, 904, 1089          CA 4
+  part                 Unknown                         of a two-bit value that controls the occ
+  partially            Unknown                         executed 1186                   slbmfee 
+  patible              Unknown                         with POWER for Load Multiple and Store M
+  pendent              Unknown                         of whether the processor is in 32-bit or
+  pendently            Unknown                         to control the occurrence (bit 20) and t
+  ple                  Unknown                         instructions.                           
+  ported               Unknown                         in VLE mode. The mnemonics, decoding, an
+  portion              Unknown                         of the SV field, while in Power ISA thes
+  potential            Unknown                         instruction in any of the categories jus
+  precise              Unknown                         946, 1157                               
+  precision            Unknown                         (bit 23) of the interrupt. Moreover, in 
+  priorities           Unknown                         970                                   L 
+  privileged           Unknown                         instruction error handler to be invoked,
+  probably             Unknown                         write the value 1 to this bit.          
+  processing           Unknown                         947                                   la
+  processor            Unknown                         even in principle.                      
+  program              Unknown                         that executes one of these now-valid or
+  protection           Unknown                         UI instruction field 1264
+  provides             Unknown                         compatibility for application programs, 
+  purposes             Unknown                         that are outside the scope of the Power 
+  rac                  Unknown                         (*)               31          818
+  rate                 Unknown                         Signed
+  real                 Unknown                         889, 1076                               
+  recoverable          Unknown                         949                                  LK 
+  reference            Unknown                         and change recording 904
+  references           Unknown                         to the register are redirected to the co
+  repeated             Unknown                         in the last cell of the column.
+  required             Unknown                         to develop operating systems and applica
+  reservation          Unknown                         745                                     
+  reserved             Unknown                         field for these instructions and is igno
+  resource             Unknown                         and can be accessed by this instruction 
+  rfci                 Unknown                         1041
+  rfi                  Unknown                         (*)               19          50
+  rfsvc                Unknown                         19          82
+  rldcl                Unknown                         rldcr
+  rldic                Unknown                         rldic’  rldimi   rldimi’
+  rldicl               Unknown                         rldicl’ rldicr   rldicr’                
+  rlmi                 Unknown                         22          -
+  rlwimi               Unknown                         rlwinm                          rlwnm   
+  rrib                 Unknown                         31          537
+  rupt                 Unknown                         differ between POWER and Power ISA; see
+  save                 Unknown                         them.                                   
+  search               Unknown                         902                                     
+  semantics            Unknown                         for those instructions are identical to 
+  set                  Unknown                         by the interrupt.
+  shared               Unknown                         742                                     
+  sign                 Unknown                         extension)
+  sions                Unknown                         of the architecture.)
+  size                 Unknown                         891                                     
+  slbia                Unknown                         920, 923                                
+  slbie                Unknown                         919                                     
+  slbmfee              Unknown                         instruction 923                         
+  slbmfev              Unknown                         instruction 922                         
+  slbmte               Unknown                         instruction 921                         
+  sle                  Unknown                         31          153
+  sleq                 Unknown                         31          217
+  sliq                 Unknown                         31          184
+  slliq                Unknown                         31          248
+  sllq                 Unknown                         31          216
+  slq                  Unknown                         31          152
+  speculative          Unknown                         operations 890, 1076                    
+  split                Unknown                         field notation 14                       
+  sraiq                Unknown                         31          952
+  sraq                 Unknown                         31          920
+  sre                  Unknown                         31          665
+  srea                 Unknown                         31          921
+  sreq                 Unknown                         31          729
+  sriq                 Unknown                         31          696
+  srliq                Unknown                         31          760
+  srlq                 Unknown                         31          728
+  srq                  Unknown                         31          664
+  std                  Unknown                         stdu
+  stfq                 Unknown                         -         60             -
+  stfqu                Unknown                         stfdp     61             -
+  stfqux               Unknown                         -         31            951
+  stfqx                Unknown                         stfdpx    31            919
+  stfs                 Unknown                         stfsu           stfd             stfdu  
+  sth                  Unknown                         sthu           lmw              stmw    
+  stmw                 Unknown                         instruction 958                         
+  storage              Unknown                         tlbsync instruction 934, 1092
+  stq                  Unknown                         instruction 58, 958                     
+  string               Unknown                         instruction 1096                        
+  structured           Unknown                         as a collection of categories. Each cate
+  stw                  Unknown                         stwu            stb             stbu    
+  stwx                 Unknown                         instruction 1017                        
+  subfc                Unknown                         occupies cells 8 and 520 of primary opco
+  subfic               Unknown                         cmpli           cmpi
+  such                 Unknown                         a bit always returns 0, while in Power I
+  supports             Unknown                         only those categories designated as part
+  symbols              Unknown                         709, 1015, 1245                         
+  sync                 Unknown                         instruction 751, 786, 842, 904          
+  synchronization      Unknown                         946                              LK inst
+  synchronous          Unknown                         1156                                 lwa
+  system               Unknown                         illegal instruction error handler or the
+  ter                  Unknown                         Instructions” in Book III-S.)           
+  ters                 Unknown                         is valid in POWER but is an invalid form
+  tests                Unknown                         the low-order 32 bits in 32-bit mode
+  than                 Unknown                         874 (unbiased exponent less than -149),
+  that                 Unknown                         are not defined in the Power ISA.
+  the                  Unknown                         POWER instructions contains zero.
+  these                Unknown                         fields must contain zero. The POWER Arch
+  this                 Unknown                         architecture.
+  those                Unknown                         in Book III-E; see Chapter 11. for the i
+  tion                 Unknown                         is supported in non-VLE mode, Embedded C
+  tional               Unknown                         to Accumulate
+  tive                 Unknown                         pair.
+  tlbia                Unknown                         933                                     
+  tlbie                Unknown                         928                                     
+  tlbiel               Unknown                         931                                     
+  tlbsync              Unknown                         934                                     
+  together             Unknown                         provide a unit of functionality. The Ser
+  tor                  Unknown                         Word
+  toward               Unknown                         Zero
+  translation          Unknown                         896                                     
+  trap                 Unknown                         exception 1172                     Link 
+  trols                Unknown                         the occurrence, precision, and recoverab
+  ture                 Unknown                         lacks such a statement, but it is expect
+  two                  Unknown                         architectures, and there are many other 
+  type                 Unknown                         Program interrupt occurs if spr0=1. No
+  ues                  Unknown                         (including extended opcode) that are ill
+  ulo                  Unknown                         Signed
+  update               Unknown                         1092                                    
+  urate                Unknown                         Signed
+  value                Unknown                         of the UCLE bit of the MSR.
+  vector               Unknown                         947, 952                                
+  virtual              Unknown                         page number 898                  CIA 7
+  wait                 Unknown                         until data cache block writes caused by 
+  weighs               Unknown                         the loss due to fragmentation.
+  whether              Unknown                         denormalization should be done, while   
+  with                 Unknown                         Round Towards Zero
+  would                Unknown                         otherwise be empty means that the cell i
+  zero                 Unknown                         120, 330
+
+VLE-prefixed (40 instructions):
+------------------------------------------------------------
+  e_add2is             I16A       VLE                  Add (2 operand) Immediate Shifted
+  e_addi               SCI8       SR, VLE              Add Scaled Immediate
+  e_addic              SCI8       SR, VLE              Add Scaled Immediate Carrying
+  e_andi               SCI8       SR, VLE              AND Scaled Immediate
+  e_b                  BD24       VLE                  Branch [and Link]
+  e_bc                 BD15       CT, VLE              Branch Conditional [and Link]
+  e_cmp16i             I16A       VLE                  Compare Immediate Word
+  e_cmph16i            I16A       VLE                  Compare Halfword Immediate
+  e_cmphl16i           I16A       VLE                  Compare Halfword Logical Immediate
+  e_cmpi               SCI8       VLE                  Compare Scaled Immediate Word
+  e_cmpl16i            I16A       VLE                  Compare Logical Immediate Word
+  e_cmpli              SCI8       VLE                  Compare Logical Scaled Immediate Word
+  e_crand              XL         VLE                  Condition Register AND
+  e_crandc             XL         VLE                  Condition Register AND with Complement
+  e_creqv              XL         VLE                  Condition Register Equivalent
+  e_crnand             XL         VLE                  Condition Register NAND
+  e_crnor              XL         VLE                  Condition Register NOR
+  e_cror               XL         VLE                  Condition Register OR
+  e_crorc              XL         VLE                  Condition Register OR with Complement
+  e_crxor              XL         VLE                  Condition Register XOR
+  e_lbzu               D8         VLE                  Load Byte and Zero with Update
+  e_lhau               D8         VLE                  Load Halfword Algebraic with Update
+  e_lhzu               D8         VLE                  Load Halfword and Zero with Update
+  e_li                 LI20       VLE                  Load Immediate
+  e_lis                I16L       VLE                  Load Immediate Shifted
+  e_lmw                D8         VLE                  Load Multiple Word
+  e_lwzu               D8         VLE                  Load Word and Zero with Update
+  e_mcrf               XL         VLE                  Move CR Field
+  e_mull2i             I16A       VLE                  Multiply (2 operand) Low Immediate
+  e_mulli              SCI8       VLE                  Multiply Low Scaled Immediate
+  e_or2i               I16L       VLE                  OR (two operand) Immediate
+  e_or2is              I16L       VLE                  OR (2 operand) Immediate Shifted
+  e_ori                SCI8       SR, VLE              OR Scaled Immediate
+  e_sc                 ESC        VLE,                 System Call
+  e_stbu               D8         VLE                  Store Byte with Update
+  e_sthu               D8         VLE                  Store Halfword with Update
+  e_stmw               D8         VLE                  Store Multiple Word
+  e_stwu               D8         VLE                  Store Word with Update
+  e_subfic             SCI8       SR, VLE              Subtract From Scaled Immediate Carrying
+  e_xori               SCI8       SR, VLE              XOR Scaled Immediate
+
+VLE-specific (40 instructions):
+------------------------------------------------------------
+  and                  I16A       SR, VLE, e_add2i., Add, (2, operand), Immediate Record
+  e_add2is             I16A       VLE                  Add (2 operand) Immediate Shifted
+  e_addi               SCI8       SR, VLE              Add Scaled Immediate
+  e_addic              SCI8       SR, VLE              Add Scaled Immediate Carrying
+  e_andi               SCI8       SR, VLE              AND Scaled Immediate
+  e_b                  BD24       VLE                  Branch [and Link]
+  e_bc                 BD15       CT, VLE              Branch Conditional [and Link]
+  e_cmp16i             I16A       VLE                  Compare Immediate Word
+  e_cmph16i            I16A       VLE                  Compare Halfword Immediate
+  e_cmphl16i           I16A       VLE                  Compare Halfword Logical Immediate
+  e_cmpi               SCI8       VLE                  Compare Scaled Immediate Word
+  e_cmpl16i            I16A       VLE                  Compare Logical Immediate Word
+  e_cmpli              SCI8       VLE                  Compare Logical Scaled Immediate Word
+  e_crand              XL         VLE                  Condition Register AND
+  e_crandc             XL         VLE                  Condition Register AND with Complement
+  e_creqv              XL         VLE                  Condition Register Equivalent
+  e_crnand             XL         VLE                  Condition Register NAND
+  e_crnor              XL         VLE                  Condition Register NOR
+  e_cror               XL         VLE                  Condition Register OR
+  e_crorc              XL         VLE                  Condition Register OR with Complement
+  e_crxor              XL         VLE                  Condition Register XOR
+  e_lbzu               D8         VLE                  Load Byte and Zero with Update
+  e_lhau               D8         VLE                  Load Halfword Algebraic with Update
+  e_lhzu               D8         VLE                  Load Halfword and Zero with Update
+  e_li                 LI20       VLE                  Load Immediate
+  e_lis                I16L       VLE                  Load Immediate Shifted
+  e_lmw                D8         VLE                  Load Multiple Word
+  e_lwzu               D8         VLE                  Load Word and Zero with Update
+  e_mcrf               XL         VLE                  Move CR Field
+  e_mull2i             I16A       VLE                  Multiply (2 operand) Low Immediate
+  e_mulli              SCI8       VLE                  Multiply Low Scaled Immediate
+  e_or2i               I16L       VLE                  OR (two operand) Immediate
+  e_or2is              I16L       VLE                  OR (2 operand) Immediate Shifted
+  e_ori                SCI8       SR, VLE              OR Scaled Immediate
+  e_stbu               D8         VLE                  Store Byte with Update
+  e_sthu               D8         VLE                  Store Halfword with Update
+  e_stmw               D8         VLE                  Store Multiple Word
+  e_stwu               D8         VLE                  Store Word with Update
+  e_subfic             SCI8       SR, VLE              Subtract From Scaled Immediate Carrying
+  e_xori               SCI8       SR, VLE              XOR Scaled Immediate

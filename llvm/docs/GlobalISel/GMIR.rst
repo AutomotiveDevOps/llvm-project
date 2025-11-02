@@ -26,7 +26,7 @@ Generic Machine Instructions
   Reference.
 
 Whereas MIR deals largely in Target Instructions and only has a small set of
-target independent opcodes such as ``COPY``, ``PHI``, and ``REG_SEQUENCE``,
+target-independent opcodes such as ``COPY``, ``PHI``, and ``REG_SEQUENCE``,
 gMIR defines a rich collection of ``Generic Opcodes`` which are target
 independent and describe operations which are typically supported by targets.
 One example is ``G_ADD`` which is the generic opcode for an integer addition.
@@ -104,7 +104,7 @@ In practice, register files A and B are rarely equal. They can typically store
 the same data but there's usually some restrictions on what operations you can
 do on each register file. A fairly common pattern is for one of them to be
 accessible to integer operations and the other accessible to floating point
-operations. To accomodate this, let's rename A and B to GPR (general purpose
+operations. To accommodate this, let's rename A and B to GPR (general purpose
 registers) and FPR (floating point registers).
 
 We now have some additional constraints that limit us. An operation like G_FMUL

@@ -10,8 +10,6 @@ from ObjCNewSyntaxTest import ObjCNewSyntaxTest
 
 
 class ObjCNewSyntaxTestCaseArray(ObjCNewSyntaxTest):
-
-    @skipUnlessDarwin
     @skipIf(macos_version=["<", "10.12"])
     @expectedFailureAll(archs=["i[3-6]86"])
     def test_read_array(self):
@@ -20,39 +18,39 @@ class ObjCNewSyntaxTestCaseArray(ObjCNewSyntaxTest):
         self.expect(
             "expr --object-description -- immutable_array[0]",
             VARIABLES_DISPLAYED_CORRECTLY,
-            substrs=["foo"])
+            substrs=["foo"],
+        )
 
         self.expect(
             "expr --object-description -- mutable_array[0]",
             VARIABLES_DISPLAYED_CORRECTLY,
-            substrs=["foo"])
+            substrs=["foo"],
+        )
 
-    @skipUnlessDarwin
     @skipIf(macos_version=["<", "10.12"])
     @expectedFailureAll(archs=["i[3-6]86"])
     def test_update_array(self):
         self.runToBreakpoint()
 
         self.expect(
-            "expr --object-description -- mutable_array[0] = @\"bar\"",
+            'expr --object-description -- mutable_array[0] = @"bar"',
             VARIABLES_DISPLAYED_CORRECTLY,
-            substrs=["bar"])
+            substrs=["bar"],
+        )
 
         self.expect(
             "expr --object-description -- mutable_array[0]",
             VARIABLES_DISPLAYED_CORRECTLY,
-            substrs=["bar"])
+            substrs=["bar"],
+        )
 
-    @skipUnlessDarwin
     @skipIf(macos_version=["<", "10.12"])
     @expectedFailureAll(archs=["i[3-6]86"])
     def test_array_literal(self):
         self.runToBreakpoint()
 
         self.expect(
-            "expr --object-description -- @[ @\"foo\", @\"bar\" ]",
+            'expr --object-description -- @[ @"foo", @"bar" ]',
             VARIABLES_DISPLAYED_CORRECTLY,
-            substrs=[
-                "NSArray",
-                "foo",
-                "bar"])
+            substrs=["NSArray", "foo", "bar"],
+        )

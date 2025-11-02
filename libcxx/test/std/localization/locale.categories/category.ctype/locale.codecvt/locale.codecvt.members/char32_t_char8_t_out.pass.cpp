@@ -6,6 +6,10 @@
 //
 //===----------------------------------------------------------------------===//
 
+// UNSUPPORTED: c++03, c++11, c++14, c++17
+
+// XFAIL: availability-char8_t_support-missing
+
 // <locale>
 
 // template <> class codecvt<char32_t, char8_t, mbstate_t>
@@ -14,18 +18,13 @@
 //            const internT* from, const internT* from_end, const internT*& from_next,
 //            externT* to, externT* to_end, externT*& to_next) const;
 
-// UNSUPPORTED: c++98, c++03, c++11, c++14, c++17
-
-// C++20 codecvt specializations for char8_t are not yet implemented:
-// UNSUPPORTED: libc++
-
 #include <cassert>
 #include <locale>
 
 int main(int, char**) {
   using F = std::codecvt<char32_t, char8_t, std::mbstate_t>;
   const F& f = std::use_facet<F>(std::locale::classic());
-  F::intern_type from[9] = {'s', 'o', 'm', 'e', ' ', 't', 'e', 'x', 't'};
+  F::intern_type from[9] = {u's', u'o', u'm', u'e', u' ', u't', u'e', u'x', u't'};
   F::extern_type to[9] = {0};
   std::mbstate_t mbs = {};
   const F::intern_type* from_next = nullptr;
@@ -35,6 +34,6 @@ int main(int, char**) {
   assert(from_next - from == 9);
   assert(to_next - to == 9);
   for (unsigned i = 0; i < 9; ++i)
-    assert(to[i] == from[i]);
+    assert(static_cast<char32_t>(to[i]) == from[i]);
   return 0;
 }

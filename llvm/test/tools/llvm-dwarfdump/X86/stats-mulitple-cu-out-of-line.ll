@@ -18,12 +18,14 @@
 ; #include "test.h"
 ; int far() { return foo(42); }
 
-; CHECK:      "#functions":3
-; CHECK-SAME: "#functions with location":3
-; CHECK-SAME: "#inlined functions":0
-; CHECK-SAME: "#unique source variables":1
-; CHECK-SAME: "#source variables":2
-; CHECK-SAME: "#source variables with location":2
+; CHECK:      "#functions": 3,
+; CHECK-NEXT: "#functions with location": 3,
+; CHECK-NEXT: "#out-of-line functions": 4,
+; CHECK-NEXT: "#inlined functions": 0,
+; CHECK-NEXT: "#inlined functions with abstract origins": 0,
+; CHECK-NEXT: "#unique source variables": 1,
+; CHECK-NEXT: "#source variables": 2,
+; CHECK-NEXT: "#source variables with location": 2,
 
 target datalayout = "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-unknown-linux-gnu"
@@ -32,9 +34,9 @@ target triple = "x86_64-unknown-linux-gnu"
 define dso_local i32 @_Z3fooi.1(i32 %a) !dbg !9 {
 entry:
   %a.addr = alloca i32, align 4
-  store i32 %a, i32* %a.addr, align 4
-  call void @llvm.dbg.declare(metadata i32* %a.addr, metadata !14, metadata !DIExpression()), !dbg !15
-  %0 = load i32, i32* %a.addr, align 4, !dbg !15
+  store i32 %a, ptr %a.addr, align 4
+  call void @llvm.dbg.declare(metadata ptr %a.addr, metadata !14, metadata !DIExpression()), !dbg !15
+  %0 = load i32, ptr %a.addr, align 4, !dbg !15
   ret i32 %0, !dbg !15
 }
 ; Function Attrs: nounwind readnone speculatable willreturn
@@ -49,9 +51,9 @@ entry:
 define dso_local i32 @_Z3fooi(i32 %a) !dbg !23 {
 entry:
   %a.addr = alloca i32, align 4
-  store i32 %a, i32* %a.addr, align 4
-  call void @llvm.dbg.declare(metadata i32* %a.addr, metadata !24, metadata !DIExpression()), !dbg !25
-  %0 = load i32, i32* %a.addr, align 4, !dbg !25
+  store i32 %a, ptr %a.addr, align 4
+  call void @llvm.dbg.declare(metadata ptr %a.addr, metadata !24, metadata !DIExpression()), !dbg !25
+  %0 = load i32, ptr %a.addr, align 4, !dbg !25
   ret i32 %0, !dbg !25
 }
 ; Function Attrs: noinline nounwind optnone uwtable

@@ -9,13 +9,14 @@
 #ifndef LLVM_DEBUGINFO_PDB_NATIVE_NATIVEPUBLICSYMBOL_H
 #define LLVM_DEBUGINFO_PDB_NATIVE_NATIVEPUBLICSYMBOL_H
 
-#include "llvm/DebugInfo/CodeView/CodeView.h"
 #include "llvm/DebugInfo/CodeView/SymbolRecord.h"
 #include "llvm/DebugInfo/PDB/Native/NativeRawSymbol.h"
-#include "llvm/DebugInfo/PDB/Native/NativeSession.h"
 
 namespace llvm {
+
+class raw_ostream;
 namespace pdb {
+class NativeSession;
 
 class NativePublicSymbol : public NativeRawSymbol {
 public:
@@ -30,7 +31,6 @@ public:
   uint32_t getAddressOffset() const override;
   uint32_t getAddressSection() const override;
   std::string getName() const override;
-  PDB_SymType getSymTag() const override;
   uint32_t getRelativeVirtualAddress() const override;
   uint64_t getVirtualAddress() const override;
 

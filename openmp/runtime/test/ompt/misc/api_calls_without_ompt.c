@@ -1,5 +1,7 @@
+// clang-format off
 // RUN: %libomp-compile-and-run | FileCheck %s
 // REQUIRES: ompt
+// clang-format on
 
 #define _BSD_SOURCE
 #define _DEFAULT_SOURCE
@@ -76,6 +78,7 @@ int main() {
   printf("%" PRIu64 ": ompt_get_task_info()=%d\n", tvalue,
          ompt_get_task_info(0, NULL, NULL, NULL, NULL, NULL));
 
+  // clang-format off
   // Check if libomp supports the callbacks for this test.
 
   // CHECK: 0: NULL_POINTER=[[NULL:.*$]]
@@ -105,11 +108,13 @@ int main() {
   // CHECK: {{^}}[[MASTER_ID]]: ompt_get_parallel_info()=0
 
   // CHECK: {{^}}[[MASTER_ID]]: ompt_get_task_info()=0
+  // clang-format on
 
   return 0;
 }
 
-int ompt_initialize(ompt_function_lookup_t lookup, ompt_data_t *tool_data) {
+int ompt_initialize(ompt_function_lookup_t lookup, int initial_device_num,
+                    ompt_data_t *tool_data) {
   ompt_set_callback = (ompt_set_callback_t)lookup("ompt_set_callback");
   ompt_get_callback = (ompt_get_callback_t)lookup("ompt_get_callback");
   ompt_get_state = (ompt_get_state_t)lookup("ompt_get_state");

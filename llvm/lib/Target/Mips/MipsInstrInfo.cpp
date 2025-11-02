@@ -13,6 +13,7 @@
 #include "MipsInstrInfo.h"
 #include "MCTargetDesc/MipsBaseInfo.h"
 #include "MCTargetDesc/MipsMCTargetDesc.h"
+#include "Mips.h"
 #include "MipsSubtarget.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/CodeGen/MachineBasicBlock.h"
@@ -23,7 +24,9 @@
 #include "llvm/CodeGen/MachineOperand.h"
 #include "llvm/CodeGen/TargetOpcodes.h"
 #include "llvm/CodeGen/TargetSubtargetInfo.h"
+#include "llvm/IR/DebugInfoMetadata.h"
 #include "llvm/IR/DebugLoc.h"
+#include "llvm/MC/MCInstBuilder.h"
 #include "llvm/MC/MCInstrDesc.h"
 #include "llvm/Target/TargetMachine.h"
 #include <cassert>
@@ -37,7 +40,7 @@ using namespace llvm;
 void MipsInstrInfo::anchor() {}
 
 MipsInstrInfo::MipsInstrInfo(const MipsSubtarget &STI, unsigned UncondBr)
-    : MipsGenInstrInfo(Mips::ADJCALLSTACKDOWN, Mips::ADJCALLSTACKUP),
+    : MipsGenInstrInfo(STI, Mips::ADJCALLSTACKDOWN, Mips::ADJCALLSTACKUP),
       Subtarget(STI), UncondBrOpc(UncondBr) {}
 
 const MipsInstrInfo *MipsInstrInfo::create(MipsSubtarget &STI) {
@@ -51,14 +54,34 @@ bool MipsInstrInfo::isZeroImm(const MachineOperand &op) const {
   return op.isImm() && op.getImm() == 0;
 }
 
+MCInst MipsInstrInfo::getNop() const {
+  return MCInstBuilder(Mips::SLL)
+      .addReg(Mips::ZERO)
+      .addReg(Mips::ZERO)
+      .addImm(0);
+}
+
 /// insertNoop - If data hazard condition is found insert the target nop
 /// instruction.
-// FIXME: This appears to be dead code.
 void MipsInstrInfo::
 insertNoop(MachineBasicBlock &MBB, MachineBasicBlock::iterator MI) const
 {
   DebugLoc DL;
   BuildMI(MBB, MI, DL, get(Mips::NOP));
+}
+
+MachineInstrBuilder MipsInstrInfo::insertNop(MachineBasicBlock &MBB,
+                                             MachineBasicBlock::iterator MI,
+                                             DebugLoc DL) const {
+  assert(!Subtarget.inMips16Mode() &&
+         "insertNop does not support MIPS16e mode at this time");
+  const unsigned MMOpc =
+      Subtarget.hasMips32r6() ? Mips::SLL_MMR6 : Mips::SLL_MM;
+  const unsigned Opc =
+      Subtarget.inMicroMipsMode() ? MMOpc : (unsigned)Mips::SLL;
+  return BuildMI(MBB, MI, DL, get(Opc), Mips::ZERO)
+      .addReg(Mips::ZERO)
+      .addImm(0);
 }
 
 MachineMemOperand *
@@ -557,6 +580,13 @@ unsigned MipsInstrInfo::getEquivalentCompactForm(
   return 0;
 }
 
+bool MipsInstrInfo::SafeAfterMflo(const MachineInstr &MI) const {
+  if (IsDIVMULT(MI.getOpcode()))
+    return false;
+
+  return true;
+}
+
 /// Predicate for distingushing between control transfer instructions and all
 /// other instructions for handling forbidden slots. Consider inline assembly
 /// as unsafe as well.
@@ -567,9 +597,109 @@ bool MipsInstrInfo::SafeInForbiddenSlot(const MachineInstr &MI) const {
   return (MI.getDesc().TSFlags & MipsII::IsCTI) == 0;
 }
 
+bool MipsInstrInfo::SafeInFPUDelaySlot(const MachineInstr &MIInSlot,
+                                       const MachineInstr &FPUMI) const {
+  if (MIInSlot.isInlineAsm())
+    return false;
+
+  if (HasFPUDelaySlot(MIInSlot))
+    return false;
+
+  switch (MIInSlot.getOpcode()) {
+  case Mips::BC1F:
+  case Mips::BC1FL:
+  case Mips::BC1T:
+  case Mips::BC1TL:
+    return false;
+  }
+
+  for (const MachineOperand &Op : FPUMI.defs()) {
+    if (!Op.isReg())
+      continue;
+
+    bool Reads, Writes;
+    std::tie(Reads, Writes) = MIInSlot.readsWritesVirtualRegister(Op.getReg());
+
+    if (Reads || Writes)
+      return false;
+  }
+
+  return true;
+}
+
+/// Predicate for distinguishing instructions that are hazardous in a load delay
+/// slot. Consider inline assembly as unsafe as well.
+bool MipsInstrInfo::SafeInLoadDelaySlot(const MachineInstr &MIInSlot,
+                                        const MachineInstr &LoadMI) const {
+  if (MIInSlot.isInlineAsm())
+    return false;
+
+  return !llvm::any_of(LoadMI.defs(), [&](const MachineOperand &Op) {
+    return Op.isReg() && MIInSlot.readsRegister(Op.getReg(), /*TRI=*/nullptr);
+  });
+}
+
+bool MipsInstrInfo::IsMfloOrMfhi(const MachineInstr &MI) const {
+  if (IsMFLOMFHI(MI.getOpcode()))
+    return true;
+
+  return false;
+}
+
 /// Predicate for distingushing instructions that have forbidden slots.
 bool MipsInstrInfo::HasForbiddenSlot(const MachineInstr &MI) const {
   return (MI.getDesc().TSFlags & MipsII::HasForbiddenSlot) != 0;
+}
+
+/// Predicate for distingushing instructions that have FPU delay slots.
+bool MipsInstrInfo::HasFPUDelaySlot(const MachineInstr &MI) const {
+  switch (MI.getOpcode()) {
+  case Mips::MTC1:
+  case Mips::MFC1:
+  case Mips::MTC1_D64:
+  case Mips::MFC1_D64:
+  case Mips::DMTC1:
+  case Mips::DMFC1:
+  case Mips::FCMP_S32:
+  case Mips::FCMP_D32:
+  case Mips::FCMP_D64:
+    return true;
+
+  default:
+    return false;
+  }
+}
+
+/// Predicate for distingushing instructions that have load delay slots.
+bool MipsInstrInfo::HasLoadDelaySlot(const MachineInstr &MI) const {
+  switch (MI.getOpcode()) {
+  case Mips::LB:
+  case Mips::LBu:
+  case Mips::LH:
+  case Mips::LHu:
+  case Mips::LW:
+  case Mips::LWR:
+  case Mips::LWL:
+    return true;
+  default:
+    return false;
+  }
+}
+
+bool MipsInstrInfo::isAsCheapAsAMove(const MachineInstr &MI) const {
+  const unsigned Opcode = MI.getOpcode();
+  switch (Opcode) {
+  default:
+    break;
+  case Mips::ADDiu:
+  case Mips::ADDiu_MM:
+  case Mips::DADDiu:
+    return ((MI.getOperand(2).isImm() && MI.getOperand(2).getImm() == 0) ||
+            (MI.getOperand(1).isReg() &&
+             (MI.getOperand(1).getReg() == Mips::ZERO ||
+              MI.getOperand(1).getReg() == Mips::ZERO_64)));
+  }
+  return MI.isAsCheapAsAMove();
 }
 
 /// Return the number of bytes of code the specified instruction may be.
@@ -608,7 +738,7 @@ MipsInstrInfo::genInstrWithNewOpc(unsigned NewOpc,
   bool BranchWithZeroOperand = false;
   if (I->isBranch() && !I->isPseudo()) {
     auto TRI = I->getParent()->getParent()->getSubtarget().getRegisterInfo();
-    ZeroOperandPosition = I->findRegisterUseOperandIdx(Mips::ZERO, false, TRI);
+    ZeroOperandPosition = I->findRegisterUseOperandIdx(Mips::ZERO, TRI, false);
     BranchWithZeroOperand = ZeroOperandPosition != -1;
   }
 
@@ -645,7 +775,7 @@ MipsInstrInfo::genInstrWithNewOpc(unsigned NewOpc,
       NewOpc == Mips::JIALC64) {
 
     if (NewOpc == Mips::JIALC || NewOpc == Mips::JIALC64)
-      MIB->RemoveOperand(0);
+      MIB->removeOperand(0);
 
     for (unsigned J = 0, E = I->getDesc().getNumOperands(); J < E; ++J) {
       MIB.add(I->getOperand(J));
@@ -839,5 +969,58 @@ MipsInstrInfo::getSerializableDirectMachineOperandTargetFlags() const {
     {MO_CALL_LO16,    "mips-call-lo16"},
     {MO_JALR,         "mips-jalr"}
   };
-  return makeArrayRef(Flags);
+ return ArrayRef(Flags);
+}
+
+std::optional<ParamLoadedValue>
+MipsInstrInfo::describeLoadedValue(const MachineInstr &MI, Register Reg) const {
+  DIExpression *Expr =
+      DIExpression::get(MI.getMF()->getFunction().getContext(), {});
+
+  // TODO: Special MIPS instructions that need to be described separately.
+  if (auto RegImm = isAddImmediate(MI, Reg)) {
+    Register SrcReg = RegImm->Reg;
+    int64_t Offset = RegImm->Imm;
+    // When SrcReg is $zero, treat loaded value as immediate only.
+    // Ex. $a2 = ADDiu $zero, 10
+    if (SrcReg == Mips::ZERO || SrcReg == Mips::ZERO_64) {
+      return ParamLoadedValue(MI.getOperand(2), Expr);
+    }
+    Expr = DIExpression::prepend(Expr, DIExpression::ApplyOffset, Offset);
+    return ParamLoadedValue(MachineOperand::CreateReg(SrcReg, false), Expr);
+  } else if (auto DestSrc = isCopyInstr(MI)) {
+    const MachineFunction *MF = MI.getMF();
+    const TargetRegisterInfo *TRI = MF->getSubtarget().getRegisterInfo();
+    Register DestReg = DestSrc->Destination->getReg();
+    // TODO: Handle cases where the Reg is sub- or super-register of the
+    // DestReg.
+    if (TRI->isSuperRegister(Reg, DestReg) || TRI->isSubRegister(Reg, DestReg))
+      return std::nullopt;
+  }
+
+  return TargetInstrInfo::describeLoadedValue(MI, Reg);
+}
+
+std::optional<RegImmPair> MipsInstrInfo::isAddImmediate(const MachineInstr &MI,
+                                                        Register Reg) const {
+  // TODO: Handle cases where Reg is a super- or sub-register of the
+  // destination register.
+  const MachineOperand &Op0 = MI.getOperand(0);
+  if (!Op0.isReg() || Reg != Op0.getReg())
+    return std::nullopt;
+
+  switch (MI.getOpcode()) {
+  case Mips::ADDiu:
+  case Mips::DADDiu: {
+    const MachineOperand &Dop = MI.getOperand(0);
+    const MachineOperand &Sop1 = MI.getOperand(1);
+    const MachineOperand &Sop2 = MI.getOperand(2);
+    // Value is sum of register and immediate. Immediate value could be
+    // global string address which is not supported.
+    if (Dop.isReg() && Sop1.isReg() && Sop2.isImm())
+      return RegImmPair{Sop1.getReg(), Sop2.getImm()};
+    // TODO: Handle case where Sop1 is a frame-index.
+  }
+  }
+  return std::nullopt;
 }

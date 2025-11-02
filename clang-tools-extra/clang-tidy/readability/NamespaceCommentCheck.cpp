@@ -1,4 +1,4 @@
-//===--- NamespaceCommentCheck.cpp - clang-tidy ---------------------------===//
+//===----------------------------------------------------------------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -13,26 +13,29 @@
 #include "clang/Basic/SourceLocation.h"
 #include "clang/Basic/TokenKinds.h"
 #include "clang/Lex/Lexer.h"
-#include "llvm/ADT/StringExtras.h"
+#include <optional>
 
 using namespace clang::ast_matchers;
 
-namespace clang {
-namespace tidy {
-namespace readability {
+namespace clang::tidy::readability {
 
 NamespaceCommentCheck::NamespaceCommentCheck(StringRef Name,
                                              ClangTidyContext *Context)
     : ClangTidyCheck(Name, Context),
-      NamespaceCommentPattern("^/[/*] *(end (of )?)? *(anonymous|unnamed)? *"
-                              "namespace( +([a-zA-Z0-9_:]+))?\\.? *(\\*/)?$",
-                              llvm::Regex::IgnoreCase),
-      ShortNamespaceLines(Options.get("ShortNamespaceLines", 1u)),
-      SpacesBeforeComments(Options.get("SpacesBeforeComments", 1u)) {}
+      NamespaceCommentPattern(
+          "^/[/*] *(end (of )?)? *(anonymous|unnamed)? *"
+          "namespace( +(((inline )|([a-zA-Z0-9_:]))+))?\\.? *(\\*/)?$",
+          llvm::Regex::IgnoreCase),
+      ShortNamespaceLines(Options.get("ShortNamespaceLines", 1U)),
+      SpacesBeforeComments(Options.get("SpacesBeforeComments", 1U)),
+      AllowOmittingNamespaceComments(
+          Options.get("AllowOmittingNamespaceComments", false)) {}
 
 void NamespaceCommentCheck::storeOptions(ClangTidyOptions::OptionMap &Opts) {
   Options.store(Opts, "ShortNamespaceLines", ShortNamespaceLines);
   Options.store(Opts, "SpacesBeforeComments", SpacesBeforeComments);
+  Options.store(Opts, "AllowOmittingNamespaceComments",
+                AllowOmittingNamespaceComments);
 }
 
 void NamespaceCommentCheck::registerMatchers(MatchFinder *Finder) {
@@ -45,7 +48,7 @@ static bool locationsInSameFile(const SourceManager &Sources,
          Sources.getFileID(Loc1) == Sources.getFileID(Loc2);
 }
 
-static llvm::Optional<std::string>
+static std::optional<std::string>
 getNamespaceNameAsWritten(SourceLocation &Loc, const SourceManager &Sources,
                           const LangOptions &LangOpts) {
   // Loc should be at the begin of the namespace decl (usually, `namespace`
@@ -55,7 +58,7 @@ getNamespaceNameAsWritten(SourceLocation &Loc, const SourceManager &Sources,
   // the opening brace can result from attributes.
   std::string Result;
   int Nesting = 0;
-  while (llvm::Optional<Token> T = utils::lexer::findNextTokenSkippingComments(
+  while (std::optional<Token> T = utils::lexer::findNextTokenSkippingComments(
              Loc, Sources, LangOpts)) {
     Loc = T->getLocation();
     if (T->is(tok::l_brace))
@@ -68,12 +71,14 @@ getNamespaceNameAsWritten(SourceLocation &Loc, const SourceManager &Sources,
     } else if (Nesting == 0) {
       if (T->is(tok::raw_identifier)) {
         StringRef ID = T->getRawIdentifier();
-        if (ID != "namespace" && ID != "inline")
+        if (ID != "namespace")
           Result.append(std::string(ID));
+        if (ID == "inline")
+          Result.append(" ");
       } else if (T->is(tok::coloncolon)) {
         Result.append("::");
       } else { // Any other kind of token is unexpected here.
-        return llvm::None;
+        return std::nullopt;
       }
     }
   }
@@ -105,12 +110,12 @@ void NamespaceCommentCheck::check(const MatchFinder::MatchResult &Result) {
   // Currently for nested namespace (n1::n2::...) the AST matcher will match foo
   // then bar instead of a single match. So if we got a nested namespace we have
   // to skip the next ones.
-  for (const auto &EndOfNameLocation : Ends) {
+  for (const SourceLocation &EndOfNameLocation : Ends) {
     if (Sources.isBeforeInTranslationUnit(ND->getLocation(), EndOfNameLocation))
       return;
   }
 
-  llvm::Optional<std::string> NamespaceNameAsWritten =
+  std::optional<std::string> NamespaceNameAsWritten =
       getNamespaceNameAsWritten(LBraceLoc, Sources, getLangOpts());
   if (!NamespaceNameAsWritten)
     return;
@@ -139,6 +144,7 @@ void NamespaceCommentCheck::check(const MatchFinder::MatchResult &Result) {
 
   SourceRange OldCommentRange(AfterRBrace, AfterRBrace);
   std::string Message = "%0 not terminated with a closing comment";
+  bool HasComment = false;
 
   // Try to find existing namespace closing comment on the same line.
   if (Tok.is(tok::comment) && NextTokenIsOnSameLine) {
@@ -157,8 +163,10 @@ void NamespaceCommentCheck::check(const MatchFinder::MatchResult &Result) {
         return;
       }
 
+      HasComment = true;
+
       // Otherwise we need to fix the comment.
-      NeedLineBreak = Comment.startswith("/*");
+      NeedLineBreak = Comment.starts_with("/*");
       OldCommentRange =
           SourceRange(AfterRBrace, Loc.getLocWithOffset(Tok.getLength()));
       Message =
@@ -166,7 +174,7 @@ void NamespaceCommentCheck::check(const MatchFinder::MatchResult &Result) {
                "%0 ends with a comment that refers to a wrong namespace '") +
            NamespaceNameInComment + "'")
               .str();
-    } else if (Comment.startswith("//")) {
+    } else if (Comment.starts_with("//")) {
       // Assume that this is an unrecognized form of a namespace closing line
       // comment. Replace it.
       NeedLineBreak = false;
@@ -179,8 +187,13 @@ void NamespaceCommentCheck::check(const MatchFinder::MatchResult &Result) {
   }
 
   std::string NamespaceNameForDiag =
-      ND->isAnonymousNamespace() ? "anonymous namespace"
-                                 : ("namespace '" + *NamespaceNameAsWritten + "'");
+      ND->isAnonymousNamespace()
+          ? "anonymous namespace"
+          : ("namespace '" + *NamespaceNameAsWritten + "'");
+
+  // If no namespace comment is allowed
+  if (!HasComment && AllowOmittingNamespaceComments)
+    return;
 
   std::string Fix(SpacesBeforeComments, ' ');
   Fix.append("// namespace");
@@ -203,6 +216,4 @@ void NamespaceCommentCheck::check(const MatchFinder::MatchResult &Result) {
       << NamespaceNameForDiag;
 }
 
-} // namespace readability
-} // namespace tidy
-} // namespace clang
+} // namespace clang::tidy::readability

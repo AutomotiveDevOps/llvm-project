@@ -11,6 +11,7 @@
 #include "support/Logger.h"
 #include "llvm/Support/Errno.h"
 
+#include <optional>
 #include <xpc/xpc.h>
 
 using namespace llvm;
@@ -38,16 +39,16 @@ json::Object encodeError(Error E) {
 
 Error decodeError(const json::Object &O) {
   std::string Msg =
-      std::string(O.getString("message").getValueOr("Unspecified error"));
+      std::string(O.getString("message").value_or("Unspecified error"));
   if (auto Code = O.getInteger("code"))
     return make_error<LSPError>(std::move(Msg), ErrorCode(*Code));
-  return make_error<StringError>(std::move(Msg), inconvertibleErrorCode());
+  return error("{0}", Msg);
 }
 
 // C "closure" for XPCTransport::loop() method
 namespace xpcClosure {
 void connection_handler(xpc_connection_t clientConnection);
-}
+} // namespace xpcClosure
 
 class XPCTransport : public Transport {
 public:
@@ -106,12 +107,13 @@ private:
 bool XPCTransport::handleMessage(json::Value Message, MessageHandler &Handler) {
   // Message must be an object with "jsonrpc":"2.0".
   auto *Object = Message.getAsObject();
-  if (!Object || Object->getString("jsonrpc") != Optional<StringRef>("2.0")) {
+  if (!Object ||
+      Object->getString("jsonrpc") != std::optional<StringRef>("2.0")) {
     elog("Not a JSON-RPC 2.0 message: {0:2}", Message);
     return false;
   }
   // ID may be any JSON value. If absent, this is a notification.
-  Optional<json::Value> ID;
+  std::optional<json::Value> ID;
   if (auto *I = Object->get("id"))
     ID = std::move(*I);
   auto Method = Object->getString("method");

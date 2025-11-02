@@ -1,7 +1,9 @@
-; RUN: llc -no-integrated-as -verify-machineinstrs -o - %s -mtriple=aarch64-none-linux-gnu -aarch64-enable-atomic-cfg-tidy=0 | FileCheck %s
-; RUN: llc -no-integrated-as -code-model=large -verify-machineinstrs -o - %s -mtriple=aarch64-none-linux-gnu -aarch64-enable-atomic-cfg-tidy=0 | FileCheck --check-prefix=CHECK-LARGE %s
-; RUN: llc -no-integrated-as -mtriple=aarch64-none-linux-gnu -verify-machineinstrs -relocation-model=pic -aarch64-enable-atomic-cfg-tidy=0 -o - %s | FileCheck --check-prefix=CHECK-PIC %s
-; RUN: llc -no-integrated-as -code-model=tiny -verify-machineinstrs -o - %s -mtriple=aarch64-none-linux-gnu -aarch64-enable-atomic-cfg-tidy=0 | FileCheck --check-prefix=CHECK-TINY %s
+; RUN: llc -no-integrated-as -verify-machineinstrs -o - %s -aarch64-min-jump-table-entries=4 -mtriple=aarch64-none-linux-gnu -aarch64-enable-atomic-cfg-tidy=0 | FileCheck %s
+; RUN: llc -no-integrated-as -code-model=large -verify-machineinstrs -o - %s -aarch64-min-jump-table-entries=4 -mtriple=aarch64-none-linux-gnu -aarch64-enable-atomic-cfg-tidy=0 | FileCheck --check-prefix=CHECK-LARGE %s
+; RUN: llc -no-integrated-as -code-model=large -relocation-model=pic -o - %s -aarch64-min-jump-table-entries=4 -mtriple=aarch64-none-linux-gnu -aarch64-enable-atomic-cfg-tidy=0 | FileCheck --check-prefix=CHECK-PIC %s
+; RUN: llc -no-integrated-as -mtriple=aarch64-none-linux-gnu -verify-machineinstrs -relocation-model=pic -aarch64-min-jump-table-entries=4 -aarch64-enable-atomic-cfg-tidy=0 -o - %s | FileCheck --check-prefix=CHECK-PIC %s
+; RUN: llc -no-integrated-as -verify-machineinstrs -o - %s -mtriple=arm64-apple-ios -aarch64-min-jump-table-entries=4 -aarch64-enable-atomic-cfg-tidy=0 | FileCheck --check-prefix=CHECK-IOS %s
+; RUN: llc -no-integrated-as -code-model=tiny -verify-machineinstrs -o - %s -aarch64-min-jump-table-entries=4 -mtriple=aarch64-none-linux-gnu -aarch64-enable-atomic-cfg-tidy=0 | FileCheck --check-prefix=CHECK-TINY %s
 
 define i32 @test_jumptable(i32 %in) {
 ; CHECK: test_jumptable
@@ -101,22 +103,7 @@ lbl1:
   ret i32 1
 
 lbl2:
-  call void asm sideeffect "1;2;3;4;5;6;7;8;9;10;11;12;13;14;15;16", ""()
-  call void asm sideeffect "1;2;3;4;5;6;7;8;9;10;11;12;13;14;15;16", ""()
-  call void asm sideeffect "1;2;3;4;5;6;7;8;9;10;11;12;13;14;15;16", ""()
-  call void asm sideeffect "1;2;3;4;5;6;7;8;9;10;11;12;13;14;15;16", ""()
-  call void asm sideeffect "1;2;3;4;5;6;7;8;9;10;11;12;13;14;15;16", ""()
-  call void asm sideeffect "1;2;3;4;5;6;7;8;9;10;11;12;13;14;15;16", ""()
-  call void asm sideeffect "1;2;3;4;5;6;7;8;9;10;11;12;13;14;15;16", ""()
-  call void asm sideeffect "1;2;3;4;5;6;7;8;9;10;11;12;13;14;15;16", ""()
-  call void asm sideeffect "1;2;3;4;5;6;7;8;9;10;11;12;13;14;15;16", ""()
-  call void asm sideeffect "1;2;3;4;5;6;7;8;9;10;11;12;13;14;15;16", ""()
-  call void asm sideeffect "1;2;3;4;5;6;7;8;9;10;11;12;13;14;15;16", ""()
-  call void asm sideeffect "1;2;3;4;5;6;7;8;9;10;11;12;13;14;15;16", ""()
-  call void asm sideeffect "1;2;3;4;5;6;7;8;9;10;11;12;13;14;15;16", ""()
-  call void asm sideeffect "1;2;3;4;5;6;7;8;9;10;11;12;13;14;15;16", ""()
-  call void asm sideeffect "1;2;3;4;5;6;7;8;9;10;11;12;13;14;15;16", ""()
-  call void asm sideeffect "1;2;3;4;5;6;7;8;9;10;11;12;13;14;15;16", ""()
+  call i64 @llvm.aarch64.space(i32 1024, i64 undef)
   ret i32 2
 
 lbl3:
@@ -155,3 +142,56 @@ lbl4:
 ; CHECK-IOS-NEXT:     .byte (LBB{{.*}}-[[JTBASE]])>>2
 ; CHECK-IOS-NEXT:     .byte (LBB{{.*}}-[[JTBASE]])>>2
 ; CHECK-IOS-NOT: .end_data_region
+
+; Compressing just the first table has the opportunity to truncate the vector of
+; sizes. Make sure it doesn't.
+define i32 @test_twotables(i32 %in1, i32 %in2) {
+; CHECK-LABEL: test_twotables:
+; CHECK: .LJTI2_0
+; CHECK: .LJTI2_1
+
+  switch i32 %in1, label %def [
+    i32 0, label %lbl1
+    i32 1, label %lbl2
+    i32 2, label %lbl3
+    i32 4, label %lbl4
+  ]
+
+def:
+  ret i32 0
+
+lbl1:
+  ret i32 1
+
+lbl2:
+  ret i32 2
+
+lbl3:
+  ret i32 4
+
+lbl4:
+  switch i32 %in1, label %def [
+    i32 0, label %lbl5
+    i32 1, label %lbl6
+    i32 2, label %lbl7
+    i32 4, label %lbl8
+  ]
+
+lbl5:
+  call i64 @llvm.aarch64.space(i32 262144, i64 undef)
+  ret i32 1
+
+lbl6:
+  call i64 @llvm.aarch64.space(i32 262144, i64 undef)
+  ret i32 2
+
+lbl7:
+  call i64 @llvm.aarch64.space(i32 262144, i64 undef)
+  ret i32 4
+lbl8:
+  call i64 @llvm.aarch64.space(i32 262144, i64 undef)
+  ret i32 8
+
+}
+
+declare i64 @llvm.aarch64.space(i32, i64)

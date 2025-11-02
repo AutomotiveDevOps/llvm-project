@@ -59,7 +59,8 @@ public:
     eNone = 0,
     eAvoidInlines = (1 << 0),
     eStepInAvoidNoDebug = (1 << 1),
-    eStepOutAvoidNoDebug = (1 << 2)
+    eStepOutAvoidNoDebug = (1 << 2),
+    eStepOutPastThunks = (1 << 3)
   };
 
   // Constructors and Destructors
@@ -130,7 +131,9 @@ protected:
   lldb_private::Flags m_flags;
 
 private:
-  DISALLOW_COPY_AND_ASSIGN(ThreadPlanShouldStopHere);
+  ThreadPlanShouldStopHere(const ThreadPlanShouldStopHere &) = delete;
+  const ThreadPlanShouldStopHere &
+  operator=(const ThreadPlanShouldStopHere &) = delete;
 };
 
 } // namespace lldb_private

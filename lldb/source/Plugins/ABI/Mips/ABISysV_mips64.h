@@ -34,10 +34,9 @@ public:
   GetReturnValueObjectImpl(lldb_private::Thread &thread,
                            lldb_private::CompilerType &type) const override;
 
-  bool
-  CreateFunctionEntryUnwindPlan(lldb_private::UnwindPlan &unwind_plan) override;
+  lldb::UnwindPlanSP CreateFunctionEntryUnwindPlan() override;
 
-  bool CreateDefaultUnwindPlan(lldb_private::UnwindPlan &unwind_plan) override;
+  lldb::UnwindPlanSP CreateDefaultUnwindPlan() override;
 
   bool RegisterIsVolatile(const lldb_private::RegisterInfo *reg_info) override;
 
@@ -51,7 +50,7 @@ public:
   //
   // To work around this, we relax that alignment to be just word-size
   // (8-bytes).
-  // Whitelisting the trap handlers for user space would be easy (_sigtramp) but
+  // Allowing the trap handlers for user space would be easy (_sigtramp) but
   // in other environments there can be a large number of different functions
   // involved in async traps.
   bool CallFrameAddressIsValid(lldb::addr_t cfa) override {
@@ -82,13 +81,11 @@ public:
 
   static lldb::ABISP CreateInstance(lldb::ProcessSP process_sp, const lldb_private::ArchSpec &arch);
 
-  static lldb_private::ConstString GetPluginNameStatic();
+  static llvm::StringRef GetPluginNameStatic() { return "sysv-mips64"; }
 
   // PluginInterface protocol
 
-  lldb_private::ConstString GetPluginName() override;
-
-  uint32_t GetPluginVersion() override;
+  llvm::StringRef GetPluginName() override { return GetPluginNameStatic(); }
 
 protected:
   void CreateRegisterMapIfNeeded();

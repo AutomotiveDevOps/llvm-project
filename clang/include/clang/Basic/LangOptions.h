@@ -14,47 +14,85 @@
 #ifndef LLVM_CLANG_BASIC_LANGOPTIONS_H
 #define LLVM_CLANG_BASIC_LANGOPTIONS_H
 
+#include "clang/Basic/CFProtectionOptions.h"
 #include "clang/Basic/CommentOptions.h"
 #include "clang/Basic/LLVM.h"
+#include "clang/Basic/LangStandard.h"
 #include "clang/Basic/ObjCRuntime.h"
 #include "clang/Basic/Sanitizers.h"
+#include "clang/Basic/TargetCXXABI.h"
 #include "clang/Basic/Visibility.h"
 #include "llvm/ADT/FloatingPointMode.h"
 #include "llvm/ADT/StringRef.h"
-#include "llvm/ADT/Triple.h"
+#include "llvm/BinaryFormat/DXContainer.h"
+#include "llvm/Support/AllocToken.h"
+#include "llvm/TargetParser/Triple.h"
+#include <optional>
 #include <string>
 #include <vector>
 
 namespace clang {
 
-/// Bitfields of LangOptions, split out from LangOptions in order to ensure that
-/// this large collection of bitfields is a trivial class type.
-class LangOptionsBase {
-public:
-  // Define simple language options (with no accessors).
-#define LANGOPT(Name, Bits, Default, Description) unsigned Name : Bits;
-#define ENUM_LANGOPT(Name, Type, Bits, Default, Description)
-#include "clang/Basic/LangOptions.def"
-
-protected:
-  // Define language options of enumeration type. These are private, and will
-  // have accessors (below).
-#define LANGOPT(Name, Bits, Default, Description)
-#define ENUM_LANGOPT(Name, Type, Bits, Default, Description) \
-  unsigned Name : Bits;
-#include "clang/Basic/LangOptions.def"
-};
-
 /// In the Microsoft ABI, this controls the placement of virtual displacement
 /// members used to implement virtual inheritance.
 enum class MSVtorDispMode { Never, ForVBaseOverride, ForVFTable };
 
-/// Keeps track of the various options that can be
-/// enabled, which controls the dialect of C or C++ that is accepted.
-class LangOptions : public LangOptionsBase {
+/// Shader programs run in specific pipeline stages.
+/// The order of these values matters, and must be kept in sync with the
+/// Triple Environment enum in llvm::Triple. The ordering is enforced in
+///  static_asserts in Triple.cpp and in clang/Basic/HLSLRuntime.h.
+enum class ShaderStage {
+  Pixel = 0,
+  Vertex,
+  Geometry,
+  Hull,
+  Domain,
+  Compute,
+  Library,
+  RayGeneration,
+  Intersection,
+  AnyHit,
+  ClosestHit,
+  Miss,
+  Callable,
+  Mesh,
+  Amplification,
+  Invalid,
+};
+
+enum class PointerAuthenticationMode : unsigned {
+  None,
+  Strip,
+  SignAndStrip,
+  SignAndAuth
+};
+
+/// Bitfields of LangOptions, split out from LangOptions in order to ensure that
+/// this large collection of bitfields is a trivial class type.
+class LangOptionsBase {
+  friend class CompilerInvocation;
+  friend class CompilerInvocationBase;
+
 public:
   using Visibility = clang::Visibility;
   using RoundingMode = llvm::RoundingMode;
+  using CFBranchLabelSchemeKind = clang::CFBranchLabelSchemeKind;
+
+  /// For ASTs produced with different option value, signifies their level of
+  /// compatibility.
+  enum class CompatibilityKind {
+    /// Does affect the construction of the AST in a way that does prevent
+    /// module interoperability.
+    NotCompatible,
+    /// Does affect the construction of the AST in a way that doesn't prevent
+    /// interoperability (that is, the value can be different between an
+    /// explicit module and the user of that module).
+    Compatible,
+    /// Does not affect the construction of the AST in any way (that is, the
+    /// value can be different between an implicit module and the user of that
+    /// module).
+    Benign,
+  };
 
   enum GCMode { NonGC, GCOnly, HybridGC };
   enum StackProtectorMode { SSPOff, SSPOn, SSPStrong, SSPReq };
@@ -83,10 +121,10 @@ public:
     /// Compiling a module from a module map.
     CMK_ModuleMap,
 
-    /// Compiling a module from a list of header files.
-    CMK_HeaderModule,
+    /// Compiling a module header unit.
+    CMK_HeaderUnit,
 
-    /// Compiling a C++ modules TS module interface unit.
+    /// Compiling a C++ modules interface unit.
     CMK_ModuleInterface,
   };
 
@@ -105,7 +143,8 @@ public:
     DCC_FastCall,
     DCC_StdCall,
     DCC_VectorCall,
-    DCC_RegCall
+    DCC_RegCall,
+    DCC_RtdCall
   };
 
   enum AddrSpaceMapMangling { ASMM_Target, ASMM_On, ASMM_Off };
@@ -119,42 +158,39 @@ public:
     MSVC2017 = 1910,
     MSVC2017_5 = 1912,
     MSVC2017_7 = 1914,
+    MSVC2019 = 1920,
+    MSVC2019_5 = 1925,
+    MSVC2019_8 = 1928,
+    MSVC2022_3 = 1933,
+    MSVC2022_9 = 1939,
+  };
+
+  enum SYCLMajorVersion {
+    SYCL_None,
+    SYCL_2017,
+    SYCL_2020,
+    // The "default" SYCL version to be used when none is specified on the
+    // frontend command line.
+    SYCL_Default = SYCL_2020
+  };
+
+  enum HLSLLangStd {
+    HLSL_Unset = 0,
+    HLSL_2015 = 2015,
+    HLSL_2016 = 2016,
+    HLSL_2017 = 2017,
+    HLSL_2018 = 2018,
+    HLSL_2021 = 2021,
+    HLSL_202x = 2028,
+    HLSL_202y = 2029,
   };
 
   /// Clang versions with different platform ABI conformance.
   enum class ClangABI {
-    /// Attempt to be ABI-compatible with code generated by Clang 3.8.x
-    /// (SVN r257626). This causes <1 x long long> to be passed in an
-    /// integer register instead of an SSE register on x64_64.
-    Ver3_8,
-
-    /// Attempt to be ABI-compatible with code generated by Clang 4.0.x
-    /// (SVN r291814). This causes move operations to be ignored when
-    /// determining whether a class type can be passed or returned directly.
-    Ver4,
-
-    /// Attempt to be ABI-compatible with code generated by Clang 6.0.x
-    /// (SVN r321711). This causes determination of whether a type is
-    /// standard-layout to ignore collisions between empty base classes
-    /// and between base classes and member subobjects, which affects
-    /// whether we reuse base class tail padding in some ABIs.
-    Ver6,
-
-    /// Attempt to be ABI-compatible with code generated by Clang 7.0.x
-    /// (SVN r338536). This causes alignof (C++) and _Alignof (C11) to be
-    /// compatible with __alignof (i.e., return the preferred alignment)
-    /// rather than returning the required alignment.
-    Ver7,
-
-    /// Attempt to be ABI-compatible with code generated by Clang 9.0.x
-    /// (SVN r351319). This causes vectors of __int128 to be passed in memory
-    /// instead of passing in multiple scalar registers on x86_64 on Linux and
-    /// NetBSD.
-    Ver9,
-
-    /// Conform to the underlying platform's C and C++ ABIs as closely
-    /// as we can.
-    Latest
+#define ABI_VER_MAJOR_MINOR(Major, Minor) Ver##Major##_##Minor,
+#define ABI_VER_MAJOR(Major) Ver##Major,
+#define ABI_VER_LATEST(Latest) Latest
+#include "clang/Basic/ABIVersions.def"
   };
 
   enum class CoreFoundationABI {
@@ -181,13 +217,12 @@ public:
     // Enable the floating point pragma
     FPM_On,
 
-    // Aggressively fuse FP ops (E.g. FMA).
-    FPM_Fast
-  };
+    // Aggressively fuse FP ops (E.g. FMA) disregarding pragmas.
+    FPM_Fast,
 
-  /// Alias for RoundingMode::NearestTiesToEven.
-  static constexpr unsigned FPR_ToNearest =
-      static_cast<unsigned>(llvm::RoundingMode::NearestTiesToEven);
+    // Aggressively fuse FP ops and honor pragmas.
+    FPM_FastHonorPragmas
+  };
 
   /// Possible floating point exception behavior.
   enum FPExceptionModeKind {
@@ -196,8 +231,27 @@ public:
     /// Transformations do not cause new exceptions but may hide some.
     FPE_MayTrap,
     /// Strictly preserve the floating-point exception semantics.
-    FPE_Strict
+    FPE_Strict,
+    /// Used internally to represent initial unspecified value.
+    FPE_Default
   };
+
+  /// Possible float expression evaluation method choices.
+  enum FPEvalMethodKind : unsigned {
+    /// Use the declared type for fp arithmetic.
+    FEM_Source = 0,
+    /// Use the type double for fp arithmetic.
+    FEM_Double = 1,
+    /// Use extended type for fp arithmetic.
+    FEM_Extended = 2,
+    /// Used only for FE option processing; this is only used to indicate that
+    /// the user did not specify an explicit evaluation method on the command
+    /// line and so the target should be queried for its default evaluation
+    /// method instead.
+    FEM_UnsetOnCommandLine = 3
+  };
+
+  enum ExcessPrecisionKind { FPP_Standard, FPP_Fast, FPP_None };
 
   enum class LaxVectorConversionKind {
     /// Permit no implicit vector bitcasts.
@@ -208,6 +262,18 @@ public:
     /// Permit vector bitcasts between all vectors with the same total
     /// bit-width.
     All,
+  };
+
+  enum class AltivecSrcCompatKind {
+    // All vector compares produce scalars except vector pixel and vector bool.
+    // The types vector pixel and vector bool return vector results.
+    Mixed,
+    // All vector compares produce vector results as in GCC.
+    GCC,
+    // All vector compares produce scalars as in XL.
+    XL,
+    // Default clang behaviour.
+    Default = Mixed,
   };
 
   enum class SignReturnAddressScopeKind {
@@ -226,13 +292,159 @@ public:
     BKey
   };
 
+  enum class ThreadModelKind {
+    /// POSIX Threads.
+    POSIX,
+    /// Single Threaded Environment.
+    Single
+  };
+
+  enum class ExtendArgsKind {
+    /// Integer arguments are sign or zero extended to 32/64 bits
+    /// during default argument promotions.
+    ExtendTo32,
+    ExtendTo64
+  };
+
+  enum class GPUDefaultStreamKind {
+    /// Legacy default stream
+    Legacy,
+    /// Per-thread default stream
+    PerThread,
+  };
+
+  /// Exclude certain code patterns from being instrumented by arithmetic
+  /// overflow sanitizers
+  enum OverflowPatternExclusionKind {
+    /// Don't exclude any overflow patterns from sanitizers
+    None = 1 << 0,
+    /// Exclude all overflow patterns (below)
+    All = 1 << 1,
+    /// if (a + b < a)
+    AddSignedOverflowTest = 1 << 2,
+    /// if (a + b < a)
+    AddUnsignedOverflowTest = 1 << 3,
+    /// -1UL
+    NegUnsignedConst = 1 << 4,
+    /// while (count--)
+    PostDecrInWhile = 1 << 5,
+  };
+
+  enum class DefaultVisiblityExportMapping {
+    None,
+    /// map only explicit default visibilities to exported
+    Explicit,
+    /// map all default visibilities to exported
+    All,
+  };
+
+  enum class VisibilityForcedKinds {
+    /// Force hidden visibility
+    ForceHidden,
+    /// Force protected visibility
+    ForceProtected,
+    /// Force default visibility
+    ForceDefault,
+    /// Don't alter the visibility
+    Source,
+  };
+
+  enum class VisibilityFromDLLStorageClassKinds {
+    /// Keep the IR-gen assigned visibility.
+    Keep,
+    /// Override the IR-gen assigned visibility with default visibility.
+    Default,
+    /// Override the IR-gen assigned visibility with hidden visibility.
+    Hidden,
+    /// Override the IR-gen assigned visibility with protected visibility.
+    Protected,
+  };
+
+  enum class StrictFlexArraysLevelKind {
+    /// Any trailing array member is a FAM.
+    Default = 0,
+    /// Any trailing array member of undefined, 0, or 1 size is a FAM.
+    OneZeroOrIncomplete = 1,
+    /// Any trailing array member of undefined or 0 size is a FAM.
+    ZeroOrIncomplete = 2,
+    /// Any trailing array member of undefined size is a FAM.
+    IncompleteOnly = 3,
+  };
+
+  /// Controls the various implementations for complex multiplication and
+  // division.
+  enum ComplexRangeKind {
+    /// Implementation of complex division and multiplication using a call to
+    ///  runtime library functions(generally the case, but the BE might
+    /// sometimes replace the library call if it knows enough about the
+    /// potential range of the inputs). Overflow and non-finite values are
+    /// handled by the library implementation. This is the default value.
+    CX_Full,
+
+    /// Implementation of complex division offering an improved handling
+    /// for overflow in intermediate calculations with no special handling for
+    /// NaN and infinite values.
+    CX_Improved,
+
+    /// Implementation of complex division using algebraic formulas at
+    /// higher precision. Overflow is handled. Non-finite values are handled in
+    /// some cases. If the target hardware does not have native support for a
+    /// higher precision data type, an implementation for the complex operation
+    /// will be used to provide improved guards against intermediate overflow,
+    /// but overflow and underflow may still occur in some cases. NaN and
+    /// infinite values are not handled.
+    CX_Promoted,
+
+    /// Implementation of complex division and multiplication using
+    /// algebraic formulas at source precision. No special handling to avoid
+    /// overflow. NaN and infinite values are not handled.
+    CX_Basic,
+
+    /// No range rule is enabled.
+    CX_None
+  };
+
+  /// Controls which variables have static destructors registered.
+  enum class RegisterStaticDestructorsKind {
+    /// Register static destructors for all variables.
+    All,
+    /// Register static destructors only for thread-local variables.
+    ThreadLocal,
+    /// Don't register static destructors for any variables.
+    None,
+  };
+
+  // Define simple language options (with no accessors).
+#define LANGOPT(Name, Bits, Default, Compatibility, Description)               \
+  unsigned Name : Bits;
+#define ENUM_LANGOPT(Name, Type, Bits, Default, Compatibility, Description)
+#include "clang/Basic/LangOptions.def"
+
+protected:
+  // Define language options of enumeration type. These are private, and will
+  // have accessors (below).
+#define LANGOPT(Name, Bits, Default, Compatibility, Description)
+#define ENUM_LANGOPT(Name, Type, Bits, Default, Compatibility, Description)    \
+  LLVM_PREFERRED_TYPE(Type)                                                    \
+  unsigned Name : Bits;
+#include "clang/Basic/LangOptions.def"
+};
+
+/// Keeps track of the various options that can be
+/// enabled, which controls the dialect of C or C++ that is accepted.
+class LangOptions : public LangOptionsBase {
 public:
+  /// The used language standard.
+  LangStandard::Kind LangStd;
+
   /// Set of enabled sanitizers.
   SanitizerSet Sanitize;
+  /// Is at least one coverage instrumentation type enabled.
+  bool SanitizeCoverage = false;
 
-  /// Paths to blacklist files specifying which objects
+  /// Paths to files specifying which objects
   /// (files, functions, variables) should not be instrumented.
-  std::vector<std::string> SanitizerBlacklistFiles;
+  std::vector<std::string> NoSanitizeFiles;
 
   /// Paths to the XRay "always instrument" files specifying which
   /// objects (files, functions, variables) should be imbued with the XRay
@@ -250,6 +462,10 @@ public:
   /// (files, functions, variables) should be imbued with the appropriate XRay
   /// attribute(s).
   std::vector<std::string> XRayAttrListFiles;
+
+  /// Paths to special case list files specifying which entities
+  /// (files, functions) should or should not be instrumented.
+  std::vector<std::string> ProfileListFiles;
 
   clang::ObjCRuntime ObjCRuntime;
 
@@ -285,6 +501,9 @@ public:
   /// A list of all -fno-builtin-* function names (e.g., memset).
   std::vector<std::string> NoBuiltinFuncs;
 
+  /// A prefix map for __FILE__, __BASE_FILE__ and __builtin_FILE().
+  std::map<std::string, std::string, std::greater<std::string>> MacroPrefixMap;
+
   /// Triples of the OpenMP targets that the host code codegen should
   /// take into account in order to generate accurate offloading descriptors.
   std::vector<llvm::Triple> OMPTargetTriples;
@@ -293,22 +512,101 @@ public:
   /// host code generation.
   std::string OMPHostIRFile;
 
+  /// The user provided compilation unit ID, if non-empty. This is used to
+  /// externalize static variables which is needed to support accessing static
+  /// device variables in host code for single source offloading languages
+  /// like CUDA/HIP.
+  std::string CUID;
+
+  /// C++ ABI to compile with, if specified by the frontend through -fc++-abi=.
+  /// This overrides the default ABI used by the target.
+  std::optional<TargetCXXABI::Kind> CXXABI;
+
   /// Indicates whether the front-end is explicitly told that the
   /// input is a header file (i.e. -x c-header).
   bool IsHeaderFile = false;
 
+  /// The default stream kind used for HIP kernel launching.
+  GPUDefaultStreamKind GPUDefaultStream;
+
+  /// Which overflow patterns should be excluded from sanitizer instrumentation
+  unsigned OverflowPatternExclusionMask = 0;
+
+  std::vector<std::string> OverflowPatternExclusionValues;
+
+  /// The seed used by the randomize structure layout feature.
+  std::string RandstructSeed;
+
+  /// Indicates whether to use target's platform-specific file separator when
+  /// __FILE__ macro is used and when concatenating filename with directory or
+  /// to use build environment environment's platform-specific file separator.
+  ///
+  /// The plaform-specific path separator is the backslash(\) for Windows and
+  /// forward slash (/) elsewhere.
+  bool UseTargetPathSeparator = false;
+
+  // Indicates whether we should keep all nullptr checks for pointers
+  // received as a result of a standard operator new (-fcheck-new)
+  bool CheckNew = false;
+
+  /// The HLSL root signature version for dxil.
+  llvm::dxbc::RootSignatureVersion HLSLRootSigVer;
+
+  /// The HLSL root signature that will be used to overide the root signature
+  /// used for the shader entry point.
+  std::string HLSLRootSigOverride;
+
+  // Indicates if the wasm-opt binary must be ignored in the case of a
+  // WebAssembly target.
+  bool NoWasmOpt = false;
+
+  /// Atomic code-generation options.
+  /// These flags are set directly from the command-line options.
+  bool AtomicRemoteMemory = false;
+  bool AtomicFineGrainedMemory = false;
+  bool AtomicIgnoreDenormalMode = false;
+
+  /// Maximum number of allocation tokens (0 = no max), nullopt if none set (use
+  /// target default).
+  std::optional<uint64_t> AllocTokenMax;
+
+  /// The allocation token mode.
+  std::optional<llvm::AllocTokenMode> AllocTokenMode;
+
   LangOptions();
 
+  /// Set language defaults for the given input language and
+  /// language standard in the given LangOptions object.
+  ///
+  /// \param Opts - The LangOptions object to set up.
+  /// \param Lang - The input language.
+  /// \param T - The target triple.
+  /// \param Includes - If the language requires extra headers to be implicitly
+  ///                   included, they will be appended to this list.
+  /// \param LangStd - The input language standard.
+  static void
+  setLangDefaults(LangOptions &Opts, Language Lang, const llvm::Triple &T,
+                  std::vector<std::string> &Includes,
+                  LangStandard::Kind LangStd = LangStandard::lang_unspecified);
+
   // Define accessors/mutators for language options of enumeration type.
-#define LANGOPT(Name, Bits, Default, Description)
-#define ENUM_LANGOPT(Name, Type, Bits, Default, Description) \
-  Type get##Name() const { return static_cast<Type>(Name); } \
-  void set##Name(Type Value) { Name = static_cast<unsigned>(Value); }
+#define LANGOPT(Name, Bits, Default, Compatibility, Description)
+#define ENUM_LANGOPT(Name, Type, Bits, Default, Compatibility, Description)    \
+  Type get##Name() const { return static_cast<Type>(Name); }                   \
+  void set##Name(Type Value) {                                                 \
+    assert(static_cast<unsigned>(Value) < (1u << Bits));                       \
+    Name = static_cast<unsigned>(Value);                                       \
+  }
 #include "clang/Basic/LangOptions.def"
 
-  /// Are we compiling a module interface (.cppm or module map)?
+  /// Are we compiling a module?
   bool isCompilingModule() const {
     return getCompilingModule() != CMK_None;
+  }
+
+  /// Are we compiling a module implementation?
+  bool isCompilingModuleImplementation() const {
+    return !isCompilingModule() && !ModuleName.empty();
   }
 
   /// Do we need to track the owning module for a local declaration?
@@ -329,6 +627,14 @@ public:
     return MSCompatibilityVersion >= MajorVersion * 100000U;
   }
 
+  bool isOverflowPatternExcluded(OverflowPatternExclusionKind Kind) const {
+    if (OverflowPatternExclusionMask & OverflowPatternExclusionKind::None)
+      return false;
+    if (OverflowPatternExclusionMask & OverflowPatternExclusionKind::All)
+      return true;
+    return OverflowPatternExclusionMask & Kind;
+  }
+
   /// Reset all of the options that are not considered when building a
   /// module.
   void resetNonModularOptions();
@@ -346,8 +652,44 @@ public:
     return ConvergentFunctions;
   }
 
+  /// Return true if atomicrmw operations targeting allocations in private
+  /// memory are undefined.
+  bool threadPrivateMemoryAtomicsAreUndefined() const {
+    // Should be false for OpenMP.
+    // TODO: Should this be true for SYCL?
+    return OpenCL || CUDA;
+  }
+
   /// Return the OpenCL C or C++ version as a VersionTuple.
   VersionTuple getOpenCLVersionTuple() const;
+
+  /// Return the OpenCL version that kernel language is compatible with
+  unsigned getOpenCLCompatibleVersion() const;
+
+  /// Return the OpenCL C or C++ for OpenCL language name and version
+  /// as a string.
+  std::string getOpenCLVersionString() const;
+
+  /// Returns true if functions without prototypes or functions with an
+  /// identifier list (aka K&R C functions) are not allowed.
+  bool requiresStrictPrototypes() const {
+    return CPlusPlus || C23 || DisableKNRFunctions;
+  }
+
+  /// Returns true if implicit function declarations are allowed in the current
+  /// language mode.
+  bool implicitFunctionsAllowed() const {
+    return !requiresStrictPrototypes() && !OpenCL;
+  }
+
+  /// Returns true if the language supports calling the 'atexit' function.
+  bool hasAtExit() const { return !(OpenMP && OpenMPIsTargetDevice); }
+
+  /// Returns true if implicit int is part of the language requirements.
+  bool isImplicitIntRequired() const { return !CPlusPlus && !C99; }
+
+  /// Returns true if implicit int is supported at all.
+  bool isImplicitIntAllowed() const { return !CPlusPlus && !C23; }
 
   /// Check if return address signing is enabled.
   bool hasSignReturnAddress() const {
@@ -363,170 +705,409 @@ public:
   bool isSignReturnAddressScopeAll() const {
     return getSignReturnAddressScope() == SignReturnAddressScopeKind::All;
   }
+
+  bool isSYCL() const { return SYCLIsDevice || SYCLIsHost; }
+
+  bool hasDefaultVisibilityExportMapping() const {
+    return getDefaultVisibilityExportMapping() !=
+           DefaultVisiblityExportMapping::None;
+  }
+
+  bool isExplicitDefaultVisibilityExportMapping() const {
+    return getDefaultVisibilityExportMapping() ==
+           DefaultVisiblityExportMapping::Explicit;
+  }
+
+  bool isAllDefaultVisibilityExportMapping() const {
+    return getDefaultVisibilityExportMapping() ==
+           DefaultVisiblityExportMapping::All;
+  }
+
+  bool hasGlobalAllocationFunctionVisibility() const {
+    return getGlobalAllocationFunctionVisibility() !=
+           VisibilityForcedKinds::Source;
+  }
+
+  bool hasDefaultGlobalAllocationFunctionVisibility() const {
+    return getGlobalAllocationFunctionVisibility() ==
+           VisibilityForcedKinds::ForceDefault;
+  }
+
+  bool hasProtectedGlobalAllocationFunctionVisibility() const {
+    return getGlobalAllocationFunctionVisibility() ==
+           VisibilityForcedKinds::ForceProtected;
+  }
+
+  bool hasHiddenGlobalAllocationFunctionVisibility() const {
+    return getGlobalAllocationFunctionVisibility() ==
+           VisibilityForcedKinds::ForceHidden;
+  }
+
+  bool allowArrayReturnTypes() const { return HLSL; }
+
+  /// Remap path prefix according to -fmacro-prefix-path option.
+  void remapPathPrefix(SmallVectorImpl<char> &Path) const;
+
+  RoundingMode getDefaultRoundingMode() const {
+    return RoundingMath ? RoundingMode::Dynamic
+                        : RoundingMode::NearestTiesToEven;
+  }
+
+  FPExceptionModeKind getDefaultExceptionMode() const {
+    FPExceptionModeKind EM = getFPExceptionMode();
+    if (EM == FPExceptionModeKind::FPE_Default)
+      return FPExceptionModeKind::FPE_Ignore;
+    return EM;
+  }
+
+  /// True when compiling for an offloading target device.
+  bool isTargetDevice() const {
+    return OpenMPIsTargetDevice || CUDAIsDevice || SYCLIsDevice;
+  }
+
+  /// Returns the most applicable C standard-compliant language version code.
+  /// If none could be determined, returns \ref std::nullopt.
+  std::optional<uint32_t> getCLangStd() const;
+
+  /// Returns the most applicable C++ standard-compliant language
+  /// version code.
+  /// If none could be determined, returns \ref std::nullopt.
+  std::optional<uint32_t> getCPlusPlusLangStd() const;
 };
 
 /// Floating point control options
+class FPOptionsOverride;
 class FPOptions {
+public:
+  // We start by defining the layout.
+  using storage_type = uint32_t;
+
   using RoundingMode = llvm::RoundingMode;
 
+  static constexpr unsigned StorageBitSize = 8 * sizeof(storage_type);
+
+  // Define a fake option named "First" so that we have a PREVIOUS even for the
+  // real first option.
+  static constexpr storage_type FirstShift = 0, FirstWidth = 0;
+#define FP_OPTION(NAME, TYPE, WIDTH, PREVIOUS)                                 \
+  static constexpr storage_type NAME##Shift =                                  \
+      PREVIOUS##Shift + PREVIOUS##Width;                                       \
+  static constexpr storage_type NAME##Width = WIDTH;                           \
+  static constexpr storage_type NAME##Mask = ((1 << NAME##Width) - 1)          \
+                                             << NAME##Shift;
+#include "clang/Basic/FPOptions.def"
+
+  static constexpr storage_type TotalWidth = 0
+#define FP_OPTION(NAME, TYPE, WIDTH, PREVIOUS) +WIDTH
+#include "clang/Basic/FPOptions.def"
+      ;
+  static_assert(TotalWidth <= StorageBitSize, "Too short type for FPOptions");
+
+private:
+  storage_type Value;
+
+  FPOptionsOverride getChangesSlow(const FPOptions &Base) const;
+
 public:
-  FPOptions()
-      : fp_contract(LangOptions::FPM_Off), fenv_access(LangOptions::FPM_Off),
-        rounding(LangOptions::FPR_ToNearest),
-        exceptions(LangOptions::FPE_Ignore), allow_reassoc(0), no_nans(0),
-        no_infs(0), no_signed_zeros(0), allow_reciprocal(0), approx_func(0) {}
-
-  // Used for serializing.
-  explicit FPOptions(unsigned I) { getFromOpaqueInt(I); }
-
-  explicit FPOptions(const LangOptions &LangOpts)
-      : fp_contract(LangOpts.getDefaultFPContractMode()),
-        fenv_access(LangOptions::FPM_Off),
-        rounding(static_cast<unsigned>(LangOpts.getFPRoundingMode())),
-        exceptions(LangOpts.getFPExceptionMode()),
-        allow_reassoc(LangOpts.AllowFPReassoc), no_nans(LangOpts.NoHonorNaNs),
-        no_infs(LangOpts.NoHonorInfs), no_signed_zeros(LangOpts.NoSignedZero),
-        allow_reciprocal(LangOpts.AllowRecip),
-        approx_func(LangOpts.ApproxFunc) {}
-  // FIXME: Use getDefaultFEnvAccessMode() when available.
-
-  void setFastMath(bool B = true) {
-    allow_reassoc = no_nans = no_infs = no_signed_zeros = approx_func =
-        allow_reciprocal = B;
+  FPOptions() : Value(0) {
+    setFPContractMode(LangOptions::FPM_Off);
+    setConstRoundingMode(RoundingMode::Dynamic);
+    setSpecifiedExceptionMode(LangOptions::FPE_Default);
   }
+  explicit FPOptions(const LangOptions &LO) {
+    Value = 0;
+    // The language fp contract option FPM_FastHonorPragmas has the same effect
+    // as FPM_Fast in frontend. For simplicity, use FPM_Fast uniformly in
+    // frontend.
+    auto LangOptContractMode = LO.getDefaultFPContractMode();
+    if (LangOptContractMode == LangOptions::FPM_FastHonorPragmas)
+      LangOptContractMode = LangOptions::FPM_Fast;
+    setFPContractMode(LangOptContractMode);
+    setRoundingMath(LO.RoundingMath);
+    setConstRoundingMode(LangOptions::RoundingMode::Dynamic);
+    setSpecifiedExceptionMode(LO.getFPExceptionMode());
+    setAllowFPReassociate(LO.AllowFPReassoc);
+    setNoHonorNaNs(LO.NoHonorNaNs);
+    setNoHonorInfs(LO.NoHonorInfs);
+    setNoSignedZero(LO.NoSignedZero);
+    setAllowReciprocal(LO.AllowRecip);
+    setAllowApproxFunc(LO.ApproxFunc);
+    if (getFPContractMode() == LangOptions::FPM_On &&
+        getRoundingMode() == llvm::RoundingMode::Dynamic &&
+        getExceptionMode() == LangOptions::FPE_Strict)
+      // If the FP settings are set to the "strict" model, then
+      // FENV access is set to true. (ffp-model=strict)
+      setAllowFEnvAccess(true);
+    else
+      setAllowFEnvAccess(LangOptions::FPM_Off);
+    setComplexRange(LO.getComplexRange());
+  }
+
+  bool allowFPContractWithinStatement() const {
+    return getFPContractMode() == LangOptions::FPM_On;
+  }
+  void setAllowFPContractWithinStatement() {
+    setFPContractMode(LangOptions::FPM_On);
+  }
+
+  bool allowFPContractAcrossStatement() const {
+    return getFPContractMode() == LangOptions::FPM_Fast;
+  }
+  void setAllowFPContractAcrossStatement() {
+    setFPContractMode(LangOptions::FPM_Fast);
+  }
+
+  bool isFPConstrained() const {
+    return getRoundingMode() != llvm::RoundingMode::NearestTiesToEven ||
+           getExceptionMode() != LangOptions::FPE_Ignore ||
+           getAllowFEnvAccess();
+  }
+
+  RoundingMode getRoundingMode() const {
+    RoundingMode RM = getConstRoundingMode();
+    if (RM == RoundingMode::Dynamic) {
+      // C23: 7.6.2p3  If the FE_DYNAMIC mode is specified and FENV_ACCESS is
+      // "off", the translator may assume that the default rounding mode is in
+      // effect.
+      if (!getAllowFEnvAccess() && !getRoundingMath())
+        RM = RoundingMode::NearestTiesToEven;
+    }
+    return RM;
+  }
+
+  LangOptions::FPExceptionModeKind getExceptionMode() const {
+    LangOptions::FPExceptionModeKind EM = getSpecifiedExceptionMode();
+    if (EM == LangOptions::FPExceptionModeKind::FPE_Default) {
+      if (getAllowFEnvAccess())
+        return LangOptions::FPExceptionModeKind::FPE_Strict;
+      else
+        return LangOptions::FPExceptionModeKind::FPE_Ignore;
+    }
+    return EM;
+  }
+
+  bool operator==(FPOptions other) const { return Value == other.Value; }
 
   /// Return the default value of FPOptions that's used when trailing
   /// storage isn't required.
   static FPOptions defaultWithoutTrailingStorage(const LangOptions &LO);
 
-  /// Does this FPOptions require trailing storage when stored in various
-  /// AST nodes, or can it be recreated using `defaultWithoutTrailingStorage`?
-  bool requiresTrailingStorage(const LangOptions &LO);
-
-  bool allowFPContractWithinStatement() const {
-    return fp_contract == LangOptions::FPM_On;
+  storage_type getAsOpaqueInt() const { return Value; }
+  static FPOptions getFromOpaqueInt(storage_type Value) {
+    FPOptions Opts;
+    Opts.Value = Value;
+    return Opts;
   }
 
-  bool allowFPContractAcrossStatement() const {
-    return fp_contract == LangOptions::FPM_Fast;
+  /// Return difference with the given option set.
+  FPOptionsOverride getChangesFrom(const FPOptions &Base) const;
+
+  void applyChanges(FPOptionsOverride FPO);
+
+  // We can define most of the accessors automatically:
+  // TODO: consider enforcing the assertion that value fits within bits
+  // statically.
+#define FP_OPTION(NAME, TYPE, WIDTH, PREVIOUS)                                 \
+  TYPE get##NAME() const {                                                     \
+    return static_cast<TYPE>((Value & NAME##Mask) >> NAME##Shift);             \
+  }                                                                            \
+  void set##NAME(TYPE value) {                                                 \
+    assert(storage_type(value) < (1u << WIDTH));                               \
+    Value = (Value & ~NAME##Mask) | (storage_type(value) << NAME##Shift);      \
   }
+#include "clang/Basic/FPOptions.def"
+  LLVM_DUMP_METHOD void dump();
+};
+
+/// Represents difference between two FPOptions values.
+///
+/// The effect of language constructs changing the set of floating point options
+/// is usually a change of some FP properties while leaving others intact. This
+/// class describes such changes by keeping information about what FP options
+/// are overridden.
+///
+/// The integral set of FP options, described by the class FPOptions, may be
+/// represented as a default FP option set, defined by language standard and
+/// command line options, with the overrides introduced by pragmas.
+///
+/// The is implemented as a value of the new FPOptions plus a mask showing which
+/// fields are actually set in it.
+class FPOptionsOverride {
+  FPOptions Options = FPOptions::getFromOpaqueInt(0);
+  FPOptions::storage_type OverrideMask = 0;
+
+public:
+  using RoundingMode = llvm::RoundingMode;
+
+  /// The type suitable for storing values of FPOptionsOverride. Must be twice
+  /// as wide as bit size of FPOption.
+  using storage_type = uint64_t;
+  static_assert(sizeof(storage_type) >= 2 * sizeof(FPOptions::storage_type),
+                "Too short type for FPOptionsOverride");
+
+  /// Bit mask selecting bits of OverrideMask in serialized representation of
+  /// FPOptionsOverride.
+  static constexpr storage_type OverrideMaskBits =
+      (static_cast<storage_type>(1) << FPOptions::StorageBitSize) - 1;
+
+  FPOptionsOverride() {}
+  FPOptionsOverride(const LangOptions &LO)
+      : Options(LO), OverrideMask(OverrideMaskBits) {}
+  FPOptionsOverride(FPOptions FPO)
+      : Options(FPO), OverrideMask(OverrideMaskBits) {}
+  FPOptionsOverride(FPOptions FPO, FPOptions::storage_type Mask)
+      : Options(FPO), OverrideMask(Mask) {}
+
+  bool requiresTrailingStorage() const { return OverrideMask != 0; }
 
   void setAllowFPContractWithinStatement() {
-    fp_contract = LangOptions::FPM_On;
+    setFPContractModeOverride(LangOptions::FPM_On);
   }
 
   void setAllowFPContractAcrossStatement() {
-    fp_contract = LangOptions::FPM_Fast;
+    setFPContractModeOverride(LangOptions::FPM_Fast);
   }
 
-  void setDisallowFPContract() { fp_contract = LangOptions::FPM_Off; }
-
-  bool allowFEnvAccess() const { return fenv_access == LangOptions::FPM_On; }
-
-  void setAllowFEnvAccess() { fenv_access = LangOptions::FPM_On; }
+  void setDisallowFPContract() {
+    setFPContractModeOverride(LangOptions::FPM_Off);
+  }
 
   void setFPPreciseEnabled(bool Value) {
-    if (Value) {
+    setAllowFPReassociateOverride(!Value);
+    setNoHonorNaNsOverride(!Value);
+    setNoHonorInfsOverride(!Value);
+    setNoSignedZeroOverride(!Value);
+    setAllowReciprocalOverride(!Value);
+    setAllowApproxFuncOverride(!Value);
+    setMathErrnoOverride(Value);
+    if (Value)
       /* Precise mode implies fp_contract=on and disables ffast-math */
-      setFastMath(false);
       setAllowFPContractWithinStatement();
-    } else {
-      /* Precise mode implies fp_contract=fast and enables ffast-math */
-      setFastMath(true);
+    else
+      /* Precise mode disabled sets fp_contract=fast and enables ffast-math */
       setAllowFPContractAcrossStatement();
+  }
+
+  void setDisallowOptimizations() { setFPPreciseEnabled(true); }
+
+  storage_type getAsOpaqueInt() const {
+    return (static_cast<storage_type>(Options.getAsOpaqueInt())
+            << FPOptions::StorageBitSize) |
+           OverrideMask;
+  }
+  static FPOptionsOverride getFromOpaqueInt(storage_type I) {
+    FPOptionsOverride Opts;
+    Opts.OverrideMask = I & OverrideMaskBits;
+    Opts.Options = FPOptions::getFromOpaqueInt(I >> FPOptions::StorageBitSize);
+    return Opts;
+  }
+
+  FPOptions applyOverrides(FPOptions Base) {
+    FPOptions Result =
+        FPOptions::getFromOpaqueInt((Base.getAsOpaqueInt() & ~OverrideMask) |
+                                     (Options.getAsOpaqueInt() & OverrideMask));
+    return Result;
+  }
+
+  FPOptions applyOverrides(const LangOptions &LO) {
+    return applyOverrides(FPOptions(LO));
+  }
+
+  bool operator==(FPOptionsOverride other) const {
+    return Options == other.Options && OverrideMask == other.OverrideMask;
+  }
+  bool operator!=(FPOptionsOverride other) const { return !(*this == other); }
+
+#define FP_OPTION(NAME, TYPE, WIDTH, PREVIOUS)                                 \
+  bool has##NAME##Override() const {                                           \
+    return OverrideMask & FPOptions::NAME##Mask;                               \
+  }                                                                            \
+  TYPE get##NAME##Override() const {                                           \
+    assert(has##NAME##Override());                                             \
+    return Options.get##NAME();                                                \
+  }                                                                            \
+  void clear##NAME##Override() {                                               \
+    /* Clear the actual value so that we don't have spurious differences when  \
+     * testing equality. */                                                    \
+    Options.set##NAME(TYPE(0));                                                \
+    OverrideMask &= ~FPOptions::NAME##Mask;                                    \
+  }                                                                            \
+  void set##NAME##Override(TYPE value) {                                       \
+    Options.set##NAME(value);                                                  \
+    OverrideMask |= FPOptions::NAME##Mask;                                     \
+  }
+#include "clang/Basic/FPOptions.def"
+  LLVM_DUMP_METHOD void dump();
+};
+
+inline FPOptionsOverride FPOptions::getChangesFrom(const FPOptions &Base) const {
+  if (Value == Base.Value)
+    return FPOptionsOverride();
+  return getChangesSlow(Base);
+}
+
+inline void FPOptions::applyChanges(FPOptionsOverride FPO) {
+  *this = FPO.applyOverrides(*this);
+}
+
+// The three atomic code-generation options.
+// The canonical (positive) names are:
+//   "remote_memory", "fine_grained_memory", and "ignore_denormal_mode".
+// In attribute or command-line parsing, a token prefixed with "no_" inverts its
+// value.
+enum class AtomicOptionKind {
+  RemoteMemory,       // enable remote memory.
+  FineGrainedMemory,  // enable fine-grained memory.
+  IgnoreDenormalMode, // ignore floating-point denormals.
+  LANGOPT_ATOMIC_OPTION_LAST = IgnoreDenormalMode,
+};
+
+struct AtomicOptions {
+  // Bitfields for each option.
+  unsigned remote_memory : 1;
+  unsigned fine_grained_memory : 1;
+  unsigned ignore_denormal_mode : 1;
+
+  AtomicOptions()
+      : remote_memory(0), fine_grained_memory(0), ignore_denormal_mode(0) {}
+
+  AtomicOptions(const LangOptions &LO)
+      : remote_memory(LO.AtomicRemoteMemory),
+        fine_grained_memory(LO.AtomicFineGrainedMemory),
+        ignore_denormal_mode(LO.AtomicIgnoreDenormalMode) {}
+
+  bool getOption(AtomicOptionKind Kind) const {
+    switch (Kind) {
+    case AtomicOptionKind::RemoteMemory:
+      return remote_memory;
+    case AtomicOptionKind::FineGrainedMemory:
+      return fine_grained_memory;
+    case AtomicOptionKind::IgnoreDenormalMode:
+      return ignore_denormal_mode;
     }
+    llvm_unreachable("Invalid AtomicOptionKind");
   }
 
-  void setDisallowFEnvAccess() { fenv_access = LangOptions::FPM_Off; }
-
-  RoundingMode getRoundingMode() const {
-    return static_cast<RoundingMode>(rounding);
+  void setOption(AtomicOptionKind Kind, bool Value) {
+    switch (Kind) {
+    case AtomicOptionKind::RemoteMemory:
+      remote_memory = Value;
+      return;
+    case AtomicOptionKind::FineGrainedMemory:
+      fine_grained_memory = Value;
+      return;
+    case AtomicOptionKind::IgnoreDenormalMode:
+      ignore_denormal_mode = Value;
+      return;
+    }
+    llvm_unreachable("Invalid AtomicOptionKind");
   }
 
-  void setRoundingMode(RoundingMode RM) {
-    rounding = static_cast<unsigned>(RM);
+  LLVM_DUMP_METHOD void dump() const {
+    llvm::errs() << "\n remote_memory: " << remote_memory
+                 << "\n fine_grained_memory: " << fine_grained_memory
+                 << "\n ignore_denormal_mode: " << ignore_denormal_mode << "\n";
   }
-
-  LangOptions::FPExceptionModeKind getExceptionMode() const {
-    return static_cast<LangOptions::FPExceptionModeKind>(exceptions);
-  }
-
-  void setExceptionMode(LangOptions::FPExceptionModeKind EM) {
-    exceptions = EM;
-  }
-
-  /// FMF Flag queries
-  bool allowAssociativeMath() const { return allow_reassoc; }
-  bool noHonorNaNs() const { return no_nans; }
-  bool noHonorInfs() const { return no_infs; }
-  bool noSignedZeros() const { return no_signed_zeros; }
-  bool allowReciprocalMath() const { return allow_reciprocal; }
-  bool allowApproximateFunctions() const { return approx_func; }
-
-  /// Flag setters
-  void setAllowAssociativeMath(bool B = true) { allow_reassoc = B; }
-  void setNoHonorNaNs(bool B = true) { no_nans = B; }
-  void setNoHonorInfs(bool B = true) { no_infs = B; }
-  void setNoSignedZeros(bool B = true) { no_signed_zeros = B; }
-  void setAllowReciprocalMath(bool B = true) { allow_reciprocal = B; }
-  void setAllowApproximateFunctions(bool B = true) { approx_func = B; }
-
-  bool isFPConstrained() const {
-    return getRoundingMode() != RoundingMode::NearestTiesToEven ||
-           getExceptionMode() != LangOptions::FPE_Ignore ||
-           allowFEnvAccess();
-  }
-
-  /// Used to serialize this.
-  unsigned getAsOpaqueInt() const {
-    return fp_contract | (fenv_access << 2) | (rounding << 3) |
-           (exceptions << 6) | (allow_reassoc << 8) | (no_nans << 9) |
-           (no_infs << 10) | (no_signed_zeros << 11) |
-           (allow_reciprocal << 12) | (approx_func << 13);
-  }
-
-  /// Used with getAsOpaqueInt() to manage the float_control pragma stack.
-  void getFromOpaqueInt(unsigned I) {
-    fp_contract = (static_cast<LangOptions::FPModeKind>(I & 3));
-    fenv_access = ((I >> 2) & 1);
-    rounding = static_cast<unsigned>(static_cast<RoundingMode>((I >> 3) & 7));
-    exceptions = (static_cast<LangOptions::FPExceptionModeKind>((I >> 6) & 3));
-    allow_reassoc = ((I >> 8) & 1);
-    no_nans = ((I >> 9) & 1);
-    no_infs = ((I >> 10) & 1);
-    no_signed_zeros = ((I >> 11) & 1);
-    allow_reciprocal = ((I >> 12) & 1);
-    approx_func = ((I >> 13) & 1);
-  }
-
-private:
-  /// Adjust BinaryOperatorBitfields::FPFeatures and
-  /// CXXOperatorCallExprBitfields::FPFeatures to match the total bit-field size
-  /// of these fields.
-  unsigned fp_contract : 2;
-  unsigned fenv_access : 1;
-  unsigned rounding : 3;
-  unsigned exceptions : 2;
-  /// Allow reassociation transformations for floating-point instructions
-  /// across multiple statements.
-  unsigned allow_reassoc : 1;
-  /// No NaNs - Allow optimizations to assume the arguments and result
-  /// are not NaN. If an argument is a nan, or the result would be a nan,
-  /// it produces a :ref:`poison value <poisonvalues>` instead.
-  unsigned no_nans : 1;
-  /// No Infs - Allow optimizations to assume the arguments and result
-  /// are not +/-Inf. If an argument is +/-Inf, or the result would be +/-Inf,
-  /// it produces a :ref:`poison value <poisonvalues>` instead.
-  unsigned no_infs : 1;
-  /// No Signed Zeros - Allow optimizations to treat the sign of a zero
-  /// argument or result as insignificant.
-  unsigned no_signed_zeros : 1;
-  /// Allow Reciprocal - Allow optimizations to use the reciprocal
-  /// of an argument rather than perform division.
-  unsigned allow_reciprocal : 1;
-  /// Approximate functions - Allow substitution of approximate calculations
-  /// for functions (sin, log, sqrt, etc).
-  unsigned approx_func : 1;
 };
 
 /// Describes the kind of translation unit being processed.
@@ -538,8 +1119,12 @@ enum TranslationUnitKind {
   /// not complete.
   TU_Prefix,
 
-  /// The translation unit is a module.
-  TU_Module
+  /// The translation unit is a clang module.
+  TU_ClangModule,
+
+  /// The translation unit is a is a complete translation unit that we might
+  /// incrementally extend later.
+  TU_Incremental
 };
 
 } // namespace clang

@@ -2,10 +2,20 @@ include(CMakePushCheckState)
 include(CheckCCompilerFlag)
 include(CheckCXXCompilerFlag)
 include(CheckLibraryExists)
+include(LLVMCheckCompilerLinkerFlag)
 include(CheckSymbolExists)
 include(CheckCSourceCompiles)
 
-check_library_exists(c fopen "" LIBUNWIND_HAS_C_LIB)
+# The compiler driver may be implicitly trying to link against libunwind, which
+# might not work if libunwind doesn't exist yet. Try to check if
+# --unwindlib=none is supported, and use that if possible.
+llvm_check_compiler_linker_flag(C "--unwindlib=none" CXX_SUPPORTS_UNWINDLIB_EQ_NONE_FLAG)
+
+if (HAIKU)
+  check_library_exists(root fopen "" LIBUNWIND_HAS_ROOT_LIB)
+else()
+  check_library_exists(c fopen "" LIBUNWIND_HAS_C_LIB)
+endif()
 
 if (NOT LIBUNWIND_USE_COMPILER_RT)
   if (ANDROID)
@@ -16,48 +26,12 @@ if (NOT LIBUNWIND_USE_COMPILER_RT)
   endif ()
 endif()
 
-# libunwind is built with -nodefaultlibs, so we want all our checks to also
-# use this option, otherwise we may end up with an inconsistency between
-# the flags we think we require during configuration (if the checks are
-# performed without -nodefaultlibs) and the flags that are actually
-# required during compilation (which has the -nodefaultlibs). libc is
-# required for the link to go through. We remove sanitizers from the
-# configuration checks to avoid spurious link errors.
-check_c_compiler_flag(-nodefaultlibs LIBUNWIND_HAS_NODEFAULTLIBS_FLAG)
-if (LIBUNWIND_HAS_NODEFAULTLIBS_FLAG)
-  set(CMAKE_REQUIRED_FLAGS "${CMAKE_REQUIRED_FLAGS} -nodefaultlibs")
-  if (LIBUNWIND_HAS_C_LIB)
-    list(APPEND CMAKE_REQUIRED_LIBRARIES c)
-  endif ()
-  if (LIBUNWIND_USE_COMPILER_RT)
-    find_compiler_rt_library(builtins LIBUNWIND_BUILTINS_LIBRARY)
-    list(APPEND CMAKE_REQUIRED_LIBRARIES "${LIBUNWIND_BUILTINS_LIBRARY}")
-  else ()
-    if (LIBUNWIND_HAS_GCC_S_LIB)
-      list(APPEND CMAKE_REQUIRED_LIBRARIES gcc_s)
-    endif ()
-    if (LIBUNWIND_HAS_GCC_LIB)
-      list(APPEND CMAKE_REQUIRED_LIBRARIES gcc)
-    endif ()
-  endif ()
-  if (MINGW)
-    # Mingw64 requires quite a few "C" runtime libraries in order for basic
-    # programs to link successfully with -nodefaultlibs.
-    if (LIBUNWIND_USE_COMPILER_RT)
-      set(MINGW_RUNTIME ${LIBUNWIND_BUILTINS_LIBRARY})
-    else ()
-      set(MINGW_RUNTIME gcc_s gcc)
-    endif()
-    set(MINGW_LIBRARIES mingw32 ${MINGW_RUNTIME} moldname mingwex msvcrt advapi32
-                        shell32 user32 kernel32 mingw32 ${MINGW_RUNTIME}
-                        moldname mingwex msvcrt)
-    list(APPEND CMAKE_REQUIRED_LIBRARIES ${MINGW_LIBRARIES})
-  endif()
+if (CXX_SUPPORTS_NOSTDLIBXX_FLAG OR C_SUPPORTS_NODEFAULTLIBS_FLAG)
   if (CMAKE_C_FLAGS MATCHES -fsanitize OR CMAKE_CXX_FLAGS MATCHES -fsanitize)
     set(CMAKE_REQUIRED_FLAGS "${CMAKE_REQUIRED_FLAGS} -fno-sanitize=all")
   endif ()
   if (CMAKE_C_FLAGS MATCHES -fsanitize-coverage OR CMAKE_CXX_FLAGS MATCHES -fsanitize-coverage)
-    set(CMAKE_REQUIRED_FLAGS "${CMAKE_REQUIRED_FLAGS} -fno-sanitize-coverage=edge,trace-cmp,indirect-calls,8bit-counters")
+    set(CMAKE_REQUIRED_FLAGS "${CMAKE_REQUIRED_FLAGS} -fsanitize-coverage=0")
   endif ()
 endif ()
 
@@ -67,13 +41,13 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   set(CMAKE_REQUIRED_FLAGS "${CMAKE_REQUIRED_FLAGS} -Werror=unknown-pragmas")
   check_c_source_compiles("
 #pragma comment(lib, \"c\")
-int main() { return 0; }
-" LIBUNWIND_HAS_COMMENT_LIB_PRAGMA)
+int main(void) { return 0; }
+" C_SUPPORTS_COMMENT_LIB_PRAGMA)
   cmake_pop_check_state()
 endif()
 
 # Check compiler flags
-check_cxx_compiler_flag(-nostdinc++ LIBUNWIND_HAS_NOSTDINCXX_FLAG)
+check_cxx_compiler_flag(-nostdinc++ CXX_SUPPORTS_NOSTDINCXX_FLAG)
 
 # Check symbols
 check_symbol_exists(__arm__ "" LIBUNWIND_TARGET_ARM)
@@ -92,4 +66,8 @@ if(FUCHSIA)
 else()
   check_library_exists(dl dladdr "" LIBUNWIND_HAS_DL_LIB)
   check_library_exists(pthread pthread_once "" LIBUNWIND_HAS_PTHREAD_LIB)
+endif()
+
+if(HAIKU)
+  check_library_exists(bsd dl_iterate_phdr "" LIBUNWIND_HAS_BSD_LIB)
 endif()

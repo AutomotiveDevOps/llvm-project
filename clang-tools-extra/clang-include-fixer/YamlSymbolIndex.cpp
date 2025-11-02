@@ -15,7 +15,6 @@
 #include <string>
 #include <vector>
 
-using clang::find_all_symbols::SymbolInfo;
 using clang::find_all_symbols::SymbolAndSignals;
 
 namespace clang {
@@ -23,7 +22,7 @@ namespace include_fixer {
 
 llvm::ErrorOr<std::unique_ptr<YamlSymbolIndex>>
 YamlSymbolIndex::createFromFile(llvm::StringRef FilePath) {
-  auto Buffer = llvm::MemoryBuffer::getFile(FilePath);
+  auto Buffer = llvm::MemoryBuffer::getFile(FilePath, /*IsText=*/true);
   if (!Buffer)
     return Buffer.getError();
 

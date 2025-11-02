@@ -1,4 +1,4 @@
-! RUN: %S/test_errors.sh %s %t %f18
+! RUN: %python %S/test_errors.py %s %flang_fc1 -pedantic
 module m
   integer :: foo
   !Note: PGI, Intel, and GNU allow this; NAG and Sun do not
@@ -11,7 +11,7 @@ module m2
   interface s
   end interface
 contains
-  !ERROR: 's' may not be the name of both a generic interface and a procedure unless it is a specific procedure of the generic
+  !WARNING: 's' should not be the name of both a generic interface and a procedure unless it is a specific procedure of the generic [-Whomonymous-specific]
   subroutine s
   end subroutine
 end module
@@ -165,43 +165,175 @@ end
 
 module m9a
   interface g
-    module procedure s1
     module procedure g
   end interface
 contains
   subroutine g()
   end
-  subroutine s1(x)
-    integer :: x
-  end
 end module
 module m9b
-  use m9a
-  interface g
-    module procedure s2
-  end interface
-contains
-  subroutine s2(x)
-    real :: x
-  end
-end module
-module m9c
   interface g
     module procedure g
   end interface
 contains
-  subroutine g(x)
-    real :: x
+  subroutine g()
   end
 end module
-! Merge use-associated generics that have the same symbol (s1)
 subroutine s9
+  !PORTABILITY: USE-associated generic 'g' should not have specific procedures 'g' and 'g' as their interfaces are not distinguishable
   use m9a
   use m9b
 end
-! Merge use-associate generics each with specific of same name
-subroutine s9c
-  use m9a
-  !ERROR: Generic interface 'g' has ambiguous specific procedures from modules 'm9a' and 'm9c'
-  use m9c
+
+module m10a
+  interface g
+    module procedure s
+  end interface
+  private :: s
+contains
+  subroutine s(x)
+    integer :: x
+  end
 end
+module m10b
+  use m10a
+  !ERROR: Generic 'g' may not have specific procedures 's' and 's' as their interfaces are not distinguishable
+  interface g
+    module procedure s
+  end interface
+  private :: s
+contains
+  subroutine s(x)
+    integer :: x
+  end
+end
+
+module m12a
+  interface ga
+    module procedure sa
+  end interface
+contains
+  subroutine sa(i)
+  end
+end
+module m12b
+  use m12a
+  interface gb
+    module procedure sb
+  end interface
+contains
+  subroutine sb(x)
+  end
+end
+module m12c
+  use m12b, only: gc => gb
+end
+module m12d
+  use m12a, only: g => ga
+  use m12c, only: g => gc
+  interface g
+  end interface
+end module
+
+module m13a
+ contains
+  subroutine subr
+  end subroutine
+end module
+module m13b
+  use m13a
+  interface subr
+    module procedure subr
+  end interface
+end module
+module m13c
+  use m13a
+  use m13b
+ contains
+  subroutine test
+    call subr
+  end subroutine
+end module
+module m13d
+  use m13b
+  use m13a
+ contains
+  subroutine test
+    call subr
+  end subroutine
+end module
+
+module m14a
+  type :: foo
+    integer :: n
+  end type
+end module
+module m14b
+  interface foo
+    module procedure bar
+  end interface
+ contains
+  real function bar(x)
+    real, intent(in) :: x
+    bar = x
+  end function
+end module
+module m14c
+  use m14a
+  use m14b
+  type(foo) :: x
+end module
+module m14d
+  use m14a
+  use m14b
+  type(foo) :: x
+ contains
+  subroutine test
+    real :: y
+    !PORTABILITY: Reference to generic function 'foo' (resolving to specific 'bar') is ambiguous with a structure constructor of the same name [-Wambiguous-structure-constructor]
+    y = foo(1.0)
+    x = foo(2)
+  end subroutine
+end module
+module m14e
+  use m14b
+  use m14a
+  type(foo) :: x
+ contains
+  subroutine test
+    real :: y
+    !PORTABILITY: Reference to generic function 'foo' (resolving to specific 'bar') is ambiguous with a structure constructor of the same name [-Wambiguous-structure-constructor]
+    y = foo(1.0)
+    x = foo(2)
+  end subroutine
+end module
+
+module m15a
+  interface foo
+    module procedure bar
+  end interface
+ contains
+  subroutine bar
+  end subroutine
+end module
+module m15b
+  !ERROR: Cannot use-associate 'foo'; it is already declared in this scope
+  use m15a
+ contains
+  subroutine foo
+  end subroutine
+end module
+module m15c
+ contains
+  subroutine foo
+  end subroutine
+end module
+module m15d
+  use m15a
+  use m15c
+ contains
+  subroutine test
+    !ERROR: Reference to 'foo' is ambiguous
+    call foo
+  end subroutine
+end module

@@ -1,4 +1,13 @@
-// RUN: %clang_cc1 -Wno-unused -fblocks -ast-dump -ast-dump-filter Test %s | FileCheck -strict-whitespace %s
+// Test without serialization:
+// RUN: %clang_cc1 -Wno-unused -fblocks -ast-dump -ast-dump-filter Test %s \
+// RUN: | FileCheck --strict-whitespace %s
+//
+// Test with serialization:
+// RUN: %clang_cc1 -Wno-unused -fblocks -emit-pch -o %t %s
+// RUN: %clang_cc1 -x objective-c -Wno-unused -fblocks -include-pch %t \
+// RUN: -ast-dump-all -ast-dump-filter Test /dev/null \
+// RUN: | sed -e "s/ <undeserialized declarations>//" -e "s/ imported//" \
+// RUN: | FileCheck --strict-whitespace %s
 
 @protocol P
 @end
@@ -85,7 +94,7 @@
 // CHECK:      ObjCInterfaceDecl{{.*}} TestGenericInterface
 // CHECK-NEXT:   -super ObjCInterface {{.+}} 'A'
 // CHECK-NEXT:   -ObjCProtocol {{.+}} 'P'
-// CHECK-NEXT:   -ObjCTypeParamDecl {{.+}} <col:33> col:33 T 'id':'id'
+// CHECK-NEXT:   -ObjCTypeParamDecl {{.+}} <col:33> col:33 T 'id'
 
 @implementation TestObjCClass (TestObjCCategoryDecl)
 - (void) bar {
@@ -133,18 +142,23 @@
 
 void TestBlockDecl(int x) {
   ^(int y, ...){ x; };
+  int z;
 }
 // CHECK:      FunctionDecl{{.*}}TestBlockDecl
 // CHECK:      BlockDecl {{.+}} <col:3, col:21> col:3 variadic
 // CHECK-NEXT:   ParmVarDecl{{.*}} y 'int'
 // CHECK-NEXT:   capture ParmVar{{.*}} 'x' 'int'
 // CHECK-NEXT:   CompoundStmt
+// CHECK-NEXT:     ImplicitCastExpr
+// CHECK-NEXT:       DeclRefExpr{{.*}} 'x'
+// CHECK-NEXT: DeclStmt
+// CHECK-NEXT:   VarDecl{{.*}} z
 
 @interface B
 + (int) foo;
 @end
 
-void f() {
+void f(void) {
   __typeof__(B.foo) Test;
 }
 // CHECK: VarDecl{{.*}}Test 'typeof (B.foo)':'int'

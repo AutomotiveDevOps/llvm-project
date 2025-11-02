@@ -25,10 +25,12 @@
 #include "llvm/ObjectYAML/YAML.h"
 #include "llvm/Support/Allocator.h"
 #include "llvm/Support/Error.h"
+#include "llvm/Support/ScopedPrinter.h"
 #include "llvm/Support/YAMLTraits.h"
 #include <algorithm>
 #include <cstdint>
 #include <cstring>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -59,6 +61,7 @@ LLVM_YAML_DECLARE_ENUM_TRAITS(CPUType)
 LLVM_YAML_DECLARE_ENUM_TRAITS(RegisterId)
 LLVM_YAML_DECLARE_ENUM_TRAITS(TrampolineType)
 LLVM_YAML_DECLARE_ENUM_TRAITS(ThunkOrdinal)
+LLVM_YAML_DECLARE_ENUM_TRAITS(JumpTableEntrySize)
 
 LLVM_YAML_STRONG_TYPEDEF(StringRef, TypeName)
 
@@ -147,7 +150,32 @@ void ScalarEnumerationTraits<CPUType>::enumeration(IO &io, CPUType &Cpu) {
 }
 
 void ScalarEnumerationTraits<RegisterId>::enumeration(IO &io, RegisterId &Reg) {
-  auto RegNames = getRegisterNames(CPUType::X64);
+  const auto *Header = static_cast<COFF::header *>(io.getContext());
+  assert(Header && "The IO context is not initialized");
+
+  std::optional<CPUType> CpuType;
+  ArrayRef<EnumEntry<uint16_t>> RegNames;
+
+  switch (Header->Machine) {
+  case COFF::IMAGE_FILE_MACHINE_I386:
+    CpuType = CPUType::Pentium3;
+    break;
+  case COFF::IMAGE_FILE_MACHINE_AMD64:
+    CpuType = CPUType::X64;
+    break;
+  case COFF::IMAGE_FILE_MACHINE_ARMNT:
+    CpuType = CPUType::ARMNT;
+    break;
+  case COFF::IMAGE_FILE_MACHINE_ARM64:
+  case COFF::IMAGE_FILE_MACHINE_ARM64EC:
+  case COFF::IMAGE_FILE_MACHINE_ARM64X:
+    CpuType = CPUType::ARM64;
+    break;
+  }
+
+  if (CpuType)
+    RegNames = getRegisterNames(*CpuType);
+
   for (const auto &E : RegNames) {
     io.enumCase(Reg, E.Name.str().c_str(), static_cast<RegisterId>(E.Value));
   }
@@ -177,6 +205,15 @@ void ScalarEnumerationTraits<FrameCookieKind>::enumeration(
   for (const auto &E : ThunkNames) {
     io.enumCase(FC, E.Name.str().c_str(),
                 static_cast<FrameCookieKind>(E.Value));
+  }
+}
+
+void ScalarEnumerationTraits<JumpTableEntrySize>::enumeration(
+    IO &io, JumpTableEntrySize &FC) {
+  auto ThunkNames = getJumpTableEntrySizeNames();
+  for (const auto &E : ThunkNames) {
+    io.enumCase(FC, E.Name.str().c_str(),
+                static_cast<JumpTableEntrySize>(E.Value));
   }
 }
 
@@ -271,7 +308,6 @@ void UnknownSymbolRecord::map(yaml::IO &io) {
     std::string Str;
     raw_string_ostream OS(Str);
     Binary.writeAsBinary(OS);
-    OS.flush();
     Data.assign(Str.begin(), Str.end());
   }
 }
@@ -430,7 +466,6 @@ template <> void SymbolRecordImpl<LabelSym>::map(IO &IO) {
   IO.mapOptional("Offset", Symbol.CodeOffset, 0U);
   IO.mapOptional("Segment", Symbol.Segment, uint16_t(0));
   IO.mapRequired("Flags", Symbol.Flags);
-  IO.mapRequired("Flags", Symbol.Flags);
   IO.mapRequired("DisplayName", Symbol.Name);
 }
 
@@ -557,6 +592,22 @@ template <> void SymbolRecordImpl<AnnotationSym>::map(IO &IO) {
   IO.mapOptional("Offset", Symbol.CodeOffset, 0U);
   IO.mapOptional("Segment", Symbol.Segment, uint16_t(0));
   IO.mapRequired("Strings", Symbol.Strings);
+}
+
+template <> void SymbolRecordImpl<JumpTableSym>::map(IO &IO) {
+  IO.mapRequired("BaseOffset", Symbol.BaseOffset);
+  IO.mapRequired("BaseSegment", Symbol.BaseSegment);
+  IO.mapRequired("SwitchType", Symbol.SwitchType);
+  IO.mapRequired("BranchOffset", Symbol.BranchOffset);
+  IO.mapRequired("TableOffset", Symbol.TableOffset);
+  IO.mapRequired("BranchSegment", Symbol.BranchSegment);
+  IO.mapRequired("TableSegment", Symbol.TableSegment);
+  IO.mapRequired("EntriesCount", Symbol.EntriesCount);
+}
+
+template <> void SymbolRecordImpl<HotPatchFuncSym>::map(IO &IO) {
+  IO.mapRequired("Function", Symbol.Function);
+  IO.mapRequired("Name", Symbol.Name);
 }
 
 } // end namespace detail

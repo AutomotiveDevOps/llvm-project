@@ -114,10 +114,12 @@ int main() {
 // CHECK-NEXT: |       | |-CallExpr [[ADDR_47:0x[a-z0-9]*]] <col:10, col:17> 'int'
 // CHECK-NEXT: |       | | `-ImplicitCastExpr [[ADDR_48:0x[a-z0-9]*]] <col:10, col:13> 'int (*)({{.*}})' <FunctionToPointerDecay>
 // CHECK-NEXT: |       | |   `-DeclRefExpr [[ADDR_49:0x[a-z0-9]*]] <col:10, col:13> 'int ({{.*}})' {{.*}}Function [[ADDR_1]] 'foo' 'int ({{.*}})'
+// CHECK-NEXT: |       | |   `-NestedNameSpecifier Namespace [[ADDR_0]] 'A'
 // CHECK-NEXT: |       | `-PseudoObjectExpr [[ADDR_50:0x[a-z0-9]*]] <col:21, col:28> 'int'
 // CHECK-NEXT: |       |   |-CallExpr [[ADDR_51:0x[a-z0-9]*]] <col:21, col:28> 'int'
 // CHECK-NEXT: |       |   | `-ImplicitCastExpr [[ADDR_52:0x[a-z0-9]*]] <col:21, col:24> 'int (*)({{.*}})' <FunctionToPointerDecay>
 // CHECK-NEXT: |       |   |   `-DeclRefExpr [[ADDR_53:0x[a-z0-9]*]] <col:21, col:24> 'int ({{.*}})' {{.*}}Function [[ADDR_6]] 'bar' 'int ({{.*}})'
+// CHECK-NEXT: |       |   |   `-NestedNameSpecifier Namespace [[ADDR_31]] 'B'
 // CHECK-NEXT: |       |   `-CallExpr [[ADDR_54:0x[a-z0-9]*]] <line:34:1, line:50:28> 'int'
 // CHECK-NEXT: |       |     `-ImplicitCastExpr [[ADDR_55:0x[a-z0-9]*]] <line:34:1> 'int (*)({{.*}})' <FunctionToPointerDecay>
 // CHECK-NEXT: |       |       `-DeclRefExpr [[ADDR_11]] <col:1> 'int ({{.*}})' Function [[ADDR_12]] 'bar[implementation={vendor(llvm)}]' 'int ({{.*}})'
@@ -125,6 +127,7 @@ int main() {
 // CHECK-NEXT: |         |-CallExpr [[ADDR_57:0x[a-z0-9]*]] <col:32, col:39> 'int'
 // CHECK-NEXT: |         | `-ImplicitCastExpr [[ADDR_58:0x[a-z0-9]*]] <col:32, col:35> 'int (*)({{.*}})' <FunctionToPointerDecay>
 // CHECK-NEXT: |         |   `-DeclRefExpr [[ADDR_59:0x[a-z0-9]*]] <col:32, col:35> 'int ({{.*}})' {{.*}}Function [[ADDR_14]] 'baz' 'int ({{.*}})'
+// CHECK-NEXT: |         |   `-NestedNameSpecifier Namespace [[ADDR_13]] 'C'
 // CHECK-NEXT: |         `-CallExpr [[ADDR_60:0x[a-z0-9]*]] <line:42:1, line:50:39> 'int'
 // CHECK-NEXT: |           `-ImplicitCastExpr [[ADDR_61:0x[a-z0-9]*]] <line:42:1> 'int (*)({{.*}})' <FunctionToPointerDecay>
 // CHECK-NEXT: |             `-DeclRefExpr [[ADDR_19]] <col:1> 'int ({{.*}})' Function [[ADDR_20]] 'baz[implementation={vendor(llvm)}]' 'int ({{.*}})'
@@ -134,6 +137,8 @@ int main() {
 // CHECK-NEXT: |   | `-UsingDirectiveDecl [[ADDR_65:0x[a-z0-9]*]] <col:3, col:19> col:19 Namespace [[ADDR_0]] 'A'
 // CHECK-NEXT: |   |-DeclStmt [[ADDR_66:0x[a-z0-9]*]] <line:55:3, col:20>
 // CHECK-NEXT: |   | `-UsingDirectiveDecl [[ADDR_67:0x[a-z0-9]*]] <col:3, col:19> col:19 Namespace [[ADDR_5]] 'B'
+// CHECK-NEXT: |   |-RecoveryExpr {{.*}} <line:57:3, col:7>
+// CHECK-NEXT: |   | `-UnresolvedLookupExpr {{.*}} <col:3>
 // CHECK-NEXT: |   `-ReturnStmt [[ADDR_68:0x[a-z0-9]*]] <line:58:3, col:22>
 // CHECK-NEXT: |     `-BinaryOperator [[ADDR_69:0x[a-z0-9]*]] <col:10, col:22> 'int' '+'
 // CHECK-NEXT: |       |-PseudoObjectExpr [[ADDR_70:0x[a-z0-9]*]] <col:10, col:14> 'int'

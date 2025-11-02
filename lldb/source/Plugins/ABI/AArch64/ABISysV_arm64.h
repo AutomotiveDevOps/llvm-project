@@ -30,11 +30,6 @@ public:
   SetReturnValueObject(lldb::StackFrameSP &frame_sp,
                        lldb::ValueObjectSP &new_value) override;
 
-  bool
-  CreateFunctionEntryUnwindPlan(lldb_private::UnwindPlan &unwind_plan) override;
-
-  bool CreateDefaultUnwindPlan(lldb_private::UnwindPlan &unwind_plan) override;
-
   bool RegisterIsVolatile(const lldb_private::RegisterInfo *reg_info) override;
 
   // The arm64 ABI requires that stack frames be 16 byte aligned.
@@ -45,11 +40,11 @@ public:
   //
   // To work around this, we relax that alignment to be just word-size
   // (8-bytes).
-  // Whitelisting the trap handlers for user space would be easy (_sigtramp) but
+  // Allowing the trap handlers for user space would be easy (_sigtramp) but
   // in other environments there can be a large number of different functions
   // involved in async traps.
   bool CallFrameAddressIsValid(lldb::addr_t cfa) override {
-    // Make sure the stack call frame addresses are are 8 byte aligned
+    // Make sure the stack call frame addresses are 8 byte aligned
     if (cfa & (8ull - 1ull))
       return false; // Not 8 byte aligned
     if (cfa == 0)
@@ -67,6 +62,8 @@ public:
 
   bool GetPointerReturnRegister(const char *&name) override;
 
+  lldb::addr_t FixAddress(lldb::addr_t pc, lldb::addr_t mask) override;
+
   // Static Functions
 
   static void Initialize();
@@ -75,13 +72,14 @@ public:
 
   static lldb::ABISP CreateInstance(lldb::ProcessSP process_sp, const lldb_private::ArchSpec &arch);
 
-  static lldb_private::ConstString GetPluginNameStatic();
+  static llvm::StringRef GetPluginNameStatic() { return "SysV-arm64"; }
 
   // PluginInterface protocol
 
-  lldb_private::ConstString GetPluginName() override;
+  llvm::StringRef GetPluginName() override { return GetPluginNameStatic(); }
 
-  uint32_t GetPluginVersion() override;
+  lldb::addr_t FixCodeAddress(lldb::addr_t pc) override;
+  lldb::addr_t FixDataAddress(lldb::addr_t pc) override;
 
 protected:
   lldb::ValueObjectSP

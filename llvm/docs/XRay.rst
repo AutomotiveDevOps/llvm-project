@@ -47,7 +47,7 @@ You can use XRay in a couple of ways:
 - Instrumenting your C/C++/Objective-C/Objective-C++ application.
 - Generating LLVM IR with the correct function attributes.
 
-The rest of this section covers these main ways and later on how to customise
+The rest of this section covers these main ways and later on how to customize
 what XRay does in an XRay-instrumented binary.
 
 Instrumenting your C/C++/Objective-C Application
@@ -62,17 +62,18 @@ For example:
 
   clang -fxray-instrument ...
 
-By default, functions that have at least 200 instructions will get XRay
-instrumentation points. You can tweak that number through the
+By default, functions that have at least 200 instructions (or contain a loop) will
+get XRay instrumentation points. You can tweak that number through the
 ``-fxray-instruction-threshold=`` flag:
 
 ::
 
   clang -fxray-instrument -fxray-instruction-threshold=1 ...
 
-You can also specifically instrument functions in your binary to either always
-or never be instrumented using source-level attributes. You can do it using the
-GCC-style attributes or C++11-style attributes.
+The loop detection can be disabled with ``-fxray-ignore-loops`` to use only the
+instruction threshold. You can also specifically instrument functions in your
+binary to either always or never be instrumented using source-level attributes.
+You can do it using the GCC-style attributes or C++11-style attributes.
 
 .. code-block:: c++
 
@@ -156,7 +157,8 @@ Also by default the filename of the XRay trace is ``xray-log.XXXXXX`` where the
 ``XXXXXX`` part is randomly generated.
 
 These options can be controlled through the ``XRAY_OPTIONS`` environment
-variable, where we list down the options and their defaults below.
+variable during program run-time, where we list down the options and their
+defaults below.
 
 +-------------------+-----------------+---------------+------------------------+
 | Option            | Type            | Default       | Description            |
@@ -176,6 +178,31 @@ variable, where we list down the options and their defaults below.
 |                   |                 |               | level.                 |
 +-------------------+-----------------+---------------+------------------------+
 
+
+In addition to environment variable, you can also provide your own definition of
+``const char *__xray_default_options(void)`` function, which returns the option
+strings. This method effectively provides default options during program build
+time. For example, you can create an additional source file (e.g. ``xray-opt.c``
+) with the following ``__xray_default_options`` definition:
+
+.. code-block:: c
+
+  __attribute__((xray_never_instrument))
+  const char *__xray_default_options() {
+    return "patch_premain=true,xray_mode=xray-basic";
+  }
+
+And link it with the program you want to instrument:
+
+::
+
+  clang -fxray-instrument prog.c xray-opt.c ...
+
+The instrumented binary will use 'patch_premain=true,xray_mode=xray-basic' by
+default even without setting ``XRAY_OPTIONS``.
+
+Note that you still can override options designated by ``__xray_default_options``
+using ``XRAY_OPTIONS`` during run-time.
 
 If you choose to not use the default logging implementation that comes with the
 XRay runtime and/or control when/how the XRay instrumentation runs, you may use
@@ -308,6 +335,35 @@ libraries, distributed with the LLVM distribution. These are:
 - ``llvm/XRay/InstrumentationMap.h``: A convenient tool for analyzing the
   instrumentation map in XRay-instrumented object files and binaries. The
   ``extract`` and ``stack`` subcommands uses this particular library.
+
+
+Minimizing Binary Size
+----------------------
+
+XRay supports several different instrumentation points including ``function-entry``,
+``function-exit``, ``custom``, and ``typed`` points. These can be enabled individually
+using the ``-fxray-instrumentation-bundle=`` flag. For example if you only wanted to
+instrument function entry and custom points you could specify:
+
+::
+
+  clang -fxray-instrument -fxray-instrumentation-bundle=function-entry,custom ...
+
+This will omit the other sled types entirely, reducing the binary size. You can also
+instrument just a sampled subset of functions using instrumentation groups.
+For example, to instrument only a quarter of available functions invoke:
+
+::
+
+  clang -fxray-instrument -fxray-function-groups=4
+
+A subset will be chosen arbitrarily based on a hash of the function name. To sample a
+different subset you can specify ``-fxray-selected-function-group=`` with a group number
+in the range of 0 to ``xray-function-groups`` - 1.  Together these options could be used
+to produce multiple binaries with different instrumented subsets. If all you need is
+runtime control over which functions are being traced at any given time it is better
+to selectively patch and unpatch the individual functions you need using the XRay
+Runtime Library's ``__xray_patch_function()`` method.
 
 Future Work
 ===========

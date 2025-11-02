@@ -11,6 +11,9 @@
 #include "flang/Common/idioms.h"
 #include "llvm/Support/Errno.h"
 #include <cfenv>
+#if __x86_64__
+#include <xmmintrin.h>
+#endif
 
 namespace Fortran::evaluate::host {
 using namespace Fortran::parser::literals;
@@ -18,39 +21,42 @@ using namespace Fortran::parser::literals;
 void HostFloatingPointEnvironment::SetUpHostFloatingPointEnvironment(
     FoldingContext &context) {
   errno = 0;
+  std::fenv_t currentFenv;
   if (feholdexcept(&originalFenv_) != 0) {
     common::die("Folding with host runtime: feholdexcept() failed: %s",
         llvm::sys::StrError(errno).c_str());
     return;
   }
-  if (fegetenv(&currentFenv_) != 0) {
+  if (fegetenv(&currentFenv) != 0) {
     common::die("Folding with host runtime: fegetenv() failed: %s",
         llvm::sys::StrError(errno).c_str());
     return;
   }
 #if __x86_64__
   hasSubnormalFlushingHardwareControl_ = true;
-  if (context.flushSubnormalsToZero()) {
-    currentFenv_.__mxcsr |= 0x8000; // result
-    currentFenv_.__mxcsr |= 0x0040; // operands
+  originalMxcsr = _mm_getcsr();
+  unsigned int currentMxcsr{originalMxcsr};
+  if (context.targetCharacteristics().areSubnormalsFlushedToZero()) {
+    currentMxcsr |= 0x8000;
+    currentMxcsr |= 0x0040;
   } else {
-    currentFenv_.__mxcsr &= ~0x8000; // result
-    currentFenv_.__mxcsr &= ~0x0040; // operands
+    currentMxcsr &= ~0x8000;
+    currentMxcsr &= ~0x0040;
   }
 #elif defined(__aarch64__)
 #if defined(__GNU_LIBRARY__)
   hasSubnormalFlushingHardwareControl_ = true;
-  if (context.flushSubnormalsToZero()) {
-    currentFenv_.__fpcr |= (1U << 24); // control register
+  if (context.targetCharacteristics().areSubnormalsFlushedToZero()) {
+    currentFenv.__fpcr |= (1U << 24); // control register
   } else {
-    currentFenv_.__fpcr &= ~(1U << 24); // control register
+    currentFenv.__fpcr &= ~(1U << 24); // control register
   }
 #elif defined(__BIONIC__)
   hasSubnormalFlushingHardwareControl_ = true;
-  if (context.flushSubnormalsToZero()) {
-    currentFenv_.__control |= (1U << 24); // control register
+  if (context.targetCharacteristics().areSubnormalsFlushedToZero()) {
+    currentFenv.__control |= (1U << 24); // control register
   } else {
-    currentFenv_.__control &= ~(1U << 24); // control register
+    currentFenv.__control &= ~(1U << 24); // control register
   }
 #else
   // If F18 is built with other C libraries on AArch64, software flushing will
@@ -70,12 +76,16 @@ void HostFloatingPointEnvironment::SetUpHostFloatingPointEnvironment(
   hardwareFlagsAreReliable_ = false;
 #endif
   errno = 0;
-  if (fesetenv(&currentFenv_) != 0) {
+  if (fesetenv(&currentFenv) != 0) {
     common::die("Folding with host runtime: fesetenv() failed: %s",
         llvm::sys::StrError(errno).c_str());
     return;
   }
-  switch (context.rounding().mode) {
+#if __x86_64__
+  _mm_setcsr(currentMxcsr);
+#endif
+
+  switch (context.targetCharacteristics().roundingMode().mode) {
   case common::RoundingMode::TiesToEven:
     fesetround(FE_TONEAREST);
     break;
@@ -90,9 +100,8 @@ void HostFloatingPointEnvironment::SetUpHostFloatingPointEnvironment(
     break;
   case common::RoundingMode::TiesAwayFromZero:
     fesetround(FE_TONEAREST);
-    context.messages().Say(
-        "TiesAwayFromZero rounding mode is not available when folding constants"
-        " with host runtime; using TiesToEven instead"_en_US);
+    context.Warn(common::UsageWarning::FoldingFailure,
+        "TiesAwayFromZero rounding mode is not available when folding constants with host runtime; using TiesToEven instead"_warn_en_US);
     break;
   }
   flags_.clear();
@@ -131,7 +140,8 @@ void HostFloatingPointEnvironment::CheckAndRestoreFloatingPointEnvironment(
   }
 
   if (!flags_.empty()) {
-    RealFlagWarnings(context, flags_, "intrinsic function");
+    context.RealFlagWarnings(
+        flags_, "evaluation of intrinsic function or operation");
   }
   errno = 0;
   if (fesetenv(&originalFenv_) != 0) {
@@ -141,6 +151,10 @@ void HostFloatingPointEnvironment::CheckAndRestoreFloatingPointEnvironment(
         "Folding with host runtime: fesetenv() failed while restoring fenv: %s",
         llvm::sys::StrError(errno).c_str());
   }
+#if __x86_64__
+  _mm_setcsr(originalMxcsr);
+#endif
+
   errno = 0;
 }
 } // namespace Fortran::evaluate::host

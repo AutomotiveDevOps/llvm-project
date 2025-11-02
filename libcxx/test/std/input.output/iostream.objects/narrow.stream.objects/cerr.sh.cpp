@@ -6,31 +6,25 @@
 //
 //===----------------------------------------------------------------------===//
 
+// XFAIL: LIBCXX-PICOLIBC-FIXME
+
 // <iostream>
 
-// istream cerr;
+// ostream cerr;
 
-// FILE_DEPENDENCIES: %t.exe
 // RUN: %{build}
-// RUN: %{exec} %t.exe 2> %t.err
-// RUN: grep -e 'Hello World!' %t.err
+// RUN: %{exec} %t.exe 2> %t.actual
+// RUN: echo -n 1234 > %t.expected
+// RUN: diff %t.expected %t.actual
 
 #include <iostream>
 #include <cassert>
 
 #include "test_macros.h"
 
-int main(int, char**)
-{
-
-    std::cerr << "Hello World!\n";
-
-#ifdef _LIBCPP_HAS_NO_STDOUT
-    assert(std::cerr.tie() == NULL);
-#else
-    assert(std::cerr.tie() == &std::cout);
-#endif
+int main(int, char**) {
+    std::cerr << "1234";
     assert(std::cerr.flags() & std::ios_base::unitbuf);
-
-  return 0;
+    assert(std::cerr.tie() == &std::cout);
+    return 0;
 }

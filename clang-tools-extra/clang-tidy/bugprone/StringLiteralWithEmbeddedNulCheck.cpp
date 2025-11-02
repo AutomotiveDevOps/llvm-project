@@ -1,4 +1,4 @@
-//===--- StringLiteralWithEmbeddedNulCheck.cpp - clang-tidy----------------===//
+//===----------------------------------------------------------------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -12,14 +12,12 @@
 
 using namespace clang::ast_matchers;
 
-namespace clang {
-namespace tidy {
-namespace bugprone {
+namespace clang::tidy::bugprone {
 
 namespace {
 AST_MATCHER(StringLiteral, containsNul) {
-  for (size_t i = 0; i < Node.getLength(); ++i)
-    if (Node.getCodeUnit(i) == '\0')
+  for (size_t I = 0; I < Node.getLength(); ++I)
+    if (Node.getCodeUnit(I) == '\0')
       return true;
   return false;
 }
@@ -49,8 +47,9 @@ void StringLiteralWithEmbeddedNulCheck::registerMatchers(MatchFinder *Finder) {
 
   // Detect passing a suspicious string literal to a string constructor.
   // example: std::string str = "abc\0def";
-  Finder->addMatcher(traverse(TK_AsIs,
-      cxxConstructExpr(StringConstructorExpr, hasArgument(0, StrLitWithNul))),
+  Finder->addMatcher(
+      traverse(TK_AsIs, cxxConstructExpr(StringConstructorExpr,
+                                         hasArgument(0, StrLitWithNul))),
       this);
 
   // Detect passing a suspicious string literal through an overloaded operator.
@@ -79,6 +78,4 @@ void StringLiteralWithEmbeddedNulCheck::check(
   }
 }
 
-} // namespace bugprone
-} // namespace tidy
-} // namespace clang
+} // namespace clang::tidy::bugprone

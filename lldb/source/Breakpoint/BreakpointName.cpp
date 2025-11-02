@@ -21,19 +21,8 @@ using namespace lldb;
 using namespace lldb_private;
 
 const Flags::ValueType BreakpointName::Permissions::permissions_mask
-    [BreakpointName::Permissions::PermissionKinds::allPerms + 1] =  { 
-      (1u << 0),
-      (1u << 1),
-      (1u << 2),
-      (0x5u)
-};
-
-BreakpointName::BreakpointName(ConstString name, const Breakpoint &bkpt,
-                 const char *help) :
-      m_name(name), m_options(bkpt.GetOptions())
-{
-  SetHelp(help);
-}
+    [BreakpointName::Permissions::PermissionKinds::allPerms + 1] = {
+        (1u << 0), (1u << 1), (1u << 2), (0x5u)};
 
 bool BreakpointName::Permissions::GetDescription(Stream *s,
                                                  lldb::DescriptionLevel level) {
@@ -43,10 +32,10 @@ bool BreakpointName::Permissions::GetDescription(Stream *s,
     s->Indent();
     if (IsSet(listPerm))
       s->Printf("list: %s", GetAllowList() ? "allowed" : "disallowed");
-  
+
     if (IsSet(disablePerm))
       s->Printf("disable: %s", GetAllowDisable() ? "allowed" : "disallowed");
-  
+
     if (IsSet(deletePerm))
       s->Printf("delete: %s", GetAllowDelete() ? "allowed" : "disallowed");
     s->IndentLess();
@@ -81,6 +70,6 @@ bool BreakpointName::GetDescription(Stream *s, lldb::DescriptionLevel level) {
 
 void BreakpointName::ConfigureBreakpoint(lldb::BreakpointSP bp_sp)
 {
-   bp_sp->GetOptions()->CopyOverSetOptions(GetOptions());
-   bp_sp->GetPermissions().MergeInto(GetPermissions());
+  bp_sp->GetOptions().CopyOverSetOptions(GetOptions());
+  bp_sp->GetPermissions().MergeInto(GetPermissions());
 }

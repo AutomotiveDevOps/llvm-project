@@ -11,10 +11,8 @@
 
 #include "llvm/ADT/APSInt.h"
 #include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/Optional.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
-#include "llvm/ADT/iterator_range.h"
 #include "llvm/DebugInfo/CodeView/CVRecord.h"
 #include "llvm/DebugInfo/CodeView/CodeView.h"
 #include "llvm/DebugInfo/CodeView/GUID.h"
@@ -23,6 +21,7 @@
 #include "llvm/Support/Endian.h"
 #include <algorithm>
 #include <cstdint>
+#include <optional>
 #include <vector>
 
 namespace llvm {
@@ -32,15 +31,10 @@ using support::little32_t;
 using support::ulittle16_t;
 using support::ulittle32_t;
 
-using CVType = CVRecord<TypeLeafKind>;
-using RemappedType = RemappedRecord<TypeLeafKind>;
-
 struct CVMemberRecord {
   TypeLeafKind Kind;
   ArrayRef<uint8_t> Data;
 };
-using CVTypeArray = VarStreamArray<CVType>;
-using CVTypeRange = iterator_range<CVTypeArray::Iterator>;
 
 /// Equvalent to CV_fldattr_t in cvinfo.h.
 struct MemberAttributes {
@@ -117,7 +111,8 @@ public:
   }
 
   TypeIndex ContainingType;
-  PointerToMemberRepresentation Representation;
+  PointerToMemberRepresentation Representation =
+      PointerToMemberRepresentation::Unknown;
 };
 
 class TypeRecord {
@@ -166,8 +161,8 @@ public:
   TypeIndex getArgumentList() const { return ArgumentList; }
 
   TypeIndex ReturnType;
-  CallingConvention CallConv;
-  FunctionOptions Options;
+  CallingConvention CallConv = CallingConvention::NearC;
+  FunctionOptions Options = FunctionOptions::None;
   uint16_t ParameterCount = 0;
   TypeIndex ArgumentList;
 };
@@ -200,8 +195,8 @@ public:
   TypeIndex ReturnType;
   TypeIndex ClassType;
   TypeIndex ThisType;
-  CallingConvention CallConv;
-  FunctionOptions Options;
+  CallingConvention CallConv = CallingConvention::NearC;
+  FunctionOptions Options = FunctionOptions::None;
   uint16_t ParameterCount = 0;
   TypeIndex ArgumentList;
   int32_t ThisPointerAdjustment = 0;
@@ -215,7 +210,7 @@ public:
 
   LabelRecord(LabelType Mode) : TypeRecord(TypeRecordKind::Label), Mode(Mode) {}
 
-  LabelType Mode;
+  LabelType Mode = LabelType::Near;
 };
 
 // LF_MFUNC_ID
@@ -352,7 +347,7 @@ public:
 
   TypeIndex ReferentType;
   uint32_t Attrs = 0;
-  Optional<MemberPointerInfo> MemberInfo;
+  std::optional<MemberPointerInfo> MemberInfo;
 
   void setAttrs(PointerKind PK, PointerMode PM, PointerOptions PO,
                 uint8_t Size) {
@@ -460,7 +455,7 @@ public:
   StringRef getUniqueName() const { return UniqueName; }
 
   uint16_t MemberCount = 0;
-  ClassOptions Options;
+  ClassOptions Options = ClassOptions::None;
   TypeIndex FieldList;
   StringRef Name;
   StringRef UniqueName;
@@ -591,7 +586,7 @@ public:
   uint32_t getAge() const { return Age; }
   StringRef getName() const { return Name; }
 
-  GUID Guid;
+  GUID Guid = {};
   uint32_t Age = 0;
   StringRef Name;
 };
@@ -674,8 +669,7 @@ public:
   BuildInfoRecord() = default;
   explicit BuildInfoRecord(TypeRecordKind Kind) : TypeRecord(Kind) {}
   BuildInfoRecord(ArrayRef<TypeIndex> ArgIndices)
-      : TypeRecord(TypeRecordKind::BuildInfo),
-        ArgIndices(ArgIndices.begin(), ArgIndices.end()) {}
+      : TypeRecord(TypeRecordKind::BuildInfo), ArgIndices(ArgIndices) {}
 
   ArrayRef<TypeIndex> getArgs() const { return ArgIndices; }
 
@@ -703,16 +697,16 @@ public:
       : TypeRecord(TypeRecordKind::VFTable), CompleteClass(CompleteClass),
         OverriddenVFTable(OverriddenVFTable), VFPtrOffset(VFPtrOffset) {
     MethodNames.push_back(Name);
-    MethodNames.insert(MethodNames.end(), Methods.begin(), Methods.end());
+    llvm::append_range(MethodNames, Methods);
   }
 
   TypeIndex getCompleteClass() const { return CompleteClass; }
   TypeIndex getOverriddenVTable() const { return OverriddenVFTable; }
   uint32_t getVFPtrOffset() const { return VFPtrOffset; }
-  StringRef getName() const { return makeArrayRef(MethodNames).front(); }
+  StringRef getName() const { return ArrayRef(MethodNames).front(); }
 
   ArrayRef<StringRef> getMethodNames() const {
-    return makeArrayRef(MethodNames).drop_front();
+    return ArrayRef(MethodNames).drop_front();
   }
 
   TypeIndex CompleteClass;

@@ -43,7 +43,8 @@ protected:
     // FIXME: technically, merged that we set here is incorrect, but that
     // shouldn't matter.
     RawComment Comment(SourceMgr, CommentRange, EmptyOpts, /*Merged=*/true);
-    DiagnosticsEngine Diags(new DiagnosticIDs, new DiagnosticOptions);
+    DiagnosticOptions DiagOpts;
+    DiagnosticsEngine Diags(DiagnosticIDs::create(), DiagOpts);
     return Comment.getFormattedText(SourceMgr, Diags);
   }
 };
@@ -122,6 +123,13 @@ R"cpp(
 /// @param b something about b.)cpp");
   EXPECT_EQ(ExpectedOutput, Formatted);
   // clang-format on
+}
+
+TEST_F(CommentTextTest, EmptyFormattedText) {
+  // Test that empty formatted text doesn't cause crash.
+  const char *ExpectedOutput = "";
+  auto Formatted = formatComment("//!<");
+  EXPECT_EQ(ExpectedOutput, Formatted);
 }
 
 } // namespace clang

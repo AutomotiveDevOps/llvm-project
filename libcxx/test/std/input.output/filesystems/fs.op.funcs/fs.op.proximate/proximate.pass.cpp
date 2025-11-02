@@ -6,7 +6,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-// UNSUPPORTED: c++98, c++03
+// UNSUPPORTED: c++03, c++11, c++14
+// UNSUPPORTED: no-filesystem
 
 // <filesystem>
 
@@ -14,58 +15,54 @@
 // path proximate(const path& p, const path& base = current_path())
 // path proximate(const path& p, const path& base, error_code& ec);
 
-#include "filesystem_include.h"
-#include <type_traits>
-#include <vector>
-#include <iostream>
+#include <filesystem>
 #include <cassert>
 
+#include "assert_macros.h"
+#include "concat_macros.h"
 #include "test_macros.h"
-#include "test_iterators.h"
 #include "count_new.h"
-#include "rapid-cxx-test.h"
 #include "filesystem_test_helper.h"
-
+#include "../../class.path/path_helper.h"
+namespace fs = std::filesystem;
 
 static int count_path_elems(const fs::path& p) {
   int count = 0;
-  for (auto& elem : p) {
-    if (elem != "/" && elem != "")
+  for (auto&& elem : p) {
+    if (elem != p.root_name() && elem != "/" && elem != "")
       ++count;
   }
   return count;
 }
 
-TEST_SUITE(filesystem_proximate_path_test_suite)
-
-
-TEST_CASE(signature_test)
-{
-    using fs::path;
-    const path p; ((void)p);
-    std::error_code ec; ((void)ec);
-    ASSERT_NOT_NOEXCEPT(proximate(p));
-    ASSERT_NOT_NOEXCEPT(proximate(p, p));
-    ASSERT_NOT_NOEXCEPT(proximate(p, ec));
-    ASSERT_NOT_NOEXCEPT(proximate(p, p, ec));
+static void signature_test() {
+  using fs::path;
+  const path p;
+  ((void)p);
+  std::error_code ec;
+  ((void)ec);
+  ASSERT_NOT_NOEXCEPT(proximate(p));
+  ASSERT_NOT_NOEXCEPT(proximate(p, p));
+  ASSERT_NOT_NOEXCEPT(proximate(p, ec));
+  ASSERT_NOT_NOEXCEPT(proximate(p, p, ec));
 }
 
-TEST_CASE(basic_test) {
+static void basic_test() {
   using fs::path;
-  const path cwd = fs::current_path();
+  const path cwd        = fs::current_path();
   const path parent_cwd = cwd.parent_path();
-  const path curdir = cwd.filename();
-  TEST_REQUIRE(!cwd.native().empty());
+  const path curdir     = cwd.filename();
+  assert(!cwd.native().empty());
   int cwd_depth = count_path_elems(cwd);
   path dot_dot_to_root;
-  for (int i=0; i < cwd_depth; ++i)
+  for (int i = 0; i < cwd_depth; ++i)
     dot_dot_to_root /= "..";
-  path relative_cwd = cwd.native().substr(1);
+  path relative_cwd = cwd.native().substr(cwd.root_path().native().size());
   // clang-format off
   struct {
-    std::string input;
-    std::string base;
-    std::string expect;
+    fs::path input;
+    fs::path base;
+    fs::path expect;
   } TestCases[] = {
       {"", "", "."},
       {cwd, "a", ".."},
@@ -78,11 +75,51 @@ TEST_CASE(basic_test) {
       {"a", "/", relative_cwd / "a"},
       {"a/b", "/", relative_cwd / "a/b"},
       {"a", "/net", ".." / relative_cwd / "a"},
+#ifdef _WIN32
+      {"//foo/", "//foo", "//foo/"},
+      {"//foo", "//foo/", "//foo"},
+#else
       {"//foo/", "//foo", "."},
       {"//foo", "//foo/", "."},
+#endif
       {"//foo", "//foo", "."},
       {"//foo/", "//foo/", "."},
-      {"//base", "a", dot_dot_to_root / "../base"},
+#ifdef _WIN32
+      {"//foo", "a", "//foo"},
+      {"//foo/a", "//bar", "//foo/a"},
+      {"//foo/a", "//bar/", "//foo/a"},
+      {"//foo/a", "b", "//foo/a"},
+      {"//foo/a", "/b", "//foo/a"},
+      {"//foo/a", "//bar/b", "//foo/a"},
+      // Using X: instead of C: to avoid influence from the CWD being under C:
+      {"X:/a", "X:/b", "../a"},
+      {"X:/a", "X:b", "X:/a"},
+      {"X:/a", "Y:/a", "X:/a"},
+      {"X:/a", "Y:/b", "X:/a"},
+      {"X:/a", "Y:b", "X:/a"},
+      {"X:a", "X:/b", "X:a"},
+      {"X:a", "X:b", "../a"},
+      {"X:a", "Y:/a", "X:a"},
+      {"X:a", "Y:/b", "X:a"},
+      {"X:a", "Y:b", "X:a"},
+#else
+      {"//foo", "a", dot_dot_to_root / "../foo"},
+      {"//foo/a", "//bar", "../foo/a"},
+      {"//foo/a", "//bar/", "../foo/a"},
+      {"//foo/a", "b", dot_dot_to_root / "../foo/a"},
+      {"//foo/a", "/b", "../foo/a"},
+      {"//foo/a", "//bar/b", "../../foo/a"},
+      {"X:/a", "X:/b", "../a"},
+      {"X:/a", "X:b", "../X:/a"},
+      {"X:/a", "Y:/a", "../../X:/a"},
+      {"X:/a", "Y:/b", "../../X:/a"},
+      {"X:/a", "Y:b", "../X:/a"},
+      {"X:a", "X:/b", "../../X:a"},
+      {"X:a", "X:b", "../X:a"},
+      {"X:a", "Y:/a", "../../X:a"},
+      {"X:a", "Y:/b", "../../X:a"},
+      {"X:a", "Y:b", "../X:a"},
+#endif
       {"a", "a", "."},
       {"a/b", "a/b", "."},
       {"a/b/c/", "a/b/c/", "."},
@@ -95,38 +132,42 @@ TEST_CASE(basic_test) {
       {"a/b", "c/d", "../../a/b"}
   };
   // clang-format on
-  int ID = 0;
   for (auto& TC : TestCases) {
-    ++ID;
-    std::error_code ec = GetTestEC();
-    fs::path p(TC.input);
+    std::error_code ec    = GetTestEC();
+    fs::path p            = TC.input;
     const fs::path output = fs::proximate(p, TC.base, ec);
-    if (ec) {
-      TEST_CHECK(!ec);
-      std::cerr << "TEST CASE #" << ID << " FAILED: \n";
-      std::cerr << "  Input: '" << TC.input << "'\n";
-      std::cerr << "  Base: '" << TC.base << "'\n";
-      std::cerr << "  Expected: '" << TC.expect << "'\n";
+    fs::path expect       = TC.expect;
+    expect.make_preferred();
+    TEST_REQUIRE(!ec,
+                 TEST_WRITE_CONCATENATED(
+                     "Input: ", TC.input.string(), "\nBase: ", TC.base.string(), "\nExpected: ", expect.string()));
 
-      std::cerr << std::endl;
-    } else if (!PathEq(output, TC.expect)) {
-      TEST_CHECK(PathEq(output, TC.expect));
-
-      const path canon_input = fs::weakly_canonical(TC.input);
-      const path canon_base = fs::weakly_canonical(TC.base);
-      const path lexically_p = canon_input.lexically_proximate(canon_base);
-      std::cerr << "TEST CASE #" << ID << " FAILED: \n";
-      std::cerr << "  Input: '" << TC.input << "'\n";
-      std::cerr << "  Base: '" << TC.base << "'\n";
-      std::cerr << "  Expected: '" << TC.expect << "'\n";
-      std::cerr << "  Output:   '" << output.native() << "'\n";
-      std::cerr << "  Lex Prox: '" << lexically_p.native() << "'\n";
-      std::cerr << "  Canon Input: " <<  canon_input << "\n";
-      std::cerr << "  Canon Base: " << canon_base << "\n";
-
-      std::cerr << std::endl;
-    }
+    const path canon_input = fs::weakly_canonical(TC.input);
+    const path canon_base  = fs::weakly_canonical(TC.base);
+    const path lexically_p = canon_input.lexically_proximate(canon_base);
+    TEST_REQUIRE(
+        PathEq(output, expect),
+        TEST_WRITE_CONCATENATED(
+            "Input: ",
+            TC.input.string(),
+            "\nBase: ",
+            TC.base.string(),
+            "\nExpected: ",
+            expect.string(),
+            "\nOutput: ",
+            output.string(),
+            "\nLex Prox: ",
+            lexically_p.string(),
+            "\nCanon Input: ",
+            canon_input.string(),
+            "\nCanon Base: ",
+            canon_base.string()));
   }
 }
 
-TEST_SUITE_END()
+int main(int, char**) {
+  signature_test();
+  basic_test();
+
+  return 0;
+}

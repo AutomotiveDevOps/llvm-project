@@ -19,7 +19,6 @@
 #include "flang/Parser/characters.h"
 #include "flang/Parser/instrumented-parser.h"
 #include "flang/Parser/provenance.h"
-#include <cctype>
 #include <cstddef>
 #include <cstring>
 #include <functional>
@@ -62,7 +61,7 @@ constexpr auto letter{"abcdefghijklmnopqrstuvwxyz"_ch};
 constexpr auto digit{"0123456789"_ch};
 
 // Skips over optional spaces.  Always succeeds.
-constexpr struct Space {
+struct Space {
   using resultType = Success;
   constexpr Space() {}
   static std::optional<Success> Parse(ParseState &state) {
@@ -74,18 +73,19 @@ constexpr struct Space {
     }
     return {Success{}};
   }
-} space;
+};
+constexpr Space space;
 
 // Skips a space that in free form requires a warning if it precedes a
 // character that could begin an identifier or keyword.  Always succeeds.
 inline void MissingSpace(ParseState &state) {
   if (!state.inFixedForm()) {
     state.Nonstandard(
-        LanguageFeature::OptionalFreeFormSpace, "missing space"_en_US);
+        LanguageFeature::OptionalFreeFormSpace, "missing space"_port_en_US);
   }
 }
 
-constexpr struct SpaceCheck {
+struct SpaceCheck {
   using resultType = Success;
   constexpr SpaceCheck() {}
   static std::optional<Success> Parse(ParseState &state) {
@@ -101,7 +101,8 @@ constexpr struct SpaceCheck {
     }
     return {Success{}};
   }
-} spaceCheck;
+};
+constexpr SpaceCheck spaceCheck;
 
 // Matches a token string.  Spaces in the token string denote where
 // spaces may appear in the source; they can be made mandatory for
@@ -214,6 +215,10 @@ template <class PA> inline constexpr auto bracketed(const PA &p) {
   return "[" >> p / "]";
 }
 
+template <class PA> inline constexpr auto braced(const PA &p) {
+  return "{" >> p / "}";
+}
+
 // Quoted character literal constants.
 struct CharLiteralChar {
   using resultType = std::pair<char, bool /* was escaped */>;
@@ -292,8 +297,8 @@ struct BOZLiteral {
       return std::nullopt;
     }
     if (**at == 'x' &&
-        !state.IsNonstandardOk(
-            LanguageFeature::BOZExtensions, "nonstandard BOZ literal"_en_US)) {
+        !state.IsNonstandardOk(LanguageFeature::BOZExtensions,
+            "nonstandard BOZ literal"_port_en_US)) {
       return std::nullopt;
     }
     if (baseChar(**at)) {
@@ -330,7 +335,7 @@ struct BOZLiteral {
       // extension: base allowed to appear as suffix, too
       if (!(at = nextCh.Parse(state)) || !baseChar(**at) ||
           !state.IsNonstandardOk(LanguageFeature::BOZExtensions,
-              "nonstandard BOZ literal"_en_US)) {
+              "nonstandard BOZ literal"_port_en_US)) {
         return std::nullopt;
       }
       spaceCheck.Parse(state);
@@ -346,7 +351,7 @@ struct BOZLiteral {
 
 // R711 digit-string -> digit [digit]...
 // N.B. not a token -- no space is skipped
-constexpr struct DigitString {
+struct DigitString {
   using resultType = CharBlock;
   static std::optional<resultType> Parse(ParseState &state) {
     if (std::optional<const char *> ch1{state.PeekAtNextChar()}) {
@@ -363,7 +368,8 @@ constexpr struct DigitString {
     }
     return std::nullopt;
   }
-} digitString;
+};
+constexpr DigitString digitString;
 
 struct SignedIntLiteralConstantWithoutKind {
   using resultType = CharBlock;
@@ -380,7 +386,7 @@ struct SignedIntLiteralConstantWithoutKind {
   }
 };
 
-constexpr struct DigitString64 {
+struct DigitString64 {
   using resultType = std::uint64_t;
   static std::optional<std::uint64_t> Parse(ParseState &state) {
     std::optional<const char *> firstDigit{digit.Parse(state)};
@@ -406,7 +412,8 @@ constexpr struct DigitString64 {
     }
     return {value};
   }
-} digitString64;
+};
+constexpr DigitString64 digitString64;
 
 // R707 signed-int-literal-constant -> [sign] int-literal-constant
 // N.B. Spaces are consumed before and after the sign, since the sign
@@ -522,7 +529,7 @@ struct HollerithLiteral {
       int chBytes{UTF_8CharacterBytes(state.GetLocation())};
       for (int bytes{chBytes}; bytes > 0; --bytes) {
         if (std::optional<const char *> at{nextCh.Parse(state)}) {
-          if (chBytes == 1 && !std::isprint(**at)) {
+          if (chBytes == 1 && !IsPrintable(**at)) {
             state.Say(start, "Bad character in Hollerith"_err_en_US);
             return std::nullopt;
           }
@@ -537,7 +544,7 @@ struct HollerithLiteral {
   }
 };
 
-constexpr struct ConsumedAllInputParser {
+struct ConsumedAllInputParser {
   using resultType = Success;
   constexpr ConsumedAllInputParser() {}
   static inline std::optional<Success> Parse(ParseState &state) {
@@ -546,7 +553,8 @@ constexpr struct ConsumedAllInputParser {
     }
     return std::nullopt;
   }
-} consumedAllInput;
+};
+constexpr ConsumedAllInputParser consumedAllInput;
 
 template <char goal> struct SkipPast {
   using resultType = Success;
@@ -556,6 +564,8 @@ template <char goal> struct SkipPast {
     while (std::optional<const char *> p{state.GetNextChar()}) {
       if (**p == goal) {
         return {Success{}};
+      } else if (**p == '\n') {
+        break;
       }
     }
     return std::nullopt;
@@ -570,8 +580,32 @@ template <char goal> struct SkipTo {
     while (std::optional<const char *> p{state.PeekAtNextChar()}) {
       if (**p == goal) {
         return {Success{}};
+      } else if (**p == '\n') {
+        break;
+      } else {
+        state.UncheckedAdvance();
       }
-      state.UncheckedAdvance();
+    }
+    return std::nullopt;
+  }
+};
+
+template <char left, char right> struct SkipPastNested {
+  using resultType = Success;
+  constexpr SkipPastNested() {}
+  constexpr SkipPastNested(const SkipPastNested &) {}
+  static std::optional<Success> Parse(ParseState &state) {
+    int nesting{1};
+    while (std::optional<const char *> p{state.GetNextChar()}) {
+      if (**p == right) {
+        if (!--nesting) {
+          return {Success{}};
+        }
+      } else if (**p == left) {
+        ++nesting;
+      } else if (**p == '\n') {
+        break;
+      }
     }
     return std::nullopt;
   }
@@ -584,20 +618,22 @@ template <char goal> struct SkipTo {
 //   [[, xyz] ::]     is  optionalBeforeColons(xyz)
 //   [[, xyz]... ::]  is  optionalBeforeColons(nonemptyList(xyz))
 template <typename PA> inline constexpr auto optionalBeforeColons(const PA &p) {
-  return "," >> construct<std::optional<typename PA::resultType>>(p) / "::" ||
-      ("::"_tok || !","_tok) >> defaulted(cut >> maybe(p));
+  using resultType = std::optional<typename PA::resultType>;
+  return "," >> construct<resultType>(p) / "::" ||
+      ("::"_tok || !","_tok) >> pure<resultType>();
 }
 template <typename PA>
 inline constexpr auto optionalListBeforeColons(const PA &p) {
+  using resultType = std::list<typename PA::resultType>;
   return "," >> nonemptyList(p) / "::" ||
-      ("::"_tok || !","_tok) >> defaulted(cut >> nonemptyList(p));
+      ("::"_tok || !","_tok) >> pure<resultType>();
 }
 
 // Skip over empty lines, leading spaces, and some compiler directives (viz.,
 // the ones that specify the source form) that might appear before the
 // next statement.  Skip over empty statements (bare semicolons) when
 // not in strict standard conformance mode.  Always succeeds.
-constexpr struct SkipStuffBeforeStatement {
+struct SkipStuffBeforeStatement {
   using resultType = Success;
   static std::optional<Success> Parse(ParseState &state) {
     if (UserState * ustate{state.userState()}) {
@@ -627,7 +663,7 @@ constexpr struct SkipStuffBeforeStatement {
         }
       } else if (**at == ';' &&
           state.IsNonstandardOk(
-              LanguageFeature::EmptyStatement, "empty statement"_en_US)) {
+              LanguageFeature::EmptyStatement, "empty statement"_port_en_US)) {
         state.UncheckedAdvance();
       } else {
         break;
@@ -635,7 +671,8 @@ constexpr struct SkipStuffBeforeStatement {
     }
     return {Success{}};
   }
-} skipStuffBeforeStatement;
+};
+constexpr SkipStuffBeforeStatement skipStuffBeforeStatement;
 
 // R602 underscore -> _
 constexpr auto underscore{"_"_ch};
@@ -647,20 +684,29 @@ constexpr auto underscore{"_"_ch};
 // Cray and gfortran accept '$', but not as the first character.
 // Cray accepts '@' as well.
 constexpr auto otherIdChar{underscore / !"'\""_ch ||
-    extension<LanguageFeature::PunctuationInNames>("$@"_ch)};
+    extension<LanguageFeature::PunctuationInNames>(
+        "nonstandard usage: punctuation in name"_port_en_US, "$@"_ch)};
 
 constexpr auto logicalTRUE{
     (".TRUE."_tok ||
-        extension<LanguageFeature::LogicalAbbreviations>(".T."_tok)) >>
+        extension<LanguageFeature::LogicalAbbreviations>(
+            "nonstandard usage: .T. spelling of .TRUE."_port_en_US,
+            ".T."_tok)) >>
     pure(true)};
 constexpr auto logicalFALSE{
     (".FALSE."_tok ||
-        extension<LanguageFeature::LogicalAbbreviations>(".F."_tok)) >>
+        extension<LanguageFeature::LogicalAbbreviations>(
+            "nonstandard usage: .F. spelling of .FALSE."_port_en_US,
+            ".F."_tok)) >>
     pure(false)};
 
 // deprecated: Hollerith literals
 constexpr auto rawHollerithLiteral{
     deprecated<LanguageFeature::Hollerith>(HollerithLiteral{})};
+
+template <typename A> constexpr decltype(auto) verbatim(A x) {
+  return sourced(construct<Verbatim>(x));
+}
 
 } // namespace Fortran::parser
 #endif // FORTRAN_PARSER_TOKEN_PARSERS_H_

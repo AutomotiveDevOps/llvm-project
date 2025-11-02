@@ -1,4 +1,4 @@
-//===--- TypeTraits.cpp - clang-tidy---------------------------------------===//
+//===----------------------------------------------------------------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -9,23 +9,18 @@
 #include "TypeTraits.h"
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/DeclCXX.h"
-#include "clang/ASTMatchers/ASTMatchFinder.h"
+#include <optional>
 
-namespace clang {
-namespace tidy {
-namespace utils {
-namespace type_traits {
+namespace clang::tidy::utils::type_traits {
 
-namespace {
-
-bool classHasTrivialCopyAndDestroy(QualType Type) {
+static bool classHasTrivialCopyAndDestroy(QualType Type) {
   auto *Record = Type->getAsCXXRecordDecl();
   return Record && Record->hasDefinition() &&
          !Record->hasNonTrivialCopyConstructor() &&
          !Record->hasNonTrivialDestructor();
 }
 
-bool hasDeletedCopyConstructor(QualType Type) {
+static bool hasDeletedCopyConstructor(QualType Type) {
   auto *Record = Type->getAsCXXRecordDecl();
   if (!Record || !Record->hasDefinition())
     return false;
@@ -36,16 +31,13 @@ bool hasDeletedCopyConstructor(QualType Type) {
   return false;
 }
 
-} // namespace
-
-llvm::Optional<bool> isExpensiveToCopy(QualType Type,
-                                       const ASTContext &Context) {
+std::optional<bool> isExpensiveToCopy(QualType Type,
+                                      const ASTContext &Context) {
   if (Type->isDependentType() || Type->isIncompleteType())
-    return llvm::None;
+    return std::nullopt;
   return !Type.isTriviallyCopyableType(Context) &&
          !classHasTrivialCopyAndDestroy(Type) &&
-         !hasDeletedCopyConstructor(Type) &&
-         !Type->isObjCLifetimeType();
+         !hasDeletedCopyConstructor(Type) && !Type->isObjCLifetimeType();
 }
 
 bool recordIsTriviallyDefaultConstructible(const RecordDecl &RecordDecl,
@@ -127,8 +119,8 @@ bool isTriviallyDefaultConstructible(QualType Type, const ASTContext &Context) {
   if (CanonicalType->isScalarType() || CanonicalType->isVectorType())
     return true;
 
-  if (const auto *RT = CanonicalType->getAs<RecordType>()) {
-    return recordIsTriviallyDefaultConstructible(*RT->getDecl(), Context);
+  if (const auto *RD = CanonicalType->getAsRecordDecl()) {
+    return recordIsTriviallyDefaultConstructible(*RD, Context);
   }
 
   // No other types can match.
@@ -161,7 +153,4 @@ bool hasNonTrivialMoveAssignment(QualType Type) {
          Record->hasNonTrivialMoveAssignment();
 }
 
-} // namespace type_traits
-} // namespace utils
-} // namespace tidy
-} // namespace clang
+} // namespace clang::tidy::utils::type_traits

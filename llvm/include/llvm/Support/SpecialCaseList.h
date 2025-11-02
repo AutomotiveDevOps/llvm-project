@@ -5,57 +5,26 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //===----------------------------------------------------------------------===//
 //
-// This is a utility class used to parse user-provided text files with
-// "special case lists" for code sanitizers. Such files are used to
-// define an "ABI list" for DataFlowSanitizer and blacklists for sanitizers
-// like AddressSanitizer or UndefinedBehaviorSanitizer.
-//
-// Empty lines and lines starting with "#" are ignored. Sections are defined
-// using a '[section_name]' header and can be used to specify sanitizers the
-// entries below it apply to. Section names are regular expressions, and
-// entries without a section header match all sections (e.g. an '[*]' header
-// is assumed.)
-// The remaining lines should have the form:
-//   prefix:wildcard_expression[=category]
-// If category is not specified, it is assumed to be empty string.
-// Definitions of "prefix" and "category" are sanitizer-specific. For example,
-// sanitizer blacklists support prefixes "src", "fun" and "global".
-// Wildcard expressions define, respectively, source files, functions or
-// globals which shouldn't be instrumented.
-// Examples of categories:
-//   "functional": used in DFSan to list functions with pure functional
-//                 semantics.
-//   "init": used in ASan blacklist to disable initialization-order bugs
-//           detection for certain globals or source files.
-// Full special case list file example:
-// ---
-// [address]
-// # Blacklisted items:
-// fun:*_ZN4base6subtle*
-// global:*global_with_bad_access_or_initialization*
-// global:*global_with_initialization_issues*=init
-// type:*Namespace::ClassName*=init
-// src:file_with_tricky_code.cc
-// src:ignore-global-initializers-issues.cc=init
-//
-// [dataflow]
-// # Functions with pure functional semantics:
-// fun:cos=functional
-// fun:sin=functional
-// ---
-// Note that the wild card is in fact an llvm::Regex, but * is automatically
-// replaced with .*
+// This file implements a Special Case List for code sanitizers.
 //
 //===----------------------------------------------------------------------===//
 
 #ifndef LLVM_SUPPORT_SPECIALCASELIST_H
 #define LLVM_SUPPORT_SPECIALCASELIST_H
 
+#include "llvm/ADT/ArrayRef.h"
+#include "llvm/ADT/RadixTree.h"
+#include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringMap.h"
+#include "llvm/ADT/iterator_range.h"
+#include "llvm/Support/Allocator.h"
+#include "llvm/Support/Compiler.h"
+#include "llvm/Support/GlobPattern.h"
 #include "llvm/Support/Regex.h"
-#include "llvm/Support/TrigramIndex.h"
 #include <memory>
 #include <string>
+#include <utility>
+#include <variant>
 #include <vector>
 
 namespace llvm {
@@ -66,93 +35,216 @@ namespace vfs {
 class FileSystem;
 }
 
+/// This is a utility class used to parse user-provided text files with
+/// "special case lists" for code sanitizers. Such files are used to
+/// define an "ABI list" for DataFlowSanitizer and allow/exclusion lists for
+/// sanitizers like AddressSanitizer or UndefinedBehaviorSanitizer.
+///
+/// Empty lines and lines starting with "#" are ignored. Sections are defined
+/// using a '[section_name]' header and can be used to specify sanitizers the
+/// entries below it apply to. Section names are globs, and
+/// entries without a section header match all sections (e.g. an '[*]' header
+/// is assumed.)
+/// The remaining lines should have the form:
+///   prefix:glob_pattern[=category]
+/// If category is not specified, it is assumed to be empty string.
+/// Definitions of "prefix" and "category" are sanitizer-specific. For example,
+/// sanitizer exclusion support prefixes "src", "mainfile", "fun" and "global".
+/// "glob_pattern" defines source files, main files, functions or globals which
+/// shouldn't be instrumented.
+/// Examples of categories:
+///   "functional": used in DFSan to list functions with pure functional
+///                 semantics.
+///   "init": used in ASan exclusion list to disable initialization-order bugs
+///           detection for certain globals or source files.
+/// Full special case list file example:
+/// ---
+/// [address]
+/// # Excluded items:
+/// fun:*_ZN4base6subtle*
+/// global:*global_with_bad_access_or_initialization*
+/// global:*global_with_initialization_issues*=init
+/// type:*Namespace::ClassName*=init
+/// src:file_with_tricky_code.cc
+/// src:ignore-global-initializers-issues.cc=init
+/// mainfile:main_file.cc
+///
+/// [dataflow]
+/// # Functions with pure functional semantics:
+/// fun:cos=functional
+/// fun:sin=functional
+/// ---
 class SpecialCaseList {
 public:
+  static constexpr std::pair<unsigned, unsigned> NotFound = {0, 0};
   /// Parses the special case list entries from files. On failure, returns
   /// 0 and writes an error message to string.
-  static std::unique_ptr<SpecialCaseList>
+  LLVM_ABI static std::unique_ptr<SpecialCaseList>
   create(const std::vector<std::string> &Paths, llvm::vfs::FileSystem &FS,
          std::string &Error);
   /// Parses the special case list from a memory buffer. On failure, returns
   /// 0 and writes an error message to string.
-  static std::unique_ptr<SpecialCaseList> create(const MemoryBuffer *MB,
-                                                 std::string &Error);
+  LLVM_ABI static std::unique_ptr<SpecialCaseList>
+  create(const MemoryBuffer *MB, std::string &Error);
   /// Parses the special case list entries from files. On failure, reports a
   /// fatal error.
-  static std::unique_ptr<SpecialCaseList>
+  LLVM_ABI static std::unique_ptr<SpecialCaseList>
   createOrDie(const std::vector<std::string> &Paths, llvm::vfs::FileSystem &FS);
 
-  ~SpecialCaseList();
+  LLVM_ABI ~SpecialCaseList();
 
   /// Returns true, if special case list contains a line
   /// \code
   ///   @Prefix:<E>=@Category
   /// \endcode
-  /// where @Query satisfies wildcard expression <E> in a given @Section.
-  bool inSection(StringRef Section, StringRef Prefix, StringRef Query,
-                 StringRef Category = StringRef()) const;
+  /// where @Query satisfies the glob <E> in a given @Section.
+  LLVM_ABI bool inSection(StringRef Section, StringRef Prefix, StringRef Query,
+                          StringRef Category = StringRef()) const;
 
-  /// Returns the line number corresponding to the special case list entry if
-  /// the special case list contains a line
+  /// Returns the file index and the line number <FileIdx, LineNo> corresponding
+  /// to the special case list entry if the special case list contains a line
   /// \code
   ///   @Prefix:<E>=@Category
   /// \endcode
-  /// where @Query satisfies wildcard expression <E> in a given @Section.
-  /// Returns zero if there is no blacklist entry corresponding to this
+  /// where @Query satisfies the glob <E> in a given @Section.
+  /// Returns (zero, zero) if there is no exclusion entry corresponding to this
   /// expression.
-  unsigned inSectionBlame(StringRef Section, StringRef Prefix, StringRef Query,
-                          StringRef Category = StringRef()) const;
+  LLVM_ABI std::pair<unsigned, unsigned>
+  inSectionBlame(StringRef Section, StringRef Prefix, StringRef Query,
+                 StringRef Category = StringRef()) const;
 
 protected:
   // Implementations of the create*() functions that can also be used by derived
   // classes.
-  bool createInternal(const std::vector<std::string> &Paths,
-                      vfs::FileSystem &VFS, std::string &Error);
-  bool createInternal(const MemoryBuffer *MB, std::string &Error);
+  LLVM_ABI bool createInternal(const std::vector<std::string> &Paths,
+                               vfs::FileSystem &VFS, std::string &Error);
+  LLVM_ABI bool createInternal(const MemoryBuffer *MB, std::string &Error,
+                               bool OrderBySize = false);
 
   SpecialCaseList() = default;
   SpecialCaseList(SpecialCaseList const &) = delete;
   SpecialCaseList &operator=(SpecialCaseList const &) = delete;
 
-  /// Represents a set of regular expressions.  Regular expressions which are
-  /// "literal" (i.e. no regex metacharacters) are stored in Strings.  The
-  /// reason for doing so is efficiency; StringMap is much faster at matching
-  /// literal strings than Regex.
+private:
+  // Lagacy v1 matcher.
+  class RegexMatcher {
+  public:
+    LLVM_ABI Error insert(StringRef Pattern, unsigned LineNumber);
+    LLVM_ABI void preprocess(bool BySize);
+
+    LLVM_ABI void
+    match(StringRef Query,
+          llvm::function_ref<void(StringRef Rule, unsigned LineNo)> Cb) const;
+
+    struct Reg {
+      Reg(StringRef Name, unsigned LineNo, Regex &&Rg)
+          : Name(Name), LineNo(LineNo), Rg(std::move(Rg)) {}
+      StringRef Name;
+      unsigned LineNo;
+      Regex Rg;
+    };
+
+    std::vector<Reg> RegExes;
+  };
+
+  class GlobMatcher {
+  public:
+    LLVM_ABI Error insert(StringRef Pattern, unsigned LineNumber);
+    LLVM_ABI void preprocess(bool BySize);
+
+    LLVM_ABI void
+    match(StringRef Query,
+          llvm::function_ref<void(StringRef Rule, unsigned LineNo)> Cb) const;
+
+    struct Glob {
+      Glob(StringRef Name, unsigned LineNo, GlobPattern &&Pattern)
+          : Name(Name), LineNo(LineNo), Pattern(std::move(Pattern)) {}
+      StringRef Name;
+      unsigned LineNo;
+      GlobPattern Pattern;
+    };
+
+    std::vector<GlobMatcher::Glob> Globs;
+
+    RadixTree<iterator_range<StringRef::const_iterator>,
+              RadixTree<iterator_range<StringRef::const_reverse_iterator>,
+                        SmallVector<const GlobMatcher::Glob *, 1>>>
+        PrefixSuffixToGlob;
+
+    RadixTree<iterator_range<StringRef::const_iterator>,
+              SmallVector<const GlobMatcher::Glob *, 1>>
+        SubstrToGlob;
+  };
+
+  /// Represents a set of patterns and their line numbers
   class Matcher {
   public:
-    bool insert(std::string Regexp, unsigned LineNumber, std::string &REError);
-    // Returns the line number in the source file that this query matches to.
-    // Returns zero if no match is found.
-    unsigned match(StringRef Query) const;
+    LLVM_ABI Matcher(bool UseGlobs, bool RemoveDotSlash);
 
-  private:
-    StringMap<unsigned> Strings;
-    TrigramIndex Trigrams;
-    std::vector<std::pair<std::unique_ptr<Regex>, unsigned>> RegExes;
+    LLVM_ABI Error insert(StringRef Pattern, unsigned LineNumber);
+    LLVM_ABI void preprocess(bool BySize);
+
+    LLVM_ABI void
+    match(StringRef Query,
+          llvm::function_ref<void(StringRef Rule, unsigned LineNo)> Cb) const;
+
+    LLVM_ABI bool matchAny(StringRef Query) const {
+      bool R = false;
+      match(Query, [&](StringRef, unsigned) { R = true; });
+      return R;
+    }
+
+    std::variant<RegexMatcher, GlobMatcher> M;
+    bool RemoveDotSlash;
   };
 
   using SectionEntries = StringMap<StringMap<Matcher>>;
 
+protected:
   struct Section {
-    Section(std::unique_ptr<Matcher> M) : SectionMatcher(std::move(M)){};
+    Section(StringRef Str, unsigned FileIdx, bool UseGlobs)
+        : SectionMatcher(UseGlobs, /*RemoveDotSlash=*/false), SectionStr(Str),
+          FileIdx(FileIdx) {}
 
-    std::unique_ptr<Matcher> SectionMatcher;
+    Section(Section &&) = default;
+
+    Matcher SectionMatcher;
     SectionEntries Entries;
+    std::string SectionStr;
+    unsigned FileIdx;
+
+    // Helper method to search by Prefix, Query, and Category. Returns
+    // 1-based line number on which rule is defined, or 0 if there is no match.
+    LLVM_ABI unsigned getLastMatch(StringRef Prefix, StringRef Query,
+                                   StringRef Category) const;
+
+    // Helper method to search by Prefix, Query, and Category. Returns
+    // matching rule, or empty string if there is no match.
+    LLVM_ABI StringRef getLongestMatch(StringRef Prefix, StringRef Query,
+                                       StringRef Category) const;
+
+  private:
+    friend class SpecialCaseList;
+    LLVM_ABI void preprocess(bool OrderBySize);
+    LLVM_ABI const SpecialCaseList::Matcher *
+    findMatcher(StringRef Prefix, StringRef Category) const;
   };
 
+  ArrayRef<const Section> sections() const { return Sections; }
+
+private:
+  BumpPtrAllocator StrAlloc;
   std::vector<Section> Sections;
 
-  /// Parses just-constructed SpecialCaseList entries from a memory buffer.
-  bool parse(const MemoryBuffer *MB, StringMap<size_t> &SectionsMap,
-             std::string &Error);
+  LLVM_ABI Expected<Section *> addSection(StringRef SectionStr,
+                                          unsigned FileIdx, unsigned LineNo,
+                                          bool UseGlobs);
 
-  // Helper method for derived classes to search by Prefix, Query, and Category
-  // once they have already resolved a section entry.
-  unsigned inSectionBlame(const SectionEntries &Entries, StringRef Prefix,
-                          StringRef Query, StringRef Category) const;
+  /// Parses just-constructed SpecialCaseList entries from a memory buffer.
+  LLVM_ABI bool parse(unsigned FileIdx, const MemoryBuffer *MB,
+                      std::string &Error, bool OrderBySize);
 };
 
-}  // namespace llvm
+} // namespace llvm
 
-#endif  // LLVM_SUPPORT_SPECIALCASELIST_H
-
+#endif // LLVM_SUPPORT_SPECIALCASELIST_H

@@ -1,9 +1,8 @@
-// RUN: %clang_cc1 -fspell-checking-limit 0 -verify -Wno-c++11-extensions %s
-// RUN: %clang_cc1 -fspell-checking-limit 0 -verify -Wno-c++11-extensions -std=c++20 %s
+// RUN: %clang_cc1 -fspell-checking-limit=0 -verify -Wno-c++11-extensions -fcxx-exceptions %s
+// RUN: %clang_cc1 -fspell-checking-limit=0 -verify -Wno-c++11-extensions -fcxx-exceptions -std=c++20 %s
 
 namespace PR21817{
 int a(-rsing[2]); // expected-error {{undeclared identifier 'rsing'; did you mean 'using'?}}
-                  // expected-error@-1 {{expected expression}}
 }
 
 struct errc {
@@ -43,14 +42,14 @@ inline error_condition make_error_condition(errc _e) {
 // refer to a base class or non-static data member.
 struct BaseType { };
 struct Derived : public BaseType { // expected-note {{base class 'BaseType' specified here}}
-  static int base_type; // expected-note {{'base_type' declared here}}
+  static int base_type;
   Derived() : basetype() {} // expected-error{{initializer 'basetype' does not name a non-static data member or base class; did you mean the base class 'BaseType'?}}
 };
 
 // Test the improvement from passing a callback object to CorrectTypo in
 // the helper function LookupMemberExprInRecord.
 int get_type(struct Derived *st) {
-  return st->Base_Type; // expected-error{{no member named 'Base_Type' in 'Derived'; did you mean 'base_type'?}}
+  return st->Base_Type; // expected-error{{no member named 'Base_Type' in 'Derived'}}
 }
 
 // In this example, somename should not be corrected to the cached correction
@@ -173,6 +172,7 @@ class Parent {
 };
 class Child: public Parent {};
 void Child::add_types(int value) {} // expected-error{{out-of-line definition of 'add_types' does not match any declaration in 'Child'}}
+                                    // expected-note@-2{{defined here}}
 
 // Fix the callback based filtering of typo corrections within
 // Sema::ActOnIdExpression by Parser::ParseCastExpression to allow type names as
@@ -211,12 +211,11 @@ namespace PR13051 {
   };
 
   void foo(); // expected-note{{'foo' declared here}}
-  void g(void(*)()); // expected-note{{candidate function not viable}}
-  void g(bool(S<int>::*)() const); // expected-note{{candidate function not viable}}
+  void g(void(*)());
+  void g(bool(S<int>::*)() const);
 
   void test() {
-    g(&S<int>::tempalte f<int>); // expected-error{{did you mean 'template'?}} \
-                                 // expected-error{{no matching function for call to 'g'}}
+    g(&S<int>::tempalte f<int>); // expected-error{{did you mean 'template'?}}
     g(&S<int>::opeartor bool); // expected-error{{did you mean 'operator'?}}
     g(&S<int>::foo); // expected-error{{no member named 'foo' in 'PR13051::S<int>'; did you mean simply 'foo'?}}
   }
@@ -250,13 +249,13 @@ namespace b6956809_test1 {
 
   struct S1 {
     void method(A*);  // no note here
-    void method(B*);  // expected-note{{'method' declared here}}
+    void method(B*);
   };
 
   void test1() {
     B b;
     S1 s;
-    s.methodd(&b);  // expected-error{{no member named 'methodd' in 'b6956809_test1::S1'; did you mean 'method'}}
+    s.methodd(&b);  // expected-error{{no member named 'methodd' in 'b6956809_test1::S1'}}
   }
 
   struct S2 {
@@ -274,15 +273,15 @@ namespace b6956809_test1 {
 }
 
 namespace b6956809_test2 {
-  template<typename T> struct Err { typename T::error n; };  // expected-error{{type 'void *' cannot be used prior to '::' because it has no members}}
+  template<typename T> struct Err { typename T::error n; };
   struct S {
-    template<typename T> typename Err<T>::type method(T);  // expected-note{{in instantiation of template class 'b6956809_test2::Err<void *>' requested here}}
-    template<typename T> int method(T *);  // expected-note{{'method' declared here}}
+    template<typename T> typename Err<T>::type method(T);
+    template<typename T> int method(T *);
   };
 
   void test() {
     S s;
-    int k = s.methodd((void*)0);  // expected-error{{no member named 'methodd' in 'b6956809_test2::S'; did you mean 'method'?}} expected-note{{while substituting deduced template arguments into function template 'method' [with T = void *]}}
+    int k = s.methodd((void*)0);  // expected-error{{no member named 'methodd' in 'b6956809_test2::S'}}
   }
 }
 
@@ -308,12 +307,12 @@ struct A {
   void CreateBar(float, float);
 };
 struct B : A {
-  using A::CreateFoo; // expected-note {{'CreateFoo' declared here}}
-  void CreateFoo(int, int);  // expected-note {{'CreateFoo' declared here}}
+  using A::CreateFoo;
+  void CreateFoo(int, int);
 };
 void f(B &x) {
-  x.Createfoo(0,0);  // expected-error {{no member named 'Createfoo' in 'PR13387::B'; did you mean 'CreateFoo'?}}
-  x.Createfoo(0.f,0.f);  // expected-error {{no member named 'Createfoo' in 'PR13387::B'; did you mean 'CreateFoo'?}}
+  x.Createfoo(0,0);  // expected-error {{no member named 'Createfoo' in 'PR13387::B'}}
+  x.Createfoo(0.f,0.f);  // expected-error {{no member named 'Createfoo' in 'PR13387::B'}}
 }
 }
 
@@ -494,7 +493,7 @@ template <typename T> struct Wrappable {
 // instead of incorrectly suggesting dropping "PR18213::WrapperInfo::".
 template <>
 PR18213::WrapperInfo ::PR18213::Wrappable<int>::kWrapperInfo = { 0 };  // expected-error {{no member named 'PR18213' in 'PR18213::WrapperInfo'; did you mean simply 'PR18213'?}} \
-                                                                       // expected-error {{C++ requires a type specifier for all declarations}}
+                                                                       // expected-error {{a type specifier is required for all declarations}}
 }
 
 namespace PR18651 {
@@ -611,14 +610,49 @@ int bar() {
 }
 }
 
+namespace testIncludeTypeInTemplateArgument {
+template <typename T, typename U>
+void foo(T t = {}, U = {}); // expected-note {{candidate template ignored}}
+
+class AddObservation {}; // expected-note {{declared here}}
+int bar1() {
+  // should resolve to a class.
+  foo<AddObservationFn, int>(); // expected-error {{unknown type name 'AddObservationFn'; did you mean 'AddObservation'?}}
+
+  // should not resolve to a class.
+  foo(AddObservationFn, 1);    // expected-error-re {{use of undeclared identifier 'AddObservationFn'{{$}}}}
+  int a = AddObservationFn, b; // expected-error-re {{use of undeclared identifier 'AddObservationFn'{{$}}}}
+
+  int AddObservation; // expected-note 3{{declared here}}
+  // should resolve to a local variable.
+  foo(AddObservationFn, 1);    // expected-error {{use of undeclared identifier 'AddObservationFn'; did you mean}}
+  int c = AddObservationFn, d; // expected-error {{use of undeclared identifier 'AddObservationFn'; did you mean}}
+
+  // FIXME: would be nice to not resolve to a variable.
+  foo<AddObservationFn, int>(); // expected-error {{use of undeclared identifier 'AddObservationFn'; did you mean}} \
+                                   expected-error {{no matching function for call}}
+}
+} // namespace testIncludeTypeInTemplateArgument
+
+namespace testNoCrashOnNullNNSTypoCorrection {
+int AddObservation();
+template <typename T, typename... Args>
+class UsingImpl {};
+class AddObservation { // expected-note {{declared here}}
+  using Using =
+      // should resolve to a class.
+      UsingImpl<AddObservationFn, const int>; // expected-error {{unknown type name 'AddObservationFn'; did you mean}}
+};
+} // namespace testNoCrashOnNullNNSTypoCorrection
+
 namespace testNonStaticMemberHandling {
 struct Foo {
-  bool usesMetadata;  // expected-note {{'usesMetadata' declared here}}
+  bool usesMetadata;
 };
 int test(Foo f) {
   if (UsesMetadata)  // expected-error-re {{use of undeclared identifier 'UsesMetadata'{{$}}}}
     return 5;
-  if (f.UsesMetadata)  // expected-error {{no member named 'UsesMetadata' in 'testNonStaticMemberHandling::Foo'; did you mean 'usesMetadata'?}}
+  if (f.UsesMetadata)  // expected-error {{no member named 'UsesMetadata' in 'testNonStaticMemberHandling::Foo'}}
     return 11;
   return 0;
 }
@@ -671,7 +705,7 @@ using C::D::Foofoo;  // expected-error {{no member named 'Foofoo' in namespace '
 int d = ? L : d; // expected-error {{expected expression}} expected-error {{undeclared identifier}}
 
 struct B0 {
-  int : 0 |         // expected-error {{invalid operands to binary expression}}
+  int : 0 |
       (struct B0)e; // expected-error {{use of undeclared identifier}}
 };
 
@@ -710,3 +744,46 @@ void ns::create_test2() { // expected-error {{out-of-line definition of 'create_
 void ns::create_test() {
 }
 }
+
+namespace PR46487 {
+  bool g_var_bool; // expected-note {{here}}
+  const char g_volatile_char = 5; // expected-note {{here}}
+  // FIXME: We shouldn't suggest a typo-correction to 'g_var_bool' here,
+  // because it doesn't make the expression valid.
+  // expected-error@+2 {{did you mean 'g_var_bool'}}
+  // expected-error@+1 {{assigning to 'bool' from incompatible type 'void'}}
+  enum : typename decltype((g_var_long = throw))::a {
+    b = g_volatile_uchar // expected-error {{did you mean 'g_volatile_char'}}
+  };
+}
+
+namespace PR47272
+{
+
+namespace Views {
+int Take(); // expected-note{{'Views::Take' declared here}}
+}
+
+namespace [[deprecated("use Views instead")]] View {
+using Views::Take;
+}
+
+namespace [[deprecated]] A { // expected-note{{'A' has been explicitly marked deprecated here}}
+int pr47272;
+}
+
+namespace B {
+using A::pr47272;  // expected-note{{'B::pr47272' declared here}} expected-warning{{'A' is deprecated}}
+}
+
+namespace [[deprecated]] C {
+using A::pr47272;
+}
+
+void function() {
+  int x = ::Take(); // expected-error{{no member named 'Take' in the global namespace; did you mean 'Views::Take'?}}
+  int y = ::pr47272; // expected-error{{no member named 'pr47272' in the global namespace; did you mean 'B::pr47272'?}}
+}
+}
+
+

@@ -1,13 +1,10 @@
-! RUN: %S/test_any.sh %s %t %f18
-! negative test -- invalid labels, out of range
-
-! EXEC: ${F18} -funparse-with-symbols %s 2>&1 | ${FileCheck} %s
-! CHECK: Label '10' is not in scope
+! RUN: not %flang_fc1 -fdebug-unparse-with-symbols %s 2>&1 | FileCheck %s
+! CHECK: warning: Label '10' is in a construct that should not be used as a branch target here
 ! CHECK: Label '20' was not found
 ! CHECK: Label '30' is not a branch target
 ! CHECK: Control flow use of '30'
-! CHECK: Label '40' is not in scope
-! CHECK: Label '50' is not in scope
+! CHECK: warning: Label '40' is in a construct that should not be used as a branch target here
+! CHECK: warning: Label '50' is in a construct that should not be used as a branch target here
 
 subroutine sub00(n)
   GOTO (10,20,30) n

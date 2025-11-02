@@ -1,9 +1,8 @@
 //===----------------------------------------------------------------------===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is dual licensed under the MIT and the University of Illinois Open
-// Source Licenses. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 
@@ -12,7 +11,7 @@
 // };
 // inline constexpr destroying_delete_t destroying_delete{};
 
-// UNSUPPORTED: c++98, c++03, c++11, c++14, c++17
+// UNSUPPORTED: c++03, c++11, c++14, c++17
 
 // Test only the library parts of destroying delete in this test.
 // Verify that it's properly declared after C++17 and that it's constexpr.
@@ -23,6 +22,8 @@
 #include <new>
 
 #include <cassert>
+#include <type_traits>
+
 #include "test_macros.h"
 #include "test_convertible.h"
 
@@ -42,11 +43,11 @@ constexpr bool test_constexpr(std::destroying_delete_t) {
   return true;
 }
 
-int main() {
+int main(int, char**) {
   static_assert(std::is_default_constructible<std::destroying_delete_t>::value, "");
   static_assert(!test_convertible<std::destroying_delete_t>(), "");
   constexpr std::destroying_delete_t dd{};
-  static_assert((dd, true), "");
   static_assert(&dd != &std::destroying_delete, "");
   static_assert(test_constexpr(std::destroying_delete), "");
+  return 0;
 }

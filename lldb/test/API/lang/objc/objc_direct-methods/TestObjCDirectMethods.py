@@ -1,5 +1,5 @@
 from lldbsuite.test import lldbinline
 from lldbsuite.test import decorators
 
-lldbinline.MakeInlineTest(
-    __file__, globals(), [decorators.skipUnlessDarwin])
+decor = [decorators.skipIf(compiler="clang", compiler_version=["<", "16.0"])]
+lldbinline.MakeInlineTest(__file__, globals(), decor)

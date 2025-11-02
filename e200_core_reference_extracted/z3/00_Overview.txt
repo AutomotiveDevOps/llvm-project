@@ -1,0 +1,100 @@
+e200z3 Power Architecture™
+     Core Reference Manual
+
+
+                     Supports
+                       e200z3
+                     e200z335
+
+
+
+
+                     e200z3coreRM
+                             Rev. 2
+                           06/2008
+How to Reach Us:
+Home Page:
+www.freescale.com
+Web Support:
+http://www.freescale.com/support        Information in this document is provided solely to enable system and software
+USA/Europe or Locations Not Listed:     implementers to use Freescale Semiconductor products. There are no express or
+Freescale Semiconductor, Inc.           implied copyright licenses granted hereunder to design or fabricate any integrated
+Technical Information Center, EL516
+                                        circuits or integrated circuits based on the information in this document.
+2100 East Elliot Road
+Tempe, Arizona 85284                    Freescale Semiconductor reserves the right to make changes without further notice to
++1-800-521-6274 or                      any products herein. Freescale Semiconductor makes no warranty, representation or
++1-480-768-2130
+                                        guarantee regarding the suitability of its products for any particular purpose, nor does
+www.freescale.com/support
+                                        Freescale Semiconductor assume any liability arising out of the application or use of
+Europe, Middle East, and Africa:
+                                        any product or circuit, and specifically disclaims any and all liability, including without
+Freescale Halbleiter Deutschland GmbH
+Technical Information Center            limitation consequential or incidental damages. “Typical” parameters which may be
+Schatzbogen 7                           provided in Freescale Semiconductor data sheets and/or specifications can and do
+81829 Muenchen, Germany                 vary in different applications and actual performance may vary over time. All operating
++44 1296 380 456 (English)
+                                        parameters, including “Typicals” must be validated for each customer application by
++46 8 52200080 (English)
++49 89 92103 559 (German)               customer’s technical experts. Freescale Semiconductor does not convey any license
++33 1 69 35 48 48 (French)              under its patent rights nor the rights of others. Freescale Semiconductor products are
+www.freescale.com/support
+                                        not designed, intended, or authorized for use as components in systems intended for
+Japan:                                  surgical implant into the body, or other applications intended to support or sustain life,
+Freescale Semiconductor Japan Ltd.
+                                        or for any other application in which the failure of the Freescale Semiconductor product
+Headquarters
+ARCO Tower 15F                          could create a situation where personal injury or death may occur. Should Buyer
+1-8-1, Shimo-Meguro, Meguro-ku          purchase or use Freescale Semiconductor products for any such unintended or
+Tokyo 153-0064                          unauthorized application, Buyer shall indemnify and hold Freescale Semiconductor
+Japan
+                                        and its officers, employees, subsidiaries, affiliates, and distributors harmless against all
+0120 191014 or
++81 3 5437 9125                         claims, costs, damages, and expenses, and reasonable attorney fees arising out of,
+support.japan@freescale.com             directly or indirectly, any claim of personal injury or death associated with such
+Asia/Pacific:                           unintended or unauthorized use, even if such claim alleges that Freescale
+Freescale Semiconductor China Ltd.      Semiconductor was negligent regarding the design or manufacture of the part.
+Exchange Building 23F
+No. 118 Jianguo Road
+Chaoyang District
+Beijing 100022
+China                                   Freescale, the Freescale logo, and StarCore and the Freescale logo are
++86 010 5879 8000                       trademarks or registered trademarks of Freescale Semiconductor, Inc. in
+support.asia@freescale.com              the U.S. and other countries. All other product or service names are the
+                                        property of their respective owners. HyperTransport is a trademark of the
+For Literature Requests Only:           HyperTransport Technology Consortium. The Power Architecture and
+Freescale Semiconductor                 Power.org word marks and the Power and Power.org logos and related
+  Literature Distribution Center        marks are trademarks and service marks licensed by Power.org. The
+P.O. Box 5405                           PowerPC name is a trademark of IBM Corp. and is used under license.
+Denver, Colorado 80217                  RapidIO is a registered trademark of the RapidIO Trade Association. IEEE
++1-800 441-2447 or                      nnn, nnn, and nnn are trademarks or registered trademarks of the Institute
++1-303-675-2140                         of Electrical and Electronics Engineers, Inc. (IEEE). This product is not
+Fax: +1-303-675-2150                    endorsed or approved by the IEEE.
+LDCForFreescaleSemiconductor            © Freescale Semiconductor, Inc., 2007. All rights reserved.
+  @hibbertgroup.com
+
+
+
+
+Document Number: e200z3coreRM
+Rev. 2, 06/2008
+                                                            Contents
+Paragraph                                                                                                                                  Page
+Number                                                              Title                                                                Number
+                General Information......................................................................................................... viii
+                Related Documentation...................................................................................................... ix
+                Terminology Conventions....................................................................................................x
+                Acronyms and Abbreviations ..............................................................................................x
+
+                                                     Chapter 1
+                                          e200z335 Core Complex Overview
+
+1.1             Overview of the e200z3 and e200z335............................................................................ 1-1
+1.1.1              Features........................................................................................................................ 1-4
+1.2             Programming Model ........................................................................................................ 1-5
+1.2.1              Register Set .................................................................................................................. 1-5
+1.3             Instruction Set .................................................................................................................. 1-7
+1.4             VLE Category .................................................................................................................. 1-8
+1.5             Interrupts and Exception Handling .................................................................................. 1-8
+1.5.1              Interrupt Handling........................................................................................................ 1-9

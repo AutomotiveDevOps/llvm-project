@@ -13,11 +13,10 @@
 #include "ARM.h"
 
 #include "ARMCallLowering.h"
-#include "ARMLegalizerInfo.h"
-#include "ARMRegisterBankInfo.h"
-#include "ARMSubtarget.h"
 #include "ARMFrameLowering.h"
 #include "ARMInstrInfo.h"
+#include "ARMLegalizerInfo.h"
+#include "ARMRegisterBankInfo.h"
 #include "ARMSubtarget.h"
 #include "ARMTargetMachine.h"
 #include "MCTargetDesc/ARMMCTargetDesc.h"
@@ -25,9 +24,9 @@
 #include "Thumb1InstrInfo.h"
 #include "Thumb2InstrInfo.h"
 #include "llvm/ADT/StringRef.h"
-#include "llvm/ADT/Triple.h"
 #include "llvm/ADT/Twine.h"
 #include "llvm/CodeGen/GlobalISel/InstructionSelect.h"
+#include "llvm/CodeGen/MachineFrameInfo.h"
 #include "llvm/CodeGen/MachineFunction.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/GlobalValue.h"
@@ -35,8 +34,9 @@
 #include "llvm/MC/MCTargetOptions.h"
 #include "llvm/Support/CodeGen.h"
 #include "llvm/Support/CommandLine.h"
-#include "llvm/Support/TargetParser.h"
 #include "llvm/Target/TargetOptions.h"
+#include "llvm/TargetParser/ARMTargetParser.h"
+#include "llvm/TargetParser/Triple.h"
 
 using namespace llvm;
 
@@ -52,19 +52,15 @@ UseFusedMulOps("arm-use-mulops",
 
 enum ITMode {
   DefaultIT,
-  RestrictedIT,
-  NoRestrictedIT
+  RestrictedIT
 };
 
 static cl::opt<ITMode>
-IT(cl::desc("IT block support"), cl::Hidden, cl::init(DefaultIT),
-   cl::ZeroOrMore,
-   cl::values(clEnumValN(DefaultIT, "arm-default-it",
-                         "Generate IT block based on arch"),
-              clEnumValN(RestrictedIT, "arm-restrict-it",
-                         "Disallow deprecated IT based on ARMv8"),
-              clEnumValN(NoRestrictedIT, "arm-no-restrict-it",
-                         "Allow IT blocks based on ARMv7")));
+    IT(cl::desc("IT block support"), cl::Hidden, cl::init(DefaultIT),
+       cl::values(clEnumValN(DefaultIT, "arm-default-it",
+                             "Generate any type of IT block"),
+                  clEnumValN(RestrictedIT, "arm-restrict-it",
+                             "Disallow complex IT blocks")));
 
 /// ForceFastISel - Use the fast-isel, even for subtargets where it is not
 /// currently supported (for testing only).
@@ -72,14 +68,10 @@ static cl::opt<bool>
 ForceFastISel("arm-force-fast-isel",
                cl::init(false), cl::Hidden);
 
-static cl::opt<bool> EnableSubRegLiveness("arm-enable-subreg-liveness",
-                                          cl::init(false), cl::Hidden);
-
 /// initializeSubtargetDependencies - Initializes using a CPU and feature string
 /// so that we can use initializer lists for subtarget initialization.
 ARMSubtarget &ARMSubtarget::initializeSubtargetDependencies(StringRef CPU,
                                                             StringRef FS) {
-  initializeEnvironment();
   initSubtargetFeatures(CPU, FS);
   return *this;
 }
@@ -96,18 +88,16 @@ ARMFrameLowering *ARMSubtarget::initializeFrameLowering(StringRef CPU,
 ARMSubtarget::ARMSubtarget(const Triple &TT, const std::string &CPU,
                            const std::string &FS,
                            const ARMBaseTargetMachine &TM, bool IsLittle,
-                           bool MinSize)
-    : ARMGenSubtargetInfo(TT, CPU, FS), UseMulOps(UseFusedMulOps),
-      CPUString(CPU), OptMinSize(MinSize), IsLittle(IsLittle),
-      TargetTriple(TT), Options(TM.Options), TM(TM),
+                           bool MinSize, DenormalMode DM)
+    : ARMGenSubtargetInfo(TT, CPU, /*TuneCPU*/ CPU, FS),
+      UseMulOps(UseFusedMulOps), CPUString(CPU), OptMinSize(MinSize),
+      IsLittle(IsLittle), DM(DM), TargetTriple(TT), Options(TM.Options), TM(TM),
       FrameLowering(initializeFrameLowering(CPU, FS)),
       // At this point initializeSubtargetDependencies has been called so
       // we can query directly.
-      InstrInfo(isThumb1Only()
-                    ? (ARMBaseInstrInfo *)new Thumb1InstrInfo(*this)
-                    : !isThumb()
-                          ? (ARMBaseInstrInfo *)new ARMInstrInfo(*this)
-                          : (ARMBaseInstrInfo *)new Thumb2InstrInfo(*this)),
+      InstrInfo(isThumb1Only() ? (ARMBaseInstrInfo *)new Thumb1InstrInfo(*this)
+                : !isThumb()   ? (ARMBaseInstrInfo *)new ARMInstrInfo(*this)
+                             : (ARMBaseInstrInfo *)new Thumb2InstrInfo(*this)),
       TLInfo(TM, *this) {
 
   CallLoweringInfo.reset(new ARMCallLowering(*getTargetLowering()));
@@ -118,8 +108,7 @@ ARMSubtarget::ARMSubtarget(const Triple &TT, const std::string &CPU,
   // FIXME: At this point, we can't rely on Subtarget having RBI.
   // It's awkward to mix passing RBI and the Subtarget; should we pass
   // TII/TRI as well?
-  InstSelector.reset(createARMInstructionSelector(
-      *static_cast<const ARMBaseTargetMachine *>(&TM), *this, *RBI));
+  InstSelector.reset(createARMInstructionSelector(TM, *this, *RBI));
 
   RegBankInfo.reset(RBI);
 }
@@ -143,19 +132,6 @@ const RegisterBankInfo *ARMSubtarget::getRegBankInfo() const {
 bool ARMSubtarget::isXRaySupported() const {
   // We don't currently suppport Thumb, but Windows requires Thumb.
   return hasV6Ops() && hasARMOps() && !isTargetWindows();
-}
-
-void ARMSubtarget::initializeEnvironment() {
-  // MCAsmInfo isn't always present (e.g. in opt) so we can't initialize this
-  // directly from it, but we can try to make sure they're consistent when both
-  // available.
-  UseSjLjEH = (isTargetDarwin() && !isTargetWatchABI() &&
-               Options.ExceptionModel == ExceptionHandling::None) ||
-              Options.ExceptionModel == ExceptionHandling::SjLj;
-  assert((!TM.getMCAsmInfo() ||
-          (TM.getMCAsmInfo()->getExceptionHandlingType() ==
-           ExceptionHandling::SjLj) == UseSjLjEH) &&
-         "inconsistent sjlj choice between CodeGen and MC");
 }
 
 void ARMSubtarget::initSubtargetFeatures(StringRef CPU, StringRef FS) {
@@ -185,16 +161,18 @@ void ARMSubtarget::initSubtargetFeatures(StringRef CPU, StringRef FS) {
     else
       ArchFS = std::string(FS);
   }
-  ParseSubtargetFeatures(CPUString, ArchFS);
+  ParseSubtargetFeatures(CPUString, /*TuneCPU*/ CPUString, ArchFS);
 
   // FIXME: This used enable V6T2 support implicitly for Thumb2 mode.
   // Assert this for now to make the change obvious.
   assert(hasV6T2Ops() || !hasThumb2());
 
-  // Execute only support requires movt support
   if (genExecuteOnly()) {
-    NoMovt = false;
-    assert(hasV8MBaselineOps() && "Cannot generate execute-only code for this target");
+    // Execute only support for >= v8-M Baseline requires movt support
+    if (hasV8MBaselineOps())
+      NoMovt = false;
+    if (!hasV6MOps())
+      report_fatal_error("Cannot generate execute-only code for this target");
   }
 
   // Keep a pointer to static instruction cost data for the specified CPU.
@@ -207,9 +185,9 @@ void ARMSubtarget::initSubtargetFeatures(StringRef CPU, StringRef FS) {
   if (isTargetWindows())
     NoARM = true;
 
-  if (isAAPCS_ABI())
+  if (TM.isAAPCS_ABI())
     stackAlignment = Align(8);
-  if (isTargetNaCl() || isAAPCS16_ABI())
+  if (TM.isAAPCS16_ABI())
     stackAlignment = Align(16);
 
   // FIXME: Completely disable sibcall for Thumb1 since ThumbRegisterInfo::
@@ -230,30 +208,28 @@ void ARMSubtarget::initSubtargetFeatures(StringRef CPU, StringRef FS) {
   // registers are the 4 used for parameters.  We don't currently do this
   // case.
 
-  SupportsTailCall = !isThumb() || hasV8MBaselineOps();
-
-  if (isTargetMachO() && isTargetIOS() && getTargetTriple().isOSVersionLT(5, 0))
-    SupportsTailCall = false;
+  SupportsTailCall = !isThumb1Only() || hasV8MBaselineOps();
 
   switch (IT) {
   case DefaultIT:
-    RestrictIT = hasV8Ops();
+    RestrictIT = false;
     break;
   case RestrictedIT:
     RestrictIT = true;
-    break;
-  case NoRestrictedIT:
-    RestrictIT = false;
     break;
   }
 
   // NEON f32 ops are non-IEEE 754 compliant. Darwin is ok with it by default.
   const FeatureBitset &Bits = getFeatureBits();
   if ((Bits[ARM::ProcA5] || Bits[ARM::ProcA8]) && // Where this matters
-      (Options.UnsafeFPMath || isTargetDarwin()))
-    UseNEONForSinglePrecisionFP = true;
+      (isTargetDarwin() || DM == DenormalMode::getPreserveSign()))
+    HasNEONForFP = true;
 
-  if (isRWPI())
+  const ARM::ArchKind Arch = ARM::parseArch(TargetTriple.getArchName());
+  if (isRWPI() ||
+      (isTargetIOS() &&
+       (Arch == ARM::ArchKind::ARMV6K || Arch == ARM::ArchKind::ARMV6) &&
+       TargetTriple.isOSVersionLT(3, 0)))
     ReserveR9 = true;
 
   // If MVEVectorCostFactor is still 0 (has not been set to anything else), default it to 2
@@ -292,25 +268,36 @@ void ARMSubtarget::initSubtargetFeatures(StringRef CPU, StringRef FS) {
   case CortexA73:
   case CortexA75:
   case CortexA76:
+  case CortexA77:
+  case CortexA78:
+  case CortexA78AE:
+  case CortexA78C:
+  case CortexA510:
+  case CortexA710:
   case CortexR4:
-  case CortexR4F:
   case CortexR5:
   case CortexR7:
   case CortexM3:
+  case CortexM55:
+  case CortexM7:
+  case CortexM85:
   case CortexR52:
+  case CortexR52plus:
+  case CortexX1:
+  case CortexX1C:
     break;
   case Exynos:
     LdStMultipleTiming = SingleIssuePlusExtras;
     MaxInterleaveFactor = 4;
     if (!isThumb())
-      PrefLoopLogAlignment = 3;
+      PreferBranchLogAlignment = 3;
     break;
   case Kryo:
     break;
   case Krait:
     PreISelOperandLatencyAdjustment = 1;
     break;
-  case NeoverseN1:
+  case NeoverseV1:
     break;
   case Swift:
     MaxInterleaveFactor = 2;
@@ -319,22 +306,6 @@ void ARMSubtarget::initSubtargetFeatures(StringRef CPU, StringRef FS) {
     PartialUpdateClearance = 12;
     break;
   }
-}
-
-bool ARMSubtarget::isTargetHardFloat() const { return TM.isTargetHardFloat(); }
-
-bool ARMSubtarget::isAPCS_ABI() const {
-  assert(TM.TargetABI != ARMBaseTargetMachine::ARM_ABI_UNKNOWN);
-  return TM.TargetABI == ARMBaseTargetMachine::ARM_ABI_APCS;
-}
-bool ARMSubtarget::isAAPCS_ABI() const {
-  assert(TM.TargetABI != ARMBaseTargetMachine::ARM_ABI_UNKNOWN);
-  return TM.TargetABI == ARMBaseTargetMachine::ARM_ABI_AAPCS ||
-         TM.TargetABI == ARMBaseTargetMachine::ARM_ABI_AAPCS16;
-}
-bool ARMSubtarget::isAAPCS16_ABI() const {
-  assert(TM.TargetABI != ARMBaseTargetMachine::ARM_ABI_UNKNOWN);
-  return TM.TargetABI == ARMBaseTargetMachine::ARM_ABI_AAPCS16;
 }
 
 bool ARMSubtarget::isROPI() const {
@@ -347,7 +318,7 @@ bool ARMSubtarget::isRWPI() const {
 }
 
 bool ARMSubtarget::isGVIndirectSymbol(const GlobalValue *GV) const {
-  if (!TM.shouldAssumeDSOLocal(*GV->getParent(), GV))
+  if (!TM.shouldAssumeDSOLocal(GV))
     return true;
 
   // 32 bit macho has no relocation for a-b if a is undefined, even if b is in
@@ -361,8 +332,7 @@ bool ARMSubtarget::isGVIndirectSymbol(const GlobalValue *GV) const {
 }
 
 bool ARMSubtarget::isGVInGOT(const GlobalValue *GV) const {
-  return isTargetELF() && TM.isPositionIndependent() &&
-         !TM.shouldAssumeDSOLocal(*GV->getParent(), GV);
+  return isTargetELF() && TM.isPositionIndependent() && !GV->isDSOLocal();
 }
 
 unsigned ARMSubtarget::getMispredictionPenalty() const {
@@ -382,7 +352,19 @@ bool ARMSubtarget::enableMachineScheduler() const {
   return useMachineScheduler();
 }
 
-bool ARMSubtarget::enableSubRegLiveness() const { return EnableSubRegLiveness; }
+bool ARMSubtarget::enableSubRegLiveness() const {
+  // Enable SubRegLiveness for MVE to better optimize s subregs for mqpr regs
+  // and q subregs for qqqqpr regs.
+  return hasMVEIntegerOps();
+}
+
+bool ARMSubtarget::enableMachinePipeliner() const {
+  // Enable the MachinePipeliner before register allocation for subtargets
+  // with the use-mipipeliner feature.
+  return getSchedModel().hasInstrSchedModel() && useMachinePipeliner();
+}
+
+bool ARMSubtarget::useDFAforSMS() const { return false; }
 
 // This overrides the PostRAScheduler bit in the SchedModel for any CPU.
 bool ARMSubtarget::enablePostRAScheduler() const {
@@ -401,8 +383,6 @@ bool ARMSubtarget::enablePostRAMachineScheduler() const {
     return false;
   return !isThumb1Only();
 }
-
-bool ARMSubtarget::enableAtomicExpand() const { return hasAnyDataBarrier(); }
 
 bool ARMSubtarget::useStride4VFPs() const {
   // For general targets, the prologue can grow when VFPs are allocated with
@@ -429,10 +409,9 @@ bool ARMSubtarget::useFastISel() const {
   if (!hasV6Ops())
     return false;
 
-  // Thumb2 support on iOS; ARM support on iOS, Linux and NaCl.
-  return TM.Options.EnableFastISel &&
-         ((isTargetMachO() && !isThumb1Only()) ||
-          (isTargetLinux() && !isThumb()) || (isTargetNaCl() && !isThumb()));
+  // Thumb2 support on iOS; ARM support on iOS and Linux.
+  return TM.Options.EnableFastISel && ((isTargetMachO() && !isThumb1Only()) ||
+                                       (isTargetLinux() && !isThumb()));
 }
 
 unsigned ARMSubtarget::getGPRAllocationOrder(const MachineFunction &MF) const {
@@ -467,7 +446,7 @@ unsigned ARMSubtarget::getGPRAllocationOrder(const MachineFunction &MF) const {
 }
 
 bool ARMSubtarget::ignoreCSRForAllocationOrder(const MachineFunction &MF,
-                                               unsigned PhysReg) const {
+                                               MCRegister PhysReg) const {
   // To minimize code size in Thumb2, we prefer the usage of low regs (lower
   // cost per use) so we can  use narrow encoding. By default, caller-saved
   // registers (e.g. lr, r12) are always  allocated first, regardless of
@@ -475,4 +454,41 @@ bool ARMSubtarget::ignoreCSRForAllocationOrder(const MachineFunction &MF,
   // they are CSR because usually push/pop can be folded into existing ones.
   return isThumb2() && MF.getFunction().hasMinSize() &&
          ARM::GPRRegClass.contains(PhysReg);
+}
+
+ARMSubtarget::PushPopSplitVariation
+ARMSubtarget::getPushPopSplitVariation(const MachineFunction &MF) const {
+  const Function &F = MF.getFunction();
+  const MachineFrameInfo &MFI = MF.getFrameInfo();
+
+  // Thumb1 always splits the pushes at R7, because the Thumb1 push instruction
+  // cannot use high registers except for lr.
+  if (isThumb1Only())
+    return SplitR7;
+
+  // If R7 is the frame pointer, we must split at R7 to ensure that the
+  // previous frame pointer (R7) and return address (LR) are adjacent on the
+  // stack, to form a valid frame record.
+  if (getFramePointerReg() == ARM::R7 &&
+      MF.getTarget().Options.FramePointerIsReserved(MF))
+    return SplitR7;
+
+  // Returns SplitR11WindowsSEH when the stack pointer needs to be
+  // restored from the frame pointer r11 + an offset and Windows CFI is enabled.
+  // This stack unwinding cannot be expressed with SEH unwind opcodes when done
+  // with a single push, making it necessary to split the push into r4-r10, and
+  // another containing r11+lr.
+  if (MF.getTarget().getMCAsmInfo()->usesWindowsCFI() &&
+      F.needsUnwindTableEntry() &&
+      (MFI.hasVarSizedObjects() || getRegisterInfo()->hasStackRealignment(MF)))
+    return SplitR11WindowsSEH;
+
+  // Returns SplitR11AAPCSSignRA when the frame pointer is R11, requiring R11
+  // and LR to be adjacent on the stack, and branch signing is enabled,
+  // requiring R12 to be on the stack.
+  if (MF.getInfo<ARMFunctionInfo>()->shouldSignReturnAddress() &&
+      getFramePointerReg() == ARM::R11 &&
+      MF.getTarget().Options.FramePointerIsReserved(MF))
+    return SplitR11AAPCSSignRA;
+  return NoSplit;
 }

@@ -11,15 +11,12 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/Frontend/ASTConsumers.h"
-#include "clang/AST/AST.h"
 #include "clang/AST/ASTConsumer.h"
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/PrettyPrinter.h"
 #include "clang/AST/RecordLayout.h"
 #include "clang/AST/RecursiveASTVisitor.h"
 #include "clang/Basic/Diagnostic.h"
-#include "clang/Basic/SourceManager.h"
-#include "llvm/Support/Path.h"
 #include "llvm/Support/Timer.h"
 #include "llvm/Support/raw_ostream.h"
 using namespace clang;
@@ -36,10 +33,17 @@ namespace {
     enum Kind { DumpFull, Dump, Print, None };
     ASTPrinter(std::unique_ptr<raw_ostream> Out, Kind K,
                ASTDumpOutputFormat Format, StringRef FilterString,
-               bool DumpLookups = false)
+               bool DumpLookups = false, bool DumpDeclTypes = false)
         : Out(Out ? *Out : llvm::outs()), OwnedOut(std::move(Out)),
           OutputKind(K), OutputFormat(Format), FilterString(FilterString),
-          DumpLookups(DumpLookups) {}
+          DumpLookups(DumpLookups), DumpDeclTypes(DumpDeclTypes) {}
+
+    ASTPrinter(raw_ostream &Out, Kind K, ASTDumpOutputFormat Format,
+               StringRef FilterString, bool DumpLookups = false,
+               bool DumpDeclTypes = false)
+        : Out(Out), OwnedOut(nullptr), OutputKind(K), OutputFormat(Format),
+          FilterString(FilterString), DumpLookups(DumpLookups),
+          DumpDeclTypes(DumpDeclTypes) {}
 
     void HandleTranslationUnit(ASTContext &Context) override {
       TranslationUnitDecl *D = Context.getTranslationUnitDecl();
@@ -57,8 +61,11 @@ namespace {
         bool ShowColors = Out.has_colors();
         if (ShowColors)
           Out.changeColor(raw_ostream::BLUE);
-        Out << (OutputKind != Print ? "Dumping " : "Printing ") << getName(D)
-            << ":\n";
+
+        if (OutputFormat == ADOF_Default)
+          Out << (OutputKind != Print ? "Dumping " : "Printing ") << getName(D)
+              << ":\n";
+
         if (ShowColors)
           Out.resetColor();
         print(D);
@@ -90,9 +97,27 @@ namespace {
           Out << "Not a DeclContext\n";
       } else if (OutputKind == Print) {
         PrintingPolicy Policy(D->getASTContext().getLangOpts());
+        Policy.IncludeTagDefinition = true;
         D->print(Out, Policy, /*Indentation=*/0, /*PrintInstantiation=*/true);
-      } else if (OutputKind != None)
+      } else if (OutputKind != None) {
         D->dump(Out, OutputKind == DumpFull, OutputFormat);
+      }
+
+      if (DumpDeclTypes) {
+        Decl *InnerD = D;
+        if (auto *TD = dyn_cast<TemplateDecl>(D))
+          if (Decl *TempD = TD->getTemplatedDecl())
+            InnerD = TempD;
+
+        // FIXME: Support OutputFormat in type dumping.
+        // FIXME: Support combining -ast-dump-decl-types with -ast-dump-lookups.
+        if (auto *VD = dyn_cast<ValueDecl>(InnerD))
+          VD->getType().dump(Out, VD->getASTContext());
+        if (auto *TD = dyn_cast<TypeDecl>(InnerD)) {
+          const ASTContext &Ctx = TD->getASTContext();
+          Ctx.getTypeDeclType(TD)->dump(Out, Ctx);
+        }
+      }
     }
 
     raw_ostream &Out;
@@ -111,6 +136,9 @@ namespace {
     /// results will be output with a format determined by OutputKind. This is
     /// incompatible with OutputKind == Print.
     bool DumpLookups;
+
+    /// Whether to dump the type for each declaration dumped.
+    bool DumpDeclTypes;
   };
 
   class ASTDeclNodeLister : public ASTConsumer,
@@ -146,13 +174,26 @@ clang::CreateASTPrinter(std::unique_ptr<raw_ostream> Out,
 std::unique_ptr<ASTConsumer>
 clang::CreateASTDumper(std::unique_ptr<raw_ostream> Out, StringRef FilterString,
                        bool DumpDecls, bool Deserialize, bool DumpLookups,
+                       bool DumpDeclTypes, ASTDumpOutputFormat Format) {
+  assert((DumpDecls || Deserialize || DumpLookups) && "nothing to dump");
+  return std::make_unique<ASTPrinter>(
+      std::move(Out),
+      Deserialize ? ASTPrinter::DumpFull
+                  : DumpDecls ? ASTPrinter::Dump : ASTPrinter::None,
+      Format, FilterString, DumpLookups, DumpDeclTypes);
+}
+
+std::unique_ptr<ASTConsumer>
+clang::CreateASTDumper(raw_ostream &Out, StringRef FilterString, bool DumpDecls,
+                       bool Deserialize, bool DumpLookups, bool DumpDeclTypes,
                        ASTDumpOutputFormat Format) {
   assert((DumpDecls || Deserialize || DumpLookups) && "nothing to dump");
-  return std::make_unique<ASTPrinter>(std::move(Out),
-                                       Deserialize ? ASTPrinter::DumpFull :
-                                       DumpDecls ? ASTPrinter::Dump :
-                                       ASTPrinter::None, Format,
-                                       FilterString, DumpLookups);
+  return std::make_unique<ASTPrinter>(Out,
+                                      Deserialize ? ASTPrinter::DumpFull
+                                      : DumpDecls ? ASTPrinter::Dump
+                                                  : ASTPrinter::None,
+                                      Format, FilterString, DumpLookups,
+                                      DumpDeclTypes);
 }
 
 std::unique_ptr<ASTConsumer> clang::CreateASTDeclNodeLister() {
@@ -163,21 +204,20 @@ std::unique_ptr<ASTConsumer> clang::CreateASTDeclNodeLister() {
 /// ASTViewer - AST Visualization
 
 namespace {
-  class ASTViewer : public ASTConsumer {
-    ASTContext *Context;
-  public:
-    void Initialize(ASTContext &Context) override {
-      this->Context = &Context;
-    }
+class ASTViewer : public ASTConsumer {
+  ASTContext *Context = nullptr;
 
-    bool HandleTopLevelDecl(DeclGroupRef D) override {
-      for (DeclGroupRef::iterator I = D.begin(), E = D.end(); I != E; ++I)
-        HandleTopLevelSingleDecl(*I);
-      return true;
-    }
+public:
+  void Initialize(ASTContext &Context) override { this->Context = &Context; }
 
-    void HandleTopLevelSingleDecl(Decl *D);
-  };
+  bool HandleTopLevelDecl(DeclGroupRef D) override {
+    for (DeclGroupRef::iterator I = D.begin(), E = D.end(); I != E; ++I)
+      HandleTopLevelSingleDecl(*I);
+    return true;
+  }
+
+  void HandleTopLevelSingleDecl(Decl *D);
+};
 }
 
 void ASTViewer::HandleTopLevelSingleDecl(Decl *D) {

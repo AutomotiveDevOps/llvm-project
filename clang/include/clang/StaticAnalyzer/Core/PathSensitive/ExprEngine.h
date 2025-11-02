@@ -36,6 +36,7 @@
 #include "clang/StaticAnalyzer/Core/PathSensitive/WorkList.h"
 #include "llvm/ADT/ArrayRef.h"
 #include <cassert>
+#include <optional>
 #include <utility>
 
 namespace clang {
@@ -77,18 +78,14 @@ namespace ento {
 
 class AnalysisManager;
 class BasicValueFactory;
-class BlockCounter;
-class BranchNodeBuilder;
 class CallEvent;
 class CheckerManager;
 class ConstraintManager;
-class CXXTempObjectRegion;
-class EndOfFunctionNodeBuilder;
 class ExplodedNodeSet;
 class ExplodedNode;
 class IndirectGotoNodeBuilder;
 class MemRegion;
-struct NodeBuilderContext;
+class NodeBuilderContext;
 class NodeBuilderWithSinks;
 class ProgramState;
 class ProgramStateManager;
@@ -96,8 +93,37 @@ class RegionAndSymbolInvalidationTraits;
 class SymbolManager;
 class SwitchNodeBuilder;
 
+/// Hints for figuring out of a call should be inlined during evalCall().
+struct EvalCallOptions {
+  /// This call is a constructor or a destructor for which we do not currently
+  /// compute the this-region correctly.
+  bool IsCtorOrDtorWithImproperlyModeledTargetRegion = false;
+
+  /// This call is a constructor or a destructor for a single element within
+  /// an array, a part of array construction or destruction.
+  bool IsArrayCtorOrDtor = false;
+
+  /// This call is a constructor or a destructor of a temporary value.
+  bool IsTemporaryCtorOrDtor = false;
+
+  /// This call is a constructor for a temporary that is lifetime-extended
+  /// by binding it to a reference-type field within an aggregate,
+  /// for example 'A { const C &c; }; A a = { C() };'
+  bool IsTemporaryLifetimeExtendedViaAggregate = false;
+
+  /// This call is a pre-C++17 elidable constructor that we failed to elide
+  /// because we failed to compute the target region into which
+  /// this constructor would have been ultimately elided. Analysis that
+  /// we perform in this case is still correct but it behaves differently,
+  /// as if copy elision is disabled.
+  bool IsElidableCtorThatHasNotBeenElided = false;
+
+  EvalCallOptions() {}
+};
+
 class ExprEngine {
   void anchor();
+
 public:
   /// The modes of inlining, which override the default analysis-wide settings.
   enum InliningModes {
@@ -108,29 +134,9 @@ public:
     Inline_Minimal = 0x1
   };
 
-  /// Hints for figuring out of a call should be inlined during evalCall().
-  struct EvalCallOptions {
-    /// This call is a constructor or a destructor for which we do not currently
-    /// compute the this-region correctly.
-    bool IsCtorOrDtorWithImproperlyModeledTargetRegion = false;
-
-    /// This call is a constructor or a destructor for a single element within
-    /// an array, a part of array construction or destruction.
-    bool IsArrayCtorOrDtor = false;
-
-    /// This call is a constructor or a destructor of a temporary value.
-    bool IsTemporaryCtorOrDtor = false;
-
-    /// This call is a constructor for a temporary that is lifetime-extended
-    /// by binding it to a reference-type field within an aggregate,
-    /// for example 'A { const C &c; }; A a = { C() };'
-    bool IsTemporaryLifetimeExtendedViaAggregate = false;
-
-    EvalCallOptions() {}
-  };
-
 private:
   cross_tu::CrossTranslationUnitContext &CTU;
+  bool IsCTUEnabled;
 
   AnalysisManager &AMgr;
 
@@ -181,23 +187,16 @@ public:
 
   /// Returns true if there is still simulation state on the worklist.
   bool ExecuteWorkList(const LocationContext *L, unsigned Steps = 150000) {
+    assert(L->inTopFrame());
+    BR.setAnalysisEntryPoint(L->getDecl());
     return Engine.ExecuteWorkList(L, Steps, nullptr);
-  }
-
-  /// Execute the work list with an initial state. Nodes that reaches the exit
-  /// of the function are added into the Dst set, which represent the exit
-  /// state of the function call. Returns true if there is still simulation
-  /// state on the worklist.
-  bool ExecuteWorkListWithInitialState(const LocationContext *L, unsigned Steps,
-                                       ProgramStateRef InitState,
-                                       ExplodedNodeSet &Dst) {
-    return Engine.ExecuteWorkListWithInitialState(L, Steps, InitState, Dst);
   }
 
   /// getContext - Return the ASTContext associated with this analysis.
   ASTContext &getContext() const { return AMgr.getASTContext(); }
 
   AnalysisManager &getAnalysisManager() { return AMgr; }
+  const AnalysisManager &getAnalysisManager() const { return AMgr; }
 
   AnalysisDeclContextManager &getAnalysisDeclContextManager() {
     return AMgr.getAnalysisDeclContextManager();
@@ -208,8 +207,10 @@ public:
   }
 
   SValBuilder &getSValBuilder() { return svalBuilder; }
+  const SValBuilder &getSValBuilder() const { return svalBuilder; }
 
   BugReporter &getBugReporter() { return BR; }
+  const BugReporter &getBugReporter() const { return BR; }
 
   cross_tu::CrossTranslationUnitContext *
   getCrossTranslationUnitContext() {
@@ -223,10 +224,15 @@ public:
 
   const Stmt *getStmt() const;
 
-  void GenerateAutoTransition(ExplodedNode *N);
-  void enqueueEndOfPath(ExplodedNodeSet &S);
-  void GenerateCallExitNode(ExplodedNode *N);
+  const LocationContext *getRootLocationContext() const {
+    assert(G.getRoot());
+    return G.getRoot()->getLocation().getLocationContext();
+  }
 
+  ConstCFGElementRef getCFGElementRef() const {
+    const CFGBlock *blockPtr = currBldrCtx ? currBldrCtx->getBlock() : nullptr;
+    return {blockPtr, currStmtIdx};
+  }
 
   /// Dump graph to the specified filename.
   /// If filename is empty, generate a temporary one.
@@ -283,6 +289,10 @@ public:
             const Stmt *DiagnosticStmt = nullptr,
             ProgramPoint::Kind K = ProgramPoint::PreStmtPurgeDeadSymbolsKind);
 
+  /// A tag to track convenience transitions, which can be removed at cleanup.
+  /// This tag applies to a node created after removeDead.
+  static const ProgramPointTag *cleanupNodeTag();
+
   /// processCFGElement - Called by CoreEngine. Used to generate new successor
   ///  nodes by processing the 'effects' of a CFG element.
   void processCFGElement(const CFGElement E, ExplodedNode *Pred,
@@ -314,14 +324,18 @@ public:
                                NodeBuilderWithSinks &nodeBuilder,
                                ExplodedNode *Pred);
 
-  /// ProcessBranch - Called by CoreEngine.  Used to generate successor
-  ///  nodes by processing the 'effects' of a branch condition.
-  void processBranch(const Stmt *Condition,
-                     NodeBuilderContext& BuilderCtx,
-                     ExplodedNode *Pred,
-                     ExplodedNodeSet &Dst,
-                     const CFGBlock *DstT,
-                     const CFGBlock *DstF);
+  void runCheckersForBlockEntrance(const NodeBuilderContext &BldCtx,
+                                   const BlockEntrance &Entrance,
+                                   ExplodedNode *Pred, ExplodedNodeSet &Dst);
+
+  /// ProcessBranch - Called by CoreEngine. Used to generate successor nodes by
+  /// processing the 'effects' of a branch condition. If the branch condition
+  /// is a loop condition, IterationsCompletedInLoop is the number of completed
+  /// iterations (otherwise it's std::nullopt).
+  void processBranch(const Stmt *Condition, NodeBuilderContext &BuilderCtx,
+                     ExplodedNode *Pred, ExplodedNodeSet &Dst,
+                     const CFGBlock *DstT, const CFGBlock *DstF,
+                     std::optional<unsigned> IterationsCompletedInLoop);
 
   /// Called by CoreEngine.
   /// Used to generate successor nodes for temporary destructors depending
@@ -350,13 +364,13 @@ public:
   void processSwitch(SwitchNodeBuilder& builder);
 
   /// Called by CoreEngine.  Used to notify checkers that processing a
-  /// function has begun. Called for both inlined and and top-level functions.
+  /// function has begun. Called for both inlined and top-level functions.
   void processBeginOfFunction(NodeBuilderContext &BC,
                               ExplodedNode *Pred, ExplodedNodeSet &Dst,
                               const BlockEdge &L);
 
   /// Called by CoreEngine.  Used to notify checkers that processing a
-  /// function has ended. Called for both inlined and and top-level functions.
+  /// function has ended. Called for both inlined and top-level functions.
   void processEndOfFunction(NodeBuilderContext& BC,
                             ExplodedNode *Pred,
                             const ReturnStmt *RS = nullptr);
@@ -405,10 +419,17 @@ public:
                  unsigned int Space, bool IsDot) const;
 
   ProgramStateManager &getStateManager() { return StateMgr; }
+  const ProgramStateManager &getStateManager() const { return StateMgr; }
 
   StoreManager &getStoreManager() { return StateMgr.getStoreManager(); }
+  const StoreManager &getStoreManager() const {
+    return StateMgr.getStoreManager();
+  }
 
   ConstraintManager &getConstraintManager() {
+    return StateMgr.getConstraintManager();
+  }
+  const ConstraintManager &getConstraintManager() const {
     return StateMgr.getConstraintManager();
   }
 
@@ -418,12 +439,12 @@ public:
   }
 
   SymbolManager &getSymbolManager() { return SymMgr; }
+  const SymbolManager &getSymbolManager() const { return SymMgr; }
   MemRegionManager &getRegionManager() { return MRMgr; }
 
-  NoteTag::Factory &getNoteTags() { return Engine.getNoteTags(); }
+  DataTag::Factory &getDataTags() { return Engine.getDataTags(); }
 
-
-  // Functions for external checking of whether we have unfinished work
+  // Functions for external checking of whether we have unfinished work.
   bool wasBlocksExhausted() const { return Engine.wasBlocksExhausted(); }
   bool hasEmptyWorkList() const { return !Engine.getWorkList()->hasWork(); }
   bool hasWorkRemaining() const { return Engine.hasWorkRemaining(); }
@@ -434,6 +455,10 @@ public:
   /// Visit - Transfer function logic for all statements.  Dispatches to
   ///  other functions that handle specific kinds of statements.
   void Visit(const Stmt *S, ExplodedNode *Pred, ExplodedNodeSet &Dst);
+
+  /// VisitArrayInitLoopExpr - Transfer function for array init loop.
+  void VisitArrayInitLoopExpr(const ArrayInitLoopExpr *Ex, ExplodedNode *Pred,
+                              ExplodedNodeSet &Dst);
 
   /// VisitArraySubscriptExpr - Transfer function for array accesses.
   void VisitArraySubscriptExpr(const ArraySubscriptExpr *Ex,
@@ -485,10 +510,11 @@ public:
   void VisitGuardedExpr(const Expr *Ex, const Expr *L, const Expr *R,
                         ExplodedNode *Pred, ExplodedNodeSet &Dst);
 
-  void VisitInitListExpr(const InitListExpr *E, ExplodedNode *Pred,
-                         ExplodedNodeSet &Dst);
+  /// VisitAttributedStmt - Transfer function logic for AttributedStmt.
+  void VisitAttributedStmt(const AttributedStmt *A, ExplodedNode *Pred,
+                           ExplodedNodeSet &Dst);
 
-  /// VisitLogicalExpr - Transfer function logic for '&&', '||'
+  /// VisitLogicalExpr - Transfer function logic for '&&', '||'.
   void VisitLogicalExpr(const BinaryOperator* B, ExplodedNode *Pred,
                         ExplodedNodeSet &Dst);
 
@@ -496,7 +522,7 @@ public:
   void VisitMemberExpr(const MemberExpr *M, ExplodedNode *Pred,
                        ExplodedNodeSet &Dst);
 
-  /// VisitAtomicExpr - Transfer function for builtin atomic expressions
+  /// VisitAtomicExpr - Transfer function for builtin atomic expressions.
   void VisitAtomicExpr(const AtomicExpr *E, ExplodedNode *Pred,
                        ExplodedNodeSet &Dst);
 
@@ -573,22 +599,19 @@ public:
                                 ExplodedNode *Pred,
                                 ExplodedNodeSet &Dst);
 
-  /// evalEagerlyAssumeBinOpBifurcation - Given the nodes in 'Src', eagerly assume symbolic
-  ///  expressions of the form 'x != 0' and generate new nodes (stored in Dst)
-  ///  with those assumptions.
-  void evalEagerlyAssumeBinOpBifurcation(ExplodedNodeSet &Dst, ExplodedNodeSet &Src,
-                         const Expr *Ex);
+  void ConstructInitList(const Expr *Source, ArrayRef<Expr *> Args,
+                         bool IsTransparent, ExplodedNode *Pred,
+                         ExplodedNodeSet &Dst);
+
+  /// evalEagerlyAssumeBifurcation - Given the nodes in 'Src', eagerly assume
+  /// concrete boolean values for 'Ex', storing the resulting nodes in 'Dst'.
+  void evalEagerlyAssumeBifurcation(ExplodedNodeSet &Dst, ExplodedNodeSet &Src,
+                                    const Expr *Ex);
+
+  bool didEagerlyAssumeBifurcateAt(ProgramStateRef State, const Expr *Ex) const;
 
   static std::pair<const ProgramPointTag *, const ProgramPointTag *>
-    geteagerlyAssumeBinOpBifurcationTags();
-
-  SVal evalMinus(SVal X) {
-    return X.isValid() ? svalBuilder.evalMinus(X.castAs<NonLoc>()) : X;
-  }
-
-  SVal evalComplement(SVal X) {
-    return X.isValid() ? svalBuilder.evalComplement(X.castAs<NonLoc>()) : X;
-  }
+  getEagerlyAssumeBifurcationTags();
 
   ProgramStateRef handleLValueBitCast(ProgramStateRef state, const Expr *Ex,
                                       const LocationContext *LCtx, QualType T,
@@ -596,37 +619,34 @@ public:
                                       StmtNodeBuilder &Bldr,
                                       ExplodedNode *Pred);
 
-  ProgramStateRef handleLVectorSplat(ProgramStateRef state,
-                                     const LocationContext *LCtx,
-                                     const CastExpr *CastE,
-                                     StmtNodeBuilder &Bldr,
-                                     ExplodedNode *Pred);
-
-  void handleUOExtension(ExplodedNodeSet::iterator I,
-                         const UnaryOperator* U,
+  void handleUOExtension(ExplodedNode *N, const UnaryOperator *U,
                          StmtNodeBuilder &Bldr);
 
 public:
-  SVal evalBinOp(ProgramStateRef state, BinaryOperator::Opcode op,
-                 NonLoc L, NonLoc R, QualType T) {
-    return svalBuilder.evalBinOpNN(state, op, L, R, T);
-  }
-
-  SVal evalBinOp(ProgramStateRef state, BinaryOperator::Opcode op,
-                 NonLoc L, SVal R, QualType T) {
-    return R.isValid() ? svalBuilder.evalBinOpNN(state, op, L,
-                                                 R.castAs<NonLoc>(), T) : R;
-  }
-
   SVal evalBinOp(ProgramStateRef ST, BinaryOperator::Opcode Op,
                  SVal LHS, SVal RHS, QualType T) {
     return svalBuilder.evalBinOp(ST, Op, LHS, RHS, T);
   }
 
+  /// Retreives which element is being constructed in a non-POD type array.
+  static std::optional<unsigned>
+  getIndexOfElementToConstruct(ProgramStateRef State, const CXXConstructExpr *E,
+                               const LocationContext *LCtx);
+
+  /// Retreives which element is being destructed in a non-POD type array.
+  static std::optional<unsigned>
+  getPendingArrayDestruction(ProgramStateRef State,
+                             const LocationContext *LCtx);
+
+  /// Retreives the size of the array in the pending ArrayInitLoopExpr.
+  static std::optional<unsigned>
+  getPendingInitLoop(ProgramStateRef State, const CXXConstructExpr *E,
+                     const LocationContext *LCtx);
+
   /// By looking at a certain item that may be potentially part of an object's
   /// ConstructionContext, retrieve such object's location. A particular
   /// statement can be transparently passed as \p Item in most cases.
-  static Optional<SVal>
+  static std::optional<SVal>
   getObjectUnderConstruction(ProgramStateRef State,
                              const ConstructionContextItem &Item,
                              const LocationContext *LC);
@@ -651,7 +671,7 @@ private:
   /// evalBind - Handle the semantics of binding a value to a specific location.
   ///  This method is used by evalStore, VisitDeclStmt, and others.
   void evalBind(ExplodedNodeSet &Dst, const Stmt *StoreE, ExplodedNode *Pred,
-                SVal location, SVal Val, bool atDeclInit = false,
+                SVal location, SVal Val, bool AtDeclInit = false,
                 const ProgramPoint *PP = nullptr);
 
   ProgramStateRef
@@ -659,13 +679,13 @@ private:
                               SVal Loc, SVal Val,
                               const LocationContext *LCtx);
 
+public:
   /// A simple wrapper when you only need to notify checkers of pointer-escape
   /// of some values.
   ProgramStateRef escapeValues(ProgramStateRef State, ArrayRef<SVal> Vs,
                                PointerEscapeKind K,
                                const CallEvent *Call = nullptr) const;
 
-public:
   // FIXME: 'tag' should be removed, and a LocationContext should be used
   // instead.
   // FIXME: Comment on the meaning of the arguments, when 'St' may not
@@ -709,20 +729,54 @@ public:
                        const CallEvent &Call,
                        const EvalCallOptions &CallOpts = {});
 
+  /// Find location of the object that is being constructed by a given
+  /// constructor. This should ideally always succeed but due to not being
+  /// fully implemented it sometimes indicates that it failed via its
+  /// out-parameter CallOpts; in such cases a fake temporary region is
+  /// returned, which is better than nothing but does not represent
+  /// the actual behavior of the program. The Idx parameter is used if we
+  /// construct an array of objects. In that case it points to the index
+  /// of the continuous memory region.
+  /// E.g.:
+  /// For `int arr[4]` this index can be 0,1,2,3.
+  /// For `int arr2[3][3]` this index can be 0,1,...,7,8.
+  /// A multi-dimensional array is also a continuous memory location in a
+  /// row major order, so for arr[0][0] Idx is 0 and for arr[3][3] Idx is 8.
+  SVal computeObjectUnderConstruction(const Expr *E, ProgramStateRef State,
+                                      const NodeBuilderContext *BldrCtx,
+                                      const LocationContext *LCtx,
+                                      const ConstructionContext *CC,
+                                      EvalCallOptions &CallOpts,
+                                      unsigned Idx = 0);
+
+  /// Update the program state with all the path-sensitive information
+  /// that's necessary to perform construction of an object with a given
+  /// syntactic construction context. V and CallOpts have to be obtained from
+  /// computeObjectUnderConstruction() invoked with the same set of
+  /// the remaining arguments (E, State, LCtx, CC).
+  ProgramStateRef updateObjectsUnderConstruction(
+      SVal V, const Expr *E, ProgramStateRef State, const LocationContext *LCtx,
+      const ConstructionContext *CC, const EvalCallOptions &CallOpts);
+
+  /// A convenient wrapper around computeObjectUnderConstruction
+  /// and updateObjectsUnderConstruction.
+  std::pair<ProgramStateRef, SVal> handleConstructionContext(
+      const Expr *E, ProgramStateRef State, const NodeBuilderContext *BldrCtx,
+      const LocationContext *LCtx, const ConstructionContext *CC,
+      EvalCallOptions &CallOpts, unsigned Idx = 0) {
+
+    SVal V = computeObjectUnderConstruction(E, State, BldrCtx, LCtx, CC,
+                                            CallOpts, Idx);
+    State = updateObjectsUnderConstruction(V, E, State, LCtx, CC, CallOpts);
+
+    return std::make_pair(State, V);
+  }
+
 private:
   ProgramStateRef finishArgumentConstruction(ProgramStateRef State,
                                              const CallEvent &Call);
   void finishArgumentConstruction(ExplodedNodeSet &Dst, ExplodedNode *Pred,
                                   const CallEvent &Call);
-
-  void evalLoadCommon(ExplodedNodeSet &Dst,
-                      const Expr *NodeEx,  /* Eventually will be a CFGStmt */
-                      const Expr *BoundEx,
-                      ExplodedNode *Pred,
-                      ProgramStateRef St,
-                      SVal location,
-                      const ProgramPointTag *tag,
-                      QualType LoadTy);
 
   void evalLocation(ExplodedNodeSet &Dst,
                     const Stmt *NodeEx, /* This will eventually be a CFGStmt */
@@ -768,13 +822,51 @@ private:
   /// should inline, just by looking at the declaration of the function.
   bool mayInlineDecl(AnalysisDeclContext *ADC) const;
 
-  /// Checks our policies and decides weither the given call should be inlined.
+  /// Checks our policies and decides whether the given call should be inlined.
   bool shouldInlineCall(const CallEvent &Call, const Decl *D,
                         const ExplodedNode *Pred,
                         const EvalCallOptions &CallOpts = {});
 
-  bool inlineCall(const CallEvent &Call, const Decl *D, NodeBuilder &Bldr,
-                  ExplodedNode *Pred, ProgramStateRef State);
+  /// Checks whether our policies allow us to inline a non-POD type array
+  /// construction.
+  bool shouldInlineArrayConstruction(const ProgramStateRef State,
+                                     const CXXConstructExpr *CE,
+                                     const LocationContext *LCtx);
+
+  /// Checks whether our policies allow us to inline a non-POD type array
+  /// destruction.
+  /// \param Size The size of the array.
+  bool shouldInlineArrayDestruction(uint64_t Size);
+
+  /// Prepares the program state for array destruction. If no error happens
+  /// the function binds a 'PendingArrayDestruction' entry to the state, which
+  /// it returns along with the index. If any error happens (we fail to read
+  /// the size, the index would be -1, etc.) the function will return the
+  /// original state along with an index of 0. The actual element count of the
+  /// array can be accessed by the optional 'ElementCountVal' parameter. \param
+  /// State The program state. \param Region The memory region where the array
+  /// is stored. \param ElementTy The type an element in the array. \param LCty
+  /// The location context. \param ElementCountVal A pointer to an optional
+  /// SVal. If specified, the size of the array will be returned in it. It can
+  /// be Unknown.
+  std::pair<ProgramStateRef, uint64_t> prepareStateForArrayDestruction(
+      const ProgramStateRef State, const MemRegion *Region,
+      const QualType &ElementTy, const LocationContext *LCtx,
+      SVal *ElementCountVal = nullptr);
+
+  /// Checks whether we construct an array of non-POD type, and decides if the
+  /// constructor should be inkoved once again.
+  bool shouldRepeatCtorCall(ProgramStateRef State, const CXXConstructExpr *E,
+                            const LocationContext *LCtx);
+
+  void inlineCall(WorkList *WList, const CallEvent &Call, const Decl *D,
+                  NodeBuilder &Bldr, ExplodedNode *Pred, ProgramStateRef State);
+
+  void ctuBifurcate(const CallEvent &Call, const Decl *D, NodeBuilder &Bldr,
+                    ExplodedNode *Pred, ProgramStateRef State);
+
+  /// Returns true if the CTU analysis is running its second phase.
+  bool isSecondPhaseCTU() { return IsCTUEnabled && !Engine.getCTUWorkList(); }
 
   /// Conservatively evaluate call by invalidating regions and binding
   /// a conjured return value.
@@ -809,7 +901,7 @@ private:
       const Expr *InitWithAdjustments, const Expr *Result = nullptr,
       const SubRegion **OutRegionWithAdjustments = nullptr);
 
-  /// Returns a region representing the first element of a (possibly
+  /// Returns a region representing the `Idx`th element of a (possibly
   /// multi-dimensional) array, for the purposes of element construction or
   /// destruction.
   ///
@@ -817,30 +909,67 @@ private:
   ///
   /// If the type is not an array type at all, the original value is returned.
   /// Otherwise the "IsArray" flag is set.
-  static SVal makeZeroElementRegion(ProgramStateRef State, SVal LValue,
-                                    QualType &Ty, bool &IsArray);
-
-  /// For a DeclStmt or CXXInitCtorInitializer, walk backward in the current CFG
-  /// block to find the constructor expression that directly constructed into
-  /// the storage for this statement. Returns null if the constructor for this
-  /// statement created a temporary object region rather than directly
-  /// constructing into an existing region.
-  const CXXConstructExpr *findDirectConstructorForCurrentCFGElement();
-
-  /// Update the program state with all the path-sensitive information
-  /// that's necessary to perform construction of an object with a given
-  /// syntactic construction context. If the construction context is unavailable
-  /// or unusable for any reason, a dummy temporary region is returned, and the
-  /// IsConstructorWithImproperlyModeledTargetRegion flag is set in \p CallOpts.
-  /// Returns the updated program state and the new object's this-region.
-  std::pair<ProgramStateRef, SVal> handleConstructionContext(
-      const Expr *E, ProgramStateRef State, const LocationContext *LCtx,
-      const ConstructionContext *CC, EvalCallOptions &CallOpts);
+  static SVal makeElementRegion(ProgramStateRef State, SVal LValue,
+                                QualType &Ty, bool &IsArray, unsigned Idx = 0);
 
   /// Common code that handles either a CXXConstructExpr or a
   /// CXXInheritedCtorInitExpr.
   void handleConstructor(const Expr *E, ExplodedNode *Pred,
                          ExplodedNodeSet &Dst);
+
+public:
+  /// Note whether this loop has any more iterations to model. These methods
+  //  are essentially an interface for a GDM trait. Further reading in
+  /// ExprEngine::VisitObjCForCollectionStmt().
+  [[nodiscard]] static ProgramStateRef
+  setWhetherHasMoreIteration(ProgramStateRef State,
+                             const ObjCForCollectionStmt *O,
+                             const LocationContext *LC, bool HasMoreIteraton);
+
+  [[nodiscard]] static ProgramStateRef
+  removeIterationState(ProgramStateRef State, const ObjCForCollectionStmt *O,
+                       const LocationContext *LC);
+
+  [[nodiscard]] static bool hasMoreIteration(ProgramStateRef State,
+                                             const ObjCForCollectionStmt *O,
+                                             const LocationContext *LC);
+
+private:
+  /// Assuming we construct an array of non-POD types, this method allows us
+  /// to store which element is to be constructed next.
+  static ProgramStateRef
+  setIndexOfElementToConstruct(ProgramStateRef State, const CXXConstructExpr *E,
+                               const LocationContext *LCtx, unsigned Idx);
+
+  static ProgramStateRef
+  removeIndexOfElementToConstruct(ProgramStateRef State,
+                                  const CXXConstructExpr *E,
+                                  const LocationContext *LCtx);
+
+  /// Assuming we destruct an array of non-POD types, this method allows us
+  /// to store which element is to be destructed next.
+  static ProgramStateRef setPendingArrayDestruction(ProgramStateRef State,
+                                                    const LocationContext *LCtx,
+                                                    unsigned Idx);
+
+  static ProgramStateRef
+  removePendingArrayDestruction(ProgramStateRef State,
+                                const LocationContext *LCtx);
+
+  /// Sets the size of the array in a pending ArrayInitLoopExpr.
+  static ProgramStateRef setPendingInitLoop(ProgramStateRef State,
+                                            const CXXConstructExpr *E,
+                                            const LocationContext *LCtx,
+                                            unsigned Idx);
+
+  static ProgramStateRef removePendingInitLoop(ProgramStateRef State,
+                                               const CXXConstructExpr *E,
+                                               const LocationContext *LCtx);
+
+  static ProgramStateRef
+  removeStateTraitsUsedForArrayEvaluation(ProgramStateRef State,
+                                          const CXXConstructExpr *E,
+                                          const LocationContext *LCtx);
 
   /// Store the location of a C++ object corresponding to a statement
   /// until the statement is actually encountered. For example, if a DeclStmt
@@ -854,7 +983,7 @@ private:
                              const ConstructionContextItem &Item,
                              const LocationContext *LC, SVal V);
 
-  /// Mark the object sa fully constructed, cleaning up the state trait
+  /// Mark the object as fully constructed, cleaning up the state trait
   /// that tracks objects under construction.
   static ProgramStateRef
   finishObjectConstruction(ProgramStateRef State,

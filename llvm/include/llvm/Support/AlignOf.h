@@ -13,41 +13,17 @@
 #ifndef LLVM_SUPPORT_ALIGNOF_H
 #define LLVM_SUPPORT_ALIGNOF_H
 
-#include "llvm/Support/Compiler.h"
-#include <cstddef>
+#include <algorithm>
 
 namespace llvm {
 
-namespace detail {
-
-template <typename T, typename... Ts> class AlignerImpl {
-  T t;
-  AlignerImpl<Ts...> rest;
-  AlignerImpl() = delete;
-};
-
-template <typename T> class AlignerImpl<T> {
-  T t;
-  AlignerImpl() = delete;
-};
-
-template <typename T, typename... Ts> union SizerImpl {
-  char arr[sizeof(T)];
-  SizerImpl<Ts...> rest;
-};
-
-template <typename T> union SizerImpl<T> { char arr[sizeof(T)]; };
-} // end namespace detail
-
 /// A suitably aligned and sized character array member which can hold elements
 /// of any type.
-///
-/// These types may be arrays, structs, or any other types. This exposes a
-/// `buffer` member which can be used as suitable storage for a placement new of
-/// any of these types.
 template <typename T, typename... Ts> struct AlignedCharArrayUnion {
-  alignas(::llvm::detail::AlignerImpl<T, Ts...>) char buffer[sizeof(
-      llvm::detail::SizerImpl<T, Ts...>)];
+  // Work around "internal compiler error: Segmentation fault" with GCC 7.5,
+  // apparently caused by alignas(Ts...).
+  static constexpr std::size_t Align = std::max({alignof(T), alignof(Ts)...});
+  alignas(Align) char buffer[std::max({sizeof(T), sizeof(Ts)...})];
 };
 
 } // end namespace llvm

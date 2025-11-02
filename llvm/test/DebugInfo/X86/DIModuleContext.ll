@@ -1,6 +1,6 @@
 source_filename = "test/DebugInfo/X86/DIModuleContext.ll"
 target triple = "x86_64-apple-macosx"
-; RUN: %llc_dwarf %s -o - -filetype=obj \
+; RUN: llc %s -o - -filetype=obj \
 ; RUN:   | llvm-dwarfdump -debug-info - | FileCheck %s
 ; CHECK: DW_TAG_module
 ; CHECK-NOT: NULL
@@ -12,7 +12,7 @@ target triple = "x86_64-apple-macosx"
 
 %struct.s = type opaque
 
-@i = common global %struct.s* null, align 8, !dbg !0
+@i = common global ptr null, align 8, !dbg !0
 
 !llvm.dbg.cu = !{!2}
 !llvm.module.flags = !{!11, !12}

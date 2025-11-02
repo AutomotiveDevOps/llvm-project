@@ -21,14 +21,47 @@ public:
     } my_type_is_nameless;
     struct name {
       int x;
+      enum E : int {} e;
+      enum E2 {} e2;
     } my_type_is_named;
+    enum E : unsigned char {} e;
+    union U {
+    } u;
+    static constexpr long static_constexpr_field = 47;
+    static constexpr bool static_constexpr_bool_field = true;
+    static int static_mutable_field;
     Task(int i, Task *n):
         id(i),
         next(n),
         type(TASK_TYPE_1)
     {}
 };
+int Task::static_mutable_field = 42;
 
+template <unsigned Value> struct PointerInfo {
+  enum Masks1 { pointer_mask };
+  enum class Masks2 { pointer_mask };
+};
+
+template <unsigned Value, typename InfoType = PointerInfo<Value>>
+struct Pointer {
+  // When compiling for Windows with exceptions enabled, this struct
+  // must contain something that takes space and is initialised.
+  // Otherwise it will not be present in the debug information.
+  int pad = 0;
+};
+
+enum EnumType {};
+enum class ScopedEnumType {};
+enum class EnumUChar : unsigned char {};
+
+struct alignas(128) OverAlignedStruct {};
+OverAlignedStruct over_aligned_struct;
+
+struct WithNestedTypedef {
+  typedef int TheTypedef;
+};
+WithNestedTypedef::TheTypedef typedefed_value;
 
 int main (int argc, char const *argv[])
 {
@@ -55,6 +88,17 @@ int main (int argc, char const *argv[])
 
     // This corresponds to an empty task list.
     Task *empty_task_head = new Task(-1, NULL);
+
+    typedef int myint;
+    myint myint_arr[] = {1, 2, 3};
+
+    EnumType enum_type;
+    ScopedEnumType scoped_enum_type;
+    EnumUChar scoped_enum_type_uchar;
+
+    Pointer<3> pointer;
+    PointerInfo<3>::Masks1 mask1 = PointerInfo<3>::Masks1::pointer_mask;
+    PointerInfo<3>::Masks2 mask2 = PointerInfo<3>::Masks2::pointer_mask;
 
     return 0; // Break at this line
 }

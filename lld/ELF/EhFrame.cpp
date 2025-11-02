@@ -17,13 +17,11 @@
 
 #include "EhFrame.h"
 #include "Config.h"
+#include "InputFiles.h"
 #include "InputSection.h"
 #include "Relocations.h"
 #include "Target.h"
-#include "lld/Common/ErrorHandler.h"
-#include "lld/Common/Strings.h"
 #include "llvm/BinaryFormat/Dwarf.h"
-#include "llvm/Object/ELF.h"
 
 using namespace llvm;
 using namespace llvm::ELF;
@@ -36,13 +34,14 @@ namespace {
 class EhReader {
 public:
   EhReader(InputSectionBase *s, ArrayRef<uint8_t> d) : isec(s), d(d) {}
-  size_t readEhRecordSize();
   uint8_t getFdeEncoding();
+  bool hasLSDA();
 
 private:
-  template <class P> void failOn(const P *loc, const Twine &msg) {
-    fatal("corrupted .eh_frame: " + msg + "\n>>> defined in " +
-          isec->getObjMsg((const uint8_t *)loc - isec->data().data()));
+  template <class P> void errOn(const P *loc, const Twine &msg) {
+    Ctx &ctx = isec->file->ctx;
+    Err(ctx) << "corrupted .eh_frame: " << msg << "\n>>> defined in "
+             << isec->getObjMsg((const uint8_t *)loc - isec->content().data());
   }
 
   uint8_t readByte();
@@ -50,38 +49,19 @@ private:
   StringRef readString();
   void skipLeb128();
   void skipAugP();
+  StringRef getAugmentation();
 
   InputSectionBase *isec;
   ArrayRef<uint8_t> d;
 };
 }
 
-size_t elf::readEhRecordSize(InputSectionBase *s, size_t off) {
-  return EhReader(s, s->data().slice(off)).readEhRecordSize();
-}
-
-// .eh_frame section is a sequence of records. Each record starts with
-// a 4 byte length field. This function reads the length.
-size_t EhReader::readEhRecordSize() {
-  if (d.size() < 4)
-    failOn(d.data(), "CIE/FDE too small");
-
-  // First 4 bytes of CIE/FDE is the size of the record.
-  // If it is 0xFFFFFFFF, the next 8 bytes contain the size instead,
-  // but we do not support that format yet.
-  uint64_t v = read32(d.data());
-  if (v == UINT32_MAX)
-    failOn(d.data(), "CIE/FDE too large");
-  uint64_t size = v + 4;
-  if (size > d.size())
-    failOn(d.data(), "CIE/FDE ends past the end of the section");
-  return size;
-}
-
 // Read a byte and advance D by one byte.
 uint8_t EhReader::readByte() {
-  if (d.empty())
-    failOn(d.data(), "unexpected end of CIE");
+  if (d.empty()) {
+    errOn(d.data(), "unexpected end of CIE");
+    return 0;
+  }
   uint8_t b = d.front();
   d = d.slice(1);
   return b;
@@ -89,15 +69,18 @@ uint8_t EhReader::readByte() {
 
 void EhReader::skipBytes(size_t count) {
   if (d.size() < count)
-    failOn(d.data(), "CIE is too small");
-  d = d.slice(count);
+    errOn(d.data(), "CIE is too small");
+  else
+    d = d.slice(count);
 }
 
 // Read a null-terminated string.
 StringRef EhReader::readString() {
   const uint8_t *end = llvm::find(d, '\0');
-  if (end == d.end())
-    failOn(d.data(), "corrupted CIE (failed to read string)");
+  if (end == d.end()) {
+    errOn(d.data(), "corrupted CIE (failed to read string)");
+    return {};
+  }
   StringRef s = toStringRef(d.slice(0, end - d.begin()));
   d = d.slice(s.size() + 1);
   return s;
@@ -115,14 +98,14 @@ void EhReader::skipLeb128() {
     if ((val & 0x80) == 0)
       return;
   }
-  failOn(errPos, "corrupted CIE (failed to read LEB128)");
+  errOn(errPos, "corrupted CIE (failed to read LEB128)");
 }
 
-static size_t getAugPSize(unsigned enc) {
+static size_t getAugPSize(Ctx &ctx, unsigned enc) {
   switch (enc & 0x0f) {
   case DW_EH_PE_absptr:
   case DW_EH_PE_signed:
-    return config->wordsize;
+    return ctx.arg.wordsize;
   case DW_EH_PE_udata2:
   case DW_EH_PE_sdata2:
     return 2;
@@ -139,12 +122,12 @@ static size_t getAugPSize(unsigned enc) {
 void EhReader::skipAugP() {
   uint8_t enc = readByte();
   if ((enc & 0xf0) == DW_EH_PE_aligned)
-    failOn(d.data() - 1, "DW_EH_PE_aligned encoding is not supported");
-  size_t size = getAugPSize(enc);
+    return errOn(d.data() - 1, "DW_EH_PE_aligned encoding is not supported");
+  size_t size = getAugPSize(isec->getCtx(), enc);
   if (size == 0)
-    failOn(d.data() - 1, "unknown FDE encoding");
+    return errOn(d.data() - 1, "unknown FDE encoding");
   if (size >= d.size())
-    failOn(d.data() - 1, "corrupted CIE");
+    return errOn(d.data() - 1, "corrupted CIE");
   d = d.slice(size);
 }
 
@@ -152,12 +135,18 @@ uint8_t elf::getFdeEncoding(EhSectionPiece *p) {
   return EhReader(p->sec, p->data()).getFdeEncoding();
 }
 
-uint8_t EhReader::getFdeEncoding() {
+bool elf::hasLSDA(const EhSectionPiece &p) {
+  return EhReader(p.sec, p.data()).hasLSDA();
+}
+
+StringRef EhReader::getAugmentation() {
   skipBytes(8);
   int version = readByte();
-  if (version != 1 && version != 3)
-    failOn(d.data() - 1,
-           "FDE version 1 or 3 expected, but got " + Twine(version));
+  if (version != 1 && version != 3) {
+    errOn(d.data() - 1,
+          "FDE version 1 or 3 expected, but got " + Twine(version));
+    return {};
+  }
 
   StringRef aug = readString();
 
@@ -171,26 +160,46 @@ uint8_t EhReader::getFdeEncoding() {
     readByte();
   else
     skipLeb128();
+  return aug;
+}
 
+uint8_t EhReader::getFdeEncoding() {
   // We only care about an 'R' value, but other records may precede an 'R'
   // record. Unfortunately records are not in TLV (type-length-value) format,
   // so we need to teach the linker how to skip records for each type.
+  StringRef aug = getAugmentation();
   for (char c : aug) {
     if (c == 'R')
       return readByte();
-    if (c == 'z') {
+    if (c == 'z')
       skipLeb128();
-      continue;
-    }
-    if (c == 'P') {
-      skipAugP();
-      continue;
-    }
-    if (c == 'L') {
+    else if (c == 'L')
       readByte();
-      continue;
+    else if (c == 'P')
+      skipAugP();
+    else if (c != 'B' && c != 'S' && c != 'G') {
+      errOn(aug.data(), "unknown .eh_frame augmentation string: " + aug);
+      break;
     }
-    failOn(aug.data(), "unknown .eh_frame augmentation string: " + aug);
   }
   return DW_EH_PE_absptr;
+}
+
+bool EhReader::hasLSDA() {
+  StringRef aug = getAugmentation();
+  for (char c : aug) {
+    if (c == 'L')
+      return true;
+    if (c == 'z')
+      skipLeb128();
+    else if (c == 'P')
+      skipAugP();
+    else if (c == 'R')
+      readByte();
+    else if (c != 'B' && c != 'S' && c != 'G') {
+      errOn(aug.data(), "unknown .eh_frame augmentation string: " + aug);
+      break;
+    }
+  }
+  return false;
 }

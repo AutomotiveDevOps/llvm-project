@@ -137,6 +137,7 @@
 # CHECK-NEXT: Name Index @ 0x0 {
 # CHECK-NEXT:   Header {
 # CHECK-NEXT:     Length: 0x60
+# CHECK-NEXT:     Format: DWARF32
 # CHECK-NEXT:     Version: 5
 # CHECK-NEXT:     CU count: 1
 # CHECK-NEXT:     Local TU count: 0
@@ -150,7 +151,7 @@
 # CHECK-NEXT:     CU[0]: 0x00000000
 # CHECK-NEXT:   ]
 # CHECK-NEXT:   Abbreviations [
-# CHECK-NEXT:     Abbreviation 0x2e {
+# CHECK-NEXT:     Abbreviation [[ABBREV:0x[0-9a-f]*]] {
 # CHECK-NEXT:       Tag: DW_TAG_subprogram
 # CHECK-NEXT:       DW_IDX_die_offset: DW_FORM_ref4
 # CHECK-NEXT:     }
@@ -163,7 +164,7 @@
 # CHECK-NEXT:       Hash: 0xB887389
 # CHECK-NEXT:       String: 0x00000000 "foo"
 # CHECK-NEXT:       Entry @ 0x4f {
-# CHECK-NEXT:         Abbrev: 0x2E
+# CHECK-NEXT:         Abbrev: [[ABBREV]]
 # CHECK-NEXT:         Tag: DW_TAG_subprogram
 # CHECK-NEXT:         DW_IDX_die_offset: 0x00000001
 # CHECK-NEXT:       }
@@ -172,7 +173,7 @@
 # CHECK-NEXT:       Hash: 0xB5063D0B
 # CHECK-NEXT:       String: 0x00000004 "_Z3foov"
 # CHECK-NEXT:       Entry @ 0x58 {
-# CHECK-NEXT:         Abbrev: 0x2E
+# CHECK-NEXT:         Abbrev: [[ABBREV]]
 # CHECK-NEXT:         Tag: DW_TAG_subprogram
 # CHECK-NEXT:         DW_IDX_die_offset: 0x00000001
 # CHECK-NEXT:       }
@@ -182,6 +183,7 @@
 # CHECK-NEXT: Name Index @ 0x64 {
 # CHECK-NEXT:   Header {
 # CHECK-NEXT:     Length: 0x44
+# CHECK-NEXT:     Format: DWARF32
 # CHECK-NEXT:     Version: 5
 # CHECK-NEXT:     CU count: 1
 # CHECK-NEXT:     Local TU count: 0
@@ -195,7 +197,7 @@
 # CHECK-NEXT:     CU[0]: 0x00000002
 # CHECK-NEXT:   ]
 # CHECK-NEXT:   Abbreviations [
-# CHECK-NEXT:     Abbreviation 0x34 {
+# CHECK-NEXT:     Abbreviation [[ABBREV1:0x[0-9a-f]*]] {
 # CHECK-NEXT:       Tag: DW_TAG_variable
 # CHECK-NEXT:       DW_IDX_die_offset: DW_FORM_ref4
 # CHECK-NEXT:     }
@@ -205,7 +207,7 @@
 # CHECK-NEXT:       Hash: 0xB8860BA
 # CHECK-NEXT:       String: 0x0000000c "bar"
 # CHECK-NEXT:       Entry @ 0xa3 {
-# CHECK-NEXT:         Abbrev: 0x34
+# CHECK-NEXT:         Abbrev: [[ABBREV1]]
 # CHECK-NEXT:         Tag: DW_TAG_variable
 # CHECK-NEXT:         DW_IDX_die_offset: 0x00000001
 # CHECK-NEXT:       }
@@ -215,6 +217,7 @@
 # CHECK-NEXT: Name Index @ 0xac {
 # CHECK-NEXT:   Header {
 # CHECK-NEXT:     Length: 0x68
+# CHECK-NEXT:     Format: DWARF64
 # CHECK-NEXT:     Version: 5
 # CHECK-NEXT:     CU count: 1
 # CHECK-NEXT:     Local TU count: 1
@@ -234,7 +237,7 @@
 # CHECK-NEXT:     ForeignTU[0]: 0xffffff00ffffffff
 # CHECK-NEXT:   ]
 # CHECK-NEXT:   Abbreviations [
-# CHECK-NEXT:     Abbreviation 0x1 {
+# CHECK-NEXT:     Abbreviation [[ABBREV2:0x[0-9a-f]*]] {
 # CHECK-NEXT:       Tag: DW_TAG_base_type
 # CHECK-NEXT:       DW_IDX_type_unit: DW_FORM_data4
 # CHECK-NEXT:       DW_IDX_type_hash: DW_FORM_data8
@@ -245,7 +248,7 @@
 # CHECK-NEXT:       Hash: 0xB887389
 # CHECK-NEXT:       String: 0x00000000 "foo"
 # CHECK-NEXT:       Entry @ 0x111 {
-# CHECK-NEXT:         Abbrev: 0x1
+# CHECK-NEXT:         Abbrev: [[ABBREV2]]
 # CHECK-NEXT:         Tag: DW_TAG_base_type
 # CHECK-NEXT:         DW_IDX_type_unit: 0x00000001
 # CHECK-NEXT:         DW_IDX_type_hash: 0x0000ff03ffffffff

@@ -45,9 +45,9 @@ int main(int argc, char *argv[]) {
       LLJITBuilder()
           .setJITTargetMachineBuilder(std::move(JTMB))
           .setObjectLinkingLayerCreator(
-              [&](ExecutionSession &ES, const Triple &TT) {
+              [&](ExecutionSession &ES) {
                 return std::make_unique<ObjectLinkingLayer>(
-                    ES, std::make_unique<jitlink::InProcessMemoryManager>());
+                    ES, ExitOnErr(jitlink::InProcessMemoryManager::Create()));
               })
           .create());
 
@@ -56,8 +56,8 @@ int main(int argc, char *argv[]) {
   ExitOnErr(J->addIRModule(std::move(M)));
 
   // Look up the JIT'd function, cast it to a function pointer, then call it.
-  auto Add1Sym = ExitOnErr(J->lookup("add1"));
-  int (*Add1)(int) = (int (*)(int))Add1Sym.getAddress();
+  auto Add1Addr = ExitOnErr(J->lookup("add1"));
+  int (*Add1)(int) = Add1Addr.toPtr<int(int)>();
 
   int Result = Add1(42);
   outs() << "add1(42) = " << Result << "\n";

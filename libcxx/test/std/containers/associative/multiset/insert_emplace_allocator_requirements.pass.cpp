@@ -12,7 +12,7 @@
 
 // insert(...)
 
-// UNSUPPORTED: c++98, c++03
+// UNSUPPORTED: c++03
 
 #include <set>
 
@@ -20,8 +20,7 @@
 #include "container_test_types.h"
 #include "../../set_allocator_requirement_test_templates.h"
 
-int main(int, char**)
-{
+int main(int, char**) {
   testMultisetInsert<TCT::multiset<> >();
   testMultisetEmplace<TCT::multiset<> >();
 

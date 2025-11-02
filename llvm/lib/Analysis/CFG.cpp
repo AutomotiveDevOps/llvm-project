@@ -12,12 +12,20 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Analysis/CFG.h"
-#include "llvm/ADT/SmallPtrSet.h"
-#include "llvm/ADT/SmallSet.h"
 #include "llvm/Analysis/LoopInfo.h"
 #include "llvm/IR/Dominators.h"
+#include "llvm/IR/IntrinsicInst.h"
+#include "llvm/Support/CommandLine.h"
 
 using namespace llvm;
+
+// The max number of basic blocks explored during reachability analysis between
+// two basic blocks. This is kept reasonably small to limit compile time when
+// repeatedly used by clients of this analysis (such as captureTracking).
+static cl::opt<unsigned> DefaultMaxBBsToExplore(
+    "dom-tree-reachability-max-bbs-to-explore", cl::Hidden,
+    cl::desc("Max number of BBs to explore for reachability analysis"),
+    cl::init(32));
 
 /// FindFunctionBackedges - Analyze the specified function to find all of the
 /// loop backedges in the function and return them.  This is a relatively cheap
@@ -96,7 +104,7 @@ bool llvm::isCriticalEdge(const Instruction *TI, const BasicBlock *Dest,
   assert(TI->isTerminator() && "Must be a terminator to have successors!");
   if (TI->getNumSuccessors() == 1) return false;
 
-  assert(find(predecessors(Dest), TI->getParent()) != pred_end(Dest) &&
+  assert(is_contained(predecessors(Dest), TI->getParent()) &&
          "No edge between TI's block and Dest.");
 
   const_pred_iterator I = pred_begin(Dest), E = pred_end(Dest);
@@ -120,21 +128,24 @@ bool llvm::isCriticalEdge(const Instruction *TI, const BasicBlock *Dest,
 // the outermost loop in the loop nest that contains BB.
 static const Loop *getOutermostLoop(const LoopInfo *LI, const BasicBlock *BB) {
   const Loop *L = LI->getLoopFor(BB);
-  if (L) {
-    while (const Loop *Parent = L->getParentLoop())
-      L = Parent;
-  }
-  return L;
+  return L ? L->getOutermostLoop() : nullptr;
 }
 
-bool llvm::isPotentiallyReachableFromMany(
-    SmallVectorImpl<BasicBlock *> &Worklist, BasicBlock *StopBB,
-    const SmallPtrSetImpl<BasicBlock *> *ExclusionSet, const DominatorTree *DT,
-    const LoopInfo *LI) {
-  // When the stop block is unreachable, it's dominated from everywhere,
+template <class StopSetT>
+static bool isReachableImpl(SmallVectorImpl<BasicBlock *> &Worklist,
+                            const StopSetT &StopSet,
+                            const SmallPtrSetImpl<BasicBlock *> *ExclusionSet,
+                            const DominatorTree *DT, const LoopInfo *LI) {
+  // When a stop block is unreachable, it's dominated from everywhere,
   // regardless of whether there's a path between the two blocks.
-  if (DT && !DT->isReachableFromEntry(StopBB))
-    DT = nullptr;
+  if (DT) {
+    for (auto *BB : StopSet) {
+      if (!DT->isReachableFromEntry(BB)) {
+        DT = nullptr;
+        break;
+      }
+    }
+  }
 
   // We can't skip directly from a block that dominates the stop block if the
   // exclusion block is potentially in between.
@@ -146,28 +157,36 @@ bool llvm::isPotentiallyReachableFromMany(
   // untrue.
   SmallPtrSet<const Loop *, 8> LoopsWithHoles;
   if (LI && ExclusionSet) {
-    for (auto BB : *ExclusionSet) {
+    for (auto *BB : *ExclusionSet) {
       if (const Loop *L = getOutermostLoop(LI, BB))
         LoopsWithHoles.insert(L);
     }
   }
 
-  const Loop *StopLoop = LI ? getOutermostLoop(LI, StopBB) : nullptr;
+  SmallPtrSet<const Loop *, 2> StopLoops;
+  if (LI) {
+    for (auto *StopSetBB : StopSet) {
+      if (const Loop *L = getOutermostLoop(LI, StopSetBB))
+        StopLoops.insert(L);
+    }
+  }
 
-  // Limit the number of blocks we visit. The goal is to avoid run-away compile
-  // times on large CFGs without hampering sensible code. Arbitrarily chosen.
-  unsigned Limit = 32;
+  unsigned Limit = DefaultMaxBBsToExplore;
   SmallPtrSet<const BasicBlock*, 32> Visited;
   do {
     BasicBlock *BB = Worklist.pop_back_val();
     if (!Visited.insert(BB).second)
       continue;
-    if (BB == StopBB)
+    if (StopSet.contains(BB))
       return true;
     if (ExclusionSet && ExclusionSet->count(BB))
       continue;
-    if (DT && DT->dominates(BB, StopBB))
-      return true;
+    if (DT) {
+      if (llvm::any_of(StopSet, [&](const BasicBlock *StopBB) {
+            return DT->dominates(BB, StopBB);
+          }))
+        return true;
+    }
 
     const Loop *Outer = nullptr;
     if (LI) {
@@ -178,7 +197,7 @@ bool llvm::isPotentiallyReachableFromMany(
       // excluded block. Clear Outer so we process BB's successors.
       if (LoopsWithHoles.count(Outer))
         Outer = nullptr;
-      if (StopLoop && Outer == StopLoop)
+      if (StopLoops.contains(Outer))
         return true;
     }
 
@@ -203,16 +222,61 @@ bool llvm::isPotentiallyReachableFromMany(
   return false;
 }
 
-bool llvm::isPotentiallyReachable(const BasicBlock *A, const BasicBlock *B,
-                                  const DominatorTree *DT, const LoopInfo *LI) {
+template <class T> class SingleEntrySet {
+public:
+  using const_iterator = const T *;
+
+  SingleEntrySet(T Elem) : Elem(Elem) {}
+
+  bool contains(T Other) const { return Elem == Other; }
+
+  const_iterator begin() const { return &Elem; }
+  const_iterator end() const { return &Elem + 1; }
+
+private:
+  T Elem;
+};
+
+bool llvm::isPotentiallyReachableFromMany(
+    SmallVectorImpl<BasicBlock *> &Worklist, const BasicBlock *StopBB,
+    const SmallPtrSetImpl<BasicBlock *> *ExclusionSet, const DominatorTree *DT,
+    const LoopInfo *LI) {
+  return isReachableImpl<SingleEntrySet<const BasicBlock *>>(
+      Worklist, SingleEntrySet<const BasicBlock *>(StopBB), ExclusionSet, DT,
+      LI);
+}
+
+bool llvm::isManyPotentiallyReachableFromMany(
+    SmallVectorImpl<BasicBlock *> &Worklist,
+    const SmallPtrSetImpl<const BasicBlock *> &StopSet,
+    const SmallPtrSetImpl<BasicBlock *> *ExclusionSet, const DominatorTree *DT,
+    const LoopInfo *LI) {
+  return isReachableImpl<SmallPtrSetImpl<const BasicBlock *>>(
+      Worklist, StopSet, ExclusionSet, DT, LI);
+}
+
+bool llvm::isPotentiallyReachable(
+    const BasicBlock *A, const BasicBlock *B,
+    const SmallPtrSetImpl<BasicBlock *> *ExclusionSet, const DominatorTree *DT,
+    const LoopInfo *LI) {
   assert(A->getParent() == B->getParent() &&
          "This analysis is function-local!");
+
+  if (DT) {
+    if (DT->isReachableFromEntry(A) && !DT->isReachableFromEntry(B))
+      return false;
+    if (!ExclusionSet || ExclusionSet->empty()) {
+      if (A->isEntryBlock() && DT->isReachableFromEntry(B))
+        return true;
+      if (B->isEntryBlock() && DT->isReachableFromEntry(A))
+        return false;
+    }
+  }
 
   SmallVector<BasicBlock*, 32> Worklist;
   Worklist.push_back(const_cast<BasicBlock*>(A));
 
-  return isPotentiallyReachableFromMany(Worklist, const_cast<BasicBlock *>(B),
-                                        nullptr, DT, LI);
+  return isPotentiallyReachableFromMany(Worklist, B, ExclusionSet, DT, LI);
 }
 
 bool llvm::isPotentiallyReachable(
@@ -221,8 +285,6 @@ bool llvm::isPotentiallyReachable(
     const LoopInfo *LI) {
   assert(A->getParent()->getParent() == B->getParent()->getParent() &&
          "This analysis is function-local!");
-
-  SmallVector<BasicBlock*, 32> Worklist;
 
   if (A->getParent() == B->getParent()) {
     // The same block case is special because it's the only time we're looking
@@ -237,43 +299,73 @@ bool llvm::isPotentiallyReachable(
     if (LI && LI->getLoopFor(BB) != nullptr)
       return true;
 
-    // Linear scan, start at 'A', see whether we hit 'B' or the end first.
-    for (BasicBlock::const_iterator I = A->getIterator(), E = BB->end(); I != E;
-         ++I) {
-      if (&*I == B)
-        return true;
-    }
+    // If A comes before B, then B is definitively reachable from A.
+    if (A == B || A->comesBefore(B))
+      return true;
 
     // Can't be in a loop if it's the entry block -- the entry block may not
     // have predecessors.
-    if (BB == &BB->getParent()->getEntryBlock())
+    if (BB->isEntryBlock())
       return false;
 
     // Otherwise, continue doing the normal per-BB CFG walk.
+    SmallVector<BasicBlock*, 32> Worklist;
     Worklist.append(succ_begin(BB), succ_end(BB));
-
     if (Worklist.empty()) {
       // We've proven that there's no path!
       return false;
     }
-  } else {
-    Worklist.push_back(const_cast<BasicBlock*>(A->getParent()));
+
+    return isPotentiallyReachableFromMany(Worklist, B->getParent(),
+                                          ExclusionSet, DT, LI);
   }
 
-  if (DT) {
-    if (DT->isReachableFromEntry(A->getParent()) &&
-        !DT->isReachableFromEntry(B->getParent()))
-      return false;
-    if (!ExclusionSet || ExclusionSet->empty()) {
-      if (A->getParent() == &A->getParent()->getParent()->getEntryBlock() &&
-          DT->isReachableFromEntry(B->getParent()))
-        return true;
-      if (B->getParent() == &A->getParent()->getParent()->getEntryBlock() &&
-          DT->isReachableFromEntry(A->getParent()))
-        return false;
-    }
-  }
+  return isPotentiallyReachable(
+      A->getParent(), B->getParent(), ExclusionSet, DT, LI);
+}
 
-  return isPotentiallyReachableFromMany(
-      Worklist, const_cast<BasicBlock *>(B->getParent()), ExclusionSet, DT, LI);
+static bool instructionDoesNotReturn(const Instruction &I) {
+  if (auto *CB = dyn_cast<CallBase>(&I))
+    return CB->hasFnAttr(Attribute::NoReturn);
+  return false;
+}
+
+// A basic block can only return if it terminates with a ReturnInst and does not
+// contain calls to noreturn functions.
+static bool basicBlockCanReturn(const BasicBlock &BB) {
+  if (!isa<ReturnInst>(BB.getTerminator()))
+    return false;
+  return none_of(BB, instructionDoesNotReturn);
+}
+
+// FIXME: this doesn't handle recursion.
+bool llvm::canReturn(const Function &F) {
+  SmallVector<const BasicBlock *, 16> Worklist;
+  SmallPtrSet<const BasicBlock *, 16> Visited;
+
+  Visited.insert(&F.front());
+  Worklist.push_back(&F.front());
+
+  do {
+    const BasicBlock *BB = Worklist.pop_back_val();
+    if (basicBlockCanReturn(*BB))
+      return true;
+    for (const BasicBlock *Succ : successors(BB))
+      if (Visited.insert(Succ).second)
+        Worklist.push_back(Succ);
+  } while (!Worklist.empty());
+
+  return false;
+}
+
+bool llvm::isPresplitCoroSuspendExitEdge(const BasicBlock &Src,
+                                         const BasicBlock &Dest) {
+  assert(Src.getParent() == Dest.getParent());
+  if (!Src.getParent()->isPresplitCoroutine())
+    return false;
+  if (auto *SW = dyn_cast<SwitchInst>(Src.getTerminator()))
+    if (auto *Intr = dyn_cast<IntrinsicInst>(SW->getCondition()))
+      return Intr->getIntrinsicID() == Intrinsic::coro_suspend &&
+             SW->getDefaultDest() == &Dest;
+  return false;
 }

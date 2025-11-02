@@ -1,4 +1,3 @@
-
 add_flang_library(FortranParser
   Fortran-parsers.cpp
   char-buffer.cpp
@@ -11,7 +10,9 @@ add_flang_library(FortranParser
   instrumented-parser.cpp
   io-parsers.cpp
   message.cpp
+  openacc-parsers.cpp
   openmp-parsers.cpp
+  openmp-utils.cpp
   parse-tree.cpp
   parsing.cpp
   preprocessor.cpp
@@ -25,8 +26,22 @@ add_flang_library(FortranParser
   user-state.cpp
 
   LINK_LIBS
-  FortranCommon
+  FortranSupport
 
   LINK_COMPONENTS
   Support
+  FrontendOpenACC
+  FrontendOpenMP
+
+  DEPENDS
+  omp_gen
+  acc_gen
+)
+
+target_precompile_headers(FortranParser PRIVATE
+  [["flang/Parser/parsing.h"]]
+  [["flang/Parser/parse-tree.h"]]
+  [["flang/Parser/provenance.h"]]
+  [["flang/Parser/message.h"]]
+  [["flang/Parser/parse-tree-visitor.h"]]
 )

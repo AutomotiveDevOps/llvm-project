@@ -34,7 +34,7 @@ class:
     /// ExprAST - Base class for all expression nodes.
     class ExprAST {
     public:
-      virtual ~ExprAST() {}
+      virtual ~ExprAST() = default;
       virtual Value *codegen() = 0;
     };
 
@@ -44,7 +44,7 @@ class:
 
     public:
       NumberExprAST(double Val) : Val(Val) {}
-      virtual Value *codegen();
+      Value *codegen() override;
     };
     ...
 
@@ -67,14 +67,14 @@ way to model this. Again, this tutorial won't dwell on good software
 engineering practices: for our purposes, adding a virtual method is
 simplest.
 
-The second thing we want is an "LogError" method like we used for the
+The second thing we want is a "LogError" method like we used for the
 parser, which will be used to report errors found during code generation
 (for example, use of an undeclared parameter):
 
 .. code-block:: c++
 
-    static LLVMContext TheContext;
-    static IRBuilder<> Builder(TheContext);
+    static std::unique_ptr<LLVMContext> TheContext;
+    static std::unique_ptr<IRBuilder<>> Builder;
     static std::unique_ptr<Module> TheModule;
     static std::map<std::string, Value *> NamedValues;
 
@@ -90,7 +90,7 @@ detail, we just need a single instance to pass into APIs that require it.
 
 The ``Builder`` object is a helper object that makes it easy to generate
 LLVM instructions. Instances of the
-`IRBuilder <https://llvm.org/doxygen/IRBuilder_8h-source.html>`_
+`IRBuilder <https://llvm.org/doxygen/IRBuilder_8h_source.html>`_
 class template keep track of the current place to insert instructions
 and has methods to create new instructions.
 
@@ -122,7 +122,7 @@ First we'll do numeric literals:
 .. code-block:: c++
 
     Value *NumberExprAST::codegen() {
-      return ConstantFP::get(TheContext, APFloat(Val));
+      return ConstantFP::get(*TheContext, APFloat(Val));
     }
 
 In the LLVM IR, numeric constants are represented with the
@@ -163,16 +163,16 @@ variables <LangImpl07.html#user-defined-local-variables>`_.
 
       switch (Op) {
       case '+':
-        return Builder.CreateFAdd(L, R, "addtmp");
+        return Builder->CreateFAdd(L, R, "addtmp");
       case '-':
-        return Builder.CreateFSub(L, R, "subtmp");
+        return Builder->CreateFSub(L, R, "subtmp");
       case '*':
-        return Builder.CreateFMul(L, R, "multmp");
+        return Builder->CreateFMul(L, R, "multmp");
       case '<':
-        L = Builder.CreateFCmpULT(L, R, "cmptmp");
+        L = Builder->CreateFCmpULT(L, R, "cmptmp");
         // Convert bool 0/1 to double 0.0 or 1.0
-        return Builder.CreateUIToFP(L, Type::getDoubleTy(TheContext),
-                                    "booltmp");
+        return Builder->CreateUIToFP(L, Type::getDoubleTy(*TheContext),
+                                     "booltmp");
       default:
         return LogErrorV("invalid binary operator");
       }
@@ -197,7 +197,7 @@ suffix. Local value names for instructions are purely optional, but it
 makes it much easier to read the IR dumps.
 
 `LLVM instructions <../../LangRef.html#instruction-reference>`_ are constrained by strict
-rules: for example, the Left and Right operators of an `add
+rules: for example, the Left and Right operands of an `add
 instruction <../../LangRef.html#add-instruction>`_ must have the same type, and the
 result type of the add must match the operand types. Because all values
 in Kaleidoscope are doubles, this makes for very simple code for add,
@@ -233,7 +233,7 @@ would return 0.0 and -1.0, depending on the input value.
           return nullptr;
       }
 
-      return Builder.CreateCall(CalleeF, ArgsV, "calltmp");
+      return Builder->CreateCall(CalleeF, ArgsV, "calltmp");
     }
 
 Code generation for function calls is quite straightforward with LLVM. The code
@@ -270,9 +270,9 @@ with:
     Function *PrototypeAST::codegen() {
       // Make the function type:  double(double,double) etc.
       std::vector<Type*> Doubles(Args.size(),
-                                 Type::getDoubleTy(TheContext));
+                                 Type::getDoubleTy(*TheContext));
       FunctionType *FT =
-        FunctionType::get(Type::getDoubleTy(TheContext), Doubles, false);
+        FunctionType::get(Type::getDoubleTy(*TheContext), Doubles, false);
 
       Function *F =
         Function::Create(FT, Function::ExternalLinkage, Name, TheModule.get());
@@ -313,7 +313,7 @@ in "``TheModule``"s symbol table.
 Finally, we set the name of each of the function's arguments according to the
 names given in the Prototype. This step isn't strictly necessary, but keeping
 the names consistent makes the IR more readable, and allows subsequent code to
-refer directly to the arguments for their names, rather than having to look up
+refer directly to the arguments for their names, rather than having to look
 them up in the Prototype AST.
 
 At this point we have a function prototype with no body. This is how LLVM IR
@@ -346,13 +346,13 @@ assert that the function is empty (i.e. has no body yet) before we start.
 .. code-block:: c++
 
   // Create a new basic block to start insertion into.
-  BasicBlock *BB = BasicBlock::Create(TheContext, "entry", TheFunction);
-  Builder.SetInsertPoint(BB);
+  BasicBlock *BB = BasicBlock::Create(*TheContext, "entry", TheFunction);
+  Builder->SetInsertPoint(BB);
 
   // Record the function arguments in the NamedValues map.
   NamedValues.clear();
   for (auto &Arg : TheFunction->args())
-    NamedValues[Arg.getName()] = &Arg;
+    NamedValues[std::string(Arg.getName())] = &Arg;
 
 Now we get to the point where the ``Builder`` is set up. The first line
 creates a new `basic block <http://en.wikipedia.org/wiki/Basic_block>`_
@@ -371,7 +371,7 @@ it out) so that they're accessible to ``VariableExprAST`` nodes.
 
       if (Value *RetVal = Body->codegen()) {
         // Finish off the function.
-        Builder.CreateRet(RetVal);
+        Builder->CreateRet(RetVal);
 
         // Validate the generated code, checking for consistency.
         verifyFunction(*TheFunction);

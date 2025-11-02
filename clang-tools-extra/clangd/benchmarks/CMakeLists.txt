@@ -1,4 +1,6 @@
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../)
+if(CLANGD_DECISION_FOREST)
+  add_subdirectory(CompletionModel)
+endif()
 
 add_benchmark(IndexBenchmark IndexBenchmark.cpp)
 

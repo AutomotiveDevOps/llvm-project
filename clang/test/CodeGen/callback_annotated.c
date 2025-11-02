@@ -1,6 +1,4 @@
-// RUN: %clang_cc1 -triple i386-unknown-unknown -fopenmp -O1 -fno-experimental-new-pass-manager %s -emit-llvm -o - | FileCheck %s --check-prefix=RUN1
-// RUN: %clang_cc1 -triple i386-unknown-unknown -fopenmp -O1 -fno-experimental-new-pass-manager %s -emit-llvm -o - | FileCheck %s --check-prefix=RUN2
-// RUN: %clang_cc1 -triple i386-unknown-unknown -fopenmp -O1 -fno-experimental-new-pass-manager %s -emit-llvm -o - | opt -ipconstprop -S | FileCheck --check-prefix=IPCP %s
+// RUN: %clang_cc1 -triple i386-unknown-unknown -fopenmp %s -emit-llvm -o - -disable-llvm-optzns | FileCheck %s --check-prefix=RUN1
 
 // RUN1-DAG: @broker0({{[^#]*#[0-9]+}} !callback ![[cid0:[0-9]+]]
 __attribute__((callback(1, 2))) void *broker0(void *(*callee)(void *), void *payload) {
@@ -14,41 +12,29 @@ __attribute__((callback(callee, payload))) void *broker1(void *payload, void *(*
 
 void *broker2(void (*callee)(void));
 
-// RUN1-DAG: declare !callback ![[cid2:[0-9]+]] i8* @broker2
+// RUN1-DAG: declare !callback ![[cid2:[0-9]+]] ptr @broker2
 __attribute__((callback(callee))) void *broker2(void (*callee)(void));
 
 void *broker2(void (*callee)(void));
 
-// RUN1-DAG: declare !callback ![[cid3:[0-9]+]] i8* @broker3
+// RUN1-DAG: declare !callback ![[cid3:[0-9]+]] ptr @broker3
 __attribute__((callback(4, 1, 2, c))) void *broker3(int, int, int c, int (*callee)(int, int, int), int);
 
-// RUN1-DAG: declare !callback ![[cid4:[0-9]+]] i8* @broker4
+// RUN1-DAG: declare !callback ![[cid4:[0-9]+]] ptr @broker4
 __attribute__((callback(4, -1, a, __))) void *broker4(int a, int, int, int (*callee)(int, int, int), int);
 
-// RUN1-DAG: declare !callback ![[cid5:[0-9]+]] i8* @broker5
+// RUN1-DAG: declare !callback ![[cid5:[0-9]+]] ptr @broker5
 __attribute__((callback(4, d, 5, 2))) void *broker5(int, int, int, int (*callee)(int, int, int), int d);
 
 static void *VoidPtr2VoidPtr(void *payload) {
-  // RUN2: ret i8* %payload
-  // IPCP: ret i8* null
   return payload;
 }
 
 static int ThreeInt2Int(int a, int b, int c) {
-  // RUN2:   define internal i32 @ThreeInt2Int(i32 %a, i32 %b, i32 %c)
-  // RUN2:     %mul = mul nsw i32 %b, %a
-  // RUN2:     %add = add nsw i32 %mul, %c
-  // RUN2:     ret i32 %add
-
-  // IPCP:   define internal i32 @ThreeInt2Int(i32 %a, i32 %b, i32 %c)
-  // IPCP:     %mul = mul nsw i32 4, %a
-  // IPCP:     %add = add nsw i32 %mul, %c
-  // IPCP:     ret i32 %add
-
   return a * b + c;
 }
 
-void foo() {
+void foo(void) {
   broker0(VoidPtr2VoidPtr, 0l);
   broker1(0l, VoidPtr2VoidPtr);
   broker2(foo);

@@ -1,17 +1,18 @@
 // Test that misexpect emits no warning when switch condition is non-const
 
 // RUN: llvm-profdata merge %S/Inputs/misexpect-switch-nonconst.proftext -o %t.profdata
-// RUN: %clang_cc1 %s -O2 -o - -disable-llvm-passes -emit-llvm -fprofile-instrument-use-path=%t.profdata -verify
+// RUN: %clang_cc1 %s -O2 -o - -disable-llvm-passes -emit-llvm -fprofile-instrument-use=clang -fprofile-instrument-use-path=%t.profdata -verify
 
 // expected-no-diagnostics
+
+#define inner_loop 1000
+#define outer_loop 20
+#define arry_size 25
+
 int sum(int *buff, int size);
 int random_sample(int *buff, int size);
 int rand();
 void init_arry();
-
-const int inner_loop = 1000;
-const int outer_loop = 20;
-const int arry_size = 25;
 
 int arry[arry_size] = {0};
 

@@ -6,9 +6,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-// GCC 5 does not evaluate static assertions dependent on a template parameter.
-// UNSUPPORTED: gcc-5
-
 // <unordered_set>
 
 // Check that std::unordered_set fails to instantiate if the comparison predicate is
@@ -18,16 +15,16 @@
 
 template <class T>
 struct Comp {
-    bool operator () (const T& lhs, const T& rhs) const { return lhs == rhs; }
+  bool operator()(const T& lhs, const T& rhs) const { return lhs == rhs; }
 
-    Comp () {}
+  Comp() {}
+
 private:
-    Comp (const Comp &); // declared but not defined
-    };
-
+  Comp(const Comp&); // declared but not defined
+};
 
 int main(int, char**) {
-    std::unordered_multiset<int, std::hash<int>, Comp<int> > m;
+  std::unordered_multiset<int, std::hash<int>, Comp<int> > m;
 
   return 0;
 }

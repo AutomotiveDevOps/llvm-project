@@ -1,10 +1,13 @@
-// RUN: %clang_cc1 -verify -fopenmp -fopenmp-version=50 -ast-print %s | FileCheck %s
-// RUN: %clang_cc1 -fopenmp -fopenmp-version=50 -x c++ -std=c++11 -emit-pch -o %t %s
-// RUN: %clang_cc1 -fopenmp -fopenmp-version=50 -std=c++11 -include-pch %t -fsyntax-only -verify %s -ast-print | FileCheck %s
+// RUN: %clang_cc1 -verify -Wno-vla -fopenmp -ast-print %s | FileCheck %s
+// RUN: %clang_cc1 -verify -Wno-vla -fopenmp -fopenmp-version=60 -DOMP60 -ast-print %s | FileCheck %s --check-prefix=CHECK60
+// RUN: %clang_cc1 -fopenmp -x c++ -std=c++11 -emit-pch -o %t %s
+// RUN: %clang_cc1 -fopenmp -std=c++11 -include-pch %t -verify -Wno-vla %s -ast-print | FileCheck %s
 
-// RUN: %clang_cc1 -verify -fopenmp-simd -fopenmp-version=50 -ast-print %s | FileCheck %s
-// RUN: %clang_cc1 -fopenmp-simd -fopenmp-version=50 -x c++ -std=c++11 -emit-pch -o %t %s
-// RUN: %clang_cc1 -fopenmp-simd -fopenmp-version=50 -std=c++11 -include-pch %t -fsyntax-only -verify %s -ast-print | FileCheck %s
+// RUN: %clang_cc1 -verify -Wno-vla -fopenmp-simd -ast-print %s | FileCheck %s
+// RUN: %clang_cc1 -verify -Wno-vla -fopenmp-simd -fopenmp-version=60 -DOMP60 -ast-print %s | FileCheck %s --check-prefix=CHECK60
+// RUN: %clang_cc1 -fopenmp-simd -x c++ -std=c++11 -emit-pch -o %t %s
+// RUN: %clang_cc1 -fopenmp-simd -std=c++11 -include-pch %t -verify -Wno-vla %s -ast-print | FileCheck %s
+// RUN: %clang_cc1 -triple x86_64-pc-linux-gnu -fopenmp -ast-dump  %s | FileCheck %s --check-prefix=DUMP
 // expected-no-diagnostics
 
 #ifndef HEADER
@@ -86,10 +89,6 @@ struct S {
 // CHECK:        static int TS;
 // CHECK-NEXT:   #pragma omp threadprivate(S<int>::TS)
 // CHECK-NEXT: }
-// CHECK:      template<> struct S<long> {
-// CHECK:        static long TS;
-// CHECK-NEXT:   #pragma omp threadprivate(S<long>::TS)
-// CHECK-NEXT: }
 
 template <typename T, int C>
 T tmain(T argc, T *argv) {
@@ -99,12 +98,13 @@ T tmain(T argc, T *argv) {
   T arr[argc];
   omp_depend_t x;
   omp_event_handle_t evt;
-#pragma omp task untied depend(in : argc, argv[b:argc], arr[:], ([argc][sizeof(T)])argv) if (task : argc > 0) depend(depobj: x) detach(evt)
+  double *arr_double;
+#pragma omp task untied depend(in : argc, argv[b:argc], arr[:], ([argc][sizeof(T)])argv, arr_double[argc]) if (task : argc > 0) depend(depobj: x) detach(evt)
   a = 2;
 #pragma omp task default(none), private(argc, b) firstprivate(argv) shared(d) if (argc > 0) final(S<T>::TS > 0) priority(argc) affinity(argc, argv[b:argc], arr[:], ([argc][sizeof(T)])argv)
   foo();
-#pragma omp taskgroup task_reduction(-: argc)
-#pragma omp task if (C) mergeable priority(C) in_reduction(-: argc)
+#pragma omp taskgroup task_reduction(+: argc)
+#pragma omp task if (C) mergeable priority(C) in_reduction(+: argc)
   foo();
   return 0;
 }
@@ -116,12 +116,13 @@ T tmain(T argc, T *argv) {
 // CHECK-NEXT: T arr[argc];
 // CHECK-NEXT: omp_depend_t x;
 // CHECK-NEXT: omp_event_handle_t evt;
-// CHECK-NEXT: #pragma omp task untied depend(in : argc,argv[b:argc],arr[:],([argc][sizeof(T)])argv) if(task: argc > 0) depend(depobj : x) detach(evt)
+// CHECK-NEXT: double *arr_double;
+// CHECK-NEXT: #pragma omp task untied depend(in : argc,argv[b:argc],arr[:],([argc][sizeof(T)])argv,arr_double[argc]) if(task: argc > 0) depend(depobj : x) detach(evt)
 // CHECK-NEXT: a = 2;
 // CHECK-NEXT: #pragma omp task default(none) private(argc,b) firstprivate(argv) shared(d) if(argc > 0) final(S<T>::TS > 0) priority(argc) affinity(argc,argv[b:argc],arr[:],([argc][sizeof(T)])argv)
 // CHECK-NEXT: foo()
-// CHECK-NEXT: #pragma omp taskgroup task_reduction(-: argc)
-// CHECK-NEXT: #pragma omp task if(C) mergeable priority(C) in_reduction(-: argc)
+// CHECK-NEXT: #pragma omp taskgroup task_reduction(+: argc)
+// CHECK-NEXT: #pragma omp task if(C) mergeable priority(C) in_reduction(+: argc)
 // CHECK-NEXT: foo()
 // CHECK: template<> int tmain<int, 5>(int argc, int *argv) {
 // CHECK-NEXT: int b = argc, c, d, e, f, g;
@@ -130,12 +131,13 @@ T tmain(T argc, T *argv) {
 // CHECK-NEXT: int arr[argc];
 // CHECK-NEXT: omp_depend_t x;
 // CHECK-NEXT: omp_event_handle_t evt;
-// CHECK-NEXT: #pragma omp task untied depend(in : argc,argv[b:argc],arr[:],([argc][sizeof(int)])argv) if(task: argc > 0) depend(depobj : x) detach(evt)
+// CHECK-NEXT: double *arr_double;
+// CHECK-NEXT: #pragma omp task untied depend(in : argc,argv[b:argc],arr[:],([argc][sizeof(int)])argv,arr_double[argc]) if(task: argc > 0) depend(depobj : x) detach(evt)
 // CHECK-NEXT: a = 2;
 // CHECK-NEXT: #pragma omp task default(none) private(argc,b) firstprivate(argv) shared(d) if(argc > 0) final(S<int>::TS > 0) priority(argc) affinity(argc,argv[b:argc],arr[:],([argc][sizeof(int)])argv)
 // CHECK-NEXT: foo()
-// CHECK-NEXT: #pragma omp taskgroup task_reduction(-: argc)
-// CHECK-NEXT: #pragma omp task if(5) mergeable priority(5) in_reduction(-: argc)
+// CHECK-NEXT: #pragma omp taskgroup task_reduction(+: argc)
+// CHECK-NEXT: #pragma omp task if(5) mergeable priority(5) in_reduction(+: argc)
 // CHECK-NEXT: foo()
 // CHECK: template<> long tmain<long, 1>(long argc, long *argv) {
 // CHECK-NEXT: long b = argc, c, d, e, f, g;
@@ -144,12 +146,13 @@ T tmain(T argc, T *argv) {
 // CHECK-NEXT: long arr[argc];
 // CHECK-NEXT: omp_depend_t x;
 // CHECK-NEXT: omp_event_handle_t evt;
-// CHECK-NEXT: #pragma omp task untied depend(in : argc,argv[b:argc],arr[:],([argc][sizeof(long)])argv) if(task: argc > 0) depend(depobj : x) detach(evt)
+// CHECK-NEXT: double *arr_double;
+// CHECK-NEXT: #pragma omp task untied depend(in : argc,argv[b:argc],arr[:],([argc][sizeof(long)])argv,arr_double[argc]) if(task: argc > 0) depend(depobj : x) detach(evt)
 // CHECK-NEXT: a = 2;
 // CHECK-NEXT: #pragma omp task default(none) private(argc,b) firstprivate(argv) shared(d) if(argc > 0) final(S<long>::TS > 0) priority(argc) affinity(argc,argv[b:argc],arr[:],([argc][sizeof(long)])argv)
 // CHECK-NEXT: foo()
-// CHECK-NEXT: #pragma omp taskgroup task_reduction(-: argc)
-// CHECK-NEXT: #pragma omp task if(1) mergeable priority(1) in_reduction(-: argc)
+// CHECK-NEXT: #pragma omp taskgroup task_reduction(+: argc)
+// CHECK-NEXT: #pragma omp task if(1) mergeable priority(1) in_reduction(+: argc)
 // CHECK-NEXT: foo()
 
 enum Enum {};
@@ -186,10 +189,70 @@ int main(int argc, char **argv) {
 #pragma omp task in_reduction(+: arr1)
   foo();
   // CHECK-NEXT: foo();
+  // CHECK-NEXT: #pragma omp task depend(out : arr,omp_all_memory)
+#pragma omp task depend(out: omp_all_memory, arr)
+  foo();
+  // CHECK-NEXT: foo();
+  // CHECK-NEXT: #pragma omp task depend(inout : b,arr,a,x,omp_all_memory)
+#pragma omp task depend(inout: b, arr, omp_all_memory, a, x)
+  foo();
+  // CHECK-NEXT: foo();
+  // CHECK-NEXT: #pragma omp task depend(inout : omp_all_memory)
+#pragma omp task depend(inout: omp_all_memory)
+  foo();
+  // CHECK-NEXT: foo();
+#ifdef OMP60
+#pragma omp task threadset(omp_pool)
+#pragma omp task threadset(omp_team)
+  foo();
+#endif
+  // CHECK60: #pragma omp task threadset(omp_pool)
+  // CHECK60: #pragma omp task threadset(omp_team)
+  // CHECK60-NEXT: foo();
   return tmain<int, 5>(b, &b) + tmain<long, 1>(x, &x);
 }
 
 extern template int S<int>::TS;
 extern template long S<long>::TS;
+
+// DUMP-LABEL:  FunctionDecl {{.*}} implicit_firstprivate
+void
+implicit_firstprivate() {
+
+#pragma omp parallel num_threads(1)
+  {
+    int i = 0;
+    // DUMP: OMPTaskDirective 
+    // DUMP-NEXT: OMPFirstprivateClause
+    // DUMP-NOT: DeclRefExpr {{.+}} 'i' {{.+}} non_odr_use_unevaluated
+    // DUMP: DeclRefExpr {{.+}} 'i' 'int' refers_to_enclosing_variable_or_capture
+    // DUMP: CapturedStmt
+    // DUMP: BinaryOperator {{.+}} 'int' lvalue '='
+    // DUMP-NEXT: DeclRefExpr {{.+}} 'j' 'int'
+    // DUMP: DeclRefExpr {{.+}} 'i' {{.+}} non_odr_use_unevaluated
+    #pragma omp task
+    {
+	int j = sizeof(i);
+	j = i;
+    }
+  }
+}
+
+// DUMP-LABEL:  FunctionDecl {{.*}} no_implicit_firstprivate
+void
+no_implicit_firstprivate() {
+
+#pragma omp parallel num_threads(1)
+  {
+    int i = 0;
+    // DUMP: OMPTaskDirective
+    // DUMP-NEXT: CapturedStmt
+    // DUMP: DeclRefExpr {{.+}} 'i' {{.+}} non_odr_use_unevaluated refers_to_enclosing_variable_or_capture
+    #pragma omp task
+    {
+	int j = sizeof(i);
+    }
+  }
+}
 
 #endif

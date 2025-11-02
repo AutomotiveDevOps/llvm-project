@@ -67,10 +67,13 @@ public:
   void VisitCXXDeleteExpr(CXXDeleteExpr *E) {
     if (E->getOperatorDelete())
       asImpl().visitUsedDecl(E->getBeginLoc(), E->getOperatorDelete());
-    QualType Destroyed = S.Context.getBaseElementType(E->getDestroyedType());
-    if (const RecordType *DestroyedRec = Destroyed->getAs<RecordType>()) {
-      CXXRecordDecl *Record = cast<CXXRecordDecl>(DestroyedRec->getDecl());
-      asImpl().visitUsedDecl(E->getBeginLoc(), S.LookupDestructor(Record));
+    QualType DestroyedOrNull = E->getDestroyedType();
+    if (!DestroyedOrNull.isNull()) {
+      QualType Destroyed = S.Context.getBaseElementType(DestroyedOrNull);
+      if (auto *Record = Destroyed->getAsCXXRecordDecl();
+          Record &&
+          (Record->isBeingDefined() || Record->isCompleteDefinition()))
+        asImpl().visitUsedDecl(E->getBeginLoc(), S.LookupDestructor(Record));
     }
 
     Inherited::VisitCXXDeleteExpr(E);
@@ -78,11 +81,28 @@ public:
 
   void VisitCXXConstructExpr(CXXConstructExpr *E) {
     asImpl().visitUsedDecl(E->getBeginLoc(), E->getConstructor());
+    CXXConstructorDecl *D = E->getConstructor();
+    for (const CXXCtorInitializer *Init : D->inits()) {
+      if (Init->isInClassMemberInitializer())
+        asImpl().Visit(Init->getInit());
+    }
     Inherited::VisitCXXConstructExpr(E);
   }
 
   void VisitCXXDefaultArgExpr(CXXDefaultArgExpr *E) {
     asImpl().Visit(E->getExpr());
+    Inherited::VisitCXXDefaultArgExpr(E);
+  }
+
+  void VisitCXXDefaultInitExpr(CXXDefaultInitExpr *E) {
+    asImpl().Visit(E->getExpr());
+    Inherited::VisitCXXDefaultInitExpr(E);
+  }
+
+  void VisitInitListExpr(InitListExpr *ILE) {
+    if (ILE->hasArrayFiller())
+      asImpl().Visit(ILE->getArrayFiller());
+    Inherited::VisitInitListExpr(ILE);
   }
 
   void visitUsedDecl(SourceLocation Loc, Decl *D) {

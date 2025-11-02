@@ -6,12 +6,14 @@ For efficiency, we copy all data needed to execute all tests into each worker
 and store it in global variables. This reduces the cost of each task.
 """
 import contextlib
+import os
 import signal
 import time
 import traceback
 
 import lit.Test
 import lit.util
+from lit.TestRunner import TestUpdaterException
 
 
 _lit_config = None
@@ -65,6 +67,8 @@ def _execute(test, lit_config):
     start = time.time()
     result = _execute_test_handle_errors(test, lit_config)
     result.elapsed = time.time() - start
+    result.start = start
+    result.pid = os.getpid()
     return result
 
 
@@ -72,12 +76,16 @@ def _execute_test_handle_errors(test, lit_config):
     try:
         result = test.config.test_format.execute(test, lit_config)
         return _adapt_result(result)
+    except TestUpdaterException as e:
+        if lit_config.debug:
+            raise
+        return lit.Test.Result(lit.Test.UNRESOLVED, str(e))
     except:
         if lit_config.debug:
             raise
-        output = 'Exception during script execution:\n'
+        output = "Exception during script execution:\n"
         output += traceback.format_exc()
-        output += '\n'
+        output += "\n"
         return lit.Test.Result(lit.Test.UNRESOLVED, output)
 
 

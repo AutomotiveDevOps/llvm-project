@@ -79,9 +79,9 @@ int main(int Argc, char *Argv[]) {
   assert(Argc == 2);
 
   int I = 1, J = 2;
-  LabelI = dfsan_create_label("I", 0);
+  LabelI = 1;
   dfsan_set_label(LabelI, &I, sizeof(I));
-  LabelJ = dfsan_create_label("J", 0);
+  LabelJ = 2;
   dfsan_set_label(LabelJ, &J, sizeof(J));
   LabelIJ = dfsan_union(LabelI, LabelJ);
 
@@ -111,17 +111,19 @@ int main(int Argc, char *Argv[]) {
   assert(I != J);
 
   LenArgv = strlen(Argv[1]);
-  LabelArgv = dfsan_create_label("Argv", 0);
+  LabelArgv = 4;
   dfsan_set_label(LabelArgv, Argv[1], LenArgv);
 
-  char SinkBuf[64];
-  assert(LenArgv < sizeof(SinkBuf) - 1);
+  char Buf[64];
+  assert(LenArgv < sizeof(Buf) - 1);
 
   // CHECK: Label 4 copied to memory
-  memcpy(SinkBuf, Argv[1], LenArgv);
+  void *volatile SinkPtr = Buf;
+  memcpy(SinkPtr, Argv[1], LenArgv);
 
   // CHECK: Label 4 copied to memory
-  memmove(&SinkBuf[1], SinkBuf, LenArgv);
+  SinkPtr = &Buf[1];
+  memmove(SinkPtr, Buf, LenArgv);
 
   return 0;
 }

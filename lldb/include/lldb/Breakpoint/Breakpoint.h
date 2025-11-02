@@ -20,7 +20,9 @@
 #include "lldb/Breakpoint/BreakpointName.h"
 #include "lldb/Breakpoint/BreakpointOptions.h"
 #include "lldb/Breakpoint/Stoppoint.h"
+#include "lldb/Breakpoint/StoppointHitCounter.h"
 #include "lldb/Core/SearchFilter.h"
+#include "lldb/Target/Statistics.h"
 #include "lldb/Utility/Event.h"
 #include "lldb/Utility/StringList.h"
 #include "lldb/Utility/StructuredData.h"
@@ -78,7 +80,8 @@ namespace lldb_private {
 class Breakpoint : public std::enable_shared_from_this<Breakpoint>,
                    public Stoppoint {
 public:
-  static ConstString GetEventIdentifier();
+  static const char *
+      BreakpointEventTypeAsCString(lldb::BreakpointEventType type);
 
   /// An enum specifying the match style for breakpoint settings.  At present
   /// only used for function name style breakpoints.
@@ -102,13 +105,15 @@ public:
 
     ~BreakpointEventData() override;
 
-    static ConstString GetFlavorString();
+    static llvm::StringRef GetFlavorString();
 
-    ConstString GetFlavor() const override;
+    Log *GetLogChannel() override;
+
+    llvm::StringRef GetFlavor() const override;
 
     lldb::BreakpointEventType GetBreakpointEventType() const;
 
-    lldb::BreakpointSP &GetBreakpoint();
+    lldb::BreakpointSP GetBreakpoint() const;
 
     BreakpointLocationCollection &GetBreakpointLocationCollection() {
       return m_locations;
@@ -137,7 +142,8 @@ public:
     lldb::BreakpointSP m_new_breakpoint_sp;
     BreakpointLocationCollection m_locations;
 
-    DISALLOW_COPY_AND_ASSIGN(BreakpointEventData);
+    BreakpointEventData(const BreakpointEventData &) = delete;
+    const BreakpointEventData &operator=(const BreakpointEventData &) = delete;
   };
 
   // Saving & restoring breakpoints:
@@ -242,6 +248,23 @@ public:
   ///    Returns a pointer to the new location.
   lldb::BreakpointLocationSP AddLocation(const Address &addr,
                                          bool *new_location = nullptr);
+  /// Add a `facade` location to the breakpoint's collection of facade
+  /// locations. This is only meant to be called by the breakpoint's resolver.
+  /// Facade locations are placeholders that a scripted breakpoint can use to
+  /// represent the stop locations provided by the breakpoint.  The scripted
+  /// breakpoint should record the id of the facade location, and provide
+  /// the description of the location in the GetDescription method
+  /// To emulate hitting a facade location, the breakpoint's WasHit should
+  /// return the ID of the facade that was "hit".
+  ///
+  /// \param[out] new_location
+  ///    Set to \b true if a new location was created, to \b false if there
+  ///    already was a location at this Address.
+  /// \return
+  ///    Returns a pointer to the new location.
+  lldb::BreakpointLocationSP AddFacadeLocation();
+
+  lldb::BreakpointLocationSP GetFacadeLocationByID(lldb::break_id_t);
 
   /// Find a breakpoint location by Address.
   ///
@@ -262,27 +285,38 @@ public:
   ///    there is no breakpoint location at that address.
   lldb::break_id_t FindLocationIDByAddress(const Address &addr);
 
-  /// Find a breakpoint location for a given breakpoint location ID.
+  /// Find a breakpoint location for a given breakpoint location ID.  If there
+  /// are Facade Locations in the breakpoint, the facade locations will be
+  /// searched instead of the "real" ones.
   ///
   /// \param[in] bp_loc_id
   ///    The ID specifying the location.
+  ///
+  /// \param[in] use_facade
+  /// If \b true, then prefer facade locations over "real" ones if they exist.
+  ///
   /// \return
   ///    Returns a shared pointer to the location with ID \a bp_loc_id.  The
   ///    pointer
   ///    in the shared pointer will be nullptr if there is no location with that
   ///    ID.
-  lldb::BreakpointLocationSP FindLocationByID(lldb::break_id_t bp_loc_id);
+  lldb::BreakpointLocationSP FindLocationByID(lldb::break_id_t bp_loc_id,
+                                              bool use_facade = true);
 
   /// Get breakpoint locations by index.
   ///
   /// \param[in] index
   ///    The location index.
   ///
+  /// \param[in] use_facade
+  /// If \b true, then prefer facade locations over "real" ones if they exist.
+  ///
   /// \return
   ///     Returns a shared pointer to the location with index \a
   ///     index. The shared pointer might contain nullptr if \a index is
   ///     greater than then number of actual locations.
-  lldb::BreakpointLocationSP GetLocationAtIndex(size_t index);
+  lldb::BreakpointLocationSP GetLocationAtIndex(size_t index,
+                                                bool use_facade = true);
 
   /// Removes all invalid breakpoint locations.
   ///
@@ -322,6 +356,9 @@ public:
   /// Return the current hit count for all locations. \return
   ///     The current hit count for all locations.
   uint32_t GetHitCount() const;
+
+  /// Resets the current hit count for all locations.
+  void ResetHitCount();
 
   /// If \a one_shot is \b true, breakpoint will be deleted on first hit.
   void SetOneShot(bool one_shot);
@@ -372,7 +409,10 @@ public:
   /// \param[in] is_synchronous
   ///    If \b true the callback will be run on the private event thread
   ///    before the stop event gets reported.  If false, the callback will get
-  ///    handled on the public event thread after the stop has been posted.
+  ///    handled on the public event thread while the stop event is being
+  ///    pulled off the event queue.
+  ///    Note: synchronous callbacks cannot cause the target to run, in
+  ///    particular, they should not try to run the expression evaluator.
   void SetCallback(BreakpointHitCallback callback, void *baton,
                    bool is_synchronous = false);
 
@@ -385,25 +425,24 @@ public:
   /// Set the breakpoint's condition.
   ///
   /// \param[in] condition
-  ///    The condition expression to evaluate when the breakpoint is hit.
-  ///    Pass in nullptr to clear the condition.
-  void SetCondition(const char *condition);
+  ///    The condition to evaluate when the breakpoint is hit.
+  ///    Pass in an empty condition to clear the condition.
+  void SetCondition(StopCondition condition);
 
-  /// Return a pointer to the text of the condition expression.
-  ///
-  /// \return
-  ///    A pointer to the condition expression text, or nullptr if no
-  //     condition has been set.
-  const char *GetConditionText() const;
+  /// Return the breakpoint condition.
+  const StopCondition &GetCondition() const;
 
   // The next section are various utility functions.
 
   /// Return the number of breakpoint locations that have resolved to actual
   /// breakpoint sites.
   ///
+  /// \param[in] use_facade
+  /// If \b true, then prefer facade locations over "real" ones if they exist.
+  ///
   /// \return
   ///     The number locations resolved breakpoint sites.
-  size_t GetNumResolvedLocations() const;
+  size_t GetNumResolvedLocations(bool use_facade = true) const;
 
   /// Return whether this breakpoint has any resolved locations.
   ///
@@ -413,9 +452,12 @@ public:
 
   /// Return the number of breakpoint locations.
   ///
+  /// \param[in] use_facade
+  /// If \b true, then prefer facade locations over "real" ones if they exist.
+  ///
   /// \return
   ///     The number breakpoint locations.
-  size_t GetNumLocations() const;
+  size_t GetNumLocations(bool use_facade = true) const;
 
   /// Put a description of this breakpoint into the stream \a s.
   ///
@@ -479,16 +521,16 @@ public:
   /// Meant to be used by the BreakpointLocation class.
   ///
   /// \return
-  ///     A pointer to this breakpoint's BreakpointOptions.
-  BreakpointOptions *GetOptions();
+  ///     A reference to this breakpoint's BreakpointOptions.
+  BreakpointOptions &GetOptions();
 
   /// Returns the BreakpointOptions structure set at the breakpoint level.
   ///
   /// Meant to be used by the BreakpointLocation class.
   ///
   /// \return
-  ///     A pointer to this breakpoint's BreakpointOptions.
-  const BreakpointOptions *GetOptions() const;
+  ///     A reference to this breakpoint's BreakpointOptions.
+  const BreakpointOptions &GetOptions() const;
 
   /// Invoke the callback action when the breakpoint is hit.
   ///
@@ -507,18 +549,32 @@ public:
 
   bool IsHardware() const { return m_hardware; }
 
+  llvm::Error SetIsHardware(bool is_hardware);
+
   lldb::BreakpointResolverSP GetResolver() { return m_resolver_sp; }
 
   lldb::SearchFilterSP GetSearchFilter() { return m_filter_sp; }
 
-private: // The target needs to manage adding & removing names.  It will do the
-         // checking for name validity as well.
-  bool AddName(llvm::StringRef new_name);
+private:
+  void AddName(llvm::StringRef new_name);
 
   void RemoveName(const char *name_to_remove) {
     if (name_to_remove)
       m_name_list.erase(name_to_remove);
   }
+
+  /// This controls whether to display information about
+  /// the facade locations or the real locations.
+  enum DisplayType {
+    eDisplayFacade = 1,     // Display facade locations
+    eDisplayReal = 1 << 1,  // Display real locations
+    eDisplayHeader = 1 << 2 // Display compressed list of locations only
+  };
+
+  void GetDescriptionForType(Stream *s, lldb::DescriptionLevel level,
+                             uint8_t display_type, bool show_locations);
+
+  bool HasFacadeLocations() { return m_facade_locations.GetSize() != 0; }
 
 public:
   bool MatchesName(const char *name) {
@@ -543,7 +599,7 @@ public:
   /// if the condition says to stop and false otherwise.
   ///
   void SetPrecondition(lldb::BreakpointPreconditionSP precondition_sp) {
-    m_precondition_sp = precondition_sp;
+    m_precondition_sp = std::move(precondition_sp);
   }
 
   bool EvaluatePrecondition(StoppointCallbackContext &context);
@@ -573,6 +629,14 @@ public:
   // target - primarily from the dummy target to prime new targets.
   static lldb::BreakpointSP CopyFromBreakpoint(lldb::TargetSP new_target,
       const Breakpoint &bp_to_copy_from);
+
+  /// Get statistics associated with this breakpoint in JSON format.
+  llvm::json::Value GetStatistics();
+
+  void ResetStatistics();
+
+  /// Get the time it took to resolve all locations in this breakpoint.
+  StatsDuration::Duration GetResolveTime() const { return m_resolve_time; }
 
 protected:
   friend class Target;
@@ -615,27 +679,11 @@ protected:
 
   void DecrementIgnoreCount();
 
-  // BreakpointLocation::IgnoreCountShouldStop &
-  // Breakpoint::IgnoreCountShouldStop can only be called once per stop, and
-  // BreakpointLocation::IgnoreCountShouldStop should be tested first, and if
-  // it returns false we should continue, otherwise we should test
-  // Breakpoint::IgnoreCountShouldStop.
-
-  bool IgnoreCountShouldStop();
-
-  void IncrementHitCount() { m_hit_count++; }
-
-  void DecrementHitCount() {
-    assert(m_hit_count > 0);
-    m_hit_count--;
-  }
-
 private:
   // To call from CopyFromBreakpoint.
   Breakpoint(Target &new_target, const Breakpoint &bp_to_copy_from);
 
   // For Breakpoint only
-  bool m_being_created;
   bool
       m_hardware; // If this breakpoint is required to use a hardware breakpoint
   Target &m_target; // The target that holds this breakpoint.
@@ -653,23 +701,29 @@ private:
   // to skip certain breakpoint hits.  For instance, exception breakpoints use
   // this to limit the stop to certain exception classes, while leaving the
   // condition & callback free for user specification.
-  std::unique_ptr<BreakpointOptions>
-      m_options_up; // Settable breakpoint options
+  BreakpointOptions m_options; // Settable breakpoint options
   BreakpointLocationList
       m_locations; // The list of locations currently found for this breakpoint.
+  BreakpointLocationCollection m_facade_locations;
+
   std::string m_kind_description;
   bool m_resolve_indirect_symbols;
-  uint32_t m_hit_count; // Number of times this breakpoint/watchpoint has been
-                        // hit.  This is kept
-  // separately from the locations hit counts, since locations can go away when
-  // their backing library gets unloaded, and we would lose hit counts.
+
+  /// Number of times this breakpoint has been hit. This is kept separately
+  /// from the locations hit counts, since locations can go away when their
+  /// backing library gets unloaded, and we would lose hit counts.
+  StoppointHitCounter m_hit_counter;
+
   BreakpointName::Permissions m_permissions;
+
+  StatsDuration m_resolve_time;
 
   void SendBreakpointChangedEvent(lldb::BreakpointEventType eventKind);
 
-  void SendBreakpointChangedEvent(BreakpointEventData *data);
+  void SendBreakpointChangedEvent(const lldb::EventDataSP &breakpoint_data_sp);
 
-  DISALLOW_COPY_AND_ASSIGN(Breakpoint);
+  Breakpoint(const Breakpoint &) = delete;
+  const Breakpoint &operator=(const Breakpoint &) = delete;
 };
 
 } // namespace lldb_private

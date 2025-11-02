@@ -63,13 +63,14 @@
 #include "llvm/Transforms/Scalar/SpeculativeExecution.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Analysis/GlobalsModRef.h"
+#include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/IR/Instructions.h"
-#include "llvm/IR/Module.h"
 #include "llvm/IR/Operator.h"
 #include "llvm/InitializePasses.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Transforms/Scalar.h"
 
 using namespace llvm;
 
@@ -148,10 +149,8 @@ bool SpeculativeExecutionLegacyPass::runOnFunction(Function &F) {
   return Impl.runImpl(F, TTI);
 }
 
-namespace llvm {
-
 bool SpeculativeExecutionPass::runImpl(Function &F, TargetTransformInfo *TTI) {
-  if (OnlyIfDivergentTarget && !TTI->hasBranchDivergence()) {
+  if (OnlyIfDivergentTarget && !TTI->hasBranchDivergence(&F)) {
     LLVM_DEBUG(dbgs() << "Not running SpeculativeExecution because "
                          "TTI->hasBranchDivergence() is false.\n");
     return false;
@@ -209,8 +208,8 @@ bool SpeculativeExecutionPass::runOnBasicBlock(BasicBlock &B) {
   return false;
 }
 
-static unsigned ComputeSpeculationCost(const Instruction *I,
-                                       const TargetTransformInfo &TTI) {
+static InstructionCost ComputeSpeculationCost(const Instruction *I,
+                                              const TargetTransformInfo &TTI) {
   switch (Operator::getOpcode(I)) {
     case Instruction::GetElementPtr:
     case Instruction::Add:
@@ -228,6 +227,7 @@ static unsigned ComputeSpeculationCost(const Instruction *I,
     case Instruction::Call:
     case Instruction::BitCast:
     case Instruction::PtrToInt:
+    case Instruction::PtrToAddr:
     case Instruction::IntToPtr:
     case Instruction::AddrSpaceCast:
     case Instruction::FPToUI:
@@ -244,38 +244,73 @@ static unsigned ComputeSpeculationCost(const Instruction *I,
     case Instruction::FNeg:
     case Instruction::ICmp:
     case Instruction::FCmp:
-      return TTI.getUserCost(I, TargetTransformInfo::TCK_SizeAndLatency);
+    case Instruction::Trunc:
+    case Instruction::Freeze:
+    case Instruction::ExtractElement:
+    case Instruction::InsertElement:
+    case Instruction::ShuffleVector:
+    case Instruction::ExtractValue:
+    case Instruction::InsertValue:
+      return TTI.getInstructionCost(I, TargetTransformInfo::TCK_SizeAndLatency);
 
     default:
-      return UINT_MAX; // Disallow anything not whitelisted.
+      return InstructionCost::getInvalid(); // Disallow anything not explicitly
+                                            // listed.
   }
 }
+
+// Do not hoist any debug info intrinsics.
+// ...
+// if (cond) {
+//   x = y * z;
+//   foo();
+// }
+// ...
+// -------- Which then becomes:
+// ...
+// if.then:
+//   %x = mul i32 %y, %z
+//   call void @llvm.dbg.value(%x, !"x", !DIExpression())
+//   call void foo()
+//
+// SpeculativeExecution might decide to hoist the 'y * z' calculation
+// out of the 'if' block, because it is more efficient that way, so the
+// '%x = mul i32 %y, %z' moves to the block above. But it might also
+// decide to hoist the 'llvm.dbg.value' call.
+// This is incorrect, because even if we've moved the calculation of
+// 'y * z', we should not see the value of 'x' change unless we
+// actually go inside the 'if' block.
 
 bool SpeculativeExecutionPass::considerHoistingFromTo(
     BasicBlock &FromBlock, BasicBlock &ToBlock) {
   SmallPtrSet<const Instruction *, 8> NotHoisted;
-  const auto AllPrecedingUsesFromBlockHoisted = [&NotHoisted](User *U) {
-    for (Value* V : U->operand_values()) {
-      if (Instruction *I = dyn_cast<Instruction>(V)) {
-        if (NotHoisted.count(I) > 0)
+  auto HasNoUnhoistedInstr = [&NotHoisted](auto Values) {
+    for (const Value *V : Values) {
+      if (const auto *I = dyn_cast_or_null<Instruction>(V))
+        if (NotHoisted.contains(I))
           return false;
-      }
     }
     return true;
   };
+  auto AllPrecedingUsesFromBlockHoisted =
+      [&HasNoUnhoistedInstr](const User *U) {
+        return HasNoUnhoistedInstr(U->operand_values());
+      };
 
-  unsigned TotalSpeculationCost = 0;
-  for (auto& I : FromBlock) {
-    const unsigned Cost = ComputeSpeculationCost(&I, *TTI);
-    if (Cost != UINT_MAX && isSafeToSpeculativelyExecute(&I) &&
+  InstructionCost TotalSpeculationCost = 0;
+  unsigned NotHoistedInstCount = 0;
+  for (const auto &I : FromBlock) {
+    const InstructionCost Cost = ComputeSpeculationCost(&I, *TTI);
+    if (Cost.isValid() && isSafeToSpeculativelyExecute(&I) &&
         AllPrecedingUsesFromBlockHoisted(&I)) {
       TotalSpeculationCost += Cost;
       if (TotalSpeculationCost > SpecExecMaxSpeculationCost)
         return false;  // too much to hoist
     } else {
-      NotHoisted.insert(&I);
-      if (NotHoisted.size() > SpecExecMaxNotHoisted)
+      NotHoistedInstCount++;
+      if (NotHoistedInstCount > SpecExecMaxNotHoisted)
         return false; // too much left behind
+      NotHoisted.insert(&I);
     }
   }
 
@@ -285,17 +320,18 @@ bool SpeculativeExecutionPass::considerHoistingFromTo(
     auto Current = I;
     ++I;
     if (!NotHoisted.count(&*Current)) {
-      Current->moveBefore(ToBlock.getTerminator());
+      Current->moveBefore(ToBlock.getTerminator()->getIterator());
+      Current->dropLocation();
     }
   }
   return true;
 }
 
-FunctionPass *createSpeculativeExecutionPass() {
+FunctionPass *llvm::createSpeculativeExecutionPass() {
   return new SpeculativeExecutionLegacyPass();
 }
 
-FunctionPass *createSpeculativeExecutionIfHasBranchDivergencePass() {
+FunctionPass *llvm::createSpeculativeExecutionIfHasBranchDivergencePass() {
   return new SpeculativeExecutionLegacyPass(/* OnlyIfDivergentTarget = */ true);
 }
 
@@ -312,8 +348,16 @@ PreservedAnalyses SpeculativeExecutionPass::run(Function &F,
   if (!Changed)
     return PreservedAnalyses::all();
   PreservedAnalyses PA;
-  PA.preserve<GlobalsAA>();
   PA.preserveSet<CFGAnalyses>();
   return PA;
 }
-}  // namespace llvm
+
+void SpeculativeExecutionPass::printPipeline(
+    raw_ostream &OS, function_ref<StringRef(StringRef)> MapClassName2PassName) {
+  static_cast<PassInfoMixin<SpeculativeExecutionPass> *>(this)->printPipeline(
+      OS, MapClassName2PassName);
+  OS << '<';
+  if (OnlyIfDivergentTarget)
+    OS << "only-if-divergent-target";
+  OS << '>';
+}

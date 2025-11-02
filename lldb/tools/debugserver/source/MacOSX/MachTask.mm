@@ -64,6 +64,10 @@ extern "C" {
 #include <pmsample.h>
 #endif
 
+extern "C" int
+proc_get_cpumon_params(pid_t pid, int *percentage,
+                       int *interval); // <libproc_internal.h> SPI
+
 //----------------------------------------------------------------------
 // MachTask constructor
 //----------------------------------------------------------------------
@@ -141,6 +145,8 @@ bool MachTask::ExceptionPortIsValid() const {
 //----------------------------------------------------------------------
 void MachTask::Clear() {
   // Do any cleanup needed for this task
+  if (m_exception_thread)
+    ShutDownExcecptionThread();
   m_task = TASK_NULL;
   m_exception_thread = 0;
   m_exception_port = MACH_PORT_NULL;
@@ -207,7 +213,7 @@ nub_size_t MachTask::WriteMemory(nub_addr_t addr, nub_size_t size,
 }
 
 //----------------------------------------------------------------------
-// MachTask::MemoryRegionInfo
+// MachTask::GetMemoryRegionInfo
 //----------------------------------------------------------------------
 int MachTask::GetMemoryRegionInfo(nub_addr_t addr, DNBRegionInfo *region_info) {
   task_t task = TaskPort();
@@ -215,12 +221,29 @@ int MachTask::GetMemoryRegionInfo(nub_addr_t addr, DNBRegionInfo *region_info) {
     return -1;
 
   int ret = m_vm_memory.GetMemoryRegionInfo(task, addr, region_info);
-  DNBLogThreadedIf(LOG_MEMORY, "MachTask::MemoryRegionInfo ( addr = 0x%8.8llx "
-                               ") => %i  (start = 0x%8.8llx, size = 0x%8.8llx, "
-                               "permissions = %u)",
+  DNBLogThreadedIf(LOG_MEMORY,
+                   "MachTask::GetMemoryRegionInfo ( addr = 0x%8.8llx ) => %i  "
+                   "(start = 0x%8.8llx, size = 0x%8.8llx, permissions = %u)",
                    (uint64_t)addr, ret, (uint64_t)region_info->addr,
                    (uint64_t)region_info->size, region_info->permissions);
   return ret;
+}
+
+//----------------------------------------------------------------------
+// MachTask::GetMemoryTags
+//----------------------------------------------------------------------
+nub_bool_t MachTask::GetMemoryTags(nub_addr_t addr, nub_size_t size,
+                                   std::vector<uint8_t> &tags) {
+  task_t task = TaskPort();
+  if (task == TASK_NULL)
+    return false;
+
+  bool ok = m_vm_memory.GetMemoryTags(task, addr, size, tags);
+  DNBLogThreadedIf(LOG_MEMORY, "MachTask::GetMemoryTags ( addr = 0x%8.8llx, "
+                               "size = 0x%8.8llx ) => %s ( tag count = %llu)",
+                  (uint64_t)addr, (uint64_t)size, (ok ? "ok" : "err"),
+                  (uint64_t)tags.size());
+  return ok;
 }
 
 #define TIME_VALUE_TO_TIMEVAL(a, r)                                            \
@@ -470,6 +493,16 @@ std::string MachTask::GetProfileData(DNBProfileDataScanType scanType) {
     }
 #endif
 
+    if (scanType & eProfileEnergyCPUCap) {
+      int percentage = -1;
+      int interval = -1;
+      int result = proc_get_cpumon_params(pid, &percentage, &interval);
+      if ((result == 0) && (percentage >= 0) && (interval >= 0)) {
+        profile_data_stream << "cpu_cap_p:" << percentage << ';';
+        profile_data_stream << "cpu_cap_t:" << interval << ';';
+      }
+    }
+
     profile_data_stream << "--end--;";
 
     result = profile_data_stream.str();
@@ -498,6 +531,7 @@ task_t MachTask::TaskPortForProcessID(pid_t pid, DNBError &err,
     mach_port_t task_self = mach_task_self();
     task_t task = TASK_NULL;
     for (uint32_t i = 0; i < num_retries; i++) {
+      DNBLog("[LaunchAttach] (%d) about to task_for_pid(%d)", getpid(), pid);
       err = ::task_for_pid(task_self, pid, &task);
 
       if (DNBLogCheckLogBit(LOG_TASK) || err.Fail()) {
@@ -508,13 +542,19 @@ task_t MachTask::TaskPortForProcessID(pid_t pid, DNBError &err,
                    err.AsString() ? err.AsString() : "success");
         if (err.Fail()) {
           err.SetErrorString(str);
-          DNBLogError ("MachTask::TaskPortForProcessID task_for_pid failed: %s", str);
+          DNBLogError(
+              "[LaunchAttach] MachTask::TaskPortForProcessID task_for_pid(%d) "
+              "failed: %s",
+              pid, str);
         }
         err.LogThreaded(str);
       }
 
-      if (err.Success())
+      if (err.Success()) {
+        DNBLog("[LaunchAttach] (%d) successfully task_for_pid(%d)'ed", getpid(),
+               pid);
         return task;
+      }
 
       // Sleep a bit and try again
       ::usleep(usec_interval);
@@ -581,7 +621,9 @@ bool MachTask::IsValid(task_t task) {
   return false;
 }
 
-bool MachTask::StartExceptionThread(DNBError &err) {
+bool MachTask::StartExceptionThread(
+        const RNBContext::IgnoredExceptions &ignored_exceptions, 
+        DNBError &err) {
   DNBLogThreadedIf(LOG_EXCEPTIONS, "MachTask::%s ( )", __FUNCTION__);
 
   task_t task = TaskPortForProcessID(err);
@@ -608,6 +650,11 @@ bool MachTask::StartExceptionThread(DNBError &err) {
     if (m_exc_port_info.mask == 0) {
       err.SetErrorString("failed to get exception port info");
       return false;
+    }
+
+    if (!ignored_exceptions.empty()) {
+      for (exception_mask_t mask : ignored_exceptions)
+        m_exc_port_info.mask = m_exc_port_info.mask & ~mask;
     }
 
     // Set the ability to get all exceptions on this port
@@ -642,7 +689,7 @@ kern_return_t MachTask::ShutDownExcecptionThread() {
 
   err = RestoreExceptionPortInfo();
 
-  // NULL our our exception port and let our exception thread exit
+  // NULL our exception port and let our exception thread exit
   mach_port_t exception_port = m_exception_port;
   m_exception_port = 0;
 
@@ -847,6 +894,17 @@ void *MachTask::ExceptionThread(void *arg) {
       if (exception_message.CatchExceptionRaise(task)) {
         if (exception_message.state.task_port != task) {
           if (exception_message.state.IsValid()) {
+            pid_t new_pid = -1;
+            kern_return_t kr =
+                pid_for_task(exception_message.state.task_port, &new_pid);
+            pid_t old_pid = mach_proc->ProcessID();
+            if (kr == KERN_SUCCESS && old_pid != new_pid) {
+              DNBLogError("Got an exec mach message but the pid of "
+                          "the new task and the pid of the old task "
+                          "do not match, something is wrong.");
+              // exit the thread.
+              break;
+            }
             // We exec'ed and our task port changed on us.
             DNBLogThreadedIf(LOG_EXCEPTIONS,
                              "task port changed from 0x%4.4x to 0x%4.4x",
@@ -957,18 +1015,25 @@ nub_bool_t MachTask::DeallocateMemory(nub_addr_t addr) {
   allocation_collection::iterator pos, end = m_allocations.end();
   for (pos = m_allocations.begin(); pos != end; pos++) {
     if ((*pos).first == addr) {
+      size_t size = (*pos).second;
       m_allocations.erase(pos);
 #define ALWAYS_ZOMBIE_ALLOCATIONS 0
       if (ALWAYS_ZOMBIE_ALLOCATIONS ||
           getenv("DEBUGSERVER_ZOMBIE_ALLOCATIONS")) {
-        ::mach_vm_protect(task, (*pos).first, (*pos).second, 0, VM_PROT_NONE);
+        ::mach_vm_protect(task, addr, size, 0, VM_PROT_NONE);
         return true;
       } else
-        return ::mach_vm_deallocate(task, (*pos).first, (*pos).second) ==
-               KERN_SUCCESS;
+        return ::mach_vm_deallocate(task, addr, size) == KERN_SUCCESS;
     }
   }
   return false;
+}
+
+//----------------------------------------------------------------------
+// MachTask::ClearAllocations
+//----------------------------------------------------------------------
+void MachTask::ClearAllocations() {
+  m_allocations.clear();
 }
 
 void MachTask::TaskPortChanged(task_t task)

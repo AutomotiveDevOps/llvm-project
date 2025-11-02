@@ -59,7 +59,7 @@ public:
       : RuntimeDyldCOFF(MM, Resolver, 8, COFF::IMAGE_REL_AMD64_ADDR64),
         ImageBase(0) {}
 
-  unsigned getStubAlignment() override { return 1; }
+  Align getStubAlignment() override { return Align(1); }
 
   // 2-byte jmp instruction + 32-bit relative address + 64-bit absolute jump
   unsigned getMaxStubSize() const override { return 14; }
@@ -113,11 +113,10 @@ public:
       // The MemoryManager can make sure this is always true by forcing the
       // memory layout to be: CodeSection < ReadOnlySection < ReadWriteSection.
       const uint64_t ImageBase = getImageBase();
-      if (Value < ImageBase || ((Value - ImageBase) > UINT32_MAX)) {
-        llvm::errs() << "IMAGE_REL_AMD64_ADDR32NB relocation requires an"
-                     << "ordered section layout.\n";
-        write32BitOffset(Target, 0, 0);
-      } else {
+      if (Value < ImageBase || ((Value - ImageBase) > UINT32_MAX))
+        report_fatal_error("IMAGE_REL_AMD64_ADDR32NB relocation requires an "
+                           "ordered section layout");
+      else {
         write32BitOffset(Target, RE.Addend, Value - ImageBase);
       }
       break;
@@ -132,6 +131,13 @@ public:
       assert(static_cast<int64_t>(RE.Addend) <= INT32_MAX && "Relocation overflow");
       assert(static_cast<int64_t>(RE.Addend) >= INT32_MIN && "Relocation underflow");
       writeBytesUnaligned(RE.Addend, Target, 4);
+      break;
+    }
+
+    case COFF::IMAGE_REL_AMD64_SECTION: {
+      assert(static_cast<int16_t>(RE.SectionID) <= INT16_MAX && "Relocation overflow");
+      assert(static_cast<int16_t>(RE.SectionID) >= INT16_MIN && "Relocation underflow");
+      writeBytesUnaligned(RE.SectionID, Target, 2);
       break;
     }
 
@@ -154,13 +160,13 @@ public:
     OriginalRelValueRef.Addend = Addend;
     OriginalRelValueRef.SymbolName = TargetName.data();
 
-    auto Stub = Stubs.find(OriginalRelValueRef);
-    if (Stub == Stubs.end()) {
+    auto [Stub, Inserted] = Stubs.try_emplace(OriginalRelValueRef);
+    if (Inserted) {
       LLVM_DEBUG(dbgs() << " Create a new stub function for "
                         << TargetName.data() << "\n");
 
       StubOffset = Section.getStubOffset();
-      Stubs[OriginalRelValueRef] = StubOffset;
+      Stub->second = StubOffset;
       createStubFunction(Section.getAddressWithOffset(StubOffset));
       Section.advanceStubOffset(getMaxStubSize());
     } else {
@@ -220,7 +226,7 @@ public:
     unsigned TargetSectionID = 0;
     uint64_t TargetOffset = 0;
 
-    if (TargetName.startswith(getImportSymbolPrefix())) {
+    if (TargetName.starts_with(getImportSymbolPrefix())) {
       assert(IsExtern && "DLLImport not marked extern?");
       TargetSectionID = SectionID;
       TargetOffset = getDLLImportOffset(SectionID, Stubs, TargetName);

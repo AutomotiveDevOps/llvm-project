@@ -1,0 +1,1497 @@
+Chapter 8
+Performance Monitor
+This chapter describes the performance monitor, which is generally defined by the Freescale EIS and
+implemented as an APU on the e200z759n3 core. Although the programming model is defined by the EIS,
+some features are defined by the implementation; in particular, the events that can be counted.
+
+8.1       Overview
+The performance monitor provides the ability to count predefined events and processor clocks associated
+with particular operations, such as cache misses, mispredicted branches, or the number of cycles an
+execution unit stalls. The count of such events can be used to trigger the performance monitor interrupt.
+The performance monitor can be used to do the following:
+   • Improve system performance by monitoring software execution and then recoding algorithms for
+       more efficiency. For example, memory hierarchy behavior can be monitored and analyzed to
+       optimize task scheduling or data distribution algorithms.
+   • Characterize processors in environments not easily characterized by benchmarking.
+   • Help system developers bring up and debug their systems.
+The performance monitor comprises the following resources:
+   • The performance monitor mark bit in the MSR (MSRPMM). This bit controls which programs are
+       monitored.
+   • The move to/from performance monitor registers (PMR) instructions, mtpmr and mfpmr.
+   • The external inputs p_pm_qual and p_pm_event.
+   • The external outputs p_pmc0_ov, p_pmc1_ov, p_pmc2_ov, and p_pmc3_ov
+   • PMRs:
+       — The performance monitor counter registers PMC0–PMC3 are 32-bit counters used to count
+          software-selectable events. UPMC0–UPMC3 provide user-level read access to these registers.
+          Counted events are those that should be of general value. They are identified in Table 8-10.
+       — The performance monitor global control register PMGC0 controls the counting of performance
+          monitor events. It takes priority over all other performance monitor control registers. UPMGC0
+          provides user-level read access to PMGC0.
+       — The performance monitor local control registers PMLCa0–PMLCa3 and PMLCb0–PMLCb3
+          control individual performance monitor counters. Each counter has a corresponding PMLCa
+          and PMLCb register. UPMLCa0–UPMLCa3 and UPMLCb0–UPMLCb3 provide user-level
+          read access to PMLCa0–PMLCa3 and PMLCb0–PMLCb3.
+   • The performance monitor interrupt follows the Book E interrupt model and is assigned to interrupt
+       vector offset register 35 (IVOR35). It has the lowest priority of all asynchronous interrupts.
+Software communication with the performance monitor APU is achieved through PMRs rather than SPRs.
+
+
+
+
+                                 e200z759n3 Core Reference Manual, Rev. 2
+Freescale Semiconductor                                                                               529
+8.2         Performance Monitor APU instructions
+The Performance Monitor APU defines the mfpmr and mtpmr instructions for reading and writing the
+PMRs as shown below.
+
+
+
+mfpmr                                                      mfpmr
+Move from Performance Monitor Register
+mfpmr                 rD,PMRN                                                                                             Form: X
+      0             5   6         10   11             15   16             20   21                                    30    31
+
+      0 1 1 1 1 1           rD              PMRN5:9             PMRN0:4        0    1   0   1   0   0    1   1   1   0     /
+
+          GPR(rD) PMREG(PMRN)
+
+
+The contents of the performance monitor register designated by PMRN are placed into GPR[rD].
+When MSRPR = 1, specifying a performance monitor register that is not implemented or is write-only and
+is not privileged (i.e. PMRN5=0) results in an illegal instruction exception-type Program Interrupt. When
+MSRPR = 1, specifying a performance monitor register that is not implemented or is write-only and is
+privileged (i.e. PMRN5=1) results in a privileged instruction exception-type Program Interrupt. When
+MSRPR = 0, specifying a performance monitor register that is not implemented or is write-only results in
+an illegal instruction exception type Program Interrupt.
+
+
+
+mtpmr                                                      mtpmr
+Move to Performance Monitor Register
+mtpmr                 PMRN, rS                                                                                            Form: X
+      0             5   6         10   11             15   16             20   21                                    30    31
+
+      0 1 1 1 1 1           rS              PMRN5:9             PMRN0:4        0    1   1   1   0   0    1   1   1   0     /
+
+          PMREG(PMRN) GPR(rS)
+
+
+The contents of GPR[rS] are placed into the performance monitor register designated by PMRN.
+When MSRPR = 1, specifying a performance monitor register that is not implemented or is read-only and
+is not privileged (i.e. PMRN5=0) results in an illegal instruction exception-type Program Interrupt. When
+MSRPR = 1, specifying a performance monitor register that is not implemented or is read-only and is
+privileged (i.e. PMRN5=1) results in a privileged instruction exception-type Program Interrupt. When
+MSRPR = 0, specifying a performance monitor register that is not implemented or is read-only results in
+an illegal instruction exception type Program Interrupt.
+
+
+
+
+                                   e200z759n3 Core Reference Manual, Rev. 2
+530                                                                                                     Freescale Semiconductor
+8.3       Performance Monitor APU registers
+The Freescale EIS defines a set of register resources used exclusively by the performance monitor. PMRs
+are similar to the SPRs defined in the Book E architecture and are accessed by mtpmr and mfpmr
+instructions, which are also defined by the Freescale EIS. Table 8-1 lists supervisor-level (privileged)
+PMRs.
+                                  Table 8-1. Supervisor-level PMRs (PMR[5] = 1)
+
+                                                                             pmr[0–4 pmr[5–9      Section/
+      Name                      Register name                 PMR number
+                                                                                ]       ]          page
+
+      PMC0      Performance monitor counter 0                         16      00000   10000      8.3.9/8-540
+
+      PMC1      Performance monitor counter 1                         17      00000   10001
+
+      PMC2      Performance monitor counter 2                         18      00000   10010
+
+      PMC3      Performance monitor counter 3                         19      00000   10011
+
+      PMGC0 Performance monitor global control register 0         400         01100   10000      8.3.3/8-532
+
+      PMLCa Performance monitor local control a0                  144         00100   10000      8.3.5/8-534
+        0
+
+      PMLCa Performance monitor local control a1                  145         00100   10001
+        1
+
+      PMLCa Performance monitor local control a2                  146         00100   10010
+        2
+
+      PMLCa Performance monitor local control a3                  147         00100   10011
+        3
+
+      PMLCb Performance monitor local control b0                  272         01000   10000      8.3.7/8-535
+        0
+
+      PMLCb Performance monitor local control b1                  273         01000   10001
+        1
+
+      PMLCb Performance monitor local control b2                  274         01000   10010
+        2
+
+      PMLCb Performance monitor local control b3                  275         01000   10011
+        3
+
+User-level PMRs in Table 8-2 are read-only and are accessed with mfpmr.
+                               Table 8-2. User-level PMRs (PMR[5] = 0) (read-only)
+
+                                                                PMR                                Section/
+         Name                     Register Name                            pmr[0–4]   pmr[5–9]
+                                                               Number                               Page
+
+        UPMC0       User performance monitor counter 0            0         00000      00000     8.3.10/8-541
+
+        UPMC1       User performance monitor counter 1            1         00000      00001
+
+        UPMC2       User performance monitor counter 2            2         00000      00010
+
+        UPMC3       User performance monitor counter 3            3         00000      00011
+
+
+
+
+                                      e200z759n3 Core Reference Manual, Rev. 2
+Freescale Semiconductor                                                                                         531
+                                       Table 8-2. User-level PMRs (PMR[5] = 0) (read-only) (continued)
+
+                                                                                    PMR                                             Section/
+            Name                                    Register Name                                   pmr[0–4]        pmr[5–9]
+                                                                                   Number                                            Page
+
+          UPMGC0                User performance monitor global control               384            01100           00000         8.3.4/8-534
+                                register 0
+
+       UPMLCa0                  User performance monitor local control a0            128             00100           00000         8.3.6/8-535
+
+       UPMLCa1                  User performance monitor local control a1            129             00100           00001
+
+       UPMLCa2                  User performance monitor local control a2            130             00100           00010
+
+       UPMLCa3                  User performance monitor local control a3            131             00100           00011
+
+       UPMLCb0                  User performance monitor local control b0            256             01000           00000         8.3.8/8-540
+
+       UPMLCb1                  User performance monitor local control b1            257             01000           00001
+
+       UPMLCb2                  User performance monitor local control b2            258             01000           00010
+
+       UPMLCb3                  User performance monitor local control b3            259             01000           00011
+
+
+8.3.1               Invalid PMR references
+Behavior when an invalid PMR is referenced depends on the privilege level of the register and MSRPR.
+Table 8-3 shows the response for various references to invalid PMRs.
+                                                   Table 8-3. Response to an invalid PMR reference
+
+                           PMR address bit 5                     MSRPR                               Response
+
+                                    0 (user)             x                    Illegal exception
+
+                               1 (supervisor)            0 (supervisor)       Illegal exception
+
+                                                         1 (user)             Privileged exception
+
+
+8.3.2               References to read-only PMRs
+If a mtpmr instruction is executed to a read-only PMR, e200z759n3 will take an Illegal exception.
+
+8.3.3               Performance Monitor Global Control Register 0 (PMGC0)
+The performance monitor global control register PMGC0 shown in Figure 8-1 controls all performance
+monitor counters.
+                   FCECE
+
+
+
+
+                                                                                            TBSEL
+
+
+
+
+                                                                                                             TBEE
+            PMIE
+      FAC
+
+
+
+
+                                                             0                                        0                        0
+
+
+      0     1      2       3    4    5   6     7   8   9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31
+
+                                                             PMR - 400; Read/Write; Reset - 0x0
+
+                                     Figure 8-1. Performance Monitor Global Control Register (PMGC0)
+
+
+                                                        e200z759n3 Core Reference Manual, Rev. 2
+532                                                                                                                     Freescale Semiconductor
+PMGC0 is cleared by reset. Reading this register does not change its contents. Table 8-4 describes PMGC0
+fields.
+                                   Table 8-4. PMGC0 field descriptions
+
+       Bits        Name                                          Description
+
+        0           FAC     Freeze All Counters.
+       (32)                 0 The PMCs are incremented (if permitted by other PMGC/PMLC control bits).
+                            1 The PMCs are not incremented.
+                            When FAC is set to 1 by hardware or software, it has no effect on PMLCaxFC;
+                            PMLCaxFC maintains it’s current value until changed by software. FAC setting by
+                            hardware is controlled by PMGC0FCECE.
+
+        1           PMIE    Performance monitor interrupt enable
+       (33)                 0 Performance monitor interrupts are disabled.
+                            1 Performance monitor interrupts are enabled and occur when an enabled condition
+                              or event occurs, at which time PMGC0PMIE is cleared
+                            Software can clear PMIE to prevent performance monitor interrupts. Performance
+                            monitor interrupts are caused by time base events or PMCx counter overflows.
+
+        2          FCECE    Freeze Counters on Enabled Condition or Event
+       (34)                 0 The PMCs can be incremented (if permitted by other PM control bits).
+                            1 The PMCs can be incremented (if permitted by other PM control bits) only until an
+                               enabled condition or event occurs. When an enabled condition or event occurs,
+                               PMGC0FAC is set to 1. It is up to software to clear PMGC0FAC to 0.
+                            An enabled condition or event is defined as one of the following:
+                             • When the msb = 1 in PMCx and PMLCaxCE = 1.
+                             • When the time-base bit specified by PMGC0TBSEL transitions to 1 and
+                               PMGC0TBEE=1.
+                               The use of the trigger and freeze counter conditions depends on the enabled
+                               conditions and events described in Section 7.2, “Performance Monitor Interrupt.”
+
+       3:18          —      Reserved, should be cleared.
+      (35:50)
+
+       19:20       TBSEL    Time Base Selector. Selects the time base bit that can cause a time base transition
+      (51:52)               event (the event occurs when the selected bit changes from 0 to 1).
+                            00 TB63 (TBL31)
+                            01 TB55 (TBL23)
+                            10 TB51 (TBL19)
+                            11 TB47 (TBL15)
+                            Time-base frequency is implementation-dependent, so software should invoke a
+                            system service program to obtain the frequency before choosing a TBSEL value.
+
+       21:22         —      Reserved, should be cleared.
+      (53:54)
+
+        23         TBEE     Time base transition Event Enable
+       (55)                 0 Time base transition events are disabled.
+                            1 Time base transition events are enabled. A time base transition is signaled to the
+                               performance monitor if the TB bit specified in PMGC0TBSEL changes from 0 to 1.
+                            Time base transition events can be used to freeze counters (PMGC0FCECE) or signal
+                            an exception (PMGC0PMIE). Although the exception signal condition may occur with
+                            MSREE = 0, the interrupt cannot be taken until MSREE = 1.
+                            Changing PMGC0TBSEL while PMGC0TBEE is enabled may cause a false 0 to 1
+                            transition that signals the specified action (freeze, exception) to occur immediately.
+
+       24:31         —      Reserved, should be cleared.
+      (56:63)
+
+
+                                 e200z759n3 Core Reference Manual, Rev. 2
+Freescale Semiconductor                                                                                              533
+8.3.4             User Performance Monitor Global Control Register 0 (UPMGC0)
+UPMGC0 provides user-level read access to PMGC0. UPMGC0 can be read by user-level software with
+the mfpmr instruction using PMR 384.
+
+8.3.5             Performance Monitor Local Control A Registers (PMLCa0–PMLCa3)
+The local control A registers (PMLCa0–PMLCa3) function as event selectors and give local control for
+the corresponding performance monitor counters. PMLCa is used in conjunction with the corresponding
+PMLCb register. PMLCa registers are shown in Figure 8-2.
+                        FCM1
+                               FCM0
+                  FCU
+            FCS
+
+
+
+
+                                      CE
+      FC
+
+
+
+
+                                               0                  EVENT             0      PMP                 0
+
+      0     1     2     3      4      5    6       7   8    9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31
+
+                                                           PMR - 144, 145, 146, 147; Read/Write; Reset - 0x0
+
+                        Figure 8-2. Performance Monitor Local Control A Registers (PMLCa0–PMLCa3)
+
+PMLCa registers are cleared by reset. Table 8-5 describes PMLCa fields.
+                                                       Table 8-5. PMLCa0–PMLCa3 field descriptions
+
+       Bits           Name                                                              Description
+
+            0           FC            Freeze Counter.
+          (32)                        0 The PMC can be incremented (if enabled by other performance monitor control fields).
+                                      1 The PMC will not be incremented.
+
+            1           FCS           Freeze Counter in Supervisor state.
+          (33)                        0 The PMC can be incremented (if enabled by other performance monitor control fields).
+                                      1 The PMC will not be incremented if MSRPR is cleared.
+            2           FCU           Freeze Counter in User state.
+          (34)                        0 The PMC can be incremented (if enabled by other performance monitor control fields).
+                                      1 The PMC will not be incremented if MSRPR is set.
+
+            3         FCM1            Freeze Counter while Mark is set.
+          (35)                        0 The PMC can be incremented (if enabled by other performance monitor control fields).
+                                      1 The PMC will not be incremented if MSRPMM is set.
+            4         FCM0            Freeze Counter while Mark is cleared.
+          (36)                        0 The PMC can be incremented (if enabled by other performance monitor control fields).
+                                      1 The PMC will not be incremented if MSRPMM is cleared.
+            5           CE            Condition Enable.
+          (37)                        0 verflow conditions for PMCn cannot occur (PMCn cannot cause interrupts or freeze counters)
+                                      1 An overflow condition is present when the most-significant-bit of PMCn is equal to 1.
+                                      It is recommended that CE be cleared when counter PMCn is selected for chaining.
+
+        6:7              —            Reserved for EVENT expansion, should be cleared.
+      (38:39)
+
+        8:15 EVENT Event selector. See Section 8.7, Event selection
+      (40:47)
+
+
+
+
+                                                             e200z759n3 Core Reference Manual, Rev. 2
+534                                                                                                                Freescale Semiconductor
+                                              Table 8-5. PMLCa0–PMLCa3 field descriptions (continued)
+
+         Bits               Name                                                                  Description
+
+          16                 —       Reserved, should be cleared.
+         (48)
+
+      17:19                 PMP      Performance Monitor Watchpoint Periodicity Select
+     (49:51)                         000 Performance Monitor Watchpoint x asserts on any change of counterx bit 32 (period=231)
+                                     001 Performance Monitor Watchpoint x asserts on any change of counterx bit 43 (period=220)
+                                     010 Performance Monitor Watchpoint x asserts on any change of counterx bit 49 (period=214)
+                                     011 Performance Monitor Watchpoint x asserts on any change of counterx bit 55 (period=28)
+                                     100 Performance Monitor Watchpoint x asserts on any change of counterx bit 59 (period=24)
+                                     101 Performance Monitor Watchpoint x asserts on any change of counterx bit 61 (period=22)
+                                     110 Performance Monitor Watchpoint x asserts on any change of counterx bit 62 (period=21)
+                                     111 Performance Monitor Watchpoint x asserts on any change of counterx bit 63 (period=20)1
+      20:31                  —       Reserved, should be cleared.
+     (52:63)
+    1
+         For certain events that may count an even number of times per cycle, this watchpoint is not guaranteed to assert
+         with PMP=111.
+
+
+8.3.6                  User Performance Monitor Local Control A Registers
+                       (UPMLCa0–UPMLCa3)
+The PMLCa register contents are aliased to UPMLCa0–UPMLCa3, which can be read by user-level
+software with mfpmr using PMR numbers in Table 8-2.
+
+8.3.7                  Performance Monitor Local Control B Registers (PMLCb0–PMLCb3)
+Local control B registers PMLCb0–PMLCb3) specify triggering conditions, a threshold value and a
+multiple to apply to a threshold event selected for the corresponding performance monitor counter. For the
+e200z759n3, thresholding is supported only for PMC0 and PMC1. PMLCb is used in conjunction with the
+corresponding PMLCa register.
+                                         TRIGOFFCTL
+
+
+
+
+                                                                                     TRIGOFFSEL
+
+
+
+
+                                                                                                                       THRESHMUL
+                                                                                                       TRIGGERED
+                TRIGONCTL
+
+
+
+
+                                                                    TRIGONSEL
+
+
+
+
+     0                           0                        0                     0                                  0               0   THRESHOLD
+
+
+
+     0    1      2          3    4   5    6           7   8   9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31
+
+                                                              PMR - 272, 273, 274, 275; Read/Write; Reset - 0x0
+
+                            Figure 8-3. Performance Monitor Local Control B Registers (PMLCb0–PMLCb3)
+
+PMLCb is cleared by reset. Table 8-6 describes PMLCb fields.
+
+
+
+
+                                                                e200z759n3 Core Reference Manual, Rev. 2
+Freescale Semiconductor                                                                                                                            535
+                                   Table 8-6. PMLCb0–PMLCb3 field descriptions
+
+       Bits         Name                                                Description
+
+        0             —
+                                   Reserved, should be cleared.
+       (32)
+
+        1:3     TRIGONCNTL       Trigger-on Control Class - Class of Trigger-on source
+      (33:35)                    000 Trigger-on control is disabled if TRIGONSEL is 0000 (i.e. counting is not affected
+                                       by triggers). All other values for TRIGONSEL are reserved.
+                                 001 Trigger-on control based on selected PMC condition(s)
+                                 010 Trigger-on based on selected processor event(s)
+                                 011 Trigger-on based on selected hardware signal(s)
+                                 100Trigger-on based on selected watchpoint occurrence (watchpoint #0–15)
+                                 101 Trigger-on based on selected watchpoint occurrence (extension for watchpoint
+                                       #16-31)
+                                 11x Reserved
+                                 Indicates the condition under which triggering to start counting occurs. No triggering will
+                                 occur while PMGC0FAC or PMLCanFC is set to ‘1’.
+        4             —          Reserved, should be cleared.
+       (36)
+
+        5:7     TRIGOFFCNTL Trigger-off Control Class - Class of Trigger-off source
+      (37:39)               000 Trigger-off control is disabled if TRIGOFFSEL is 0000 (i.e. counting is not affected
+                                   by triggers) All other values for TRIGOFFSEL are reserved.
+                            001 Trigger-off control based on selected PMC condition(s)
+                            010 Trigger-off based on selected processor event(s)
+                            011 Trigger-off based on selected hardware signal(s)
+                            100 Trigger-off based on selected watchpoint occurrence (watchpoint #0–15)
+                            101 Trigger-off based on selected watchpoint occurrence (extension for watchpoint
+                                   #16-31)
+                            11x Reserved
+                               Indicates the condition under which triggering to stop counting occurs. No triggering
+                               will occur while PMGC0FAC or PMLCanFC is set to ‘1’.
+        8             —          Reserved, should be cleared.
+       (40)
+
+
+
+
+                                       e200z759n3 Core Reference Manual, Rev. 2
+536                                                                                                     Freescale Semiconductor
+                          Table 8-6. PMLCb0–PMLCb3 field descriptions (continued)
+
+       Bits       Name                                              Description
+
+       9:12    TRIGONSEL      Trigger-on Source Select - Source Select based on setting of TRIGONCTL
+     (41:44)
+                              TRIGONCTL = 000:
+                              0000 Trigger-on control is disabled
+                              0001 –1111 : Reserved
+
+                              TRIGONCTL = 001:
+                              This field should be to the ID of the PMCy that should trigger event counting to start.
+                              When PMCy overflows, the trigger will be generated.
+                              When TRIGONSEL = PMCx (i.e. self-select), no triggering will occur due to any counter
+                              change. If TRIGONSEL = TRIGOFFSEL, triggering results are undefined.
+                              0000 Trigger-on when PMC0OV transitions to a ‘1’.
+                              0001 Trigger-on when PMC1OV transitions to a ‘1’.
+                              0010 Trigger-on when PMC2OV transitions to a ‘1’.
+                              0011 Trigger-on when PMC3OV transitions to a ‘1’.
+                              0100 – 1111 : Reserved
+
+                              TRIGONCTL = 010:
+                              0000 Trigger-on when next processor interrupt occurs (software may want to set
+                                    PMGC0PMIE = 0 for this setting).
+                              0001 – 1111 : Reserved
+
+                              TRIGONCTL = 011:
+                              0000 Trigger on assertion of p_devnt_out[0]
+                              0001 Trigger on assertion of p_devnt_out[1]
+                              0010 Trigger on assertion of p_devnt_out[2]
+                              0011 Trigger on assertion of p_devnt_out[3]
+                              0100 Trigger on assertion of p_devnt_out[4]
+                              0101 Trigger on assertion of p_devnt_out[5]
+                              0110 Trigger on assertion of p_devnt_out[6]
+                              0111 Trigger on assertion of p_devnt_out[7]
+                              1000 Trigger on rise of p_pmcn_qual input
+                              1001 – 1111 : Reserved
+
+                              TRIGONCTL = 100:
+                              0000 Trigger-on based on watchpoint #0 occurrence
+                              0001 Trigger-on based on watchpoint #1 occurrence
+                              0010 Trigger-on based on watchpoint #2 occurrence
+                                   ...
+                              1110 Trigger-on based on watchpoint #14 occurrence
+                              1111 Trigger-on based on watchpoint #15 occurrence
+
+                              TRIGONCTL = 101:
+                              0000 Trigger-on based on watchpoint #16 occurrence
+                              0001 Trigger-on based on watchpoint #17 occurrence
+                              0010 Trigger-on based on watchpoint #18 occurrence
+                                    ...
+                              1100 Trigger-on based on watchpoint #28 occurrence
+                              1101 Trigger-on based on watchpoint #29 occurrence
+                              1110 – 1111 : Reserved
+
+        13          —         Reserved, should be cleared.
+       (45)
+
+
+
+                                    e200z759n3 Core Reference Manual, Rev. 2
+Freescale Semiconductor                                                                                                 537
+                         Table 8-6. PMLCb0–PMLCb3 field descriptions (continued)
+
+       Bits       Name                                              Description
+
+       14:17    TRIGOFFSEL   Trigger-off Source Select - Source Select based on setting of TRIGOFFCTL
+      (46:49)
+                             TRIGOFFCTL = 000:
+                             0000 Trigger-off control is disabled
+                             0001 – 1111 : Reserved
+
+                             TRIGOFFCTL = 001:
+                             This field should be to the ID of the PMCy that should trigger event counting to stop.
+                             When PMCy overflows, the trigger will be generated.
+                             When TRIGOFFSEL = PMCx (i.e. self-select), no triggering will occur due to any counter
+                             change. If TRIGONSEL = TRIGOFFSEL, triggering results are undefined.
+                             0000 Trigger-off when PMC0OV transitions to a ‘1’.
+                             0001 Trigger-off when PMC1OV transitions to a ‘1’.
+                             0010 Trigger-off when PMC2OV transitions to a ‘1’.
+                             0011 Trigger-off when PMC3OV transitions to a ‘1’.
+                             0100 – 1111 : Reserved
+
+                             TRIGOFFCTL = 010:
+                             0000 Trigger-on when next processor interrupt occurs (software may want to set
+                                   PMGC0PMIE = 0 for this setting).
+                             0001 – 1111 : Reserved
+
+                             TRIGOFFCTL = 011:
+                             0000 Trigger-off based on assertion of p_devnt_out[0]
+                             0001 Trigger-off based on assertion of p_devnt_out[1]
+                             0010 Trigger-off based on assertion of p_devnt_out[2]
+                             0011 Trigger-off based on assertion of p_devnt_out[3]
+                             0100 Trigger-off based on assertion of p_devnt_out[4]
+                             0101 Trigger-off based on n assertion of p_devnt_out[5]
+                             0110 Trigger-off based on assertion of p_devnt_out[6]
+                             0111 Trigger-off based on assertion of p_devnt_out[7]
+                             1000 Trigger-off based on fall of p_pmcn_qual input
+                             1001 – 1111 : Reserved
+
+                             TRIGOFFCTL = 100:
+                             0000 Trigger-off based on watchpoint #0 occurrence
+                             0001 Trigger-off based on watchpoint #1 occurrence
+                             0010 Trigger-off based on watchpoint #2 occurrence
+                                  ...
+                             1110 Trigger-off based on watchpoint #14 occurrence
+                             1111 Trigger-off based on watchpoint #15 occurrence
+
+                             TRIGOFFCTL = 101:
+                             0000 Trigger-off based on watchpoint #16 occurrence
+                             0001 Trigger-off based on watchpoint #17 occurrence
+                             0010 Trigger-off based on watchpoint #18 occurrence
+                                   ...
+                             1100 Trigger-off based on watchpoint #28 occurrence
+                             1101 Trigger-off based on watchpoint #29 occurrence
+                             1110 – 1111 : Reserved
+
+
+
+
+                                   e200z759n3 Core Reference Manual, Rev. 2
+538                                                                                             Freescale Semiconductor
+                          Table 8-6. PMLCb0–PMLCb3 field descriptions (continued)
+
+        Bits       Name                                              Description
+
+         18     TRIGGERED      Triggered
+        (50)                   0 Counter has not been triggered
+                               1 Counter has been triggered
+                               TRIGGERED can be set or cleared by hardware or software.
+
+                               TRIGGERED setting by hardware is controlled by PMLCbxTRIGONCTL. If
+                               PMLCbxTRIGONCTL is set to enable trigger-on control, TRIGGERED will be set by
+                               hardware when the next trigger-on event occurs and TRIGGERED is currently cleared.
+                               TRIGGERED clearing by hardware is controlled by PMLCbxTRIGOFFCTL. If
+                               PMLCbxTRIGOFFCTL is set to enable trigger-off control, TRIGGERED will be cleared by
+                               hardware when the next trigger-off event occurs and TRIGGERED is currently set.
+
+                               The state of TRIGGERED qualifies counting if either PMLCbxTRIGONCTL or
+                               PMLCbxTRIGOFFCTL is set to enable triggering (other qualifiers on counting such as
+                               PMGC0FAC and PMLCa controls operate independently of TRIGGERED). If both
+                               PMLCbxTRIGONCNTL and PMLCbxTRIGOFFCTL are cleared to disable triggering, the state
+                               of TRIGGERED has no effect on counting.
+
+                               TRIGGERED has no effect on PMLCaxFC; PMLCaxFC maintains it’s current value until
+                               changed by software.
+
+      19:20          —         Reserved, should be cleared.
+     (51:52)
+
+      21:23    THRESHMUL1      Threshold multiple.
+     (53:55)                   000 Threshold field is multiplied by 1 (PMLCbnTHRESHOLD  1)
+                               001 Threshold field is multiplied by 2 (PMLCbnTHRESHOLD  2)
+                               010 Threshold field is multiplied by 4 (PMLCbnTHRESHOLD  4)
+                               011 Threshold field is multiplied by 8 (PMLCbnTHRESHOLD  8)
+                               100 Threshold field is multiplied by 16 (PMLCbnTHRESHOLD  16)
+                               101 Threshold field is multiplied by 32 (PMLCbnTHRESHOLD  32)
+                               110 Threshold field is multiplied by 64 (PMLCbnTHRESHOLD  64)
+                               111 Threshold field is multiplied by 128 (PMLCbnTHRESHOLD  128)
+
+      24:25          —         Reserved, should be cleared.
+     (56:57)
+
+      26:31    THRESHOLD1      Threshold
+     (58:63)
+                               Only events that exceed this value multiplied by THRESHMUL are counted. Events to
+                               which a threshold value applies are implementation dependent, as are the unit (for
+                               example duration in cycles) and the granularity with which the threshold value is
+                               interpreted.
+                               By varying the threshold value, software can obtain a profile of the event characteristics
+                               subject to thresholding by monitoring a program repeatedly using a different threshold
+                               value each time.
+    1   These Fields are not implemented in PMLCb2 and PMLCb3, and read as zero.
+
+
+
+
+                                     e200z759n3 Core Reference Manual, Rev. 2
+Freescale Semiconductor                                                                                                     539
+8.3.8             User Performance Monitor Local Control B registers
+                  (UPMLCb0–UPMLCb3)
+The contents of PMLCb0–PMLCb3 are aliased to UPMLCb0–UPMLCb3, which can be read by user-level
+software with mfpmr using PMR numbers in Table 8-2.
+
+8.3.9             Performance Monitor Counter registers (PMC0–PMC3)
+The performance monitor counter registers PMC0–PMC3 shown in Figure 8-4 are 32-bit counters that can
+be programmed to generate overflow event signals when they overflow. Each counter is enabled to count
+up to 128 processor events.
+
+
+      O
+                                                                Counter Value
+      V
+
+      0    1   2    3   4   5    6   7   8   9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31
+
+                                              PMR - 16, 17, 18, 19; Read/Write; Reset - 0x0
+
+                            Figure 8-4. Performance Monitor Counter registers (PMC0–PMC3)
+
+PMCs are cleared by reset. Table 8-7 describes the PMC register fields.
+                                             Table 8-7. PMC0–PMC3 field descriptions
+
+           Bits                 Name                                              Description
+
+            0                   OV              Overflow
+           (32)                                    0 - Counter has not reached an overflow state.
+                                                   1 - Counter has reached an overflow state.
+                                                   Note: this bit is not sticky, thus will not remain set if the counter
+                                                       subsequently counts past 0xFFFF_FFFF.
+
+            1:31        Counter Value
+                                                Indicates the number of occurrences of the specified event.
+          (33:63)
+
+The minimum value for a counter is 0 (0x0000_0000) and the maximum value is 4,294,967,295
+(0xFFFF_FFFF). A counter can increment by 0, 1, 2, 3, or 4 (based on the number of events occurring in
+a given counter cycle) up to the maximum value and then wraps to the minimum value.
+A counter enters the overflow state when the high-order bit is set. A performance monitor interrupt handler
+can easily identify overflowed counters, even if the interrupt is masked for many cycles (during which the
+counters may continue incrementing). A high-order bit is normally set only when the counter increments
+from a value below 2,147,483,648 (0x8000_0000) to a value greater than or equal to 2,147,483,648
+(0x8000_0000).
+                                                      NOTE
+                    Initializing PMCs to overflowed values is discouraged. If an overflowed
+                    value is loaded into a PMCn that held a non-overflowed value (and
+                    PMGC0PMIE, PMLCanCE, and MSREE are set), an interrupt may be falsely
+                    generated before any events are counted.
+
+
+                                              e200z759n3 Core Reference Manual, Rev. 2
+540                                                                                                            Freescale Semiconductor
+The response to an overflow condition depends on the configuration, as follows:
+   • If PMLCanCE is clear, no special actions occur on overflow of PMCn: the counter continues
+       incrementing, and no event is signaled.
+   • If PMLCanCE and PMGC0FCECE are both set, all counters are frozen when PMCn overflows.
+   • If PMLCanCE and PMGC0PMIE are set, an exception is signaled on overflow of PMCn.
+       Performance Monitor Interrupts are masked when MSREE =0. An exception may be signaled while
+       MSREE =0, but the interrupt is not taken until MSREE =1 and is only guaranteed to be taken if the
+       overflow condition is still present (i.e., the counter has not counted past 0xFFFF_FFFF, in which
+       case the OV bit would become cleared) and the configuration has not been changed in the
+       meantime to disable the exception. If PMLCanCE or PMGC0PMIE is cleared, the exception is no
+       longer signaled.
+The following sequence is recommended for setting counter values and configurations:
+   1. Set PMGC0FAC to freeze the counters.
+   2. Using mtpmr instructions, initialize counters and configure control registers.
+   3. Release the counters by clearing PMGC0FAC with a final mtpmr.
+
+8.3.10       User Performance Monitor Counter registers (UPMC0–UPMC3)
+The contents of PMC0–PMC3 are aliased to UPMC0–UPMC3, which can be read by user-level software
+with the mfpmr instruction using PMR numbers in Table 8-2.
+
+8.4       Performance monitor interrupt
+The performance monitor interrupt is triggered by an enabled condition or event. The enabled condition
+or events defined for the e200z759n3 are the following:
+    • A PMCn overflow condition occurs when both of the following are true:
+       — The counter’s overflow condition is enabled; PMLCanCE is set.
+       — The counter indicates an overflow; PMCnOV is set.
+    • A time base event occurs with the following settings:
+       — Time base events are enabled with PMGC0TBEE = 1
+       — The TBL bit specified in PMGC0TBSEL changes from 0 to 1
+The two performance monitor exception conditions are treated differently with respect to whether or not
+the conditions are level-sensitive or edge-sensitive. A performance monitor exception condition that is
+caused by a PMCn overflow condition is level-sensitive to the values of PMLCAnCE and PMCnOV. This
+means that as long as these values are both set to ‘1’, then the exception condition continues to exist and
+the performance monitor interrupt can be taken if the remainder of the performance monitor interrupt
+gating conditions are met. However, the exception due to the time base event is set only when both
+PMGC0TBEE=1 and the transition from ‘0’ to ‘1’ occurs in the specified TBL bit. This condition is not
+cleared once it occurs, regardless of whether the TBL bit subsequently transitions to a ‘0’, but this
+exception is automatically cleared whenever any performance monitor interrupt is subsequently taken.
+
+
+
+                                  e200z759n3 Core Reference Manual, Rev. 2
+Freescale Semiconductor                                                                                 541
+If PMGC0PMIE is set, an enabled condition or event triggers the signaling of a performance monitor
+exception.
+If PMGC0FCECE is set, an enabled condition or event forces all performance monitor counters to freeze.
+Although the performance monitor exception condition may occur with MSREE =0, the interrupt cannot
+be taken until MSREE =1. If PMCn overflows and would signal an exception (PMLCanCE=1 and
+PMGC0PMIE=1) while MSREE =0, and freezing of the counters is not enabled (PMGC0FCECE is clear), it
+is possible that PMCn could wrap around to all zeros again without the performance monitor interrupt
+being taken.
+Interrupt handlers should clear a counter overflow condition or the corresponding Condition Enable to
+avoid a repeated interrupt to occur for the same event.
+The priority of the performance monitor interrupt is specified in Section 7.8.1, Exception priorities.
+
+8.5       Event counting
+This section describes configurability and specific unconditional counting modes.
+
+8.5.1       MSR-based context filtering
+Counting can be configured to be conditionally enabled if conditions in the processor state match a
+software-specified condition. Because a software task scheduler may switch a processor’s execution
+among multiple processes and because statistics on only a particular process may be of interest, a facility
+is provided to mark a process. The performance monitor mark bit, MSRPMM, is used for this purpose.
+System software may set this bit when a marked process is running. This enables statistics to be gathered
+only during the execution of the marked process. The states of MSRPR and MSRPMM define a state that
+the processor (supervisor or user) and the process (marked or unmarked) may be in at any time. If this state
+matches an individual state specified by the PMLCanFCS,FCU,FCM1,FCM0 fields, counting is enabled for
+PMCn.
+For the e200z759n3 implementation, a given event may or may not support MSR-based context filtering.
+For events that do not support MSR-based context filtering, the FCS, FCU, FCM1, and FCM0 controls
+have no effect on the counting of that event.
+The processor states and the settings of the FCS, FCU, FCM1, and FCM0 bits in PMLCan necessary to
+enable monitoring of each processor state are shown in Table 8-8.
+                         Table 8-8. Processor States and PMLCa0–PMLCa3 bit settings
+
+                              Processor State                    FCS       FCU     FCM1      FCM0
+
+           All (no context filtering)                             0          0      0          0
+
+           Marked                                                 0          0      0          1
+
+           Not marked                                             0          0      1          0
+
+           Supervisor                                             0          1      0          0
+
+           Marked and supervisor                                  0          1      0          1
+
+
+
+
+                                        e200z759n3 Core Reference Manual, Rev. 2
+542                                                                                       Freescale Semiconductor
+                   Table 8-8. Processor States and PMLCa0–PMLCa3 bit settings (continued)
+
+                              Processor State                   FCS       FCU     FCM1   FCM0
+
+            Not marked and supervisor                            0          1      1        0
+
+            User                                                 1          0      0        0
+
+            Marked and user                                      1          0      0        1
+
+            Not marked and user                                  1          0      1        0
+
+            None (counting disabled)                             X          X      1        1
+
+            None (counting disabled)                             1          1      X       X
+
+
+8.6       Examples
+The following sections provide examples of how to use the performance monitor facility.
+
+8.6.1        Chaining counters
+The counter chaining feature can be used to allow a higher event count than is possible with a single
+counter. Chaining two counters together effectively adds 32 bits to a counter register where rollover of the
+first counter generates a carry out feeding the second counter. By defining the event of interest to be
+another PMC’s rollover occurrence, the chained counter increments each time the first counter rolls over
+to zero. Multiple counters may be chained together.
+Because the entire chained value cannot be read in a single instruction, a rollover may occur between
+counter reads, producing an inaccurate value. A sequence like the following is necessary to read the
+complete chained value when it spans multiple counters and the counters are not frozen. The example
+shown is for a two-counter case.
+loop:     mfpmr                   Rx,pmctr1             #load from upper counter
+          mfpmr                   Ry,pmctr0             #load from lower counter
+          mfpmr                   Rz,pmctr1             #load from upper counter
+          cmp                     cr0,0,Rz,Rx           #see if ‘old’ = ‘new’
+          bc                      4,2,loop              #loop if carry occurred between reads
+
+The comparison and loop are necessary to ensure that a consistent set of values has been obtained. The
+above sequence is not necessary if the counters are frozen.
+
+8.6.2        Thresholding
+Threshold event measurement enables the counting of duration and usage events. For example, data cache
+load miss cycles (events C0:xx and C1:xx) require a threshold value. A data cache load miss cycles event
+is counted only when the number of cycles spent waiting for the miss is greater than the threshold. Because
+this event is supported by two counters and each counter has an individual threshold, one execution of a
+performance monitor program can sample two different threshold values. Measuring code performance
+with multiple concurrent thresholds may expedite code profiling significantly.
+
+
+
+
+                                       e200z759n3 Core Reference Manual, Rev. 2
+Freescale Semiconductor                                                                                  543
+8.7        Event selection
+Event selection is specified through the PMLCan registers described in Section 8.3.5, Performance
+Monitor Local Control A Registers (PMLCa0–PMLCa3). The event-select fields in PMLCanEVENT are
+described in Table 8-10, which lists encodings for the selectable events to be monitored. Table 8-10
+establishes a correlation between each counter, events to be traced, and the pattern required for the desired
+selection.
+The Spec/Nonspec column indicates whether the event count includes any occurrences due to processing
+that was not architecturally required by the Power Architecture sequential execution model (speculative
+processing).
+    • Speculative counts include speculative operations that were later flushed.
+    • Nonspeculative counts do not include speculative operations, which are flushed.
+The PR, PMM filtering column indicates whether a given event supports MSR-based context filtering.
+Table 8-9 describes how event types are indicated in Table 8-10.
+                                                    Table 8-9. Event types
+
+        Event type          Label                                          Description
+
+      Reference             Ref:#      Shared across counters PMC0–PMC3.
+
+      Common               Com:#       Shared across counters PMC0–PMC3.
+
+      Counter-specific     C[0–3]:# Counted only on one or more specific counters. The notation indicates the counter to
+                                    which an event is assigned. For example, an event assigned to counter PMC0 is shown
+                                    as C0:#.
+
+Table 8-10 describes performance monitor events.
+                                      Table 8-10. Performance monitor event selection
+
+                                                 Spec/      PR, PMM
+       Number                 Event                                                      Count description
+                                                nonspec     filtering1
+
+                                                          General events
+
+        Com:0                Nothing            Nonspec         -        Register counter holds current value
+
+        Ref:12           Processor cycles       Nonspec        yes       Every processor cycle not in waiting, halted,
+                                                                         stopped states and not in a debug session.
+
+       Com:23      Instructions completed       Nonspec        yes       Completed instructions. , 1, 2, or 3 per cycle.
+
+       Com:32     Processor cycles with 0       Nonspec        yes       Ref:1 cycles with no instructions entering execution
+                    instructions issued
+
+       Com:42     Processor cycles with 1       Nonspec        yes       Ref:1 cycles with one instruction entering execution
+                     instruction issued
+
+       Com:52     Processor cycles with 2       Nonspec        yes       Ref:1 cycles with two instructions entering execution
+                    instructions issued
+
+
+
+
+                                            e200z759n3 Core Reference Manual, Rev. 2
+544                                                                                                       Freescale Semiconductor
+                          Table 8-10. Performance monitor event selection (continued)
+
+                                              Spec/     PR, PMM
+      Number              Event                                                      Count description
+                                             nonspec    filtering1
+
+       Com:63       Instruction words          Spec        yes       Fetched instruction words. 0, 1, or 2, 3, or 4 per
+                         fetched                                     cycle. (note that an instruction word may hold 1 or 2
+                                                                     instructions, or 2 partial instructions when fetching
+                                                                     from a VLE page)
+                            —                   —           —                                 —
+       Com:7
+                                                —           —
+       Com:8     PM_EVENT transitions                                0 to 1 transitions on the p_pm_event input.
+                                                —           —
+       Com:9       PM_EVENT cycles                                   Processor (Ref:1) cycles that occur when the
+                                                                     p_pm_event input is asserted.
+
+                                               Instruction types completed
+
+      Com:103      Branch instructions       Nonspec       yes       Completed branch instructions, includes branch and
+                       completed                                     link type instructions
+
+      Com:113     Branch and link type       Nonspec       yes       Completed branch and link type instructions
+                 instructions completed
+
+      Com:123      Conditional branch        Nonspec       yes       Completed conditional branch instructions
+                 instructions completed
+
+      Com:133         Taken Branch           Nonspec       yes       Completed branch instructions that were taken.
+                 instructions completed                              Includes branch and link type instructions.
+
+      Com:143      Taken Conditional         Nonspec       yes       Completed conditional branch instructions that were
+                   Branch instructions                               taken.
+                       completed
+
+      Com:153       Load instructions        Nonspec       yes       Completed load, load-multiple type instructions
+                       completed
+
+      Com:163       Store instructions       Nonspec       yes       Completed store, store-multiple type instructions
+                       completed
+
+      Com:173        Load micro-ops          Nonspec       yes       Completed load micro-ops. (l*, evl*, load-update (1
+                       completed                                     load micro-op), load-multiple (1–32 micro-ops),
+                                                                     dcbt, dcbtls, dcbtst, dcbtstls, and dcbtst, dcbf,
+                                                                     dcblc, dcbst, icbi, icblc, icbt, icbtls). Misaligned
+                                                                     loads crossing a 64-bit boundary count as two
+                                                                     micro-ops.
+
+      Com:183        Store micro-ops         Nonspec       yes       Completed store micro-ops. (st*, evst*,
+                       completed                                     store-update (1 store micro-op), store-multiple
+                                                                     (1–32 micro-ops), dcbi, dcbz). Misaligned stores
+                                                                     crossing a 64-bit boundary count as two micro-ops.
+
+      Com:193      Integer instructions      Nonspec       yes       Completed simple integer instructions (not a
+                       completed                                     load-type/store-type/branch/mul/div, EFPU, or SPE)
+
+      Com:203      Multiply instructions     Nonspec       yes       Completed Multiply instructions (non-EFPU)
+                        completed
+
+      Com:213      Divide instructions       Nonspec       yes       Completed Divide instructions including SPE
+                       completed                                     (non-EFPU)
+
+
+
+
+                                         e200z759n3 Core Reference Manual, Rev. 2
+Freescale Semiconductor                                                                                                      545
+                        Table 8-10. Performance monitor event selection (continued)
+
+                                             Spec/     PR, PMM
+      Number             Event                                                       Count description
+                                            nonspec    filtering1
+
+      Com:223      Divide instruction       Nonspec       yes       Cycles of execution for all Divide instructions
+                   execution cycles                                 (non-EFPU)
+
+      Com:233   SPE/EFPU instructions       Nonspec       yes       Completed SPE/EFPU instructions. Does not
+                     completed                                      include SPE/EFPU load and store instructions.
+
+      Com:243   SPE simple instructions     Nonspec       yes       Completed SPE simple instructions. All SPE
+                      completed                                     instructions included except SPE load and store
+                                                                    instructions, div, dotp, mul and mac-type
+                                                                    instructions.
+
+      Com:253     SPE mul/mac/dotp          Nonspec       yes       Completed SPE mul/mac/dotp instructions. Does
+                instructions completed                              not include other SPE instructions, or brinc
+                                                                    instructions.
+
+      Com:263    EFPU FP instructions       Nonspec       yes       Completed EFPU FP (evfs, efs) instructions.
+                     completed
+
+      Com:273   Number of return from       Nonspec       yes       Includes all types of return from interrupts (i.e. rfi,
+                 interrupt instructions                             rfci, rfdi, rfmci, and VLE variants)
+
+                                         Branch prediction and execution events
+
+      Com:283   Finished branches that        Spec        yes       Includes all taken branch instructions that missed in
+                     miss the BTB                                   the BTB
+
+      Com:293   Branches mispredicted         Spec        yes       Counts branch instructions mispredicted due to
+                   (for any reason)                                 direction or target (for example if the LR or CTR
+                                                                    contents change).
+
+      Com:303    Branches in the BTB          Spec        yes       Counts branch instructions that hit the BTB with
+                 mispredicted due to                                mispredicted due to direction prediction.
+                 direction prediction.
+
+      Com:313       Incorrect target          Spec        yes                                  —
+
+                prediction using the link
+                          stack
+      Com:323           BTB hits              Spec        yes       Branch instructions that hit in the BTB
+                           —                   —           —                                   —
+      Com:33
+      Com:34               —                   —           —                                   —
+
+
+                                                      Pipeline stalls
+                           —                   —           —                                   —
+      Com:35
+      Com:36               —                   —           —                                   —
+
+      Com:372   Cycles decode stalled         Spec        yes       No instruction available to decode
+                due to no instructions
+                      available
+
+      Com:382     Cycles issue stalled        Spec        yes       Cycles the issue buffer is not empty but 0
+                                                                    instructions issued
+
+
+
+
+                                        e200z759n3 Core Reference Manual, Rev. 2
+546                                                                                                    Freescale Semiconductor
+                          Table 8-10. Performance monitor event selection (continued)
+
+                                              Spec/     PR, PMM
+      Number              Event                                                      Count description
+                                             nonspec    filtering1
+
+      Com:392      Cycles branch issue         Spec        yes       Branch held in decode awaiting resolution
+                         stalled
+
+      Com:402    Cycles execution stalled      Spec        yes       load stalls
+                  waiting for load data
+
+      Com:412    Cycles execution stalled      Spec        yes       Stalled waiting on mul, div, FP or MAC results
+                       waiting for
+                     non-load/store
+                  SPE/EFPU result data
+
+                                     Load/store, data cache, and data line fill events
+                             —                  —           —                                 —
+       Com:42
+                             —                  —           —                                 —
+       Com:43
+
+      Com:443      Total translation hits      Spec        yes                                —
+
+
+      Com:453      Load translation hits       Spec        yes       Cacheable l* or evl* micro-ops translated. (includes
+                                                                     load micro-ops from load-multiple and load-update
+                                                                     instructions)
+
+      Com:463      Store translation hits      Spec        yes       Cacheable st* or evst* micro-ops translated.
+                                                                     (includes micro-ops from store-multiple, and
+                                                                     store-update instructions)
+
+      Com:473     Touch translation hits       Spec        yes       Cacheable dcbt and dcbtst instructions translated
+                                                                     (L1 only) and causing linefills. (Doesn’t count
+                                                                     touches that are converted to nops i.e. exceptions,
+                                                                     non-cacheable, HID0[NOPTI] is set, cache hits, etc.)
+
+      Com:483         Data cache op            Spec        yes       dcba, dcbf, dcbst, and dcbz instructions translated
+                      translation hits
+
+      Com:493       Data cache lock set      Nonspec       yes       dcbtls and dcbtstls instructions completed
+                  instructions completed
+
+      Com:503      Data cache lock clear     Nonspec       yes       dcblc instructions completed
+                  instructions completed
+
+      Com:513      Cache-inhibited load        Spec        yes       Cache inhibited load accesses translated
+                  access translation hits
+
+      Com:523     Cache-inhibited store        Spec        yes       Cache inhibited store accesses translated
+                  access translation hits
+
+      Com:533    Guarded load translation      Spec        yes       Guarded loads translated
+                           hits
+
+      Com:543         Guarded store            Spec        yes       Guarded stores translated
+                      translation hits
+
+      Com:553      Write-through store         Spec        yes       Write-through stores translated
+                    translation hits
+
+      Com:563    Misaligned load or store      Spec        yes       Misaligned load or store accesses translated. Count
+                  accesses translated                                once per misaligned load or store.
+
+
+
+                                         e200z759n3 Core Reference Manual, Rev. 2
+Freescale Semiconductor                                                                                                     547
+                         Table 8-10. Performance monitor event selection (continued)
+
+                                               Spec/    PR, PMM
+      Number              Event                                                       Count description
+                                              nonspec   filtering1
+
+      Com:573        DCache linefills          Spec        yes       Counts DCache reloads for any reason, including
+                                                                     touch-type reloads. Typically used to determine
+                                                                     approximate data cache miss rate (along with
+                                                                     loads/stores completed).
+
+      Com:583     DCache copybacks             Spec        yes       Does not count copybacks due to dcbf, dcbst, or
+                                                                     L1FINV0 operations
+
+      Com:593      DCache sequential           Spec        yes       Number of sequential accesses
+                      accesses
+
+      Com:603     DCache stream hits           Spec        yes       Number of load hits due to streaming
+
+      Com:613   DCache linefill buffer hits    Spec        yes       Number of load hit to the linefill buffer
+
+      Com:623   Store stalls due to store      Spec        yes       Stall cycles due to store to linefill in progress
+                 to line of active linefill
+
+      Com:633     Store buffer full stalls     Spec        yes       Stall cycles due to store buffer full
+
+      Com:642   DCache throttling stalls       Spec        yes       Cycles the data cache asserts p_d_halt_zlb, which
+                                                                     actually cause a CPU stall
+
+      Com:653       DCache recycled            Spec        yes       Number of loads or stores recycled for a re-lookup
+                      accesses
+
+      Com:663   DCache recycled access         Spec        yes       Number of stall cycles due to recycled accesses for
+                        stalls                                       a re-lookup
+
+      Com:673    DCache CPU aborted            Spec        yes       Number of aborted requests
+                     accesses
+
+      Com:683       Data MMU miss              Spec        yes       Counts number of DTLB events
+
+      Com:693       Data MMU error             Spec        yes       Counts number of DSI events
+
+                    Fetch, instruction cache, instruction line fill, and instruction prefetch events
+                            —                   —           —                                   —
+      Com:70
+                            —                   —           —                                   —
+      Com:71
+
+      Com:723        ICache linefills          Spec        yes       Counts ICache reloads due to demand fetch. Used
+                                                                     to determine instruction cache miss rate (along with
+                                                                     instructions completed)
+
+      Com:733      Number of fetches           Spec        yes       Counts fetches that write at least one instruction to
+                                                                     the instruction buffer. (With instruction fetched
+                                                                     (com:4), can used to compute
+                                                                     instructions-per-fetch)
+
+      Com:743        ICache lock set          Nonspec      yes       icbtls instructions completed
+                 instructions completed
+
+      Com:753       ICache lock clear         Nonspec      yes       icblc instructions completed
+                 instructions completed
+
+
+
+
+                                        e200z759n3 Core Reference Manual, Rev. 2
+548                                                                                                     Freescale Semiconductor
+                           Table 8-10. Performance monitor event selection (continued)
+
+                                              Spec/       PR, PMM
+      Number                Event                                                      Count description
+                                             nonspec      filtering1
+
+      Com:763         Cache-inhibited          Spec          yes       Cache-inhibited instruction accesses translated
+                    instruction access
+                      translation hits
+
+      Com:772     ICache throttling stalls     Spec          yes       Cycles the instruction cache asserts p_i_halt_zlb,
+                                                                       which actually causes a CPU stall
+
+      Com:783        ICache recycled           Spec          yes       Number of instruction access requests recycled for
+                        accesses                                       a re-lookup
+
+      Com:793    ICache recycled access        Spec          yes       Number of stall cycles due to recycled accesses for
+                          stalls                                       a re-lookup
+
+      Com:803     ICache CPU aborted           Spec          yes       Number of aborted requests
+                       accesses
+
+      Com:813     Instruction MMU miss         Spec          yes       Counts number of events
+
+      Com:823     Instruction MMU error        Spec          yes       Counts number of events
+
+                                                      BIU interface usage
+                              —                 —             —                                 —
+       Com:83
+       Com:84                 —                 —             —                                 —
+
+      Com:853      BIU instruction-side        Spec          yes       instruction-side transactions
+                        requests
+
+      Com:863      BIU instruction-side        Spec          yes       instruction-side transaction cycles
+                         cycles
+
+      Com:873    BIU data-side requests        Spec          yes       data-side transactions
+
+      Com:883    BIU data-side copyback        Spec          yes       Replacement pushes including dcbf, dcbst,
+                        requests                                       L1FINV0, copybacks.
+
+      Com:893     BIU data-side cycles         Spec          yes       data-side transaction cycles
+
+      Com:903     BIU single-beat write      Non-Spec        yes       single beat write transaction cycles
+                         cycles
+                              —                 —             —                                 —
+       Com:91
+
+                                                            Snoop
+                                                              —
+       Com:92        Snoop requests             N/A                    Externally generated snoop requests. (Counts
+                                                                       snoop TSs.)
+
+       Com:93             Snoop hits            N/A           —        Snoop hits on all data-side resources regardless of
+                                                                       the cache state (modified, shared, or exclusive)
+
+      Com:943    Snoop induced CPU to           N/A           —
+                                                                       Cycles a pending DCache access from CPU is
+                    DCache stalls                                      stalled due to contention with snoops
+                                                              —
+       Com:95    Snoop Queue full cycles        N/A                    Cycles the snoop queue is full
+                              —                 —             —                                 —
+       Com:96
+
+
+
+
+                                         e200z759n3 Core Reference Manual, Rev. 2
+Freescale Semiconductor                                                                                                      549
+                         Table 8-10. Performance monitor event selection (continued)
+
+                                              Spec/      PR, PMM
+      Number              Event                                                      Count description
+                                             nonspec     filtering1
+
+                                                     Chaining events4
+
+      Com:97          PMC0 rollover            N/A           —        PMC0OV transitions from 1 to 0.
+                                                             —
+      Com:98          PMC1 rollover            N/A                    PMC1OV transitions from 1 to 0.
+                                                             —
+      Com:99          PMC2 rollover            N/A                    PMC2OV transitions from 1 to 0.
+                                                             —
+      Com:100         PMC3 rollover            N/A                    PMC3OV transitioned from 1 to 0.
+
+                                                       Interrupt events
+                            —                  —             —                                —
+      Com:101
+                            —                  —             —                                —
+      Com:102
+                                                             —                                —
+      Com:103        Interrupts taken        Nonspec
+                                                             —                                —
+      Com:104    External input interrupts   Nonspec
+                           taken
+      Com:105    Critical input interrupts   Nonspec         —                                —
+
+                           taken
+                                                             —                                —
+      Com:106        Watchdog timer          Nonspec
+                     interrupts taken
+                                                                                              —
+      Com:107     System call and trap       Nonspec        yes
+                       interrupts
+      Com:1082       Cycles in which         Nonspec         —                                —
+
+                       MSREE=0
+
+      Com:1092       Cycles in which         Nonspec         —                                —
+
+                       MSRCE=0
+                                                             —                                —
+      Ref:110     Transitions of TBL bit     Nonspec
+                      selected by
+                     PMGC0TBSEL.
+
+                                                       DEVENT events
+
+      Com:111     DEVNT0 is generated        Nonspec        yes       assertion of p_devnt_out0 detected
+
+      Com:112     DEVNT1 is generated        Nonspec        yes       assertion of p_devnt_out1 detected
+
+      Com:113     DEVNT2 is generated        Nonspec        yes       assertion of p_devnt_out2 detected
+
+      Com:114     DEVNT3 is generated        Nonspec        yes       assertion of p_devnt_out3 detected
+
+      Com:115     DEVNT4 is generated        Nonspec        yes       assertion of p_devnt_out4 detected
+
+      Com:116     DEVNT5 is generated        Nonspec        yes       assertion of p_devnt_out5 detected
+
+      Com:117     DEVNT6 is generated        Nonspec        yes       assertion of p_devnt_out6 detected
+
+      Com:118     DEVNT7 is generated        Nonspec        yes       assertion of p_devnt_out7 detected
+
+                                                     Watchpoint events
+
+
+
+
+                                        e200z759n3 Core Reference Manual, Rev. 2
+550                                                                                                     Freescale Semiconductor
+                          Table 8-10. Performance monitor event selection (continued)
+
+                                           Spec/    PR, PMM
+      Number              Event                                                 Count description
+                                          nonspec   filtering1
+
+      Com:1192    Watchpoint #0 occurs    Nonspec      yes       assertion of jd_watchpt0 detected
+
+      Com:1202    Watchpoint #1 occurs    Nonspec      yes       assertion of jd_watchpt1 detected
+              2
+      Com:121     Watchpoint #2 occurs    Nonspec      yes       assertion of jd_watchpt2 detected
+
+      Com:1222    Watchpoint #3 occurs    Nonspec      yes       assertion of jd_watchpt3 detected
+              2
+      Com:123     Watchpoint #4 occurs    Nonspec      yes       assertion of jd_watchpt4 detected
+
+      Com:1242    Watchpoint #5 occurs    Nonspec      yes       assertion of jd_watchpt5 detected
+              2
+      Com:125     Watchpoint #6 occurs    Nonspec      yes       assertion of jd_watchpt6 detected
+
+      Com:1262    Watchpoint #7 occurs    Nonspec      yes       assertion of jd_watchpt7 detected
+
+      Com:1272    Watchpoint #8 occurs    Nonspec      yes       assertion of jd_watchpt8 detected
+
+      Com:1282    Watchpoint #9 occurs    Nonspec      yes       assertion of jd_watchpt9 detected
+
+      Com:129     Watchpoint #10 occurs   Nonspec      yes       assertion of jd_watchpt10 detected
+
+      Com:130     Watchpoint #11 occurs   Nonspec      yes       assertion of jd_watchpt11 detected
+
+      Com:131     Watchpoint #12 occurs   Nonspec      yes       assertion of jd_watchpt12 detected
+
+      Com:132     Watchpoint #13 occurs   Nonspec      yes       assertion of jd_watchpt13 detected
+
+      Com:1332    Watchpoint #14 occurs   Nonspec      yes       assertion of jd_watchpt14 detected
+
+      Com:1342    Watchpoint #15 occurs   Nonspec      yes       assertion of jd_watchpt15 detected
+
+      Com:1352    Watchpoint #16 occurs   Nonspec      yes       assertion of jd_watchpt16 detected
+
+      Com:1362    Watchpoint #17 occurs   Nonspec      yes       assertion of jd_watchpt17 detected
+
+      Com:1372    Watchpoint #18 occurs   Nonspec      yes       assertion of jd_watchpt18 detected
+
+      Com:1382    Watchpoint #19 occurs   Nonspec      yes       assertion of jd_watchpt19 detected
+
+      Com:139     Watchpoint #20 occurs   Nonspec      yes       assertion of jd_watchpt20 detected
+
+      Com:140     Watchpoint #21 occurs   Nonspec      yes       assertion of jd_watchpt21 detected
+
+      Com:141     Watchpoint #22 occurs   Nonspec      yes       assertion of jd_watchpt22 detected
+
+      Com:142     Watchpoint #23 occurs   Nonspec      yes       assertion of jd_watchpt23 detected
+
+      Com:143     Watchpoint #24 occurs   Nonspec      yes       assertion of jd_watchpt24 detected
+
+      Com:144     Watchpoint #25 occurs   Nonspec      yes       assertion of jd_watchpt25 detected
+
+      Com:145     Watchpoint #26 occurs   Nonspec      yes       assertion of jd_watchpt26 detected
+
+      Com:1462    Watchpoint #27 occurs   Nonspec      yes       assertion of jd_watchpt27 detected
+
+      Com:1472    Watchpoint #28 occurs   Nonspec      yes       assertion of jd_watchpt28 detected
+
+      Com:1482    Watchpoint #29 occurs   Nonspec      yes       assertion of jd_watchpt29 detected
+
+      Com:149               —               —           —                               —
+
+      Com:150               —               —           —                               —
+
+
+
+
+                                    e200z759n3 Core Reference Manual, Rev. 2
+Freescale Semiconductor                                                                               551
+                         Table 8-10. Performance monitor event selection (continued)
+
+                                              Spec/     PR, PMM
+      Number              Event                                                       Count description
+                                             nonspec    filtering1
+
+                                                       NEXUS events
+
+      Com:1513   Cycle CPU is stalled by     Nonspec       yes       OVCR stall control set to stall on FIFO fullness
+                   Nexus3 FIFO full
+
+                                                     Threshold events
+
+      C0:1523     Data cache load miss        Spec         yes       Instances when the number of cycles between a
+      C1:1523            cycles                                      load miss in the data cache and update of the data
+                                                                     cache exceeds the threshold.
+
+      C0:1533     Instruction cache fetch     Spec         yes       Instances when the number of cycles between miss
+      C1:1533           miss cycles                                  in the instruction cache and update of the instruction
+                                                                     cache exceeds the threshold.
+
+      C0:1543    External input interrupt      N/A          —
+                                                                     Instances when the number of cycles between
+      C1:1543        latency cycles                                  request for interrupt (p_int_b) asserted (but possibly
+                                                                     masked/disabled) and redirecting fetch to external
+                                                                     interrupt vector exceeds threshold. Once the
+                                                                     redirection has occurred, no further threshold
+                                                                     comparisons are made until either the interrupt
+                                                                     request negates, or the external input interrupt is
+                                                                     re-enabled by setting MSREE.
+      C0:1553     Critical input interrupt     N/A          —
+                                                                     Instances when the number of cycles between
+      C1:1553         latency cycles                                 request for critical interrupt (p_critint_b) is asserted
+                                                                     (but possibly masked/disabled) and redirecting fetch
+                                                                     to the critical interrupt vector exceeds threshold.
+                                                                     Once the redirection has occurred, no further
+                                                                     threshold comparisons begin until either the
+                                                                     interrupt request negates and is then re-asserted, or
+                                                                     the critical input interrupt is re-enabled by setting
+                                                                     MSRCE.
+      C0:1563    Watchdog timer interrupt      N/A          —
+                                                                     Instances when the number of cycles between
+      C1:1563        latency cycles                                  watchdog timer time-out request for critical interrupt
+                                                                     becomes pending (watchdog interrupt enabled
+                                                                     (TCRWIE set) and time-out occurs (TSRENW,WIS
+                                                                     become 0b11)) and redirecting fetch to the critical
+                                                                     interrupt vector exceeds the threshold. Once the
+                                                                     redirection has occurred, no further threshold
+                                                                     comparisons begin until either the watchdog
+                                                                     interrupt request negates and is then re-asserted, or
+                                                                     the watchdog interrupt is re-enabled by setting
+                                                                     MSRCE.
+
+
+
+
+                                        e200z759n3 Core Reference Manual, Rev. 2
+552                                                                                                     Freescale Semiconductor
+                          Table 8-10. Performance monitor event selection (continued)
+
+                                               Spec/      PR, PMM
+        Number             Event                                                       Count description
+                                              nonspec     filtering1
+
+        C0:1573   External input interrupt      N/A           —
+                                                                       Instances when the number of cycles between
+        C1:1573   pending latency cycles                               external interrupt pending (enabled and pin
+                                                                       asserted) and redirecting fetch to the external
+                                                                       interrupt vector exceeds the threshold. Once the
+                                                                       redirection has occurred, no further threshold
+                                                                       comparisons are made until either the interrupt
+                                                                       request negates and is then re-asserted, or the
+                                                                       external input interrupt is re-enabled by setting
+                                                                       MSREE.
+        C0:1583    Critical input interrupt     N/A                    Instances when the number of cycles between pin
+        C1:1583   pending latency cycles                               request for critical interrupt pending (enabled and
+                                                                       pin asserted) and redirecting fetch to the critical
+                                                                       interrupt vector exceeds the threshold. Once the
+                                                                       redirection has occurred, no further threshold
+                                                                       comparisons are made until either the interrupt
+                                                                       request negates and is then re-asserted, or the
+                                                                       critical input interrupt is re-enabled by setting
+                                                                       MSRCE.
+    1
+      The notation for the PR, and PMM filtering column either contains a ‘yes’ or a ‘-’. A ‘yes’ indicates that the
+      MSR-based context filtering function is available for that event. A ‘-’ indicates that the MSR-based context filtering
+      is not available for that event and will have no effect on the counting of that event. See Section 8.5.1, MSR-based
+      context filtering, for more information.
+    2 This event is not counted while the processor is in the waiting, halted, or stopped states, or during a debug session
+    3 This event is not counted while the processor is in a debug session.
+    4 For chaining events, if a counter is configured to count its own rollover, the result is undefined.
+
+
+
+
+                                        e200z759n3 Core Reference Manual, Rev. 2
+Freescale Semiconductor                                                                                                        553
+      e200z759n3 Core Reference Manual, Rev. 2
+554                                              Freescale Semiconductor

@@ -1,5 +1,4 @@
 // RUN: %clang_cc1 -fsyntax-only -verify %s
-// radar 7638810
 
 @protocol NSObject @end
 
@@ -47,9 +46,9 @@
 @implementation UIWebPDFView
 @end
 
-UIWebPDFView *getView()
+UIWebPDFView *getView(void)
 {
     UIWebBrowserView *browserView;
     UIWebPDFView *pdfView;
-    return pdfView ? pdfView : browserView; // expected-warning {{incompatible pointer types returning 'UIView *' from a function with result type 'UIWebPDFView *'}}
+    return pdfView ? pdfView : browserView; // expected-error {{incompatible pointer types returning 'UIView *' from a function with result type 'UIWebPDFView *'}}
 }

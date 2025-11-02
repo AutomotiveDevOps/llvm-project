@@ -36,7 +36,7 @@ public:
   testing::AssertionResult match(const std::string &Code,
                                  const MatcherType &AMatcher) {
     std::vector<std::string> Args;
-    return match(Code, AMatcher, Args, Lang_CXX);
+    return match(Code, AMatcher, Args, Lang_CXX03);
   }
 
   template <typename MatcherType>
@@ -88,36 +88,20 @@ MatchVerifier<NodeType>::match(const std::string &Code,
 
   StringRef FileName;
   switch (L) {
-  case Lang_C:
-    Args.push_back("-std=c99");
-    FileName = "input.c";
+#define TESTLANGUAGE(lang, version, std_flag, version_index)                   \
+  case Lang_##lang##version:                                                   \
+    Args.push_back("-std=" #std_flag);                                         \
+    FileName = getFilenameForTesting(Lang_##lang##version);                    \
     break;
-  case Lang_C89:
-    Args.push_back("-std=c89");
-    FileName = "input.c";
-    break;
-  case Lang_CXX:
-    Args.push_back("-std=c++98");
-    FileName = "input.cc";
-    break;
-  case Lang_CXX11:
-    Args.push_back("-std=c++11");
-    FileName = "input.cc";
-    break;
-  case Lang_CXX14:
-    Args.push_back("-std=c++14");
-    FileName = "input.cc";
-    break;
-  case Lang_CXX17:
-    Args.push_back("-std=c++17");
-    FileName = "input.cc";
-    break;
-  case Lang_CXX2a:
-    Args.push_back("-std=c++2a");
-    FileName = "input.cc";
-    break;
+#include "clang/Testing/TestLanguage.def"
+
   case Lang_OpenCL:
+    Args.push_back("-cl-no-stdinc");
     FileName = "input.cl";
+    break;
+  case Lang_OBJC:
+    Args.push_back("-fobjc-nonfragile-abi");
+    FileName = "input.m";
     break;
   case Lang_OBJCXX:
     FileName = "input.mm";
@@ -200,7 +184,7 @@ protected:
           << ">, found <";
       Loc.print(Msg, *Result.SourceManager);
       Msg << '>';
-      this->setFailure(Msg.str());
+      this->setFailure(MsgStr);
     }
   }
 
@@ -247,7 +231,7 @@ protected:
       Msg << '-';
       End.print(Msg, *Result.SourceManager);
       Msg << '>';
-      this->setFailure(Msg.str());
+      this->setFailure(MsgStr);
     }
   }
 
@@ -271,14 +255,14 @@ protected:
               const DynTypedNode &Node) override {
     std::string DumpStr;
     llvm::raw_string_ostream Dump(DumpStr);
-    Node.dump(Dump, *Result.SourceManager);
+    Node.dump(Dump, *Result.Context);
 
-    if (Dump.str().find(ExpectSubstring) == std::string::npos) {
+    if (DumpStr.find(ExpectSubstring) == std::string::npos) {
       std::string MsgStr;
       llvm::raw_string_ostream Msg(MsgStr);
       Msg << "Expected dump substring <" << ExpectSubstring << ">, found <"
-          << Dump.str() << '>';
-      this->setFailure(Msg.str());
+          << DumpStr << '>';
+      this->setFailure(MsgStr);
     }
   }
 
@@ -300,12 +284,12 @@ protected:
     llvm::raw_string_ostream Print(PrintStr);
     Node.print(Print, Result.Context->getPrintingPolicy());
 
-    if (Print.str() != ExpectString) {
+    if (PrintStr != ExpectString) {
       std::string MsgStr;
       llvm::raw_string_ostream Msg(MsgStr);
       Msg << "Expected pretty print <" << ExpectString << ">, found <"
-          << Print.str() << '>';
-      this->setFailure(Msg.str());
+          << PrintStr << '>';
+      this->setFailure(MsgStr);
     }
   }
 

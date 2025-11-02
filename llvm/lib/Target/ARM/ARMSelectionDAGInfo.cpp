@@ -10,12 +10,30 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "ARMTargetMachine.h"
+#include "ARMTargetTransformInfo.h"
 #include "llvm/CodeGen/SelectionDAG.h"
-#include "llvm/IR/DerivedTypes.h"
+#include "llvm/Support/CommandLine.h"
 using namespace llvm;
 
 #define DEBUG_TYPE "arm-selectiondag-info"
+
+static cl::opt<TPLoop::MemTransfer> EnableMemtransferTPLoop(
+    "arm-memtransfer-tploop", cl::Hidden,
+    cl::desc("Control conversion of memcpy to "
+             "Tail predicated loops (WLSTP)"),
+    cl::init(TPLoop::ForceDisabled),
+    cl::values(clEnumValN(TPLoop::ForceDisabled, "force-disabled",
+                          "Don't convert memcpy to TP loop."),
+               clEnumValN(TPLoop::ForceEnabled, "force-enabled",
+                          "Always convert memcpy to TP loop."),
+               clEnumValN(TPLoop::Allow, "allow",
+                          "Allow (may be subject to certain conditions) "
+                          "conversion of memcpy to TP loop.")));
+
+bool ARMSelectionDAGInfo::isTargetMemoryOpcode(unsigned Opcode) const {
+  return Opcode >= ARMISD::FIRST_MEMORY_OPCODE &&
+         Opcode <= ARMISD::LAST_MEMORY_OPCODE;
+}
 
 // Emit, if possible, a specialized version of the given Libcall. Typically this
 // means selecting the appropriately aligned version, but we also convert memset
@@ -29,9 +47,7 @@ SDValue ARMSelectionDAGInfo::EmitSpecializedLibcall(
 
   // Only use a specialized AEABI function if the default version of this
   // Libcall is an AEABI function.
-  if (std::strncmp(TLI->getLibcallName(LC), "__aeabi", 7) != 0)
-    return SDValue();
-
+  //
   // Translate RTLIB::Libcall to AEABILibcall. We only do this in order to be
   // able to translate memset to memclr and use the value to index the function
   // name array.
@@ -43,16 +59,24 @@ SDValue ARMSelectionDAGInfo::EmitSpecializedLibcall(
   } AEABILibcall;
   switch (LC) {
   case RTLIB::MEMCPY:
+    if (TLI->getLibcallImpl(LC) != RTLIB::impl___aeabi_memcpy)
+      return SDValue();
+
     AEABILibcall = AEABI_MEMCPY;
     break;
   case RTLIB::MEMMOVE:
+    if (TLI->getLibcallImpl(LC) != RTLIB::impl___aeabi_memmove)
+      return SDValue();
+
     AEABILibcall = AEABI_MEMMOVE;
     break;
   case RTLIB::MEMSET:
+    if (TLI->getLibcallImpl(LC) != RTLIB::impl___aeabi_memset)
+      return SDValue();
+
     AEABILibcall = AEABI_MEMSET;
-    if (ConstantSDNode *ConstantSrc = dyn_cast<ConstantSDNode>(Src))
-      if (ConstantSrc->getZExtValue() == 0)
-        AEABILibcall = AEABI_MEMCLR;
+    if (isNullConstant(Src))
+      AEABILibcall = AEABI_MEMCLR;
     break;
   default:
     return SDValue();
@@ -72,19 +96,15 @@ SDValue ARMSelectionDAGInfo::EmitSpecializedLibcall(
     AlignVariant = ALIGN1;
 
   TargetLowering::ArgListTy Args;
-  TargetLowering::ArgListEntry Entry;
-  Entry.Ty = DAG.getDataLayout().getIntPtrType(*DAG.getContext());
-  Entry.Node = Dst;
-  Args.push_back(Entry);
+  Type *IntPtrTy = DAG.getDataLayout().getIntPtrType(*DAG.getContext());
+  Args.emplace_back(Dst, IntPtrTy);
   if (AEABILibcall == AEABI_MEMCLR) {
-    Entry.Node = Size;
-    Args.push_back(Entry);
+    Args.emplace_back(Size, IntPtrTy);
   } else if (AEABILibcall == AEABI_MEMSET) {
     // Adjust parameters for memset, EABI uses format (ptr, size, value),
     // GNU library uses (ptr, value, size)
     // See RTABI section 4.3.4
-    Entry.Node = Size;
-    Args.push_back(Entry);
+    Args.emplace_back(Size, IntPtrTy);
 
     // Extend or truncate the argument to be an i32 value for the call.
     if (Src.getValueType().bitsGT(MVT::i32))
@@ -92,30 +112,29 @@ SDValue ARMSelectionDAGInfo::EmitSpecializedLibcall(
     else if (Src.getValueType().bitsLT(MVT::i32))
       Src = DAG.getNode(ISD::ZERO_EXTEND, dl, MVT::i32, Src);
 
-    Entry.Node = Src;
-    Entry.Ty = Type::getInt32Ty(*DAG.getContext());
+    TargetLowering::ArgListEntry Entry(Src,
+                                       Type::getInt32Ty(*DAG.getContext()));
     Entry.IsSExt = false;
     Args.push_back(Entry);
   } else {
-    Entry.Node = Src;
-    Args.push_back(Entry);
-
-    Entry.Node = Size;
-    Args.push_back(Entry);
+    Args.emplace_back(Src, IntPtrTy);
+    Args.emplace_back(Size, IntPtrTy);
   }
 
-  char const *FunctionNames[4][3] = {
-    { "__aeabi_memcpy",  "__aeabi_memcpy4",  "__aeabi_memcpy8"  },
-    { "__aeabi_memmove", "__aeabi_memmove4", "__aeabi_memmove8" },
-    { "__aeabi_memset",  "__aeabi_memset4",  "__aeabi_memset8"  },
-    { "__aeabi_memclr",  "__aeabi_memclr4",  "__aeabi_memclr8"  }
-  };
+  static const RTLIB::Libcall FunctionImpls[4][3] = {
+      {RTLIB::MEMCPY, RTLIB::AEABI_MEMCPY4, RTLIB::AEABI_MEMCPY8},
+      {RTLIB::MEMMOVE, RTLIB::AEABI_MEMMOVE4, RTLIB::AEABI_MEMMOVE8},
+      {RTLIB::MEMSET, RTLIB::AEABI_MEMSET4, RTLIB::AEABI_MEMSET8},
+      {RTLIB::AEABI_MEMCLR, RTLIB::AEABI_MEMCLR4, RTLIB::AEABI_MEMCLR8}};
+
+  RTLIB::Libcall NewLC = FunctionImpls[AEABILibcall][AlignVariant];
+
   TargetLowering::CallLoweringInfo CLI(DAG);
   CLI.setDebugLoc(dl)
       .setChain(Chain)
       .setLibCallee(
-          TLI->getLibcallCallingConv(LC), Type::getVoidTy(*DAG.getContext()),
-          DAG.getExternalSymbol(FunctionNames[AEABILibcall][AlignVariant],
+          TLI->getLibcallCallingConv(NewLC), Type::getVoidTy(*DAG.getContext()),
+          DAG.getExternalSymbol(TLI->getLibcallName(NewLC),
                                 TLI->getPointerTy(DAG.getDataLayout())),
           std::move(Args))
       .setDiscardResult();
@@ -124,26 +143,59 @@ SDValue ARMSelectionDAGInfo::EmitSpecializedLibcall(
   return CallResult.second;
 }
 
+static bool shouldGenerateInlineTPLoop(const ARMSubtarget &Subtarget,
+                                       const SelectionDAG &DAG,
+                                       ConstantSDNode *ConstantSize,
+                                       Align Alignment, bool IsMemcpy) {
+  auto &F = DAG.getMachineFunction().getFunction();
+  if (!EnableMemtransferTPLoop)
+    return false;
+  if (EnableMemtransferTPLoop == TPLoop::ForceEnabled)
+    return true;
+  // Do not generate inline TP loop if optimizations is disabled,
+  // or if optimization for size (-Os or -Oz) is on.
+  if (F.hasOptNone() || F.hasOptSize())
+    return false;
+  // If cli option is unset, for memset always generate inline TP.
+  // For memcpy, check some conditions
+  if (!IsMemcpy)
+    return true;
+  if (!ConstantSize && Alignment >= Align(4))
+    return true;
+  if (ConstantSize &&
+      ConstantSize->getZExtValue() > Subtarget.getMaxInlineSizeThreshold() &&
+      ConstantSize->getZExtValue() <
+          Subtarget.getMaxMemcpyTPInlineSizeThreshold())
+    return true;
+  return false;
+}
+
 SDValue ARMSelectionDAGInfo::EmitTargetCodeForMemcpy(
     SelectionDAG &DAG, const SDLoc &dl, SDValue Chain, SDValue Dst, SDValue Src,
-    SDValue Size, unsigned Align, bool isVolatile, bool AlwaysInline,
+    SDValue Size, Align Alignment, bool isVolatile, bool AlwaysInline,
     MachinePointerInfo DstPtrInfo, MachinePointerInfo SrcPtrInfo) const {
   const ARMSubtarget &Subtarget =
       DAG.getMachineFunction().getSubtarget<ARMSubtarget>();
+  ConstantSDNode *ConstantSize = dyn_cast<ConstantSDNode>(Size);
+
+  if (Subtarget.hasMVEIntegerOps() &&
+      shouldGenerateInlineTPLoop(Subtarget, DAG, ConstantSize, Alignment, true))
+    return DAG.getNode(ARMISD::MEMCPYLOOP, dl, MVT::Other, Chain, Dst, Src,
+                       DAG.getZExtOrTrunc(Size, dl, MVT::i32));
+
   // Do repeated 4-byte loads and stores. To be improved.
   // This requires 4-byte alignment.
-  if ((Align & 3) != 0)
+  if (Alignment < Align(4))
     return SDValue();
   // This requires the copy size to be a constant, preferably
   // within a subtarget-specific limit.
-  ConstantSDNode *ConstantSize = dyn_cast<ConstantSDNode>(Size);
   if (!ConstantSize)
-    return EmitSpecializedLibcall(DAG, dl, Chain, Dst, Src, Size, Align,
-                                  RTLIB::MEMCPY);
+    return EmitSpecializedLibcall(DAG, dl, Chain, Dst, Src, Size,
+                                  Alignment.value(), RTLIB::MEMCPY);
   uint64_t SizeVal = ConstantSize->getZExtValue();
   if (!AlwaysInline && SizeVal > Subtarget.getMaxInlineSizeThreshold())
-    return EmitSpecializedLibcall(DAG, dl, Chain, Dst, Src, Size, Align,
-                                  RTLIB::MEMCPY);
+    return EmitSpecializedLibcall(DAG, dl, Chain, Dst, Src, Size,
+                                  Alignment.value(), RTLIB::MEMCPY);
 
   unsigned BytesLeft = SizeVal & 3;
   unsigned NumMemOps = SizeVal >> 2;
@@ -218,8 +270,7 @@ SDValue ARMSelectionDAGInfo::EmitTargetCodeForMemcpy(
     SrcOff += VTSize;
     BytesLeft -= VTSize;
   }
-  Chain = DAG.getNode(ISD::TokenFactor, dl, MVT::Other,
-                      makeArrayRef(TFOps, i));
+  Chain = DAG.getNode(ISD::TokenFactor, dl, MVT::Other, ArrayRef(TFOps, i));
 
   i = 0;
   BytesLeft = BytesLeftSave;
@@ -234,22 +285,40 @@ SDValue ARMSelectionDAGInfo::EmitTargetCodeForMemcpy(
     DstOff += VTSize;
     BytesLeft -= VTSize;
   }
-  return DAG.getNode(ISD::TokenFactor, dl, MVT::Other,
-                     makeArrayRef(TFOps, i));
+  return DAG.getNode(ISD::TokenFactor, dl, MVT::Other, ArrayRef(TFOps, i));
 }
 
 SDValue ARMSelectionDAGInfo::EmitTargetCodeForMemmove(
     SelectionDAG &DAG, const SDLoc &dl, SDValue Chain, SDValue Dst, SDValue Src,
-    SDValue Size, unsigned Align, bool isVolatile,
+    SDValue Size, Align Alignment, bool isVolatile,
     MachinePointerInfo DstPtrInfo, MachinePointerInfo SrcPtrInfo) const {
-  return EmitSpecializedLibcall(DAG, dl, Chain, Dst, Src, Size, Align,
-                                RTLIB::MEMMOVE);
+  return EmitSpecializedLibcall(DAG, dl, Chain, Dst, Src, Size,
+                                Alignment.value(), RTLIB::MEMMOVE);
 }
 
 SDValue ARMSelectionDAGInfo::EmitTargetCodeForMemset(
     SelectionDAG &DAG, const SDLoc &dl, SDValue Chain, SDValue Dst, SDValue Src,
-    SDValue Size, unsigned Align, bool isVolatile,
+    SDValue Size, Align Alignment, bool isVolatile, bool AlwaysInline,
     MachinePointerInfo DstPtrInfo) const {
-  return EmitSpecializedLibcall(DAG, dl, Chain, Dst, Src, Size, Align,
-                                RTLIB::MEMSET);
+
+  const ARMSubtarget &Subtarget =
+      DAG.getMachineFunction().getSubtarget<ARMSubtarget>();
+
+  ConstantSDNode *ConstantSize = dyn_cast<ConstantSDNode>(Size);
+
+  // Generate TP loop for llvm.memset
+  if (Subtarget.hasMVEIntegerOps() &&
+      shouldGenerateInlineTPLoop(Subtarget, DAG, ConstantSize, Alignment,
+                                 false)) {
+    Src = DAG.getSplatBuildVector(MVT::v16i8, dl,
+                                  DAG.getNode(ISD::TRUNCATE, dl, MVT::i8, Src));
+    return DAG.getNode(ARMISD::MEMSETLOOP, dl, MVT::Other, Chain, Dst, Src,
+                       DAG.getZExtOrTrunc(Size, dl, MVT::i32));
+  }
+
+  if (!AlwaysInline)
+    return EmitSpecializedLibcall(DAG, dl, Chain, Dst, Src, Size,
+                                  Alignment.value(), RTLIB::MEMSET);
+
+  return SDValue();
 }

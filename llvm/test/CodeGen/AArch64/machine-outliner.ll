@@ -9,7 +9,9 @@
 ; TARGET_FEATURES-SAME: #[[ATTR_NUM:[0-9]+]]
 ; TARGET_FEATURES-DAG: attributes #[[ATTR_NUM]] = {
 ; TARGET_FEATURES-SAME: minsize
+; TARGET_FEATURES-SAME: nounwind
 ; TARGET_FEATURES-SAME: optsize
+; TARGET_FEATURES-SAME: "target-cpu"="cyclone"
 ; TARGET_FEATURES-SAME: "target-features"="+sse"
 
 define linkonce_odr void @fish() #0 {
@@ -22,12 +24,12 @@ define linkonce_odr void @fish() #0 {
   %4 = alloca i32, align 4
   %5 = alloca i32, align 4
   %6 = alloca i32, align 4
-  store i32 1, i32* %1, align 4
-  store i32 2, i32* %2, align 4
-  store i32 3, i32* %3, align 4
-  store i32 4, i32* %4, align 4
-  store i32 5, i32* %5, align 4
-  store i32 6, i32* %6, align 4
+  store i32 1, ptr %1, align 4
+  store i32 2, ptr %2, align 4
+  store i32 3, ptr %3, align 4
+  store i32 4, ptr %4, align 4
+  store i32 5, ptr %5, align 4
+  store i32 6, ptr %6, align 4
   ret void
 }
 
@@ -41,12 +43,12 @@ define void @turtle() section "TURTLE,turtle" {
   %4 = alloca i32, align 4
   %5 = alloca i32, align 4
   %6 = alloca i32, align 4
-  store i32 1, i32* %1, align 4
-  store i32 2, i32* %2, align 4
-  store i32 3, i32* %3, align 4
-  store i32 4, i32* %4, align 4
-  store i32 5, i32* %5, align 4
-  store i32 6, i32* %6, align 4
+  store i32 1, ptr %1, align 4
+  store i32 2, ptr %2, align 4
+  store i32 3, ptr %3, align 4
+  store i32 4, ptr %4, align 4
+  store i32 5, ptr %5, align 4
+  store i32 6, ptr %6, align 4
   ret void
 }
 
@@ -60,12 +62,12 @@ define void @cat() #0 {
   %4 = alloca i32, align 4
   %5 = alloca i32, align 4
   %6 = alloca i32, align 4
-  store i32 1, i32* %1, align 4
-  store i32 2, i32* %2, align 4
-  store i32 3, i32* %3, align 4
-  store i32 4, i32* %4, align 4
-  store i32 5, i32* %5, align 4
-  store i32 6, i32* %6, align 4
+  store i32 1, ptr %1, align 4
+  store i32 2, ptr %2, align 4
+  store i32 3, ptr %3, align 4
+  store i32 4, ptr %4, align 4
+  store i32 5, ptr %5, align 4
+  store i32 6, ptr %6, align 4
   ret void
 }
 
@@ -79,12 +81,12 @@ define void @dog() #0 {
   %4 = alloca i32, align 4
   %5 = alloca i32, align 4
   %6 = alloca i32, align 4
-  store i32 1, i32* %1, align 4
-  store i32 2, i32* %2, align 4
-  store i32 3, i32* %3, align 4
-  store i32 4, i32* %4, align 4
-  store i32 5, i32* %5, align 4
-  store i32 6, i32* %6, align 4
+  store i32 1, ptr %1, align 4
+  store i32 2, ptr %2, align 4
+  store i32 3, ptr %3, align 4
+  store i32 4, ptr %4, align 4
+  store i32 5, ptr %5, align 4
+  store i32 6, ptr %6, align 4
   ret void
 }
 
@@ -103,4 +105,4 @@ define void @dog() #0 {
 ; CHECK-DAG: add     sp, sp, #32
 ; CHECK-DAG: ret
 
-attributes #0 = { noredzone "target-cpu"="cyclone" "target-features"="+sse" }
+attributes #0 = { nounwind noredzone "target-cpu"="cyclone" "target-features"="+sse" }

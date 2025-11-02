@@ -1,0 +1,404 @@
+Chapter 2
+Application Binary Interface (ABI)
+                                                 NOTE
+                The ABI extensions described herein for VLE applications are still under
+                review by the PowerPC ABI industry working group and may be subject to
+                change. Any modifications will be highlighted in revisions of this
+                document.
+This chapter specifies VLE extensions to the PowerPC e500 Application Binary Interface (e500 ABI) that
+defines both a big-endian and a little-endian ABI. This VLE ABI extension is independent of the endian
+mode with regards to data; however, VLE instructions are supported only in big-endian mode.
+                                                   NOTE
+                This chapter should be used in conjunction with the PowerPC e500
+                Application Binary Interface (e500 ABI). Except for the sections discussed
+                in this chapter, the VLE ABI follows the e500 ABI standard. For
+                information on topics not covered in this section, including function calling
+                sequence, register usage and availability, stack frame layout, parameter
+                passing, and other topics, please refer to the e500 ABI.
+
+2.1       Instruction and Data Representation
+The VLE extension includes additional operations with an alternate instruction encoding to enable reduced
+code footprint. This alternate encoding set is selected on an instruction page basis. A single page attribute
+bit selects between standard PowerPC Book E instruction encodings and the VLE instructions for the
+particular page of memory. This page attribute is an extension to the existing PowerPC Book E page
+attributes. Pages can be freely intermixed, allowing for a mixture of code with both types of encodings.
+Instruction encodings in pages marked as using VLE are either 16 or 32 bits long and are aligned on 16-bit
+boundaries. Therefore, all instruction pages marked as VLE must use big-endian byte ordering.
+The programmer’s model uses the same register set when executing either instruction encoding, although
+certain registers are not accessible to VLE instructions using the 16-bit formats, and not all fields of the
+condition register (CR) are used by condition setting or conditional branch instructions when executing
+from a VLE instruction page. In addition, immediate fields and displacements differ in size and use, due
+to the more restrictive encodings imposed by VLE instructions.
+Other than the requirement of big-endian byte ordering for instruction pages, and the additional page
+attribute to identify whether the instruction page corresponds to a VLE section of code, VLE uses the
+identical storage model, interrupts and exceptions, timer facilities, debug facilities, and special-purpose
+registers (SPRs) defined throughout Book E.
+
+
+                 Variable-Length Encoding (VLE) Extension Programming Interface Manual, Rev. 1
+Freescale Semiconductor                                                                                   2-1
+Application Binary Interface (ABI)
+
+
+2.2         Executable and Linking Format (ELF) Object Files
+Both VLE and Book E instructions can coexist in the same ELF binary separated into different ELF
+sections allowing easy identification for defining memory management page tables for run-time
+environments. Because implementations supporting VLE use an extension to the existing PowerPC
+Book E page attributes, providing a single additional page attribute to select between VLE and Book E
+encodings, memory pages of VLE and Book E instructions can be freely intermixed. Binding of VLE and
+Book E memory pages to different memory bounds requires separation of VLE and Book E encodings into
+different ELF sections.
+The VLE encodings also require additional relocation types, which allow the linker to resolve immediate
+and branch displacement fields in the instruction encoding once a symbol or label address is known (at link
+time). The VLE encodings require additional relocation types to resolve fields not present in the PowerPC
+Book E encodings.
+
+2.2.1          VLE Information Section
+The e500 ABI defines an information section named .PPC.EMB.apuinfo having type SHT_NOTE and
+attributes of 0, which matches the format of a typical ELF note section as shown in Figure 2-1. The
+information section allows disassemblers and debuggers to interpret the instructions properly within the
+binary and can be used by operating systems to provide emulation or error checking of the VLE extension
+revisions.
+                                                     length of name (in bytes)
+
+                                                         length of data (in bytes)
+
+                                                                   type
+
+                                         name (null-terminated, padded to 4-byte alignment)
+
+                                                                   data
+
+                                         Figure 2-1. Typical Elf Note Section Format
+
+For the .PPC.EMB.apuinfo section, the name is APUinfo, the type is 2 (as type 1 is already reserved), and
+the data contains a series of words providing information about the APU or extension, one per word. The
+information contains two unsigned half words: the upper half contains the unique identifier, and the lower
+half contains the revision number. The VLE identifier is shown in Table 2-1.
+                                                    Table 2-1. VLE Identifier
+
+                            Identifier (16 Bits)                       APU/Extension
+
+                                     0x0104        VLE
+
+
+
+
+                    Variable-Length Encoding (VLE) Extension Programming Interface Manual, Rev. 1
+2-2                                                                                           Freescale Semiconductor
+                                                                                   Application Binary Interface (ABI)
+
+
+                                        Example 2-1. Object file a.o:
+            0    0x00000008         # 8 bytes in "APUinfo\0"
+            4    0x0000000C         # 12 bytes (3 words) of APU information
+            8    0x00000002         # NOTE type 2
+            12   0x41505569         # ASCII for "APUi"
+            16   0x6e666f00         # ASCII for "nfo\0"
+            20   0x00010001         # APU #1, revision 1
+            24   0x01040001         # VLE, revision 1
+            28   0x00040001         # APU #4, revision 1
+
+
+                                        Example 2-2. Object file b.o:
+            0    0x00000008         # 8 bytes in "APUinfo\0"
+            4    0x00000008         # 8 bytes (2 words) of APU information
+            8    0x00000002         # NOTE type 2
+            12   0x41505569         # ASCII for "APUi"
+            16   0x6e666f00         # ASCII for "nfo\0"
+            20   0x00010002         # APU #1, revision 2
+            24   0x00040001         # APU #4, revision 1
+
+
+Linkers merge all .PPC.EMB.apuinfo sections in individual object files into one, with merging of per-APU
+information. For example, after linking file a.o and b.o, the merged .PPC.EMB.apuinfo is as shown in
+Example 2-3.
+                                      Example 2-3. PPC.EMB.apuinfo:
+            0    0x00000008         # 8 bytes in "APUinfo\0"
+            4    0x0000000C         # 12 bytes (3 words) of APU information
+            8    0x00000002         # NOTE type 2
+            12   0x41505569         # ASCII for "APUi"
+            16   0x6e666f00         # ASCII for "nfo\0"
+            20   0x00010002         # APU #1, revision 2
+            24   0x01040001         # VLE, revision 1
+            28   0x00040001         # APU #4, revision 1
+
+
+Note that it is assumed that a later revision of any APU or extension is compatible with an earlier one, but
+not vice versa. Thus, the resultant .PPC.EMB.apuinfo section requires APU #1 revision 2 or greater to
+work, and does not work on APU #1 revision 1. If a revision breaks backwards compatibility, it must be
+given a new unique identifier.
+A linker may optionally warn when different objects require different revisions, because moving the
+revision up may make the executable no longer work on processors with the older revision. In this
+example, the linker could emit a warning like “Warning: bumping APU #1 revision number to 2, required
+by b.o.”
+
+2.2.2        VLE Identification
+The executable and linking format (ELF) allows processor-specific section header and program header
+flag attributes to be defined. The following section header and program header flag attribute definitions
+are used to mark ELF sections containing VLE instruction encodings.
+#define SHF_PPC_VLE 0x10000000           /* section header flag */
+#define PF_PPC_VLE 0x10000000            /* program header flag */
+
+
+                 Variable-Length Encoding (VLE) Extension Programming Interface Manual, Rev. 1
+Freescale Semiconductor                                                                                          2-3
+Application Binary Interface (ABI)
+
+
+The SHF_PPC_VLE flag marks ELF sections containing VLE instructions. Similarly, the PF_PPC_VLE
+flag is used by ELF program headers to mark program sections containing VLE instructions. If either the
+SHF_PPC_VLE flag or the PF_PPC_VLE flag is set, then instructions in those marked sections are
+interpreted as VLE instructions; Book E instructions reside in sections that do not have these flags set.
+ELF sections setting the SHF_PPC_VLE flag that contain VLE instructions should also use the
+SHF_ALLOC and SHF_EXECINSTR bits as necessary. Setting the SHF_PPC_VLE bit does not
+automatically imply a section that is marked as allocate (SHF_ALLOC) or executable
+(SHF_EXECINSTR). The linker keeps sections marked as VLE (SHF_PPC_VLE) in separate output
+sections that do not contain Book E instructions.
+Similarly, ELF program headers setting the PF_PPC_VLE flag should use the PF_X, PF_W, and PF_R
+flags to indicate executable, writable, or readable attributes. It is considered an error for a program header
+with PF_PPC_VLE set to contain sections that do not have SHF_PPC_VLE set.
+A program loader or debugger can then scan the section headers or program headers to detect VLE sections
+in case anything special is required for section processing or downloading.
+
+2.2.3             Relocation Types
+Relocation entries describe how to alter the instruction relocation fields once symbols or labels are defined
+at link time. The VLE instruction set requires relocation types beyond those described in the PowerPC
+e500 Application Binary Interface (e500 ABI). Table 2-2 shows additional relocation fields used by the
+VLE instruction set.
+      Relocation
+      Field Name
+
+                   0                                       10 11                                                                         31
+        low21
+                                     —                                                                 low21
+
+                   0                 5   6                 10 11                 15 16 17           20 21                                31
+        split20
+                         011100                   —                split204:8         0   split200:3                   split209:19
+
+                   0                                       10 11                 15 16              20 21                                31
+       split16a
+                                     —                             split16a0:4              —                          split16a5:15
+
+                   0                 5   6                 10 11                                    20 21                                31
+       split16d
+                           —                 split16d0:4                          —                                    split16d5:15
+
+                   0                     6    7                                                                                       30 31
+        bdh24
+                             —                                                              bdh24                                        —
+
+                   0                                                             15 16                                                30 31
+        bdh15
+                                                  —                                                            bdh15                     —
+
+                   0                          7       8                          15
+        bdh8
+                               —                              bdh8
+
+                                                  Figure 2-2. VLE Relocation Fields
+
+
+
+
+                       Variable-Length Encoding (VLE) Extension Programming Interface Manual, Rev. 1
+2-4                                                                                                                     Freescale Semiconductor
+                                                                                                    Application Binary Interface (ABI)
+
+
+Table 2-2 describes the additional relocation fields required by VLE instructions.
+                                       Table 2-2. VLE Relocation Field Descriptions
+
+  Field                                                         Descriptions
+
+ low21     21-bit field occupying the lsbs of a word (bits 11–31).
+
+ split20   20-bit field with the 4 msbs occupying bits 17–20, the next 5 bits occupying bits 11–15, and the remaining 11 bits
+           occupying bits 21–31. In addition, bits 0–5 in the destination word are encoded with the binary value 011100, bit 16
+           is encoded with the binary value 0.
+           Note: This relocation field specifies the opcode for the VLE e_li instruction, allowing the linker to force the encoding
+                  of the e_li instruction, potentially changing the user’s specified instruction. This functionality supports small
+                  data area relocation types. (R_PPC_VLE_SDA21 and R_PPC_VLE_SDA21_LO).
+
+split16a 16-bit field with the 5 msbs occupying bits 11–15 (the rA field) and the remaining 11 bits occupying bits 21–31.
+
+split16d 16-bit field with the 5 msbs occupying bits 6–10 (the rD field) and the remaining 11 bits occupying bits 21–31.
+
+ bdh24     24-bit field occupying bits 7–30 used to resolve branch displacements to half-word boundaries.
+ bdh15     15-bit field occupying bits 16–30 used to resolve branch displacements to half-word boundaries.
+
+  bdh8     8-bit field occupying bits 8–15 of a half-word. This field is used by a 16-bit branch instruction.
+
+                                                     NOTE
+                   Relocation entry types applied to VLE sections use half-word alignment
+                   boundaries, because the VLE instruction architecture mixes 16- and 32-bit
+                   encodings within a VLE section. Book E instruction encodings in non-VLE
+                   sections use e500 ABI alignment specifications.
+Calculations in Table 2-4 assume the actions are transforming a relocatable file into either an executable
+or a shared object file. Conceptually, the link editor merges one or more relocatable files to form the output.
+It determines how to combine and locate the input files, updates the symbol values, and then performs
+relocations. Relocations applied to executable or shared object files are similar and accomplish the same
+result. The notations used in Table 2-4 are described in Table 2-3.
+                                              Table 2-3. Notation Conventions
+
+Field                                                          Descriptions
+
+  A     Represents the addend used to compute the value of the relocatable field.
+
+  P     Represents the place (section offset or address) of the storage unit being relocated (computed using r_offset).
+
+  S     Represents the value of the symbol whose index resides in the relocation entry.
+
+  X     Represents the offset from the appropriate base (_SDA_BASE_, _SDA2_BASE_, or 0) to where the linker placed the
+        symbol whose index is in r_info.
+
+  Y     Represents a 5-bit value for the base register for the section where the linker placed the symbol whose index is in r_info.
+        Acceptable values are: the value 13 for symbols in .sdata or .sbss, the value 2 for symbols in .PPC.EMB.sdata2 or
+        .PPC.EMB.sbss2, or the value 0 for symbols in .PPC.EMB.sdata0 or .PPC.EMB.sbss0.
+
+Relocation entries apply to half words or words. In either case, the r_offset value designates the offset or
+virtual address of the first byte of the affected storage unit. The relocation type specifies which bits to
+change and how to calculate their values. Processors that implement the PowerPC architecture use only
+the Elf32_Rela relocation entries with explicit addends. For relocation entries, the r_addend member
+
+                    Variable-Length Encoding (VLE) Extension Programming Interface Manual, Rev. 1
+Freescale Semiconductor                                                                                                           2-5
+Application Binary Interface (ABI)
+
+
+serves as the relocation addend. In all cases, the offset, addend, and the computed result use the byte order
+specified in the ELF header.
+The following general rules apply to the interpretation of the relocation types in Table 2-4:
+   • + and – denote 32-bit modulus addition and subtraction.
+       || denotes concatenation of bits or bit fields.
+       >> denotes arithmetic right-shifting (shifting with sign copying) of the value of the left operand by
+       the number of bits given by the right operand.
+   • For relocation types associated with branch displacements, in which the name of the relocation
+       type contains 8, the upper 24 bits of the computed value before shifting must all be the same (either
+       all zeros or all ones—that is, sign-extended displacement). For relocation types in which the name
+       contains 15, the upper 17 bits of the computed value before shifting must all be the same. For
+       relocation types in which the name contains 24, the upper 7 bits of the computed value before
+       shifting must all be the same. For relocation types whose names contain 8, 15, or 24, the low 1-bit
+       of the computed value before shifting must be zero (half-word boundary).
+   • #hi(value) and #lo(value) denote the 16 msbs and lsbs of the indicated value. That is,
+       #lo(x)=(x & 0xFFFF) and #hi(x)=((x>>16) & 0xFFFF).
+       The high-adjusted value, #ha(value), compensates for #lo() being treated as a signed number:
+       #ha(x)=(((x >> 16) + ((x & 0x8000) ? 1 : 0)) & 0xFFFF).
+   • _SDA_BASE_ is a symbol defined by the link editor whose value in shared objects is the same as
+       _GLOBAL_OFFSET_TABLE_, and in executable programs is an address within the small data
+       area. Similarly, _SDA2_BASE_ is a symbol defined by the link editor whose value in executable
+       programs is an address within the small data 2 area.
+Note that the relocation types in Figure 2-4 apply only to VLE sections. Sections containing Book E
+instructions should use the PowerPC e500 Application Binary Interface.
+                                            Table 2-4. VLE Relocation Types
+
+                                     Name            Value    Field              Calculation
+
+                              R_PPC_VLE_REL8          216     bdh8      (S + A - P) >> 1
+
+                             R_PPC_VLE_REL15          217    bdh15      (S + A - P) >> 1
+
+                             R_PPC_VLE_REL24          218    bdh24      (S + A - P) >> 1
+
+                             R_PPC_VLE_LO16A          219    split16a   #lo(S + A)
+
+                             R_PPC_VLE_LO16D          220    split16d   #lo(S + A)
+
+                              R_PPC_VLE_HI16A         221    split16a   #hi(S + A)
+
+                              R_PPC_VLE_HI16D         222    split16d   #hi(S + A)
+
+                             R_PPC_VLE_HA16A          223    split16a   #ha(S + A)
+
+                             R_PPC_VLE_HA16D          224    split16d   #ha(S + A)
+
+                             R_PPC_VLE_SDA21          225    low21      Y || (X + A). See Table 2-5.
+                                                             split20
+
+
+
+
+                    Variable-Length Encoding (VLE) Extension Programming Interface Manual, Rev. 1
+2-6                                                                                                    Freescale Semiconductor
+                                                                                                     Application Binary Interface (ABI)
+
+
+                                      Table 2-4. VLE Relocation Types (continued)
+
+                                     Name                  Value    Field               Calculation
+
+                           R_PPC_VLE_SDA21_LO               226     low21       Y || #lo(X + A). See Table 2-5.
+                                                                    split20
+
+                        R_PPC_VLE_SDAREL_LO16A              227    split16a     #lo(X + A)
+
+                        R_PPC_VLE_SDAREL_LO16D              228    split16d     #lo(X + A)
+
+                        R_PPC_VLE_SDAREL_HI16A              229    split16a     #hi(X + A)
+
+                        R_PPC_VLE_SDAREL_HI16D              230    split16d     #hi(X + A)
+
+                        R_PPC_VLE_SDAREL_HA16A              231    split16a     #ha(X + A)
+
+                        R_PPC_VLE_SDAREL_HA16D              232    split16d     #ha(X + A)
+
+Relocation types with special semantics are described in Table 2-5.
+                                  Table 2-5. Relocation Types with Special Semantics
+
+            Name                                                              Description
+
+    R_PPC_VLE_SDA211           The linker computes a 21-bit value with the 5 msbs having the value 13 (for GPR13), 2 (for GPR2),
+                               or 0. If the symbol whose index is in r_info is contained in .sdata or .sbss, a linker supplies a value
+                               of 13; if the symbol is in .PPC.EMB.sdata2 or .PPC.EMB.sbss2, the linker supplies a value of 2; if
+                               the symbol is in .PPC.EMB.sdata0 or .PPC.EMB.sbss0, the linker supplies a value of 0; otherwise,
+                               the link fails.
+                               The 16 lsbs of this 21-bit value are set to the address of the symbol plus the relocation entry
+                               r_addend value minus the appropriate base for the symbol section:
+                                • _SDA_BASE_ for a symbol in .sdata or .sbss
+                                • _SDA2_BASE_ for a symbol in .PPC.EMB.sdata2 or .PPC.EMB.sbss2
+                                • 0 for a symbol in .PPC.EMB.sdata0 or .PPC.EMB.sbss0
+                               If the 5 msbs of the computed 21-bit value are non-zero, the linker uses the low21 relocation field,
+                               where the 11 msbs remain unchanged and the computed 21-bit value occupies bits 11–31.
+                               Otherwise, the 5 msbs of the computed 21-bit value are zero, with the following results:
+                                • The linker uses the split20 relocation field, where only bits occupying 6–10 remain unchanged
+                                • The 5 msbs of the 21-bit value are ignored
+                                • The next msb is copied to bit 11 and to bits 17–20 as a sign-extension
+                                • The next 4 msbs are copied to bits 12–15
+                                • The 11 remaining bits are copied to bits 21–31.
+                                • In the destination word, bits 0–5 are encoded with the binary value 011100, and bit 16 is
+                                   encoded with the binary value 0.
+                               Note: Use of the split20 relocation field forces the encoding of the VLE e_li instruction, which may
+                                       change the user's specified instruction. See Table 2-2.
+
+R_PPC_VLE_SDA21_LO 1 Like R_PPC_VLE_SDA21, except that the #lo() operator obtains the 16 lsbs of the 21-bit value.
+                     The #lo() operator is applied after the address of the symbol plus the relocation entry r_addend
+                     value is calculated, minus the appropriate base for the symbol’s section: _SDA_BASE_ for a
+                     symbol in .sdata or .sbss, _SDA2_BASE_ for a symbol in .PPC.EMB.sdata2 or .PPC.EMB.sbss2,
+                     or 0 for a symbol in .PPC.EMB.sdata0 or .PPC.EMB.sbss0. The R_PPC_VLE_SDA21 entry
+                     describes applying the calculated 21-bit value to the destination word that uses either the low21
+                     relocation field or the split20 relocation field. See Table 2-2.
+1
+    Note that if the opcode is changed, 27 bits are changed instead of 21.
+
+
+
+
+                     Variable-Length Encoding (VLE) Extension Programming Interface Manual, Rev. 1
+Freescale Semiconductor                                                                                                            2-7
+Application Binary Interface (ABI)
+
+
+                                                       NOTE
+                   The relocations in Table 2-5 are not for load and store instructions (such as,
+                   e_lwz and e_stw), which should use the EABI relocation
+                   R_PPC_EMB_SDA21. These relocations, as written here, only start with an
+                   e_add16i. A linker might convert the instruction to an e_li. Although other
+                   relocations do not specify the instructions they apply to, it may be useful to
+                   know that these relocations can apply only to one instruction.
+
+
+
+
+                    Variable-Length Encoding (VLE) Extension Programming Interface Manual, Rev. 1
+2-8                                                                                        Freescale Semiconductor

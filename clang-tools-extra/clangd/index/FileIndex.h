@@ -16,22 +16,21 @@
 #define LLVM_CLANG_TOOLS_EXTRA_CLANGD_INDEX_FILEINDEX_H
 
 #include "Headers.h"
-#include "Index.h"
-#include "MemIndex.h"
-#include "Merge.h"
-#include "index/CanonicalIncludes.h"
+#include "clang-include-cleaner/Record.h"
+#include "index/Index.h"
+#include "index/Merge.h"
 #include "index/Ref.h"
 #include "index/Relation.h"
 #include "index/Serialization.h"
 #include "index/Symbol.h"
+#include "support/MemoryTree.h"
 #include "support/Path.h"
 #include "clang/Lex/Preprocessor.h"
-#include "clang/Tooling/CompilationDatabase.h"
 #include "llvm/ADT/DenseSet.h"
-#include "llvm/ADT/Optional.h"
 #include "llvm/ADT/StringMap.h"
 #include "llvm/ADT/StringRef.h"
 #include <memory>
+#include <optional>
 #include <vector>
 
 namespace clang {
@@ -70,6 +69,7 @@ enum class DuplicateHandling {
 /// locking when we swap or obtain references to snapshots.
 class FileSymbols {
 public:
+  FileSymbols(IndexContents IdxContents, bool SupportContainedRefs);
   /// Updates all slabs associated with the \p Key.
   /// If either is nullptr, corresponding data for \p Key will be removed.
   /// If CountReferences is true, \p Refs will be used for counting references
@@ -81,41 +81,50 @@ public:
   /// The index keeps the slabs alive.
   /// Will count Symbol::References based on number of references in the main
   /// files, while building the index with DuplicateHandling::Merge option.
+  /// Version is populated with an increasing sequence counter.
   std::unique_ptr<SymbolIndex>
   buildIndex(IndexType,
-             DuplicateHandling DuplicateHandle = DuplicateHandling::PickOne);
+             DuplicateHandling DuplicateHandle = DuplicateHandling::PickOne,
+             size_t *Version = nullptr);
+
+  void profile(MemoryTree &MT) const;
 
 private:
+  IndexContents IdxContents;
+  bool SupportContainedRefs;
+
   struct RefSlabAndCountReferences {
     std::shared_ptr<RefSlab> Slab;
     bool CountReferences = false;
   };
   mutable std::mutex Mutex;
 
+  size_t Version = 0;
   llvm::StringMap<std::shared_ptr<SymbolSlab>> SymbolsSnapshot;
   llvm::StringMap<RefSlabAndCountReferences> RefsSnapshot;
-  llvm::StringMap<std::shared_ptr<RelationSlab>> RelatiosSnapshot;
+  llvm::StringMap<std::shared_ptr<RelationSlab>> RelationsSnapshot;
 };
 
 /// This manages symbols from files and an in-memory index on all symbols.
 /// FIXME: Expose an interface to remove files that are closed.
 class FileIndex : public MergedIndex {
 public:
-  FileIndex(bool UseDex = true);
+  FileIndex(bool SupportContainedRefs);
 
   /// Update preamble symbols of file \p Path with all declarations in \p AST
   /// and macros in \p PP.
   void updatePreamble(PathRef Path, llvm::StringRef Version, ASTContext &AST,
-                      std::shared_ptr<Preprocessor> PP,
-                      const CanonicalIncludes &Includes);
+                      Preprocessor &PP,
+                      const include_cleaner::PragmaIncludes &PI);
+  void updatePreamble(IndexFileIn);
 
   /// Update symbols and references from main file \p Path with
   /// `indexMainDecls`.
   void updateMain(PathRef Path, ParsedAST &AST);
 
-private:
-  bool UseDex; // FIXME: this should be always on.
+  void profile(MemoryTree &MT) const;
 
+private:
   // Contains information from each file's preamble only. Symbols and relations
   // are sharded per declaration file to deduplicate multiple symbols and reduce
   // memory usage.
@@ -136,6 +145,12 @@ private:
   // (Note that symbols *only* in the main file are not indexed).
   FileSymbols MainFileSymbols;
   SwapIndex MainFileIndex;
+
+  // While both the FileIndex and SwapIndex are threadsafe, we need to track
+  // versions to ensure that we don't overwrite newer indexes with older ones.
+  std::mutex UpdateIndexMu;
+  unsigned MainIndexVersion = 0;
+  unsigned PreambleIndexVersion = 0;
 };
 
 using SlabTuple = std::tuple<SymbolSlab, RefSlab, RelationSlab>;
@@ -148,8 +163,9 @@ SlabTuple indexMainDecls(ParsedAST &AST);
 /// Index declarations from \p AST and macros from \p PP that are declared in
 /// included headers.
 SlabTuple indexHeaderSymbols(llvm::StringRef Version, ASTContext &AST,
-                             std::shared_ptr<Preprocessor> PP,
-                             const CanonicalIncludes &Includes);
+                             Preprocessor &PP,
+                             const include_cleaner::PragmaIncludes &PI,
+                             SymbolOrigin Origin);
 
 /// Takes slabs coming from a TU (multiple files) and shards them per
 /// declaration location.
@@ -165,7 +181,7 @@ struct FileShardedIndex {
   /// a copy of all the relevant data.
   /// Returned index will always have Symbol/Refs/Relation Slabs set, even if
   /// they are empty.
-  llvm::Optional<IndexFileIn> getShard(llvm::StringRef Uri) const;
+  std::optional<IndexFileIn> getShard(llvm::StringRef Uri) const;
 
 private:
   // Contains all the information that belongs to a single file.

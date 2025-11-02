@@ -6,13 +6,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-// XFAIL: with_system_cxx_lib=macosx10.14
-// XFAIL: with_system_cxx_lib=macosx10.13
-// XFAIL: with_system_cxx_lib=macosx10.12
-// XFAIL: with_system_cxx_lib=macosx10.11
-// XFAIL: with_system_cxx_lib=macosx10.10
-// XFAIL: with_system_cxx_lib=macosx10.9
-
 // <istream>
 
 // template <class charT, class traits = char_traits<charT> >
@@ -22,6 +15,8 @@
 
 #include <istream>
 #include <cassert>
+#include <streambuf>
+
 #include "test_macros.h"
 
 template <class CharT>
@@ -74,6 +69,7 @@ int main(int, char**)
         assert(!is.eof());
         assert(!is.fail());
     }
+#ifndef TEST_HAS_NO_WIDE_CHARACTERS
     {
         testbuf<wchar_t> sb(L" 1 ");
         std::wistream is(&sb);
@@ -83,6 +79,7 @@ int main(int, char**)
         assert(!is.eof());
         assert(!is.fail());
     }
+#endif
 #ifndef TEST_HAS_NO_EXCEPTIONS
     {
         testbuf<char> sb;

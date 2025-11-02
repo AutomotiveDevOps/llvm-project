@@ -1,9 +1,8 @@
 //===----------------------------------------------------------------------===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is dual licensed under the MIT and the University of Illinois Open
-// Source Licenses. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 
@@ -12,14 +11,12 @@
 // template<class R, class ...Args>
 // function(R(*)(Args...)) -> function<R(Args...)>;
 
-// UNSUPPORTED: c++98, c++03, c++11, c++14
-// UNSUPPORTED: libcpp-no-deduction-guides
+// UNSUPPORTED: c++03, c++11, c++14
 
 #include <functional>
 #include <type_traits>
 
 #include "test_macros.h"
-
 
 struct R { };
 struct A1 { };
@@ -32,7 +29,7 @@ R f2(A1, A2) { return {}; }
 R f3(A1, A2, A3) { return {}; }
 R f4(A1 = {}) { return {}; }
 
-int main() {
+int main(int, char**) {
   {
     // implicit
     std::function a = f0;
@@ -109,4 +106,6 @@ int main() {
     std::function d{&f4};
     ASSERT_SAME_TYPE(decltype(d), std::function<R(A1)>);
   }
+
+  return 0;
 }

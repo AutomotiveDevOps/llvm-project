@@ -1,0 +1,11 @@
+                                   Chapter 1. Variable Length Encoding Introduction   1265
+Version 2.07
+
+
+
+
+1266   Power ISA™ - Book VLE
+                                                                                                     Version 2.07
+
+
+

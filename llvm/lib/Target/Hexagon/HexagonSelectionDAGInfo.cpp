@@ -18,10 +18,10 @@ using namespace llvm;
 
 SDValue HexagonSelectionDAGInfo::EmitTargetCodeForMemcpy(
     SelectionDAG &DAG, const SDLoc &dl, SDValue Chain, SDValue Dst, SDValue Src,
-    SDValue Size, unsigned Align, bool isVolatile, bool AlwaysInline,
+    SDValue Size, Align Alignment, bool isVolatile, bool AlwaysInline,
     MachinePointerInfo DstPtrInfo, MachinePointerInfo SrcPtrInfo) const {
   ConstantSDNode *ConstantSize = dyn_cast<ConstantSDNode>(Size);
-  if (AlwaysInline || (Align & 0x3) != 0 || !ConstantSize)
+  if (AlwaysInline || Alignment < Align(4) || !ConstantSize)
     return SDValue();
 
   uint64_t SizeVal = ConstantSize->getZExtValue();
@@ -32,27 +32,25 @@ SDValue HexagonSelectionDAGInfo::EmitTargetCodeForMemcpy(
   //
   const TargetLowering &TLI = *DAG.getSubtarget().getTargetLowering();
   TargetLowering::ArgListTy Args;
-  TargetLowering::ArgListEntry Entry;
-  Entry.Ty = DAG.getDataLayout().getIntPtrType(*DAG.getContext());
-  Entry.Node = Dst;
-  Args.push_back(Entry);
-  Entry.Node = Src;
-  Args.push_back(Entry);
-  Entry.Node = Size;
-  Args.push_back(Entry);
+  Type *ArgTy = DAG.getDataLayout().getIntPtrType(*DAG.getContext());
+  Args.emplace_back(Dst, ArgTy);
+  Args.emplace_back(Src, ArgTy);
+  Args.emplace_back(Size, ArgTy);
 
-  const char *SpecialMemcpyName =
-      "__hexagon_memcpy_likely_aligned_min32bytes_mult8bytes";
+  const char *SpecialMemcpyName = TLI.getLibcallName(
+      RTLIB::HEXAGON_MEMCPY_LIKELY_ALIGNED_MIN32BYTES_MULT8BYTES);
   const MachineFunction &MF = DAG.getMachineFunction();
   bool LongCalls = MF.getSubtarget<HexagonSubtarget>().useLongCalls();
   unsigned Flags = LongCalls ? HexagonII::HMOTF_ConstExtended : 0;
+
+  CallingConv::ID CC = TLI.getLibcallCallingConv(
+      RTLIB::HEXAGON_MEMCPY_LIKELY_ALIGNED_MIN32BYTES_MULT8BYTES);
 
   TargetLowering::CallLoweringInfo CLI(DAG);
   CLI.setDebugLoc(dl)
       .setChain(Chain)
       .setLibCallee(
-          TLI.getLibcallCallingConv(RTLIB::MEMCPY),
-          Type::getVoidTy(*DAG.getContext()),
+          CC, Type::getVoidTy(*DAG.getContext()),
           DAG.getTargetExternalSymbol(
               SpecialMemcpyName, TLI.getPointerTy(DAG.getDataLayout()), Flags),
           std::move(Args))

@@ -10,20 +10,20 @@
 // thread and a range of records representing a block.
 //
 //===----------------------------------------------------------------------===//
-#ifndef LLVM_LIB_XRAY_BLOCKINDEXER_H_
-#define LLVM_LIB_XRAY_BLOCKINDEXER_H_
+#ifndef LLVM_XRAY_BLOCKINDEXER_H
+#define LLVM_XRAY_BLOCKINDEXER_H
 
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/Support/Compiler.h"
 #include "llvm/XRay/FDRRecords.h"
 #include <cstdint>
 #include <vector>
 
-namespace llvm {
-namespace xray {
+namespace llvm::xray {
 
 // The BlockIndexer will gather all related records associated with a
 // process+thread and group them by 'Block'.
-class BlockIndexer : public RecordVisitor {
+class LLVM_ABI BlockIndexer : public RecordVisitor {
 public:
   struct Block {
     uint64_t ProcessID;
@@ -41,7 +41,7 @@ private:
   Block CurrentBlock{0, 0, nullptr, {}};
 
 public:
-  explicit BlockIndexer(Index &I) : RecordVisitor(), Indices(I) {}
+  explicit BlockIndexer(Index &I) : Indices(I) {}
 
   Error visit(BufferExtents &) override;
   Error visit(WallclockRecord &) override;
@@ -62,7 +62,6 @@ public:
   Error flush();
 };
 
-} // namespace xray
-} // namespace llvm
+} // namespace llvm::xray
 
-#endif // LLVM_LIB_XRAY_BLOCKINDEXER_H_
+#endif // LLVM_XRAY_BLOCKINDEXER_H

@@ -2,6 +2,7 @@
 
 ; RUN: llc -mtriple i686-pc-win32 < %s | FileCheck %s --check-prefix=COFF
 ; RUN: llc -mtriple x86_64-pc-win32 < %s | FileCheck %s --check-prefix=COFF64
+; RUN: llc -mtriple x86_64-uefi < %s | FileCheck %s --check-prefix=COFF64
 ; RUN: llc -mtriple i686-linux-gnu < %s | FileCheck %s --check-prefix=ELF
 ; RUN: llc -mtriple i686-apple-darwin < %s | FileCheck %s --check-prefix=MACHO
 
@@ -36,25 +37,25 @@
 
 define i32 @main() {
 entry:
-  tail call void @"\01?withescape@A@@QBEXXZ"(%struct.A* null)
-  tail call void @"?withquestion@A@@QBEXXZ"(%struct.A* null)
-  tail call void @"?privatequestion@A@@QBEXXZ"(%struct.A* null)
-  tail call x86_fastcallcc void @"?privatequestionfast@A@@QBEXXZ"(%struct.A* null)
-  tail call void @"\01?escapedprivate@A@@QBEXXZ"(%struct.A* null)
+  tail call void @"\01?withescape@A@@QBEXXZ"(ptr null)
+  tail call void @"?withquestion@A@@QBEXXZ"(ptr null)
+  tail call void @"?privatequestion@A@@QBEXXZ"(ptr null)
+  tail call x86_fastcallcc void @"?privatequestionfast@A@@QBEXXZ"(ptr null)
+  tail call void @"\01?escapedprivate@A@@QBEXXZ"(ptr null)
   ret i32 0
 }
 
-declare void @"\01?withescape@A@@QBEXXZ"(%struct.A*)
-declare void @"?withquestion@A@@QBEXXZ"(%struct.A*)
+declare void @"\01?withescape@A@@QBEXXZ"(ptr)
+declare void @"?withquestion@A@@QBEXXZ"(ptr)
 
-define private void @"?privatequestion@A@@QBEXXZ"(%struct.A*) {
+define private void @"?privatequestion@A@@QBEXXZ"(ptr) {
   ret void
 }
 
-define private x86_fastcallcc void @"?privatequestionfast@A@@QBEXXZ"(%struct.A*) {
+define private x86_fastcallcc void @"?privatequestionfast@A@@QBEXXZ"(ptr) {
   ret void
 }
 
-define private void @"\01?escapedprivate@A@@QBEXXZ"(%struct.A*) {
+define private void @"\01?escapedprivate@A@@QBEXXZ"(ptr) {
   ret void
 }

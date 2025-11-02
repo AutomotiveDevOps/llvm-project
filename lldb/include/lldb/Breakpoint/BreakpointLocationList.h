@@ -126,6 +126,9 @@ public:
   ///     Hit count of all locations in this list.
   uint32_t GetHitCount() const;
 
+  /// Resets the hit count of all locations in this list.
+  void ResetHitCount();
+
   /// Enquires of the breakpoint location in this list with ID \a breakID
   /// whether we should stop.
   ///
@@ -137,7 +140,8 @@ public:
   ///
   /// \return
   ///     \b true if we should stop, \b false otherwise.
-  bool ShouldStop(StoppointCallbackContext *context, lldb::break_id_t breakID);
+  bool ShouldStop(StoppointCallbackContext *context, lldb::break_id_t breakID,
+                  lldb::BreakpointLocationSP &bp_loc_sp);
 
   /// Returns the number of elements in this breakpoint location list.
   ///
@@ -201,8 +205,7 @@ protected:
   BreakpointLocationCollection *m_new_location_recorder;
 
 public:
-  typedef AdaptedIterable<collection, lldb::BreakpointLocationSP,
-                          vector_adapter>
+  typedef llvm::iterator_range<collection::const_iterator>
       BreakpointLocationIterable;
 
   BreakpointLocationIterable BreakpointLocations() {

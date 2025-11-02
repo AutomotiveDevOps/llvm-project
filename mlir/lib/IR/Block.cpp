@@ -7,20 +7,11 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir/IR/Block.h"
+
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/Operation.h"
+
 using namespace mlir;
-
-//===----------------------------------------------------------------------===//
-// BlockArgument
-//===----------------------------------------------------------------------===//
-
-/// Returns the number of this argument.
-unsigned BlockArgument::getArgNumber() const {
-  // Arguments are not stored in place, so we have to find it within the list.
-  auto argList = getOwner()->getArguments();
-  return std::distance(argList.begin(), llvm::find(argList, *this));
-}
 
 //===----------------------------------------------------------------------===//
 // Block
@@ -52,12 +43,23 @@ void Block::insertBefore(Block *block) {
   block->getParent()->getBlocks().insert(block->getIterator(), this);
 }
 
+void Block::insertAfter(Block *block) {
+  assert(!getParent() && "already inserted into a block!");
+  assert(block->getParent() && "cannot insert before a block without a parent");
+  block->getParent()->getBlocks().insertAfter(block->getIterator(), this);
+}
+
 /// Unlink this block from its current region and insert it right before the
 /// specific block.
 void Block::moveBefore(Block *block) {
   assert(block->getParent() && "cannot insert before a block without a parent");
-  block->getParent()->getBlocks().splice(
-      block->getIterator(), getParent()->getBlocks(), getIterator());
+  moveBefore(block->getParent(), block->getIterator());
+}
+
+/// Unlink this block from its current region and insert it right before the
+/// block that the given iterator points to in the region region.
+void Block::moveBefore(Region *region, llvm::iplist<Block>::iterator iterator) {
+  region->getBlocks().splice(iterator, getParent()->getBlocks(), getIterator());
 }
 
 /// Unlink this Block from its parent Region and delete it.
@@ -115,7 +117,7 @@ bool Block::verifyOpOrder() {
   if (!isOpOrderValid())
     return false;
   // The order is valid if there are less than 2 operations.
-  if (operations.empty() || std::next(operations.begin()) == operations.end())
+  if (operations.empty() || llvm::hasSingleElement(operations))
     return false;
 
   Operation *prev = nullptr;
@@ -148,46 +150,89 @@ auto Block::getArgumentTypes() -> ValueTypeRange<BlockArgListType> {
   return ValueTypeRange<BlockArgListType>(getArguments());
 }
 
-BlockArgument Block::addArgument(Type type) {
-  BlockArgument arg = BlockArgument::create(type, this);
+BlockArgument Block::addArgument(Type type, Location loc) {
+  BlockArgument arg = BlockArgument::create(type, this, arguments.size(), loc);
   arguments.push_back(arg);
   return arg;
 }
 
 /// Add one argument to the argument list for each type specified in the list.
-auto Block::addArguments(TypeRange types) -> iterator_range<args_iterator> {
+auto Block::addArguments(TypeRange types, ArrayRef<Location> locs)
+    -> iterator_range<args_iterator> {
+  assert(types.size() == locs.size() &&
+         "incorrect number of block argument locations");
   size_t initialSize = arguments.size();
   arguments.reserve(initialSize + types.size());
-  for (auto type : types)
-    addArgument(type);
+
+  for (auto typeAndLoc : llvm::zip(types, locs))
+    addArgument(std::get<0>(typeAndLoc), std::get<1>(typeAndLoc));
   return {arguments.data() + initialSize, arguments.data() + arguments.size()};
 }
 
-BlockArgument Block::insertArgument(unsigned index, Type type) {
-  auto arg = BlockArgument::create(type, this);
-  assert(index <= arguments.size());
+BlockArgument Block::insertArgument(unsigned index, Type type, Location loc) {
+  assert(index <= arguments.size() && "invalid insertion index");
+
+  auto arg = BlockArgument::create(type, this, index, loc);
   arguments.insert(arguments.begin() + index, arg);
+  // Update the cached position for all the arguments after the newly inserted
+  // one.
+  ++index;
+  for (BlockArgument arg : llvm::drop_begin(arguments, index))
+    arg.setArgNumber(index++);
   return arg;
+}
+
+/// Insert one value to the given position of the argument list. The existing
+/// arguments are shifted. The block is expected not to have predecessors.
+BlockArgument Block::insertArgument(args_iterator it, Type type, Location loc) {
+  assert(getPredecessors().empty() &&
+         "cannot insert arguments to blocks with predecessors");
+  return insertArgument(it->getArgNumber(), type, loc);
 }
 
 void Block::eraseArgument(unsigned index) {
   assert(index < arguments.size());
   arguments[index].destroy();
   arguments.erase(arguments.begin() + index);
+  for (BlockArgument arg : llvm::drop_begin(arguments, index))
+    arg.setArgNumber(index++);
 }
 
-/// Insert one value to the given position of the argument list. The existing
-/// arguments are shifted. The block is expected not to have predecessors.
-BlockArgument Block::insertArgument(args_iterator it, Type type) {
-  assert(llvm::empty(getPredecessors()) &&
-         "cannot insert arguments to blocks with predecessors");
+void Block::eraseArguments(unsigned start, unsigned num) {
+  assert(start + num <= arguments.size());
+  for (unsigned i = 0; i < num; ++i)
+    arguments[start + i].destroy();
+  arguments.erase(arguments.begin() + start, arguments.begin() + start + num);
+  for (BlockArgument arg : llvm::drop_begin(arguments, start))
+    arg.setArgNumber(start++);
+}
 
-  // Use the args_iterator (on the BlockArgListType) to compute the insertion
-  // iterator in the underlying argument storage.
-  size_t distance = std::distance(args_begin(), it);
-  auto arg = BlockArgument::create(type, this);
-  arguments.insert(std::next(arguments.begin(), distance), arg);
-  return arg;
+void Block::eraseArguments(const BitVector &eraseIndices) {
+  eraseArguments(
+      [&](BlockArgument arg) { return eraseIndices.test(arg.getArgNumber()); });
+}
+
+void Block::eraseArguments(function_ref<bool(BlockArgument)> shouldEraseFn) {
+  auto firstDead = llvm::find_if(arguments, shouldEraseFn);
+  if (firstDead == arguments.end())
+    return;
+
+  // Destroy the first dead argument, this avoids reapplying the predicate to
+  // it.
+  unsigned index = firstDead->getArgNumber();
+  firstDead->destroy();
+
+  // Iterate the remaining arguments to remove any that are now dead.
+  for (auto it = std::next(firstDead), e = arguments.end(); it != e; ++it) {
+    // Destroy dead arguments, and shift those that are still live.
+    if (shouldEraseFn(*it)) {
+      it->destroy();
+    } else {
+      it->setArgNumber(index++);
+      *firstDead++ = *it;
+    }
+  }
+  arguments.erase(firstDead, arguments.end());
 }
 
 //===----------------------------------------------------------------------===//
@@ -195,14 +240,26 @@ BlockArgument Block::insertArgument(args_iterator it, Type type) {
 //===----------------------------------------------------------------------===//
 
 /// Get the terminator operation of this block. This function asserts that
-/// the block has a valid terminator operation.
+/// the block might have a valid terminator operation.
 Operation *Block::getTerminator() {
-  assert(!empty() && !back().isKnownNonTerminator());
+  assert(mightHaveTerminator());
   return &back();
 }
 
-/// Return true if this block has no predecessors.
-bool Block::hasNoPredecessors() { return pred_begin() == pred_end(); }
+/// Check whether this block might have a terminator.
+bool Block::mightHaveTerminator() {
+  return !empty() && back().mightHaveTrait<OpTrait::IsTerminator>();
+}
+
+iterator_range<Block::iterator> Block::without_terminator_impl() {
+  // Note: When the op is unregistered, we do not know for sure if the last
+  // op is a terminator. In that case, we include it in `without_terminator`,
+  // but that decision is somewhat arbitrary.
+  if (!back().hasTrait<OpTrait::IsTerminator>())
+    return {begin(), end()};
+  auto endIt = --end();
+  return {begin(), endIt};
+}
 
 // Indexed successor access.
 unsigned Block::getNumSuccessors() {
@@ -261,7 +318,7 @@ Block *Block::getUniquePredecessor() {
 Block *Block::splitBlock(iterator splitBefore) {
   // Start by creating a new basic block, and insert it immediate after this
   // one in the containing region.
-  auto newBB = new Block();
+  auto *newBB = new Block();
   getParent()->getBlocks().insert(std::next(Region::iterator(this)), newBB);
 
   // Move all of the operations from the split point to the end of the region
@@ -288,13 +345,63 @@ unsigned PredecessorIterator::getSuccessorIndex() const {
 // Successors
 //===----------------------------------------------------------------------===//
 
-SuccessorRange::SuccessorRange(Block *block) : SuccessorRange(nullptr, 0) {
-  if (Operation *term = block->getTerminator())
-    if ((count = term->getNumSuccessors()))
-      base = term->getBlockOperands().data();
-}
+SuccessorRange::SuccessorRange() : SuccessorRange(nullptr, 0) {}
 
-SuccessorRange::SuccessorRange(Operation *term) : SuccessorRange(nullptr, 0) {
+SuccessorRange::SuccessorRange(Block *block) : SuccessorRange() {
+  if (block->empty() || llvm::hasSingleElement(*block->getParent()))
+    return;
+  Operation *term = &block->back();
   if ((count = term->getNumSuccessors()))
     base = term->getBlockOperands().data();
+}
+
+SuccessorRange::SuccessorRange(Operation *term) : SuccessorRange() {
+  if ((count = term->getNumSuccessors()))
+    base = term->getBlockOperands().data();
+}
+
+bool Block::isReachable(Block *other, SmallPtrSet<Block *, 16> &&except) {
+  assert(getParent() == other->getParent() && "expected same region");
+  if (except.contains(other)) {
+    // Fast path: If `other` is in the `except` set, there can be no path from
+    // "this" to `other` (that does not pass through an excluded block).
+    return false;
+  }
+  SmallVector<Block *> worklist(succ_begin(), succ_end());
+  while (!worklist.empty()) {
+    Block *next = worklist.pop_back_val();
+    if (next == other)
+      return true;
+    // Note: `except` keeps track of already visited blocks.
+    if (!except.insert(next).second)
+      continue;
+    worklist.append(next->succ_begin(), next->succ_end());
+  }
+  return false;
+}
+
+//===----------------------------------------------------------------------===//
+// BlockRange
+//===----------------------------------------------------------------------===//
+
+BlockRange::BlockRange(ArrayRef<Block *> blocks) : BlockRange(nullptr, 0) {
+  if ((count = blocks.size()))
+    base = blocks.data();
+}
+
+BlockRange::BlockRange(SuccessorRange successors)
+    : BlockRange(successors.begin().getBase(), successors.size()) {}
+
+/// See `llvm::detail::indexed_accessor_range_base` for details.
+BlockRange::OwnerT BlockRange::offset_base(OwnerT object, ptrdiff_t index) {
+  if (auto *operand = llvm::dyn_cast_if_present<BlockOperand *>(object))
+    return {operand + index};
+  return {llvm::dyn_cast_if_present<Block *const *>(object) + index};
+}
+
+/// See `llvm::detail::indexed_accessor_range_base` for details.
+Block *BlockRange::dereference_iterator(OwnerT object, ptrdiff_t index) {
+  if (const auto *operand = llvm::dyn_cast_if_present<BlockOperand *>(object))
+    return operand[index].get();
+  return llvm::dyn_cast_if_present<Block *const *>(object)[index];
 }

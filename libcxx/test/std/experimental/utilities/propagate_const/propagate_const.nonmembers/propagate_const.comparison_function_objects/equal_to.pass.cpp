@@ -6,16 +6,18 @@
 //
 //===----------------------------------------------------------------------===//
 
-// UNSUPPORTED: c++98, c++03, c++11
+// UNSUPPORTED: c++03, c++11
 
 // <propagate_const>
 
 // template <class T> struct equal_to<experimental::fundamentals_v2::propagate_const<T>>;
 
 #include <experimental/propagate_const>
+#include <cassert>
+#include <functional>
+
 #include "test_macros.h"
 #include "propagate_const_helpers.h"
-#include <cassert>
 
 using std::experimental::propagate_const;
 

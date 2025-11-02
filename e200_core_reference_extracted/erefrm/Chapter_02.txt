@@ -1,0 +1,71 @@
+Chapter 2
+Computation Modes
+This chapter describes the computation modes of the processor. EIS offers both 32-bit and 64-bit
+computation modes on 64-bit implementations, and a 32-bit computation mode on 32-bit implementations.
+
+2.1       Computation Modes
+Implementations of EIS may be either 64-bit implementations or 32-bit implementations. 64-bit
+implementations provide for 64-bit effective addresses and provide 64-bit registers, and instructions for
+manipulating 64-bit addresses and 64-bit integer data. 32-bit implementations provide for 32-bit effective
+addresses and provide 32-bit registers, and instructions for manipulating 32-bit addresses and 32-bit
+integer data.
+The computation mode of the processor is controlled through the setting of the Computation Mode bit in
+the Machine State Register (MSR[CM]). MSR[CM] may be changed by any move to MSR (mtmsr)
+instruction, return from interrupt (rfi, rfgi <E.HV>, rfci, rfdi <E.ED>, rfmci), or as the result of the
+processor taking an interrupt.
+
+2.2       64-bit Implementations <64>
+64-bit implementations provide two execution modes, 64-bit mode and 32-bit mode. In both of these
+modes, instructions that set a 64-bit register affect all 64 bits. The computational mode controls how the
+effective address is interpreted, how Condition Register bits and XER bits are set, how the Link Register
+is set by branch instructions in which LK=1, and how the Count Register is tested by branch conditional
+instructions. In both modes, effective address computations use all 64 bits of the relevant registers (General
+Purpose Registers (GPRs), Link Register, Count Register, etc.) and produce a 64-bit result. However, in
+32-bit mode the high-order 32 bits of the computed effective address are ignored for the purpose of
+addressing memory.
+In general, all instructions are available in both modes, however, software written using instructions from
+category 64-bit, but executing in 32-bit mode will not work correctly on a 32-bit implementation. If binary
+compatibility with 32-bit implementations is desired, software should restrict itself from using any
+instructions that are part of category 64 bit. For example, a program which runs in 32-bit mode on a 64-bit
+implementation, which uses the load doubleword (ld) instruction, will not run correctly on a 32-bit
+implementation.
+Registers that are defined to be less than 64 bits such as many Special Purpose Registers (SPRs), when
+accessed on a 64-bit implementation, produce a result as if the remaining non-defined bits of the register
+are unimplemented. For example, a mfspr instruction which accesses an SPR defined as 32-bit, produces
+0 in bits 0–31 of the target GPR, and places the value of the 32-bit defined SPR into bits 32–63 of the target
+
+
+
+         EREF 2.0: A Programmer’s Reference Manual for Freescale Power Architecture® Processors, Rev. 0
+Freescale Semiconductor                                                                                    2-1
+Computation Modes
+
+
+GPR. Similarly, a mtspr instruction which accesses an SPR defined as 32-bit writes only bits 32–63 of the
+source GPR into the SPR.
+In 64-bit implementations, GPRs are 64-bits each. Note that processors that implement SPE also contain
+64-bit GPRs, however, that is independent of whether the processor is a 64-bit implementation.
+
+2.3       32-bit Implementations
+32-bit implementations provide only 32-bit mode. Except for category Floating Point and Category SPE
+(and their dependent categories), instructions that set a register affect only the lower 32 bits, and
+instructions that source data use only the lower 32 bits, unless otherwise specified. Instructions from
+category 64 bit are not available and the effective address computation, XER bits, the Link Register, and
+the Count Register are affected by only bits 32–63.
+Registers that are defined to be more than 32 bits such as some Special Purpose Registers (SPRs), when
+accessed on a 32-bit implementation, produce a result as if the remaining non-defined bits of the register
+are unimplemented. For example, a mfspr instruction which accesses an SPR defined as 64-bit, produces
+0 in bits 0–31 of the target GPR, and places the value of bits 32–63 of the defined SPR into bits 32–63 of
+the target GPR. Similarly, a mtspr instruction which accesses an SPR defined as 64-bit writes bits 32–63
+of the source GPR into bits 32–63 of the SPR.
+In 32-bit implementations, GPRs are 32 bits each unless the processor implements category SPE. When
+SPE is implemented, only the lower 32 bits of the GPRs are used for non-SPE (and dependent categories)
+instructions. For example, on a 32-bit implementation that implements category SPE, a lwz instruction that
+references a GPR only uses the lower 32 bits of source registers to form the effective address and only
+modifies the lower 32 bits of the target register, leaving bits 0–31 of the target register unchanged.
+
+
+
+
+        EREF 2.0: A Programmer’s Reference Manual for Freescale Power Architecture® Processors, Rev. 0
+2-2                                                                                     Freescale Semiconductor

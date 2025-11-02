@@ -45,9 +45,9 @@ struct R600RegisterInfo final : public R600GenRegisterInfo {
 
   // \returns true if \p Reg can be defined in one ALU clause and used in
   // another.
-  bool isPhysRegLiveAcrossClauses(unsigned Reg) const;
+  bool isPhysRegLiveAcrossClauses(Register Reg) const;
 
-  void eliminateFrameIndex(MachineBasicBlock::iterator MI, int SPAdj,
+  bool eliminateFrameIndex(MachineBasicBlock::iterator MI, int SPAdj,
                            unsigned FIOperandNum,
                            RegScavenger *RS = nullptr) const override;
 

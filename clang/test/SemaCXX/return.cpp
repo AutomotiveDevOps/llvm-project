@@ -61,16 +61,19 @@ _Atomic // expected-warning {{'_Atomic' type qualifier on return type has no eff
     int
     atomic();
 
-auto
-    trailing_return_type() -> // expected-warning {{'const' type qualifier on return type has no effect}}
-    const int;
+auto trailing_return_type() ->
+    const int; // expected-warning {{'const' type qualifier on return type has no effect}}
+
+auto trailing_return_type_lambda = [](const int &x) ->
+    const int // expected-warning {{'const' type qualifier on return type has no effect}}
+    { return x; };
 
 const int ret_array()[4]; // expected-error {{cannot return array}}
 }
 
 namespace PR9328 {
   typedef char *PCHAR;
-  class Test 
+  class Test
   {
     const PCHAR GetName() { return 0; } // expected-warning{{'const' type qualifier on return type has no effect}}
   };
@@ -103,14 +106,23 @@ namespace return_has_expr {
   };
 }
 
-// rdar://15366494
 // pr17759
 namespace ctor_returns_void {
   void f() {}
-  struct S { 
-    S() { return f(); }; // expected-error {{constructor 'S' must not return void expression}}
+  struct S {
+    S() { return f(); } // expected-error {{constructor 'S' must not return void expression}}
     ~S() { return f(); } // expected-error {{destructor '~S' must not return void expression}}
   };
+
+  template <typename T> struct ST {
+    ST() { return f(); } // expected-error {{constructor 'ST<T>' must not return void expression}}
+                         // expected-error@-1 {{constructor 'ST' must not return void expression}}
+    ~ST() { return f(); } // expected-error {{destructor '~ST<T>' must not return void expression}}
+                          // expected-error@-1 {{destructor '~ST' must not return void expression}}
+  };
+
+  ST<int> st; // expected-note {{in instantiation of member function 'ctor_returns_void::ST<int>::ST'}}
+              // expected-note@-1 {{in instantiation of member function 'ctor_returns_void::ST<int>::~ST'}}
 }
 
 void cxx_unresolved_expr() {
@@ -118,5 +130,5 @@ void cxx_unresolved_expr() {
   // CXXUnresolvedConstructExpr, and the missing ')' gives it an invalid source
   // location for its rparen.  Check that emitting a diag on the range of the
   // expr doesn't assert.
-  return int(undeclared, 4; // expected-error {{expected ')'}} expected-note{{to match this '('}} expected-error {{use of undeclared identifier 'undeclared'}}
+  return int(undeclared, 4; // expected-error {{use of undeclared identifier 'undeclared'}}
 }

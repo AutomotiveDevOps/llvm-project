@@ -1,15 +1,7 @@
 // REQUIRES: native-run
-// UNSUPPORTED: arm, aarch64
+// UNSUPPORTED: target={{(arm|aarch64).*}}
 // RUN: %clang_builtins %s %librt -o %t && %run %t
 // REQUIRES: librt_has_clear_cache
-//===-- clear_cache_test.c - Test clear_cache -----------------------------===//
-//
-// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
-// See https://llvm.org/LICENSE.txt for license information.
-// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-//
-//===----------------------------------------------------------------------===//
-
 
 #include <stdio.h>
 #include <string.h>
@@ -32,7 +24,7 @@ static int func2() { return 2; }
 
 void __attribute__((noinline))
 memcpy_f(void *dst, const void *src, size_t n) {
-// ARM and MIPS nartually align functions, but use the LSB for ISA selection
+// ARM and MIPS naturally align functions, but use the LSB for ISA selection
 // (THUMB, MIPS16/uMIPS respectively).  Ensure that the ISA bit is ignored in
 // the memcpy
 #if defined(__arm__) || defined(__mips__)

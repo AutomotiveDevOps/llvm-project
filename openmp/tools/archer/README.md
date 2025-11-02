@@ -104,15 +104,11 @@ different flags are separated by spaces, e.g.:
 <tr>
 <td class="org-left">flush&#95;shadow</td>
 <td class="org-right">0</td>
-<td class="org-left">Flush shadow memory at the end of an outer OpenMP parallel region. Our experiments show that this can reduce memory overhead by ~30% and runtime overhead by ~10%. This flag is useful for large OpenMP applications that typically require large amounts of memory, causing out-of-memory exceptions when checked by Archer.</td>
-</tr>
-</tbody>
-
-<tbody>
-<tr>
-<td class="org-left">print&#95;ompt&#95;counters</td>
-<td class="org-right">0</td>
-<td class="org-left">Print the number of triggered OMPT events at the end of the execution.</td>
+<td class="org-left">Flush shadow memory at the end of an outer OpenMP
+parallel region. Our experiments show that this can reduce memory overhead
+by ~30% and runtime overhead by ~10%. This flag is useful for large OpenMP
+applications that typically require large amounts of memory, causing
+out-of-memory exceptions when checked by Archer.</td>
 </tr>
 </tbody>
 
@@ -121,6 +117,38 @@ different flags are separated by spaces, e.g.:
 <td class="org-left">print&#95;max&#95;rss</td>
 <td class="org-right">0</td>
 <td class="org-left">Print the RSS memory peak at the end of the execution.</td>
+</tr>
+</tbody>
+
+<tbody>
+<tr>
+<td class="org-left">ignore&#95;serial</td>
+<td class="org-right">0</td>
+<td class="org-left">Turn off tracking and analysis of memory accesses in
+the sequential part of an OpenMP program. (Only effective when OpenMP
+runtime is initialized. In doubt, insert omp_get_max_threads() as first
+statement in main!)</td>
+</tr>
+</tbody>
+
+<tbody>
+<tr>
+<td class="org-left">all&#95;memory</td>
+<td class="org-right">0</td>
+<td class="org-left">Turn on tracking and analysis of omp_all_memory
+dependencies. Archer will activate the support automatically when
+such dependency is seen during execution. At this time the analysis
+already missed synchronization semantics, which will lead to false
+reports in most cases.</td>
+</tr>
+</tbody>
+
+<tbody>
+<tr>
+<td class="org-left">report&#95;data&#95;leak</td>
+<td class="org-right">0</td>
+<td class="org-left">Report leaking OMPT data for execution under
+Archer. Used for testing and debugging Archer if errors occur.</td>
 </tr>
 </tbody>
 

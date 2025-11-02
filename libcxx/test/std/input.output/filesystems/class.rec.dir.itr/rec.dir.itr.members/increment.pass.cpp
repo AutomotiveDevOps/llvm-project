@@ -6,7 +6,13 @@
 //
 //===----------------------------------------------------------------------===//
 
-// UNSUPPORTED: c++98, c++03
+// REQUIRES: can-create-symlinks
+// UNSUPPORTED: c++03, c++11, c++14
+// UNSUPPORTED: no-filesystem
+
+// On Android L, ~scoped_test_env() is unable to delete the temp dir using
+// chmod+rm because chmod is too broken.
+// XFAIL: LIBCXX-ANDROID-FIXME && android-device-api={{21|22}}
 
 // <filesystem>
 
@@ -15,20 +21,18 @@
 // recursive_directory_iterator& operator++();
 // recursive_directory_iterator& increment(error_code& ec) noexcept;
 
-#include "filesystem_include.h"
+#include <filesystem>
 #include <type_traits>
 #include <set>
 #include <cassert>
 
+#include "assert_macros.h"
 #include "test_macros.h"
-#include "rapid-cxx-test.h"
 #include "filesystem_test_helper.h"
-
+namespace fs = std::filesystem;
 using namespace fs;
 
-TEST_SUITE(recursive_directory_iterator_increment_tests)
-
-TEST_CASE(test_increment_signatures)
+static void test_increment_signatures()
 {
     recursive_directory_iterator d; ((void)d);
     std::error_code ec; ((void)ec);
@@ -40,7 +44,7 @@ TEST_CASE(test_increment_signatures)
     ASSERT_NOT_NOEXCEPT(d.increment(ec));
 }
 
-TEST_CASE(test_prefix_increment)
+static void test_prefix_increment()
 {
     static_test_env static_env;
     const path testDir = static_env.Dir;
@@ -50,21 +54,21 @@ TEST_CASE(test_prefix_increment)
 
     std::error_code ec;
     recursive_directory_iterator it(testDir, ec);
-    TEST_REQUIRE(!ec);
+    assert(!ec);
 
     std::set<path> unseen_entries = dir_contents;
     while (!unseen_entries.empty()) {
-        TEST_REQUIRE(it != endIt);
+        assert(it != endIt);
         const path entry = *it;
-        TEST_REQUIRE(unseen_entries.erase(entry) == 1);
+        assert(unseen_entries.erase(entry) == 1);
         recursive_directory_iterator& it_ref = ++it;
-        TEST_CHECK(&it_ref == &it);
+        assert(&it_ref == &it);
     }
 
-    TEST_CHECK(it == endIt);
+    assert(it == endIt);
 }
 
-TEST_CASE(test_postfix_increment)
+static void test_postfix_increment()
 {
     static_test_env static_env;
     const path testDir = static_env.Dir;
@@ -74,21 +78,21 @@ TEST_CASE(test_postfix_increment)
 
     std::error_code ec;
     recursive_directory_iterator it(testDir, ec);
-    TEST_REQUIRE(!ec);
+    assert(!ec);
 
     std::set<path> unseen_entries = dir_contents;
     while (!unseen_entries.empty()) {
-        TEST_REQUIRE(it != endIt);
+        assert(it != endIt);
         const path entry = *it;
-        TEST_REQUIRE(unseen_entries.erase(entry) == 1);
+        assert(unseen_entries.erase(entry) == 1);
         const path entry2 = *it++;
-        TEST_CHECK(entry2 == entry);
+        assert(entry2 == entry);
     }
-    TEST_CHECK(it == endIt);
+    assert(it == endIt);
 }
 
 
-TEST_CASE(test_increment_method)
+static void test_increment_method()
 {
     static_test_env static_env;
     const path testDir = static_env.Dir;
@@ -98,22 +102,22 @@ TEST_CASE(test_increment_method)
 
     std::error_code ec;
     recursive_directory_iterator it(testDir, ec);
-    TEST_REQUIRE(!ec);
+    assert(!ec);
 
     std::set<path> unseen_entries = dir_contents;
     while (!unseen_entries.empty()) {
-        TEST_REQUIRE(it != endIt);
+        assert(it != endIt);
         const path entry = *it;
-        TEST_REQUIRE(unseen_entries.erase(entry) == 1);
+        assert(unseen_entries.erase(entry) == 1);
         recursive_directory_iterator& it_ref = it.increment(ec);
-        TEST_REQUIRE(!ec);
-        TEST_CHECK(&it_ref == &it);
+        assert(!ec);
+        assert(&it_ref == &it);
     }
 
-    TEST_CHECK(it == endIt);
+    assert(it == endIt);
 }
 
-TEST_CASE(test_follow_symlinks)
+static void test_follow_symlinks()
 {
     static_test_env static_env;
     const path testDir = static_env.Dir;
@@ -125,22 +129,25 @@ TEST_CASE(test_follow_symlinks)
     std::error_code ec;
     recursive_directory_iterator it(testDir,
                               directory_options::follow_directory_symlink, ec);
-    TEST_REQUIRE(!ec);
+    assert(!ec);
 
     std::set<path> unseen_entries = dir_contents;
     while (!unseen_entries.empty()) {
-        TEST_REQUIRE(it != endIt);
+        assert(it != endIt);
         const path entry = *it;
 
-        TEST_REQUIRE(unseen_entries.erase(entry) == 1);
+        assert(unseen_entries.erase(entry) == 1);
         recursive_directory_iterator& it_ref = it.increment(ec);
-        TEST_REQUIRE(!ec);
-        TEST_CHECK(&it_ref == &it);
+        assert(!ec);
+        assert(&it_ref == &it);
     }
-    TEST_CHECK(it == endIt);
+    assert(it == endIt);
 }
 
-TEST_CASE(access_denied_on_recursion_test_case)
+// Windows doesn't support setting perms::none to trigger failures
+// reading directories.
+#ifndef TEST_WIN_NO_FILESYSTEM_PERMS_NONE
+static void access_denied_on_recursion_test_case()
 {
     using namespace fs;
     scoped_test_env env;
@@ -165,54 +172,54 @@ TEST_CASE(access_denied_on_recursion_test_case)
     {
         std::error_code ec = GetTestEC();
         recursive_directory_iterator it(startDir, ec);
-        TEST_REQUIRE(ec != GetTestEC());
-        TEST_REQUIRE(!ec);
+        assert(ec != GetTestEC());
+        assert(!ec);
         while (it != endIt && it->path() != permDeniedDir)
             ++it;
-        TEST_REQUIRE(it != endIt);
-        TEST_REQUIRE(*it == permDeniedDir);
+        assert(it != endIt);
+        assert(*it == permDeniedDir);
 
         it.increment(ec);
-        TEST_CHECK(ec);
-        TEST_CHECK(it == endIt);
+        assert(ec);
+        assert(it == endIt);
     }
     // Same as above but test operator++().
     {
         std::error_code ec = GetTestEC();
         recursive_directory_iterator it(startDir, ec);
-        TEST_REQUIRE(!ec);
+        assert(!ec);
         while (it != endIt && it->path() != permDeniedDir)
             ++it;
-        TEST_REQUIRE(it != endIt);
-        TEST_REQUIRE(*it == permDeniedDir);
+        assert(it != endIt);
+        assert(*it == permDeniedDir);
 
-        TEST_REQUIRE_THROW(filesystem_error, ++it);
+        TEST_THROWS_TYPE(filesystem_error, ++it);
     }
     // Test that recursion resulting in a "EACCESS" error is ignored when the
     // correct options are given to the constructor.
     {
         std::error_code ec = GetTestEC();
         recursive_directory_iterator it(startDir, SkipEPerm, ec);
-        TEST_REQUIRE(!ec);
-        TEST_REQUIRE(it != endIt);
+        assert(!ec);
+        assert(it != endIt);
 
         bool seenOtherFile = false;
         if (*it == otherFile) {
             ++it;
             seenOtherFile = true;
-            TEST_REQUIRE (it != endIt);
+            assert (it != endIt);
         }
-        TEST_REQUIRE(*it == permDeniedDir);
+        assert(*it == permDeniedDir);
 
         ec = GetTestEC();
         it.increment(ec);
-        TEST_REQUIRE(!ec);
+        assert(!ec);
 
         if (seenOtherFile) {
-            TEST_CHECK(it == endIt);
+            assert(it == endIt);
         } else {
-            TEST_CHECK(it != endIt);
-            TEST_CHECK(*it == otherFile);
+            assert(it != endIt);
+            assert(*it == otherFile);
         }
     }
     // Test that construction resulting in a "EACCESS" error is not ignored
@@ -220,12 +227,12 @@ TEST_CASE(access_denied_on_recursion_test_case)
     {
         std::error_code ec;
         recursive_directory_iterator it(permDeniedDir, ec);
-        TEST_REQUIRE(ec);
-        TEST_REQUIRE(it == endIt);
+        assert(ec);
+        assert(it == endIt);
     }
     // Same as above but testing the throwing constructors
     {
-        TEST_REQUIRE_THROW(filesystem_error,
+        TEST_THROWS_TYPE(filesystem_error,
                            recursive_directory_iterator(permDeniedDir));
     }
     // Test that construction resulting in a "EACCESS" error constructs the
@@ -233,13 +240,13 @@ TEST_CASE(access_denied_on_recursion_test_case)
     {
         std::error_code ec = GetTestEC();
         recursive_directory_iterator it(permDeniedDir, SkipEPerm, ec);
-        TEST_REQUIRE(!ec);
-        TEST_REQUIRE(it == endIt);
+        assert(!ec);
+        assert(it == endIt);
     }
 }
 
 // See llvm.org/PR35078
-TEST_CASE(test_PR35078)
+static void test_PR35078()
 {
   using namespace fs;
     scoped_test_env env;
@@ -260,8 +267,7 @@ TEST_CASE(test_PR35078)
                 perms::group_exec|perms::owner_exec|perms::others_exec,
                 perm_options::remove);
 
-    const std::error_code eacess_ec =
-        std::make_error_code(std::errc::permission_denied);
+    const std::errc eacess = std::errc::permission_denied;
     std::error_code ec = GetTestEC();
 
     const recursive_directory_iterator endIt;
@@ -282,46 +288,46 @@ TEST_CASE(test_PR35078)
     {
       bool SeenNestedFile = false;
       recursive_directory_iterator it = SetupState(false, SeenNestedFile);
-      TEST_REQUIRE(it != endIt);
-      TEST_REQUIRE(*it == nestedDir);
+      assert(it != endIt);
+      assert(*it == nestedDir);
       ec = GetTestEC();
       it.increment(ec);
-      TEST_CHECK(ec);
-      TEST_CHECK(ec == eacess_ec);
-      TEST_CHECK(it == endIt);
+      assert(ec);
+      assert(ErrorIs(ec, eacess));
+      assert(it == endIt);
     }
     {
       bool SeenNestedFile = false;
       recursive_directory_iterator it = SetupState(true, SeenNestedFile);
-      TEST_REQUIRE(it != endIt);
-      TEST_REQUIRE(*it == nestedDir);
+      assert(it != endIt);
+      assert(*it == nestedDir);
       ec = GetTestEC();
       it.increment(ec);
-      TEST_CHECK(!ec);
+      assert(!ec);
       if (SeenNestedFile) {
-        TEST_CHECK(it == endIt);
+        assert(it == endIt);
       } else {
-        TEST_REQUIRE(it != endIt);
-        TEST_CHECK(*it == nestedFile);
+        assert(it != endIt);
+        assert(*it == nestedFile);
       }
     }
     {
       bool SeenNestedFile = false;
       recursive_directory_iterator it = SetupState(false, SeenNestedFile);
-      TEST_REQUIRE(it != endIt);
-      TEST_REQUIRE(*it == nestedDir);
+      assert(it != endIt);
+      assert(*it == nestedDir);
 
       ExceptionChecker Checker(std::errc::permission_denied,
                                "recursive_directory_iterator::operator++()",
                                format_string("attempting recursion into \"%s\"",
-                                             nestedDir.native()));
-      TEST_CHECK_THROW_RESULT(filesystem_error, Checker, ++it);
+                                             nestedDir.string().c_str()));
+      TEST_VALIDATE_EXCEPTION(filesystem_error, Checker, ++it);
     }
 }
 
 
 // See llvm.org/PR35078
-TEST_CASE(test_PR35078_with_symlink)
+static void test_PR35078_with_symlink()
 {
   using namespace fs;
     scoped_test_env env;
@@ -330,7 +336,7 @@ TEST_CASE(test_PR35078_with_symlink)
         env.create_file("dir1/file1"),
         env.create_dir("sym_dir"),
         env.create_dir("sym_dir/nested_sym_dir"),
-        env.create_symlink("sym_dir/nested_sym_dir", "dir1/dir2"),
+        env.create_directory_symlink("sym_dir/nested_sym_dir", "dir1/dir2"),
         env.create_dir("sym_dir/dir1"),
         env.create_dir("sym_dir/dir1/dir2"),
 
@@ -346,8 +352,7 @@ TEST_CASE(test_PR35078_with_symlink)
                 perms::group_exec|perms::owner_exec|perms::others_exec,
                 perm_options::remove);
 
-    const std::error_code eacess_ec =
-        std::make_error_code(std::errc::permission_denied);
+    const std::errc eacess = std::errc::permission_denied;
     std::error_code ec = GetTestEC();
 
     const recursive_directory_iterator endIt;
@@ -382,30 +387,30 @@ TEST_CASE(test_PR35078_with_symlink)
       recursive_directory_iterator it = SetupState(TC.SkipPermDenied,
                                                    TC.FollowSymlinks,
                                                    SeenNestedFile);
-      TEST_REQUIRE(!ec);
-      TEST_REQUIRE(it != endIt);
-      TEST_REQUIRE(*it == symDir);
+      assert(!ec);
+      assert(it != endIt);
+      assert(*it == symDir);
       ec = GetTestEC();
       it.increment(ec);
       if (TC.ExpectSuccess) {
-        TEST_CHECK(!ec);
+        assert(!ec);
         if (SeenNestedFile) {
-          TEST_CHECK(it == endIt);
+          assert(it == endIt);
         } else {
-          TEST_REQUIRE(it != endIt);
-          TEST_CHECK(*it == nestedFile);
+          assert(it != endIt);
+          assert(*it == nestedFile);
         }
       } else {
-        TEST_CHECK(ec);
-        TEST_CHECK(ec == eacess_ec);
-        TEST_CHECK(it == endIt);
+        assert(ec);
+        assert(ErrorIs(ec, eacess));
+        assert(it == endIt);
       }
     }
 }
 
 
 // See llvm.org/PR35078
-TEST_CASE(test_PR35078_with_symlink_file)
+static void test_PR35078_with_symlink_file()
 {
   using namespace fs;
     scoped_test_env env;
@@ -430,8 +435,7 @@ TEST_CASE(test_PR35078_with_symlink_file)
                 perms::group_exec|perms::owner_exec|perms::others_exec,
                 perm_options::remove);
 
-    const std::error_code eacess_ec =
-        std::make_error_code(std::errc::permission_denied);
+    const std::errc eacess = std::errc::permission_denied;
     std::error_code ec = GetTestEC();
 
     const recursive_directory_iterator EndIt;
@@ -466,33 +470,47 @@ TEST_CASE(test_PR35078_with_symlink_file)
       recursive_directory_iterator it = SetupState(TC.SkipPermDenied,
                                                    TC.FollowSymlinks,
                                                    SeenNestedFile);
-      TEST_REQUIRE(!ec);
-      TEST_REQUIRE(it != EndIt);
-      TEST_REQUIRE(*it == nestedDir);
+      assert(!ec);
+      assert(it != EndIt);
+      assert(*it == nestedDir);
       ec = GetTestEC();
       it.increment(ec);
-      TEST_REQUIRE(it != EndIt);
-      TEST_CHECK(!ec);
-      TEST_CHECK(*it == symFile);
+      assert(it != EndIt);
+      assert(!ec);
+      assert(*it == symFile);
       ec = GetTestEC();
       it.increment(ec);
       if (TC.ExpectSuccess) {
         if (!SeenNestedFile) {
-          TEST_CHECK(!ec);
-          TEST_REQUIRE(it != EndIt);
-          TEST_CHECK(*it == nestedFile);
+          assert(!ec);
+          assert(it != EndIt);
+          assert(*it == nestedFile);
           ec = GetTestEC();
           it.increment(ec);
         }
-        TEST_CHECK(!ec);
-        TEST_CHECK(it == EndIt);
+        assert(!ec);
+        assert(it == EndIt);
       } else {
-        TEST_CHECK(ec);
-        TEST_CHECK(ec == eacess_ec);
-        TEST_CHECK(it == EndIt);
+        assert(ec);
+        assert(ErrorIs(ec, eacess));
+        assert(it == EndIt);
       }
     }
 }
+#endif // TEST_WIN_NO_FILESYSTEM_PERMS_NONE
 
+int main(int, char**) {
+    test_increment_signatures();
+    test_prefix_increment();
+    test_postfix_increment();
+    test_increment_method();
+    test_follow_symlinks();
+#ifndef TEST_WIN_NO_FILESYSTEM_PERMS_NONE
+    access_denied_on_recursion_test_case();
+    test_PR35078();
+    test_PR35078_with_symlink();
+    test_PR35078_with_symlink_file();
+#endif
 
-TEST_SUITE_END()
+    return 0;
+}

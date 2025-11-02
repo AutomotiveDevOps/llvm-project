@@ -10,17 +10,15 @@
 // associated with a block, following the FDR mode log format's specifications.
 //
 //===----------------------------------------------------------------------===//
-#ifndef LLVM_INCLUDE_LLVM_XRAY_BLOCKVERIFIER_H_
-#define LLVM_INCLUDE_LLVM_XRAY_BLOCKVERIFIER_H_
+#ifndef LLVM_XRAY_BLOCKVERIFIER_H
+#define LLVM_XRAY_BLOCKVERIFIER_H
 
+#include "llvm/Support/Compiler.h"
 #include "llvm/XRay/FDRRecords.h"
-#include <array>
-#include <bitset>
 
-namespace llvm {
-namespace xray {
+namespace llvm::xray {
 
-class BlockVerifier : public RecordVisitor {
+class LLVM_ABI BlockVerifier : public RecordVisitor {
 public:
   // We force State elements to be size_t, to be used as indices for containers.
   enum class State : std::size_t {
@@ -65,7 +63,6 @@ public:
   void reset();
 };
 
-} // namespace xray
-} // namespace llvm
+} // namespace llvm::xray
 
-#endif // LLVM_INCLUDE_LLVM_XRAY_BLOCKVERIFIER_H_
+#endif // LLVM_XRAY_BLOCKVERIFIER_H

@@ -36,14 +36,14 @@
 - (void)methodOnSubclass2;
 @end
 
-// Sanity check: the basic initialization pattern.
-void test_instancetype_alloc_init_simple() {
+// Check the basic initialization pattern.
+void test_instancetype_alloc_init_simple(void) {
   Root *r1 = [[Root alloc] init];
   Subclass1 *sc1 = [[Subclass1 alloc] init];
 }
 
 // Test that message sends to instancetype methods have the right type.
-void test_instancetype_narrow_method_search() {
+void test_instancetype_narrow_method_search(void) {
   // instancetype on class methods
   Subclass1 *sc1 = [[Subclass1 alloc] initSubclass2]; // expected-warning{{'Subclass1' may not respond to 'initSubclass2'}}
   Subclass2 *sc2 = [[Subclass2 alloc] initSubclass2]; // okay
@@ -143,7 +143,7 @@ void test_instancetype_narrow_method_search() {
 
 @implementation Subclass4
 + (id)alloc {
-  return self; // expected-warning{{incompatible pointer types returning 'Class' from a function with result type 'Subclass4 *'}}
+  return self; // expected-error{{incompatible pointer types returning 'Class' from a function with result type 'Subclass4 *'}}
 }
 
 - (Subclass3 *)init { return 0; } // don't complain: we lost the related return type
@@ -156,7 +156,7 @@ void test_instancetype_narrow_method_search() {
 
 // Check that inherited related return types influence the types of
 // message sends.
-void test_instancetype_inherited() {
+void test_instancetype_inherited(void) {
   [[Subclass4 alloc] initSubclass1]; // expected-warning{{'Subclass4' may not respond to 'initSubclass1'}}
   [[Subclass4 alloc] initOther];
 }
@@ -166,12 +166,12 @@ void test_instancetype_inherited() {
 @implementation Subclass2
 - (instancetype)initSubclass2 { // expected-note {{explicitly declared 'instancetype'}}
   Subclass1 *sc1 = [[Subclass1 alloc] init];
-  return sc1; // expected-warning{{incompatible pointer types returning 'Subclass1 *' from a function with result type 'Subclass2 *'}}
+  return sc1; // expected-error{{incompatible pointer types returning 'Subclass1 *' from a function with result type 'Subclass2 *'}}
 }
 - (void)methodOnSubclass2 {}
 - (id)self {
   Subclass1 *sc1 = [[Subclass1 alloc] init];
-  return sc1; // expected-warning{{incompatible pointer types returning 'Subclass1 *' from a function with result type 'Subclass2 *'}}
+  return sc1; // expected-error{{incompatible pointer types returning 'Subclass1 *' from a function with result type 'Subclass2 *'}}
 }
 @end
 
@@ -188,7 +188,6 @@ void test_instancetype_inherited() {
 
 @end
 
-// rdar://12493140
 @protocol P4
 - (instancetype) foo; // expected-note {{current method is explicitly declared 'instancetype' and is expected to return an instance of its class type}}
 @end
@@ -202,10 +201,10 @@ void test_instancetype_inherited() {
   B4 *_b;
 }
 - (id) foo {
-  return _b; // expected-warning {{incompatible pointer types returning 'B4 *' from a function with result type 'A4 *'}}
+  return _b; // expected-error {{incompatible pointer types returning 'B4 *' from a function with result type 'A4 *'}}
 }
 - (id) bar {
-  return _b; // expected-warning {{incompatible pointer types returning 'B4 *' from a function with result type 'A4 *'}}
+  return _b; // expected-error {{incompatible pointer types returning 'B4 *' from a function with result type 'A4 *'}}
 }
 
 // This is really just to ensure that we don't crash.

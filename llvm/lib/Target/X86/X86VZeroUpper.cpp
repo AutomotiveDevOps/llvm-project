@@ -39,6 +39,11 @@ using namespace llvm;
 
 #define DEBUG_TYPE "x86-vzeroupper"
 
+static cl::opt<bool>
+UseVZeroUpper("x86-use-vzeroupper", cl::Hidden,
+  cl::desc("Minimize AVX to SSE transition penalty"),
+  cl::init(true));
+
 STATISTIC(NumVZU, "Number of vzeroupper instructions inserted");
 
 namespace {
@@ -50,8 +55,7 @@ namespace {
     bool runOnMachineFunction(MachineFunction &MF) override;
 
     MachineFunctionProperties getRequiredProperties() const override {
-      return MachineFunctionProperties().set(
-          MachineFunctionProperties::Property::NoVRegs);
+      return MachineFunctionProperties().setNoVRegs();
     }
 
     StringRef getPassName() const override { return "X86 vzeroupper inserter"; }
@@ -125,13 +129,13 @@ const char* VZeroUpperInserter::getBlockExitStateName(BlockExitState ST) {
 
 /// VZEROUPPER cleans state that is related to Y/ZMM0-15 only.
 /// Thus, there is no need to check for Y/ZMM16 and above.
-static bool isYmmOrZmmReg(unsigned Reg) {
+static bool isYmmOrZmmReg(MCRegister Reg) {
   return (Reg >= X86::YMM0 && Reg <= X86::YMM15) ||
          (Reg >= X86::ZMM0 && Reg <= X86::ZMM15);
 }
 
 static bool checkFnHasLiveInYmmOrZmm(MachineRegisterInfo &MRI) {
-  for (std::pair<unsigned, unsigned> LI : MRI.liveins())
+  for (std::pair<MCRegister, Register> LI : MRI.liveins())
     if (isYmmOrZmmReg(LI.first))
       return true;
 
@@ -158,7 +162,7 @@ static bool hasYmmOrZmmReg(MachineInstr &MI) {
       continue;
     if (MO.isDebug())
       continue;
-    if (isYmmOrZmmReg(MO.getReg()))
+    if (isYmmOrZmmReg(MO.getReg().asMCReg()))
       return true;
   }
   return false;
@@ -177,8 +181,7 @@ static bool callHasRegMask(MachineInstr &MI) {
 /// Insert a vzeroupper instruction before I.
 void VZeroUpperInserter::insertVZeroUpper(MachineBasicBlock::iterator I,
                                           MachineBasicBlock &MBB) {
-  DebugLoc dl = I->getDebugLoc();
-  BuildMI(MBB, I, dl, TII->get(X86::VZEROUPPER));
+  BuildMI(MBB, I, I->getDebugLoc(), TII->get(X86::VZEROUPPER));
   ++NumVZU;
   EverMadeChange = true;
 }
@@ -267,10 +270,8 @@ void VZeroUpperInserter::processBasicBlock(MachineBasicBlock &MBB) {
                     << getBlockExitStateName(CurState) << '\n');
 
   if (CurState == EXITS_DIRTY)
-    for (MachineBasicBlock::succ_iterator SI = MBB.succ_begin(),
-                                          SE = MBB.succ_end();
-         SI != SE; ++SI)
-      addDirtySuccessor(**SI);
+    for (MachineBasicBlock *Succ : MBB.successors())
+      addDirtySuccessor(*Succ);
 
   BlockStates[MBB.getNumber()].ExitState = CurState;
 }
@@ -278,6 +279,9 @@ void VZeroUpperInserter::processBasicBlock(MachineBasicBlock &MBB) {
 /// Loop over all of the basic blocks, inserting vzeroupper instructions before
 /// function calls.
 bool VZeroUpperInserter::runOnMachineFunction(MachineFunction &MF) {
+  if (!UseVZeroUpper)
+    return false;
+
   const X86Subtarget &ST = MF.getSubtarget<X86Subtarget>();
   if (!ST.hasAVX() || !ST.insertVZEROUPPER())
     return false;
@@ -292,11 +296,10 @@ bool VZeroUpperInserter::runOnMachineFunction(MachineFunction &MF) {
   // need to insert any VZEROUPPER instructions.  This is constant-time, so it
   // is cheap in the common case of no ymm/zmm use.
   bool YmmOrZmmUsed = FnHasLiveInYmmOrZmm;
-  for (auto *RC : {&X86::VR256RegClass, &X86::VR512_0_15RegClass}) {
+  for (const auto *RC : {&X86::VR256RegClass, &X86::VR512_0_15RegClass}) {
     if (!YmmOrZmmUsed) {
-      for (TargetRegisterClass::iterator i = RC->begin(), e = RC->end(); i != e;
-           i++) {
-        if (!MRI.reg_nodbg_empty(*i)) {
+      for (MCPhysReg R : *RC) {
+        if (!MRI.reg_nodbg_empty(R)) {
           YmmOrZmmUsed = true;
           break;
         }

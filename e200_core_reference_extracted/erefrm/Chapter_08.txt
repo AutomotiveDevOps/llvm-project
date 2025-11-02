@@ -1,0 +1,505 @@
+Chapter 8
+Timer Facilities
+This chapter describes the architecture-defined timer resources, which are as follows:
+   • Section 8.3, “Time Base Operation”
+   • Section 8.4, “Decrementer Operation”
+   • Section 8.5, “Fixed-Interval Timer”
+   • Section 8.6, “Watchdog Timer”
+   • Section 8.7, “Alternate Time Base”
+
+8.1       Timer Facilities
+The time base, decrementer, fixed-interval timer, watchdog timer, and alternate time base provide timing
+functions for the system. All of these must be initialized during start-up.
+   • The time base provides a long-period counter driven at an implementation-dependent frequency.
+   • The decrementer provides a counter that is updated at the same rate as the time base and provides
+       a means of signaling an exception after a specified time has elapsed unless one of the following
+       occurs:
+       — The decrementer is altered by software in the interim.
+       — The time base update frequency changes.
+       The decrementer is typically used as a general-purpose software timer.
+   • The fixed-interval timer is essentially a selected bit of the time base, which provides a means of
+       signaling an exception whenever the selected bit transitions from 0 to 1, in a repetitive fashion. The
+       fixed-interval timer is typically used to trigger periodic system maintenance functions. Software
+       may select any bit in the time base to serve as the fixed-interval timer. See Section 8.5,
+       “Fixed-Interval Timer.”
+   • The watchdog timer is also a selected bit of the time base, which provides a means of signalling a
+       critical class exception whenever the selected bit transitions from 0 to 1. In addition, if software
+       does not respond in time to the initial exception, then a watchdog timer-generated processor reset
+       may result, if so enabled. The watchdog timer is typically used to provide a system error recovery
+       function. See Section 8.6, “Watchdog Timer.”
+   • Alternate time base register <ATB>—contains a 64-bit unsigned integer that is incremented
+       periodically at an implementation-defined frequency. See Section 3.7.6, “Alternate Time Base
+       Registers (ATB).”
+
+
+
+
+         EREF 2.0: A Programmer’s Reference Manual for Freescale Power Architecture® Processors, Rev. 0
+Freescale Semiconductor                                                                                   8-1
+Timer Facilities
+
+
+8.2         Timer Registers
+This section summarizes registers used by the timer facilities, shown in Figure 8-1. Full descriptions are
+given in Section 3.7, “Timer Registers.”
+                                   32           63
+                         spr 268         TBL
+                                                     User-level time base lower/upper (read-only)
+                         spr 269         TBU
+
+                         spr 284         TBL         Supervisor-level time base lower/upper
+                         spr 285         TBU         (write-only)
+
+                          spr 22        DEC          Decrementer
+
+                          spr 54        DECAR        Decrementer auto-reload
+
+                         spr 340         TCR         Timer control
+
+                         spr 336         TSR         Timer status
+
+                         spr 526        ATBL
+                                                     Alternate time base lower/upper                <ATB>)
+                         spr 527        ATBU
+
+
+                              Figure 8-1. Timer/Decrementer Registers Comparison
+
+      •   Time base (TB)—The time base is a 64-bit counter composed of two 32-bit registers, the time base
+          upper (TBU) concatenated on the right with the time base lower (TBL). Section 3.7.3, “Time Base
+          (TB),” describes the TB in detail.
+      •   Decrementer register (DEC)—The decrementer timer is a 32-bit register which decrements at the
+          time base frequency. The DEC can be programmed to interrupt when a decrement occurs on the
+          value of 1 in DEC. See Section 3.7.4, “Decrementer Register (DEC),” for more information.
+      •   Decrementer auto-reload register (DECAR)—Supports the auto-reload feature of the decrementer
+          to reload the DEC when the decrementer counts down to 0. See Section 3.7.5, “Decrementer
+          Auto-Reload Register (DECAR),” for more information.
+      •   On some processors, the time base clock is selected via the hardware implementation-dependent
+          register 0 (HID0[SEL_TBCLK]) and the time base is enabled via HID0[TBEN]. See
+          Section 3.6.4.1, “Hardware Implementation-Dependent Register 0 (HID0).” On some processors
+          the frequency of the time base clock and whether time base ticks are enabled is controlled through
+          the integrated device. See the core reference manual and the integrated device reference manual
+          for more information.
+      •   Timer control register (TCR)—Provides control information for the decrementer, fixed interval
+          timer, and watchdog timer. Section 3.7.1, “Timer Control Register (TCR),” describes TCR fields.
+      •   Timer status register (TSR)—Contains status on timer events and the most recent watchdog
+          timer-initiated processor reset. Section 3.7.2, “Timer Status Register (TSR),” describes TSR fields.
+      •   Alternate time base register (ATB) <ATB>—Provides a read-only alternate 64-bit time base that
+          increments at an implementation defined frequency (usually the processor clock). Like the time
+          base, the ATB is divided into ATBL and ATBU registers. ATB is an alias for ATBL. See
+          Section 3.7.6, “Alternate Time Base Registers (ATB).
+
+
+
+
+           EREF 2.0: A Programmer’s Reference Manual for Freescale Power Architecture® Processors, Rev. 0
+8-2                                                                                                    Freescale Semiconductor
+                                                                                                                 Timer Facilities
+
+
+8.3       Time Base Operation
+This section describes how time base registers are accessed and programmed. The relationship of these
+timer facilities to each other is shown in Figure 8-2.
+On some processors the clock source for the TB is specified by two fields in HID0: time base enable
+(TBEN), and select time base clock (SEL_TBCLK). If the TB is enabled, (HID0[TBEN] = 1), the clock
+source is determined as follows:
+   • If HID0[TBEN] = 1 and HID0[SEL_TBCLK] = 0, the time base updates at a core-defined rate.
+   • If HID0[TBEN] = 1 and HID0[SEL_TBCLK] = 1, the time base is updated based on an external
+        signal to the core.
+On some processors the clock source for the TB is controlled by the integrated device. The implementation
+documentation identifies the supported frequencies and clock input sources.
+
+                              32                   63       32                      63
+                                        TBU                              TBL                 Timer Clock
+                                                                                             (Time Base Clock)
+
+
+         Watchdog timer events based on one of the TB bits               •
+         selected by TCR[WPEXT] concatenated with TCR[WP]                •
+         (WPEXT||WP) when the bit transitions from 0 to 1.               •
+
+
+
+
+          Fixed-interval timer events based on one of TB bits selected         •
+          by TCR[FPEXT] concatenated with TCR[FP] (FPEXT||FP)                  •
+          when the bit transitions from 0 to 1.                                •
+
+
+                                                             32                      63
+                                                                         DEC
+
+              Decrementer event = decrement from 1                                 Auto-reload
+                                                              32                     63
+                                                                     DECAR
+
+                            Figure 8-2. Relationship of Timer Facilities to Time Base
+
+
+8.3.1        Writing the TB
+It is not possible to write the entire 64-bit TB using a single instruction. The TB can be written by a
+sequence such as the following:
+        lwzRx,upper # load 64-bit value for
+        lwz Ry,lower # TB into Rx and Ry
+        addi Rz,R0,0
+        mtspr TBL,Rz # force TBL to 0
+        mtspr TBU,Rx # set TBU
+        mtspr TBL,Ry # set TBL
+
+Provided that no interrupts occur while the last three instructions are being executed, loading 0 into time
+base lower prevents the possibility of a carry from time base lower to TBU while the TB is being
+initialized.
+
+         EREF 2.0: A Programmer’s Reference Manual for Freescale Power Architecture® Processors, Rev. 0
+Freescale Semiconductor                                                                                                      8-3
+Timer Facilities
+
+
+8.3.2          Reading the TB
+The 64-bit time base can be read in a single instruction on 64-bit implementations by reading TBL. In
+32-bit implementations the 64-bit time base cannot be read in a single instruction. For 32-bit
+implementations, mfspr rD,TBL reads the lower half into to a GPR, and mfspr rD,TBU reads the upper
+half. Because a carry from TBL to TBU can occur between reads, a sequence such as the following is
+necessary.
+        loop:
+        mfspr      Rx,TBU                                                              #load from TBU
+        mfspr      Ry,TBL                                                              #load from TBL
+        mfspr      Rz,TBU                                                              #load from TBU
+        cmp        cr0,0,Rz,Rx                                                  #see if 'old' = 'new'
+        bc         4,2,loop                                                   #loop if carry occurred
+
+The comparison and loop ensure that a consistent pair of values is obtained.
+
+8.3.3          Computing Time of Day from the Time Base
+Because the TB update frequency is implementation-dependent, the algorithm for converting the current
+value in the TB to time of day is also implementation-dependent.
+For example, assume TB is constantly incremented once for every 32 cycles of a 100-MHz CPU
+instruction clock. What is wanted is the pair of 32-bit values comprising a POSIX standard clock: the
+number of whole seconds that have passed since midnight January 1, 1970, and the remaining fraction of
+a second expressed as a number of nanoseconds.
+Assume the following:
+   • The value 0 in the TB represents the start time of the POSIX clock (if this is not true, a simple 64-bit
+      subtraction makes it so).
+   • The integer constant ticks_per_sec contains the following value, which is the number of times the
+      TB is updated each second:
+      — 100 MHz ÷ 32 = 3,125,000
+   • The integer constant ns_adj contains the following value, which is the number of nanoseconds per
+      tick of the TB:
+      — 1,000,000,000 ÷ 3,125,000 = 320
+The POSIX clock can be computed with an instruction sequence such as the following:
+        # Read Time Base
+        loop:
+        mfspr    Rx,TBU                                                       #load from TBU into Rx
+        mfspr    Ry,TBL                                                       #load from TBL into Ry
+        mfspr    Rz,TBU                                                       #load from TBU into Rz
+        cmp      CR0,0,Rz,Rx                                           #see if 'old TBU' = 'new TBU'
+        bc       4,2,loop                                                    #loop if carry occurred
+        rldimi   Ry,Rx,32,0                                                #splice TBU & TBL into Ry
+        #
+        # Compute POSIX clock
+        #
+        lwz      Rx,ticks_per_sec
+        divd     Rz,Ry,Rx                                                          #Rz = whole seconds
+
+
+           EREF 2.0: A Programmer’s Reference Manual for Freescale Power Architecture® Processors, Rev. 0
+8-4                                                                                        Freescale Semiconductor
+                                                                                                   Timer Facilities
+
+       stw       Rz,posix_sec
+       mulld     Rz,Rz,Rx                                                  #Rz = quotient * divisor
+       sub       Rz,Ry,Rz                                                        #Rz = excess ticks
+       lwz       Rx,ns_adj
+       mulld     Rz,Rz,Rx                                                  #Rz = excess nanoseconds
+       stw       Rz,posix_ns
+
+In the absence of a divd <64>, mulld <64>, and rldimi <64> instructions in a 32-bit implementation,
+direct implementation of the algorithm given above is awkward.
+Such division can be avoided entirely if a time of day clock in POSIX format is updated at least once each
+second.
+Assume the following:
+   • The operating system maintains the following variables:
+      — posix_tb (64 bits)
+      — posix_sec (32 bits)
+      — posix_ns (32 bits)
+      These variables hold the value of the TB and the computed POSIX second and nanosecond values
+      from the last time the POSIX clock was computed.
+   • The operating system arranges for an interrupt to occur at least once per second, at which time it
+      recomputes the POSIX clock values.
+   • The integer constant billion contains the value 1,000,000,000.
+The POSIX clock can be computed with an instruction sequence such as this:
+       loop:
+       mfspr    Rx,TBU                                                                    #Rx = TBU
+       mfspr    Ry,TBL                                                                    #Ry = TBL
+       mfspr    Rz,TBU                                                        #Rz = 'new' TBU value
+       cmp      CR0,0,Rz,Rx                                                   #see if 'old' = 'new'
+       bc       4,2,loop                                                    #loop if carry occurred
+       # now have 64-bit TB in Rx and Ry
+       lwz      Rz,posix_tb+4
+       sub      Rz,Ry,Rz                                                        #Rz = delta in ticks
+       lwz      Rw,ns_adj
+       mullw    Rz,Rz,Rw                                                           #Rz = delta in ns
+       lwz      Rw,posix_ns
+       add      Rz,Rz,Rw                                                          #Rz = new ns value
+       lwz      Rw,billion
+       cmp      CR0,0,Rz,Rw                                                   #see if past 1 second
+       bc       12,0,nochange                                                        #branch if not
+       sub      Rz,Rz,Rw                                                        #adjust nanoseconds
+       lwz      Rw,posix_sec
+       addi     Rw,Rw,1                                                              #adjust seconds
+       stw      Rw,posix_sec                                                      #store new seconds
+       nochange:
+       stw      Rz,posix_ns                                                            #store new ns
+       stw      Rx,posix_tb                                                     #store new time base
+       stw      Ry,posix_tb+4
+
+Note that the upper half of the TB does not participate in the calculation to determine the new POSIX time
+of day. This is correct as long as the time change does not exceed one second.
+
+
+         EREF 2.0: A Programmer’s Reference Manual for Freescale Power Architecture® Processors, Rev. 0
+Freescale Semiconductor                                                                                        8-5
+Timer Facilities
+
+
+8.3.4          Nonconstant Update Frequency
+In a system in which the update frequency of the TB may change over time, it is not possible to convert an
+isolated TB value into time of day. Instead, a TB value has meaning only with respect to the current update
+frequency and the time of day that the update frequency was last changed. Each time the update frequency
+changes, either the system software is notified of the change by way of an interrupt (Chapter 7, “Interrupts
+and Exceptions,” describes register behavior caused by the decrementer interrupt), or the change was
+instigated by the system software itself. At each such change, the system software must compute the
+current time of day using the old update frequency, compute a new value of ticks_per_sec for the new
+frequency, and save the time of day, TB value, and tick rate. Subsequent calls to compute time of day use
+the current TB value and the saved data.
+
+8.4         Decrementer Operation
+As Figure 8-2 shows, the DEC decrements at the same rate that the TB increments. A decrementer event
+occurs when a decrement occurs on a decrementer value of 0x0000_0001. At this point, the decrementer
+has the following modes of operation, depending on whether the auto-reload function is enabled:
+
+                                                  Begin decrementing
+
+
+
+
+                                  Auto reload enabled         Auto reload disabled
+                                    (TCR[ARE] = 1)              (TCR[ARE] = 0)
+
+                          Decrement from one,                            Decrement to 0
+                          TSR[DIS] is set, and                          and stop on zero,
+                              autoreload                         TSR[DIS] is set, 0x0000_0000 →
+                           (DECAR → DEC)                          DEC, DEC stops decrementing.
+
+
+
+
+                                                  If TCR[DIE] = 1 &
+                                                    (MSR[EE] = 1 |
+                                                 MSR[GS] = 1 <E.HV>)
+
+                                                 Decrementer Interrupt
+
+                                        Figure 8-3. Decrementer Operation
+
+      •   If TCR[ARE] is clear (auto-reload function disabled); decrement and stop on 0.
+          When the decrement event occurs, the decrementer interrupt status bit (TSR[DIS]) is set and the
+          value 0x0000_0000 is placed into the DEC, which then stops decrementing. It remains at 0 until
+          software reloads it using an mtspr instruction.
+          If the decrementer interrupt is enabled (TCR[DIE] and (MSR[EE] or MSR[GS] <E.HV>), the
+          interrupt is taken. Section 7.8.10, “Decrementer Interrupt,” describes register the decrementer
+          interrupt.
+
+
+           EREF 2.0: A Programmer’s Reference Manual for Freescale Power Architecture® Processors, Rev. 0
+8-6                                                                                           Freescale Semiconductor
+                                                                                                   Timer Facilities
+
+
+    •   If TCR[ARE] is set (auto-reload function enabled): Decrement and auto-reload.
+        When the decrementer event occurs, TSR[DIS] is set and the DECAR contents are placed into
+        DEC, which continues decrementing from the reloaded value.
+        If the decrementer interrupt is enabled (TCR[DIE] and (MSR[EE] or MSR[GS] <E.HV>), the
+        interrupt is taken. Section 7.8.10, “Decrementer Interrupt,” describes the decrementer interrupt.
+The decrementer interrupt handler must reset TSR[DIS] to avoid taking another, redundant decrementer
+interrupt once MSR[EE] is re-enabled (assuming TCR[DIE] is not cleared instead). This is done by writing
+a word to TSR using mtspr with a 1 in the bit corresponding to TSR[DIS] (and any other bits that are to
+be cleared) and 0 in all other bits. The write-data to the TSR is not direct data, but a mask. A 1 causes the
+bit to be cleared, and a 0 has no effect.
+Forcing the decrementer to 0 using mtspr does not cause a decrementer exception; however, decrementing
+which was in progress at the instant of the mtspr may cause the exception. To eliminate the decrementer
+as a source of exceptions, set TCR[DIE] to 0 (clear the decrementer interrupt enable bit).
+To eliminate all decrementer activity, the procedure is as follows:
+   1. Write 0 to TCR[DIE]. This prevents decrementer activity from causing exceptions.
+   2. Write 0 to TCR[ARE] to disable the decrementer auto-reload.
+   3. Write 0 to DEC. This halts decrementing. Although this action does not cause a decrementer
+       exception to be set in TSR[DIS], a near simultaneous decrement may have done so.
+   4. Write 1 to TSR[DIS]. This action clears TSR[DIS] and removes any pending decrementer
+       exception. Because the decrementer is frozen at zero, no further decrementer events are possible.
+If the auto-reload feature is disabled (TCR[ARE] is cleared), when the DEC reaches zero, it stays there
+until software reloads it using the mtspr instruction.
+On reset, TCR[ARE] is cleared, which disables the auto-reload feature.
+
+8.5       Fixed-Interval Timer
+The fixed-interval timer (FIT) is a mechanism for providing timer interrupts with a repeatable period, to
+facilitate system maintenance. It is similar in function to an auto-reload decrementer, except that there are
+fewer selections of interrupt period available. The fixed-interval timer exception occurs on 0 to 1
+transitions of a selected bit from the time base.
+The fixed-interval timer exception is logged by TSR[FIS]. A fixed-interval timer interrupt occurs if
+TCR[FIE] and (MSR[EE] or MSR[GS] <E.HV>) are enabled. See Section 7.8.11, “Fixed-Interval Timer
+Interrupt,” for details of register behavior caused by the fixed-interval timer interrupt.
+The interrupt handler must reset TSR[FIS] via software, in order to avoid another fixed-interval timer
+interrupt once MSR[EE] is re-enabled (assuming TCR[FIE] is not cleared instead). This is done by writing
+a word to the TSR using mtspr with a 1 in the bit corresponding to TSR[FIS] (and any other bits that are
+to be cleared) and 0 in all other bits. The write-data to the TSR is not direct data, but is a mask. Writing a
+1 causes the bit to be cleared; writing a 0 has no effect.
+
+
+
+
+         EREF 2.0: A Programmer’s Reference Manual for Freescale Power Architecture® Processors, Rev. 0
+Freescale Semiconductor                                                                                        8-7
+Timer Facilities
+
+
+A fixed-interval timer interrupt also occurs if the selected time base bit changes from 0 to 1 due to an mtspr
+that writes a 1 to a bit that was previously a 0. The fixed-interval timer interrupt is described in
+Section 7.8.11, “Fixed-Interval Timer Interrupt.”
+
+8.6         Watchdog Timer
+The watchdog timer is a facility intended to aid system recovery from faulty software or hardware.
+Watchdog time-outs occur on 0 to 1 transitions of selected bits from the time base.
+When a watchdog timer time-out occurs while watchdog timer interrupt status is clear (TSR[WIS] = 0) and
+the next watchdog time-out is enabled (TSR[ENW] = 1), a watchdog timer exception is generated and
+logged by setting TSR[WIS]. This is referred to as a watchdog timer first time out. A watchdog timer
+interrupt occurs if enabled by TCR[WIE] and (MSR[CE] or MSR[GS] <E.HV>). See Section 7.8.12,
+“Watchdog Timer Interrupt,” for details of the watchdog timer interrupt.
+To avoid another watchdog timer interrupt once MSR[CE] is re-enabled (assuming TCR[WIE] is not
+cleared instead), the interrupt handler must reset TSR[WIS] through software. This is done by writing a
+word to TSR using mtspr with a 1 in the bit corresponding to TSR[WIS] (and any other bits that are to be
+cleared) and a 0 in all other bits. The write-data to the TSR is not direct data, but is a mask. A 1 causes the
+bit to be cleared; a 0 has no effect.
+Note that a watchdog timer exception also occurs if the selected time base bit transitions from 0 to 1 due
+to an mtspr that writes a 1 to the bit when its previous value was 0.
+When a watchdog timer time-out occurs while TSR[WIS] = 1 and TSR[ENW] = 1, a processor reset
+occurs if it is enabled by a nonzero value of the watchdog reset control field (TCR[WRC]). This is referred
+to as a watchdog timer second time out. The assumption is that TSR[WIS] was not cleared because the
+processor was unable to execute the watchdog timer interrupt handler, leaving reset as the only available
+means to restart the system. Note that once TCR[WRC] has been set to a nonzero value, it cannot be reset
+by software; this feature prevents errant software from disabling the watchdog timer reset capability.
+
+
+
+
+           EREF 2.0: A Programmer’s Reference Manual for Freescale Power Architecture® Processors, Rev. 0
+8-8                                                                                        Freescale Semiconductor
+                                                                                                                    Timer Facilities
+
+
+This figure shows the watchdog timer state diagram.
+       Time-out. No exception recorded in TSR[WIS].
+         Set TSR[ENW] so next time-out causes interrupt.
+
+
+
+        TSR[ENW,WIS]        (2) SW Loop        TSR[ENW,WIS]
+            = 00                                   = 10
+
+
+                            (1) Watchdog                                Time-out. watchdog timer exception recorded in
+                                Interrupt                               TSR[WIS] WDT interrupt occurs if enabled by
+                                Handler
+                                                 (3) SW Loop            TCR[WIE] and MSR[CE]
+                          (2)Watchdog
+                             Interrupt
+                             Handler
+
+                                                                               If TCR[WRC]≠00 then RESET, including
+                                                                   Time-out
+        TSR[ENW,WIS]                           TSR[ENW,WIS]
+            = 01                                                                  TSR[WRS] ← TCR[WRC]
+                                                   = 11                           TCR[WRC] ← 00
+                           Time-out. Set
+                         TSR[ENW] so next
+                       time-out causes reset
+
+      1 Always take the watchdog timer interrupt when pending, and never attempt to prevent its occurrence. In this
+        mode, the watchdog timer interrupt caused by a first time-out is used to clear TSR[WIS] so a second time-out
+        never occurs. TSR[ENW] is not cleared, thereby allowing the next time-out to cause another interrupt.
+      2 Always take the watchdog timer interrupt when pending, but avoid when possible. In this mode, a recurring code
+        loop of reliable duration (or perhaps a periodic interrupt handler such as the fixed-interval timer interrupt handler)
+        is used to repeatedly clear TSR[ENW] such that a first time-out exception is avoided, and thus no watchdog timer
+        interrupt occurs. Once TSR[ENW] has been cleared, software has between one and two full watchdog periods
+        before a watchdog exception is posted in TSR[WIS]. If this occurs before the software can clear TSR[ENW] again,
+        a watchdog timer interrupt occurs. In this case, the watchdog timer interrupt handler then clears both TSR[ENW]
+        and TSR[WIS], in an attempt to avoid the next watchdog timer interrupt.
+      3 Never take the watchdog timer interrupt. In this mode, watchdog timer interrupts are disabled (TCR[WIE] is
+        cleared), and the system depends upon a recurring code loop of reliable duration (or perhaps a periodic interrupt
+        handler such as the fixed-interval timer interrupt handler) to repeatedly clear TSR[WIS] such that a second
+        time-out is avoided, and thus no reset occurs. TSR[ENW] is not cleared, thereby allowing the next time-out to set
+        TSR[WIS] again. The recurring code loop must have a period that is less than one watchdog timer period to
+        guarantee that a watchdog timer reset does not occur.
+                                          Figure 8-4. Watchdog State Machine
+
+This table describes the watchdog timer state machine and watchdog timer controls.
+                                            Table 8-1. Watchdog Timer Controls
+
+     Enable Next Watchdog             Timer
+             Timer                    Status                         Action When Timer Interval Expires
+         (TSR[ENW])                 (TSR[WIS])
+
+                 0                        0        Set enable next watchdog timer (TSR[ENW] is set).
+
+                 0                        1        Set enable next watchdog timer (TSR[ENW] is set).
+
+
+
+
+         EREF 2.0: A Programmer’s Reference Manual for Freescale Power Architecture® Processors, Rev. 0
+Freescale Semiconductor                                                                                                          8-9
+Timer Facilities
+
+
+                                Table 8-1. Watchdog Timer Controls (continued)
+
+       Enable Next Watchdog        Timer
+               Timer               Status                      Action When Timer Interval Expires
+           (TSR[ENW])            (TSR[WIS])
+
+                   1                  0       Set watchdog timer interrupt status bit (TSR[WIS] is set). If the watchdog
+                                              timer interrupt is enabled (TCR[WIE] = 1 and MSR[CE] = 1), then interrupt.
+
+                   1                  1       Cause watchdog timer reset action specified by TCR[WRC]. Reset copies
+                                              prereset TCR[WRC] into TSR[WRS], then clears TCR[WRC].
+
+The controls described in Table 8-1 imply three different modes of operation that a programmer might
+select for the watchdog timer. Each of these modes assumes that TCR[WRC] has been set to allow
+processor reset by the watchdog facility.
+
+8.7         Alternate Time Base
+The alternate time base counter (ATB) is formed by concatenating the upper and lower alternate time base
+registers (ATBU and ATBL), described in Section 3.7.6, “Alternate Time Base Registers (ATB).” It
+contains a 64-bit unsigned integer that is incremented periodically at an implementation-defined
+frequency. Like the TB implementation, ATBL is an aliased name for ATB and provides read-only access
+to the 64-bit alternate time base counter.
+The alternate time base increments until its value becomes 0xFFFF_FFFF_FFFF_FFFF (264 - 1). At the
+next increment, its value becomes 0x0000_0000_0000_0000. There is no explicit indication (such as an
+interrupt) that this has occurred.
+The effect of entering a power-savings mode or of processor frequency changes on counting in the
+alternate time base is implementation-dependent.
+
+8.8         Freezing the Timer Facilities
+The debug mechanism provides a means of temporarily freezing the timers when a debug event occurs.
+Specifically, the time base and decrementer can be frozen and prevented from incrementing/decrementing,
+respectively, whenever a debug event is set in the DBSR. This allows a debugger to simulate the
+appearance of real time, even though the application has been temporarily halted to service the debug
+event. See the description of DBCR0[FT] (freeze timers on debug event) in Section 3.13.2.1, “Debug
+Control Register 0 (DBCR0).”
+
+
+
+
+           EREF 2.0: A Programmer’s Reference Manual for Freescale Power Architecture® Processors, Rev. 0
+8-10                                                                                              Freescale Semiconductor
+                                                                                                  Debug Facilities
+

@@ -1,4 +1,4 @@
-//===- X86AvoidStoreForwardingBlockis.cpp - Avoid HW Store Forward Block --===//
+//===- X86AvoidStoreForwardingBlocks.cpp - Avoid HW Store Forward Block ---===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -44,7 +44,6 @@
 #include "llvm/CodeGen/MachineInstrBuilder.h"
 #include "llvm/CodeGen/MachineOperand.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
-#include "llvm/IR/DebugInfoMetadata.h"
 #include "llvm/IR/DebugLoc.h"
 #include "llvm/IR/Function.h"
 #include "llvm/InitializePasses.h"
@@ -154,7 +153,7 @@ static bool isPotentialBlockedMemCpyLd(unsigned Opcode) {
   return isXMMLoadOpcode(Opcode) || isYMMLoadOpcode(Opcode);
 }
 
-static bool isPotentialBlockedMemCpyPair(int LdOpcode, int StOpcode) {
+static bool isPotentialBlockedMemCpyPair(unsigned LdOpcode, unsigned StOpcode) {
   switch (LdOpcode) {
   case X86::MOVUPSrm:
   case X86::MOVAPSrm:
@@ -206,7 +205,7 @@ static bool isPotentialBlockedMemCpyPair(int LdOpcode, int StOpcode) {
   }
 }
 
-static bool isPotentialBlockingStoreInst(int Opcode, int LoadOpcode) {
+static bool isPotentialBlockingStoreInst(unsigned Opcode, unsigned LoadOpcode) {
   bool PBlock = false;
   PBlock |= Opcode == X86::MOV64mr || Opcode == X86::MOV64mi32 ||
             Opcode == X86::MOV32mr || Opcode == X86::MOV32mi ||
@@ -288,7 +287,7 @@ static unsigned getYMMtoXMMStoreOpcode(unsigned StoreOpcode) {
   return 0;
 }
 
-static int getAddrOffset(MachineInstr *MI) {
+static int getAddrOffset(const MachineInstr *MI) {
   const MCInstrDesc &Descl = MI->getDesc();
   int AddrOffset = X86II::getMemoryOperandNo(Descl.TSFlags);
   assert(AddrOffset != -1 && "Expected Memory Operand");
@@ -311,11 +310,11 @@ static MachineOperand &getDispOperand(MachineInstr *MI) {
 // TODO: Consider expanding to other addressing modes in the future
 static bool isRelevantAddressingMode(MachineInstr *MI) {
   int AddrOffset = getAddrOffset(MI);
-  MachineOperand &Base = getBaseOperand(MI);
-  MachineOperand &Disp = getDispOperand(MI);
-  MachineOperand &Scale = MI->getOperand(AddrOffset + X86::AddrScaleAmt);
-  MachineOperand &Index = MI->getOperand(AddrOffset + X86::AddrIndexReg);
-  MachineOperand &Segment = MI->getOperand(AddrOffset + X86::AddrSegmentReg);
+  const MachineOperand &Base = getBaseOperand(MI);
+  const MachineOperand &Disp = getDispOperand(MI);
+  const MachineOperand &Scale = MI->getOperand(AddrOffset + X86::AddrScaleAmt);
+  const MachineOperand &Index = MI->getOperand(AddrOffset + X86::AddrIndexReg);
+  const MachineOperand &Segment = MI->getOperand(AddrOffset + X86::AddrSegmentReg);
 
   if (!((Base.isReg() && Base.getReg() != X86::NoRegister) || Base.isFI()))
     return false;
@@ -360,22 +359,17 @@ findPotentialBlockers(MachineInstr *LoadInst) {
   if (BlockCount < InspectionLimit) {
     MachineBasicBlock *MBB = LoadInst->getParent();
     int LimitLeft = InspectionLimit - BlockCount;
-    for (MachineBasicBlock::pred_iterator PB = MBB->pred_begin(),
-                                          PE = MBB->pred_end();
-         PB != PE; ++PB) {
-      MachineBasicBlock *PMBB = *PB;
+    for (MachineBasicBlock *PMBB : MBB->predecessors()) {
       int PredCount = 0;
-      for (MachineBasicBlock::reverse_iterator PBInst = PMBB->rbegin(),
-                                               PME = PMBB->rend();
-           PBInst != PME; ++PBInst) {
-        if (PBInst->isMetaInstruction())
+      for (MachineInstr &PBInst : llvm::reverse(*PMBB)) {
+        if (PBInst.isMetaInstruction())
           continue;
         PredCount++;
         if (PredCount >= LimitLeft)
           break;
-        if (PBInst->getDesc().isCall())
+        if (PBInst.getDesc().isCall())
           break;
-        PotentialBlockers.push_back(&*PBInst);
+        PotentialBlockers.push_back(&PBInst);
       }
     }
   }
@@ -394,7 +388,7 @@ void X86AvoidSFBPass::buildCopy(MachineInstr *LoadInst, unsigned NLoadOpcode,
   MachineMemOperand *SMMO = *StoreInst->memoperands_begin();
 
   Register Reg1 = MRI->createVirtualRegister(
-      TII->getRegClass(TII->get(NLoadOpcode), 0, TRI, *(MBB->getParent())));
+      TII->getRegClass(TII->get(NLoadOpcode), 0, TRI));
   MachineInstr *NewLoad =
       BuildMI(*MBB, LoadInst, LoadInst->getDebugLoc(), TII->get(NLoadOpcode),
               Reg1)
@@ -498,7 +492,7 @@ void X86AvoidSFBPass::buildCopies(int Size, MachineInstr *LoadInst,
 static void updateKillStatus(MachineInstr *LoadInst, MachineInstr *StoreInst) {
   MachineOperand &LoadBase = getBaseOperand(LoadInst);
   MachineOperand &StoreBase = getBaseOperand(StoreInst);
-  auto StorePrevNonDbgInstr =
+  auto *StorePrevNonDbgInstr =
       prev_nodbg(MachineBasicBlock::instr_iterator(StoreInst),
                  LoadInst->getParent()->instr_begin())
           .getNodePtr();
@@ -526,13 +520,12 @@ bool X86AvoidSFBPass::alias(const MachineMemOperand &Op1,
     return true;
 
   int64_t MinOffset = std::min(Op1.getOffset(), Op2.getOffset());
-  int64_t Overlapa = Op1.getSize() + Op1.getOffset() - MinOffset;
-  int64_t Overlapb = Op2.getSize() + Op2.getOffset() - MinOffset;
+  int64_t Overlapa = Op1.getSize().getValue() + Op1.getOffset() - MinOffset;
+  int64_t Overlapb = Op2.getSize().getValue() + Op2.getOffset() - MinOffset;
 
-  AliasResult AAResult =
-      AA->alias(MemoryLocation(Op1.getValue(), Overlapa, Op1.getAAInfo()),
-                MemoryLocation(Op2.getValue(), Overlapb, Op2.getAAInfo()));
-  return AAResult != NoAlias;
+  return !AA->isNoAlias(
+      MemoryLocation(Op1.getValue(), Overlapa, Op1.getAAInfo()),
+      MemoryLocation(Op2.getValue(), Overlapb, Op2.getAAInfo()));
 }
 
 void X86AvoidSFBPass::findPotentiallylBlockedCopies(MachineFunction &MF) {
@@ -540,22 +533,18 @@ void X86AvoidSFBPass::findPotentiallylBlockedCopies(MachineFunction &MF) {
     for (auto &MI : MBB) {
       if (!isPotentialBlockedMemCpyLd(MI.getOpcode()))
         continue;
-      int DefVR = MI.getOperand(0).getReg();
+      Register DefVR = MI.getOperand(0).getReg();
       if (!MRI->hasOneNonDBGUse(DefVR))
         continue;
-      for (auto UI = MRI->use_nodbg_begin(DefVR), UE = MRI->use_nodbg_end();
-           UI != UE;) {
-        MachineOperand &StoreMO = *UI++;
+      for (MachineOperand &StoreMO :
+           llvm::make_early_inc_range(MRI->use_nodbg_operands(DefVR))) {
         MachineInstr &StoreMI = *StoreMO.getParent();
         // Skip cases where the memcpy may overlap.
         if (StoreMI.getParent() == MI.getParent() &&
             isPotentialBlockedMemCpyPair(MI.getOpcode(), StoreMI.getOpcode()) &&
             isRelevantAddressingMode(&MI) &&
-            isRelevantAddressingMode(&StoreMI)) {
-          assert(MI.hasOneMemOperand() &&
-                 "Expected one memory operand for load instruction");
-          assert(StoreMI.hasOneMemOperand() &&
-                 "Expected one memory operand for store instruction");
+            isRelevantAddressingMode(&StoreMI) &&
+            MI.hasOneMemOperand() && StoreMI.hasOneMemOperand()) {
           if (!alias(**MI.memoperands_begin(), **StoreMI.memoperands_begin()))
             BlockedLoadsStoresPairs.push_back(std::make_pair(&MI, &StoreMI));
         }
@@ -564,8 +553,7 @@ void X86AvoidSFBPass::findPotentiallylBlockedCopies(MachineFunction &MF) {
 }
 
 unsigned X86AvoidSFBPass::getRegSizeInBytes(MachineInstr *LoadInst) {
-  auto TRC = TII->getRegClass(TII->get(LoadInst->getOpcode()), 0, TRI,
-                              *LoadInst->getParent()->getParent());
+  const auto *TRC = TII->getRegClass(TII->get(LoadInst->getOpcode()), 0, TRI);
   return TRI->getRegSizeInBits(*TRC) / 8;
 }
 
@@ -617,8 +605,8 @@ void X86AvoidSFBPass::breakBlockedCopies(
 
 static bool hasSameBaseOpValue(MachineInstr *LoadInst,
                                MachineInstr *StoreInst) {
-  MachineOperand &LoadBase = getBaseOperand(LoadInst);
-  MachineOperand &StoreBase = getBaseOperand(StoreInst);
+  const MachineOperand &LoadBase = getBaseOperand(LoadInst);
+  const MachineOperand &StoreBase = getBaseOperand(StoreInst);
   if (LoadBase.isReg() != StoreBase.isReg())
     return false;
   if (LoadBase.isReg())
@@ -636,13 +624,10 @@ static bool isBlockingStore(int64_t LoadDispImm, unsigned LoadSize,
 static void
 updateBlockingStoresDispSizeMap(DisplacementSizeMap &BlockingStoresDispSizeMap,
                                 int64_t DispImm, unsigned Size) {
-  if (BlockingStoresDispSizeMap.count(DispImm)) {
-    // Choose the smallest blocking store starting at this displacement.
-    if (BlockingStoresDispSizeMap[DispImm] > Size)
-      BlockingStoresDispSizeMap[DispImm] = Size;
-
-  } else
-    BlockingStoresDispSizeMap[DispImm] = Size;
+  auto [It, Inserted] = BlockingStoresDispSizeMap.try_emplace(DispImm, Size);
+  // Choose the smallest blocking store starting at this displacement.
+  if (!Inserted && It->second > Size)
+    It->second = Size;
 }
 
 // Remove blocking stores contained in each other.
@@ -692,14 +677,13 @@ bool X86AvoidSFBPass::runOnMachineFunction(MachineFunction &MF) {
 
     SmallVector<MachineInstr *, 2> PotentialBlockers =
         findPotentialBlockers(LoadInst);
-    for (auto PBInst : PotentialBlockers) {
+    for (auto *PBInst : PotentialBlockers) {
       if (!isPotentialBlockingStoreInst(PBInst->getOpcode(),
                                         LoadInst->getOpcode()) ||
-          !isRelevantAddressingMode(PBInst))
+          !isRelevantAddressingMode(PBInst) || !PBInst->hasOneMemOperand())
         continue;
       int64_t PBstDispImm = getDispOperand(PBInst).getImm();
-      assert(PBInst->hasOneMemOperand() && "Expected One Memory Operand");
-      unsigned PBstSize = (*PBInst->memoperands_begin())->getSize();
+      unsigned PBstSize = (*PBInst->memoperands_begin())->getSize().getValue();
       // This check doesn't cover all cases, but it will suffice for now.
       // TODO: take branch probability into consideration, if the blocking
       // store is in an unreached block, breaking the memcopy could lose
@@ -728,7 +712,7 @@ bool X86AvoidSFBPass::runOnMachineFunction(MachineFunction &MF) {
     ForRemoval.push_back(LoadInst);
     ForRemoval.push_back(StoreInst);
   }
-  for (auto RemovedInst : ForRemoval) {
+  for (auto *RemovedInst : ForRemoval) {
     RemovedInst->eraseFromParent();
   }
   ForRemoval.clear();

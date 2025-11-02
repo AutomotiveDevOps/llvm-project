@@ -23,14 +23,13 @@ public:
   SystemLifetimeManager();
   ~SystemLifetimeManager();
 
-  llvm::Error Initialize(std::unique_ptr<SystemInitializer> initializer,
-                         LoadPluginCallbackType plugin_callback);
+  llvm::Error Initialize(std::unique_ptr<SystemInitializer> initializer);
   void Terminate();
 
 private:
   std::recursive_mutex m_mutex;
   std::unique_ptr<SystemInitializer> m_initializer;
-  bool m_initialized;
+  bool m_initialized = false;
 
   // Noncopyable.
   SystemLifetimeManager(const SystemLifetimeManager &other) = delete;

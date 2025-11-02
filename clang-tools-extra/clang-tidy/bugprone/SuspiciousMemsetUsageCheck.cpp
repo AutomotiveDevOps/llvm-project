@@ -1,4 +1,4 @@
-//===--- SuspiciousMemsetUsageCheck.cpp - clang-tidy-----------------------===//
+//===----------------------------------------------------------------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -15,39 +15,41 @@
 
 using namespace clang::ast_matchers;
 
-namespace clang {
-namespace tidy {
-namespace bugprone {
+namespace clang::tidy::bugprone {
 
 void SuspiciousMemsetUsageCheck::registerMatchers(MatchFinder *Finder) {
-  // Note: void *memset(void *buffer, int fill_char, size_t byte_count);
+  // Match the standard memset:
+  // void *memset(void *buffer, int fill_char, size_t byte_count);
+  auto MemsetDecl =
+      functionDecl(hasName("::memset"), parameterCountIs(3),
+                   hasParameter(0, hasType(pointerType(pointee(voidType())))),
+                   hasParameter(1, hasType(isInteger())),
+                   hasParameter(2, hasType(isInteger())));
+
   // Look for memset(x, '0', z). Probably memset(x, 0, z) was intended.
   Finder->addMatcher(
       callExpr(
-          callee(functionDecl(hasName("::memset"))),
+          callee(MemsetDecl), argumentCountIs(3),
           hasArgument(1, characterLiteral(equals(static_cast<unsigned>('0')))
                              .bind("char-zero-fill")),
-          unless(
-              eachOf(hasArgument(0, anyOf(hasType(pointsTo(isAnyCharacter())),
-                                          hasType(arrayType(hasElementType(
-                                              isAnyCharacter()))))),
-                     isInTemplateInstantiation()))),
+          unless(hasArgument(
+              0, anyOf(hasType(pointsTo(isAnyCharacter())),
+                       hasType(arrayType(hasElementType(isAnyCharacter()))))))),
       this);
 
   // Look for memset with an integer literal in its fill_char argument.
   // Will check if it gets truncated.
-  Finder->addMatcher(callExpr(callee(functionDecl(hasName("::memset"))),
-                              hasArgument(1, integerLiteral().bind("num-fill")),
-                              unless(isInTemplateInstantiation())),
-                     this);
+  Finder->addMatcher(
+      callExpr(callee(MemsetDecl), argumentCountIs(3),
+               hasArgument(1, integerLiteral().bind("num-fill"))),
+      this);
 
   // Look for memset(x, y, 0) as that is most likely an argument swap.
   Finder->addMatcher(
-      callExpr(callee(functionDecl(hasName("::memset"))),
+      callExpr(callee(MemsetDecl), argumentCountIs(3),
                unless(hasArgument(1, anyOf(characterLiteral(equals(
                                                static_cast<unsigned>('0'))),
-                                           integerLiteral()))),
-               unless(isInTemplateInstantiation()))
+                                           integerLiteral()))))
           .bind("call"),
       this);
 }
@@ -128,6 +130,4 @@ void SuspiciousMemsetUsageCheck::check(const MatchFinder::MatchResult &Result) {
   }
 }
 
-} // namespace bugprone
-} // namespace tidy
-} // namespace clang
+} // namespace clang::tidy::bugprone

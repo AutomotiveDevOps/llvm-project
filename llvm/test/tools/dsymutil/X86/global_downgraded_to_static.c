@@ -1,5 +1,9 @@
-// REQUIRES : system-darwin
-// RUN: dsymutil -oso-prepend-path %p/.. -dump-debug-map %p/../Inputs/global_downgraded_to_static.x86_64 2>&1 | FileCheck %s
+// REQUIRES: system-darwin
+// RUN: dsymutil -oso-prepend-path %p/.. -dump-debug-map \
+// RUN: %p/../Inputs/global_downgraded_to_static.x86_64 2>&1 | FileCheck %s
+//
+// RUN: dsymutil --linker parallel -oso-prepend-path %p/.. -dump-debug-map \
+// RUN: %p/../Inputs/global_downgraded_to_static.x86_64 2>&1 | FileCheck %s
 //
 //  To build:
 //    clang -g -c -DFILE1 global_downgraded_to_static.c -o 1.o
@@ -10,7 +14,7 @@
 #if defined(FILE1)
 int global_to_become_static = 42;
 // CHECK: sym: _global_to_become_static,
-// CHECK-SAME: binAddr: 0x0000000100001000
+// CHECK-SAME: binAddr: 0x100001000
 int foo() {
   return global_to_become_static;
 }

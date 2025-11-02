@@ -1,5 +1,4 @@
 // REQUIRES: x86-registered-target
-// REQUIRES: shell
 
 // RUN: mkdir -p %t; cd %t
 // RUN: %clang -target x86_64-unknown-linux-gnu -c -emit-interface-stubs %s -o %t/driver-test3.o
@@ -8,10 +7,9 @@
 
 // CHECK-OBJ: bar
 
-// CHECK-IFS: --- !experimental-ifs-v2
+// CHECK-IFS: --- !ifs-v1
 // CHECK-IFS-NEXT: IfsVersion:
-// CHECK-IFS-NEXT: Triple:
-// CHECK-IFS-NEXT: ObjectFileFormat:
+// CHECK-IFS-NEXT: Target:
 // CHECK-IFS-NEXT: Symbols:
 // CHECK-IFS-NEXT:   - { Name: "bar", Type: Func }
 // CHECK-IFS-NEXT: ...

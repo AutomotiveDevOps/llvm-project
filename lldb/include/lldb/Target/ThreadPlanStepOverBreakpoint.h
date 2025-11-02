@@ -23,10 +23,11 @@ public:
   void GetDescription(Stream *s, lldb::DescriptionLevel level) override;
   bool ValidatePlan(Stream *error) override;
   bool ShouldStop(Event *event_ptr) override;
+  bool SupportsResumeOthers() override;
   bool StopOthers() override;
   lldb::StateType GetPlanRunState() override;
   bool WillStop() override;
-  void WillPop() override;
+  void DidPop() override;
   bool MischiefManaged() override;
   void ThreadDestroyed() override;
   void SetAutoContinue(bool do_it);
@@ -47,7 +48,9 @@ private:
   bool m_auto_continue;
   bool m_reenabled_breakpoint_site;
 
-  DISALLOW_COPY_AND_ASSIGN(ThreadPlanStepOverBreakpoint);
+  ThreadPlanStepOverBreakpoint(const ThreadPlanStepOverBreakpoint &) = delete;
+  const ThreadPlanStepOverBreakpoint &
+  operator=(const ThreadPlanStepOverBreakpoint &) = delete;
 };
 
 } // namespace lldb_private

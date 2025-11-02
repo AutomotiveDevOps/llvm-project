@@ -6,7 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-// UNSUPPORTED: c++98, c++03
+// UNSUPPORTED: c++03
 
 // <regex>
 
@@ -18,8 +18,12 @@
 //                      regex_constants::match_flag_type m =
 //                                              regex_constants::match_default);
 
+// XFAIL: FROZEN-CXX03-HEADERS-FIXME
+
 #include <regex>
 #include <cassert>
+#include <iterator>
+
 #include "test_macros.h"
 
 int main(int, char**)

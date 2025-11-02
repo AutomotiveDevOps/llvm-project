@@ -31,26 +31,64 @@ namespace llvm {
 //    implemented yet.
 class MCSectionXCOFF final : public MCSection {
   friend class MCContext;
+  friend class MCAsmInfoXCOFF;
 
-  XCOFF::StorageMappingClass MappingClass;
-  XCOFF::SymbolType Type;
-  XCOFF::StorageClass StorageClass;
+  std::optional<XCOFF::CsectProperties> CsectProp;
   MCSymbolXCOFF *const QualName;
+  StringRef SymbolTableName;
+  std::optional<XCOFF::DwarfSectionSubtypeFlags> DwarfSubtypeFlags;
+  bool MultiSymbolsAllowed;
+  SectionKind Kind;
   static constexpr unsigned DefaultAlignVal = 4;
+  static constexpr unsigned DefaultTextAlignVal = 32;
 
+  // XTY_CM sections are virtual except for toc-data symbols.
   MCSectionXCOFF(StringRef Name, XCOFF::StorageMappingClass SMC,
-                 XCOFF::SymbolType ST, XCOFF::StorageClass SC, SectionKind K,
-                 MCSymbolXCOFF *QualName, MCSymbol *Begin)
-      : MCSection(SV_XCOFF, Name, K, Begin), MappingClass(SMC), Type(ST),
-        StorageClass(SC), QualName(QualName) {
-    assert((ST == XCOFF::XTY_SD || ST == XCOFF::XTY_CM || ST == XCOFF::XTY_ER) &&
-           "Invalid or unhandled type for csect.");
+                 XCOFF::SymbolType ST, SectionKind K, MCSymbolXCOFF *QualName,
+                 MCSymbol *Begin, StringRef SymbolTableName,
+                 bool MultiSymbolsAllowed)
+      : MCSection(Name, K.isText(),
+                  /*IsVirtual=*/ST == XCOFF::XTY_CM && SMC != XCOFF::XMC_TD,
+                  Begin),
+        CsectProp(XCOFF::CsectProperties(SMC, ST)), QualName(QualName),
+        SymbolTableName(SymbolTableName), DwarfSubtypeFlags(std::nullopt),
+        MultiSymbolsAllowed(MultiSymbolsAllowed), Kind(K) {
+    assert(
+        (ST == XCOFF::XTY_SD || ST == XCOFF::XTY_CM || ST == XCOFF::XTY_ER) &&
+        "Invalid or unhandled type for csect.");
     assert(QualName != nullptr && "QualName is needed.");
-    QualName->setStorageClass(SC);
+    if (SMC == XCOFF::XMC_UL)
+      assert((ST == XCOFF::XTY_CM || ST == XCOFF::XTY_ER) &&
+             "Invalid csect type for storage mapping class XCOFF::XMC_UL");
+
     QualName->setRepresentedCsect(this);
-    // A csect is 4 byte aligned by default, except for undefined symbol csects.
-    if (Type != XCOFF::XTY_ER)
-      setAlignment(Align(DefaultAlignVal));
+    QualName->setStorageClass(XCOFF::C_HIDEXT);
+    if (ST != XCOFF::XTY_ER) {
+      // For a csect for program code, set the alignment to 32 bytes by default.
+      // For other csects, set the alignment to 4 bytes by default.
+      if (SMC == XCOFF::XMC_PR)
+        setAlignment(Align(DefaultTextAlignVal));
+      else
+        setAlignment(Align(DefaultAlignVal));
+    }
+  }
+
+  // DWARF sections are never virtual.
+  MCSectionXCOFF(StringRef Name, SectionKind K, MCSymbolXCOFF *QualName,
+                 XCOFF::DwarfSectionSubtypeFlags DwarfSubtypeFlags,
+                 MCSymbol *Begin, StringRef SymbolTableName,
+                 bool MultiSymbolsAllowed)
+      : MCSection(Name, K.isText(), /*IsVirtual=*/false, Begin),
+        QualName(QualName), SymbolTableName(SymbolTableName),
+        DwarfSubtypeFlags(DwarfSubtypeFlags),
+        MultiSymbolsAllowed(MultiSymbolsAllowed), Kind(K) {
+    assert(QualName != nullptr && "QualName is needed.");
+
+    // FIXME: use a more meaningful name for non csect sections.
+    QualName->setRepresentedCsect(this);
+
+    // Use default text alignment as the alignment for DWARF sections.
+    setAlignment(Align(DefaultTextAlignVal));
   }
 
   void printCsectDirective(raw_ostream &OS) const;
@@ -58,20 +96,34 @@ class MCSectionXCOFF final : public MCSection {
 public:
   ~MCSectionXCOFF();
 
-  static bool classof(const MCSection *S) {
-    return S->getVariant() == SV_XCOFF;
+  XCOFF::StorageMappingClass getMappingClass() const {
+    assert(isCsect() && "Only csect section has mapping class property!");
+    return CsectProp->MappingClass;
   }
-
-  XCOFF::StorageMappingClass getMappingClass() const { return MappingClass; }
-  XCOFF::StorageClass getStorageClass() const { return StorageClass; }
-  XCOFF::SymbolType getCSectType() const { return Type; }
+  XCOFF::StorageClass getStorageClass() const {
+    return QualName->getStorageClass();
+  }
+  XCOFF::VisibilityType getVisibilityType() const {
+    return QualName->getVisibilityType();
+  }
+  XCOFF::SymbolType getCSectType() const {
+    assert(isCsect() && "Only csect section has symbol type property!");
+    return CsectProp->Type;
+  }
   MCSymbolXCOFF *getQualNameSymbol() const { return QualName; }
 
-  void PrintSwitchToSection(const MCAsmInfo &MAI, const Triple &T,
-                            raw_ostream &OS,
-                            const MCExpr *Subsection) const override;
-  bool UseCodeAlign() const override;
-  bool isVirtualSection() const override;
+  StringRef getSymbolTableName() const { return SymbolTableName; }
+  void setSymbolTableName(StringRef STN) { SymbolTableName = STN; }
+  bool isMultiSymbolsAllowed() const { return MultiSymbolsAllowed; }
+  bool isCsect() const { return CsectProp.has_value(); }
+  bool isDwarfSect() const { return DwarfSubtypeFlags.has_value(); }
+  std::optional<XCOFF::DwarfSectionSubtypeFlags> getDwarfSubtypeFlags() const {
+    return DwarfSubtypeFlags;
+  }
+  std::optional<XCOFF::CsectProperties> getCsectProp() const {
+    return CsectProp;
+  }
+  SectionKind getKind() const { return Kind; }
 };
 
 } // end namespace llvm

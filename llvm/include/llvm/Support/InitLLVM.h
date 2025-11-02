@@ -6,12 +6,14 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_SUPPORT_LLVM_H
-#define LLVM_SUPPORT_LLVM_H
+#ifndef LLVM_SUPPORT_INITLLVM_H
+#define LLVM_SUPPORT_INITLLVM_H
 
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/Support/Allocator.h"
+#include "llvm/Support/Compiler.h"
 #include "llvm/Support/PrettyStackTrace.h"
+#include <optional>
 
 // The main() functions in typical LLVM tools start with InitLLVM which does
 // the following one-time initializations:
@@ -33,18 +35,18 @@
 namespace llvm {
 class InitLLVM {
 public:
-  InitLLVM(int &Argc, const char **&Argv,
-           bool InstallPipeSignalExitHandler = true);
+  LLVM_ABI InitLLVM(int &Argc, const char **&Argv,
+                    bool InstallPipeSignalExitHandler = true);
   InitLLVM(int &Argc, char **&Argv, bool InstallPipeSignalExitHandler = true)
       : InitLLVM(Argc, const_cast<const char **&>(Argv),
                  InstallPipeSignalExitHandler) {}
 
-  ~InitLLVM();
+  LLVM_ABI ~InitLLVM();
 
 private:
   BumpPtrAllocator Alloc;
   SmallVector<const char *, 0> Args;
-  PrettyStackTraceProgram StackPrinter;
+  std::optional<PrettyStackTraceProgram> StackPrinter;
 };
 } // namespace llvm
 

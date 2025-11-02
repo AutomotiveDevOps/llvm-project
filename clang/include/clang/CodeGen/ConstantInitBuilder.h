@@ -25,8 +25,11 @@
 #include <vector>
 
 namespace clang {
-namespace CodeGen {
+class GlobalDecl;
+class PointerAuthSchema;
+class QualType;
 
+namespace CodeGen {
 class CodeGenModule;
 
 /// A convenience builder class for complex constant initializers,
@@ -41,7 +44,7 @@ class CodeGenModule;
 ///    for (auto &widget : widgets) {
 ///      auto widgetDesc = widgetArray.beginStruct();
 ///      widgetDesc.addInt(CGM.SizeTy, widget.getPower());
-///      widgetDesc.add(CGM.GetAddrOfConstantString(widget.getName()));
+///      widgetDesc.add(CGM.GetAddrOfConstantStringFromLiteral(widget.getName()));
 ///      widgetDesc.add(CGM.GetAddrOfGlobal(widget.getInitializerDecl()));
 ///      widgetDesc.finishAndAddTo(widgetArray);
 ///    }
@@ -199,14 +202,14 @@ public:
     add(llvm::ConstantInt::get(intTy, value, isSigned));
   }
 
+  /// Add a signed pointer using the given pointer authentication schema.
+  void addSignedPointer(llvm::Constant *Pointer,
+                        const PointerAuthSchema &Schema, GlobalDecl CalleeDecl,
+                        QualType CalleeType);
+
   /// Add a null pointer of a specific type.
   void addNullPointer(llvm::PointerType *ptrTy) {
     add(llvm::ConstantPointerNull::get(ptrTy));
-  }
-
-  /// Add a bitcast of a value to a specific type.
-  void addBitCast(llvm::Constant *value, llvm::Type *type) {
-    add(llvm::ConstantExpr::getBitCast(value, type));
   }
 
   /// Add a bunch of new values to this initializer.
@@ -224,6 +227,13 @@ public:
   /// targets may not fully support this operation.
   void addRelativeOffset(llvm::IntegerType *type, llvm::Constant *target) {
     add(getRelativeOffset(type, target));
+  }
+
+  /// Same as addRelativeOffset(), but instead relative to an element in this
+  /// aggregate, identified by its index.
+  void addRelativeOffsetToPosition(llvm::IntegerType *type,
+                                   llvm::Constant *target, size_t position) {
+    add(getRelativeOffsetToPosition(type, target, position));
   }
 
   /// Add a relative offset to the target address, plus a small
@@ -298,9 +308,17 @@ public:
   /// position to be filled.  This is computed with an indexed
   /// getelementptr rather than by computing offsets.
   ///
-  /// The returned pointer will have type T*, where T is the given
-  /// position.
+  /// The returned pointer will have type T*, where T is the given type. This
+  /// type can differ from the type of the actual element.
   llvm::Constant *getAddrOfCurrentPosition(llvm::Type *type);
+
+  /// Produce an address which points to a position in the aggregate being
+  /// constructed. This is computed with an indexed getelementptr rather than by
+  /// computing offsets.
+  ///
+  /// The returned pointer will have type T*, where T is the given type. This
+  /// type can differ from the type of the actual element.
+  llvm::Constant *getAddrOfPosition(llvm::Type *type, size_t position);
 
   llvm::ArrayRef<llvm::Constant*> getGEPIndicesToCurrentPosition(
                            llvm::SmallVectorImpl<llvm::Constant*> &indices) {
@@ -318,6 +336,10 @@ private:
 
   llvm::Constant *getRelativeOffset(llvm::IntegerType *offsetType,
                                     llvm::Constant *target);
+
+  llvm::Constant *getRelativeOffsetToPosition(llvm::IntegerType *offsetType,
+                                              llvm::Constant *target,
+                                              size_t position);
 
   CharUnits getOffsetFromGlobalTo(size_t index) const;
 };

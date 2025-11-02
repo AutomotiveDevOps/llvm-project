@@ -6,24 +6,18 @@
 //
 //===----------------------------------------------------------------------===//
 
-// XFAIL: libcpp-has-no-stdout
-
 // <iostream>
 
-// istream cout;
+// ostream cout;
 
-// FILE_DEPENDENCIES: %t.exe
 // RUN: %{build}
-// RUN: %{exec} %t.exe > %t.out
-// RUN: grep -e 'Hello World!' %t.out
+// RUN: %{exec} %t.exe > %t.actual
+// RUN: echo -n 1234 > %t.expected
+// RUN: diff %t.expected %t.actual
 
 #include <iostream>
 
-#include "test_macros.h"
-
-int main(int, char**)
-{
-    std::cout << "Hello World!\n";
-
+int main(int, char**) {
+    std::cout << "1234";
     return 0;
 }

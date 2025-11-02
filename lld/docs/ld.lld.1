@@ -4,7 +4,7 @@
 .\"
 .\" This man page documents only lld's ELF linking support, obtained originally
 .\" from FreeBSD.
-.Dd May 12, 2019
+.Dd Jul 25, 2023
 .Dt LD.LLD 1
 .Os
 .Sh NAME
@@ -27,8 +27,8 @@ It accepts most of the same command line arguments and linker scripts
 as GNU linkers.
 .Pp
 .Nm
-currently supports i386, x86-64, ARM, AArch64, PowerPC32, PowerPC64,
-MIPS32, MIPS64, RISC-V, AMDGPU, Hexagon and SPARC V9 targets.
+currently supports i386, x86-64, ARM, AArch64, LoongArch, PowerPC32,
+PowerPC64, MIPS32, MIPS64, RISC-V, AMDGPU, Hexagon and SPARC V9 targets.
 .Nm
 acts as a Microsoft link.exe-compatible linker if invoked as
 .Nm lld-link
@@ -72,10 +72,32 @@ field to the specified name.
 Link against shared libraries.
 .It Fl -Bstatic , Fl -static , Fl -dn
 Do not link against shared libraries.
-.It Fl -Bsymbolic
-Bind defined symbols locally.
-.It Fl -Bsymbolic-functions
-Bind defined function symbols locally.
+.It Fl Bno-symbolic
+Don't bind default visibility defined symbols locally for
+.Fl shared
+(default).
+.It Fl Bsymbolic
+Bind default visibility defined symbols locally for
+.Fl shared.
+Also set the
+.Dv DF_SYMBOLIC
+flag.
+.It Fl Bsymbolic-non-weak
+Bind default visibility defined STB_GLOBAL symbols locally for
+.Fl shared.
+.It Fl Bsymbolic-functions
+Bind default visibility defined function symbols locally for
+.Fl shared.
+.It Fl Bsymbolic-non-weak-functions
+Bind default visibility defined STB_GLOBAL function symbols locally for
+.Fl shared.
+.It Fl -be8
+Write a Big Endian ELF File using BE8 format(AArch32 only)
+.It Fl -branch-to-branch
+Enable the branch-to-branch optimizations: a branch whose target is
+another branch instruction is rewritten to point to the latter branch
+target (AArch64 and X86_64 only). Enabled by default at
+.Fl O2 Ns .
 .It Fl -build-id Ns = Ns Ar value
 Generate a build ID note.
 .Ar value
@@ -102,7 +124,20 @@ are calculated from the object contents.
 is not intended to be cryptographically secure.
 .It Fl -build-id
 Synonym for
-.Fl -build-id Ns = Ns Cm fast .
+.Fl -build-id Ns = Ns Cm sha1 .
+.It Fl -call-graph-profile-sort Ns = Ns Ar algorithm
+.Ar algorithm
+may be:
+.Pp
+.Bl -tag -width 2n -compact
+.It Cm none
+Ignore call graph profile.
+.It Cm hfsort
+Use hfsort.
+.It Cm cdsort
+Use cdsort (default).
+.El
+.Pp
 .It Fl -color-diagnostics Ns = Ns Ar value
 Use colors in diagnostics.
 .Ar value
@@ -118,20 +153,40 @@ Alias for
 .Fl -color-diagnostics Ns = Ns Cm auto .
 .It Fl -compress-debug-sections Ns = Ns Ar value
 Compress DWARF debug sections.
-.Ar value
+The sections remain uncompressed if compressed content would be larger.
+.Cm value
 may be
-.Cm none
-or
-.Cm zlib .
+.Pp
+.Bl -tag -width 2n -compact
+.It Cm none
+No compression.
+.It Cm zlib
 The default compression level is 1 (fastest) as the debug info usually
-compresses well at that level, but if you want to compress it more,
-you can specify
-.Fl O2
-to set the compression level to 6.
+compresses well at that level.
+.It Cm zstd
+Use the default compression level in zstd.
+.El
+.Pp
+.It Fl -compress-sections Ns = Ns Ar section-glob={none,zlib,zstd}[:level]
+Compress output sections that match the glob and do not have the SHF_ALLOC flag.
+The matched sections remain uncompressed if compressed content would be larger.
+The compression level is
+.Cm level
+(if specified) or a default speed-focused level.
+This is like a generalized
+.Cm --compress-debug-sections.
 .It Fl -cref
-Output cross reference table.
-.It Fl -define-common , Fl d
-Assign space to common symbols.
+Output cross reference table. If
+.Fl Map
+is specified, print to the map file.
+.It Fl -debug-names
+Generate a merged
+.Li .debug_names
+section.
+.It Fl -default-script Ns = Ns Ar file , Fl dT Ar file
+In the absence of
+.Fl -script ,
+read this default linker script.
 .It Fl -defsym Ns = Ns Ar symbol Ns = Ns Ar expression
 Define a symbol alias.
 .Ar expression
@@ -155,12 +210,15 @@ Specify the dynamic linker to be used for a dynamically linked executable.
 This is recorded in an ELF segment of type
 .Dv PT_INTERP .
 .It Fl -dynamic-list Ns = Ns Ar file
-Read a list of dynamic symbols from
-.Ar file .
-(executable) Put matched non-local defined symbols to the dynamic symbol table.
-(shared object) References to matched non-local STV_DEFAULT symbols shouldn't be bound to definitions within the shared object. Implies
+Similar to
+.Cm --export-dynamic-symbol-list .
+When creating a shared object, implies
 .Cm -Bsymbolic
 but does not set DF_SYMBOLIC
+.It Fl -EB
+Select the big-endian format in the OUTPUT_FORMAT command.
+.It Fl -EL
+Select the little-endian format in the OUTPUT_FORMAT command.
 .It Fl -eh-frame-hdr
 Request creation of
 .Li .eh_frame_hdr
@@ -171,6 +229,8 @@ segment header.
 Generate relocations in the output.
 .It Fl -enable-new-dtags
 Enable new dynamic tags.
+.It Fl -enable-non-contiguous-regions
+Spill input sections to later matching output sections to avoid memory region overflow.
 .It Fl -end-lib
 End a grouping of objects that should be treated as if they were together
 in an archive.
@@ -181,6 +241,19 @@ Maximum number of errors to emit before stopping.
 A value of zero indicates that there is no limit.
 .It Fl -error-unresolved-symbols
 Report unresolved symbols as errors.
+.It Fl -error-handing-script Ns = Ns Ar script_path
+Call script
+.Ar script_path
+upon some error, with
+.Ar tag
+as first argument, and an extra parameter as second argument. The script is
+expected to return 0 on success. Any other value is considered a generic error.
+.Ar tag
+may be
+.Cm missing-lib
+followed by the name of the missing library.
+.Cm undefined-symbol
+followed by the name of the undefined symbol.
 .It Fl -execute-only
 Mark executable sections unreadable.
 This option is currently only supported on AArch64.
@@ -196,6 +269,12 @@ Put symbols in the dynamic symbol table.
 .Cm -Bsymbolic-functions
 or
 .Cm --dynamic-list
+.It Fl -export-dynamic-symbol-list Ns = Ns Ar file
+Read a list of dynamic symbol patterns from
+.Ar file .
+Apply
+.Cm --export-dynamic-symbol
+on each pattern.
 .It Fl -fatal-warnings
 Treat warnings as errors.
 .It Fl -filter Ns = Ns Ar value , Fl F Ar value
@@ -204,6 +283,8 @@ Set the
 field to the specified value.
 .It Fl -fini Ns = Ns Ar symbol
 Specify a finalizer function.
+.It Fl -force-group-allocation
+Only meaningful for -r. Section groups are discarded. If two section group members are placed to the same output section, combine their relocations as well.
 .It Fl -format Ns = Ns Ar input-format , Fl b Ar input-format
 Specify the format of the inputs following this option.
 .Ar input-format
@@ -290,14 +371,14 @@ Always set
 for shared libraries.
 .It Fl -no-color-diagnostics
 Do not use colors in diagnostics.
-.It Fl -no-define-common
-Do not assign space to common symbols.
 .It Fl -no-demangle
 Do not demangle symbol names.
 .It Fl -no-dynamic-linker
 Inhibit output of an
 .Li .interp
 section.
+.It Fl -no-fortran-common
+Do not search archive members for definitions to override COMMON symbols.
 .It Fl -no-gc-sections
 Disable garbage collection of unused sections.
 .It Fl -no-gnu-unique
@@ -308,14 +389,21 @@ Disable merging .ARM.exidx entries.
 Page align sections.
 .It Fl -no-omagic
 Do not set the text data sections to be writable, page align sections.
+.It Fl -no-relax
+Disable target-specific relaxations. For x86-64 this disables R_X86_64_GOTPCRELX and R_X86_64_REX_GOTPCRELX GOT optimization.
 .It Fl -no-rosegment
 Do not put read-only non-executable sections in their own segment.
-.It Fl -no-undefined-version
-Report version scripts that refer undefined symbols.
+.It Fl -undefined-version
+Do not report version scripts that refer to undefined symbols.
 .It Fl -no-undefined
 Report unresolved symbols even if the linker is creating a shared library.
+.It Fl -no-warn-mismatch
+Do not reject unknown section types.
 .It Fl -no-warn-symbol-ordering
 Do not warn about problems with the symbol ordering file or call graph profile.
+.It Fl -no-warnings , Fl w
+Suppress warnings and cancel
+.Cm --fatal-warnings.
 .It Fl -no-whole-archive
 Restores the default behavior of loading archive members.
 .It Fl -no-pie , Fl -no-pic-executable
@@ -331,7 +419,7 @@ If not specified,
 .Dv a.out
 is used as a default.
 .It Fl O Ns Ar value
-Optimize output file size.
+Optimize output file.
 .Ar value
 may be:
 .Pp
@@ -341,9 +429,7 @@ Disable string merging.
 .It Cm 1
 Enable string merging.
 .It Cm 2
-Enable string tail merging. If
-.Fl -compress-debug-sections
-is given, compress debug sections at compression level 6 instead of 1.
+Enable string tail merging and branch-to-branch optimization.
 .El
 .Pp
 .Fl O Ns Cm 1
@@ -412,12 +498,32 @@ If
 .Fl -use-android-relr-tags
 is specified, use SHT_ANDROID_RELR instead of SHT_RELR.
 .Pp
+.It Fl -package-metadata
+Emit a percent-encoded string to the
+.Cm .note.package
+section. For example, %25 decodes to a single %.
 .It Fl -pic-veneer
 Always generate position independent thunks.
 .It Fl -pie , Fl -pic-executable
 Create a position independent executable.
+.It Fl -power10-stubs Ns = Ns Cm mode
+Whether to use Power10 instructions in call stubs for R_PPC64_REL24_NOTOC and TOC/NOTOC interworking.
+.Ar mode
+may be:
+.Pp
+.Bl -tag -width 2n -compact
+.It Cm yes
+(default) Use.
+.It Cm auto
+Currently the same as yes.
+.It Cm no
+Don't use.
+.El
+
 .It Fl -print-gc-sections
 List removed unused sections.
+.It Fl -print-gc-sections Ns = Ns Ar file
+List removed unused sections to the specified file.
 .It Fl -print-icf-sections
 List identical folded sections.
 .It Fl -print-map
@@ -432,10 +538,40 @@ Save the current state of
 and
 .Fl -whole-archive.
 .It Fl -pop-state
-Undo the effect of
+Restore the states saved by
 .Fl -push-state.
+.It Fl -randomize-section-padding Ns = Ns Ar seed
+Randomly insert padding between input sections and at the start of each segment using the given seed.
+Padding is inserted into output sections with names matching the following patterns:
+.Cm .bss ,
+.Cm .data ,
+.Cm .data.rel.ro ,
+.Cm .lbss ,
+.Cm .ldata ,
+.Cm .lrodata ,
+.Cm .ltext ,
+.Cm .rodata
+and
+.Cm .text* .
+.It Fl --relax-gp
+Enable global pointer relaxation for RISC-V.
 .It Fl -relocatable , Fl r
 Create relocatable object file.
+.It Fl -remap-inputs Ns = Ns Ar from-glob=to-file
+Input files matching
+.Cm from-glob
+are mapped to
+.Cm to-file.
+Use
+.Cm /dev/null
+to ignore an input file.
+.It Fl -remap-inputs-file Ns = Ns Ar file
+Remap input files based on patterns in
+.Ar file .
+Each line in the remap file is of the format
+.Cm from-glob=to-file
+or a comment starting with
+.Cm # .
 .It Fl -reproduce Ns = Ns Ar path
 Write a tar file to
 .Ar path,
@@ -466,7 +602,8 @@ Set address of section.
 .It Fl -shared , Fl -Bsharable
 Build a shared object.
 .It Fl -shuffle-sections Ns = Ns Ar seed
-Shuffle input sections using the given seed. If 0, use a random seed.
+Shuffle matched sections using the given seed before mapping them to the output sections.
+If -1, reverse the section order. If 0, use a random seed.
 .It Fl -soname Ns = Ns Ar value , Fl h Ar value
 Set
 .Dv DT_SONAME
@@ -481,6 +618,8 @@ Start a grouping of objects that should be treated as if they were together
 in an archive.
 .It Fl -strip-all , Fl s
 Strip all symbols.
+Implies
+.Fl -strip-debug .
 .It Fl -strip-debug , Fl S
 Strip debugging information.
 .It Fl -symbol-ordering-file Ns = Ns Ar file
@@ -540,6 +679,10 @@ Number of threads.
 (default) means all of concurrent threads supported.
 .Cm 1
 disables multi-threading.
+.It Fl -fat-lto-objects
+Use the .llvm.lto section, which contains LLVM bitcode, in fat LTO object files to perform LTO.
+.It Fl -no-fat-lto-objects
+Ignore the .llvm.lto section in relocatable object files (default).
 .It Fl -time-trace
 Record time trace.
 .It Fl -time-trace-file Ns = Ns Ar file
@@ -576,12 +719,25 @@ a given pattern are handled as if they were given as arguments of
 Creates a separate output section for every orphan input section.
 .It Fl -unresolved-symbols Ns = Ns Ar value
 Determine how to handle unresolved symbols.
+.Ar value
+may be:
+.Pp
+.Bl -tag -width 2n -compact
+.It Cm report-all
+Report unresolved symbols (default).
+.It Cm ignore-in-object-files
+Only report unresolved symbols contained in shared libraries.
+.It Cm ignore-in-shared-libs
+Only report unresolved symbols contained in object files.
+.It Cm ignore-all
+Do not report unresolved symbols.
+.El
 .It Fl -use-android-relr-tags
 Use SHT_ANDROID_RELR / DT_ANDROID_RELR* tags instead of SHT_RELR / DT_RELR*.
-.It Fl v
+.It Fl v , Fl V
 Display the version number and proceed with linking if object files are
 specified.
-.It Fl V , Fl -version
+.It Fl -version
 Display the version number and exit.
 .It Fl -verbose
 Verbose mode.
@@ -617,17 +773,65 @@ linkers, and may be removed in the future.
 Report unresolved symbols as warnings.
 .It Fl -whole-archive
 Force load of all members in a static library.
+.It Fl -why-extract Ns = Ns Ar file
+Print to a file about why archive members are extracted.
+.It Fl -why-live Ns = Ns Ar glob
+Report a chain of references preventing garbage collection for each symbol matching the glob.
 .It Fl -wrap Ns = Ns Ar symbol
-Use wrapper functions for symbol.
+Redirect
+.Ar symbol
+references to
+.Ar __wrap_symbol
+and
+.Ar __real_symbol
+references to
+.Ar symbol.
 .It Fl z Ar option
 Linker option extensions.
 .Bl -tag -width indent -compact
+.Pp
+.It Cm dead-reloc-in-nonalloc Ns = Ns Ar section_glob=value
+Resolve a relocation in a matched non-SHF_ALLOC section referencing a discarded symbol to
+.Ar value
+Accepts globs, in the event of a section matching more than one option, the last
+option takes precedence. An order of least specific to most specific match is
+recommended.
 .Pp
 .It Cm execstack
 Make the main stack executable.
 Stack permissions are recorded in the
 .Dv PT_GNU_STACK
 segment.
+.Pp
+.It Cm bti-report Ns = Ns Ar [none|warning|error]
+Specify how to report the missing GNU_PROPERTY_AARCH64_FEATURE_1_BTI property.
+.Cm none
+is the default, linker will not report the missing property otherwise will be reported as a warning or an error.
+.Pp
+.It Cm cet-report Ns = Ns Ar [none|warning|error]
+Specify how to report the missing GNU_PROPERTY_X86_FEATURE_1_IBT or GNU_PROPERTY_X86_FEATURE_1_SHSTK properties.
+.Cm none
+is the default, linker will not report the missing property otherwise will be reported as a warning or an error.
+.Pp
+.It Cm gcs-report Ns = Ns Ar [none|warning|error]
+Specify how to report missing
+.Cm GNU_PROPERTY_AARCH64_FEATURE_1_GCS
+property. GNU_PROPERTY_AARCH64_FEATURE_1_GCS indicates object file support for the Guarded Control Stack security feature.
+.Cm none
+is the default, linker will not report the missing property otherwise will be reported as a warning or an error.
+.Pp
+.It Cm dynamic-undefined-weak
+Make undefined weak symbols dynamic when the dynamic symbol table is present, if they are referenced from
+relocatable object files and not forced local by symbol visibility or versioning. Do not make them dynamic when
+.Cm nodynamic-undefined-weak
+is specified.
+.Cm dynamic-undefined-weak
+is the default when building a shared object, or when an input shared object is present.
+.Pp
+.It Cm pauth-report Ns = Ns Ar [none|warning|error]
+Specify how to report the missing GNU_PROPERTY_AARCH64_FEATURE_PAUTH property.
+.Cm none
+is the default, linker will not report the missing property otherwise will be reported as a warning or an error.
 .Pp
 .It Cm force-bti
 Force enable AArch64 BTI instruction in PLT, warn if Input ELF file does not have GNU_PROPERTY_AARCH64_FEATURE_1_BTI property.
@@ -663,6 +867,9 @@ Set the
 flag to indicate to the runtime linker that the object is an interposer.
 During symbol resolution interposers are searched after the application
 but before other dependencies.
+.Pp
+.It Cm lrodata-after-bss
+Place .lrodata after .bss.
 .Pp
 .It Cm muldefs
 Do not error if a symbol is defined multiple times.
@@ -704,6 +911,9 @@ The object will omit the
 .Dv PT_GNU_RELRO
 segment.
 .Pp
+.It Cm nosectionheader
+Don't generate the section header table.
+.Pp
 .It Cm notext
 Allow relocations against read-only segments.
 Sets the
@@ -727,6 +937,12 @@ processing.
 .Pp
 .It Cm pac-plt
 AArch64 only, use pointer authentication in PLT.
+.Pp
+.It Cm pack-relative-relocs
+Similar to
+.Cm -pack-dyn-relocs=relr
+, but synthesizes the GLIBC_ABI_DT_RELR version dependency if there is a GLIBC_2.* version dependency.
+glibc ld.so rejects loading a dynamically linked object without the GLIBC_ABI_DT_RELR version dependency.
 .Pp
 .It Cm rel
 Use REL format for dynamic relocations.
@@ -759,6 +975,17 @@ disallows overlap.
 .It Cm shstk
 x86 only, use shadow stack.
 .Pp
+.It Cm gcs Ns = Ns Ar [implicit|never|always]
+Specifies how the
+.Cm GNU_PROPERTY_AARCH64_FEATURE_1_GCS
+bit is set in the output ELF file. When set, it indicates support for the Guarded Control Stack (GCS) security feature.
+.Cm implicit
+(default) The GCS feature bit is set if all input relocatable files have a .note.gnu.property section containing the GNU_PROPERTY_AARCH64_FEATURE_1_GCS bit.
+.Cm never
+clears the GCS feature bit regardless of input relocatable files' markings.
+.Cm always
+sets the GCS feature bit regardless of input object markings.
+.Pp
 .It Cm stack-size Ns = Ns Ar size
 Set the main thread's stack size to
 .Ar size .
@@ -767,9 +994,20 @@ The stack size is recorded as the size of the
 .Dv PT_GNU_STACK
 program segment.
 .Pp
+.It Cm start-stop-gc
+Don't let __start_/__stop_ references retain the associated C identifier name sections (default).
+.Pp
+.It Cm nostart-stop-gc
+Let __start_/__stop_ references retain the associated C identifier name sections.
+.Pp
 .It Cm text
 Do not allow relocations against read-only segments.
 This is the default.
+.Pp
+.It Cm nobtcfi
+Create a
+.Dv PT_OPENBSD_NOBTCFI
+segment.
 .Pp
 .It Cm wxneeded
 Create a
@@ -777,6 +1015,22 @@ Create a
 segment.
 .El
 .El
+
+.Sh ENVIRONMENT VARIABLES
+.Bl -tag -width LC_CTYPE
+.It Ev LLD_REPRODUCE
+Create a reproduce tarball with the specified filename. If
+.Fl -reproduce
+is specified,
+.Fl -reproduce
+takes precedence.
+.It Ev LLD_VERSION
+ld.lld creates a section named
+.Cm .comment
+containing the LLD version string. The version string can be overridden by this environment variable,
+which is useful to eliminate differences in the binary caused by LLD version number differences.
+.El
+
 .Sh IMPLEMENTATION NOTES
 .Nm Ap s
 handing of archive files (those with a

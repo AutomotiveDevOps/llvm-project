@@ -11,7 +11,6 @@
 #include "lldb/Utility/ArchSpec.h"
 #include "llvm/BinaryFormat/ELF.h"
 #include "llvm/BinaryFormat/MachO.h"
-#include "llvm/Support/YAMLParser.h"
 
 using namespace lldb;
 using namespace lldb_private;
@@ -115,6 +114,14 @@ TEST(ArchSpecTest, TestSetTriple) {
   EXPECT_EQ(ArchSpec::eCore_ppc_ppc970, AS.GetCore());
 
   AS = ArchSpec();
+  EXPECT_TRUE(AS.SetTriple("24-0-apple-unknown"));
+  EXPECT_EQ(uint32_t(llvm::MachO::CPU_TYPE_RISCV), AS.GetMachOCPUType());
+  EXPECT_EQ(0u, AS.GetMachOCPUSubType());
+  EXPECT_TRUE(llvm::StringRef(AS.GetTriple().str())
+                  .consume_front("riscv32-apple-unknown"));
+  EXPECT_EQ(ArchSpec::eCore_riscv32, AS.GetCore());
+
+  AS = ArchSpec();
   EXPECT_TRUE(AS.SetTriple("i686-pc-windows"));
   EXPECT_EQ(llvm::Triple::x86, AS.GetTriple().getArch());
   EXPECT_EQ(llvm::Triple::PC, AS.GetTriple().getVendor());
@@ -123,6 +130,18 @@ TEST(ArchSpecTest, TestSetTriple) {
       llvm::StringRef(AS.GetTriple().str()).consume_front("i686-pc-windows"));
   EXPECT_STREQ("i686", AS.GetArchitectureName());
   EXPECT_EQ(ArchSpec::eCore_x86_32_i686, AS.GetCore());
+
+  AS = ArchSpec();
+  EXPECT_TRUE(AS.SetTriple("msp430---elf"));
+  EXPECT_EQ(llvm::Triple::msp430, AS.GetTriple().getArch());
+  EXPECT_STREQ("msp430", AS.GetArchitectureName());
+  EXPECT_EQ(ArchSpec::eCore_msp430, AS.GetCore());
+
+  AS = ArchSpec();
+  EXPECT_TRUE(AS.SetTriple("amd64-unknown-openbsd"));
+  EXPECT_EQ(llvm::Triple::x86_64, AS.GetTriple().getArch());
+  EXPECT_STREQ("amd64", AS.GetArchitectureName());
+  EXPECT_EQ(ArchSpec::eCore_x86_64_amd64, AS.GetCore());
 
   // Various flavors of invalid triples.
   AS = ArchSpec();
@@ -305,6 +324,33 @@ TEST(ArchSpecTest, Compatibility) {
     ArchSpec B("x86_64-apple-ios-simulator");
     ASSERT_FALSE(A.IsExactMatch(B));
     ASSERT_FALSE(A.IsCompatibleMatch(B));
+    ASSERT_FALSE(B.IsExactMatch(A));
+    ASSERT_FALSE(B.IsCompatibleMatch(A));
+  }
+  {
+    ArchSpec A("x86_64-apple-ios");
+    ArchSpec B("x86_64-apple-ios-simulator");
+    ASSERT_FALSE(A.IsExactMatch(B));
+    ASSERT_FALSE(A.IsCompatibleMatch(B));
+    ASSERT_FALSE(B.IsExactMatch(A));
+    ASSERT_FALSE(B.IsCompatibleMatch(A));
+  }
+  {
+    // FIXME: This is surprisingly not equivalent to "x86_64-*-*".
+    ArchSpec A("x86_64");
+    ArchSpec B("x86_64-apple-ios-simulator");
+    ASSERT_FALSE(A.IsExactMatch(B));
+    ASSERT_TRUE(A.IsCompatibleMatch(B));
+    ASSERT_FALSE(B.IsExactMatch(A));
+    ASSERT_TRUE(B.IsCompatibleMatch(A));
+  }
+  {
+    ArchSpec A("arm64-apple-ios");
+    ArchSpec B("arm64-apple-ios-simulator");
+    ASSERT_FALSE(A.IsExactMatch(B));
+    ASSERT_FALSE(A.IsCompatibleMatch(B));
+    ASSERT_FALSE(B.IsCompatibleMatch(A));
+    ASSERT_FALSE(B.IsCompatibleMatch(A));
   }
   {
     ArchSpec A("arm64-*-*");
@@ -326,6 +372,46 @@ TEST(ArchSpecTest, Compatibility) {
     ArchSpec B("x86_64-apple-macosx10.14");
     // FIXME: The exact match also looks unintuitive.
     ASSERT_TRUE(A.IsExactMatch(B));
+    ASSERT_TRUE(A.IsCompatibleMatch(B));
+  }
+  {
+    ArchSpec A("x86_64");
+    ArchSpec B("x86_64-apple-ios12.0.0-macabi");
+    // FIXME: The exact match also looks unintuitive.
+    ASSERT_TRUE(A.IsExactMatch(B));
+    ASSERT_TRUE(A.IsCompatibleMatch(B));
+  }
+  {
+    ArchSpec A("x86_64-apple-ios12.0.0");
+    ArchSpec B("x86_64-apple-ios12.0.0-macabi");
+    ASSERT_FALSE(A.IsExactMatch(B));
+    ASSERT_FALSE(A.IsCompatibleMatch(B));
+  }
+  {
+    ArchSpec A("x86_64-apple-macosx10.14.2");
+    ArchSpec B("x86_64-apple-ios12.0.0-macabi");
+    ASSERT_FALSE(A.IsExactMatch(B));
+    ASSERT_TRUE(A.IsCompatibleMatch(B));
+  }
+  {
+    ArchSpec A("x86_64-apple-macosx10.14.2");
+    ArchSpec B("x86_64-apple-ios12.0.0-macabi");
+    // ios-macabi wins.
+    A.MergeFrom(B);
+    ASSERT_TRUE(A.IsExactMatch(B));
+  }
+  {
+    ArchSpec A("x86_64-apple-macosx10.14.2");
+    ArchSpec B("x86_64-apple-ios12.0.0-macabi");
+    ArchSpec C(B);
+    // ios-macabi wins.
+    B.MergeFrom(A);
+    ASSERT_TRUE(B.IsExactMatch(C));
+  }
+  {
+    ArchSpec A("x86_64-apple-driverkit19.0");
+    ArchSpec B("x86_64-apple-macosx10.15.0");
+    ASSERT_FALSE(A.IsExactMatch(B));
     ASSERT_TRUE(A.IsCompatibleMatch(B));
   }
 }
@@ -406,24 +492,4 @@ TEST(ArchSpecTest, TripleComponentsWereSpecified) {
     ASSERT_TRUE(D.TripleOSWasSpecified());
     ASSERT_TRUE(D.TripleEnvironmentWasSpecified());
   }
-}
-
-TEST(ArchSpecTest, YAML) {
-  std::string buffer;
-  llvm::raw_string_ostream os(buffer);
-
-  // Serialize.
-  llvm::yaml::Output yout(os);
-  std::vector<ArchSpec> archs = {ArchSpec("x86_64-pc-linux"),
-                                 ArchSpec("x86_64-apple-macosx10.12"),
-                                 ArchSpec("i686-pc-windows")};
-  yout << archs;
-  os.flush();
-
-  // Deserialize.
-  std::vector<ArchSpec> deserialized;
-  llvm::yaml::Input yin(buffer);
-  yin >> deserialized;
-
-  EXPECT_EQ(archs, deserialized);
 }

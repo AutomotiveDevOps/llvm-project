@@ -1,5 +1,5 @@
 // RUN: %clang_cc1 -fsyntax-only -std=c++11 -verify %s
-template<typename T> struct X; // expected-note {{'X' is incomplete}}
+template <typename T> struct X; // expected-note {{'X<X<X<int>>>' is incomplete}}
 template<int I> struct Y;
 
 X<X<int>> *x1;
@@ -14,8 +14,8 @@ typedef X<int> X_int;
 struct Z : X_int { };
 
 void f(const X<int> x) {
-  (void)reinterpret_cast<X<int>>(x); // expected-error{{reinterpret_cast from}}
-  (void)reinterpret_cast<X<X<X<int>>>>(x); // expected-error{{reinterpret_cast from}}
+  (void)reinterpret_cast<X<int>>(x);       // expected-error{{reinterpret_cast from 'const X<int>' to 'X<int>' is not allowed}}
+  (void)reinterpret_cast<X<X<X<int>>>>(x); // expected-error{{reinterpret_cast from 'const X<int>' to 'X<X<X<int>>>' is not allowed}}
 
   X<X<int>> *x1;
 }
@@ -97,14 +97,14 @@ template<unsigned N, typename...Ts> struct drop {
 using T1 = take<3, int, char, double, long>::type; // expected-note {{previous}}
 // FIXME: Desguar the types on the RHS in this diagnostic.
 // desired-error {{'types<void, void, void, void>' vs 'types<int, char, double, (no argument)>'}}
-using T1 = types<void, void, void, void>; // expected-error {{'types<void, void, void, void>' vs 'types<typename inner<_>::type, typename inner<_>::type, typename inner<_>::type, (no argument)>'}}
+using T1 = types<void, void, void, void>; // expected-error {{'types<void, void, void, void>' vs 'types<typename ParameterPackExpansions::wrap<int>::inner<_>::type, typename ParameterPackExpansions::wrap<char>::inner<_>::type, typename ParameterPackExpansions::wrap<double>::inner<_>::type, (no argument)>'}}
 using D1 = drop<3, int, char, double, long>::type;
 using D1 = types<long>;
 
 using T2 = take<4, int, char, double, long>::type; // expected-note {{previous}}
 // FIXME: Desguar the types on the RHS in this diagnostic.
 // desired-error {{'types<void, void, void, void>' vs 'types<int, char, double, long>'}}
-using T2 = types<void, void, void, void>; // expected-error {{'types<void, void, void, void>' vs 'types<typename inner<_>::type, typename inner<_>::type, typename inner<_>::type, typename inner<_>::type>'}}
+using T2 = types<void, void, void, void>; // expected-error {{'types<void, void, void, void>' vs 'types<typename ParameterPackExpansions::wrap<int>::inner<_>::type, typename ParameterPackExpansions::wrap<char>::inner<_>::type, typename ParameterPackExpansions::wrap<double>::inner<_>::type, typename ParameterPackExpansions::wrap<long>::inner<_>::type>'}}
 using T2 = types<int, char, double, long>;
 using D2 = drop<4, int, char, double, long>::type;
 using D2 = types<>;
@@ -141,6 +141,7 @@ template<typename...Ts> struct A {
     B() {
       consume([]{
         int arr[Vs]; // expected-error {{negative size}}
+                     // expected-note@-2 {{while substituting into a lambda expression here}}
       }...);
     }
   };

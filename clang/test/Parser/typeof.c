@@ -2,7 +2,7 @@
 
 typedef int TInt;
 
-static void test() {
+static void test(void) {
   int *pi;
 
   int typeof (int) aIntInt; // expected-error{{cannot combine with previous 'int' declaration specifier}}
@@ -12,14 +12,13 @@ static void test() {
   short TInt eee; // expected-error{{expected ';' at end of declaration}}
   void ary[7] fff; // expected-error{{array has incomplete element type 'void'}} expected-error{{expected ';' at end of declaration}}
   typeof(void ary[7]) anIntError; // expected-error{{expected ')'}} expected-note {{to match this '('}}  expected-error {{variable has incomplete type 'typeof(void)' (aka 'void')}}
-  typeof(const int) aci; 
-  const typeof (*pi) aConstInt; 
+  typeof(const int) aci = 0;
+  const typeof (*pi) aConstInt = 0;
   int xx;
   int *i;
 }
 
-// <rdar://problem/8237491>
-void test2() {
+void test2(void) {
     int a;
     short b;
     __typeof__(a) (*f)(__typeof__(b));    

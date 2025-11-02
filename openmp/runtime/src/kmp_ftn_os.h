@@ -116,6 +116,8 @@
 #define FTN_TARGET_IS_PRESENT omp_target_is_present
 #define FTN_TARGET_MEMCPY omp_target_memcpy
 #define FTN_TARGET_MEMCPY_RECT omp_target_memcpy_rect
+#define FTN_TARGET_MEMSET omp_target_memset
+#define FTN_TARGET_MEMSET_ASYNC omp_target_memset_async
 #define FTN_TARGET_ASSOCIATE_PTR omp_target_associate_ptr
 #define FTN_TARGET_DISASSOCIATE_PTR omp_target_disassociate_ptr
 #endif
@@ -125,6 +127,18 @@
 #define FTN_DESTROY_ALLOCATOR omp_destroy_allocator
 #define FTN_SET_DEFAULT_ALLOCATOR omp_set_default_allocator
 #define FTN_GET_DEFAULT_ALLOCATOR omp_get_default_allocator
+#define FTN_GET_DEVICES_MEMSPACE omp_get_devices_memspace
+#define FTN_GET_DEVICE_MEMSPACE omp_get_device_memspace
+#define FTN_GET_DEVICES_AND_HOST_MEMSPACE omp_get_devices_and_host_memspace
+#define FTN_GET_DEVICE_AND_HOST_MEMSPACE omp_get_device_and_host_memspace
+#define FTN_GET_DEVICES_ALL_MEMSPACE omp_get_devices_all_memspace
+#define FTN_GET_DEVICES_ALLOCATOR omp_get_devices_allocator
+#define FTN_GET_DEVICE_ALLOCATOR omp_get_device_allocator
+#define FTN_GET_DEVICES_AND_HOST_ALLOCATOR omp_get_devices_and_host_allocator
+#define FTN_GET_DEVICE_AND_HOST_ALLOCATOR omp_get_device_and_host_allocator
+#define FTN_GET_DEVICES_ALL_ALLOCATOR omp_get_devices_all_allocator
+#define FTN_GET_MEMSPACE_NUM_RESOURCES omp_get_memspace_num_resources
+#define FTN_GET_SUBMEMSPACE omp_get_submemspace
 #define FTN_GET_DEVICE_NUM omp_get_device_num
 #define FTN_SET_AFFINITY_FORMAT omp_set_affinity_format
 #define FTN_GET_AFFINITY_FORMAT omp_get_affinity_format
@@ -134,7 +148,20 @@
 #define FTN_PAUSE_RESOURCE_ALL omp_pause_resource_all
 #define FTN_GET_SUPPORTED_ACTIVE_LEVELS omp_get_supported_active_levels
 #define FTN_DISPLAY_ENV omp_display_env
+#define FTN_IN_EXPLICIT_TASK omp_in_explicit_task
 #define FTN_FULFILL_EVENT omp_fulfill_event
+#define FTN_SET_NUM_TEAMS omp_set_num_teams
+#define FTN_GET_MAX_TEAMS omp_get_max_teams
+#define FTN_SET_TEAMS_THREAD_LIMIT omp_set_teams_thread_limit
+#define FTN_GET_TEAMS_THREAD_LIMIT omp_get_teams_thread_limit
+
+#define FTN_GET_NUM_INTEROP_PROPERTIES omp_get_num_interop_properties
+#define FTN_GET_INTEROP_INT omp_get_interop_int
+#define FTN_GET_INTEROP_PTR omp_get_interop_ptr
+#define FTN_GET_INTEROP_STR omp_get_interop_str
+#define FTN_GET_INTEROP_NAME omp_get_interop_name
+#define FTN_GET_INTEROP_TYPE_DESC omp_get_interop_type_desc
+#define FTN_GET_INTEROP_RC_DESC omp_get_interop_rc_desc
 
 #endif /* KMP_FTN_PLAIN */
 
@@ -247,6 +274,18 @@
 #define FTN_DESTROY_ALLOCATOR omp_destroy_allocator_
 #define FTN_SET_DEFAULT_ALLOCATOR omp_set_default_allocator_
 #define FTN_GET_DEFAULT_ALLOCATOR omp_get_default_allocator_
+#define FTN_GET_DEVICES_MEMSPACE omp_get_devices_memspace_
+#define FTN_GET_DEVICE_MEMSPACE omp_get_device_memspace_
+#define FTN_GET_DEVICES_AND_HOST_MEMSPACE omp_get_devices_and_host_memspace_
+#define FTN_GET_DEVICE_AND_HOST_MEMSPACE omp_get_device_and_host_memspace_
+#define FTN_GET_DEVICES_ALL_MEMSPACE omp_get_devices_all_memspace_
+#define FTN_GET_DEVICES_ALLOCATOR omp_get_devices_allocator_
+#define FTN_GET_DEVICE_ALLOCATOR omp_get_device_allocator_
+#define FTN_GET_DEVICES_AND_HOST_ALLOCATOR omp_get_devices_and_host_allocator_
+#define FTN_GET_DEVICE_AND_HOST_ALLOCATOR omp_get_device_and_host_allocator_
+#define FTN_GET_DEVICES_ALL_ALLOCATOR omp_get_devices_all_allocator_
+#define FTN_GET_MEMSPACE_NUM_RESOURCES omp_get_memspace_num_resources_
+#define FTN_GET_SUBMEMSPACE omp_get_submemspace_
 #define FTN_ALLOC omp_alloc_
 #define FTN_FREE omp_free_
 #define FTN_GET_DEVICE_NUM omp_get_device_num_
@@ -258,7 +297,20 @@
 #define FTN_PAUSE_RESOURCE_ALL omp_pause_resource_all_
 #define FTN_GET_SUPPORTED_ACTIVE_LEVELS omp_get_supported_active_levels_
 #define FTN_DISPLAY_ENV omp_display_env_
+#define FTN_IN_EXPLICIT_TASK omp_in_explicit_task_
 #define FTN_FULFILL_EVENT omp_fulfill_event_
+#define FTN_SET_NUM_TEAMS omp_set_num_teams_
+#define FTN_GET_MAX_TEAMS omp_get_max_teams_
+#define FTN_SET_TEAMS_THREAD_LIMIT omp_set_teams_thread_limit_
+#define FTN_GET_TEAMS_THREAD_LIMIT omp_get_teams_thread_limit_
+
+#define FTN_GET_NUM_INTEROP_PROPERTIES omp_get_num_interop_properties_
+#define FTN_GET_INTEROP_INT omp_get_interop_int_
+#define FTN_GET_INTEROP_PTR omp_get_interop_ptr_
+#define FTN_GET_INTEROP_STR omp_get_interop_str_
+#define FTN_GET_INTEROP_NAME omp_get_interop_name_
+#define FTN_GET_INTEROP_TYPE_DESC omp_get_interop_type_desc_
+#define FTN_GET_INTEROP_RC_DESC omp_get_interop_rc_desc_
 
 #endif /* KMP_FTN_APPEND */
 
@@ -371,6 +423,18 @@
 #define FTN_DESTROY_ALLOCATOR OMP_DESTROY_ALLOCATOR
 #define FTN_SET_DEFAULT_ALLOCATOR OMP_SET_DEFAULT_ALLOCATOR
 #define FTN_GET_DEFAULT_ALLOCATOR OMP_GET_DEFAULT_ALLOCATOR
+#define FTN_GET_DEVICES_MEMSPACE OMP_GET_DEVICES_MEMSPACE
+#define FTN_GET_DEVICE_MEMSPACE OMP_GET_DEVICE_MEMSPACE
+#define FTN_GET_DEVICES_AND_HOST_MEMSPACE OMP_GET_DEVICES_AND_HOST_MEMSPACE
+#define FTN_GET_DEVICE_AND_HOST_MEMSPACE OMP_GET_DEVICE_AND_HOST_MEMSPACE
+#define FTN_GET_DEVICES_ALL_MEMSPACE OMP_GET_DEVICES_ALL_MEMSPACE
+#define FTN_GET_DEVICES_ALLOCATOR OMP_GET_DEVICES_ALLOCATOR
+#define FTN_GET_DEVICE_ALLOCATOR OMP_GET_DEVICE_ALLOCATOR
+#define FTN_GET_DEVICES_AND_HOST_ALLOCATOR OMP_GET_DEVICES_AND_HOST_ALLOCATOR
+#define FTN_GET_DEVICE_AND_HOST_ALLOCATOR OMP_GET_DEVICE_AND_HOST_ALLOCATOR
+#define FTN_GET_DEVICES_ALL_ALLOCATOR OMP_GET_DEVICES_ALL_ALLOCATOR
+#define FTN_GET_MEMSPACE_NUM_RESOURCES OMP_GET_MEMSPACE_NUM_RESOURCES
+#define FTN_GET_SUBMEMSPACE OMP_GET_SUBMEMSPACE
 #define FTN_GET_DEVICE_NUM OMP_GET_DEVICE_NUM
 #define FTN_SET_AFFINITY_FORMAT OMP_SET_AFFINITY_FORMAT
 #define FTN_GET_AFFINITY_FORMAT OMP_GET_AFFINITY_FORMAT
@@ -380,7 +444,20 @@
 #define FTN_PAUSE_RESOURCE_ALL OMP_PAUSE_RESOURCE_ALL
 #define FTN_GET_SUPPORTED_ACTIVE_LEVELS OMP_GET_SUPPORTED_ACTIVE_LEVELS
 #define FTN_DISPLAY_ENV OMP_DISPLAY_ENV
+#define FTN_IN_EXPLICIT_TASK OMP_IN_EXPLICIT_TASK
 #define FTN_FULFILL_EVENT OMP_FULFILL_EVENT
+#define FTN_SET_NUM_TEAMS OMP_SET_NUM_TEAMS
+#define FTN_GET_MAX_TEAMS OMP_GET_MAX_TEAMS
+#define FTN_SET_TEAMS_THREAD_LIMIT OMP_SET_TEAMS_THREAD_LIMIT
+#define FTN_GET_TEAMS_THREAD_LIMIT OMP_GET_TEAMS_THREAD_LIMIT
+
+#define FTN_GET_NUM_INTEROP_PROPERTIES OMP_GET_NUM_INTEROP_PROPERTIES
+#define FTN_GET_INTEROP_INT OMP_GET_INTEROP_INT
+#define FTN_GET_INTEROP_PTR OMP_GET_INTEROP_PTR
+#define FTN_GET_INTEROP_STR OMP_GET_INTEROP_STR
+#define FTN_GET_INTEROP_NAME OMP_GET_INTEROP_NAME
+#define FTN_GET_INTEROP_TYPE_DESC OMP_GET_INTEROP_TYPE_DESC
+#define FTN_GET_INTEROP_RC_DESC OMP_GET_INTEROP_RC_DESC
 
 #endif /* KMP_FTN_UPPER */
 
@@ -493,6 +570,18 @@
 #define FTN_DESTROY_ALLOCATOR OMP_DESTROY_ALLOCATOR_
 #define FTN_SET_DEFAULT_ALLOCATOR OMP_SET_DEFAULT_ALLOCATOR_
 #define FTN_GET_DEFAULT_ALLOCATOR OMP_GET_DEFAULT_ALLOCATOR_
+#define FTN_GET_DEVICES_MEMSPACE OMP_GET_DEVICES_MEMSPACE_
+#define FTN_GET_DEVICE_MEMSPACE OMP_GET_DEVICE_MEMSPACE_
+#define FTN_GET_DEVICES_AND_HOST_MEMSPACE OMP_GET_DEVICES_AND_HOST_MEMSPACE_
+#define FTN_GET_DEVICE_AND_HOST_MEMSPACE OMP_GET_DEVICE_AND_HOST_MEMSPACE_
+#define FTN_GET_DEVICES_ALL_MEMSPACE OMP_GET_DEVICES_ALL_MEMSPACE_
+#define FTN_GET_DEVICES_ALLOCATOR OMP_GET_DEVICES_ALLOCATOR_
+#define FTN_GET_DEVICE_ALLOCATOR OMP_GET_DEVICE_ALLOCATOR_
+#define FTN_GET_DEVICES_AND_HOST_ALLOCATOR OMP_GET_DEVICES_AND_HOST_ALLOCATOR_
+#define FTN_GET_DEVICE_AND_HOST_ALLOCATOR OMP_GET_DEVICE_AND_HOST_ALLOCATOR_
+#define FTN_GET_DEVICES_ALL_ALLOCATOR OMP_GET_DEVICES_ALL_ALLOCATOR_
+#define FTN_GET_MEMSPACE_NUM_RESOURCES OMP_GET_MEMSPACE_NUM_RESOURCES_
+#define FTN_GET_SUBMEMSPACE OMP_GET_SUBMEMSPACE_
 #define FTN_ALLOC OMP_ALLOC_
 #define FTN_FREE OMP_FREE_
 #define FTN_GET_DEVICE_NUM OMP_GET_DEVICE_NUM_
@@ -504,7 +593,20 @@
 #define FTN_PAUSE_RESOURCE_ALL OMP_PAUSE_RESOURCE_ALL_
 #define FTN_GET_SUPPORTED_ACTIVE_LEVELS OMP_GET_SUPPORTED_ACTIVE_LEVELS_
 #define FTN_DISPLAY_ENV OMP_DISPLAY_ENV_
+#define FTN_IN_EXPLICIT_TASK OMP_IN_EXPLICIT_TASK_
 #define FTN_FULFILL_EVENT OMP_FULFILL_EVENT_
+#define FTN_SET_NUM_TEAMS OMP_SET_NUM_TEAMS_
+#define FTN_GET_MAX_TEAMS OMP_GET_MAX_TEAMS_
+#define FTN_SET_TEAMS_THREAD_LIMIT OMP_SET_TEAMS_THREAD_LIMIT_
+#define FTN_GET_TEAMS_THREAD_LIMIT OMP_GET_TEAMS_THREAD_LIMIT_
+
+#define FTN_GET_NUM_INTEROP_PROPERTIES OMP_GET_NUM_INTEROP_PROPERTIES_
+#define FTN_GET_INTEROP_INT OMP_GET_INTEROP_INT_
+#define FTN_GET_INTEROP_PTR OMP_GET_INTEROP_PTR_
+#define FTN_GET_INTEROP_STR OMP_GET_INTEROP_STR_
+#define FTN_GET_INTEROP_NAME OMP_GET_INTEROP_NAME_
+#define FTN_GET_INTEROP_TYPE_DESC OMP_GET_INTEROP_TYPE_DESC_
+#define FTN_GET_INTEROP_RC_DESC OMP_GET_INTEROP_RC_DESC_
 
 #endif /* KMP_FTN_UAPPEND */
 
@@ -658,4 +760,44 @@
 #define KMP_API_NAME_GOMP_PARALLEL_LOOP_NONMONOTONIC_GUIDED                    \
   GOMP_parallel_loop_nonmonotonic_guided
 
+// All GOMP_5.0 symbols
+#define KMP_API_NAME_GOMP_LOOP_MAYBE_NONMONOTONIC_RUNTIME_NEXT                 \
+  GOMP_loop_maybe_nonmonotonic_runtime_next
+#define KMP_API_NAME_GOMP_LOOP_MAYBE_NONMONOTONIC_RUNTIME_START                \
+  GOMP_loop_maybe_nonmonotonic_runtime_start
+#define KMP_API_NAME_GOMP_LOOP_NONMONOTONIC_RUNTIME_NEXT                       \
+  GOMP_loop_nonmonotonic_runtime_next
+#define KMP_API_NAME_GOMP_LOOP_NONMONOTONIC_RUNTIME_START                      \
+  GOMP_loop_nonmonotonic_runtime_start
+#define KMP_API_NAME_GOMP_LOOP_ULL_MAYBE_NONMONOTONIC_RUNTIME_NEXT             \
+  GOMP_loop_ull_maybe_nonmonotonic_runtime_next
+#define KMP_API_NAME_GOMP_LOOP_ULL_MAYBE_NONMONOTONIC_RUNTIME_START            \
+  GOMP_loop_ull_maybe_nonmonotonic_runtime_start
+#define KMP_API_NAME_GOMP_LOOP_ULL_NONMONOTONIC_RUNTIME_NEXT                   \
+  GOMP_loop_ull_nonmonotonic_runtime_next
+#define KMP_API_NAME_GOMP_LOOP_ULL_NONMONOTONIC_RUNTIME_START                  \
+  GOMP_loop_ull_nonmonotonic_runtime_start
+#define KMP_API_NAME_GOMP_PARALLEL_LOOP_NONMONOTONIC_RUNTIME                   \
+  GOMP_parallel_loop_nonmonotonic_runtime
+#define KMP_API_NAME_GOMP_PARALLEL_LOOP_MAYBE_NONMONOTONIC_RUNTIME             \
+  GOMP_parallel_loop_maybe_nonmonotonic_runtime
+#define KMP_API_NAME_GOMP_TEAMS_REG GOMP_teams_reg
+#define KMP_API_NAME_GOMP_TASKWAIT_DEPEND GOMP_taskwait_depend
+#define KMP_API_NAME_GOMP_TASKGROUP_REDUCTION_REGISTER                         \
+  GOMP_taskgroup_reduction_register
+#define KMP_API_NAME_GOMP_TASKGROUP_REDUCTION_UNREGISTER                       \
+  GOMP_taskgroup_reduction_unregister
+#define KMP_API_NAME_GOMP_TASK_REDUCTION_REMAP GOMP_task_reduction_remap
+#define KMP_API_NAME_GOMP_PARALLEL_REDUCTIONS GOMP_parallel_reductions
+#define KMP_API_NAME_GOMP_LOOP_START GOMP_loop_start
+#define KMP_API_NAME_GOMP_LOOP_ULL_START GOMP_loop_ull_start
+#define KMP_API_NAME_GOMP_LOOP_DOACROSS_START GOMP_loop_doacross_start
+#define KMP_API_NAME_GOMP_LOOP_ULL_DOACROSS_START GOMP_loop_ull_doacross_start
+#define KMP_API_NAME_GOMP_LOOP_ORDERED_START GOMP_loop_ordered_start
+#define KMP_API_NAME_GOMP_LOOP_ULL_ORDERED_START GOMP_loop_ull_ordered_start
+#define KMP_API_NAME_GOMP_SECTIONS2_START GOMP_sections2_start
+#define KMP_API_NAME_GOMP_WORKSHARE_TASK_REDUCTION_UNREGISTER                  \
+  GOMP_workshare_task_reduction_unregister
+#define KMP_API_NAME_GOMP_ALLOC GOMP_alloc
+#define KMP_API_NAME_GOMP_FREE GOMP_free
 #endif /* KMP_FTN_OS_H */

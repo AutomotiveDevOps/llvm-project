@@ -1,5 +1,5 @@
-! RUN: %S/test_errors.sh %s %t %f18
-!Testing data constraints : C874 - C875, C878 - C881 
+! RUN: %python %S/test_errors.py %s %flang_fc1
+!Testing data constraints : C874 - C875, C878 - C881
 module m
     integer, target :: modarray(1)
   contains
@@ -8,7 +8,7 @@ module m
       integer, pointer :: f
       f => modarray(i)
     end
-    subroutine CheckObject 
+    subroutine CheckObject
       type specialNumbers
         integer one
         integer numbers(5)
@@ -34,6 +34,8 @@ module m
       integer :: d(10, 10)
       character :: name(12)
       integer :: ind = 2
+      !ERROR: Data statement object must be a variable
+      DATA name%len / 666 /
       !C874
       !ERROR: Data object must not be a coindexed variable
       DATA a[1] / 1 /
@@ -62,16 +64,22 @@ module m
       !C880
       !ERROR: Data implied do structure component must be subscripted
       DATA(nums % one, i = 1, 5) / 5 * 1 /
+      !C879
+      !ERROR: Data implied do object must be a variable
+      DATA(newNums % numbers(i), i = 1, 5) / 5 * 1 /
+      !C879
+      !ERROR: Data implied do object must be a variable
+      DATA(newNumsArray(i) % one, i = 1, 5) / 5 * 1 /
       !C880
       !OK: Correct use
-      DATA(largeArray(j) % nums % one, j = 1, 10) / 10 * 1 /
+      DATA(largeArray(j) % nums % one, j = 1, 5) / 5 * 1 /
       !C880
       !OK: Correct use
-      DATA(largeNumber % numsArray(j) % one, j = 1, 10) / 10 * 1 /
+      DATA(largeNumber % numsArray(j) % one, j = 1, 5) / 5 * 1 /
       !C881
       !ERROR: Data object must have constant subscripts
       DATA(b(x), i = 1, 5) / 5 * 1 /
-      !C881 
+      !C881
       !OK: Correct use
       DATA(nums % numbers(i), i = 1, 5) / 5 * 1 /
       !C881
@@ -80,5 +88,5 @@ module m
       !C881
       !OK: Correct use
       DATA(d(i, 1), i = 1, 10) / 10 * 1 /
-    end 
+    end
   end

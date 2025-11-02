@@ -6,7 +6,7 @@
 target datalayout = "E-m:e-i1:8:16-i8:8:16-i64:64-f128:64-a:8:16-n32:64"
 target triple = "s390x-ibm-linux"
 
-@g_65 = external global i32, align 4
+@g_65 = external dso_local global i32, align 4
 
 ; Function Attrs: nounwind
 define void @main(i1 %x) #0 {
@@ -14,7 +14,7 @@ bb:
   br label %bb1
 
 bb1:                                              ; preds = %bb
-  %tmp = load i32, i32* @g_65, align 4
+  %tmp = load i32, ptr @g_65, align 4
   %tmp2 = sext i32 %tmp to i64
   %tmp3 = shl i32 %tmp, 16
   %tmp4 = ashr exact i32 %tmp3, 16

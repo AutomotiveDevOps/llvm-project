@@ -8,12 +8,12 @@
 
 #include "llvm/Object/IRSymtab.h"
 #include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringRef.h"
-#include "llvm/ADT/Triple.h"
+#include "llvm/ADT/StringSet.h"
+#include "llvm/Bitcode/BitcodeReader.h"
 #include "llvm/Config/llvm-config.h"
 #include "llvm/IR/Comdat.h"
 #include "llvm/IR/DataLayout.h"
@@ -22,17 +22,18 @@
 #include "llvm/IR/Mangler.h"
 #include "llvm/IR/Metadata.h"
 #include "llvm/IR/Module.h"
-#include "llvm/Bitcode/BitcodeReader.h"
+#include "llvm/IR/RuntimeLibcalls.h"
 #include "llvm/MC/StringTableBuilder.h"
-#include "llvm/Object/IRObjectFile.h"
 #include "llvm/Object/ModuleSymbolTable.h"
 #include "llvm/Object/SymbolicFile.h"
 #include "llvm/Support/Allocator.h"
 #include "llvm/Support/Casting.h"
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Error.h"
 #include "llvm/Support/StringSaver.h"
 #include "llvm/Support/VCSRevision.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/TargetParser/Triple.h"
 #include <cassert>
 #include <string>
 #include <utility>
@@ -41,11 +42,9 @@
 using namespace llvm;
 using namespace irsymtab;
 
-static const char *LibcallRoutineNames[] = {
-#define HANDLE_LIBCALL(code, name) name,
-#include "llvm/IR/RuntimeLibcalls.def"
-#undef HANDLE_LIBCALL
-};
+static cl::opt<bool> DisableBitcodeVersionUpgrade(
+    "disable-bitcode-version-upgrade", cl::Hidden,
+    cl::desc("Disable automatic bitcode upgrade for version mismatch"));
 
 namespace {
 
@@ -74,12 +73,16 @@ struct Builder {
   // The StringTableBuilder does not create a copy of any strings added to it,
   // so this provides somewhere to store any strings that we create.
   Builder(SmallVector<char, 0> &Symtab, StringTableBuilder &StrtabBuilder,
-          BumpPtrAllocator &Alloc)
-      : Symtab(Symtab), StrtabBuilder(StrtabBuilder), Saver(Alloc) {}
+          BumpPtrAllocator &Alloc, const Triple &TT)
+      : Symtab(Symtab), StrtabBuilder(StrtabBuilder), Saver(Alloc), TT(TT),
+        Libcalls(TT) {}
 
   DenseMap<const Comdat *, int> ComdatMap;
   Mangler Mang;
-  Triple TT;
+  const Triple &TT;
+
+  // FIXME: This shouldn't be here.
+  RTLIB::RuntimeLibcallsInfo Libcalls;
 
   std::vector<storage::Comdat> Comdats;
   std::vector<storage::Module> Mods;
@@ -90,6 +93,10 @@ struct Builder {
   raw_string_ostream COFFLinkerOptsOS{COFFLinkerOpts};
 
   std::vector<storage::Str> DependentLibraries;
+
+  bool isPreservedName(StringRef Name) {
+    return Libcalls.getSupportedLibcallImpl(Name) != RTLIB::Unsupported;
+  }
 
   void setStr(storage::Str &S, StringRef Value) {
     S.Offset = StrtabBuilder.add(Value);
@@ -108,7 +115,7 @@ struct Builder {
 
   Error addModule(Module *M);
   Error addSymbol(const ModuleSymbolTable &Msymtab,
-                  const SmallPtrSet<GlobalValue *, 8> &Used,
+                  const SmallPtrSet<GlobalValue *, 4> &Used,
                   ModuleSymbolTable::Symbol Sym);
 
   Error build(ArrayRef<Module *> Mods);
@@ -119,8 +126,21 @@ Error Builder::addModule(Module *M) {
     return make_error<StringError>("input module has no datalayout",
                                    inconvertibleErrorCode());
 
-  SmallPtrSet<GlobalValue *, 8> Used;
-  collectUsedGlobalVariables(*M, Used, /*CompilerUsed*/ false);
+  // Symbols in the llvm.used list will get the FB_Used bit and will not be
+  // internalized. We do this for llvm.compiler.used as well:
+  //
+  // IR symbol table tracks module-level asm symbol references but not inline
+  // asm. A symbol only referenced by inline asm is not in the IR symbol table,
+  // so we may not know that the definition (in another translation unit) is
+  // referenced. That definition may have __attribute__((used)) (which lowers to
+  // llvm.compiler.used on ELF targets) to communicate to the compiler that it
+  // may be used by inline asm. The usage is perfectly fine, so we treat
+  // llvm.compiler.used conservatively as llvm.used to work around our own
+  // limitation.
+  SmallVector<GlobalValue *, 4> UsedV;
+  collectUsedGlobalVariables(*M, UsedV, /*CompilerUsed=*/false);
+  collectUsedGlobalVariables(*M, UsedV, /*CompilerUsed=*/true);
+  SmallPtrSet<GlobalValue *, 4> Used(llvm::from_range, UsedV);
 
   ModuleSymbolTable Msymtab;
   Msymtab.addModule(M);
@@ -186,6 +206,7 @@ Expected<int> Builder::getComdatIndex(const Comdat *C, const Module *M) {
 
     storage::Comdat Comdat;
     setStr(Comdat.Name, Saver.save(Name));
+    Comdat.SelectionKind = C->getSelectionKind();
     Comdats.push_back(Comdat);
   }
 
@@ -193,7 +214,7 @@ Expected<int> Builder::getComdatIndex(const Comdat *C, const Module *M) {
 }
 
 Error Builder::addSymbol(const ModuleSymbolTable &Msymtab,
-                         const SmallPtrSet<GlobalValue *, 8> &Used,
+                         const SmallPtrSet<GlobalValue *, 4> &Used,
                          ModuleSymbolTable::Symbol Msym) {
   Syms.emplace_back();
   storage::Symbol &Sym = Syms.back();
@@ -217,7 +238,7 @@ Error Builder::addSymbol(const ModuleSymbolTable &Msymtab,
     raw_svector_ostream OS(Name);
     Msymtab.printSymbolName(OS, Msym);
   }
-  setStr(Sym.Name, Saver.save(StringRef(Name)));
+  setStr(Sym.Name, Saver.save(Name.str()));
 
   auto Flags = Msymtab.getSymbolFlags(Msym);
   if (Flags & object::BasicSymbolRef::SF_Undefined)
@@ -236,7 +257,7 @@ Error Builder::addSymbol(const ModuleSymbolTable &Msymtab,
     Sym.Flags |= 1 << storage::Symbol::FB_executable;
 
   Sym.ComdatIndex = -1;
-  auto *GV = Msym.dyn_cast<GlobalValue *>();
+  auto *GV = dyn_cast_if_present<GlobalValue *>(Msym);
   if (!GV) {
     // Undefined module asm symbols act as GC roots and are implicitly used.
     if (Flags & object::BasicSymbolRef::SF_Undefined)
@@ -245,15 +266,10 @@ Error Builder::addSymbol(const ModuleSymbolTable &Msymtab,
     return Error::success();
   }
 
-  setStr(Sym.IRName, GV->getName());
+  StringRef GVName = GV->getName();
+  setStr(Sym.IRName, GVName);
 
-  bool IsBuiltinFunc = false;
-
-  for (const char *LibcallName : LibcallRoutineNames)
-    if (GV->getName() == LibcallName)
-      IsBuiltinFunc = true;
-
-  if (Used.count(GV) || IsBuiltinFunc)
+  if (Used.count(GV) || isPreservedName(GVName))
     Sym.Flags |= 1 << storage::Symbol::FB_used;
   if (GV->isThreadLocal())
     Sym.Flags |= 1 << storage::Symbol::FB_tls;
@@ -264,16 +280,24 @@ Error Builder::addSymbol(const ModuleSymbolTable &Msymtab,
   Sym.Flags |= unsigned(GV->getVisibility()) << storage::Symbol::FB_visibility;
 
   if (Flags & object::BasicSymbolRef::SF_Common) {
-    Uncommon().CommonSize = GV->getParent()->getDataLayout().getTypeAllocSize(
-        GV->getType()->getElementType());
-    Uncommon().CommonAlign = GV->getAlignment();
+    auto *GVar = dyn_cast<GlobalVariable>(GV);
+    if (!GVar)
+      return make_error<StringError>("Only variables can have common linkage!",
+                                     inconvertibleErrorCode());
+    Uncommon().CommonSize =
+        GV->getDataLayout().getTypeAllocSize(GV->getValueType());
+    Uncommon().CommonAlign = GVar->getAlign() ? GVar->getAlign()->value() : 0;
   }
 
-  const GlobalObject *Base = GV->getBaseObject();
-  if (!Base)
-    return make_error<StringError>("Unable to determine comdat of alias!",
-                                   inconvertibleErrorCode());
-  if (const Comdat *C = Base->getComdat()) {
+  const GlobalObject *GO = GV->getAliaseeObject();
+  if (!GO) {
+    if (isa<GlobalIFunc>(GV))
+      GO = cast<GlobalIFunc>(GV)->getResolverFunction();
+    if (!GO)
+      return make_error<StringError>("Unable to determine comdat of alias!",
+                                     inconvertibleErrorCode());
+  }
+  if (const Comdat *C = GO->getComdat()) {
     Expected<int> ComdatIndexOrErr = getComdatIndex(C, GV->getParent());
     if (!ComdatIndexOrErr)
       return ComdatIndexOrErr.takeError();
@@ -298,8 +322,8 @@ Error Builder::addSymbol(const ModuleSymbolTable &Msymtab,
     }
   }
 
-  if (!Base->getSection().empty())
-    setStr(Uncommon().SectionName, Saver.save(Base->getSection()));
+  if (!GO->getSection().empty())
+    setStr(Uncommon().SectionName, Saver.save(GO->getSection()));
 
   return Error::success();
 }
@@ -310,9 +334,8 @@ Error Builder::build(ArrayRef<Module *> IRMods) {
   assert(!IRMods.empty());
   Hdr.Version = storage::Header::kCurrentVersion;
   setStr(Hdr.Producer, kExpectedProducerName);
-  setStr(Hdr.TargetTriple, IRMods[0]->getTargetTriple());
+  setStr(Hdr.TargetTriple, IRMods[0]->getTargetTriple().str());
   setStr(Hdr.SourceFileName, IRMods[0]->getSourceFileName());
-  TT = Triple(IRMods[0]->getTargetTriple());
 
   for (auto *M : IRMods)
     if (Error Err = addModule(M))
@@ -338,7 +361,8 @@ Error Builder::build(ArrayRef<Module *> IRMods) {
 Error irsymtab::build(ArrayRef<Module *> Mods, SmallVector<char, 0> &Symtab,
                       StringTableBuilder &StrtabBuilder,
                       BumpPtrAllocator &Alloc) {
-  return Builder(Symtab, StrtabBuilder, Alloc).build(Mods);
+  const Triple &TT = Mods[0]->getTargetTriple();
+  return Builder(Symtab, StrtabBuilder, Alloc, TT).build(Mods);
 }
 
 // Upgrade a vector of bitcode modules created by an old version of LLVM by
@@ -379,20 +403,22 @@ Expected<FileContents> irsymtab::readBitcode(const BitcodeFileContents &BFC) {
     return make_error<StringError>("Bitcode file does not contain any modules",
                                    inconvertibleErrorCode());
 
-  if (BFC.StrtabForSymtab.empty() ||
-      BFC.Symtab.size() < sizeof(storage::Header))
-    return upgrade(BFC.Mods);
+  if (!DisableBitcodeVersionUpgrade) {
+    if (BFC.StrtabForSymtab.empty() ||
+        BFC.Symtab.size() < sizeof(storage::Header))
+      return upgrade(BFC.Mods);
 
-  // We cannot use the regular reader to read the version and producer, because
-  // it will expect the header to be in the current format. The only thing we
-  // can rely on is that the version and producer will be present as the first
-  // struct elements.
-  auto *Hdr = reinterpret_cast<const storage::Header *>(BFC.Symtab.data());
-  unsigned Version = Hdr->Version;
-  StringRef Producer = Hdr->Producer.get(BFC.StrtabForSymtab);
-  if (Version != storage::Header::kCurrentVersion ||
-      Producer != kExpectedProducerName)
-    return upgrade(BFC.Mods);
+    // We cannot use the regular reader to read the version and producer,
+    // because it will expect the header to be in the current format. The only
+    // thing we can rely on is that the version and producer will be present as
+    // the first struct elements.
+    auto *Hdr = reinterpret_cast<const storage::Header *>(BFC.Symtab.data());
+    unsigned Version = Hdr->Version;
+    StringRef Producer = Hdr->Producer.get(BFC.StrtabForSymtab);
+    if (Version != storage::Header::kCurrentVersion ||
+        Producer != kExpectedProducerName)
+      return upgrade(BFC.Mods);
+  }
 
   FileContents FC;
   FC.TheReader = {{BFC.Symtab.data(), BFC.Symtab.size()},

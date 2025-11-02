@@ -1,0 +1,2771 @@
+Chapter 11
+L1 Cache
+This chapter describes the organization of the on-chip L1 Caches, cache control instructions, and various
+cache operations. It describes the interaction between the caches, the load/store unit (LSU), the instruction
+unit, and the memory subsystem. This chapter also describes the replacement algorithm used for the L1
+Caches.
+The L1 Caches incorporate the following features:
+   • 16 KB I + 16 KB D harvard cache design
+   • Virtually indexed, Physically tagged
+   • 32-byte line size
+   • 64-bit data, 32-bit address
+   • Pseudo round-robin replacement algorithm
+   • 8-entry store buffer
+   • Push (copyback) buffer
+   • Linefill buffer
+   • Hit under fill/copyback
+   • Supports up to two outstanding misses
+   • Multi-bit EDC protection for the ICache data and tag arrays, with correction/auto-invalidation
+      capability
+   • Multi-bit EDC protection for the DCache tag arrays, parity protection for the DCache data arrays;
+      with correction/auto-invalidation capability
+
+11.1      Overview
+The e200z759n3 processor supports a pair of 16 KB 4-way set-associative split instruction and data caches
+with a 32-byte line size. The caches improve system performance by providing low-latency data to the
+e200z759n3 instruction and data pipelines, which decouples processor performance from system memory
+performance. The caches are virtually indexed and physically tagged.
+Instruction and data addresses from the processor to the caches are virtual addresses used to index the
+cache array. The MMU provides the virtual to physical translation for use in performing the cache tag
+compare. If the physical address matches a valid cache tag entry, the access hits in the cache. For a read
+operation, the cache supplies the data to the processor, and for a write operation, the data from the
+processor updates the cache. If the access does not match a valid cache tag entry (misses in the cache) or
+a write access must be written through to memory, the cache performs a bus cycle on the system bus.
+
+
+
+
+                                  e200z759n3 Core Reference Manual, Rev. 2
+Freescale Semiconductor                                                                                   585
+                                                CACHE
+                         CONTROL                                                           SYSTEM
+                                                                    CONTROL                  BUS
+                                            CONTROL LOGIC                                   (INST)
+
+                                                                                          CONTROL
+                                                  DATA ARRAY
+
+                                                                                 BUS
+               ICACHE
+                                          TAG ARRAY                           INTERFACE   ADDRESS/
+             INTERFACE                                                                      DATA
+                                                                                MODULE
+
+
+                          DATA                                        DATA
+                                                  DATA PATH
+                                                                    ADDRESS
+                         ADDRESS        ADDRESS PATH
+
+
+
+
+                                              MEMORY
+                                            MANAGEMENT
+                                               UNIT
+          PROCESSOR
+            CORE
+
+
+
+
+                         ADDRESS        ADDRESS PATH
+                                                                    ADDRESS
+                                                  DATA PATH
+                          DATA                                        DATA
+
+
+               DCACHE                                                            BUS        DATA
+             INTERFACE                    TAG ARRAY                           INTERFACE   ADDRESS/
+                                                                                MODULE
+
+                                                  DATA ARRAY
+                                                                                          CONTROL
+
+                                            CONTROL LOGIC
+                                                                    CONTROL                SYSTEM
+                         CONTROL                                                             BUS
+                                                CACHE                                       (DATA)
+
+                                      Figure 11-1. e200z759n3 caches
+
+
+11.2     16 KB cache organization
+Each e200z759n3 16 KB cache is organized as four ways of 128 sets with each line containing 32 bytes
+(four doublewords) of storage. Figure 11-2 illustrates the cache organization along with the cache line
+format.
+
+
+
+
+                                   e200z759n3 Core Reference Manual, Rev. 2
+586                                                                                  Freescale Semiconductor
+                                WAY 0                 WAY 1              WAY 2            WAY 3
+                  SET 0
+                  SET 1
+                    •                •                   •                 •                 •
+                    •                •                   •                 •                 •
+                    •                •                   •                 •                 •
+                  SET 126                              LINE
+                  SET 127
+
+
+
+                                                 CACHE LINE FORMAT
+
+                TAG              V       D   L     Doubleword0   Doubleword1        Doubleword2   Doubleword3
+
+
+
+                            TAG - 22 bit Physical Address Tag + Parity
+                              L - Lock bits
+                              D - Dirty bits (DCACHE Only)
+                              V - Valid bit
+                             Figure 11-2. 16 KB cache organization and line format
+
+Virtual address bits A[20:26] provide an index to select a set. Ways are selected according to the rules of
+set association.
+Each line consists of a physical address tag, status bits, and four doublewords of data. Address bits
+A[27:29] select the word within the line.
+
+11.3      Cache lookup
+Once enabled, the appropriate cache will be searched for a tag match on instruction fetches and data
+accesses from the CPU. If a match is found, the cached data is forwarded on a read access to the instruction
+fetch unit or the load/store unit (data access), or is updated on a write access, and may also be
+written-through to memory if required.
+When a read miss occurs, if there is a TLB hit and the I bit of the hitting TLB entry is clear, the translated
+physical miss address is used to fetch a four doubleword cache line beginning with the requested
+doubleword (critical doubleword first). The line is fetched into a linefill buffer and the critical doubleword
+is forwarded to the CPU. Subsequent doublewords may be streamed to the CPU if they have been
+requested, or they may be forwarded from the linefill buffer if the data has already been received from the
+bus and is valid in the buffer.
+When a write miss occurs, if there is a TLB hit, and the I and G bits of the hitting TLB entry are clear and
+write allocation is enabled via the L1CSR0[DCWA] control bit, the translated physical address is used to
+fetch a four doubleword cache line beginning with the doubleword corresponding to the store address
+(critical doubleword first). The line is fetched into the linefill buffer and merged with the store data.
+Subsequently, the line is placed into the appropriate cache block. If write allocation is disabled, or the write
+is not cacheable or is guarded, no cache line fetch is performed for the write.
+During a cache line fill, doublewords received from the bus are placed into the cache linefill buffer, and
+may be forwarded (streamed) to the CPU if such a read request is pending. Accesses from the CPU
+
+                                         e200z759n3 Core Reference Manual, Rev. 2
+Freescale Semiconductor                                                                                         587
+following delivery of the critical doubleword may be satisfied from the cache (hit under fill, non-blocking)
+or from the linefill buffer if the requested information has been already received.
+If write allocation is enabled, subsequent stores that hit the linefill buffer address while a linefill is in
+progress for a previous store or dcbtst miss will be merged into the linefill buffer. No merging of stores
+will be performed during a linefill initiated by a load miss.
+When a cache linefill occurs, the linefill buffer contents are placed into the cache array using two accesses;
+each occurs after receiving a pair of doublewords.
+The cache always fills an entire line, thereby providing validity on a line-by-line basis. A DCache line is
+always in one of the following states: invalid, valid, or dirty (and valid). For invalid lines, the V bit is clear,
+causing the cache line to be ignored during lookups. Valid lines have their V bit set and D bits cleared,
+indicating the line contains valid data consistent with memory. Dirty cache lines have the D and V bits set,
+indicating that the line has valid entries that have not been written to memory. ICache lines are either
+invalid or valid. In addition, a cache line in either cache may be locked (L bits set) indicating the line is
+not available for replacement.
+The caches should be explicitly invalidated after a hardware reset; reset does not invalidate the cache lines.
+Following initial power-up, the cache contents will be undefined. The L, D and V bits may be set on some
+lines, necessitating the invalidation of the caches by software before being enabled.
+Figure 11-3 illustrates the general flow of cache operation for each 1616 KB Cache Organization and Line
+Format cache to determine if the address is already allocated in the cache.
+
+(1) the cache set index, virtual address bits A[20:26], are used to select one cache set. A set is defined as
+the grouping of lines (one from each way), corresponding to the same index into the cache array.
+(2) The higher order physical address bits A[0:21] , are used as a tag reference or used to update the cache
+line tag field.
+(3)The tags from the selected cache set are compared with the tag reference. If any one of the tags matches
+the tag reference and the tag status is valid, a cache hit has occurred.
+(4) Virtual address bits A[27:28] are used to select one of the four doublewords in each line. A cache hit
+indicates that the selected doubleword in that cache line contain valid data (for a read access), or can be
+written with new data depending on the status of the W access control bit from the MMU (for a write access
+to the DCache).
+
+
+
+
+                                    e200z759n3 Core Reference Manual, Rev. 2
+588                                                                                         Freescale Semiconductor
+             PHYSICAL ADDRESS           VIRTUAL ADDRESS
+
+       0                         21      20           2627 31
+                                                                                  WAY 3
+           TAG DATA / TAG REFERENCE       INDEX        OFST                     WAY 2
+                                                                            WAY 1
+                                                                          WAY 0
+
+
+
+
+                                                             ••
+                                              SET 0    TAG       STATUSDW0DW1DW2DW3
+                              SET             SET 1
+                            SELECT
+                            A[20:26])           •        •            •        •        •   •   •
+                                                •        •            •        •        •   •   •
+                                                •        •            •        •        •   •   •
+                                              SET 127 TAG        STATUSDW0DW1DW2DW3
+                                                                                                             DATA OR
+                                TAG
+                                                                                                           INSTRUCTION
+                             REFERENCE
+                               A[0:21]                                                              MUX
+
+                                                                          ••
+                                                       ••
+
+
+
+
+                                                                               3
+                                                            ••
+
+
+
+
+                                                                                                          SELECT
+                                                                           2        HIT 3
+                                                                      1
+                                                                                   ••
+                                                                                    HIT 2
+                                                                  0                 HIT 1       LOGICAL OR HIT
+                                              COMPARATOR
+                                                                                    HIT 0
+
+                                   Figure 11-3. 16 KB cache lookup flow
+
+
+11.4        Cache control
+Control of the cache is provided by bits in the L1 Cache Control and Status registers (L1CSR0, L1CSR1).
+Control bits are provided to enable/disable the cache and to invalidate it of all entries. In addition,
+availability of each way of the caches may be selectively controlled for use. This way control provides
+cache way locking capability, as well as controlling way availability on a cache line replacement. Ways
+0-3 may be selectively disabled for instruction miss replacements and data miss replacements in the
+respective caches by using the WID and WDD control bits. Software is responsible for maintaining
+coherency between instruction and data caches, since independent copies of a cache line may be present
+in both caches; one allocated by an instruction access, another by a data access.
+
+11.4.1        L1 Cache Control and Status Register 0 (L1CSR0)
+The L1 Cache Control and Status Register 0 (L1CSR0) is a 32-bit register used for general control of the
+data cache as well as providing general control over disabling ways in both caches. The L1CSR0 register
+is accessed using a mfspr or mtspr instruction. The SPR number for L1CSR0 is 1010 in decimal. The
+L1CSR0 register is shown in Figure 11-4.
+
+
+                                  e200z759n3 Core Reference Manual, Rev. 2
+Freescale Semiconductor                                                                                                  589
+                                                                                                                                               DCBZ32
+                                                                    DCECE
+
+
+
+
+                                                                                        DCEDT
+
+
+
+
+                                                                                                                              DCLOA
+                                                                                                DCSLC
+
+
+
+
+                                                                                                                                                        DCABT
+                                                                                                                      DCLFC
+                                                    DCWM
+
+
+
+
+                                                                                                                                                                DCINV
+                                                                                                               DCLO
+                                                                                                        DCUL
+                                                                            DCEI
+
+
+
+
+                                                                                                                                                                        DCE
+           WID             WDD              0              DCWA 0                  0                                                  DCEA 0
+
+
+      0    1   2   3   4   5    6   7   8   9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31
+
+                                                   SPR - 1010; Read/Write; Reset - 0x0
+
+                               Figure 11-4. L1 Cache Control and Status Register 0 (L1CSR0)
+
+The L1CSR0 bits are described in Table 11-1.
+                                                Table 11-1. L1CSR0 field descriptions
+
+      Bits             Name                                                            Description
+
+      0:3              WID              Way Instruction Disable.
+                                        0 The corresponding way in the instruction cache is available for replacement by
+                                           instruction miss line fills.
+                                        1 The corresponding way instruction cache is not available for replacement by
+                                           instruction miss line fills.
+                                        Bit 0 corresponds to way 0.
+                                        Bit 1 corresponds to way 1.
+                                        Bit 2 corresponds to way 2.
+                                        Bit 3 corresponds to way 3.
+                                        The WID bits may be used for locking ways of the instruction cache, and also are used
+                                        in determining the replacement policy of the instruction cache.
+
+      4:7              WDD              Way Data Disable.
+                                        0 The corresponding way in the data cache is available for replacement by data miss
+                                           line fills.
+                                        1 The corresponding way in the data cache is not available for replacement by data
+                                           miss line fills.
+                                        Bit 4 corresponds to way 0.
+                                        Bit 5 corresponds to way 1.
+                                        Bit 6 corresponds to way 2.
+                                        Bit 7 corresponds to way 3.
+                                        The WDD bits may be used for locking ways of the data cache, and also are used in
+                                        determining the replacement policy of the data cache.
+
+      8:10                 —            Reserved1
+          11           DCWM             Data Cache Write Mode
+                                        0 Data Cache operates in writethrough mode
+                                        1 Data Cache operates in copyback mode
+                                        When set to writethrough mode, the “W” page attribute from the MMU is ignored and
+                                        all writes are treated as writethrough required. When set, write accesses are
+                                        performed in copyback mode unless the “W” page attribute from the MMU is set.
+
+
+
+
+                                             e200z759n3 Core Reference Manual, Rev. 2
+590                                                                                                                                      Freescale Semiconductor
+                          Table 11-1. L1CSR0 field descriptions (continued)
+
+      Bits        Name                                             Description
+
+     12:13        DCWA     Data Cache Write Allocation Policy
+                           00 Cache line allocation on a cacheable write miss is disabled
+                           01 Cache line allocation on a cacheable copyback write miss is enabled
+                           10 Cache line allocation on a cacheable copyback or writethrough write miss is
+                                enabled
+                           11 Reserved
+                           This field also controls merging of store data into the linefill buffer while a cache linefill
+                           is in progress. Store data will not be merged when write allocation is disabled. If DCWA
+                           is non-zero, store data merging is enabled regardless of the type
+                           (writethrough/copyback) of write.
+
+       14           —      Reserved1
+       15         DCECE    Data Cache Error Checking Enable
+                           0 Error Checking is disabled
+                           1 Error Checking is enabled
+       16          DCEI    Data Cache Error Injection
+                           0 Cache Error Injection is disabled
+                           1 parity errors will be purposefully injected into every byte subsequently written into
+                              the cache. The parity bit of each 8-bit data element written will be inverted. This
+                              includes writes due to store hits as well as writes due to cache line refills.
+                           DCEI will cause injection of errors regardless of the setting of DCECE, although
+                           reporting of errors will be masked while DCECE=0.
+
+       17           —      Reserved1
+     18:19        DCEDT      Data Cache Error Detection Type
+                           00 Reserved (defaults to DCEDT=01(EDC) actions)
+                           01 EDC Error Detection is selected for the tag array and parity is selected for the data
+                              arrays
+                           1x Reserved
+
+       20         DCSLC    Data Cache Snoop Lock Clear
+                           0 Snoop has not invalidated a locked line
+                           1 Snoop has invalidated a locked line
+                           Indicates a cache line lock was cleared by a snoop operation that caused an
+                           invalidation. This bit is set by hardware and will remain set until cleared by software
+                           writing 0 to this bit location.
+
+       21         DCUL     Data Cache Unable to Lock
+                           Indicates a lock set instruction was not effective in locking a cache line. This bit is set
+                           by hardware on an “unable to lock” condition (other than lock overflows), and will
+                           remain set until cleared by software writing 0 to this bit location.
+
+       22         DCLO      Data Cache Lock Overflow
+                           Indicates a lock overflow (overlocking) condition occurred. This bit is set by hardware
+                           on an “overlocking” condition, and will remain set until cleared by software writing 0 to
+                           this bit location.
+
+
+
+
+                                e200z759n3 Core Reference Manual, Rev. 2
+Freescale Semiconductor                                                                                                     591
+                       Table 11-1. L1CSR0 field descriptions (continued)
+
+      Bits    Name                                             Description
+
+       23     DCLFC      Data Cache Lock Bits Flash Clear
+                        When written to a ‘1’, a cache lock bits flash clear operation is initiated by hardware.
+                        Once complete, this bit is reset to ‘0’. Writing a ‘1’ while a flash clear operation is in
+                        progress will result in an undefined operation. Writing a ‘0’ to this bit while a flash clear
+                        operation is in progress will be ignored. Cache Lock Bits Flash Clear operations require
+                        approximately 134 cycles to complete. Clearing occurs regardless of the enable (DCE)
+                        value.
+
+       24     DCLOA      Data Cache Lock Overflow Allocate
+                        Set by software to allow a lock request to replace a locked line when a lock overflow
+                        situation exists.
+                        0 Indicates a lock overflow condition will not replace an existing locked line with the
+                           requested line
+                        1 Indicates a lock overflow condition will replace an existing locked line with the
+                           requested line
+
+      25:26   DCEA      Data Cache Error Action
+                        00 Error Detection causes Machine Check exception.
+                        01 Error Detection causes Correction/Auto-invalidation. No machine check is
+                           generated for uncorrectable errors unless the cache line was locked and
+                           invalidated or is dirty. Dirty lines are not auto-invalidated. In EDC mode, correction
+                           is performed for single-bit tag errors, single-bit lock errors, and single or multi-bit
+                           dirty errors. Correction is performed for data errors by reloading of the line.
+                        1x Reserved
+
+       27       —       Reserved1
+       28     DCBZ32    Data Cache dcba, dcbz operation length
+                        0 dcba, dcbz operations operate on an entire cache line
+                        1 dcba, dcbz operations operate on 32bytes of a cache line
+
+                        Note: This bit is implemented for forward compatibility. Since cache lines are 32 bytes,
+                              this bit is ignored for dcba, dcbz operations
+
+       29     DCABT     Data Cache Operation Aborted
+                        Indicates a Cache Invalidate or a Cache Lock Bits Flash Clear operation was aborted
+                        prior to completion. This bit is set by hardware on an aborted condition, and will remain
+                        set until cleared by software writing 0 to this bit location.
+
+       30     DCINV     Data Cache Invalidate
+                        0 No cache invalidate
+                        1 Cache invalidation operation
+                        When written to a ‘1’, a cache invalidation operation is initiated by hardware. Once
+                        complete, this bit is reset to ‘0’. Writing a ‘1’ while an invalidation operation is in
+                        progress will result in an undefined operation. Writing a ‘0’ to this bit while an
+                        invalidation operation is in progress will be ignored. Cache invalidation operations
+                        require approximately 134 cycles to complete. Invalidation occurs regardless of the
+                        enable (DCE) value.
+                        During cache invalidations, the parity check bits are written with a value dependent on
+                        the DCEDT selection. DCEDT should be written with the desired value for subsequent
+                        cache operation when DCINV is set to ‘1’ for proper operation of the cache.
+
+
+
+
+                             e200z759n3 Core Reference Manual, Rev. 2
+592                                                                                             Freescale Semiconductor
+                                           Table 11-1. L1CSR0 field descriptions (continued)
+
+        Bits              Name                                                           Description
+
+            31            DCE               Data Cache Enable
+                                            0 Cache is disabled
+                                            1 Cache is enabled
+                                            When disabled, cache lookups are not performed for normal load or store accesses,
+                                            or for snoop requests.
+                                            Other L1CSR0 cache control operations are still available. Also, operation of the store
+                                            buffer is not affected by DCE.
+    1
+            These bits are not implemented and should be written with zero for future compatibility.
+
+
+11.4.2            L1 Cache Control and Status Register 1 (L1CSR1)
+The L1 Cache Control and Status Register 1 (L1CSR1) is a 32-bit register used for general control of the
+instruction cache. The L1CSR1 register is accessed using a mfspr or mtspr instruction. The SPR number
+for L1CSR1 is 1011 in decimal. The L1CSR1 register is shown in Figure 11-5.
+                                                                      ICECE
+
+
+
+
+                                                                                          ICEDT
+
+
+
+
+                                                                                                                            ICLOA
+
+
+
+
+                                                                                                                                               ICABT
+                                                                                                                    ICLFC
+
+
+
+
+                                                                                                                                                       ICINV
+                                                                                                                                    ICEA
+                                                                                                             ICLO
+                                                                                                      ICUL
+                                                                              ICEI
+
+
+
+
+                                                                                                                                                               ICE
+                                       0                                             0            0                                        0
+
+        0     1   2   3   4   5    6   7    8   9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31
+
+                                                     SPR - 1011; Read/Write; Reset - 0x0
+
+                                  Figure 11-5. L1 Cache Control and Status Register 1 (L1CSR1)
+
+The L1CSR1 bits are described in Table 11-2.
+                                                 Table 11-2. L1CSR1 field descriptions
+
+        Bits              Name               Description
+
+        0:14                  —              Reserved1
+            15            ICECE              Instruction Cache Error Checking Enable
+                                             0 Error Checking is disabled
+                                             1 Error Checking is enabled
+
+            16            ICEI               Instruction Cache Error Injection Enable
+                                             0 Cache Error Injection is disabled
+                                             1 When ICEDT=01, a double-bit error will be injected into each doubleword written
+                                                into the cache by inverting the two uppermost parity check bits (p_chk[0:1]).
+                                             ICEI will cause injection of errors regardless of the setting of ICECE, although
+                                             reporting of errors will be masked when ICECE=0.
+
+            17                —              Reserved1
+        17:24                 —              Reserved1
+
+        18:19             ICEDT              Instruction Cache Error Detection Type
+                                             00 Reserved (defaults to ICEDT=01(EDC) actions)
+                                             01 EDC Error Detection is selected
+                                             1x - Reserved
+
+            20                —              Reserved1
+
+
+                                                 e200z759n3 Core Reference Manual, Rev. 2
+Freescale Semiconductor                                                                                                                                              593
+                      Table 11-2. L1CSR1 field descriptions (continued)
+
+      Bits    Name      Description
+
+       21     ICUL      Instruction Cache Unable to Lock
+                        Indicates a lock set instruction was not effective in locking a cache line. This bit is set
+                        by hardware on an “unable to lock” condition (other than lock overflows), and will
+                        remain set until cleared by software writing 0 to this bit location.
+
+       22     ICLO      Instruction Cache Lock Overflow
+                        Indicates a lock overflow (overlocking) condition occurred. This bit is set by hardware
+                        on an “overlocking” condition, and will remain set until cleared by software writing 0 to
+                        this bit location.
+
+       23     ICLFC      Instruction Cache Lock Bits Flash Clear
+                        When written to a ‘1’, a cache lock bits flash clear operation is initiated by hardware.
+                        Once complete, this bit is reset to ‘0’. Writing a ‘1’ while a flash clear operation is in
+                        progress will result in an undefined operation. Writing a ‘0’ to this bit while a flash clear
+                        operation is in progress will be ignored. Cache Lock Bits Flash Clear operations
+                        require approximately 134 cycles to complete. Clearing occurs regardless of the
+                        enable (ICE) value.
+
+       24     ICLOA      Instruction Cache Lock Overflow Allocate
+                        Set by software to allow a lock request to replace a locked line when a lock overflow
+                        situation exists.
+                        0 Indicates a lock overflow condition will not replace an existing locked line with the
+                           requested line
+                        1 Indicates a lock overflow condition will replace an existing locked line with the
+                           requested line
+
+      25:26   ICEA      Instruction Cache Error Action
+                        00 Error Detection causes Machine Check exception.
+                        01 Error Detection causes Correction/Auto-invalidation. No machine check is
+                            generated unless a locked line is invalidated. Correction is performed for single-bit
+                            tag and lock errors, and lines with multi-bit tag or lock errors are invalidated. In
+                            parity mode, tag or lock errors will result in invalidation of lines. Correction is
+                            performed for single or multi-bit data errors by reloading of the line.
+                        1x Reserved
+
+      27:28    —        Reserved1
+       29     ICABT     Instruction Cache Operation Aborted
+                        Indicates a Cache Invalidate or a Cache Lock Bits Flash Clear operation was aborted
+                        prior to completion. This bit is set by hardware on an aborted condition, and will remain
+                        set until cleared by software writing 0 to this bit location.
+
+
+
+
+                            e200z759n3 Core Reference Manual, Rev. 2
+594                                                                                             Freescale Semiconductor
+                                                                 Table 11-2. L1CSR1 field descriptions (continued)
+
+        Bits                           Name                                Description
+
+            30                         ICINV                               Instruction Cache Invalidate
+                                                                           0 No cache invalidate
+                                                                           1 Cache invalidation operation
+                                                                           When written to a ‘1’, a cache invalidation operation is initiated by hardware. Once
+                                                                           complete, this bit is reset to ‘0’. Writing a ‘1’ while an invalidation operation is in
+                                                                           progress will result in an undefined operation. Writing a ‘0’ to this bit while an
+                                                                           invalidation operation is in progress will be ignored. Cache invalidation operations
+                                                                           require approximately 134 cycles to complete. Invalidation occurs regardless of the
+                                                                           enable (ICE) value.
+                                                                           During cache invalidations, the parity check bits are written with a value dependent on
+                                                                           the ICEDT selection. ICEDT should be written with the desired value for subsequent
+                                                                           cache operation when ICINV is set to ‘1’ for proper operation of the cache.
+
+            31                             ICE                             Instruction Cache Enable
+                                                                           0 Cache is disabled
+                                                                           1 Cache is enabled
+                                                                           When disabled, cache lookups are not performed for instruction accesses.
+                                                                           Other L1CSR1 cache control operations are still available and are not affected by ICE.
+    1
+            These bits are not implemented and should be written with zero for future compatibility.
+
+
+11.4.3                  L1 Cache Configuration Register 0 (L1CFG0)
+The L1 Cache Configuration Register 0 (L1CFG0) is a 32-bit read-only register. L1CFG0 provides
+information about the configuration of the e200z759n3 L1 data cache design. The contents of the L1CFG0
+register can be read using a mfspr instruction. The SPR number for L1CFG0 is 515 in decimal. The
+L1CFG0 register is shown in Figure 11-6.
+                                       DCFISWA
+
+
+
+
+                                                                 DCBSIZE
+
+
+                                                                                  DCREPL
+            CARCH
+
+
+
+
+                                                                                                  DCECA
+                               CFAHA
+                        CWPA
+
+
+
+
+                                                                                           DCLA
+
+
+
+
+                                                     0                                                         DCNWAY                       DCSIZE
+
+
+        0           1   2      3       4         5       6   7             8     9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31
+
+        00              1      0       1         0       0   00                   10       1      1        00000011 (4 way)           00000010000 (16 KB)
+
+                                                                                                      SPR - 515; Read-only
+
+                                                         Figure 11-6. L1 Cache Configuration Register 0 (L1CFG0)
+
+The L1CFG0 bits are described in Table 11-3.
+                                                                                   Table 11-3. L1CFG0 field descriptions
+
+        Bits                            Name                                                                            Description
+
+            0:1                        CARCH                                   Cache Architecture
+                                                                               00 The cache architecture is Harvard
+
+             2                         CWPA                                    Cache Way Partitioning Available
+                                                                               1 The caches support partitioning of way availability for I/D accesses
+
+
+
+
+                                                                                  e200z759n3 Core Reference Manual, Rev. 2
+Freescale Semiconductor                                                                                                                                              595
+                                                         Table 11-3. L1CFG0 field descriptions (continued)
+
+      Bits                      Name                                                                            Description
+
+          3                   DCFAHA                                   Data Cache Flush All by Hardware Available
+                                                                       0 The data cache does not support Flush All in Hardware
+
+          4                   DCFISWA                                  Data Cache Flush/Invalidate by Set and Way Available
+                                                                       1 The data cache supports flushing/invalidation by Set and Way via the L1FINV0 spr
+
+          5:6                            —                             Reserved - read as zeros
+
+          7:8                 DCBSIZE                                  Data Cache Block Size
+                                                                       00 The data cache implements a block size of 32 bytes
+
+      9:10                    DCREPL                                   Data Cache Replacement Policy
+                                                                       10 The data cache implements a pseudo-round-robin replacement policy
+          11                    DCLA                                    Data Cache Locking APU Available
+                                                                       1 The data cache implements the line locking APU
+
+          12                  DCECA                                    Data Cache Error Checking Available
+                                                                       1 The data cache implements error checking
+
+      13:20                   DCNWAY                                   Data Cache Number of Ways
+                                                                       0x03 The data cache is 4-way set-associative
+
+      21:31                   DCSIZE                                   Data Cache Size
+                                                                       0x010The size of the data cache is 16 KB.
+
+
+11.4.4                L1 Cache Configuration Register 1 (L1CFG1)
+The L1 Cache Configuration Register 1 (L1CFG1) is a 32-bit read-only register. L1CFG1 provides
+information about the configuration of the e200z759n3 L1 instruction cache design. The contents of the
+L1CFG1 register can be read using a mfspr instruction. The SPR number for L1CFG1 is 516 in decimal.
+The L1CFG1 register is shown in Figure 11-7.
+                               ICFISWA
+
+
+
+
+                                                         ICBSIZE
+
+
+                                                                          ICREPL
+
+
+
+                                                                                          ICECA
+                                                                                   ICLA
+
+
+
+
+                  0                          0                                                         ICNWAY                        ICSIZE
+
+
+      0       1       2   3   4          5       6   7             8     9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31
+
+              0000            1          0       0   00                   10       1      1        00000011 (4 way)           00000010000 (16 Kbyte)
+
+                                                                                              SPR - 516; Read-only
+
+                                                 Figure 11-7. L1 Cache Configuration Register 1 (L1CFG1)
+
+The L1CFG1 bits are described in Table 11-4.
+
+
+
+
+                                                                          e200z759n3 Core Reference Manual, Rev. 2
+596                                                                                                                                     Freescale Semiconductor
+                                  Table 11-4. L1CFG1 field descriptions
+
+      Bits         Name                                          Description
+
+       0:3          —          Reserved - read as zeros
+
+       4         ICFISWA      Instruction Cache Flush/Invalidate by Set and Way Available
+                              1 The instruction cache supports invalidation by Set and Way via the L1FINV1 spr
+
+       5:6          —         Reserved - read as zeros
+
+       7:8        ICBSIZE     Instruction Cache Block Size
+                              00 The instruction cache implements a block size of 32 bytes
+
+      9:10        ICREPL       Instruction Cache Replacement Policy
+                              10 The instruction cache implements a pseudo-round-robin replacement policy
+       11          ICLA        Instruction Cache Locking APU Available
+                              1 The instruction cache implements the line locking APU
+
+       12         ICECA       Instruction Cache Error Checking Available
+                              1 The instruction cache implements error checking
+
+     13:20        ICNWAY      Instruction Cache Number of Ways
+                              0x03 The instruction cache is 4-way set-associative
+
+     21:31        ICSIZE      Instruction Cache Size
+                              0x010The size of the instruction cache is 16 KB.
+
+
+11.5         Data cache software coherency
+Data cache coherency is supported through software operations to invalidate, flush dirty lines to memory
+or invalidate dirty lines. The data cache may operate in either writethrough or copyback modes, and in
+conjunction with a MMU, may designate certain accesses as writethrough or copyback. Data cache misses
+will force the push and store buffers to empty prior to performing the access to ensure coherency.
+
+11.6         Address aliasing
+Each cache is virtually indexed and physically tagged, thus the problems associated with potential cache
+synonyms due to effective address aliasing are eliminated, unless 1Kbyte or 2Kbyte pages are used. If
+1Kbyte or 2Kbyte pages are used and multiple virtual addresses are mapped to the same physical address,
+the low order virtual address bits used to index the cache (A[20:21] for 1Kbyte pages, A20 for 2Kbyte
+pages) must be the same for each of the virtual pages, and these index bit(s) must match the corresponding
+physical address bit(s) value. For example, if logical pages X and Y map to physical page P, then X, Y, and
+P must have the same values of A[20:21] for 1Kbyte pages, and A20 for 2Kbyte pages. Note that this
+limitation should already met because of the requirements on 1Kbyte and 2Kbyte page usage mandated by
+Section 10.2.6, Restrictions on 1 KB and 2 KB page size usage.
+
+
+
+
+                                  e200z759n3 Core Reference Manual, Rev. 2
+Freescale Semiconductor                                                                                          597
+11.7      Cache Operation
+
+11.7.1      Cache enable/disable
+The caches are enabled or disabled by using the respective Cache Enable bits, L1CSR0DCE and
+L1CSR1ICE. Cache Enable bits are cleared by power-on reset or normal reset, disabling the caches.
+When a cache is disabled, the cache tag status bits are ignored, and the cache is not accessed for snoops,
+normal loads, stores, or instruction fetches. All normal accesses are propagated to the system bus as
+single-beat (non-burst) transactions.
+Note that the state of the Cache Inhibited access attribute (the I bit) remains independent of the state of
+L1CSR0DCE and L1CSR1ICE. Disabling a cache does not affect the translation logic in the Memory
+Management Unit. Translation attributes will still be used when generating attribute information on the
+system buses.
+The store buffer is still available for use even when the data cache is disabled.
+Altering the DCE or ICE bit must be preceded by an isync and msync to prevent the cache from being
+disabled or enabled in the middle of a data or instruction access. In addition, the cache may need to be
+globally flushed before it is disabled to prevent coherency problems when it is re-enabled.
+All cache operations are affected by disabling the cache. Cache management instructions (except for
+mtspr L1FINV{0,1} and mtspr L1CSR{0,1}) do not affect a cache when it is disabled.
+
+11.7.2      Cache fills
+Cache line fills are requested when a cacheable load or instruction miss occurs. Cacheable store misses
+only allocate cache lines if data cache write allocation is enabled for the type of store being performed.
+The cache line fill is performed critical doubleword first on the bus using a burst access. The critical
+doubleword is forwarded to the requesting unit before being written to the cache, thus minimizing stalls
+due to fill delays. Cache line fills load a four doubleword linefill buffer, and updates to the cache array are
+performed as half-lines are received.
+Read accesses may hit in the line buffer and data supplied from the buffer to the CPU. On writes that hit
+to the buffer address, when write allocation is disabled, the writes will stall until the cache fill has been
+completed. When write allocation is enabled, these writes will update the linefill buffer if the buffer is
+being filled due to a store miss only, otherwise the write will also stall until the linefill completes.
+Data may be streamed to the CPU as it arrives from the bus if a corresponding request is pending. In
+addition, the cache supports hit under fill, allowing subsequent CPU accesses to be satisfied by cache hits
+while the remainder of the line fill completes. This non-blocking capability improves performance by
+hiding a portion of the line fill latency when data already in the cache or linefill buffer is subsequently
+requested by the CPU.
+The cache supports up to three outstanding misses, and will forward these miss requests to the BIU. Miss
+data is always returned from the BIU to the Cache in-order.
+
+
+
+                                   e200z759n3 Core Reference Manual, Rev. 2
+598                                                                                      Freescale Semiconductor
+Cache fill operations are performed as wrapping bursts on the system bus. If an error response is received
+on any element of the burst, the burst will be terminated, and the cache line will be marked invalid.
+If one or more store hit updates occur to the linefill buffer during allocation of a line for a store miss and
+a subsequent error response is received during the linefill, the original store miss access and each
+individual hitting store access will be performed on the system bus as if they were non-allocating. In this
+case, an async machine check exception will be signaled for the linefill.
+
+11.7.3       Cache line replacement
+On a cache miss, the cache controller uses a pseudo-round-robin replacement algorithm to determine
+which cache line will be selected to be replaced. There is a single replacement counter for each cache. The
+replacement algorithm acts as follows: On a miss, if the replacement pointer is pointing to a way that is
+not enabled for replacement (the selected line or way is locked), it is incremented until an available way
+is selected (if any). After a cache line is successfully filled without error, the replacement pointer
+increments to point to the next cache way. If no way is available for the replacement, the access is treated
+as a single beat access and no cache linefill occurs.
+Lines selected for replacement that are dirty (modified) must be copied back to main memory. This is
+performed by first storing the replaced line in a 32-byte push buffer while the missed data is fetched. After
+filling the new line, the contents of the buffer are written to memory beginning with doubleword 0.
+Each replacement counter is initialized to point to way 0 on a reset or on a respective cache invalidate all
+operation. A replacement counter may also be set to a specific value via a L1FINV0,1 command.
+
+11.7.4       Cache miss access ordering
+Cacheable cache misses may be processed out-of-order by e200z759n3. Load misses that are not
+cache-inhibited are allowed to bypass buffered stores and push buffer pushes as long as no address alias
+exists. Alias checking is performed by comparing the index of the load with the index of each buffered
+store and push. If no alias match exists, the load is allowed to bypass buffered stores and pushes, regardless
+of the attributes associated with those stores. Load misses will be performed in-order with respect to other
+load misses. Store accesses do not bypass loads. Stores are not necessarily performed in order from the
+point of view of the memory system, since a store miss may cause a linefill to satisfy the store prior to
+previously buffered stores being completed, as long as no aliasing occurs.
+Memory access ordering must be enforced by software where required, using the mbar and/or msync
+instructions, per the PowerArch storage ordering rules.
+
+11.7.5       Cache-inhibited accesses
+When the Cache-Inhibited attribute is indicated by translation and a cache miss occurs, all accesses are
+performed as single beat transactions on the system bus. Cache Inhibited status is ignored on all cache hits.
+For cache-inhibited load access misses, the processor termination is withheld for the load until the store
+buffer has been flushed of all entries, the push buffer has been emptied, and the load has completed to
+memory. Cache-inhibited store accesses that are not marked as Guarded are placed in the store buffer
+
+
+
+                                   e200z759n3 Core Reference Manual, Rev. 2
+Freescale Semiconductor                                                                                    599
+(when enabled) and the processor termination occurs when the store buffer entry is allocated. (see
+Section 11.9, Push and store buffers).
+
+11.7.6      Guarded accesses
+When the Guarded attribute is indicated by translation and a cache miss occurs, the access will not proceed
+on the external bus until all previously initiated demand-accesses have been terminated to the processor
+without error. Buffered stores are considered terminated to the processor when they are placed into the
+store buffer. Guarded load misses that are not cache-inhibited are allowed to bypass buffered stores and
+push buffer pushes as long as no address alias exists, regardless of a buffered store being guarded. Guarded
+stores will not allocate cache lines on a miss, but are buffered in the store buffer if the access is not also
+cache-inhibited, regardless of being writethrough required or not (regardless of W bit or L1CSR0DCWM
+values), and will be performed as single-beat accesses on the bus.
+
+11.7.7      Cache-inhibited guarded accesses
+When the Cache-inhibited and Guarded attributes are indicated by translation and a cache miss occurs,
+accesses are performed as single beat transactions on the system bus. Cache-inhibited status is normally
+ignored on all cache hits. Cache-inhibited status for writethrough stores that are also guarded will not be
+ignored however. For cache-inhibited guarded access misses, or for cache-inhibited guarded writethrough
+store hits, the processor termination is withheld until the store buffer has been flushed of all entries, the
+push buffer has been emptied, and the access has completed to memory (see Section 11.9, Push and store
+buffers). Cache-inhibited guarded stores with W=0 or L1CSR0DCWM=1 that hit ignore the
+Cache-inhibited and Guarded status.
+
+11.7.8      Cache invalidation
+e200z759n3 supports full invalidation of the caches under software control. The caches may be invalidated
+through the L1CSR0DCINV and L1CSR1ICINV cache invalidate control bits. This function is available even
+when a cache is disabled.
+Reset does not invalidate a cache automatically. Software must use the {D,I}CINV control for invalidation
+after a reset. Proper use of this bit is to determine that it is clear and then set it with a pair of mfspr mtspr
+operations. A 0-to-1 transition on {D,I}CINV causes a flash invalidation to be initiated, which lasts for
+multiple (approx. 134) CPU cycles. Once set, the {D,I}CINV bit will be cleared by hardware after the
+operation is complete. It will remain set during the invalidation interval, and may be tested by software to
+determine when the operation has completed. A mtspr operation to L1CSR{0,1} that attempts to change
+the state of {D,I}CINV during invalidation will not affect the state of that bit.
+In order to properly generate the tag parity/check bits during the invalidation process, the error detection
+type control located in the L1CSR[0,1][D,I]CEDT field should be configured properly at the time the
+invalidation operation is initiated. A subsequent change to the error detection type control will require a
+new invalidation to avoid improper interpretation of previously stored tag parity/check bits.
+During the process of performing the invalidation, a cache does not respond to accesses other than snoop
+accesses, and remains busy. Interrupts may still be recognized and processed, potentially aborting the
+invalidation operation. When this occurs, the L1CSR{0,1}ABT bit will be set to indicate unsuccessful
+
+                                    e200z759n3 Core Reference Manual, Rev. 2
+600                                                                                       Freescale Semiconductor
+completion of the operation. Software should read the L1CSR{0,1} register to determine that the operation
+has completed (L1CSR{0,1}CINV bit cleared), and then check the status of the L1CSR{0,1}ABT bit to
+determine completion status.
+                                                             NOTE
+                          Note that while most implementations of the e200z759n3 will stall further
+                          instruction execution during this invalidation interval, it is not guaranteed
+                          across all implementations, thus software should be written using these
+                          guidelines.
+Individual cache lines may be invalidated using the icbi, dcbi, or dcbf instructions. These instructions
+require the respective cache to be enabled in order to operate normally.
+
+11.7.9            Cache flush/invalidate by set and way
+e200z759n3 supports cache flushing under software control. The caches may be flushed and/or invalidated
+by index and way through a mtspr l1finv{0,1} instruction.
+The L1 Flush and Invalidate Control Registers (L1FINV{0,1}) are 32-bit SPRs used to select a cache set
+and way to be flushed/invalidated. No tag match is required. This function is available even when a cache
+is disabled. L1FINV0 is used for data cache operations, while L1FINV1 is used for instruction cache
+operations.
+
+11.7.9.1              L1 Flush and Invalidate Control Register 0 (L1FINV0)
+The SPR number for L1FINV0 is 1016 in decimal. The L1FINV0 register is shown in Figure 11-8.The
+L1FINV0 bits are described in Table 11-5.
+
+                      0                CWAY                       0                              CSET      0    CCMD
+
+      0    1      2       3   4    5   6   7   8   9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31
+
+                                                       SPR - 1016; Read/Write; Reset - 0x0
+
+                                           Figure 11-8. L1 Flush/Invalidate Register 0 (L1FINV0)
+  .
+
+
+                                                    Table 11-5. L1FINV0 field descriptions
+
+          Bits                    Name                                             Description
+
+           0:5                     —           Reserved1 for way extension
+
+           6:7                    CWAY         Cache Way
+                                               Specifies the data cache way to be selected
+
+          8:19                     —           Reserved1 for set extension
+          20:26                   CSET         Cache Set
+                                               Specifies the cache set to be selected
+
+
+
+
+                                                    e200z759n3 Core Reference Manual, Rev. 2
+Freescale Semiconductor                                                                                                  601
+                                                   Table 11-5. L1FINV0 field descriptions (continued)
+
+              Bits                    Name                                                Description
+
+              27:29                    —             Reserved1 for set/command extension
+
+              30:31                   CCMD           Cache Command
+                                                     00 The data contained in this entry is invalidated without flushing
+                                                     01 The data contained in this entry is flushed if dirty and valid without invalidation
+                                                     10 The data contained in this entry is flushed if dirty and valid and then is invalidated
+                                                     11 Reset way replacement pointer to the way indicated by CWAY
+      1
+              These bits are not implemented and should be written with zero for future compatibility.
+
+
+For cache flush operations, if a transfer error occurs on a data cache line flush, the push of the remaining
+portion of the cache line is aborted, the line remains marked dirty and valid, and a machine check condition
+is signaled
+For flush and flush with invalidation operations, data parity errors do not abort a flush to memory, but a
+machine check will be generated at the completion of the flush. In both cases the cache line is left
+unchanged. For flush with invalidation operations to clean lines, tag parity errors and data parity errors are
+ignored, and the line is invalidated. Note that only the line indicated by CSET and CWAY is checked for
+errors; lines in the other ways are ignored.
+For invalidation without flushing operations, tag parity errors, data parity errors, and dirty-bit parity errors
+are ignored, and the line will be invalidated.
+
+11.7.9.2                  L1 Flush and Invalidate Control Register 1 (L1FINV1)
+The SPR number for L1FINV1 is 959 in decimal. The L1FINV1 register is shown in Figure 11-9. The
+L1FINV1 bits are described in Table 11-6.
+
+
+                          0                CWAY                          0                                 CSET                 0      CCMD
+
+          0     1     2       3   4    5   6   7    8   9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31
+
+                                                              SPR - 959; Read/Write; Reset - 0x0
+
+                                               Figure 11-9. L1 Flush/Invalidate Register 1 (L1FINV1)
+
+                                                          Table 11-6. L1FINV1 field descriptions
+
+              Bits                    Name                                                Description
+
+               0:5                     —             Reserved1 for way extension
+               6:7                    CWAY           Cache Way
+                                                     Specifies the instruction cache way to be selected
+
+              8:19                     —             Reserved1 for set extension
+
+              20:26                   CSET           Cache Set
+                                                     Specifies the instruction cache set to be selected
+
+
+
+
+                                                         e200z759n3 Core Reference Manual, Rev. 2
+602                                                                                                                      Freescale Semiconductor
+                                 Table 11-6. L1FINV1 field descriptions (continued)
+
+        Bits          Name                                               Description
+
+        27:29           —           Reserved1 for set/command extension
+
+        30:31         CCMD          Cache Command
+                                    00 The data contained in this entry is invalidated
+                                    01 Reserved
+                                    10 Reserved
+                                    11 Reset way replacement pointer to the way indicated by CWAY
+    1
+        These bits are not implemented and should be written with zero for future compatibility.
+
+
+11.8       Cache parity and EDC protection
+Cache parity is supported for both the tag and data arrays of each cache. Six parity check bits are provided
+for each tag entry for the tag arrays of both caches to support multi-bit error detection (EDC), and
+redundant dirty bits are provided in the data cache to provide dirty-bit parity checking without requiring a
+read-modify-write operation when the dirty bit is set. Redundant lock bits are provided as well for both the
+ICache and the DCache. Byte parity is supported for the data arrays of the data cache, and eight parity
+check bits are provided for each doubleword in the data arrays of the ICache, which are used for multi-bit
+error detection (EDC–DED, double error detection). Utilizing EDC protection, many multi-bit errors are
+also detected.
+Parity and EDC checking is controlled by the L1CSR0DCECE, L1CSR0DCEDT, L1CSR1ICECE, and
+L1CSR1ICEDT control fields. When error checking is enabled, checking is performed on each cache
+access, whether for lookup, snoop lookup, or for dirty line replacement. Parity or EDC errors are not
+signaled by the respective cache when cache error checking is disabled for that cache
+(L1CSR[0,1][I,D]CECE=0).
+For normal cache lookups due to instruction fetching, loads, or stores, if an uncorrectable tag EDC error
+is detected on any portion of the accessed tags, a parity error is signaled, regardless of whether a cache hit
+or miss occurs. Otherwise, if a cache hit for a load occurs and a data parity error is detected on any portion
+of the accessed doubleword of data, a parity error is also signaled. Data parity errors are ignored for store
+hits, since the parity will be updated for the data being stored. Data parity errors are ignored for misses
+unless the replacement line is dirty or incurs a dirty bit parity error, since the parity will be updated for the
+new linefill data being stored.
+Signaling of a parity error may not cause an exception to occur, depending on the error detection action to
+be taken. Instead, a correction/auto-invalidation cycle may be performed.
+A dirty line push will not be generated for a dirty line replacement that incurs an uncorrectable tag EDC
+error. In this case, a machine check will be generated, but no push will have been requested to the external
+bus, and the cache line will be left unchanged. For dirty line pushes from the data cache, accessing the data
+arrays for the push data may occur after the burst write has been requested on the external bus, thus a push
+of dirty data may actually push data that contains a parity error. A machine check will be signaled, but the
+burst will not be aborted, and the line will be invalidated and replaced.
+Dirty bit parity is checked when invalidation or replacement operations are required. If a dirty parity error
+is detected on a cache line replacement, in correction/autoinvalidation mode, it is ignored, and the line is
+
+                                        e200z759n3 Core Reference Manual, Rev. 2
+Freescale Semiconductor                                                                                       603
+pushed normally. In machine check mode, a machine check exception will be signaled indicating a tag
+parity error. Dirty status or dirty parity errors will prevent the auto-invalidation of cache lines with tag
+EDC errors. If a dirty parity error occurs, in correction/autoinvalidation mode the line is assumed to be
+dirty, and if correction/auto-invalidation is enabled, the error will be corrected by re-writing all three dirty
+bits to ‘1’. This implies that a single or multi-bit error that sets one or more dirty bits from an initially
+cleared state will cause the line to appear dirty. This should not cause a functional issue however, since the
+only result is that a clean but coherent line may be pushed on a flush or replacement in
+correction/autoinvalidation mode.
+Regardless of the error action mode indicated by {D,I}CEA, lock bit parity errors will not signal an
+exception for normal hits without a tag parity error. If correction/auto-invalidation is enabled, on each
+cache lookup operation, if a single-bit lock error is detected in one or more ways, it will be corrected by
+re-writing all lock bits to the correct state. Uncorrectable lock errors will remain unchanged. For cache hits
+without a tag EDC error, all lock parity errors are ignored. Lock parity errors on a cacheable miss (after a
+correction attempt if correction/auto-invalidation is enabled) will result in the line(s) being invalidated if
+clean and a machine check to be generated. A new line will not be allocated, and the lock bits will not be
+updated on the invalidation. Lock bit parity errors are ignored for non-cacheable accesses.
+Signaling of a parity error or EDC error may cause a Machine Check exception to occur, and one or more
+syndrome bits to be set in the Machine Check Syndrome register, or may instead result in a
+correction/auto-invalidation operation and not result in an exception being signaled, or both may occur,
+depending on the error action control setting in the appropriate cache control register. Refer to
+Section 11.8.1, Cache error action control, for details of the cache error action controls. Refer to
+Section 7.7.2, Machine Check interrupt (IVOR1), and to Section 2.4.7, Machine Check Syndrome
+Register (MCSR), for a description of Machine Check conditions.
+
+11.8.1      Cache error action control
+The L1CSR0DCEA and L1CSR1ICEA control fields allow for selection of several policies to apply when
+errors are detected during a cache lookup, and are described in the following subsections.
+
+11.8.1.1      L1CSR[0,1][I,D]CEA = 00, machine check generation on error
+Selection of the machine check generation on error policy allows for all errors to be processed by software.
+Parity or EDC errors that could result in incorrect operation will cause a machine check condition. In order
+to be recoverable, the machine check handler must not incur another parity or EDC error during the initial
+portion of the machine check handler. Parity/EDC errors will not generate a machine check exception for
+cache-inhibited accesses.
+If machine check generation on error is enabled (L1CSR[0,1][I,D]CEA=00) and an EDC error is detected
+on any portion of the accessed tags for a cacheable load or store access, a machine check is reported,
+regardless of whether a cache hit or miss occurs. Otherwise, if a cache hit occurs and a parity or EDC error
+is detected on any portion of the accessed doubleword of data for a load or an instruction access, a machine
+check is also reported. For store accesses, data parity errors are ignored. Lock or dirty parity errors on a
+cacheable miss will cause a machine check to be reported indicating a lock error and/or a tag parity error.
+Dirty parity errors on a cache hit for a reservation instruction (lwarx, stwcx., etc.) will result in a machine
+check and will indicate a tag parity error. If a miss occurs and a tag EDC error is detected on a lookup for
+
+                                   e200z759n3 Core Reference Manual, Rev. 2
+604                                                                                      Freescale Semiconductor
+a cacheable reservation instruction (lwarx, stwcx., etc.), it will be ignored if the line is clean, otherwise if
+the line is dirty or a dirty parity error occurs, a machine check will be generated and the reservation access
+will not be run externally. Cache inhibited reservation accesses will ignore all parity/EDC errors.
+
+11.8.1.2      L1CSR[0,1][I,D]CEA = 01, correction/auto-invalidation on error
+The correction/auto-invalidation on error policy attempts to cause most parity and EDC errors to be
+transparently handled by correcting lines with single-bit tag errors, and invalidating lines with
+uncorrectable tag errors or with data errors and then causing cache refills to reload correct data from
+memory, without generation of exceptions. Exceptions are only generated when invalidations could cause
+or would cause a change in correct behavior, such as changing the locked status of a line, or invalidating
+potentially dirty data. Parity/EDC errors will not generate invalidations that could cause a machine check
+exception for cache-inhibited accesses however.
+When using EDC protection for the cache tags (L1CSR[0,1][D,I]CEDT=01), single-bit tag errors are
+corrected by the cache hardware during a correction/auto-invalidation cycle. Clean unlocked lines with
+multi-bit errors are invalidated on cache hits, with no machine check signaled. Clean locked lines with
+uncorrectable tag errors are invalidated on cache misses, and a machine check is signaled.
+Note that since the data arrays have a higher probability of incurring an error than the tag arrays, due to
+the relative storage capacities, most errors will be transparently corrected, even if they are double-bit or
+multi-bit errors. Using writethrough mode for critical data will ensure that invalidation or refills are able
+to recover from errors transparently in most cases.
+
+11.8.1.2.1      Instruction cache errors
+If correction/auto-invalidation on error is enabled (L1CSR1ICEA=01) and an error is detected on any
+portion of the accessed tags or data for an access, a correction/auto-invalidation cycle is inserted,
+regardless of whether a cache hit or miss occurs. During this cycle, any tag entry with a single-bit tag or
+lock error is corrected and re-written to correct the stored error. Tag entries with uncorrectable errors are
+invalidated if unlocked or are invalidated if a cache miss will occur after a correction/auto-invalidation
+cycle regardless of locked status. If a locked line is invalidated, a machine check will occur, no
+replacement will occur, and the locked status will remain set for the invalidated line(s) to assist software
+in determining the location of the error(s).
+Following the correction/auto-invalidation cycle, a re-lookup is performed for the access. If a cache hit
+occurs on a way without a tag EDC error, and an EDC error is detected on any portion of the accessed
+doubleword of data, a miss is forced, and the same line is refilled from system memory, retaining the
+existing lock status. The replacement pointer for the cache is not updated in these circumstances. If a cache
+hit occurs on a way without a tag EDC error, EDC errors on all other lines are ignored, and no invalidations
+for those lines will occur.
+For all cases of invalidations, if any line that was locked or incurred a lock error was invalidated, a machine
+check will also occur, even though auto-invalidation is selected. Invalidation is not blocked for locked
+lines or lines with lock parity errors on cache misses. The lock bits will remain unmodified by the
+invalidation operation to allow for potential software recovery.
+
+
+
+
+                                   e200z759n3 Core Reference Manual, Rev. 2
+Freescale Semiconductor                                                                                      605
+If a refill of a locked line due to a data EDC error encounters an external bus error during the linefill, a
+machine check will be generated, the line will be invalidated, and the lock bits will remain set.
+
+11.8.1.2.2      Data cache errors
+If correction/auto-invalidation on error is enabled (L1CSR0DCEA=01) and an error is detected on any
+portion of the accessed tags, or if a lock or dirty parity error is detected, an invalidation/correction cycle
+is inserted, regardless of whether a cache hit or miss occurs. Following the invalidation/correction cycle,
+a re-lookup is performed for the access. During the correction/auto-invalidation cycle, any tag entry with
+a tag or lock error is corrected if possible, and re-written to correct the stored error. Tag entries with
+uncorrectable errors are invalidated if the line is clean and unlocked, or if the line is clean and a miss will
+occur after the re-lookup, regardless of lock status. Dirty parity errors are corrected by setting all dirty bits
+to ‘1’. Dirty lines and lines with a dirty parity error are not invalidated.
+Following the correction/auto-invalidation cycle, a re-lookup is performed for the access. If a cache hit
+occurs on a way without a tag EDC error, and a parity error is detected on any portion of the accessed
+doubleword of data for a load, if the line is clean, a miss is forced and the line is refilled from system
+memory, retaining the existing lock status. The replacement pointer for the cache is not updated in these
+circumstances. All other clean unlocked lines with uncorrectable tag errors will have been invalidated
+during the correction/auto-invalidation cycle if one was initially needed. Tag EDC errors on lines that were
+not invalidated earlier due to lock or dirty status will be ignored since a cache hit occurs. For stores, parity
+errors on data are ignored, and no invalidation or refill of any lines will occur on a hit to a way without a
+tag EDC error.
+Note that since the data arrays have a higher probability of incurring an error than the tag arrays, due to
+the relative storage capacities, most errors will be transparently corrected. Using writethrough mode for
+critical data will ensure that invalidation or refills are able to recover from errors transparently in most
+cases.
+If a cache hit occurs on a way without a tag EDC error, and a parity error is detected on any portion of the
+accessed doubleword of data for a load, and the line is dirty or a dirty error occurs, no refill of the cache
+line will occur, the line will not be invalidated, and a machine check will also occur, even if
+auto-invalidation is selected. All other clean unlocked lines with uncorrectable tag errors will also have
+been invalidated during the correction/auto-invalidation cycle if one was initially needed. Tag EDC errors
+on lines that were not invalidated earlier due to lock or dirty status will be ignored
+If a cache hit occurs only on a line(s) with an uncorrectable tag EDC error after a invalidation /correction
+cycle has been performed, since the line is dirty or has a dirty parity error (it would have been invalidated
+otherwise), a machine check is generated, and no linefill is performed.
+If a cache miss occurs and any line with an uncorrectable tag EDC error is dirty or has a dirty parity error,
+the line is not invalidated, a machine check is generated, and no linefill is performed. All clean lines with
+tag errors will have been invalidated/corrected on a cache miss, regardless of locked status.
+For all cases of invalidations, if any line that was locked or incurred a lock error was invalidated, a machine
+check will also occur, even though auto-invalidation is selected. Invalidation on a miss is not blocked for
+locked lines or lines with lock parity errors unless the access is cache-inhibited or is dirty. The lock bits
+will remain unmodified by the invalidation operation to allow for potential software recovery.
+
+
+                                    e200z759n3 Core Reference Manual, Rev. 2
+606                                                                                       Freescale Semiconductor
+If a refill of a locked line due to a data parity error encounters an external bus error during the linefill, a
+machine check will be generated, the line will be invalidated, and the lock bits will remain set.
+
+11.8.1.2.3      Data cache line flush or invalidation due to reservation instructions
+                (l[b,h,w]arx, st[b,h,w]cx.)
+Normally, when executing a load and reserve, or a store conditional instruction, a cache line hit results in
+the line being pushed (if dirty) and marked clean, and the reservation access performed as a single-beat
+access. Certain parity or EDC errors may cause other actions however.
+If a cache hit to a line with no tag EDC error occurs when performing a lookup for a load or store
+reservation access, the line will be pushed if dirty, or if a dirty parity error occurs, and will be marked as
+clean. Locked status will not be changed. A push parity error may occur during the push if a data parity
+error is encountered, and a machine check will be generated. In this case the reservation access will not be
+performed. Otherwise, a load reservation access is then performed as a single-beat access, ignoring the
+cache data. A store reservation access is performed as a writethrough single-beat write access on the bus,
+regardless of whether it is marked as writethrough required. If the write access completes without error
+and succeeds (no ERROR or XFAIL response from the bus), then the cache is updated with the store data,
+but the line is left in a clean state. Uncorrectable tag errors on other clean unlocked lines will cause
+invalidation of those lines without signaling a machine check. Uncorrectable tag errors on other cache lines
+that are locked or are dirty will be ignored.
+Otherwise, if any line has an uncorrectable tag EDC error and is dirty or has a dirty parity error, a machine
+check is generated, and the line(s) remains unchanged. Clean unlocked lines with tag EDC errors will be
+invalidated or corrected, but locked lines or lines with a lock error will not be invalidated on a cache miss,
+since no new cache line will be allocated.
+
+11.8.2       Parity/EDC error handling for cache control operations and
+             instructions
+Parity/EDC errors are not signaled when the respective L1CSR0DCECE and L1CSR1ICECE cache error
+checking enable bits are cleared. When set, the following sections describe error handling for cache control
+operations and cache control instructions.
+
+11.8.2.1      L1FINV[0,1] operations
+For invalidation operations via the L1FINV[0,1] control registers, uncorrectable tag EDC errors will result
+in the specified line being invalidated, and no error will be reported, regardless of the setting of
+L1CSR[0,1][I,D]CEA. Data parity or EDC errors and dirty errors are ignored. Parity or EDC errors on all
+other ways not specified by the CWAY value for the L1FINV[0,1] are ignored, regardless of the settings
+of L1CSR[0,1][D,I]CEA.
+For flush and flush with invalidate operations via the L1FINV0 control register, if no uncorrectable tag
+EDC error occurs on the specified line, it is flushed to memory if dirty or if a dirty parity error occurs, and
+then invalidated for flush with invalidate operations, and no machine check is signaled for dirty parity
+errors. If an uncorrectable tag EDC error occurs on the specified line, and the line is dirty or a dirty error
+is encountered, no flush or invalidation will be performed, the line will remain unchanged, and a machine
+
+
+                                   e200z759n3 Core Reference Manual, Rev. 2
+Freescale Semiconductor                                                                                      607
+check will be generated. For flush operations, an uncorrectable tag EDC error on a clean line will be
+ignored, and no error will be reported. For flush with invalidate operations, an uncorrectable tag EDC error
+on a clean line will result in the specified line being invalidated, and no error will be reported. Lock status
+is ignored for these operations. Data parity errors may result in a push parity error and a machine check
+generated, but the line will still be flushed to memory if not prevented due to an uncorrectable tag EDC
+error. If a push parity error occurs, the line will be left unaffected for flush with invalidate operations. Lock
+status will be cleared on an invalidation or flush with invalidation that does not result in a machine check.
+
+11.8.2.2      Cache touch instructions (dcbt, dcbtst, icbt)
+Parity errors are not signaled on a lookup for a dcbt, dcbtst, or icbt instruction. For those instructions, an
+uncorrectable tag EDC error results in a nop and no error is reported, regardless of error checking being
+enabled. No invalidations will occur.
+
+11.8.2.3      icbi instructions
+For icbi instructions, on a hit to any locked or unlocked line without an uncorrectable tag EDC error (with
+or without a lock parity error), or on a hit to an unlocked line with an uncorrectable tag EDC error, the
+line(s) is invalidated, regardless of the setting of L1CSR1ICEA, and no machine check is generated. If
+L1CSR1ICEA = ‘01’, if any line has a tag EDC error, a correction/invalidation cycle is inserted to correct
+tags with single-bit errors, and to invalidate unlocked lines with multi-bit errors. Locked lines with
+uncorrectable tag errors that miss are unaffected. No machine check will be generated.
+If a hit occurs to a line with a tag EDC error (after a correction for L1CSR1ICEA = ‘01’) that is locked or
+has a lock parity error, the line is left unaffected, and no machine check is generated, regardless of the
+setting of L1CSR1ICEA.
+If a miss occurs, all parity/EDC errors are ignored, the lines are left unaffected, and no machine check is
+generated, regardless of the setting of L1CSR1ICEA.
+All data EDC errors are ignored regardless of L1CSR1ICEA.
+
+11.8.2.4      dcbi instructions
+For dcbi instructions, on a hit to a line without a tag EDC error, the line is invalidated, regardless of the
+setting of L1CSR0DCEA. For this case, data, lock, and dirty parity errors are ignored. When
+L1CSR0DCEA = ‘00’, tag parity/DC errors on other lines are ignored. When L1CSR0DCEA = ‘01’,
+uncorrectable tag EDC errors on other lines will also cause clean unlocked lines to be invalidated,
+regardless of hit or miss. No machine check is generated regardless of the setting of L1CSR0DCEA.
+For dcbi instructions that hit to a line with a tag EDC error, the line(s) is invalidated if clean and unlocked
+and no machine check is generated, regardless of the setting of L1CSR0DCEA. Uncorrectable tag EDC
+errors will cause other clean unlocked lines to be invalidated when L1CSR0DCEA = ‘01’, regardless of hit
+or miss. If a hit occurs to a line with an uncorrectable tag EDC error and the line is dirty, or is locked or
+has a lock parity error, the line is left unaffected, and no machine check is generated, regardless of the
+setting of L1CSR0DCEA.
+
+
+
+
+                                    e200z759n3 Core Reference Manual, Rev. 2
+608                                                                                       Freescale Semiconductor
+For dcbi instructions that miss in all ways, when L1CSR0DCEA = ‘00’, no invalidation is performed
+regardless of tag parity /EDC errors and no machine check is signaled. Uncorrectable tag EDC errors will
+cause clean unlocked lines to be invalidated when L1CSR0DCEA = ‘01’, and no machine check is signaled.
+All other lines are left unchanged.
+
+11.8.2.5      dcbst instructions
+For dcbst instructions, on a hit to any line without a tag EDC error, if the line is dirty, or has a dirty bit
+error, the line is flushed. Lock errors are ignored. When L1CSR0DCEA = ‘00’, tag EDC errors on other
+lines are ignored. When L1CSR0DCEA = ‘01’, uncorrectable tag EDC errors on other lines will also cause
+clean unlocked lines to be invalidated, regardless of hit or miss. No machine check is generated regardless
+of the setting of L1CSR0DCEA. For dcbst, lock and dirty errors are ignored on a hit. Data parity errors will
+not prevent the line from being flushed, but will cause a machine check to be generated due to a push parity
+error.
+For cacheable dcbst instructions that hit only to a line with a tag EDC error or that miss in all ways, a
+machine check will be generated if L1CSR0DCEA = ‘00’ and any line with a tag EDC error is dirty. Lock
+errors are ignored. If L1CSR0DCEA = ‘01’, clean unlocked lines with an uncorrectable tag EDC error are
+invalidated, and no errors are signaled unless any line with an uncorrectable tag EDC error is also dirty or
+has a dirty parity error. If any line with an uncorrectable tag EDC error is dirty, or has a dirty parity error,
+the line is not flushed and a machine check is generated, regardless of the settings of L1CSR0DCEA.
+
+11.8.2.6      dcbf instructions
+For dcbf instructions, on a hit to any line without a tag EDC error, if the line is dirty, or has a dirty bit error,
+the line is flushed and invalidated. Lock errors are ignored. When L1CSR0DCEA = ‘00’, tag parity/EDC
+errors on other lines are ignored. When L1CSR0DCEA = ‘01’, uncorrectable tag EDC errors on other lines
+will also cause clean unlocked lines to be invalidated, regardless of hit or miss. No machine check is
+generated regardless of the setting of L1CSR0DCEA. For dcbf, data parity errors will not prevent the line
+from being flushed, but will cause a machine check to be generated due to a push parity error.
+For cacheable dcbf instructions that hit only to a line with a tag EDC error or that miss in all ways, a
+machine check will be generated if L1CSR0DCEA = ‘00’ and any line with a tag EDC error is dirty, locked,
+or has a dirty parity error or a lock parity error. If L1CSR0DCEA = ‘01’, clean unlocked lines with an
+uncorrectable tag EDC error are invalidated, and no errors are signaled unless any line with an
+uncorrectable tag EDC error is also dirty, locked, or has a dirty parity error or a lock parity error. If any
+line with an uncorrectable tag EDC error is dirty, or has a dirty parity error, the line is not flushed and a
+machine check is generated. If any line with an uncorrectable tag EDC error is locked, or has a lock parity
+error, the line is not invalidated, and a machine check is generated.
+
+11.8.2.7      dcbz instructions
+For dcbz instructions, on a hit to any line without a tag EDC error, the line is zeroed and set to dirty. Data
+errors, lock errors, and dirty errors are ignored. When L1CSR0DCEA = ‘00’, tag parity/EDC errors on other
+lines are ignored. When L1CSR0DCEA = ‘01’, uncorrectable tag EDC errors on other lines will also cause
+clean unlocked lines to be invalidated, regardless of hit or miss. No machine check is generated regardless
+of the setting of L1CSR0DCEA. For dcbz, lock errors are ignored on a hit.
+
+                                     e200z759n3 Core Reference Manual, Rev. 2
+Freescale Semiconductor                                                                                          609
+For cacheable dcbz instructions that hit only to a line with a tag EDC error or that miss in all ways, a
+machine check will be generated if L1CSR0DCEA = ‘00’ and any line has a tag parity/EDC or lock error.
+If L1CSR0DCEA = ‘01’ all line(s) with an uncorrectable tag EDC error are invalidated if clean. If a clean
+line that was locked or had a lock parity error was invalidated, a machine check is generated. If any line
+with an uncorrectable tag EDC error is dirty or has a dirty parity error, the line is not affected, and a
+machine check is generated, regardless of the settings of L1CSR0DCEA. If a machine check is generated,
+no dcbz operation will be performed.
+
+11.8.2.8      Cache locking instructions (dcbtls, dcbtstls, dcblc, icbtls, icblc)
+For dcbtls, dcbtstls, dcblc, icbtls, and icblc instructions, on a hit to any line without a tag EDC error, the
+lock bits are set or cleared appropriately, and data, lock, and dirty bit parity or EDC errors are ignored.
+When L1CSR[0,1][D,I]CEA = ‘00’, tag parity/EDC or lock errors on other lines are ignored. When
+L1CSR[0,1][D,I]CEA = ‘01’, uncorrectable tag EDC errors on other lines will also cause clean unlocked
+lines to be invalidated, regardless of hit or miss. No machine check is generated regardless of the setting
+of L1CSR[0,1][D,I]CEA.
+For cacheable dcbtls, dcbtstls, and icbtls instructions that hit only to a line with a tag EDC error or that
+miss in all ways, a machine check will be generated if L1CSR[0,1][D,I]CEA = ‘00’ and any line has a tag
+parity/EDC error or a lock error. If L1CSR[0,1][D,I]CEA = ‘01’, clean lines with an uncorrectable tag EDC
+error are invalidated and if a clean line that was locked or had a lock parity error was invalidated, a machine
+check is generated. If any line with an uncorrectable tag EDC error is dirty, or has a dirty parity error, the
+line is not affected and a machine check is generated, regardless of the settings of L1CSR[0,1][D,I]CEA.
+For cacheable dcblc and icblc instructions that hit only to a line with a tag EDC error or that miss in all
+ways, a machine check will be generated if L1CSR[0,1][D,I]CEA = ‘00’ and any line with a tag parity/EDC
+error is locked or has a lock parity error. If L1CSR[0,1][D,I]CEA = ‘01’, lock and dirty parity errors will not
+cause a machine check on their own, but clean lines with an uncorrectable tag EDC error are invalidated,
+and if a clean line that was locked or had a lock parity error was invalidated, a machine check is generated.
+If any locked line with an uncorrectable tag EDC error is dirty, or has a dirty parity error, the line is not
+affected and a machine check is generated, regardless of the settings of L1CSR[0,1][D,I]CEA.
+
+11.8.3      Cache inhibited accesses and parity/EDC errors
+For non-cacheable access misses, no cache parity/EDC exceptions are signaled. When operating with
+correction/auto-invalidation disabled, tag EDC errors will cause misses for cache-inhibited accesses, and
+no machine check will be generated. When correction/auto-invalidation mode is enabled, a
+correction/auto-invalidation cycle will be run to correct/auto-invalidate tag, dirty, and lock errors, but
+invalidations will only be performed for uncorrectable tag errors on clean unlocked lines. If a
+cache-inhibited load or instruction fetch access hit occurs to a line with no tag EDC error, and the requested
+doubleword of data has no parity/EDC error, the access is treated as a cache hit and the CI status is ignored.
+Otherwise, if the requested doubleword of data has a parity/EDC error, the access is treated as a
+cache-inhibited cache miss and the cache data is ignored, even if dirty. No machine check will be generated
+in this case. A cache-inhibited store hit to a line with no tag EDC error will cause the data to be written to
+the cache, as well as to memory if the store is a writethrough store, and all data parity errors will be ignored.
+If a cache hit occurs to a line with an uncorrectable tag error, the hit is ignored, and the access is performed
+
+
+                                    e200z759n3 Core Reference Manual, Rev. 2
+610                                                                                       Freescale Semiconductor
+as a cache-inhibited cache miss and the cache data is ignored, even if dirty. No machine check will be
+generated in this case.
+For cache control instructions such as dcbf, dcbi, icbi, and dcbst that are performed to addresses marked
+as cache-inhibited, no machine checks are generated, and the operations are only performed on/for lines
+that would not cause exceptions for the non-CI cases.
+
+11.8.4       Snoop operations and parity/EDC errors
+For snoop command lookups in which a hit occurs to a cache line with no tag EDC error, tag EDC errors
+in other lines are ignored, and no error condition is signaled.
+Otherwise, for snoop command lookups in which a tag EDC error occurs and no hit occurs to a tag entry
+without a parity/EDC error, no correction attempt for the tags with errors will be made regardless of
+L1CSR0DCEA, and the snoop response will indicate an error condition. When such a tag EDC error occurs
+on a snoop invalidate command, the invalidation will not occur, and the error will result in a machine
+check. The snoop queue will continue to be serviced, and the machine check will not necessarily be
+recoverable. A checkstop condition will not occur however. In this respect, it is treated similarly to a
+non-maskable interrupt, and the MSR[RI] bit should be used accordingly by software.
+
+11.8.5       EDC checkbit/syndrome coding scheme generation — ICache
+When operating with EDC enabled (L1CSR1ICEDT =01), double bit error detection codes are used to
+protect the tag and data portions of an instruction cache line. Each tag entry utilizes six check bits to cover
+the tag + valid bit, and each doubleword of data in the data arrays utilizes eight check bits. The specific
+coding schemes are shown in Table 11-7 and Table 11-8. The lock bits utilize bit-level redundancy, thus
+are independently protected.
+Table 11-7 shows the checkbit coding for each tag entry. A ‘*’ in the table indicates the bit is XOR’ed to
+form the final checkbit value.
+                                           Table 11-7. Tag checkbit generation
+
+                                                                        Tag bit
+        Checkbits
+        p_tchk[0:5]
+                          0   1   2   3     4   5   6   7   8   9   10 11 12 13 14 15 16 17 18 19 20 21 V
+
+             0            *   *   *   *     *   *           *   *   *             *   *       *
+
+             1                *   *                 *   *       *   *     *       *               *   *               *   *
+
+             2                        *     *           *   *   *                         *   *   *   *   *       *       *
+
+             3                        *         *                   *     *       *   *   *   *   *           *   *   *   *
+
+             4            *   *       *     *       *   *           *                 *                   *   *   *   *   *
+
+             5            *       *   *         *   *       *       *     *               *           *   *   *           *
+
+Table 11-8 shows the checkbit coding for each doubleword data entry. A ‘*’ in the table indicates the bit
+is XOR’ed to form the final checkbit value.
+
+
+
+                                          e200z759n3 Core Reference Manual, Rev. 2
+Freescale Semiconductor                                                                                                       611
+                                              Table 11-8. Data checkbit generation
+
+                                              Data bit
+      Checkbits
+      p_dchk[0:7
+                                     1 1 1 1 1 1 1 1 1 1 2 2 2 2 2 2 2 2 2 2 3 3
+          ]      0 1 2 3 4 5 6 7 8 9
+                                     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+
+         0       *   *   *   *   *   *   *   *           *           *   *              *           *           *   *            *
+
+         1       *   *   *                       *   *   *   *   *   *   *     *            *           *   *           *            *           *
+
+         2                   *   *   *           *   *   *                         *    *   *   *   *   *   *   *            *           *   *
+
+         3                   *           *   *               *   *   *             *    *   *                       *   *    *   *   *   *   *   *
+
+         4                   *                               *           *     *                *   *   *           *   *    *
+
+         5       *           *                               *                                  *           *   *                *   *   *
+
+         6           *           *           *   *           *                                  *                                *           *   *
+
+         7               *           *   *           *           *             *   *            *                                *
+
+                                                                             Data bit
+      Checkbit
+                 3 3 3 3 3 3 3 3 4 4 4 4 4 4 4 4 4 4 5 5 5 5 5 5 5 5 5 5 6 6 6 6
+                 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3
+
+         0                   *                               *           *     *                *   *   *           *   *    *
+
+         1       *           *                               *                                  *           *   *                *   *   *
+
+         2           *           *           *   *           *                                  *                                *           *   *
+
+         3               *           *   *           *           *             *   *            *                                *
+
+         4       *   *   *   *   *   *   *   *           *           *   *              *           *           *   *            *
+
+         5       *   *   *                       *   *   *   *   *   *   *     *            *           *   *           *            *           *
+
+         6                   *   *   *           *   *   *                         *    *   *   *   *   *   *   *            *           *   *
+
+         7                   *           *   *               *   *   *             *    *   *                       *   *    *   *   *   *   *   *
+
+
+11.8.6       EDC checkbit/syndrome coding scheme generation — DCache
+When operating with EDC enabled (L1CSR0DCEDT =01), double bit error detection codes are used to
+protect the tag portion of a data cache line. The data array continues to utilize single-bit parity protection.
+Each data cache tag entry utilizes six check bits to cover the tag + valid bit. The specific coding scheme
+for the tag array is the same as is used for the ICache, and is shown in Table 11-7. The dirty and lock bits
+utilize bit-level redundancy, thus are independently protected. Three dirty bits are provided to support
+single-bit and double-bit error detection. Correction is performed by setting the dirty bits to ‘1’ if a dirt
+parity error occurs and autoinvalidation/correction is enabled. Four lock bits are provided to support
+single-bit error correction and double-bit error detection.
+
+11.8.7       Cache error injection
+Cache error injection provides a way to test error recovery by intentionally injecting parity errors into the
+instruction and/or data cache.
+
+                                             e200z759n3 Core Reference Manual, Rev. 2
+612                                                                                                                         Freescale Semiconductor
+Error injection into the instruction cache operates as follows:
+   • If L1CSR1ICEI is set and L1CSR1ICEDT=01, any instruction cache line fill to the instruction cache
+        data has the associated two most significant parity check bits inverted in the instruction cache data
+        array for each doubleword loaded.
+Error injection for the data cache operates as follows:
+   • If L1CSR0DCEI is set, any cache line fill to the data cache data array has all of the associated parity
+        bits inverted in the data array for each doubleword loaded. Additionally, inverted parity bits are
+        generated for any bytes stored into the data cache data array on a store hit.
+Cache parity error injection is not performed for cache debug write accesses, since parity bit values written
+can be directly controlled (See Section 11.19.3, Cache Debug Access Control register (CDACNTL)).
+In order to clear the parity errors, a cache invalidation or an invalidation of the lines that could have had
+an injected parity error may be performed. Line invalidation may be performed by an icbi/dcbi instruction,
+or an L1FINV[0,1] invalidation operation.
+
+11.9      Push and store buffers
+The push buffer reduces latency for requested new data on a data cache miss by temporarily holding
+displaced dirty data while the new data is fetched from memory. The push buffer contains 32 bytes of
+storage (one displaced cache line).
+If a data cache miss displaces a dirty line, the linefill request is forwarded to the external bus. While
+waiting for the response, the current contents of the dirty cache line are placed into the push buffer. Once
+the linefill transaction (burst read) completes, the cache controller can generate the appropriate burst write
+bus transaction to write the contents of the push buffer into memory.
+The store buffer contains a FIFO that can defer pending write misses or writes marked as write-through in
+order to maximize performance. The store buffer can buffer as many as eight words (32 bytes) for this
+purpose. The store buffer may be disabled for debug purposes. Operation of the store buffer is independent
+of the L1CSR0[DCE] bit. When the store buffer is enabled, non-allocating store operations that miss the
+cache or that are marked as writethrough are placed in the store buffer, and the CPU access is terminated.
+Each store buffer entry contains 32-bits of physical address, 32-bits of data, size information, and 3 bits of
+access attribute information (W, G, and S/U) in order to properly drive the attribute output signals on a
+buffered store access. Cache-inhibited guarded stores are not buffered however, and are delayed from
+being performed until the push and store buffers have been emptied.
+Once the push or store buffer has valid data, the internal bus controller uses the next available external bus
+cycle to generate the appropriate write cycles. In the event that another data cache fill is required (e.g.,
+cache load or store w/allocate miss to process) during the continued instruction execution by the processor
+pipeline, an alias check is performed between the linefill address and all valid entries in the store and push
+buffer using the index portion of the access address. If no match is found, the linefill may bypass pending
+stores in the store or push buffer. Otherwise, if an alias exists (index matches any valid store buffer entry),
+the data cache pipeline will stall until the aliased entries have been flushed from the store and push buffer
+before generating the required external bus transaction for the linefill.
+Single-beat read transactions will not bypass pending stores in the push or store buffer.
+
+
+                                   e200z759n3 Core Reference Manual, Rev. 2
+Freescale Semiconductor                                                                                     613
+The push buffer is always emptied prior to queued store buffer entries to avoid memory consistency issues.
+Once the push buffer has been loaded with dirty data to be written back to memory, a subsequent store may
+be buffered, but will not be written to memory until the push has completed.
+For cache-inhibited load accesses or cache-inhibited guarded store accesses, the processor termination is
+withheld until the store buffer has been flushed of all entries, the push buffer has been emptied, and the
+access has completed to memory.
+A write to the L1CSR0 register may be used to force the push and store buffers to empty before proceeding
+with the actual L1CSR0 update. Additionally, the msync and mbar instructions will also cause these
+buffers to be emptied prior to completion.
+If an external transfer ERROR response occurs while emptying the store buffer, a machine check exception
+is signaled to the CPU, and a store for the next entry to be written (if any) is initiated. If a transfer error
+occurs for a push buffer transaction, the push of the remaining portion of the cache line is aborted, and a
+machine check exception is signaled to the CPU. This is also the case for a cache control operation that
+causes a line to be pushed. Following the transfer error, the line will be marked invalid. If it is possible for
+a transfer error to be returned by the system on a push or a buffered store, and this could cause a problem,
+the address must be marked guarded and cache inhibited.
+External termination errors that occur on any push of a dirty cache line will result in a machine check
+condition.
+
+11.10 Cache management instructions
+This section describes the implementation of Cache Management instructions in e200z759n3.
+
+11.10.1 Instruction cache block invalidate (icbi) instruction
+      •   icbi is described on page 280 of Book E: Enhanced PowerPCtm Architecture v0.99
+      •   If the cache line containing the byte addressed by the EA associated with this instruction is present
+          in the instruction cache, it is invalidated, regardless of lock status. If an instruction cache linefill is
+          in progress and the linefill data corresponds to the EA associated with a icbi, the instruction cache
+          is not updated with linefill data.
+
+11.10.2 Instruction cache block touch (icbt) instruction
+      •   icbt is described on page 281 of Book E: Enhanced PowerPCtm Architecture v0.99
+      •   If HID0NOPTI is set, this instruction is treated as a no-op.
+
+11.10.3 Data cache block allocate (dcba) instruction
+      •   dcba is described on page 241 of Book E: Enhanced PowerPCtm Architecture v0.99
+      •   This instruction is treated as a no-op.
+
+
+
+
+                                      e200z759n3 Core Reference Manual, Rev. 2
+614                                                                                           Freescale Semiconductor
+11.10.4 Data cache block flush (dcbf) instruction
+    •   dcbf is described on page 242 of Book E: Enhanced PowerPCtm Architecture v0.99
+    •   If the cache line containing the byte addressed by the EA associated with this instruction is present
+        in the data cache, it is copied back to memory if dirty. The line is subsequently invalidated
+        regardless of whether it was copied back or locked. If a data cache linefill is in progress and the
+        linefill data corresponds to the EA associated with a dcbf, the data cache is not updated with linefill
+        data.
+    •   This instruction is treated as a load for the purposes of access protection.
+    •   If the data cache is disabled, this instruction is treated as a no-op.
+
+11.10.5 Data cache block invalidate (dcbi) instruction
+    •   dcbi is described on page 243 of Book E: Enhanced PowerPCtm Architecture v0.99
+    •   If the cache line containing the byte addressed by the EA associated with this instruction is present
+        in the data cache, it is invalidated, regardless of lock status. No copyback occurs if the line is
+        present in the data cache and dirty. If a data cache linefill is in progress and the linefill data
+        corresponds to the EA associated with a dcbi, the data cache is not updated with linefill data.
+    •   This instruction is privileged
+    •   This instruction is treated as a store for the purposes of access protection.
+    •   If the data cache is disabled, this instruction is treated as a no-op in supervisor mode.
+
+11.10.6 Data cache block store (dcbst) instruction
+    •   dcbst is described on page 245 of Book E: Enhanced PowerPCtm Architecture v0.99
+    •   If the cache line containing the byte addressed by the EA associated with this instruction is present
+        in the data cache, it is copied back to memory if dirty. The line is subsequently marked clean, and
+        the lock status is unchanged
+    •   This instruction is treated as a load for the purposes of access protection.
+    •   If the data cache is disabled, this instruction is treated as a no-op.
+
+11.10.7 Data cache block touch (dcbt) instruction
+    •   dcbt is described on page 246 of Book E: Enhanced PowerPCtm Architecture v0.99
+    •   If HID0NOPTI is set, this instruction is treated as a no-op.
+
+11.10.8 Data cache block touch for store (dcbtst) instruction
+    •   dcbtst is described on page 247 of Book E: Enhanced PowerPCtm Architecture v0.99
+    •   If HID0NOPTI is set, this instruction is treated as a no-op.
+
+11.10.9 Data cache block set to zero (dcbz) instruction
+    •   dcbz is described on page 248 of Book E: Enhanced PowerPCtm Architecture v0.99
+
+                                   e200z759n3 Core Reference Manual, Rev. 2
+Freescale Semiconductor                                                                                     615
+      •   If the cache line containing the byte addressed by the EA associated with this instruction is present
+          in the data cache, all bytes in the line are zeroed, the line is marked as modified, and remains valid.
+          Lock status remains unchanged. If the cache line is not present and the address is cacheable, it is
+          established in the data cache (without fetching from memory), all bytes in the line are zeroed, and
+          the line is marked as modified and valid.
+      •   This instruction is treated as a store for the purposes of access protection.
+      •   dcbz causes an Alignment exception if the EA is marked by the MMU as Cache-inhibited and a
+          data cache miss occurs, or if the EA is marked by the MMU as Writethrough Required, or if the
+          data cache is disabled or is operating in writethrough mode, or if an overlocking condition prevents
+          the allocation of a line into the data cache.
+
+11.11 Touch instructions
+Due to the limitations of using the icbt, dcbt, and dcbtst instructions, a program that uses these
+instructions improperly may actually see a degradation in performance from their use. To avoid this,
+e200z759n3 provides the HID0NOPTI control bit to cause these instructions to be treated as nops.
+
+11.12 Cache line locking/unlocking APU
+
+11.12.1 Overview
+e200z759n3 supports the Freescale EIS Cache Line Locking APU, which defines user-mode instructions
+to perform cache locking/unlocking. Three of the instructions are for data cache locking control (dcblc,
+dcbtls, dcbtstls) and two instructions are for instruction cache locking control (icblc, icbtls).
+The dcbtls, dcbtstls, and dcblc lock instructions are treated as reads for checking access permissions when
+translated by the TLB, and exceptions are taken for Data TLB errors or Data Storage interrupts. The icbtls
+and icblc instructions require either execute (X) or read (R) permission when translated by the TLB.
+Exceptions are taken using Data TLB errors (DTLB) or Data Storage Interrupts (DSI), not ITLB or ISI.
+The user-mode cache lock enable MSR[UCLE] bit may be used to restrict user-mode cache line locking.
+If MSR[UCLE] is clear, any cache lock instruction executed in user-mode will take a Cache-locking DSI
+exception (unless nop’ed) and set either ESR[DLK] or ESR[ILK]. If MSR[UCLE] is set, cache-locking
+instructions can be executed in user-mode and they will not take a DSI for cache-locking. However, they
+may still cause a DSI for access violations or cause machine checks for external termination errors.
+There are cases when attempting to set a lock will fail even when no DSI or DTLB exceptions occur. These
+are as follows:
+    • The target address is marked cache-inhibited and a cache miss occurs
+    • The cache is disabled or all ways of the cache are disabled for replacement
+    • The cache target indicated by the CT field (bits 7-10) of the instruction is not 0
+In these cases, the lock set instruction is treated as a NOP, and the cache unable to lock L1CSR{0,1}[CUL]
+bit is set.
+
+
+
+                                     e200z759n3 Core Reference Manual, Rev. 2
+616                                                                                        Freescale Semiconductor
+Assuming no exception conditions occur (DSI or DTLB error), for dcbtls, dcbtstls, and icbtls an attempt
+is made to lock the corresponding cache line. If a miss occurs, and all of the available ways (ways enabled
+for a particular access type) are already locked in a given cache set, an attempt to lock another line in the
+same set will result in an overlocking situation. In this case, the cache overlock bit L1CSR{0,1}[CLO] is
+set to indicate that an overlocking situation occurred. This does not cause an exception condition. The new
+line is conditionally placed in the cache, displacing a previously locked line depending on the setting of
+the appropriate L1CSR0,1[CLOA] bit.
+The CUL conditions have priority over the CLO condition.
+If multiple NOP or exception conditions arise on a cache lock instruction, the results are determined by
+the order of precedence described in Table 11-9.
+It is possible to lock all ways of a given cache set. If an attempt is made to perform a non-locking line fill
+for a new address in the same cache set, the new line is not put into the cache. It is satisfied on the bus
+using a single beat transfer instead of normal burst transfers. If a dcbz instruction is executed, and all ways
+available for allocation have been locked, an Alignment exception will be generated and no line is put into
+the cache.
+Cache line locking interacts with the ability to control replacement of lines in certain cache ways via the
+L1CSR0 WID and WDD control bits. If any cache line locking instruction (icbtls, dcbtls, dcbtstls) is
+allowed to execute and finds a matching line already present in the cache, the line’s lock bit will be set
+regardless of the settings of the WID and WDD fields. In this case, no replacement has been made.
+However, for cache misses that occur while executing a cache line lock set instruction, the only candidate
+lines available for locking are those that correspond to ways of the cache that have not been disabled for
+the particular type of line locking instruction (controlled by WDD for dcbtls and dcbtstls, controlled by
+WID for icbtls). Thus, an overlocking condition may result even though fewer than four lines with the
+same index are locked.
+The cache-locking DSI handler must decide whether or not to lock a given cache line based upon available
+cache resources. If the locking instruction is a set lock instruction, and if the handler decides to lock the
+line, it should do the following:
+    • Add the line address to its list of locked lines.
+    • Execute the appropriate set lock instruction to lock the cache line.
+    • Modify save/restore register 0 to point to the instruction immediately after the locking instruction
+          that caused the DSI.
+    • Execute an rfi.
+If the locking instruction is a clear lock instruction, and if the handler decides to unlock the line, it should
+do the following:
+     • Remove the line address from its list of locked lines.
+     • Execute the appropriate clear lock instruction to unlock the cache line.
+     • Modify save/restore register 0 to point to the instruction immediately after the locking instruction
+         that caused the DSI.
+     • Execute an rfi.
+
+
+
+                                   e200z759n3 Core Reference Manual, Rev. 2
+Freescale Semiconductor                                                                                      617
+11.12.2 dcbtls — data cache block touch and lock set
+
+
+dcbtls                                                                                  dcbtls
+Data Cache Block Touch and Lock Set
+
+dcbtls                     CT, RA, RB           (E=0) Form X
+             31        /       CT             RA               RB               0010100110              /
+
+      0             5 6             10 11            15 16           20 21                         30 31
+
+                           Figure 11-10. dcbtls — data cache block touch and lock set
+
+Description:
+          if RA=0 then a 640else a GPR(RA)
+          EA  320 || (a + GPR(RB))32:63
+          PrefetchDataCacheBlockLockSet(CT, EA)
+
+If CT=0, the cache line corresponding to EA is loaded and locked into the level 1 data cache.
+If CT=0 and the line already exists in the data cache, dcbtls locks the line without refetching it from
+external memory.
+Exceptions:
+If the MSR[UCLE] (user-mode cache lock enable) bit is set, dcbtls may be performed while in user mode
+(MSR[PR]=1). If the MSR[UCLE] bit is clear, an attempt to perform these instructions in user mode
+causes a data cache locking error DSI unless the CT field or other conditions otherwise NOP the
+instruction.
+The e200z759n3 only supports CT=0. If CT is some value other than 0, the dcbtls is NOP’ed and the
+L1CSR0[DCUL] bit is set indicating an unable-to-lock condition occurred. No other exceptions are
+reported. If the data cache is disabled, the dcbtls is NOP’ed and the L1CSR0[DCUL] bit is set indicating
+an unable-to-lock condition occurred. No other exceptions are reported.
+The dcbtls instruction is treated as a load with respect to translation and will cause a DSI interrupt for
+access violations, as well as causing a Data TLB error interrupt if the target address cannot be translated.
+If the block corresponding to EA is cache-inhibited and a data cache miss occurs, the instruction is
+NOP’ed, (no DSI is taken due to the cache-inhibited status), and the L1CSR0[DCUL] bit is set indicating
+an unable-to-lock condition occurred.
+Other registers altered:
+     • L1CSR0 (see below)
+When a dcbtls is performed to an index, and a way can not be locked, the L1CSR0[DCUL] bit is set
+indicating an unable-to-lock condition occurred. This also occurs whenever the dcbtls must be NOP’ed.
+When a dcbtls is performed to an index in the data cache that already has all the ways locked, this is
+referred to as an over-locking situation. There is no exception generated by an over-locking situation.
+Instead the L1CSR0[DCLO] bit is set, indicating an over-lock condition occurred. A line is allocated and
+
+                                     e200z759n3 Core Reference Manual, Rev. 2
+618                                                                                     Freescale Semiconductor
+locked in the cache depending on the setting of the L1CSR0[DCLOA] control bit. If system software wants
+to precisely determine if an overlock condition has happened, it must perform the following code
+sequence:
+         dcbtls
+         msync
+         mfspr (L1CSR0)
+                (check L1CSR0[DCUL] bit for cache index unable-to-lock condition)
+                (check L1CSR0[DCLO] bit for cache index over-lock condition)
+
+
+
+11.12.3 dcbtstls — data cache block touch for store and lock set
+
+
+dcbtstls                                                                             dcbtstls
+Data Cache Block Touch for Store and Lock Set
+
+dcbtstls                      CT, RA, RB         (E=0) Form X
+            31            /      CT            RA               RB               0010000110          /
+
+     0              5 6               10 11           15 16           20 21                    30 31
+
+                   Figure 11-11. dcbtstls — data cache block touch for store and lock set
+
+Description:
+         if RA=0 then a 640else a GPR(RA)
+         EA  320 || (a + GPR(RB))32:63
+         PrefetchDataCacheBlockLockSet(CT, EA)
+
+
+e200z759n3 treats the dcbtstls instruction identically to the dcbtls instruction since no hardware
+coherency mechanisms are implemented for the cache.
+
+11.12.4 dcblc — data cache block lock clear
+
+
+dcblc                                                                                  dcblc
+Data Cache Block Lock Clear
+
+dcblc                         CT, RA, RB         (E=0) Form X
+            31            /      CT            RA               RB               0110000110          /
+
+     0              5 6               10 11           15 16           20 21                    30 31
+
+                                 Figure 11-12. dcblc — data cache block lock clear
+
+Description:
+         if RA=0 then a 640else a GPR(RA)
+
+
+                                      e200z759n3 Core Reference Manual, Rev. 2
+Freescale Semiconductor                                                                                  619
+          EA  320 || (a + GPR(RB))32:63
+              DataCacheClearLockBit(CT, EA)
+
+If CT=0, and the line is present in the L1 data cache, the lock bit for that line is cleared, making that line
+eligible for replacement.
+Exceptions:
+If the MSR[UCLE] (user-mode cache lock enable) bit is set, dcblc may be performed while in user mode
+(MSR[PR]=1). If the MSR[UCLE] bit is clear, an attempt to perform this instructions in user mode causes
+a DSI, unless the CT field or other conditions otherwise NOP the instruction.
+The e200z759n3 only supports CT=0. If CT is some value other than 0, the dcblc is NOP’ed. No other
+exceptions are reported. If the data cache is disabled, the dcblc is NOP’ed. No other exceptions are
+reported.
+The dcblc instruction is treated as a load with respect to translation and will cause a DSI interrupt for
+access violations, as well as causing a Data TLB error interrupt if the target address cannot be translated.
+
+11.12.5 icbtls — instruction cache block touch and lock set
+
+
+icbtls                                                                                   icbtls
+Instruction Cache Block Touch and Lock Set
+
+icbtls                     CT, RA, RB         (E=0) Form X
+             31        /      CT            RA               RB                0111100110               /
+
+      0             5 6            10 11           15 16            20 21                          30 31
+
+                      Figure 11-13. icbtls — instruction cache block touch and lock set
+
+Description:
+          if RA=0 then a 640else a GPR(RA)
+          EA  320 || (a + GPR(RB))32:63
+              PrefetchInstructionCacheBlockLockSet(CT, EA)
+
+If CT=0, the cache line corresponding to EA is loaded and locked into the level 1 instruction cache.
+If CT=0 and the line already exists in the instruction cache, icbtls locks the line without refetching it from
+external memory.
+Exceptions:
+If the MSR[UCLE] (user-mode cache lock enable) bit is set, icbtls may be performed while in user mode
+(MSR[PR]=1). If the MSR[UCLE] bit is clear, an attempt to perform these instructions in user mode
+causes an Instruction cache locking error DSI unless the CT field or other conditions otherwise NOP the
+instruction.
+The e200z759n3 only supports CT=0. If CT is some value other than 0, the icbtls is NOP’ed and the
+L1CSR1[ICUL] bit is set indicating an unable-to-lock condition occurred. No other exceptions are
+
+                                   e200z759n3 Core Reference Manual, Rev. 2
+620                                                                                     Freescale Semiconductor
+reported. If the instruction cache is disabled, the icbtls is NOP’ed and the L1CSR1[ICUL] bit is set
+indicating an unable-to-lock condition occurred. No other exceptions are reported.
+The icbtls instruction requires either execute or read (X or R) permissions with respect to translation and
+will cause a DSI interrupt for access violations, as well as causing a Data TLB error interrupt if the target
+address cannot be translated.
+If the block corresponding to EA is cache-inhibited and an instruction cache miss occurs, the instruction
+is NOP’ed, (no DSI is taken due to the cache-inhibited status), and the L1CSR1[ICUL] bit is set indicating
+an unable-to-lock condition occurred.
+Other registers altered:
+     • L1CSR1 (see below)
+When icbtls is performed to an index and a way can not be locked, the L1CSR1[ICUL] bit is set indicating
+an unable-to-lock condition occurred. This also occurs whenever icbtls must be NOP’ed.
+When icbtls is performed to an index in the instruction cache that already has all the ways locked, this is
+referred to as an over-locking situation. There is no exception generated by an over-locking situation.
+Instead the L1CSR1[ICLO] bit is set, indicating an over-lock condition occurred. A line is allocated and
+locked in the cache depending on the setting of the L1CSR1[ICLOA] control bit. If system software wants
+to precisely determine if an overlock condition has happened, it must perform the following code
+sequence:
+         icbtls
+         msync
+         mfspr (L1CSR1)
+                (check L1CSR1[ICUL] bit for cache index unable-to-lock condition)
+                (check L1CSR1[ICLO] bit for cache index over-lock condition)
+
+
+11.12.6 icblc — instruction cache block lock clear
+
+
+icblc                                                                                      icblc
+Instruction Cache Block Lock Clear
+
+icblc                         CT, RA, RB         (E=0) Form X
+            31            /      CT            RA               RB               0011100110             /
+
+     0              5 6               10 11           15 16           20 21                         30 31
+
+                              Figure 11-14. icblc — instruction cache block lock clear
+
+Description:
+         if RA=0 then a 640else a GPR(RA)
+         EA  320 || (a + GPR(RB))32:63
+             InstCacheClearLockBit(CT, EA)
+
+If CT=0, and the line is present in the instruction cache, the lock bit for that line is cleared, making that
+line eligible for replacement.
+
+                                      e200z759n3 Core Reference Manual, Rev. 2
+Freescale Semiconductor                                                                                     621
+Exceptions:
+If the MSR[UCLE] (user-mode cache lock enable) bit is set, icblc may be performed while in user mode
+(MSR[PR]=1). If the MSR[UCLE] bit is clear, an attempt to perform these instructions in user mode
+causes an Instruction cache locking error DSI unless the CT field or other conditions otherwise NOP the
+instruction.
+The e200z759n3 only supports CT=0. If CT is some value other than 0, the icblc is NOP’ed. No other
+exceptions are reported. If the instruction cache is disabled, the icblc is NOP’ed. No other exceptions are
+reported.
+The icblc instruction requires either execute or read (X or R) permissions with respect to translation and
+will cause a DSI interrupt for access violations, as well as causing a Data TLB error interrupt if the target
+address cannot be translated.
+
+11.12.7 Effects of other cache instructions on locked lines
+The following cache instructions have no effect on the state of a cache line's lock bit: icbt, dcba, dcbz,
+dcbst, dcbt, and dcbtst.
+The following cache instructions flush/invalidate and unlock a cache line in the respective L1 caches:
+dcbf, dcbi, and icbi.
+
+11.12.8 Flash clearing of lock bits
+e200z759n3 supports flash clearing of cache lock bits under software control by using the CFCL (cache
+flash clear locks) control bit in the L1CSR{0,1} register.
+Lock bits are not cleared automatically upon power-up (m_por) or normal reset (p_reset_b). Software
+must use the CLFC control bit to clear the lock bits after a reset. Proper use of this bit is to determine that
+it is clear and then set it with a pair of mfspr mtspr operations. A 0-to-1 transition on CLFC causes a flash
+clearing of the lock bits to be initiated, which lasts for multiple (approx. 134) CPU cycles. Once set, the
+CLFC bit will be cleared by hardware after the operation is complete. It will remain set during the clearing
+interval, and may be tested by software to determine when the operation has completed. A mtspr operation
+to L1CSR{0,1} that attempts to change the state of L1CSR{0,1}[CLFC] during invalidation will not affect
+the state of that bit.
+During the process of performing the flash clearing, the cache does not respond to accesses, and remains
+busy. Interrupts may still be recognized and processed, potentially aborting the flash clearing operation.
+When this occurs, the L1CSR{0,1}[ABT] bit will be set to indicate unsuccessful completion of the
+operation. Software should read the L1CSR{0,1} register to determine that the operation has completed
+(L1CSR{0,1}[CLFC] bit cleared), and then check the status of the L1CSR{0,1}[ABT] bit to determine
+completion status.
+
+
+
+
+                                   e200z759n3 Core Reference Manual, Rev. 2
+622                                                                                      Freescale Semiconductor
+                                                     NOTE
+                 Note that while most implementations of the e200z759n3 will stall further
+                 instruction execution during this flash clearing interval, it is not guaranteed
+                 across all implementations, thus software should be written using these
+                 guidelines.
+
+11.13 Cache instructions and exceptions
+All cache management instructions (except icbt, dcba, dcbt, and dcbtst) can generate TLB miss
+exceptions if the effective address cannot be translated, or may generate DSI exceptions due to permission
+violations. In addition, dcbz may generate an Alignment interrupt as described in Section 11.10.9, Data
+cache block set to zero (dcbz) instruction.
+The cache locking instructions dcblc, dcbtls, dcbtstls, icblc and icbtls generate DSI exceptions if the
+MSR[UCLE] bit is clear and the locking instruction is executed in user mode (MSR[PR]=1). Data cache
+locking instructions that result in a DSI exception for this reason set the ESR[DLK] bit (documented as
+DLK0 in Book E), and Instruction cache locking instructions that result in a DSI exception for this reason
+set the ESR[ILK] bit (documented as DLK1 in Book E).
+
+11.13.1 Exception conditions for cache instructions
+If multiple NOP or exception conditions arise on a cache instruction, the results are determined by the
+order of precedence described in Table 11-9.
+                                         Table 11-9. Special case handling
+
+                                                                  WT                          All
+                                                                                                        External
+                                          User &   Protectio   or cache    Cache CI and     availabl
+      Operatio   CT!= Cache       TLB                                                                  terminatio
+                                          UCLE=        n       in write-   parity miss in      e
+         n        0   disabled    miss                                                                      n
+                                            0      Violation   through     error  cache      ways
+                                                                                                          error
+                                                                 mode                       locked
+
+        icbt,    NOP      NOP     NOP       —        NOP          —        NOP     NOP       NOP         NOP
+       dcbt,
+       dcbtst
+
+       dcbtls    DCU      DCUL   DTLB      DLK       DSI          —         MC     DCUL     DCLO          MC
+      dcbtstls    L       DCUL   DTLB      DLK       DSI          —         MC     DCUL     DCLO          MC
+       dcblc     DCU      NOP    DTLB      DLK       DSI          —         MC      —        —            —
+                  L
+                 NOP
+
+       icbtls    ICUL     ICUL   DTLB       ILK      DSI          —         MC     ICUL      ICLO         MC
+        icblc    NOP      NOP    DTLB       ILK      DSI          —         MC      —          —          —
+
+        dcbz      —       ALI    DTLB       —        DSI         ALI        MC      ALI       ALI         —
+
+       dcbf,      —       NOP    DTLB       —        DSI          —         MC      —         —           MC
+       dcbst
+
+        icbi,     —       NOP    DTLB       —        DSI          —         —       —         —           —
+        dcbi
+
+
+
+
+                                    e200z759n3 Core Reference Manual, Rev. 2
+Freescale Semiconductor                                                                                             623
+                                     Table 11-9. Special case handling (continued)
+
+                                                                      WT                             All
+                                                                                                               External
+                                              User &   Protectio   or cache       Cache CI and     availabl
+      Operatio     CT!= Cache        TLB                                                                      terminatio
+                                              UCLE=        n       in write-      parity miss in      e
+         n          0   disabled     miss                                                                          n
+                                                0      Violation   through        error  cache      ways
+                                                                                                                 error
+                                                                     mode                          locked
+
+       Atomic       —       —        DTLB        —           DSI      —             MC     —         —           MC
+       load or      —       —        DTLB        —           DSI      —             MC     —         —           MC
+        store.
+
+        load        —       —        DTLB        —           DSI      —             MC     —         —           MC
+        store       —       —        DTLB        —           DSI      —             MC     —         —           MC
+
+      Notes:
+        — Priority decreases from left to right
+        — Cache operations that do not set or clear locks ignore the value of the CT field
+        — “dash” indicates executes normally
+        — “NOP” indicates treated as a no-op
+        — DSI = data storage interrupt; ALI = alignment interrupt; DTLB = data TLB interrupt
+        — DCUL, ICUL = no-op, and set L1CSR0[CUL]
+        — DCLO, ICLO = no-op, and set L1CSR0[CLO]
+        — DLK, ILK = data storage interrupt (DSI) and set ESR[DLK] or ESR[ILK]
+        — MC = Machine Check and update MCAR
+
+
+11.13.2 Transfer type encodings for cache management instructions
+Transfer type encodings are used to indicate to the Cache whether a normal access, atomic access, cache
+management control access, or MMU management control access is being requested. These attribute
+signals are driven with addresses when an access is requested. Table 11-10 shows the definitions of the
+p_d_ttype[0:5] encodings.
+                                         Table 11-10. Transfer type encoding
+
+         p_d_ttype[0:5]1                     Transfer type                                Instruction
+
+                00000e      Normal                                        normal loads / stores
+
+                000010      Atomic                                        lwarx, stwcx., lharx, sthcx., lbarx, stbcx.
+
+                00010e      Flush Data Block                              dcbst
+
+                00011e      Flush and Invalidate Data Block               dcbf
+
+                00100e      Allocate and Zero Data Block                  dcbz
+
+                001010      Invalidate Data Block                         dcbi
+
+                00110e      Invalidate Instruction Block                  icbi
+
+                001110      multiple word load/store                      lmw, stmw
+
+                010000      TLB Invalidate                                tlbivax
+
+                010010      TLB Search                                    tlbsx
+
+                010100      TLB Read entry                                tlbre
+
+                010110      TLB Write entry                               tlbwe
+
+
+
+                                        e200z759n3 Core Reference Manual, Rev. 2
+624                                                                                                  Freescale Semiconductor
+                                      Table 11-10. Transfer type encoding (continued)
+
+           p_d_ttype[0:5]1                      Transfer type                          Instruction
+
+               011000          Touch for Instruction                     icbt
+
+               011010          Lock Clear for Instruction                icblc
+
+               011100          Touch for Instruction and Lock Set        icbtls
+
+               011110          Lock Clear for Data                       dcblc
+
+               10000e          Touch for Data                            dcbt
+
+               10001e          Touch for Data Store                      dcbtst
+
+               100100          Touch for Data and Lock Set               dcbtls
+
+               100110          Touch for Data Store and Lock Set         dcbtstls
+       1
+           p_ttype[5] ‘e’ is set to set to 0.
+
+
+11.14 Sequential consistency
+The Power Architecture architecture requires that all memory operations executed by a single processor
+be sequentially self-consistent. This means that all memory accesses appear to be executed in the order
+that is specified by the program with respect to exceptions and data dependencies. The e200z759n3 CPU
+achieves this effect by operating a single pipeline to the Cache/MMU. All memory accesses are presented
+to the MMU in the exact order that they appear in the program and therefore exceptions are determined in
+order.
+
+11.15 Self-modifying code requirements
+The following sequence of instructions will synchronize the instruction stream.
+   1. dcbf
+   2. icbi
+   3. msync
+   4. isync
+This sequence ensures that the operation is correct for PowerISA 2.06 processors that implement separate
+instruction and data caches, as well as for multi-processor cache-coherent systems.
+
+11.16 Page table control bits
+The Power Architecture architecture allows certain memory characteristics to be set on a page and on a
+block basis. These characteristics include writethrough (using the W-bit), cacheability (using the I-bit),
+coherency (using the M-bit), guarded memory (using the G-bit), and endianness (using the E-bit).
+Incorrect use of these bits may create situations where coherency paradoxes are observed by the processor.
+In particular, this can happen when the state of these bits are changed without appropriate precautions
+being taken (that is, flushing the pages that correspond to the changed bits from the cache), or when the
+address translations of aliased real addresses specify different values for any of the WIMGE bits.
+
+
+                                            e200z759n3 Core Reference Manual, Rev. 2
+Freescale Semiconductor                                                                                625
+Generally, certain mixing of WIMG settings are allowed by the Book E Power Architecture architecture,
+however others may present cache coherence paradoxes and are considered programming errors.
+
+11.16.1 Writethrough stores
+A writethrough store (WIMGE = b’1xxxx’) may normally hit to a valid cache line. In this case, the cache
+line remains in its current state, the store data is written into the cache, and the store goes out on the bus
+as a single beat write.
+
+11.16.2 Cache-inhibited accesses
+When the Cache-inhibited attribute is indicated by translation (WIMGE = b’x1xxx’) and a cache miss
+occurs, all accesses are performed as single beat transactions on the system bus with a size indicator
+corresponding to the size of the load, store or prefetch operation. Cache inhibited status is ignored on all
+cache hits.
+
+11.16.3 Memory coherence required
+For the e200z759n3, the “memory coherence required” storage attribute (WIMGE = b’xx1xx’) is reflected
+on the p_d_gbl output during each external data access, to indicate to external coherency logic that
+memory coherence is required. This bit is ignored for instruction accesses.
+
+11.16.4 Guarded storage
+For the e200z759n3, the guarded storage attribute (WIMGE = b’xxx1x’) is used to determine if a second
+outstanding data cache miss may proceed to the system interface prior to the termination of the first
+outstanding miss. If the second address is marked as guarded, it will not be presented to the external
+interface until the previous miss has been completed without error.
+
+11.16.5 Misaligned accesses and the endian (E) bit
+Misaligned load or store accesses that cross page boundaries can cause data corruption if the two pages do
+not have the same endianness (that is, one page is big endian while the other page is little endian). If this
+occurs, the processor would not get all the bytes, or would get some of them out of order, resulting in
+garbled data. To protect against data corruption, the e200z759n3 core takes a DSI exception and set the
+BO (byte ordering) bit in the Exception Syndrome register whenever this situation occurs.
+
+11.17 Reservation instructions and cache interactions
+The e200z759n3 core treats reservation instruction (lbarx, lharx, lwarx, stbcx., sthcx., and stwcx.) accesses as
+though they were cache inhibited, regardless of page attributes. Additionally, a cache line corresponding
+to the address of a reservation instruction access will be flushed to memory if dirty, prior to the reservation
+access being issued to the bus. This is done to allow external reservation logic to be built that properly
+signals a reservation failure. The bus access will be treated as a single-beat transfer.
+
+
+
+                                   e200z759n3 Core Reference Manual, Rev. 2
+626                                                                                      Freescale Semiconductor
+11.18 Effect of hardware debug on cache operation
+Hardware debug facilities utilize normal CPU instructions to access register and memory contents during
+a debug session. This may have the unavoidable side-effect of causing the store and push buffers to be
+flushed. During hardware debug, the MMU page attributes are controllable by the debug firmware via
+settings of the OnCE Control register (OCR). Refer to Section 12.4.6.3, e200z759n3 OnCE Control
+Register (OCR).
+Cache snoop operations continue to be serviced during debug sessions.
+
+11.19 Cache memory access for debug / error handling
+The cache memory provides resources needed to do foreground accesses via mtdcr instructions executed
+by the processor, or background accesses through the JTAG/OnCE port to read and write the cache SRAM
+arrays. Accesses are supported via a pair of device control registers (DCRs) that are also mapped into
+OnCE-accessible registers. These resources are intended for use by special debug tools and by debug or
+specialized error recovery exception software, not by general application code.
+Access to the cache memory SRAM arrays using mtdcr instructions may be performed by
+supervisor-level software after appropriate synchronization has been performed with msync, isync
+instruction pairs. Access to the cache memory SRAM arrays using the JTAG port is conditional on the
+CPU being in debug mode. The CPU must be placed in debug state prior to initiation of a read or write
+access via OnCE.
+This facility allows access only to the SRAM arrays used for cache tag and data storage. This function is
+available even when the cache is disabled. The cache linefill buffer, push buffer, store buffer, and late write
+buffer are all outside of the SRAM arrays and are not accessible. However, before a debug memory access
+request is serviced, the push and store buffers will be written to external memory, and the late write and
+linefill buffers will be written to the cache arrays.
+
+11.19.1 Cache memory access via software
+Cache debug access control and data information are accessed by executing mfdcr and mtdcr instructions
+to the Cache Debug Access control and data registers CDACNTL and CDADATA (see Table 11-11 and
+Table 11-12). Accesses are performed one word (32 bits) at a time.
+For a Cache write access, software must first write the CDADATA register with the desired tag and status
+flags, or data values. The second step is to write the CDACNTL register with desired tag or data location
+and parity values, and assert the R/W and GO bits in CDACNTL.
+Note that writing a 64-bit value for data requires two passes, one for the even word (A29=0) and one for
+the odd word (A29=1). Each 32-bit write will update all of the parity/check bits, so in general, if only a
+single 32-bit write is performed, it should be preceded by a read of the data that is not being modified, in
+order to properly compute or store all 8 parity/check bits when the modified 32-bit data is written. Tag
+writes are accomplished in a single pass.
+For a Cache read access, software must first access and write the CDACNTL register with desired tag or
+data location, and assert the R/W and GO bits in CDACNTL. The second step is to read the CDADATA
+register for the tag or data and read the CDACNTL register for parity information.
+
+                                   e200z759n3 Core Reference Manual, Rev. 2
+Freescale Semiconductor                                                                                     627
+Completion of any operation can be determined by reading the CDACNTL register. Operations are
+indicated as complete when CDACNTL[30:31] = ‘00’. Software should poll the CDACNTL register to
+determine when an access has been completed prior to assuming validity of any other information in the
+CDACNTL or CDADATA registers.
+Note that no parity errors are generated as a result of mtdcr/mfdcr instructions involving the CDACNTL
+or CDADATA registers.
+To ensure proper cache write operation, the following program sequence is recommended:
+                              msync
+                              isync
+                              mtdcr cdadata, rS1 // set up write data
+                              mtdcr cdacntl, rS2 // write control to initiate write
+                              msync
+                              isync
+                   loop:      mfdcr rN, cdacntl // check for done
+                              andi. rT, rN, #3
+                              bne loop
+                              .
+                              .
+
+
+To ensure proper cache read operation, the following program sequence is recommended:
+                              msync
+                              isync
+                              mtdcr cdacntl, rS2 // write control to initiate read
+                              msync
+                              isync
+                   loop:      mfdcr rN, cdacntl // check for done
+                              andi. rT, rN, #3
+                              bne loop
+                              mfdcr rT, cdadata // return data
+                              .
+                              .
+
+
+
+Conflict conditions with snoop accesses to the same cache line cannot be resolved in a manner that
+guarantees that a value read will not change state before a subsequent value written. No interlocking is
+performed, so a cache entry read as being valid or written to a valid state may become invalid at any time.
+
+11.19.2 Cache memory access through JTAG/OnCE port
+Cache debug access control and data information are serially accessed through the OnCE controller and
+access the Cache Debug Access control and data registers CDACNTL and CDADATA (see Table 11-11
+and Table 11-12). Accesses are performed one word (32 bits) at a time.
+For a Cache write access, the user must first write the CDADATA register with the desired tag or data
+values. The second step is to write the CDACNTL register with desired tag or data location, parity and
+dirty information (for data writes only), and assert the R/W and GO bits in CDACNTL.
+
+
+
+
+                                  e200z759n3 Core Reference Manual, Rev. 2
+628                                                                                  Freescale Semiconductor
+For a Cache read access, the user must first access and write the CDACNTL register with desired tag or
+data location, and assert the R/W and GO bits in CDACNTL. The second step is to access and read the
+CDADATA register for the tag or data and read the CDACNTL register for parity.
+Completion of any operation can be determined by reading the CDACNTL register. Operations are
+indicated as complete when CDACNTL[30:31] = ‘00’. Debug firmware should poll the CDACNTL
+register to determine when an access has been completed prior to assuming validity of any other
+information in the CDACNTL or CDADATA registers.
+Conflict conditions with snoop accesses to the same cache line cannot be resolved in a manner that
+guarantees that a value read will not change state before a subsequent value written. No interlocking is
+performed, so a cache entry read as being valid or written to a valid state may become invalid at any time.
+
+11.19.3 Cache Debug Access Control register (CDACNTL)
+The Cache Debug Access Control Register (CDACNTL) contains location information (T/D, CWAY,
+CSET, and WORD), and control (R/W and GO) needed to access the Cache Tag or Data SRAM arrays.
+Also included here are the SRAM parity bit values that must be supplied by the user for write accesses,
+and that will be supplied by the cache for read accesses. The CDACNTL register is shown in Figure 11-15.
+
+
+
+
+                                                                                                          CACHE
+                                                                                                                  R/W
+      T/D
+
+
+
+
+            0 CWAY          0                    CSET           WORD               PARITY          0                    GO
+
+     0      1   2   3   4       5    6   7   8    9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31
+
+                                                        DCR - 351; Read/Write; Reset - 0x0
+
+                                Figure 11-15. Cache Debug Access Control register (CDACNTL)
+
+Table 11-11 provides bit definitions for the Cache Debug Access Control Register.
+                                                  Table 11-11. CDACNTL field descriptions
+
+         Bit        Name                                                     Description
+
+            0       T/D             Tag / Data
+                                    0 Data array selected
+                                    1 Tag array selected
+
+            1           —           Reserved1
+         2:3        CWAY            Cache Way
+                                    Specifies the cache way to be selected
+
+         4:5            —           Reserved1
+
+       6:12         CSET            Cache Set:
+                                    Specifies the cache set to be selected
+
+      13:15         WORD            Word (Data array access only, I or D cache)
+                                    Specifies one of eight words of selected set
+
+
+
+
+                                                   e200z759n3 Core Reference Manual, Rev. 2
+Freescale Semiconductor                                                                                                      629
+                                            Table 11-11. CDACNTL field descriptions (continued)
+
+              Bit        Name                                                  Description
+
+          16:23         PARITY / Parity check bits2 (I or D cache)
+                          EDC
+                        CHECK EDC Mode (L1CSR[0,1][D,I]CEDT = 01):
+                          BITS   DCache Data array: Byte parity bits. One bit per data byte. bit 16: Parity for byte 0, bit 17: Parity
+                                 for byte 1.... bit 23: Parity for byte 7.
+                                 ICache Data Array: parity check bits for data. Bits 16:23 correspond to p_dchk[0:7] (See
+                                 Table 11-8).
+                                 Tag Array: parity check bits for tag. Bits 16:21 correspond to p_tchk[0:5] (See Table 11-7). bits
+                                 22:23 reserved.
+
+          24:27               —       Reserved1
+              28        CACHE Cache Select
+                              Specifies the cache to be selected
+                              0 Selects the data cache for the operation.
+                              1 Selects the instruction cache for the operation.
+              29          R/W         Read / Write:
+                                      0 Selects write operation. Write the data in the CDADATA register to the location specified by
+                                        this CDACNTL register.
+                                      1 Selects read operation. Read the cache memory location specified by this CDACNTL register
+                                        and store the resulting data in the CDADATA register and store the parity bits in this
+                                        CDACNTL register.
+
+          30:31           GO          GO command bits
+                                      00 Inactive or complete (no action taken) hardware sets GO=00 when an operation is complete
+                                      01 Read or write cache memory location specified by this CDACNTL register.
+                                      1x Reserved
+      1
+              These bits are not implemented and should be written zero for future compatibility.
+      2
+              Cache parity checkers assume odd parity when using parity protection. EDC coding is used otherwise.
+
+
+11.19.3.1 Cache Debug Access Data register (CDADATA)
+The Cache Debug Access Data Register (CDADATA) contains the SRAM data for a debug access. The
+same register is used for Tag and Data SRAM read and write operations for both caches. Note that a single
+32-bit word is accessed. Accessing an entire 64-bit doubleword requires two passes. The CDADATA
+register is shown in Figure 11-16.
+
+
+                                                                    TAG or DATA
+
+          0     1   2     3   4   5     6   7   8   9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31
+
+                                                DCR - 350; Read/Write; Reset - Undefined/Unaffected
+
+                                       Figure 11-16. Cache Debug Access Data register (CDADATA)
+
+Table 11-12 provides bit definitions for the Cache Debug Access Data Register.
+
+
+
+
+                                                     e200z759n3 Core Reference Manual, Rev. 2
+630                                                                                                               Freescale Semiconductor
+                                             Table 11-12. CDADATA field descriptions
+
+      Bit(s)       Name                                                Description
+
+      0:31         TAG     TAG Array Access Data - when accessing the tag array of either cache:
+                           0:21 Tag compare bits
+                           22    Reserved
+                           23    Valid bit
+                           24:27 Lock bits. These four bits should have the same value, 1-Locked, 0-Unlocked.
+                           28:30 Dirty bits - (data cache only). These three bits should have the same value, 1-Dirty,
+                                 0-Clean.
+
+                   DATA    DATA Array Access Data (Bytes 0:3 of the selected word) - when accessing the data array of
+                           either cache:
+                           0:7 Byte 0
+                           8:15 Byte 1
+                           16:23 Byte 2
+                           24:31 Byte 3
+
+
+11.20 Hardware Debug (Cache) Control Register 0
+Hardware debug control register 0 is used to disable certain cache features for hardware debug purposes.
+This register is not intended for normal user use. The HDBCR0 register is accessed using a mfspr or mtspr
+instruction. The SPR number for HDBCR0 is 976 in decimal. The HDBCR0 register is shown in
+Figure 11-17.
+
+
+
+
+                                                                                                          SNPDIS
+
+
+
+                                                                                                                             DSTRM
+
+
+                                                                                                                                         ISTRM
+                                                                                                    MBD
+
+
+
+                                                                                                                       DSB
+                                                       0                                                           0                 0
+
+
+     0    1    2   3   4   5   6   7   8     9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31
+
+                                           SPR - 976; Read/Write; Reset - 0x0; Supervisor-only
+
+                               Figure 11-17. Hardware Debug Control Register 0 (HDBCR0)
+
+The HDBCR0 bits are described in Table 11-13.
+                                             Table 11-13. HDBCR0 field descriptions
+
+      Bits         Name                                                 Description
+
+      0:24             —       Reserved1
+         25        MBD         Msync/Mbar Broadcast Disable
+                               0 msync/mbar broadcasting is enabled. p_sync_req_out asserted normally and
+                                 p_sync_ack_in is used to terminate msync and mbar MO=0,1 instruction execution
+                               1 msync/mbar broadcasting is disabled. p_sync_req_out remains negated, and
+                                 p_sync_ack_in is ignored and not used to terminate msync and mbar MO=0,1 instruction
+                                 execution.
+                               Note: MBD settings have no effect on the operation of p_sync_req_in and p_sync_ack_out.
+                                     Normal handshaking and completion of the synchronization request input will be
+                                     performed.
+
+
+
+
+                                              e200z759n3 Core Reference Manual, Rev. 2
+Freescale Semiconductor                                                                                                                          631
+                                  Table 11-13. HDBCR0 field descriptions (continued)
+
+          Bits     Name                                               Description
+
+          26     SNPDIS      Snoop Disable
+                             0 Snooping is not disabled. Snoops are processed normally according to the settings of
+                               L1CSR0DCE.
+                             1 Snoop lookups are disabled. Snoops are processed in the same manner as when the data
+                               cache is disabled, i.e null responses are generated and no snoop lookups are performed.
+
+          27         —       Reserved1
+          28       DSB       Disable Store Buffer
+                             0 Store buffer enabled
+                             1 Store buffer disabled
+
+          29      DSTRM      Disable Data Cache Streaming
+                             0 DCache streaming is enabled
+                             1 DCache streaming is disabled
+
+          30         —       Reserved1
+          31      ISTRM      Disable Instruction Cache Streaming
+                             0 ICache streaming is enabled
+                             1 ICache streaming is disabled
+      1
+          These bits are not implemented and should be written with zero for future compatibility.
+
+
+11.21 Hardware cache coherency
+Hardware cache coherency is supported to allow for dual-core or CPU + I/O coherency. The cache must
+operate in writethrough mode for those pages of memory requiring coherency operations. Coherency is
+maintained by the use of snoop invalidation commands provided to the CPU through a dedicated snoop
+interface port. Snooping is only performed while the data cache is enabled (L1CSR0DCE =1). Figure 11-18
+shows an abstract block diagram of the structure.
+
+
+
+
+                                          e200z759n3 Core Reference Manual, Rev. 2
+632                                                                                                  Freescale Semiconductor
+                                                                            p_snp_rdy
+                                                                            p_snp_ack, p_snp_resp[0:4]
+                                                                            p_snp_id_out[0:3]
+                                 DCache                    Snoop
+                                 and                       Port
+                                 Cache                     Control          p_snp_req
+                                 Control                                    p_snp_cmd[0:1]
+
+
+
+
+                                                           Snoop
+                                                                                    p_snp_addr_in[0:26]
+                                                           Command
+                                                                                    p_snp_id_in[0:3]
+            CPU                 Arbiter                    Queue
+
+                                                    id[0:3] snp_addr[0:26]
+                                                                       cmd
+
+                                                                                  p_cac_stalled
+
+                                   Figure 11-18. Snoop command port
+
+
+11.21.1 Coherency protocol
+The cache operates in a 2-state protocol for coherency purposes. The only state a coherent cache line
+should assume is Valid or Invalid. No Modified or Shared state is supported for coherent cache lines
+(although modified state is available for non-coherent lines), thus no snoop copyback or intervention
+operations are required. A snoop invalidation signaling port is provided to receive coherency requests.
+Snoop invalidation requests are received at the snoop invalidation port, and arbitrate with the CPU for
+access to the data cache tags for lookup and cache line invalidation. External coherency logic provides
+snoop invalidation requests to the snoop invalidation port based on the bus activity of other coherent bus
+masters, and these invalidation requests are later processed and a response provided. Memory regions that
+require coherency operations must be marked as “memory coherence required” (page’s M bit set) and as
+“writethrough” (page’s W bit set).
+External data accesses by the CPU reflect the value of the M bit of the accessed page on the p_d_gbl
+output. Typically, external coherency logic will monitor external accesses by a CPU (or other agent), and
+will request invalidation operations to other coherent entities for write accesses that also have p_d_gbl
+asserted. Non-shared data should be placed into pages with the M bit cleared, thus avoiding unnecessary
+coherency operations.
+
+11.21.2 Snoop command port
+The snoop command port provides the signaling mechanism between external coherency logic and the
+snoop request queue. Command requests are received on the p_snp_cmd[0:1], p_snp_id_in[0:3], and
+p_snp_addr_in[0:26] inputs when the p_snp_req signal is properly asserted, and responses to snoop
+command requests are provided on the p_snp_ack, p_snp_resp[0:4], and p_snp_id_out[0:3] outputs.
+
+
+
+
+                                 e200z759n3 Core Reference Manual, Rev. 2
+Freescale Semiconductor                                                                                   633
+Snoop invalidation requests provide the physical address of the data to be invalidated
+(p_snp_addr_in[0:26]), along with a four-bit ID field (p_snp_id_in[0:3]), which flows through the
+command pipeline and is returned on the p_snp_id_out[0:3] output port along with the completion status
+provided on p_snp_resp[0:4] when p_snp_ack is asserted.
+The p_snp_rdy output signal provides a handshaking mechanism for flow control of snoop requests to
+prevent overflow of the internal snoop queue, which buffers incoming snoop requests from the snoop
+command port prior to cache tag lookups and updates. Negation of p_snp_rdy indicates that another snoop
+command port request will not be accepted due to resource constraints in the snoop pipeline.
+Refer to Section 14.2.9, Coherency control signals, for details on the operating protocol of the snoop
+command port.
+The command value is stored in the snoop queue along with the snoop address and snoop ID value.
+Table 11-14 shows the definitions of the p_snp_cmd[0:1] encodings.
+                         Table 11-14. p_snp_cmd[0:1] Snoop command encoding
+
+             p_snp_cmd[0:1]                                        Response type
+
+                   00            Null - no status bit operation performed, lookup is performed
+
+                   01            INV - invalidate matching cache entry
+
+                   10            SYNC - synchronize snoop queue
+
+                   11            Reserved
+
+The NULL command is used for testing of interface handshaking and other status gathering purposes. The
+NULL command performs a snoop lookup operation, but performs no actual cache tag or status
+modifications (even in the presence of tag EDC errors). The INV command causes a snoop lookup and
+subsequent invalidation of a matching cache line. The SYNC command causes the snoop queue to be
+emptied with highest priority relative to CPU requests.
+Table 11-14 shows the definitions of the p_snp_resp[0:4] encodings.
+                         Table 11-15. p_snp_resp[0:4] Snoop response encoding
+
+            p_snp_resp[0:4]1                                      Response type
+
+                 000cc         NULL - no operation performed or no matching cache entry
+
+                 001cc         AutoInv - AutoInvalidation performed on clean unlocked lines with tag parity
+                               errors
+
+                 010cc         ERROR - Error in processing a snoop request due to TAG parity error.
+                               For NULL commands, a tag parity error occurred and no hit to a tag without
+                               error occurred. No modification of cache entries, no machine check generated
+                               internally.
+                               For INV commands, a) possible invalidation of locked line with tag parity error
+                               occurred, or b) dirty line left valid with tag parity error, or c) no true hit occurred,
+                               and one or more lines reported tag parity errors. Machine check generated
+                               internally.
+
+                 01100         SYNC - Sync completed, snoop queue synchronized
+
+                 100cc           HIT Clean- matching unlocked cache entry found
+
+
+
+                                    e200z759n3 Core Reference Manual, Rev. 2
+634                                                                                                      Freescale Semiconductor
+                      Table 11-15. p_snp_resp[0:4] Snoop response encoding (continued)
+
+               p_snp_resp[0:4]1                                  Response type
+
+                    101cc            HIT Dirty- matching unlocked dirty cache entry found
+
+                    110cc            HIT Locked - matching clean locked cache entry found
+
+                    111cc            HIT Dirty Locked - matching dirty locked cache entry found
+           1
+               cc - # collapsed requests; 00-no collapsing, 01- two requests combined, 10- three requests
+               combined, 11- four requests combined
+
+The NULL response indicates there was no matching cache entry found for a null or invalidate command
+or the cache was disabled when the request was originally made. The HIT responses indicates that a
+matching cache entry was found. The SYNC response indicated all previous entries in the snoop queue
+were emptied. The ERROR response indicates that an error occurred in processing a snoop request due to
+a cache tag parity error. The AutoInv response indicates one or more cache lines with tag parity errors was
+invalidated.
+Responses for a Null command are either NULL, HIT, or ERROR. Responses for an INV command are
+either Null (no hit occurred or cache is disabled), Hit (a matching entry was found and invalidated), or
+ERROR (a tag parity error was found and left valid, no guarantee of the command success). Responses for
+a Sync command are SYNC completed.
+
+11.21.3 Snoop request queue
+The snoop request queue provides a queueing mechanism between the snoop command port and the cache.
+As requests are accepted from the snoop invalidate port, they are queued into an 8-deep fifo queue for
+arbitration to the cache for tag and status lookup and conditional status clearing.
+Snoops can be collapsed within the queue under certain circumstances to minimize the number of
+invalidation lookups performed. When two consecutive snoop requests refer to the same cache line, they
+are collapsed (timing permitting) into a single snoop invalidation cycle. Collapsed entries are indicated
+complete via an encoding of the p_snp_resp[0:4] status outputs.
+Snoop invalidation requests have a lower priority than CPU data accesses or change of flow accesses when
+only a single queue entry is occupied. This allows for some optimization in cycle-stealing of the tag array
+from the CPU in an attempt to minimize CPU stalls. Snoop invalidation request priority is raised when a
+“snoop sync” command is received on the snoop command port or when a sync request is generated on the
+synchronization port (p_sync_req_in), regardless of the number of active queue entries.
+
+11.21.4 Snoop lookup operation
+Entries in the snoop request queue are processed in-order after arbitrating for the cache tag and status bit
+arrays. Once the CPU has been stalled from performing further tag accesses, the snoop request queue is
+processed by performing a tag lookup, and a subsequent status bit write to clear the valid bit of a matching
+valid entry. Invalidation hits require two tag array accesses to first read, and then to update the valid bit. A
+subsequent snoop lookup may be pipelined while the first lookup of a pair of lookups is being processed
+to determine a hit/miss condition. In this manner, a pair of hitting invalidation requests will block the CPU
+
+
+                                        e200z759n3 Core Reference Manual, Rev. 2
+Freescale Semiconductor                                                                                      635
+for a total of 5 cycles. A single snoop lookup requires 3 cycles of latency on a miss, and 4 cycles on a hit
+prior to allowing the CPU to resume cache accesses. If the snoop queue contains enough entries, snoop
+read and write accesses to the cache tag are pipelined, and the total blockage will be 3*number_of_hits +
+number_of_misses + 1. In certain cases where the CPU has pipelined one or more cache misses, initial
+snoop accesses will be interlaced with CPU tag accesses prior to assuming highest priority in order to allow
+for proper operation of linefill and copyback operations initiated by the CPU.
+As entries are removed from the queue and the invalidation lookups are performed, the results of the
+lookups are provided on the response output signals, along with the original request ID.
+
+11.21.5 Snoop errors
+Errors can occur during snoop lookup operations and are signaled on the snoop response output port. Tag
+parity errors that prevent an accurate hit/miss determination on the snoop request address may result in an
+error response signaled via p_snp_resp[0:4], as well as a machine check to the CPU for the INV command
+if a locked line was invalidated, if a line was dirty and not invalidated, or if a tag parity error occurred and
+no hit occurred to a line without error. When such a tag parity error occurs, the invalidation will not occur
+to the line(s) with error. The snoop queue will continue to be serviced, and the machine check will not
+necessarily be recoverable. A checkstop condition will not occur however. In this respect, it is treated
+similarly to a non-maskable interrupt, and the MSR[RI] bit should be used accordingly by software.
+
+11.21.6 Snoop collisions
+Snoop requests may collide with an outstanding or pending cache linefill.
+Since there is no particular guarantee of the precise time an actual snoop invalidation lookup will occur
+relative to a cache linefill request, the CPU may in some instances be in the process of filling a line
+corresponding to a snoop invalidate request. In this case, the snoop will cause the linefills to be marked
+such that they are not loaded into the cache. Load miss operations that are in progress may use the data as
+it returns however. The responses for these collisions will be based on the state the cache line would have
+taken if the linefill completes successfully.
+Snoop requests should not collide with dirty line copyback or flush operations, since the coherent pages
+must be marked as writethrough required. These snoop collisions will be ignored.
+
+11.21.7 Snoop synchronization
+Synchronization of the snoop queue will occur under two conditions; a synchronization port sync request,
+and a snoop command port sync request.
+
+11.21.7.1 Synchronization port request
+Assertion of the p_sync_req_in signal will cause the snoop queue to assume highest priority, and be
+flushed. It is assumed that the system will stop generating snoop requests during a synchronization of the
+queue to allow it to drain, but if snoop requests continue to be received, the acknowledgement of the
+synchronization request will be delayed until the queue finally drains to the point that all queue entries that
+were present prior to the recognition of the sync request have been serviced.
+
+                                   e200z759n3 Core Reference Manual, Rev. 2
+636                                                                                      Freescale Semiconductor
+In general, the synchronization port is expected to be utilized to handshake execution of msync
+instructions from an alternate CPU, thus there will typically not be additional snoop requests occurring
+until the synchronization handshake is complete, since no further bus writes will be requested by the
+alternate CPU, but if additional coherency traffic occurs due to another alternate master, it will follow the
+normal queueing process and will not block the eventual assertion of the p_sync_ack_out signal.
+
+11.21.7.2 Snoop command port request
+Receiving a snoop command port “snoop sync” request encoded via the p_snp_cmd[0:1] inputs of will
+cause the snoop queue to assume highest priority, and be flushed to the point the command has reached the
+head of the queue and been acknowledged. After the command has been completed, snoop queue priority
+will revert to normal operation, unless another “snoop sync” command has been received and placed into
+the queue, in which case snoop queue priority will remain elevated until all “snoop sync” commands have
+been processed from the queue.
+
+11.21.8 Starvation control
+To avoid starvation of a higher priority CPU due to a continuous stream of snoop requests from a lower
+priority master that block CPU forward progress, some form of starvation control is desired. This is
+implemented with a forward progress counter, which tracks the number of contiguous cycles the CPU has
+been prevented from accessing the cache due to snoop command port access requests. Once the count has
+been exceeded, the CPU will regain highest priority for one access cycle. A similar counter exists for the
+snoop queue, to allow for periodic snoop request processing when the queue holds only a single entry. Each
+counter is 4 bits, and causes a priority inversion to occur for tag access upon timeout. The presence of one
+or more sync commands in the snoop queue when the counter expires will delay the priority inversion until
+the queue has been emptied up to the point that the sync(s) have been completed. Subsequent syncs
+received while the starvation timeout is being postponed may also prevent the priority inversion after the
+original sync(s) have been completed if additional snoops have been queued during the sync command
+processing. This is not normally expected to occur in a typical system however.
+In addition, external logic may be used to implement additional safeguards by monitoring the
+p_cac_stalled output, which indicates that the CPU has a pending cache access request blocked due to
+snoop access activity.
+
+11.21.9 Queue flow control
+To avoid overflow of the snoop queue, the p_snp_rdy output is provided to indicate whether an additional
+snoop command port request will be accepted on the following clock cycle. When negated, no further
+command requests can be honored until a snoop queue entry becomes available.
+To provide for flow control of CPU-generated snoop requests to another CPU’s queue, the
+p_stall_bus_gwrite input is provided, which will cause further bus activity that is requesting a global
+write cycle to be suspended. Other bus traffic is not affected.
+
+
+
+
+                                  e200z759n3 Core Reference Manual, Rev. 2
+Freescale Semiconductor                                                                                   637
+11.21.10 Snooping in low power states
+Snooping remains enabled while in the Waiting or Halted states if the clock is running. Snoops should only
+be issued to the core complex while the core is in the normal, Halted, or Waiting states and both the p_stop
+and p_stopped signals are negated. When a request is made to enter stop mode via the assertion of p_stop,
+the p_snp_rdy output will be negated. While the core complex is in the Stopped (power-down) state, bus
+snooping is disabled, and the p_snp_rdy output is held negated. Snoop requests will be processed around
+the assertion of the stop mode entry request (assertion of p_stop) per the normal protocol associated with
+p_snp_rdy negation, including acceptance of a snoop request during a small interval around p_snp_rdy
+negation, thus additional snoop operations may need to occur prior to entering the stopped state. All snoop
+queue entries will be processed prior to the assertion of p_stopped.
+
+
+
+
+                                  e200z759n3 Core Reference Manual, Rev. 2
+638                                                                                   Freescale Semiconductor

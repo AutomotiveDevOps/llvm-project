@@ -1,4 +1,4 @@
-//===--- UseUncaughtExceptionsCheck.cpp - clang-tidy--------------------===//
+//===----------------------------------------------------------------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -7,14 +7,12 @@
 //===----------------------------------------------------------------------===//
 
 #include "UseUncaughtExceptionsCheck.h"
-#include "clang/AST/ASTContext.h"
 #include "clang/ASTMatchers/ASTMatchFinder.h"
+#include "clang/Lex/Lexer.h"
 
 using namespace clang::ast_matchers;
 
-namespace clang {
-namespace tidy {
-namespace modernize {
+namespace clang::tidy::modernize {
 
 void UseUncaughtExceptionsCheck::registerMatchers(MatchFinder *Finder) {
   std::string MatchText = "::std::uncaught_exception";
@@ -41,16 +39,16 @@ void UseUncaughtExceptionsCheck::registerMatchers(MatchFinder *Finder) {
                      this);
   // CallExpr in initialisation list: warning, fix-it with avoiding narrowing
   // conversions.
-  Finder->addMatcher(callExpr(DirectCallToUncaughtException,
-                              hasAncestor(initListExpr()))
-                         .bind("init_call_expr"),
-                     this);
+  Finder->addMatcher(
+      callExpr(DirectCallToUncaughtException, hasAncestor(initListExpr()))
+          .bind("init_call_expr"),
+      this);
 }
 
 void UseUncaughtExceptionsCheck::check(const MatchFinder::MatchResult &Result) {
   SourceLocation BeginLoc;
   SourceLocation EndLoc;
-  const CallExpr *C = Result.Nodes.getNodeAs<CallExpr>("init_call_expr");
+  const auto *C = Result.Nodes.getNodeAs<CallExpr>("init_call_expr");
   bool WarnOnly = false;
 
   if (C) {
@@ -96,6 +94,4 @@ void UseUncaughtExceptionsCheck::check(const MatchFinder::MatchResult &Result) {
   }
 }
 
-} // namespace modernize
-} // namespace tidy
-} // namespace clang
+} // namespace clang::tidy::modernize

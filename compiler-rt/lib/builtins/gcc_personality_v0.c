@@ -7,6 +7,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "int_lib.h"
+#include <stddef.h>
 
 #include <unwind.h>
 #if defined(__arm__) && !defined(__ARM_DWARF_EH__) &&                          \
@@ -19,6 +20,67 @@
 // builtins (which contains the C unwinding personality for historical reasons).
 #include "unwind-ehabi-helpers.h"
 #endif
+
+#if defined(__SEH__) && !defined(__USING_SJLJ_EXCEPTIONS__)
+#include <windows.h>
+#include <winnt.h>
+
+EXCEPTION_DISPOSITION _GCC_specific_handler(PEXCEPTION_RECORD, void *, PCONTEXT,
+                                            PDISPATCHER_CONTEXT,
+                                            _Unwind_Personality_Fn);
+#endif
+
+#ifndef __has_feature
+#define __has_feature(__feature) 0
+#endif
+
+#if __has_feature(ptrauth_calls)
+#include <ptrauth.h>
+
+// `__ptrauth_restricted_intptr` is a feature of apple clang that predates
+// support for direct application of `__ptrauth` to integer types. This
+// guard is necessary to support compilation with those compiler.
+#if __has_feature(ptrauth_restricted_intptr_qualifier)
+#define __ptrauth_gcc_personality_intptr(key, addressDiscriminated,            \
+                                         discriminator)                        \
+  __ptrauth_restricted_intptr(key, addressDiscriminated, discriminator)
+#else
+#define __ptrauth_gcc_personality_intptr(key, addressDiscriminated,            \
+                                         discriminator)                        \
+  __ptrauth(key, addressDiscriminated, discriminator)
+#endif
+#else
+#define __ptrauth_gcc_personality_intptr(...)
+#endif
+
+#define __ptrauth_gcc_personality_func_key ptrauth_key_function_pointer
+
+// ptrauth_string_discriminator("__gcc_personality_v0'funcStart") == 0xDFEB
+#define __ptrauth_gcc_personality_func_start                                   \
+  __ptrauth_gcc_personality_intptr(__ptrauth_gcc_personality_func_key, 1,      \
+                                   0xDFEB)
+
+// ptrauth_string_discriminator("__gcc_personality_v0'start") == 0x52DC
+#define __ptrauth_gcc_personality_start                                        \
+  __ptrauth_gcc_personality_intptr(__ptrauth_gcc_personality_func_key, 1,      \
+                                   0x52DC)
+
+// ptrauth_string_discriminator("__gcc_personality_v0'length") == 0xFFF7
+#define __ptrauth_gcc_personality_length                                       \
+  __ptrauth_gcc_personality_intptr(__ptrauth_gcc_personality_func_key, 1,      \
+                                   0xFFF7)
+
+// ptrauth_string_discriminator("__gcc_personality_v0'landingPadOffset") ==
+// 0x6498
+#define __ptrauth_gcc_personality_lpoffset                                     \
+  __ptrauth_gcc_personality_intptr(__ptrauth_gcc_personality_func_key, 1,      \
+                                   0x6498)
+
+// ptrauth_string_discriminator("__gcc_personality_v0'landingPad") == 0xA134
+#define __ptrauth_gcc_personality_lpad_disc 0xA134
+#define __ptrauth_gcc_personality_lpad                                         \
+  __ptrauth_gcc_personality_intptr(__ptrauth_gcc_personality_func_key, 1,      \
+                                   __ptrauth_gcc_personality_lpad_disc)
 
 // Pointer encodings documented at:
 //   http://refspecs.freestandards.org/LSB_1.3.0/gLSB/gLSB/ehframehdr.html
@@ -43,9 +105,9 @@
 #define DW_EH_PE_indirect 0x80 // gcc extension
 
 // read a uleb128 encoded value and advance pointer
-static uintptr_t readULEB128(const uint8_t **data) {
-  uintptr_t result = 0;
-  uintptr_t shift = 0;
+static size_t readULEB128(const uint8_t **data) {
+  size_t result = 0;
+  size_t shift = 0;
   unsigned char byte;
   const uint8_t *p = *data;
   do {
@@ -133,7 +195,7 @@ static uintptr_t readEncodedPointer(const uint8_t **data, uint8_t encoding) {
 }
 
 #if defined(__arm__) && !defined(__USING_SJLJ_EXCEPTIONS__) &&                 \
-    !defined(__ARM_DWARF_EH__)
+    !defined(__ARM_DWARF_EH__) && !defined(__SEH__)
 #define USING_ARM_EHABI 1
 _Unwind_Reason_Code __gnu_unwind_frame(struct _Unwind_Exception *,
                                        struct _Unwind_Context *);
@@ -168,6 +230,10 @@ COMPILER_RT_ABI _Unwind_Reason_Code __gcc_personality_sj0(
 COMPILER_RT_ABI _Unwind_Reason_Code __gcc_personality_v0(
     _Unwind_State state, struct _Unwind_Exception *exceptionObject,
     struct _Unwind_Context *context)
+#elif defined(__SEH__)
+static _Unwind_Reason_Code __gcc_personality_imp(
+    int version, _Unwind_Action actions, uint64_t exceptionClass,
+    struct _Unwind_Exception *exceptionObject, struct _Unwind_Context *context)
 #else
 COMPILER_RT_ABI _Unwind_Reason_Code __gcc_personality_v0(
     int version, _Unwind_Action actions, uint64_t exceptionClass,
@@ -191,7 +257,8 @@ COMPILER_RT_ABI _Unwind_Reason_Code __gcc_personality_v0(
     return continueUnwind(exceptionObject, context);
 
   uintptr_t pc = (uintptr_t)_Unwind_GetIP(context) - 1;
-  uintptr_t funcStart = (uintptr_t)_Unwind_GetRegionStart(context);
+  uintptr_t __ptrauth_gcc_personality_func_start funcStart =
+      (uintptr_t)_Unwind_GetRegionStart(context);
   uintptr_t pcOffset = pc - funcStart;
 
   // Parse LSDA header.
@@ -205,16 +272,19 @@ COMPILER_RT_ABI _Unwind_Reason_Code __gcc_personality_v0(
   }
   // Walk call-site table looking for range that includes current PC.
   uint8_t callSiteEncoding = *lsda++;
-  uint32_t callSiteTableLength = readULEB128(&lsda);
+  size_t callSiteTableLength = readULEB128(&lsda);
   const uint8_t *callSiteTableStart = lsda;
   const uint8_t *callSiteTableEnd = callSiteTableStart + callSiteTableLength;
   const uint8_t *p = callSiteTableStart;
   while (p < callSiteTableEnd) {
-    uintptr_t start = readEncodedPointer(&p, callSiteEncoding);
-    uintptr_t length = readEncodedPointer(&p, callSiteEncoding);
-    uintptr_t landingPad = readEncodedPointer(&p, callSiteEncoding);
+    uintptr_t __ptrauth_gcc_personality_start start =
+        readEncodedPointer(&p, callSiteEncoding);
+    size_t __ptrauth_gcc_personality_length length =
+        readEncodedPointer(&p, callSiteEncoding);
+    size_t __ptrauth_gcc_personality_lpoffset landingPadOffset =
+        readEncodedPointer(&p, callSiteEncoding);
     readULEB128(&p); // action value not used for C code
-    if (landingPad == 0)
+    if (landingPadOffset == 0)
       continue; // no landing pad for this entry
     if ((start <= pcOffset) && (pcOffset < (start + length))) {
       // Found landing pad for the PC.
@@ -224,7 +294,24 @@ COMPILER_RT_ABI _Unwind_Reason_Code __gcc_personality_v0(
       _Unwind_SetGR(context, __builtin_eh_return_data_regno(0),
                     (uintptr_t)exceptionObject);
       _Unwind_SetGR(context, __builtin_eh_return_data_regno(1), 0);
-      _Unwind_SetIP(context, (funcStart + landingPad));
+      size_t __ptrauth_gcc_personality_lpad landingPad =
+          funcStart + landingPadOffset;
+#if __has_feature(ptrauth_calls)
+      uintptr_t stackPointer = _Unwind_GetGR(context, -2);
+      const uintptr_t existingDiscriminator = ptrauth_blend_discriminator(
+          &landingPad, __ptrauth_gcc_personality_lpad_disc);
+      // newIP is authenticated as if it were qualified with a pseudo qualifier
+      // along the lines of:
+      //   __ptrauth(ptrauth_key_return_address, <stackPointer>, 0)
+      // where the stack pointer is used in place of the strict storage
+      // address.
+      uintptr_t newIP = (uintptr_t)ptrauth_auth_and_resign(
+          *(void **)&landingPad, __ptrauth_gcc_personality_func_key,
+          existingDiscriminator, ptrauth_key_return_address, stackPointer);
+      _Unwind_SetIP(context, newIP);
+#else
+      _Unwind_SetIP(context, landingPad);
+#endif
       return _URC_INSTALL_CONTEXT;
     }
   }
@@ -232,3 +319,12 @@ COMPILER_RT_ABI _Unwind_Reason_Code __gcc_personality_v0(
   // No landing pad found, continue unwinding.
   return continueUnwind(exceptionObject, context);
 }
+
+#if defined(__SEH__) && !defined(__USING_SJLJ_EXCEPTIONS__)
+COMPILER_RT_ABI EXCEPTION_DISPOSITION
+__gcc_personality_seh0(PEXCEPTION_RECORD ms_exc, void *this_frame,
+                       PCONTEXT ms_orig_context, PDISPATCHER_CONTEXT ms_disp) {
+  return _GCC_specific_handler(ms_exc, this_frame, ms_orig_context, ms_disp,
+                               __gcc_personality_imp);
+}
+#endif

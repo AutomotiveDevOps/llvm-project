@@ -13,6 +13,10 @@
 // RUN: %clang -target s390x -### -S -emit-llvm -march=arch12 %s 2>&1 | FileCheck --check-prefix=CHECK-ARCH12 %s
 // RUN: %clang -target s390x -### -S -emit-llvm -march=z15 %s 2>&1 | FileCheck --check-prefix=CHECK-Z15 %s
 // RUN: %clang -target s390x -### -S -emit-llvm -march=arch13 %s 2>&1 | FileCheck --check-prefix=CHECK-ARCH13 %s
+// RUN: %clang -target s390x -### -S -emit-llvm -march=z16 %s 2>&1 | FileCheck --check-prefix=CHECK-Z16 %s
+// RUN: %clang -target s390x -### -S -emit-llvm -march=arch14 %s 2>&1 | FileCheck --check-prefix=CHECK-ARCH14 %s
+// RUN: %clang -target s390x -### -S -emit-llvm -march=z17 %s 2>&1 | FileCheck --check-prefix=CHECK-Z17 %s
+// RUN: %clang -target s390x -### -S -emit-llvm -march=arch15 %s 2>&1 | FileCheck --check-prefix=CHECK-ARCH15 %s
 
 // CHECK-Z9: error: unknown target CPU 'z9'
 // CHECK-Z10: "-target-cpu" "z10"
@@ -27,5 +31,9 @@
 // CHECK-ARCH12: "-target-cpu" "arch12"
 // CHECK-Z15: "-target-cpu" "z15"
 // CHECK-ARCH13: "-target-cpu" "arch13"
+// CHECK-Z16: "-target-cpu" "z16"
+// CHECK-ARCH14: "-target-cpu" "arch14"
+// CHECK-Z17: "-target-cpu" "z17"
+// CHECK-ARCH15: "-target-cpu" "arch15"
 
 int x;

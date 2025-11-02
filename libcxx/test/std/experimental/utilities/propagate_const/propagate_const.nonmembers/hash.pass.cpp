@@ -6,31 +6,28 @@
 //
 //===----------------------------------------------------------------------===//
 
-// UNSUPPORTED: c++98, c++03, c++11
+// UNSUPPORTED: c++03, c++11
 
 // <propagate_const>
 
 // template <class T> struct hash<experimental::fundamentals_v2::propagate_const<T>>;
 
 #include <experimental/propagate_const>
+#include <cassert>
+#include <cstddef>
+#include <functional>
+
 #include "test_macros.h"
 #include "propagate_const_helpers.h"
-#include <cassert>
 
 using std::experimental::propagate_const;
 
-namespace std {
-template <> struct hash<X>
-{
+template <>
+struct std::hash<X> {
   typedef X first_argument_type;
 
-  size_t operator()(const first_argument_type&) const
-  {
-    return 99;
-  }
-
+  std::size_t operator()(const first_argument_type&) const { return 99; }
 };
-} // namespace std
 
 int main(int, char**) {
 

@@ -23,6 +23,10 @@ static_assert(sizeof(long long) == 8);
 template <class To, class From>
 constexpr To bit_cast(const From &from) {
   static_assert(sizeof(To) == sizeof(From));
+  // expected-note@+9 {{cannot be represented in type 'bool'}}
+#ifdef __x86_64
+  // expected-note@+7 {{or 'std::byte'; '__int128' is invalid}}
+#endif
 #ifdef __CHAR_UNSIGNED__
   // expected-note@+4 2 {{indeterminate value can only initialize an object of type 'unsigned char', 'char', or 'std::byte'; 'signed char' is invalid}}
 #else
@@ -86,7 +90,8 @@ void test_record() {
   struct tuple4 {
     unsigned x, y, z, doublez;
 
-    constexpr bool operator==(tuple4 const &other) const {
+    bool operator==(tuple4 const &other) const = default;
+    constexpr bool operator==(bases const &other) const {
       return x == other.x && y == other.y &&
              z == other.z && doublez == other.doublez;
     }
@@ -95,6 +100,9 @@ void test_record() {
   constexpr tuple4 t4 = bit_cast<tuple4>(b);
   static_assert(t4 == tuple4{1, 2, 3, 4});
   static_assert(round_trip<tuple4>(b));
+
+  constexpr auto b2 = bit_cast<bases>(t4);
+  static_assert(t4 == b2);
 }
 
 void test_partially_initialized() {
@@ -113,11 +121,11 @@ void test_partially_initialized() {
 
   constexpr pad pir{4, 4};
   // expected-error@+2 {{constexpr variable 'piw' must be initialized by a constant expression}}
-  // expected-note@+1 {{in call to 'bit_cast(pir)'}}
+  // expected-note@+1 {{in call to 'bit_cast<no_pad, pad>(pir)'}}
   constexpr int piw = bit_cast<no_pad>(pir).x;
 
   // expected-error@+2 {{constexpr variable 'bad' must be initialized by a constant expression}}
-  // expected-note@+1 {{in call to 'bit_cast(pir)'}}
+  // expected-note@+1 {{in call to 'bit_cast<no_pad, pad>(pir)'}}
   constexpr no_pad bad = bit_cast<no_pad>(pir);
 
   constexpr pad fine = bit_cast<pad>(no_pad{1, 2, 3, 4, 5});
@@ -200,7 +208,7 @@ void backtrace() {
   };
 
   struct B {
-    // expected-note@+1 {{invalid type 'A [10]' is a member of 'B'}}
+    // expected-note@+1 {{invalid type 'A[10]' is a member of 'B'}}
     A as[10];
   };
 
@@ -397,3 +405,139 @@ union IdentityInUnion {
 };
 constexpr IdentityInUnion identity3a = {42};
 constexpr unsigned char identity3b = __builtin_bit_cast(unsigned char, identity3a.n);
+
+namespace test_bool {
+
+constexpr bool test_bad_bool = bit_cast<bool>('A'); // expected-error {{must be initialized by a constant expression}} expected-note{{in call}}
+
+static_assert(round_trip<signed char>(true), "");
+static_assert(round_trip<unsigned char>(false), "");
+static_assert(round_trip<bool>(false), "");
+
+static_assert(round_trip<bool>((char)0), "");
+static_assert(round_trip<bool>((char)1), "");
+}
+
+namespace test_long_double {
+#ifdef __x86_64
+constexpr __int128_t test_cast_to_int128 = bit_cast<__int128_t>((long double)0); // expected-error{{must be initialized by a constant expression}} expected-note{{in call}}
+
+constexpr long double ld = 3.1425926539;
+
+struct bytes {
+  unsigned char d[16];
+};
+
+static_assert(round_trip<bytes>(ld), "");
+
+static_assert(round_trip<long double>(10.0L));
+
+constexpr bool f(bool read_uninit) {
+  bytes b = bit_cast<bytes>(ld);
+  unsigned char ld_bytes[10] = {
+    0x0,  0x48, 0x9f, 0x49, 0xf0,
+    0x3c, 0x20, 0xc9, 0x0,  0x40,
+  };
+
+  for (int i = 0; i != 10; ++i)
+    if (ld_bytes[i] != b.d[i])
+      return false;
+
+  if (read_uninit && b.d[10]) // expected-note{{read of uninitialized object is not allowed in a constant expression}}
+    return false;
+
+  return true;
+}
+
+static_assert(f(/*read_uninit=*/false), "");
+static_assert(f(/*read_uninit=*/true), ""); // expected-error{{static assertion expression is not an integral constant expression}} expected-note{{in call to 'f(true)'}}
+
+constexpr bytes ld539 = {
+  0x0, 0x0,  0x0,  0x0,
+  0x0, 0x0,  0xc0, 0x86,
+  0x8, 0x40, 0x0,  0x0,
+  0x0, 0x0,  0x0,  0x0,
+};
+
+constexpr long double fivehundredandthirtynine = 539.0;
+
+static_assert(bit_cast<long double>(ld539) == fivehundredandthirtynine, "");
+
+#else
+static_assert(round_trip<__int128_t>(34.0L));
+#endif
+}
+
+namespace test_vector {
+
+typedef unsigned uint2 __attribute__((vector_size(2 * sizeof(unsigned))));
+typedef char byte8 __attribute__((vector_size(sizeof(unsigned long long))));
+
+constexpr uint2 test_vector = { 0x0C05FEFE, 0xCAFEBABE };
+
+static_assert(bit_cast<unsigned long long>(test_vector) == (LITTLE_END
+                                                                ? 0xCAFEBABE0C05FEFE
+                                                                : 0x0C05FEFECAFEBABE), "");
+
+static_assert(round_trip<uint2>(0xCAFEBABE0C05FEFEULL), "");
+static_assert(round_trip<byte8>(0xCAFEBABE0C05FEFEULL), "");
+
+typedef bool bool8 __attribute__((ext_vector_type(8)));
+typedef bool bool9 __attribute__((ext_vector_type(9)));
+typedef bool bool16 __attribute__((ext_vector_type(16)));
+typedef bool bool17 __attribute__((ext_vector_type(17)));
+typedef bool bool32 __attribute__((ext_vector_type(32)));
+typedef bool bool128 __attribute__((ext_vector_type(128)));
+
+static_assert(bit_cast<unsigned char>(bool8{1,0,1,0,1,0,1,0}) == (LITTLE_END ? 0x55 : 0xAA), "");
+static_assert(round_trip<bool8>(static_cast<unsigned char>(0)), "");
+static_assert(round_trip<bool8>(static_cast<unsigned char>(1)), "");
+static_assert(round_trip<bool8>(static_cast<unsigned char>(0x55)), "");
+
+static_assert(bit_cast<unsigned short>(bool16{1,1,1,1,1,0,0,0, 1,1,1,1,0,1,0,0}) == (LITTLE_END ? 0x2F1F : 0xF8F4), "");
+
+static_assert(round_trip<bool16>(static_cast<short>(0xCAFE)), "");
+static_assert(round_trip<bool32>(static_cast<int>(0xCAFEBABE)), "");
+static_assert(round_trip<bool128>(static_cast<__int128_t>(0xCAFEBABE0C05FEFEULL)), "");
+
+// expected-error@+2 {{constexpr variable 'bad_bool9_to_short' must be initialized by a constant expression}}
+// expected-note@+1 {{bit_cast involving type 'bool __attribute__((ext_vector_type(9)))' (vector of 9 'bool' values) is not allowed in a constant expression; element size 1 * element count 9 is not a multiple of the byte size 8}}
+constexpr unsigned short bad_bool9_to_short = __builtin_bit_cast(unsigned short, bool9{1,1,0,1,0,1,0,1,0});
+// expected-error@+2 {{constexpr variable 'bad_short_to_bool9' must be initialized by a constant expression}}
+// expected-note@+1 {{bit_cast involving type 'bool __attribute__((ext_vector_type(9)))' (vector of 9 'bool' values) is not allowed in a constant expression; element size 1 * element count 9 is not a multiple of the byte size 8}}
+constexpr bool9 bad_short_to_bool9 = __builtin_bit_cast(bool9, static_cast<unsigned short>(0));
+// expected-error@+2 {{constexpr variable 'bad_int_to_bool17' must be initialized by a constant expression}}
+// expected-note@+1 {{bit_cast involving type 'bool __attribute__((ext_vector_type(17)))' (vector of 17 'bool' values) is not allowed in a constant expression; element size 1 * element count 17 is not a multiple of the byte size 8}}
+constexpr bool17 bad_int_to_bool17 = __builtin_bit_cast(bool17, 0x0001CAFEU);
+
+}
+
+namespace test_complex {
+  constexpr _Complex unsigned test_int_complex = { 0x0C05FEFE, 0xCAFEBABE };
+  static_assert(round_trip<_Complex unsigned>(0xCAFEBABE0C05FEFEULL), "");
+  static_assert(bit_cast<unsigned long long>(test_int_complex) == (LITTLE_END
+                                                                   ? 0xCAFEBABE0C05FEFE
+                                                                   : 0x0C05FEFECAFEBABE), "");
+  static_assert(sizeof(double) == 2 * sizeof(float));
+  struct TwoFloats { float A; float B; };
+  constexpr _Complex float test_float_complex = {1.0f, 2.0f};
+  constexpr TwoFloats TF = __builtin_bit_cast(TwoFloats, test_float_complex);
+  static_assert(TF.A == 1.0f && TF.B == 2.0f);
+
+  constexpr double D = __builtin_bit_cast(double, test_float_complex);
+  constexpr int M = __builtin_bit_cast(int, test_int_complex); // expected-error {{size of '__builtin_bit_cast' source type 'const _Complex unsigned int' does not match destination type 'int' (8 vs 4 bytes)}}
+}
+
+namespace InvalidBaseClass {
+  class F {
+  public:
+    char c;
+  };
+
+  class InBetween : public F{};
+  class E : public InBetween {
+  public:
+    constexpr E() :  F{3} {} // expected-error {{not a direct or virtual base}}
+  };
+  static_assert(__builtin_bit_cast(char, E()) == 0); // expected-error {{not an integral constant expression}}
+}

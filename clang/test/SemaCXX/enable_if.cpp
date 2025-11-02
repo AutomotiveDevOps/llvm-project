@@ -5,7 +5,7 @@ int surrogate(int);
 struct Incomplete;  // expected-note{{forward declaration of 'Incomplete'}} \
                     // expected-note {{forward declaration of 'Incomplete'}}
 
-struct X {
+struct X { // expected-note{{defined here}}
   X() = default;  // expected-note{{candidate constructor not viable: requires 0 arguments, but 1 was provided}}
   X(const X&) = default;  // expected-note{{candidate constructor not viable: no known conversion from 'bool' to 'const X' for 1st argument}}
   X(bool b) __attribute__((enable_if(b, "chosen when 'b' is true")));  // expected-note{{candidate disabled: chosen when 'b' is true}}
@@ -414,8 +414,8 @@ static_assert(templated<1>() == 1, "");
 
 template <int N> constexpr int callTemplated() { return templated<N>(); }
 
-constexpr int B = 10 + // the carat for the error should be pointing to the problematic call (on the next line), not here.
-    callTemplated<0>(); // expected-error{{initialized by a constant expression}} expected-error@-3{{no matching function for call to 'templated'}} expected-note{{in instantiation of function template}} expected-note@-10{{candidate disabled}}
+constexpr int B = 10 +                // expected-error {{initialized by a constant expression}}
+                  callTemplated<0>(); // expected-error@-3{{no matching function for call to 'templated'}} expected-note{{in instantiation of function template}} expected-note@-10{{candidate disabled}}
 static_assert(callTemplated<1>() == 1, "");
 }
 

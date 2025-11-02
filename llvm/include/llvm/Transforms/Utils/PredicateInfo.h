@@ -30,7 +30,7 @@
 /// %cmp = icmp eq i32, %x, 50
 /// br i1 %cmp, label %true, label %false
 /// true:
-/// %x.0 = call \@llvm.ssa_copy.i32(i32 %x)
+/// %x.0 = bitcast i32 %x to %x
 /// ret i32 %x.0
 /// false:
 /// ret i32 1
@@ -52,64 +52,70 @@
 
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/SmallSet.h"
-#include "llvm/ADT/ilist.h"
-#include "llvm/ADT/ilist_node.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/PassManager.h"
-#include "llvm/IR/Value.h"
 #include "llvm/IR/ValueHandle.h"
-#include "llvm/Pass.h"
+#include "llvm/Support/Allocator.h"
+#include "llvm/Support/Compiler.h"
 
 namespace llvm {
 
 class AssumptionCache;
 class DominatorTree;
 class Function;
+class Value;
 class IntrinsicInst;
 class raw_ostream;
 
 enum PredicateType { PT_Branch, PT_Assume, PT_Switch };
 
+/// Constraint for a predicate of the form "cmp Pred Op, OtherOp", where Op
+/// is the value the constraint applies to (the bitcast result).
+struct PredicateConstraint {
+  CmpInst::Predicate Predicate;
+  Value *OtherOp;
+};
+
 // Base class for all predicate information we provide.
 // All of our predicate information has at least a comparison.
-class PredicateBase : public ilist_node<PredicateBase> {
+class PredicateBase {
 public:
   PredicateType Type;
   // The original operand before we renamed it.
   // This can be use by passes, when destroying predicateinfo, to know
   // whether they can just drop the intrinsic, or have to merge metadata.
   Value *OriginalOp;
+  // The renamed operand in the condition used for this predicate. For nested
+  // predicates, this is different to OriginalOp which refers to the initial
+  // operand.
+  Value *RenamedOp;
+  // The condition associated with this predicate.
+  Value *Condition;
+
   PredicateBase(const PredicateBase &) = delete;
   PredicateBase &operator=(const PredicateBase &) = delete;
   PredicateBase() = delete;
-  virtual ~PredicateBase() = default;
-
-protected:
-  PredicateBase(PredicateType PT, Value *Op) : Type(PT), OriginalOp(Op) {}
-};
-
-class PredicateWithCondition : public PredicateBase {
-public:
-  Value *Condition;
   static bool classof(const PredicateBase *PB) {
     return PB->Type == PT_Assume || PB->Type == PT_Branch ||
            PB->Type == PT_Switch;
   }
 
+  /// Fetch condition in the form of PredicateConstraint, if possible.
+  LLVM_ABI std::optional<PredicateConstraint> getConstraint() const;
+
 protected:
-  PredicateWithCondition(PredicateType PT, Value *Op, Value *Condition)
-      : PredicateBase(PT, Op), Condition(Condition) {}
+  PredicateBase(PredicateType PT, Value *Op, Value *Condition)
+      : Type(PT), OriginalOp(Op), Condition(Condition) {}
 };
 
 // Provides predicate information for assumes.  Since assumes are always true,
 // we simply provide the assume instruction, so you can tell your relative
 // position to it.
-class PredicateAssume : public PredicateWithCondition {
+class PredicateAssume : public PredicateBase {
 public:
   IntrinsicInst *AssumeInst;
   PredicateAssume(Value *Op, IntrinsicInst *AssumeInst, Value *Condition)
-      : PredicateWithCondition(PT_Assume, Op, Condition),
-        AssumeInst(AssumeInst) {}
+      : PredicateBase(PT_Assume, Op, Condition), AssumeInst(AssumeInst) {}
   PredicateAssume() = delete;
   static bool classof(const PredicateBase *PB) {
     return PB->Type == PT_Assume;
@@ -119,7 +125,7 @@ public:
 // Mixin class for edge predicates.  The FROM block is the block where the
 // predicate originates, and the TO block is the block where the predicate is
 // valid.
-class PredicateWithEdge : public PredicateWithCondition {
+class PredicateWithEdge : public PredicateBase {
 public:
   BasicBlock *From;
   BasicBlock *To;
@@ -131,7 +137,7 @@ public:
 protected:
   PredicateWithEdge(PredicateType PType, Value *Op, BasicBlock *From,
                     BasicBlock *To, Value *Cond)
-      : PredicateWithCondition(PType, Op, Cond), From(From), To(To) {}
+      : PredicateBase(PType, Op, Cond), From(From), To(To) {}
 };
 
 // Provides predicate information for branches.
@@ -169,13 +175,13 @@ public:
 /// accesses.
 class PredicateInfo {
 public:
-  PredicateInfo(Function &, DominatorTree &, AssumptionCache &);
-  ~PredicateInfo();
+  LLVM_ABI PredicateInfo(Function &, DominatorTree &, AssumptionCache &,
+                         BumpPtrAllocator &);
 
-  void verifyPredicateInfo() const;
+  LLVM_ABI void verifyPredicateInfo() const;
 
-  void dump() const;
-  void print(raw_ostream &) const;
+  LLVM_ABI void dump() const;
+  LLVM_ABI void print(raw_ostream &) const;
 
   const PredicateBase *getPredicateInfoFor(const Value *V) const {
     return PredicateMap.lookup(V);
@@ -184,33 +190,15 @@ public:
 protected:
   // Used by PredicateInfo annotater, dumpers, and wrapper pass.
   friend class PredicateInfoAnnotatedWriter;
-  friend class PredicateInfoPrinterLegacyPass;
   friend class PredicateInfoBuilder;
 
 private:
   Function &F;
 
-  // This owns the all the predicate infos in the function, placed or not.
-  iplist<PredicateBase> AllInfos;
-
   // This maps from copy operands to Predicate Info. Note that it does not own
   // the Predicate Info, they belong to the ValueInfo structs in the ValueInfos
   // vector.
   DenseMap<const Value *, const PredicateBase *> PredicateMap;
-  // The set of ssa_copy declarations we created with our custom mangling.
-  SmallSet<AssertingVH<Function>, 20> CreatedDeclarations;
-};
-
-// This pass does eager building and then printing of PredicateInfo. It is used
-// by
-// the tests to be able to build, dump, and verify PredicateInfo.
-class PredicateInfoPrinterLegacyPass : public FunctionPass {
-public:
-  PredicateInfoPrinterLegacyPass();
-
-  static char ID;
-  bool runOnFunction(Function &) override;
-  void getAnalysisUsage(AnalysisUsage &AU) const override;
 };
 
 /// Printer pass for \c PredicateInfo.
@@ -220,12 +208,14 @@ class PredicateInfoPrinterPass
 
 public:
   explicit PredicateInfoPrinterPass(raw_ostream &OS) : OS(OS) {}
-  PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
+  LLVM_ABI PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
+  static bool isRequired() { return true; }
 };
 
 /// Verifier pass for \c PredicateInfo.
 struct PredicateInfoVerifierPass : PassInfoMixin<PredicateInfoVerifierPass> {
-  PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
+  LLVM_ABI PreservedAnalyses run(Function &F, FunctionAnalysisManager &AM);
+  static bool isRequired() { return true; }
 };
 
 } // end namespace llvm

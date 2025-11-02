@@ -1,16 +1,5 @@
 // RUN: %clang_builtins %s %librt -o %t && %run %t
 // REQUIRES: librt_has_floatsitf
-//===--------------- floatsitf_test.c - Test __floatsitf ------------------===//
-//
-// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
-// See https://llvm.org/LICENSE.txt for license information.
-// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-//
-//===----------------------------------------------------------------------===//
-//
-// This file tests __floatsitf for the compiler_rt library.
-//
-//===----------------------------------------------------------------------===//
 
 #include "int_lib.h"
 #include <stdio.h>
@@ -19,12 +8,12 @@
 
 #include "fp_test.h"
 
-long COMPILER_RT_ABI double __floatsitf(int a);
+COMPILER_RT_ABI long double __floatsitf(si_int a);
 
-int test__floatsitf(int a, uint64_t expectedHi, uint64_t expectedLo)
+int test__floatsitf(si_int a, uint64_t expectedHi, uint64_t expectedLo)
 {
     long double x = __floatsitf(a);
-    int ret = compareResultLD(x, expectedHi, expectedLo);
+    int ret = compareResultF128(x, expectedHi, expectedLo);
 
     if (ret)
     {

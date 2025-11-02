@@ -15,6 +15,7 @@
 
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/CodeGen/DIE.h"
+#include "llvm/Support/Compiler.h"
 #include "llvm/Support/MD5.h"
 
 namespace llvm {
@@ -31,13 +32,14 @@ class DIEHash {
   };
 
 public:
-  DIEHash(AsmPrinter *A = nullptr) : AP(A) {}
+  DIEHash(AsmPrinter *A = nullptr, DwarfCompileUnit *CU = nullptr)
+      : AP(A), CU(CU) {}
 
   /// Computes the CU signature.
   uint64_t computeCUSignature(StringRef DWOName, const DIE &Die);
 
   /// Computes the type signature.
-  uint64_t computeTypeSignature(const DIE &Die);
+  LLVM_ABI_FOR_TEST uint64_t computeTypeSignature(const DIE &Die);
 
   // Helper routines to process parts of a DIE.
 private:
@@ -60,6 +62,8 @@ public:
 
   /// Encodes and adds \param Value to the hash as a SLEB128.
   void addSLEB128(int64_t Value);
+
+  void hashRawTypeReference(const DIE &Entry);
 
 private:
   /// Adds \param Str to the hash and includes a NULL byte.
@@ -101,6 +105,7 @@ private:
 private:
   MD5 Hash;
   AsmPrinter *AP;
+  DwarfCompileUnit *CU;
   DenseMap<const DIE *, unsigned> Numbering;
 };
 }

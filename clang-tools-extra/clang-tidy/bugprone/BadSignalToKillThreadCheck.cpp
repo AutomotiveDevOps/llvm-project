@@ -1,4 +1,4 @@
-//===--- BadSignalToKillThreadCheck.cpp - clang-tidy ---------------------===//
+//===----------------------------------------------------------------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -9,17 +9,17 @@
 #include "BadSignalToKillThreadCheck.h"
 #include "clang/AST/ASTContext.h"
 #include "clang/ASTMatchers/ASTMatchFinder.h"
+#include "clang/Lex/Preprocessor.h"
+#include <optional>
 
 using namespace clang::ast_matchers;
 
-namespace clang {
-namespace tidy {
-namespace bugprone {
+namespace clang::tidy::bugprone {
 
 void BadSignalToKillThreadCheck::registerMatchers(MatchFinder *Finder) {
   Finder->addMatcher(
-      callExpr(allOf(callee(functionDecl(hasName("::pthread_kill"))),
-                     argumentCountIs(2)),
+      callExpr(callee(functionDecl(hasName("::pthread_kill"))),
+               argumentCountIs(2),
                hasArgument(1, integerLiteral().bind("integer-literal")))
           .bind("thread-kill"),
       this);
@@ -29,20 +29,23 @@ static Preprocessor *PP;
 
 void BadSignalToKillThreadCheck::check(const MatchFinder::MatchResult &Result) {
   const auto IsSigterm = [](const auto &KeyValue) -> bool {
-    return KeyValue.first->getName() == "SIGTERM";
+    return KeyValue.first->getName() == "SIGTERM" &&
+           KeyValue.first->hasMacroDefinition();
   };
   const auto TryExpandAsInteger =
-      [](Preprocessor::macro_iterator It) -> Optional<unsigned> {
+      [](Preprocessor::macro_iterator It) -> std::optional<unsigned> {
     if (It == PP->macro_end())
-      return llvm::None;
+      return std::nullopt;
     const MacroInfo *MI = PP->getMacroInfo(It->first);
     const Token &T = MI->tokens().back();
+    if (!T.isLiteral() || !T.getLiteralData())
+      return std::nullopt;
     StringRef ValueStr = StringRef(T.getLiteralData(), T.getLength());
 
     llvm::APInt IntValue;
     constexpr unsigned AutoSenseRadix = 0;
     if (ValueStr.getAsInteger(AutoSenseRadix, IntValue))
-      return llvm::None;
+      return std::nullopt;
     return IntValue.getZExtValue();
   };
 
@@ -61,10 +64,8 @@ void BadSignalToKillThreadCheck::check(const MatchFinder::MatchResult &Result) {
 }
 
 void BadSignalToKillThreadCheck::registerPPCallbacks(
-    const SourceManager &SM, Preprocessor *pp, Preprocessor *ModuleExpanderPP) {
-  PP = pp;
+    const SourceManager &SM, Preprocessor *Pp, Preprocessor *ModuleExpanderPP) {
+  PP = Pp;
 }
 
-} // namespace bugprone
-} // namespace tidy
-} // namespace clang
+} // namespace clang::tidy::bugprone

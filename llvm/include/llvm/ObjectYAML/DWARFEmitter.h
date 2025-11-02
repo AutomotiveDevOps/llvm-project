@@ -14,9 +14,10 @@
 
 #include "llvm/ADT/StringMap.h"
 #include "llvm/ADT/StringRef.h"
+#include "llvm/Support/Compiler.h"
 #include "llvm/Support/Error.h"
-#include "llvm/Support/Host.h"
 #include "llvm/Support/MemoryBuffer.h"
+#include "llvm/TargetParser/Host.h"
 #include <memory>
 
 namespace llvm {
@@ -26,21 +27,30 @@ class raw_ostream;
 namespace DWARFYAML {
 
 struct Data;
-struct PubSection;
 
-void EmitDebugAbbrev(raw_ostream &OS, const Data &DI);
-void EmitDebugStr(raw_ostream &OS, const Data &DI);
+LLVM_ABI Error emitDebugAbbrev(raw_ostream &OS, const Data &DI);
+LLVM_ABI Error emitDebugStr(raw_ostream &OS, const Data &DI);
 
-void EmitDebugAranges(raw_ostream &OS, const Data &DI);
-void EmitDebugRanges(raw_ostream &OS, const Data &DI);
-void EmitPubSection(raw_ostream &OS, const PubSection &Sect,
-                    bool IsLittleEndian);
-void EmitDebugInfo(raw_ostream &OS, const Data &DI);
-void EmitDebugLine(raw_ostream &OS, const Data &DI);
+LLVM_ABI Error emitDebugAranges(raw_ostream &OS, const Data &DI);
+LLVM_ABI Error emitDebugRanges(raw_ostream &OS, const Data &DI);
+LLVM_ABI Error emitDebugPubnames(raw_ostream &OS, const Data &DI);
+LLVM_ABI Error emitDebugPubtypes(raw_ostream &OS, const Data &DI);
+LLVM_ABI Error emitDebugGNUPubnames(raw_ostream &OS, const Data &DI);
+LLVM_ABI Error emitDebugGNUPubtypes(raw_ostream &OS, const Data &DI);
+LLVM_ABI Error emitDebugInfo(raw_ostream &OS, const Data &DI);
+LLVM_ABI Error emitDebugLine(raw_ostream &OS, const Data &DI);
+LLVM_ABI Error emitDebugAddr(raw_ostream &OS, const Data &DI);
+LLVM_ABI Error emitDebugStrOffsets(raw_ostream &OS, const Data &DI);
+LLVM_ABI Error emitDebugRnglists(raw_ostream &OS, const Data &DI);
+LLVM_ABI Error emitDebugLoclists(raw_ostream &OS, const Data &DI);
+LLVM_ABI Error emitDebugNames(raw_ostream &OS, const Data &DI);
 
-Expected<StringMap<std::unique_ptr<MemoryBuffer>>>
-EmitDebugSections(StringRef YAMLString, bool ApplyFixups = false,
-                  bool IsLittleEndian = sys::IsLittleEndianHost);
+LLVM_ABI std::function<Error(raw_ostream &, const Data &)>
+getDWARFEmitterByName(StringRef SecName);
+LLVM_ABI Expected<StringMap<std::unique_ptr<MemoryBuffer>>>
+emitDebugSections(StringRef YAMLString,
+                  bool IsLittleEndian = sys::IsLittleEndianHost,
+                  bool Is64BitAddrSize = true);
 } // end namespace DWARFYAML
 } // end namespace llvm
 

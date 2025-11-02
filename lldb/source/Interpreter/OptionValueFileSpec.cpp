@@ -12,30 +12,25 @@
 #include "lldb/Host/FileSystem.h"
 #include "lldb/Interpreter/CommandCompletions.h"
 #include "lldb/Interpreter/CommandInterpreter.h"
+#include "lldb/Interpreter/OptionValue.h"
 #include "lldb/Utility/Args.h"
 #include "lldb/Utility/State.h"
 
 using namespace lldb;
 using namespace lldb_private;
 
-OptionValueFileSpec::OptionValueFileSpec(bool resolve)
-    : OptionValue(), m_current_value(), m_default_value(), m_data_sp(),
-      m_data_mod_time(),
-      m_completion_mask(CommandCompletions::eDiskFileCompletion),
-      m_resolve(resolve) {}
+OptionValueFileSpec::OptionValueFileSpec(bool resolve) : m_resolve(resolve) {}
 
 OptionValueFileSpec::OptionValueFileSpec(const FileSpec &value, bool resolve)
-    : OptionValue(), m_current_value(value), m_default_value(value),
-      m_data_sp(), m_data_mod_time(),
-      m_completion_mask(CommandCompletions::eDiskFileCompletion),
+    : m_current_value(value), m_default_value(value),
+
       m_resolve(resolve) {}
 
 OptionValueFileSpec::OptionValueFileSpec(const FileSpec &current_value,
                                          const FileSpec &default_value,
                                          bool resolve)
-    : OptionValue(), m_current_value(current_value),
-      m_default_value(default_value), m_data_sp(), m_data_mod_time(),
-      m_completion_mask(CommandCompletions::eDiskFileCompletion),
+    : m_current_value(current_value), m_default_value(default_value),
+
       m_resolve(resolve) {}
 
 void OptionValueFileSpec::DumpValue(const ExecutionContext *exe_ctx,
@@ -47,7 +42,12 @@ void OptionValueFileSpec::DumpValue(const ExecutionContext *exe_ctx,
       strm.PutCString(" = ");
 
     if (m_current_value) {
-      strm << '"' << m_current_value.GetPath().c_str() << '"';
+      strm << '"' << m_current_value.GetPath() << '"';
+    }
+    if (dump_mask & eDumpOptionDefaultValue &&
+        m_current_value != m_default_value && m_default_value) {
+      DefaultValueFormat label(strm);
+      strm << '"' << m_default_value.GetPath() << '"';
     }
   }
 }
@@ -64,13 +64,6 @@ Status OptionValueFileSpec::SetValueFromString(llvm::StringRef value,
   case eVarSetOperationReplace:
   case eVarSetOperationAssign:
     if (value.size() > 0) {
-      // The setting value may have whitespace, double-quotes, or single-quotes
-      // around the file path to indicate that internal spaces are not word
-      // breaks.  Strip off any ws & quotes from the start and end of the file
-      // path - we aren't doing any word // breaking here so the quoting is
-      // unnecessary.  NB this will cause a problem if someone tries to specify
-      // a file path that legitimately begins or ends with a " or ' character,
-      // or whitespace.
       value = value.trim("\"' \t");
       m_value_was_set = true;
       m_current_value.SetFile(value.str(), FileSpec::Style::native);
@@ -80,7 +73,7 @@ Status OptionValueFileSpec::SetValueFromString(llvm::StringRef value,
       m_data_mod_time = llvm::sys::TimePoint<>();
       NotifyValueChanged();
     } else {
-      error.SetErrorString("invalid value string");
+      error = Status::FromErrorString("invalid value string");
     }
     break;
 
@@ -95,13 +88,9 @@ Status OptionValueFileSpec::SetValueFromString(llvm::StringRef value,
   return error;
 }
 
-lldb::OptionValueSP OptionValueFileSpec::DeepCopy() const {
-  return OptionValueSP(new OptionValueFileSpec(*this));
-}
-
 void OptionValueFileSpec::AutoComplete(CommandInterpreter &interpreter,
                                        CompletionRequest &request) {
-  CommandCompletions::InvokeCommonCompletionCallbacks(
+  lldb_private::CommandCompletions::InvokeCommonCompletionCallbacks(
       interpreter, m_completion_mask, request, nullptr);
 }
 

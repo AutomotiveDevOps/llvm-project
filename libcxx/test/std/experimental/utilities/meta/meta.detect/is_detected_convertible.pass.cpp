@@ -6,11 +6,12 @@
 //
 //===----------------------------------------------------------------------===//
 
-// UNSUPPORTED: c++98, c++03, c++11
+// UNSUPPORTED: c++03, c++11
 // <experimental/type_traits>
 
 #include <experimental/type_traits>
 #include <string>
+#include <utility>
 
 #include "test_macros.h"
 

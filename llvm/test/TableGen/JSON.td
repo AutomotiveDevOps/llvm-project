@@ -3,12 +3,15 @@
 // CHECK: data['!tablegen_json_version'] == 1
 
 // CHECK: all(data[s]['!name'] == s for s in data if not s.startswith("!"))
+// CHECK: all('!locs' in data[s] for s in data if not s.startswith("!"))
+// CHECK: all(all(loc.startswith("JSON.td:") for loc in data[s]['!locs']) for s in data if not s.startswith("!"))
 
 class Base {}
 class Intermediate : Base {}
 class Derived : Intermediate {}
 
 def D : Intermediate {}
+// CHECK: data['D']['!locs'] == ['JSON.td:13']
 // CHECK: 'D' in data['!instanceof']['Base']
 // CHECK: 'D' in data['!instanceof']['Intermediate']
 // CHECK: 'D' not in data['!instanceof']['Derived']
@@ -97,8 +100,8 @@ def VarObj : Variables {
 
     bits<2> undef_bits;
     bits<4> ref_bits;
-    let ref_bits{3-2} = 0b10;
-    let ref_bits{1-0} = undef_bits{1-0};
+    let ref_bits{3...2} = 0b10;
+    let ref_bits{1...0} = undef_bits{1...0};
     // CHECK: data['VarObj']['ref_bits'][3] == 1
     // CHECK: data['VarObj']['ref_bits'][2] == 0
     // CHECK: data['VarObj']['ref_bits'][1]['kind'] == 'varbit'

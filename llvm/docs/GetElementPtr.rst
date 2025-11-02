@@ -10,8 +10,8 @@ Introduction
 
 This document seeks to dispel the mystery and confusion surrounding LLVM's
 `GetElementPtr <LangRef.html#getelementptr-instruction>`_ (GEP) instruction.
-Questions about the wily GEP instruction are probably the most frequently
-occurring questions once a developer gets down to coding with LLVM. Here we lay
+Questions about the wily GEP instruction are probably the most frequent
+questions once a developer gets down to coding with LLVM. Here we lay
 out the sources of confusion and show that the GEP instruction is really quite
 simple.
 
@@ -30,8 +30,8 @@ What is the first index of the GEP instruction?
 Quick answer: The index stepping through the second operand.
 
 The confusion with the first index usually arises from thinking about the
-GetElementPtr instruction as if it was a C index operator. They aren't the
-same. For example, when we write, in "C":
+GetElementPtr instruction as if it were a C index operator. They aren't the
+same. For example, when we write, in C:
 
 .. code-block:: c++
 
@@ -41,7 +41,7 @@ same. For example, when we write, in "C":
 
 it is natural to think that there is only one index, the selection of the field
 ``F``.  However, in this example, ``Foo`` is a pointer. That pointer
-must be indexed explicitly in LLVM. C, on the other hand, indices through it
+must be indexed explicitly in LLVM. C, on the other hand, indexes through it
 transparently.  To arrive at the same address location as the C code, you would
 provide the GEP instruction with two index operands. The first operand indexes
 through the pointer; the second operand indexes the field ``F`` of the
@@ -62,7 +62,7 @@ The answer is simply because memory does not have to be accessed to perform the
 computation. The second operand to the GEP instruction must be a value of a
 pointer type. The value of the pointer is provided directly to the GEP
 instruction as an operand without any need for accessing memory. It must,
-therefore be indexed and requires an index operand. Consider this example:
+therefore, be indexed and requires an index operand. Consider this example:
 
 .. code-block:: c++
 
@@ -88,15 +88,15 @@ looks like:
 
 .. code-block:: llvm
 
-  define void @munge(%struct.munger_struct* %P) {
+  define void @munge(ptr %P) {
   entry:
-    %tmp = getelementptr %struct.munger_struct, %struct.munger_struct* %P, i32 1, i32 0
-    %tmp1 = load i32, i32* %tmp
-    %tmp2 = getelementptr %struct.munger_struct, %struct.munger_struct* %P, i32 2, i32 1
-    %tmp3 = load i32, i32* %tmp2
+    %tmp = getelementptr %struct.munger_struct, ptr %P, i32 1, i32 0
+    %tmp1 = load i32, ptr %tmp
+    %tmp2 = getelementptr %struct.munger_struct, ptr %P, i32 2, i32 1
+    %tmp3 = load i32, ptr %tmp2
     %tmp4 = add i32 %tmp3, %tmp1
-    %tmp5 = getelementptr %struct.munger_struct, %struct.munger_struct* %P, i32 0, i32 0
-    store i32 %tmp4, i32* %tmp5
+    %tmp5 = getelementptr %struct.munger_struct, ptr %P, i32 0, i32 0
+    store i32 %tmp4, ptr %tmp5
     ret void
   }
 
@@ -108,11 +108,11 @@ To make this clear, let's consider a more obtuse example:
 
 .. code-block:: text
 
-  %MyVar = uninitialized global i32
+  @MyVar = external global i32
   ...
-  %idx1 = getelementptr i32, i32* %MyVar, i64 0
-  %idx2 = getelementptr i32, i32* %MyVar, i64 1
-  %idx3 = getelementptr i32, i32* %MyVar, i64 2
+  %idx1 = getelementptr i32, ptr @MyVar, i64 0
+  %idx2 = getelementptr i32, ptr @MyVar, i64 1
+  %idx3 = getelementptr i32, ptr @MyVar, i64 2
 
 These GEP instructions are simply making address computations from the base
 address of ``MyVar``.  They compute, as follows (using C syntax):
@@ -125,15 +125,15 @@ address of ``MyVar``.  They compute, as follows (using C syntax):
 
 Since the type ``i32`` is known to be four bytes long, the indices 0, 1 and 2
 translate into memory offsets of 0, 4, and 8, respectively. No memory is
-accessed to make these computations because the address of ``%MyVar`` is passed
+accessed to make these computations because the address of ``@MyVar`` is passed
 directly to the GEP instructions.
 
 The obtuse part of this example is in the cases of ``%idx2`` and ``%idx3``. They
 result in the computation of addresses that point to memory past the end of the
-``%MyVar`` global, which is only one ``i32`` long, not three ``i32``\s long.
+``@MyVar`` global, which is only one ``i32`` long, not three ``i32``\s long.
 While this is legal in LLVM, it is inadvisable because any load or store with
-the pointer that results from these GEP instructions would produce undefined
-results.
+the pointer that results from these GEP instructions would trigger undefined
+behavior (UB).
 
 Why is the extra 0 index required?
 ----------------------------------
@@ -145,22 +145,21 @@ variable which is always a pointer type. For example, consider this:
 
 .. code-block:: text
 
-  %MyStruct = uninitialized global { float*, i32 }
+  %MyStruct = external global { ptr, i32 }
   ...
-  %idx = getelementptr { float*, i32 }, { float*, i32 }* %MyStruct, i64 0, i32 1
+  %idx = getelementptr { ptr, i32 }, ptr %MyStruct, i64 0, i32 1
 
-The GEP above yields an ``i32*`` by indexing the ``i32`` typed field of the
+The GEP above yields a ``ptr`` by indexing the ``i32`` typed field of the
 structure ``%MyStruct``. When people first look at it, they wonder why the ``i64
 0`` index is needed. However, a closer inspection of how globals and GEPs work
 reveals the need. Becoming aware of the following facts will dispel the
 confusion:
 
-#. The type of ``%MyStruct`` is *not* ``{ float*, i32 }`` but rather ``{ float*,
-   i32 }*``. That is, ``%MyStruct`` is a pointer to a structure containing a
-   pointer to a ``float`` and an ``i32``.
+#. The type of ``%MyStruct`` is *not* ``{ ptr, i32 }`` but rather ``ptr``.
+   That is, ``%MyStruct`` is a pointer (to a structure), not a structure itself.
 
 #. Point #1 is evidenced by noticing the type of the second operand of the GEP
-   instruction (``%MyStruct``) which is ``{ float*, i32 }*``.
+   instruction (``%MyStruct``) which is ``ptr``.
 
 #. The first index, ``i64 0`` is required to step over the global variable
    ``%MyStruct``.  Since the second argument to the GEP instruction must always
@@ -181,39 +180,31 @@ only involved in the computation of addresses. For example, consider this:
 
 .. code-block:: text
 
-  %MyVar = uninitialized global { [40 x i32 ]* }
+  @MyVar = external global { i32, ptr }
   ...
-  %idx = getelementptr { [40 x i32]* }, { [40 x i32]* }* %MyVar, i64 0, i32 0, i64 0, i64 17
+  %idx = getelementptr { i32, ptr }, ptr @MyVar, i64 0, i32 1
+  %arr = load ptr, ptr %idx
+  %idx = getelementptr [40 x i32], ptr %arr, i64 0, i64 17
 
-In this example, we have a global variable, ``%MyVar`` that is a pointer to a
-structure containing a pointer to an array of 40 ints. The GEP instruction seems
-to be accessing the 18th integer of the structure's array of ints. However, this
-is actually an illegal GEP instruction. It won't compile. The reason is that the
-pointer in the structure *must* be dereferenced in order to index into the
-array of 40 ints. Since the GEP instruction never accesses memory, it is
-illegal.
+In this example, we have a global variable, ``@MyVar``, which is a pointer to
+a structure containing a pointer. Let's assume that this inner pointer points
+to an array of type ``[40 x i32]``. The above IR will first compute the address
+of the inner pointer, then load the pointer, and then compute the address of
+the 18th array element.
 
-In order to access the 18th integer in the array, you would need to do the
-following:
+This cannot be expressed in a single GEP instruction, because it requires
+a memory dereference in between. However, the following example would work
+fine:
 
 .. code-block:: text
 
-  %idx = getelementptr { [40 x i32]* }, { [40 x i32]* }* %, i64 0, i32 0
-  %arr = load [40 x i32]*, [40 x i32]** %idx
-  %idx = getelementptr [40 x i32], [40 x i32]* %arr, i64 0, i64 17
-
-In this case, we have to load the pointer in the structure with a load
-instruction before we can index into the array. If the example was changed to:
-
-.. code-block:: text
-
-  %MyVar = uninitialized global { [40 x i32 ] }
+  @MyVar = external global { i32, [40 x i32 ] }
   ...
-  %idx = getelementptr { [40 x i32] }, { [40 x i32] }*, i64 0, i32 0, i64 17
+  %idx = getelementptr { i32, [40 x i32] }, ptr @MyVar, i64 0, i32 1, i64 17
 
-then everything works fine. In this case, the structure does not contain a
-pointer and the GEP instruction can index through the global variable, into the
-first field of the structure and access the 18th ``i32`` in the array there.
+In this case, the structure does not contain a pointer and the GEP instruction
+can index through the global variable, into the second field of the structure
+and access the 18th ``i32`` in the array there.
 
 Why don't GEP x,0,0,1 and GEP x,1 alias?
 ----------------------------------------
@@ -226,17 +217,15 @@ index. Consider this example:
 
 .. code-block:: llvm
 
-  %MyVar = global { [10 x i32] }
-  %idx1 = getelementptr { [10 x i32] }, { [10 x i32] }* %MyVar, i64 0, i32 0, i64 1
-  %idx2 = getelementptr { [10 x i32] }, { [10 x i32] }* %MyVar, i64 1
+  @MyVar = external global { [10 x i32] }
+  %idx1 = getelementptr { [10 x i32] }, ptr @MyVar, i64 0, i32 0, i64 1
+  %idx2 = getelementptr { [10 x i32] }, ptr @MyVar, i64 1
 
 In this example, ``idx1`` computes the address of the second integer in the
-array that is in the structure in ``%MyVar``, that is ``MyVar+4``. The type of
-``idx1`` is ``i32*``. However, ``idx2`` computes the address of *the next*
-structure after ``%MyVar``. The type of ``idx2`` is ``{ [10 x i32] }*`` and its
-value is equivalent to ``MyVar + 40`` because it indexes past the ten 4-byte
-integers in ``MyVar``. Obviously, in such a situation, the pointers don't
-alias.
+array that is in the structure in ``@MyVar``, that is ``MyVar+4``.  However,
+``idx2`` computes the address of *the next* structure after ``@MyVar``, that is
+``MyVar+40``, because it indexes past the ten 4-byte integers in ``MyVar``.
+Obviously, in such a situation, the pointers don't alias.
 
 Why do GEP x,1,0,0 and GEP x,1 alias?
 -------------------------------------
@@ -244,18 +233,16 @@ Why do GEP x,1,0,0 and GEP x,1 alias?
 Quick Answer: They compute the same address location.
 
 These two GEP instructions will compute the same address because indexing
-through the 0th element does not change the address. However, it does change the
-type. Consider this example:
+through the 0th element does not change the address. Consider this example:
 
 .. code-block:: llvm
 
-  %MyVar = global { [10 x i32] }
-  %idx1 = getelementptr { [10 x i32] }, { [10 x i32] }* %MyVar, i64 1, i32 0, i64 0
-  %idx2 = getelementptr { [10 x i32] }, { [10 x i32] }* %MyVar, i64 1
+  @MyVar = global { [10 x i32] }
+  %idx1 = getelementptr { [10 x i32] }, ptr @MyVar, i64 1, i32 0, i64 0
+  %idx2 = getelementptr { [10 x i32] }, ptr @MyVar, i64 1
 
-In this example, the value of ``%idx1`` is ``%MyVar+40`` and its type is
-``i32*``. The value of ``%idx2`` is also ``MyVar+40`` but its type is ``{ [10 x
-i32] }*``.
+In this example, the value of ``%idx1`` is ``MyVar+40``, and the value of
+``%idx2`` is also ``MyVar+40``.
 
 Can GEP index into vector elements?
 -----------------------------------
@@ -298,7 +285,7 @@ I'm writing a backend for a target which needs custom lowering for GEP. How do I
 -----------------------------------------------------------------------------------------
 
 You don't. The integer computation implied by a GEP is target-independent.
-Typically what you'll need to do is make your backend pattern-match expressions
+Typically what you'll need to do is make your backend pattern-match expression
 trees involving ADD, MUL, etc., which are what GEP is lowered into. This has the
 advantage of letting your code work correctly in more cases.
 
@@ -358,7 +345,7 @@ the static array type bounds are respected.
 The second sense of being out of bounds is computing an address that's beyond
 the actual underlying allocated object.
 
-With the ``inbounds`` keyword, the result value of the GEP is undefined if the
+With the ``inbounds`` keyword, the result value of the GEP is ``poison`` if the
 address is outside the actual underlying allocated object and not the address
 one-past-the-end.
 
@@ -390,7 +377,7 @@ the underlying object.
 
 Furthermore, loads and stores don't have to use the same types as the type of
 the underlying object. Types in this context serve only to specify memory size
-and alignment. Beyond that there are merely a hint to the optimizer indicating
+and alignment. Beyond that they are merely a hint to the optimizer indicating
 how the value will likely be used.
 
 Can I cast an object's address to integer and add it to null?
@@ -441,14 +428,14 @@ evaluating the implied two's complement integer computation. However, since
 there's no guarantee of where an object will be allocated in the address space,
 such values have limited meaning.
 
-If the GEP has the ``inbounds`` keyword, the result value is undefined (a "trap
-value") if the GEP overflows (i.e. wraps around the end of the address space).
+If the GEP has the ``inbounds`` keyword, the result value is ``poison``
+if the GEP overflows (i.e. wraps around the end of the address space).
 
 As such, there are some ramifications of this for inbounds GEPs: scales implied
 by array/vector/pointer indices are always known to be "nsw" since they are
 signed values that are scaled by the element size.  These values are also
-allowed to be negative (e.g. "``gep i32 *%P, i32 -1``") but the pointer itself
-is logically treated as an unsigned value.  This means that GEPs have an
+allowed to be negative (e.g. "``gep i32, ptr %P, i32 -1``") but the pointer
+itself is logically treated as an unsigned value.  This means that GEPs have an
 asymmetric relation between the pointer base (which is treated as unsigned) and
 the offset applied to it (which is treated as signed). The result of the
 additions within the offset calculation cannot have signed overflow, but when
@@ -519,7 +506,7 @@ sufficient to preserve the pointer aliasing guarantees that GEP provides.
 Summary
 =======
 
-In summary, here's some things to always remember about the GetElementPtr
+In summary, here are some things to always remember about the GetElementPtr
 instruction:
 
 

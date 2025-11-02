@@ -5,7 +5,7 @@ typedef signed int v1s __attribute__ ((vector_size (4)));
 typedef float v2f __attribute__ ((vector_size(8)));
 typedef signed short v4ss __attribute__ ((vector_size (8)));
 
-void test1() {
+void test1(void) {
   v2s v1;
   v2u v2;
   v1s v3;
@@ -49,5 +49,5 @@ longlongvec;
 
 void test3a(longlongvec *); // expected-note{{passing argument to parameter here}}
 void test3(const unsigned *src) {
-  test3a(src);  // expected-warning {{incompatible pointer types passing 'const unsigned int *' to parameter of type 'longlongvec *'}}
+  test3a(src);  // expected-error {{incompatible pointer types passing 'const unsigned int *' to parameter of type 'longlongvec *'}}
 }

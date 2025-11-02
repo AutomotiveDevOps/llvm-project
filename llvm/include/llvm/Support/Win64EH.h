@@ -24,6 +24,9 @@ namespace Win64EH {
 /// UnwindOpcodes - Enumeration whose values specify a single operation in
 /// the prolog of a function.
 enum UnwindOpcodes {
+  // The following set of unwind opcodes is for x86_64.  They are documented at
+  // https://docs.microsoft.com/en-us/cpp/build/exception-handling-x64.
+  // Some generic values from this set are used for other architectures too.
   UOP_PushNonVol = 0,
   UOP_AllocLarge,
   UOP_AllocSmall,
@@ -38,12 +41,14 @@ enum UnwindOpcodes {
   // The following set of unwind opcodes is for ARM64.  They are documented at
   // https://docs.microsoft.com/en-us/cpp/build/arm64-exception-handling
   UOP_AllocMedium,
+  UOP_SaveR19R20X,
   UOP_SaveFPLRX,
   UOP_SaveFPLR,
   UOP_SaveReg,
   UOP_SaveRegX,
   UOP_SaveRegP,
   UOP_SaveRegPX,
+  UOP_SaveLRPair,
   UOP_SaveFReg,
   UOP_SaveFRegX,
   UOP_SaveFRegP,
@@ -51,7 +56,60 @@ enum UnwindOpcodes {
   UOP_SetFP,
   UOP_AddFP,
   UOP_Nop,
-  UOP_End
+  UOP_End,
+  UOP_SaveNext,
+  UOP_TrapFrame,
+  UOP_Context,
+  UOP_ECContext,
+  UOP_ClearUnwoundToCall,
+  UOP_PACSignLR,
+  UOP_SaveAnyRegI,
+  UOP_SaveAnyRegIP,
+  UOP_SaveAnyRegD,
+  UOP_SaveAnyRegDP,
+  UOP_SaveAnyRegQ,
+  UOP_SaveAnyRegQP,
+  UOP_SaveAnyRegIX,
+  UOP_SaveAnyRegIPX,
+  UOP_SaveAnyRegDX,
+  UOP_SaveAnyRegDPX,
+  UOP_SaveAnyRegQX,
+  UOP_SaveAnyRegQPX,
+  UOP_AllocZ,
+  UOP_SaveZReg,
+  UOP_SavePReg,
+
+  // The following set of unwind opcodes is for ARM.  They are documented at
+  // https://docs.microsoft.com/en-us/cpp/build/arm-exception-handling
+
+  // Stack allocations use UOP_AllocSmall, UOP_AllocLarge from above, plus
+  // the following. AllocSmall, AllocLarge and AllocHuge represent a 16 bit
+  // instruction, while the WideAlloc* opcodes represent a 32 bit instruction.
+  // Small can represent a stack offset of 0x7f*4 (252) bytes, Medium can
+  // represent up to 0x3ff*4 (4092) bytes, Large up to 0xffff*4 (262140) bytes,
+  // and Huge up to 0xffffff*4 (67108860) bytes.
+  UOP_AllocHuge,
+  UOP_WideAllocMedium,
+  UOP_WideAllocLarge,
+  UOP_WideAllocHuge,
+
+  UOP_WideSaveRegMask,
+  UOP_SaveSP,
+  UOP_SaveRegsR4R7LR,
+  UOP_WideSaveRegsR4R11LR,
+  UOP_SaveFRegD8D15,
+  UOP_SaveRegMask,
+  UOP_SaveLR,
+  UOP_SaveFRegD0D15,
+  UOP_SaveFRegD16D31,
+  // Using UOP_Nop from above
+  UOP_WideNop,
+  // Using UOP_End from above
+  UOP_EndNop,
+  UOP_WideEndNop,
+  // A custom unspecified opcode, consisting of one or more bytes. This
+  // allows producing opcodes in the implementation defined/reserved range.
+  UOP_Custom,
 };
 
 /// UnwindCode - This union describes a single operation in a function prolog,
@@ -68,6 +126,11 @@ union UnwindCode {
   }
   uint8_t getOpInfo() const {
     return (u.UnwindOpAndOpInfo >> 4) & 0x0F;
+  }
+  /// Gets the offset for an UOP_Epilog unwind code.
+  uint32_t getEpilogOffset() const {
+    assert(getUnwindOp() == UOP_Epilog);
+    return (getOpInfo() << 8) | static_cast<uint32_t>(u.CodeOffset);
   }
 };
 

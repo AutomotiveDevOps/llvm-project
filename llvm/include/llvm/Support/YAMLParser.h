@@ -11,7 +11,6 @@
 //  See http://www.yaml.org/spec/1.2/spec.html for the full standard.
 //
 //  This currently does not implement the following:
-//    * Multi-line literal folding.
 //    * Tag resolution.
 //    * UTF-16.
 //    * BOMs anywhere other than the first Unicode scalar value in the file.
@@ -28,8 +27,9 @@
 //    yaml::Node *n = di->getRoot();
 //    if (n) {
 //      // Do something with n...
-//    } else
+//    } else {
 //      break;
+//    }
 //  }
 //
 //===----------------------------------------------------------------------===//
@@ -39,19 +39,21 @@
 
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/Allocator.h"
+#include "llvm/Support/Compiler.h"
 #include "llvm/Support/SMLoc.h"
+#include "llvm/Support/SourceMgr.h"
 #include <cassert>
 #include <cstddef>
 #include <iterator>
 #include <map>
 #include <memory>
+#include <optional>
 #include <string>
 #include <system_error>
 
 namespace llvm {
 
 class MemoryBufferRef;
-class SourceMgr;
 class raw_ostream;
 class Twine;
 
@@ -65,42 +67,48 @@ struct Token;
 
 /// Dump all the tokens in this stream to OS.
 /// \returns true if there was an error, false otherwise.
-bool dumpTokens(StringRef Input, raw_ostream &);
+LLVM_ABI bool dumpTokens(StringRef Input, raw_ostream &);
 
 /// Scans all tokens in input without outputting anything. This is used
 ///        for benchmarking the tokenizer.
 /// \returns true if there was an error, false otherwise.
-bool scanTokens(StringRef Input);
+LLVM_ABI bool scanTokens(StringRef Input);
 
 /// Escape \a Input for a double quoted scalar; if \p EscapePrintable
 /// is true, all UTF8 sequences will be escaped, if \p EscapePrintable is
 /// false, those UTF8 sequences encoding printable unicode scalars will not be
 /// escaped, but emitted verbatim.
-std::string escape(StringRef Input, bool EscapePrintable = true);
+LLVM_ABI std::string escape(StringRef Input, bool EscapePrintable = true);
+
+/// Parse \p S as a bool according to https://yaml.org/type/bool.html.
+LLVM_ABI std::optional<bool> parseBool(StringRef S);
 
 /// This class represents a YAML stream potentially containing multiple
 ///        documents.
 class Stream {
 public:
   /// This keeps a reference to the string referenced by \p Input.
-  Stream(StringRef Input, SourceMgr &, bool ShowColors = true,
-         std::error_code *EC = nullptr);
+  LLVM_ABI Stream(StringRef Input, SourceMgr &, bool ShowColors = true,
+                  std::error_code *EC = nullptr);
 
-  Stream(MemoryBufferRef InputBuffer, SourceMgr &, bool ShowColors = true,
-         std::error_code *EC = nullptr);
-  ~Stream();
+  LLVM_ABI Stream(MemoryBufferRef InputBuffer, SourceMgr &,
+                  bool ShowColors = true, std::error_code *EC = nullptr);
+  LLVM_ABI ~Stream();
 
-  document_iterator begin();
-  document_iterator end();
-  void skip();
-  bool failed();
+  LLVM_ABI document_iterator begin();
+  LLVM_ABI document_iterator end();
+  LLVM_ABI void skip();
+  LLVM_ABI bool failed();
 
   bool validate() {
     skip();
     return !failed();
   }
 
-  void printError(Node *N, const Twine &Msg);
+  LLVM_ABI void printError(Node *N, const Twine &Msg,
+                           SourceMgr::DiagKind Kind = SourceMgr::DK_Error);
+  LLVM_ABI void printError(const SMRange &Range, const Twine &Msg,
+                           SourceMgr::DiagKind Kind = SourceMgr::DK_Error);
 
 private:
   friend class Document;
@@ -110,7 +118,7 @@ private:
 };
 
 /// Abstract base class for all Nodes.
-class Node {
+class LLVM_ABI Node {
   virtual void anchor();
 
 public:
@@ -188,7 +196,7 @@ private:
 ///
 /// Example:
 ///   !!null null
-class NullNode final : public Node {
+class LLVM_ABI NullNode final : public Node {
   void anchor() override;
 
 public:
@@ -203,7 +211,7 @@ public:
 ///
 /// Example:
 ///   Adena
-class ScalarNode final : public Node {
+class LLVM_ABI ScalarNode final : public Node {
   void anchor() override;
 
 public:
@@ -222,7 +230,7 @@ public:
 
   /// Gets the value of this node as a StringRef.
   ///
-  /// \param Storage is used to store the content of the returned StringRef iff
+  /// \param Storage is used to store the content of the returned StringRef if
   ///        it requires any modification from how it appeared in the source.
   ///        This happens with escaped characters and multi-line literals.
   StringRef getValue(SmallVectorImpl<char> &Storage) const;
@@ -234,9 +242,14 @@ public:
 private:
   StringRef Value;
 
-  StringRef unescapeDoubleQuoted(StringRef UnquotedValue,
-                                 StringRef::size_type Start,
+  StringRef getDoubleQuotedValue(StringRef UnquotedValue,
                                  SmallVectorImpl<char> &Storage) const;
+
+  static StringRef getSingleQuotedValue(StringRef RawValue,
+                                        SmallVectorImpl<char> &Storage);
+
+  static StringRef getPlainValue(StringRef RawValue,
+                                 SmallVectorImpl<char> &Storage);
 };
 
 /// A block scalar node is an opaque datum that can be presented as a
@@ -246,7 +259,7 @@ private:
 ///   |
 ///     Hello
 ///     World
-class BlockScalarNode final : public Node {
+class LLVM_ABI BlockScalarNode final : public Node {
   void anchor() override;
 
 public:
@@ -276,7 +289,7 @@ private:
 ///
 /// Example:
 ///   Section: .text
-class KeyValueNode final : public Node {
+class LLVM_ABI KeyValueNode final : public Node {
   void anchor() override;
 
 public:
@@ -319,10 +332,14 @@ private:
 ///
 /// BaseT must have a ValueT* member named CurrentEntry and a member function
 /// increment() which must set CurrentEntry to 0 to create an end iterator.
-template <class BaseT, class ValueT>
-class basic_collection_iterator
-    : public std::iterator<std::input_iterator_tag, ValueT> {
+template <class BaseT, class ValueT> class basic_collection_iterator {
 public:
+  using iterator_category = std::input_iterator_tag;
+  using value_type = ValueT;
+  using difference_type = std::ptrdiff_t;
+  using pointer = value_type *;
+  using reference = value_type &;
+
   basic_collection_iterator() = default;
   basic_collection_iterator(BaseT *B) : Base(B) {}
 
@@ -401,7 +418,7 @@ template <class CollectionType> void skip(CollectionType &C) {
 /// Example:
 ///   Name: _main
 ///   Scope: Global
-class MappingNode final : public Node {
+class LLVM_ABI MappingNode final : public Node {
   void anchor() override;
 
 public:
@@ -449,7 +466,7 @@ private:
 /// Example:
 ///   - Hello
 ///   - World
-class SequenceNode final : public Node {
+class LLVM_ABI SequenceNode final : public Node {
   void anchor() override;
 
 public:
@@ -501,7 +518,7 @@ private:
 ///
 /// Example:
 ///   *AnchorName
-class AliasNode final : public Node {
+class LLVM_ABI AliasNode final : public Node {
   void anchor() override;
 
 public:
@@ -509,7 +526,6 @@ public:
       : Node(NK_Alias, D, StringRef(), StringRef()), Name(Val) {}
 
   StringRef getName() const { return Name; }
-  Node *getTarget();
 
   static bool classof(const Node *N) { return N->getType() == NK_Alias; }
 
@@ -521,14 +537,14 @@ private:
 ///        node.
 class Document {
 public:
-  Document(Stream &ParentStream);
+  LLVM_ABI Document(Stream &ParentStream);
 
   /// Root for parsing a node. Returns a single node.
-  Node *parseBlockNode();
+  LLVM_ABI Node *parseBlockNode();
 
   /// Finish parsing the current document and return true if there are
   ///        more. Return false otherwise.
-  bool skip();
+  LLVM_ABI bool skip();
 
   /// Parse and return the root level node.
   Node *getRoot() {
@@ -602,7 +618,7 @@ public:
     return *this;
   }
 
-  Document &operator*() { return *Doc->get(); }
+  Document &operator*() { return **Doc; }
 
   std::unique_ptr<Document> &operator->() { return *Doc; }
 

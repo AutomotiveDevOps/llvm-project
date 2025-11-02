@@ -12,7 +12,7 @@
 
 // template <class... UTypes> tuple(tuple<UTypes...>&& u);
 
-// UNSUPPORTED: c++98, c++03
+// UNSUPPORTED: c++03
 
 #include <tuple>
 #include <string>
@@ -36,7 +36,8 @@ struct B
     int id_;
 
     explicit B(int i) : id_(i) {}
-
+    B(const B&) = default;
+    B& operator=(const B&) = default;
     virtual ~B() {}
 };
 

@@ -11,7 +11,20 @@ add_llvm_component_library(LLVMAArch64Desc
   AArch64TargetStreamer.cpp
   AArch64WinCOFFObjectWriter.cpp
   AArch64WinCOFFStreamer.cpp
-)
+
+  LINK_COMPONENTS
+  AArch64Info
+  AArch64Utils
+  BinaryFormat
+  CodeGenTypes
+  MC
+  Support
+  TargetParser
+
+  ADD_TO_COMPONENT
+  AArch64
+  )
+
 add_dependencies(LLVMAArch64Desc AArch64CommonTableGen)
 
 # Hack: we need to include 'main' target directory to grab private headers

@@ -9,14 +9,11 @@
 #include "ABISysV_mips64.h"
 
 #include "llvm/ADT/STLExtras.h"
-#include "llvm/ADT/Triple.h"
+#include "llvm/TargetParser/Triple.h"
 
 #include "lldb/Core/Module.h"
 #include "lldb/Core/PluginManager.h"
 #include "lldb/Core/Value.h"
-#include "lldb/Core/ValueObjectConstResult.h"
-#include "lldb/Core/ValueObjectMemory.h"
-#include "lldb/Core/ValueObjectRegister.h"
 #include "lldb/Symbol/UnwindPlan.h"
 #include "lldb/Target/Process.h"
 #include "lldb/Target/RegisterContext.h"
@@ -25,9 +22,14 @@
 #include "lldb/Target/Thread.h"
 #include "lldb/Utility/ConstString.h"
 #include "lldb/Utility/DataExtractor.h"
+#include "lldb/Utility/LLDBLog.h"
 #include "lldb/Utility/Log.h"
 #include "lldb/Utility/RegisterValue.h"
 #include "lldb/Utility/Status.h"
+#include "lldb/ValueObject/ValueObjectConstResult.h"
+#include "lldb/ValueObject/ValueObjectMemory.h"
+#include "lldb/ValueObject/ValueObjectRegister.h"
+#include <optional>
 
 using namespace lldb;
 using namespace lldb_private;
@@ -76,12 +78,6 @@ enum dwarf_regnums {
 };
 
 static const RegisterInfo g_register_infos_mips64[] = {
-    //  NAME      ALT    SZ OFF ENCODING        FORMAT         EH_FRAME
-    //  DWARF                   GENERIC                     PROCESS PLUGIN
-    //  LLDB NATIVE
-    //  ========  ======  == === =============  ==========     =============
-    //  =================       ====================        =================
-    //  ====================
     {"r0",
      "zero",
      8,
@@ -93,7 +89,7 @@ static const RegisterInfo g_register_infos_mips64[] = {
      nullptr,
      nullptr,
      nullptr,
-     0},
+    },
     {"r1",
      "AT",
      8,
@@ -105,7 +101,8 @@ static const RegisterInfo g_register_infos_mips64[] = {
      nullptr,
      nullptr,
      nullptr,
-     0},
+
+    },
     {"r2",
      "v0",
      8,
@@ -117,7 +114,7 @@ static const RegisterInfo g_register_infos_mips64[] = {
      nullptr,
      nullptr,
      nullptr,
-     0},
+    },
     {"r3",
      "v1",
      8,
@@ -129,9 +126,9 @@ static const RegisterInfo g_register_infos_mips64[] = {
      nullptr,
      nullptr,
      nullptr,
-     0},
+    },
     {"r4",
-     "arg1",
+     nullptr,
      8,
      0,
      eEncodingUint,
@@ -141,9 +138,9 @@ static const RegisterInfo g_register_infos_mips64[] = {
      nullptr,
      nullptr,
      nullptr,
-     0},
+    },
     {"r5",
-     "arg2",
+     nullptr,
      8,
      0,
      eEncodingUint,
@@ -153,9 +150,9 @@ static const RegisterInfo g_register_infos_mips64[] = {
      nullptr,
      nullptr,
      nullptr,
-     0},
+    },
     {"r6",
-     "arg3",
+     nullptr,
      8,
      0,
      eEncodingUint,
@@ -165,9 +162,9 @@ static const RegisterInfo g_register_infos_mips64[] = {
      nullptr,
      nullptr,
      nullptr,
-     0},
+    },
     {"r7",
-     "arg4",
+     nullptr,
      8,
      0,
      eEncodingUint,
@@ -177,9 +174,9 @@ static const RegisterInfo g_register_infos_mips64[] = {
      nullptr,
      nullptr,
      nullptr,
-     0},
+    },
     {"r8",
-     "arg5",
+     nullptr,
      8,
      0,
      eEncodingUint,
@@ -189,9 +186,9 @@ static const RegisterInfo g_register_infos_mips64[] = {
      nullptr,
      nullptr,
      nullptr,
-     0},
+    },
     {"r9",
-     "arg6",
+     nullptr,
      8,
      0,
      eEncodingUint,
@@ -201,9 +198,9 @@ static const RegisterInfo g_register_infos_mips64[] = {
      nullptr,
      nullptr,
      nullptr,
-     0},
+    },
     {"r10",
-     "arg7",
+     nullptr,
      8,
      0,
      eEncodingUint,
@@ -213,9 +210,9 @@ static const RegisterInfo g_register_infos_mips64[] = {
      nullptr,
      nullptr,
      nullptr,
-     0},
+    },
     {"r11",
-     "arg8",
+     nullptr,
      8,
      0,
      eEncodingUint,
@@ -225,7 +222,7 @@ static const RegisterInfo g_register_infos_mips64[] = {
      nullptr,
      nullptr,
      nullptr,
-     0},
+    },
     {"r12",
      nullptr,
      8,
@@ -237,7 +234,7 @@ static const RegisterInfo g_register_infos_mips64[] = {
      nullptr,
      nullptr,
      nullptr,
-     0},
+    },
     {"r13",
      nullptr,
      8,
@@ -249,7 +246,7 @@ static const RegisterInfo g_register_infos_mips64[] = {
      nullptr,
      nullptr,
      nullptr,
-     0},
+    },
     {"r14",
      nullptr,
      8,
@@ -261,7 +258,7 @@ static const RegisterInfo g_register_infos_mips64[] = {
      nullptr,
      nullptr,
      nullptr,
-     0},
+    },
     {"r15",
      nullptr,
      8,
@@ -273,7 +270,7 @@ static const RegisterInfo g_register_infos_mips64[] = {
      nullptr,
      nullptr,
      nullptr,
-     0},
+    },
     {"r16",
      nullptr,
      8,
@@ -285,7 +282,7 @@ static const RegisterInfo g_register_infos_mips64[] = {
      nullptr,
      nullptr,
      nullptr,
-     0},
+    },
     {"r17",
      nullptr,
      8,
@@ -297,7 +294,7 @@ static const RegisterInfo g_register_infos_mips64[] = {
      nullptr,
      nullptr,
      nullptr,
-     0},
+    },
     {"r18",
      nullptr,
      8,
@@ -309,7 +306,7 @@ static const RegisterInfo g_register_infos_mips64[] = {
      nullptr,
      nullptr,
      nullptr,
-     0},
+    },
     {"r19",
      nullptr,
      8,
@@ -321,7 +318,7 @@ static const RegisterInfo g_register_infos_mips64[] = {
      nullptr,
      nullptr,
      nullptr,
-     0},
+    },
     {"r20",
      nullptr,
      8,
@@ -333,7 +330,7 @@ static const RegisterInfo g_register_infos_mips64[] = {
      nullptr,
      nullptr,
      nullptr,
-     0},
+    },
     {"r21",
      nullptr,
      8,
@@ -345,7 +342,7 @@ static const RegisterInfo g_register_infos_mips64[] = {
      nullptr,
      nullptr,
      nullptr,
-     0},
+    },
     {"r22",
      nullptr,
      8,
@@ -357,7 +354,7 @@ static const RegisterInfo g_register_infos_mips64[] = {
      nullptr,
      nullptr,
      nullptr,
-     0},
+    },
     {"r23",
      nullptr,
      8,
@@ -369,7 +366,7 @@ static const RegisterInfo g_register_infos_mips64[] = {
      nullptr,
      nullptr,
      nullptr,
-     0},
+    },
     {"r24",
      nullptr,
      8,
@@ -381,7 +378,7 @@ static const RegisterInfo g_register_infos_mips64[] = {
      nullptr,
      nullptr,
      nullptr,
-     0},
+    },
     {"r25",
      nullptr,
      8,
@@ -393,7 +390,7 @@ static const RegisterInfo g_register_infos_mips64[] = {
      nullptr,
      nullptr,
      nullptr,
-     0},
+    },
     {"r26",
      nullptr,
      8,
@@ -405,7 +402,7 @@ static const RegisterInfo g_register_infos_mips64[] = {
      nullptr,
      nullptr,
      nullptr,
-     0},
+    },
     {"r27",
      nullptr,
      8,
@@ -417,7 +414,7 @@ static const RegisterInfo g_register_infos_mips64[] = {
      nullptr,
      nullptr,
      nullptr,
-     0},
+    },
     {"r28",
      "gp",
      8,
@@ -429,9 +426,9 @@ static const RegisterInfo g_register_infos_mips64[] = {
      nullptr,
      nullptr,
      nullptr,
-     0},
+    },
     {"r29",
-     "sp",
+     nullptr,
      8,
      0,
      eEncodingUint,
@@ -441,9 +438,9 @@ static const RegisterInfo g_register_infos_mips64[] = {
      nullptr,
      nullptr,
      nullptr,
-     0},
+    },
     {"r30",
-     "fp",
+     nullptr,
      8,
      0,
      eEncodingUint,
@@ -453,9 +450,9 @@ static const RegisterInfo g_register_infos_mips64[] = {
      nullptr,
      nullptr,
      nullptr,
-     0},
+    },
     {"r31",
-     "ra",
+     nullptr,
      8,
      0,
      eEncodingUint,
@@ -465,7 +462,7 @@ static const RegisterInfo g_register_infos_mips64[] = {
      nullptr,
      nullptr,
      nullptr,
-     0},
+    },
     {"sr",
      nullptr,
      4,
@@ -477,7 +474,7 @@ static const RegisterInfo g_register_infos_mips64[] = {
      nullptr,
      nullptr,
      nullptr,
-     0},
+    },
     {"lo",
      nullptr,
      8,
@@ -489,7 +486,7 @@ static const RegisterInfo g_register_infos_mips64[] = {
      nullptr,
      nullptr,
      nullptr,
-     0},
+    },
     {"hi",
      nullptr,
      8,
@@ -501,7 +498,7 @@ static const RegisterInfo g_register_infos_mips64[] = {
      nullptr,
      nullptr,
      nullptr,
-     0},
+    },
     {"bad",
      nullptr,
      8,
@@ -513,7 +510,7 @@ static const RegisterInfo g_register_infos_mips64[] = {
      nullptr,
      nullptr,
      nullptr,
-     0},
+    },
     {"cause",
      nullptr,
      8,
@@ -525,7 +522,7 @@ static const RegisterInfo g_register_infos_mips64[] = {
      nullptr,
      nullptr,
      nullptr,
-     0},
+    },
     {"pc",
      nullptr,
      8,
@@ -537,11 +534,10 @@ static const RegisterInfo g_register_infos_mips64[] = {
      nullptr,
      nullptr,
      nullptr,
-     0},
+    },
 };
 
-static const uint32_t k_num_register_infos =
-    llvm::array_lengthof(g_register_infos_mips64);
+static const uint32_t k_num_register_infos = std::size(g_register_infos_mips64);
 
 const lldb_private::RegisterInfo *
 ABISysV_mips64::GetRegisterInfoArray(uint32_t &count) {
@@ -564,7 +560,7 @@ ABISysV_mips64::CreateInstance(lldb::ProcessSP process_sp, const ArchSpec &arch)
 bool ABISysV_mips64::PrepareTrivialCall(Thread &thread, addr_t sp,
                                         addr_t func_addr, addr_t return_addr,
                                         llvm::ArrayRef<addr_t> args) const {
-  Log *log(lldb_private::GetLogIfAllCategoriesSet(LIBLLDB_LOG_EXPRESSIONS));
+  Log *log = GetLog(LLDBLog::Expressions);
 
   if (log) {
     StreamString s;
@@ -661,13 +657,13 @@ Status ABISysV_mips64::SetReturnValueObject(lldb::StackFrameSP &frame_sp,
                                             lldb::ValueObjectSP &new_value_sp) {
   Status error;
   if (!new_value_sp) {
-    error.SetErrorString("Empty value object for return value.");
+    error = Status::FromErrorString("Empty value object for return value.");
     return error;
   }
 
   CompilerType compiler_type = new_value_sp->GetCompilerType();
   if (!compiler_type) {
-    error.SetErrorString("Null clang type for return value.");
+    error = Status::FromErrorString("Null clang type for return value.");
     return error;
   }
 
@@ -676,13 +672,13 @@ Status ABISysV_mips64::SetReturnValueObject(lldb::StackFrameSP &frame_sp,
   RegisterContext *reg_ctx = thread->GetRegisterContext().get();
 
   if (!reg_ctx)
-    error.SetErrorString("no registers are available");
+    error = Status::FromErrorString("no registers are available");
 
   DataExtractor data;
   Status data_error;
   size_t num_bytes = new_value_sp->GetData(data, data_error);
   if (data_error.Fail()) {
-    error.SetErrorStringWithFormat(
+    error = Status::FromErrorStringWithFormat(
         "Couldn't convert return value to raw data: %s",
         data_error.AsCString());
     return error;
@@ -700,7 +696,7 @@ Status ABISysV_mips64::SetReturnValueObject(lldb::StackFrameSP &frame_sp,
           uint64_t raw_value = data.GetMaxU64(&offset, num_bytes);
 
           if (!reg_ctx->WriteRegisterFromUnsigned(r2_info, raw_value))
-            error.SetErrorString("failed to write register r2");
+            error = Status::FromErrorString("failed to write register r2");
         } else {
           uint64_t raw_value = data.GetMaxU64(&offset, 8);
           if (reg_ctx->WriteRegisterFromUnsigned(r2_info, raw_value)) {
@@ -709,19 +705,21 @@ Status ABISysV_mips64::SetReturnValueObject(lldb::StackFrameSP &frame_sp,
             raw_value = data.GetMaxU64(&offset, num_bytes - offset);
 
             if (!reg_ctx->WriteRegisterFromUnsigned(r3_info, raw_value))
-              error.SetErrorString("failed to write register r3");
+              error = Status::FromErrorString("failed to write register r3");
           } else
-            error.SetErrorString("failed to write register r2");
+            error = Status::FromErrorString("failed to write register r2");
         }
       } else {
-        error.SetErrorString("We don't support returning longer than 128 bit "
-                             "integer values at present.");
+        error = Status::FromErrorString(
+            "We don't support returning longer than 128 bit "
+            "integer values at present.");
       }
     } else if (type_flags & eTypeIsFloat) {
-      error.SetErrorString("TODO: Handle Float Types.");
+      error = Status::FromErrorString("TODO: Handle Float Types.");
     }
   } else if (type_flags & eTypeIsVector) {
-    error.SetErrorString("returning vector values are not supported");
+    error =
+        Status::FromErrorString("returning vector values are not supported");
   }
 
   return error;
@@ -752,8 +750,8 @@ ValueObjectSP ABISysV_mips64::GetReturnValueObjectImpl(
   Target *target = exe_ctx.GetTargetPtr();
   const ArchSpec target_arch = target->GetArchitecture();
   ByteOrder target_byte_order = target_arch.GetByteOrder();
-  llvm::Optional<uint64_t> byte_size =
-      return_compiler_type.GetByteSize(nullptr);
+  std::optional<uint64_t> byte_size =
+      llvm::expectedToOptional(return_compiler_type.GetByteSize(&thread));
   if (!byte_size)
     return return_valobj_sp;
   const uint32_t type_flags = return_compiler_type.GetTypeInfo(nullptr);
@@ -762,9 +760,10 @@ ValueObjectSP ABISysV_mips64::GetReturnValueObjectImpl(
 
   const RegisterInfo *r2_info = reg_ctx->GetRegisterInfoByName("r2", 0);
   const RegisterInfo *r3_info = reg_ctx->GetRegisterInfoByName("r3", 0);
+  assert(r2_info && r3_info && "Basic registers should always be present.");
 
   if (type_flags & eTypeIsScalar || type_flags & eTypeIsPointer) {
-    value.SetValueType(Value::eValueTypeScalar);
+    value.SetValueType(Value::ValueType::Scalar);
 
     bool success = false;
     if (type_flags & eTypeIsInteger || type_flags & eTypeIsPointer) {
@@ -864,7 +863,7 @@ ValueObjectSP ABISysV_mips64::GetReturnValueObjectImpl(
             DataExtractor f2_data;
             reg_ctx->ReadRegister(f2_info, f2_value);
             DataExtractor *copy_from_extractor = nullptr;
-            DataBufferSP data_sp(new DataBufferHeap(16, 0));
+            WritableDataBufferSP data_sp(new DataBufferHeap(16, 0));
             DataExtractor return_ext(
                 data_sp, target_byte_order,
                 target->GetArchitecture().GetAddressByteSize());
@@ -904,7 +903,7 @@ ValueObjectSP ABISysV_mips64::GetReturnValueObjectImpl(
              type_flags & eTypeIsVector) {
     // Any structure of up to 16 bytes in size is returned in the registers.
     if (*byte_size <= 16) {
-      DataBufferSP data_sp(new DataBufferHeap(16, 0));
+      WritableDataBufferSP data_sp(new DataBufferHeap(16, 0));
       DataExtractor return_ext(data_sp, target_byte_order,
                                target->GetArchitecture().GetAddressByteSize());
 
@@ -924,7 +923,6 @@ ValueObjectSP ABISysV_mips64::GetReturnValueObjectImpl(
       bool sucess = false;
       std::string name;
       bool is_complex;
-      uint32_t count;
       const uint32_t num_children = return_compiler_type.GetNumFields();
 
       // A structure consisting of one or two FP values (and nothing else) will
@@ -938,7 +936,7 @@ ValueObjectSP ABISysV_mips64::GetReturnValueObjectImpl(
               return_compiler_type.GetFieldAtIndex(idx, name, &field_bit_offset,
                                                    nullptr, nullptr);
 
-          if (field_compiler_type.IsFloatingPointType(count, is_complex))
+          if (field_compiler_type.IsFloatingPointType(is_complex))
             use_fp_regs = true;
           else
             found_non_fp_field = true;
@@ -961,8 +959,8 @@ ValueObjectSP ABISysV_mips64::GetReturnValueObjectImpl(
             CompilerType field_compiler_type =
                 return_compiler_type.GetFieldAtIndex(
                     idx, name, &field_bit_offset, nullptr, nullptr);
-            llvm::Optional<uint64_t> field_byte_width =
-                field_compiler_type.GetByteSize(nullptr);
+            std::optional<uint64_t> field_byte_width = llvm::expectedToOptional(
+                field_compiler_type.GetByteSize(&thread));
             if (!field_byte_width)
               return return_valobj_sp;
 
@@ -1033,8 +1031,8 @@ ValueObjectSP ABISysV_mips64::GetReturnValueObjectImpl(
 
         CompilerType field_compiler_type = return_compiler_type.GetFieldAtIndex(
             idx, name, &field_bit_offset, nullptr, nullptr);
-        llvm::Optional<uint64_t> field_byte_width =
-            field_compiler_type.GetByteSize(nullptr);
+        std::optional<uint64_t> field_byte_width =
+            llvm::expectedToOptional(field_compiler_type.GetByteSize(&thread));
 
         // if we don't know the size of the field (e.g. invalid type), just
         // bail out
@@ -1045,7 +1043,7 @@ ValueObjectSP ABISysV_mips64::GetReturnValueObjectImpl(
 
         if (field_compiler_type.IsIntegerOrEnumerationType(is_signed) ||
             field_compiler_type.IsPointerType() ||
-            field_compiler_type.IsFloatingPointType(count, is_complex)) {
+            field_compiler_type.IsFloatingPointType(is_complex)) {
           padding = field_byte_offset - integer_bytes;
 
           if (integer_bytes < 8) {
@@ -1092,8 +1090,8 @@ ValueObjectSP ABISysV_mips64::GetReturnValueObjectImpl(
         reg_ctx->ReadRegister(r2_info, r2_value);
 
         const size_t bytes_copied = r2_value.GetAsMemoryData(
-            r2_info, data_sp->GetBytes(), r2_info->byte_size, target_byte_order,
-            error);
+            *r2_info, data_sp->GetBytes(), r2_info->byte_size,
+            target_byte_order, error);
         if (bytes_copied != r2_info->byte_size)
           return return_valobj_sp;
         sucess = true;
@@ -1101,7 +1099,7 @@ ValueObjectSP ABISysV_mips64::GetReturnValueObjectImpl(
       if (use_r3) {
         reg_ctx->ReadRegister(r3_info, r3_value);
         const size_t bytes_copied = r3_value.GetAsMemoryData(
-            r3_info, data_sp->GetBytes() + r2_info->byte_size,
+            *r3_info, data_sp->GetBytes() + r2_info->byte_size,
             r3_info->byte_size, target_byte_order, error);
 
         if (bytes_copied != r3_info->byte_size)
@@ -1129,43 +1127,38 @@ ValueObjectSP ABISysV_mips64::GetReturnValueObjectImpl(
   return return_valobj_sp;
 }
 
-bool ABISysV_mips64::CreateFunctionEntryUnwindPlan(UnwindPlan &unwind_plan) {
-  unwind_plan.Clear();
-  unwind_plan.SetRegisterKind(eRegisterKindDWARF);
-
-  UnwindPlan::RowSP row(new UnwindPlan::Row);
+UnwindPlanSP ABISysV_mips64::CreateFunctionEntryUnwindPlan() {
+  UnwindPlan::Row row;
 
   // Our Call Frame Address is the stack pointer value
-  row->GetCFAValue().SetIsRegisterPlusOffset(dwarf_r29, 0);
+  row.GetCFAValue().SetIsRegisterPlusOffset(dwarf_r29, 0);
 
-  // The previous PC is in the RA
-  row->SetRegisterLocationToRegister(dwarf_pc, dwarf_r31, true);
-  unwind_plan.AppendRow(row);
+  // The previous PC is in the RA, all other registers are the same.
+  row.SetRegisterLocationToRegister(dwarf_pc, dwarf_r31, true);
 
-  // All other registers are the same.
-
-  unwind_plan.SetSourceName("mips64 at-func-entry default");
-  unwind_plan.SetSourcedFromCompiler(eLazyBoolNo);
-  unwind_plan.SetReturnAddressRegister(dwarf_r31);
-  return true;
+  auto plan_sp = std::make_shared<UnwindPlan>(eRegisterKindDWARF);
+  plan_sp->AppendRow(std::move(row));
+  plan_sp->SetSourceName("mips64 at-func-entry default");
+  plan_sp->SetSourcedFromCompiler(eLazyBoolNo);
+  plan_sp->SetReturnAddressRegister(dwarf_r31);
+  return plan_sp;
 }
 
-bool ABISysV_mips64::CreateDefaultUnwindPlan(UnwindPlan &unwind_plan) {
-  unwind_plan.Clear();
-  unwind_plan.SetRegisterKind(eRegisterKindDWARF);
+UnwindPlanSP ABISysV_mips64::CreateDefaultUnwindPlan() {
+  UnwindPlan::Row row;
 
-  UnwindPlan::RowSP row(new UnwindPlan::Row);
+  row.SetUnspecifiedRegistersAreUndefined(true);
+  row.GetCFAValue().SetIsRegisterPlusOffset(dwarf_r29, 0);
 
-  row->GetCFAValue().SetIsRegisterPlusOffset(dwarf_r29, 0);
+  row.SetRegisterLocationToRegister(dwarf_pc, dwarf_r31, true);
 
-  row->SetRegisterLocationToRegister(dwarf_pc, dwarf_r31, true);
-
-  unwind_plan.AppendRow(row);
-  unwind_plan.SetSourceName("mips64 default unwind plan");
-  unwind_plan.SetSourcedFromCompiler(eLazyBoolNo);
-  unwind_plan.SetUnwindPlanValidAtAllInstructions(eLazyBoolNo);
-  unwind_plan.SetUnwindPlanForSignalTrap(eLazyBoolNo);
-  return true;
+  auto plan_sp = std::make_shared<UnwindPlan>(eRegisterKindDWARF);
+  plan_sp->AppendRow(std::move(row));
+  plan_sp->SetSourceName("mips64 default unwind plan");
+  plan_sp->SetSourcedFromCompiler(eLazyBoolNo);
+  plan_sp->SetUnwindPlanValidAtAllInstructions(eLazyBoolNo);
+  plan_sp->SetUnwindPlanForSignalTrap(eLazyBoolNo);
+  return plan_sp;
 }
 
 bool ABISysV_mips64::RegisterIsVolatile(const RegisterInfo *reg_info) {
@@ -1199,16 +1192,3 @@ void ABISysV_mips64::Initialize() {
 void ABISysV_mips64::Terminate() {
   PluginManager::UnregisterPlugin(CreateInstance);
 }
-
-lldb_private::ConstString ABISysV_mips64::GetPluginNameStatic() {
-  static ConstString g_name("sysv-mips64");
-  return g_name;
-}
-
-// PluginInterface protocol
-
-lldb_private::ConstString ABISysV_mips64::GetPluginName() {
-  return GetPluginNameStatic();
-}
-
-uint32_t ABISysV_mips64::GetPluginVersion() { return 1; }

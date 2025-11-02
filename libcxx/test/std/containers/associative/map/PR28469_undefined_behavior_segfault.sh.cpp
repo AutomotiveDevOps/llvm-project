@@ -6,16 +6,15 @@
 //
 //===----------------------------------------------------------------------===//
 
-// UNSUPPORTED: c++98, c++03
+// UNSUPPORTED: c++03
 
-// FILE_DEPENDENCIES: %t.exe
 // RUN: %{build} -O2
 // RUN: %{run}
 
 // <map>
 
 // Previously this code caused a segfault when compiled at -O2 due to undefined
-// behavior in __tree. See https://bugs.llvm.org/show_bug.cgi?id=28469
+// behavior in __tree. See https://llvm.org/PR28469
 
 #include <functional>
 #include <map>
@@ -23,13 +22,13 @@
 void dummy() {}
 
 struct F {
-    std::map<int, std::function<void()> > m;
-    F() { m[42] = &dummy; }
+  std::map<int, std::function<void()> > m;
+  F() { m[42] = &dummy; }
 };
 
 int main(int, char**) {
-    F f;
-    f = F();
+  F f;
+  f = F();
 
   return 0;
 }

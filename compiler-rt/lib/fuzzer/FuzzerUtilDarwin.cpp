@@ -7,7 +7,7 @@
 //===----------------------------------------------------------------------===//
 // Misc utils for Darwin.
 //===----------------------------------------------------------------------===//
-#include "FuzzerDefs.h"
+#include "FuzzerPlatform.h"
 #if LIBFUZZER_APPLE
 #include "FuzzerCommand.h"
 #include "FuzzerIO.h"
@@ -163,6 +163,11 @@ void DiscardOutput(int Fd) {
     return;
   dup2(fileno(Temp), Fd);
   fclose(Temp);
+}
+
+void SetThreadName(std::thread &thread, const std::string &name) {
+  // TODO ?
+  // Darwin allows to set the name only on the current thread it seems
 }
 
 } // namespace fuzzer

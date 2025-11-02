@@ -1,7 +1,36 @@
-// RUN: %clang_analyze_cc1 -w -analyzer-checker=core,alpha.deadcode.UnreachableCode,alpha.core.CastSize,unix.Malloc,cplusplus.NewDelete -analyzer-store=region -verify %s
-// RUN: %clang_analyze_cc1 -triple i386-unknown-linux-gnu -w -analyzer-checker=core,alpha.deadcode.UnreachableCode,alpha.core.CastSize,unix.Malloc,cplusplus.NewDelete -analyzer-store=region -verify %s
-// RUN: %clang_analyze_cc1 -w -analyzer-checker=core,alpha.deadcode.UnreachableCode,alpha.core.CastSize,unix.Malloc,cplusplus.NewDelete -analyzer-store=region -DTEST_INLINABLE_ALLOCATORS -verify %s
-// RUN: %clang_analyze_cc1 -triple i386-unknown-linux-gnu -w -analyzer-checker=core,alpha.deadcode.UnreachableCode,alpha.core.CastSize,unix.Malloc,cplusplus.NewDelete -analyzer-store=region -DTEST_INLINABLE_ALLOCATORS -verify %s
+// RUN: %clang_analyze_cc1 -w -verify %s \
+// RUN:   -analyzer-checker=core \
+// RUN:   -analyzer-checker=alpha.deadcode.UnreachableCode \
+// RUN:   -analyzer-checker=unix.Malloc \
+// RUN:   -analyzer-checker=cplusplus.NewDelete \
+// RUN:   -analyzer-checker=optin.taint.TaintPropagation \
+// RUN:   -analyzer-checker=optin.taint.TaintedAlloc
+
+// RUN: %clang_analyze_cc1 -w -verify %s \
+// RUN:   -triple i386-unknown-linux-gnu \
+// RUN:   -analyzer-checker=core \
+// RUN:   -analyzer-checker=alpha.deadcode.UnreachableCode \
+// RUN:   -analyzer-checker=unix.Malloc \
+// RUN:   -analyzer-checker=cplusplus.NewDelete \
+// RUN:   -analyzer-checker=optin.taint.TaintPropagation \
+// RUN:   -analyzer-checker=optin.taint.TaintedAlloc
+
+// RUN: %clang_analyze_cc1 -w -verify %s -DTEST_INLINABLE_ALLOCATORS \
+// RUN:   -analyzer-checker=core \
+// RUN:   -analyzer-checker=alpha.deadcode.UnreachableCode \
+// RUN:   -analyzer-checker=unix.Malloc \
+// RUN:   -analyzer-checker=cplusplus.NewDelete \
+// RUN:   -analyzer-checker=optin.taint.TaintPropagation \
+// RUN:   -analyzer-checker=optin.taint.TaintedAlloc
+
+// RUN: %clang_analyze_cc1 -w -verify %s -DTEST_INLINABLE_ALLOCATORS \
+// RUN:   -triple i386-unknown-linux-gnu \
+// RUN:   -analyzer-checker=core \
+// RUN:   -analyzer-checker=alpha.deadcode.UnreachableCode \
+// RUN:   -analyzer-checker=unix.Malloc \
+// RUN:   -analyzer-checker=cplusplus.NewDelete \
+// RUN:   -analyzer-checker=optin.taint.TaintPropagation \
+// RUN:   -analyzer-checker=optin.taint.TaintedAlloc
 
 #include "Inputs/system-header-simulator-cxx.h"
 
@@ -11,12 +40,19 @@ void free(void *);
 void *realloc(void *ptr, size_t size);
 void *calloc(size_t nmemb, size_t size);
 char *strdup(const char *s);
+int scanf( const char* format, ... );
+
+void taintAlloc() {
+  size_t size = 0;
+  scanf("%zu", &size);
+  int *ptr = new int[size];// expected-warning{{Memory allocation function is called with a tainted (potentially attacker controlled) value}}
+  delete[] ptr;
+}
 
 void checkThatMallocCheckerIsRunning() {
   malloc(4);
 } // expected-warning{{leak}}
 
-// Test for radar://11110132.
 struct Foo {
     mutable void* m_data;
     Foo(void* data) : m_data(data) {}
@@ -27,7 +63,7 @@ Foo aFunction() {
 
 // Assume that functions which take a function pointer can free memory even if
 // they are defined in system headers and take the const pointer to the
-// allocated memory. (radar://11160612)
+// allocated memory.
 // Test default parameter.
 int const_ptr_and_callback_def_param(int, const char*, int n, void(*)(void*) = free);
 void r11160612_3() {
@@ -172,3 +208,32 @@ void test_delete_ZERO_SIZE_PTR() {
   // ZERO_SIZE_PTR is specially handled but only for malloc family
   delete Ptr; // expected-warning{{Argument to 'delete' is a constant address (16)}}
 }
+
+namespace pr46253_class {
+class a {
+  void *realloc(int, bool = false) { realloc(1); } // no-crash
+};
+} // namespace pr46253_class
+
+namespace pr46253_retty{
+void realloc(void *ptr, size_t size) { realloc(ptr, size); } // no-crash
+} // namespace pr46253_retty
+
+namespace pr46253_paramty{
+void *realloc(void **ptr, size_t size) { realloc(ptr, size); } // no-crash
+} // namespace pr46253_paramty
+
+namespace pr46253_paramty2{
+void *realloc(void *ptr, int size) { realloc(ptr, size); } // no-crash
+} // namespace pr46253_paramty2
+
+namespace pr81597 {
+struct S {};
+struct T {
+  void free(const S& s);
+};
+void f(T& t) {
+  S s;
+  t.free(s); // no-warning: This is not the free you are looking for...
+}
+} // namespace pr81597

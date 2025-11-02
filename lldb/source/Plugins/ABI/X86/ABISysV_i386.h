@@ -9,10 +9,10 @@
 #ifndef LLDB_SOURCE_PLUGINS_ABI_X86_ABISYSV_I386_H
 #define LLDB_SOURCE_PLUGINS_ABI_X86_ABISYSV_I386_H
 
-#include "Plugins/ABI/X86/ABIX86.h"
+#include "Plugins/ABI/X86/ABIX86_i386.h"
 #include "lldb/lldb-private.h"
 
-class ABISysV_i386 : public ABIX86 {
+class ABISysV_i386 : public ABIX86_i386 {
 public:
   ~ABISysV_i386() override = default;
 
@@ -36,10 +36,9 @@ public:
   GetReturnValueObjectImpl(lldb_private::Thread &thread,
                            lldb_private::CompilerType &type) const override;
 
-  bool
-  CreateFunctionEntryUnwindPlan(lldb_private::UnwindPlan &unwind_plan) override;
+  lldb::UnwindPlanSP CreateFunctionEntryUnwindPlan() override;
 
-  bool CreateDefaultUnwindPlan(lldb_private::UnwindPlan &unwind_plan) override;
+  lldb::UnwindPlanSP CreateDefaultUnwindPlan() override;
 
   bool RegisterIsVolatile(const lldb_private::RegisterInfo *reg_info) override {
     return !RegisterIsCalleeSaved(reg_info);
@@ -53,7 +52,7 @@ public:
   //
   // To work around this, we relax that alignment to be just word-size
   // (4-bytes).
-  // Whitelisting the trap handlers for user space would be easy (_sigtramp) but
+  // Allowing the trap handlers for user space would be easy (_sigtramp) but
   // in other environments there can be a large number of different functions
   // involved in async traps.
 
@@ -83,11 +82,9 @@ public:
 
   // PluginInterface protocol
 
-  static lldb_private::ConstString GetPluginNameStatic();
+  static llvm::StringRef GetPluginNameStatic() { return "sysv-i386"; }
 
-  lldb_private::ConstString GetPluginName() override;
-
-  uint32_t GetPluginVersion() override { return 1; }
+  llvm::StringRef GetPluginName() override { return GetPluginNameStatic(); }
 
 protected:
   lldb::ValueObjectSP
@@ -97,7 +94,7 @@ protected:
   bool RegisterIsCalleeSaved(const lldb_private::RegisterInfo *reg_info);
 
 private:
-  using ABIX86::ABIX86; // Call CreateInstance instead.
+  using ABIX86_i386::ABIX86_i386; // Call CreateInstance instead.
 };
 
 #endif // LLDB_SOURCE_PLUGINS_ABI_X86_ABISYSV_I386_H

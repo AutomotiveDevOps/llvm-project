@@ -38,16 +38,18 @@ public:
 
   bool IsBasePlan() override { return true; }
 
+  lldb::RunDirection GetDirection() const override;
+
 protected:
   bool DoWillResume(lldb::StateType resume_state, bool current_plan) override;
   bool DoPlanExplainsStop(Event *event_ptr) override;
   ThreadPlanBase(Thread &thread);
 
 private:
-  friend lldb::ThreadPlanSP
-  Thread::QueueFundamentalPlan(bool abort_other_plans);
+  friend lldb::ThreadPlanSP Thread::QueueBasePlan(bool abort_other_plans);
 
-  DISALLOW_COPY_AND_ASSIGN(ThreadPlanBase);
+  ThreadPlanBase(const ThreadPlanBase &) = delete;
+  const ThreadPlanBase &operator=(const ThreadPlanBase &) = delete;
 };
 
 } // namespace lldb_private

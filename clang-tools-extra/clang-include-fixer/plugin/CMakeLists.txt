@@ -1,4 +1,4 @@
-add_clang_library(clangIncludeFixerPlugin
+add_clang_library(clangIncludeFixerPlugin STATIC
   IncludeFixerPlugin.cpp
 
   LINK_LIBS
@@ -10,4 +10,8 @@ add_clang_library(clangIncludeFixerPlugin
   clangSema
   clangTooling
   ${LLVM_PTHREAD_LIB}
+
+  DEPENDS
+  omp_gen
+  ClangDriverOptions
   )

@@ -118,20 +118,20 @@ int test() {
 // CHECK-NEXT: | |         `-IntegerLiteral [[ADDR_58:0x[a-z0-9]*]] <col:23> 'int' 0
 // CHECK-NEXT: | `-FunctionDecl [[ADDR_59:0x[a-z0-9]*]] <line:37:1, line:40:1> line:37:5 used test1 'int ({{.*}})'
 // CHECK-NEXT: |   |-TemplateArgument type 'double'
-// CHECK-NEXT: |   `-CompoundStmt [[ADDR_60:0x[a-z0-9]*]] <col:13, line:40:1>
+// CHECK:      |   `-CompoundStmt [[ADDR_60:0x[a-z0-9]*]] <col:13, line:40:1>
 // CHECK-NEXT: |     `-ReturnStmt [[ADDR_61:0x[a-z0-9]*]] <line:39:3, col:25>
 // CHECK-NEXT: |       `-PseudoObjectExpr [[ADDR_62:0x[a-z0-9]*]] <col:10, col:25> 'int'
 // CHECK-NEXT: |         |-CallExpr [[ADDR_63:0x[a-z0-9]*]] <col:10, col:25> 'int'
 // CHECK-NEXT: |         | |-ImplicitCastExpr [[ADDR_64:0x[a-z0-9]*]] <col:10> 'int (*)(double)' <FunctionToPointerDecay>
 // CHECK-NEXT: |         | | `-DeclRefExpr [[ADDR_65:0x[a-z0-9]*]] <col:10> 'int (double)' {{.*}}Function [[ADDR_44]] 'also_after' 'int (double)'
-// CHECK-NEXT: |         | `-CXXFunctionalCastExpr [[ADDR_66:0x[a-z0-9]*]] <col:21, col:24> 'double':'double' functional cast to double <NoOp>
-// CHECK-NEXT: |         |   `-ImplicitCastExpr [[ADDR_67:0x[a-z0-9]*]] <col:23> 'double':'double' <IntegralToFloating> part_of_explicit_cast
+// CHECK-NEXT: |         | `-CXXFunctionalCastExpr [[ADDR_66:0x[a-z0-9]*]] <col:21, col:24> 'double' functional cast to double <NoOp>
+// CHECK-NEXT: |         |   `-ImplicitCastExpr [[ADDR_67:0x[a-z0-9]*]] <col:23> 'double' <IntegralToFloating> part_of_explicit_cast
 // CHECK-NEXT: |         |     `-IntegerLiteral [[ADDR_58]] <col:23> 'int' 0
 // CHECK-NEXT: |         `-CallExpr [[ADDR_68:0x[a-z0-9]*]] <line:16:1, line:39:25> 'int'
 // CHECK-NEXT: |           |-ImplicitCastExpr [[ADDR_69:0x[a-z0-9]*]] <line:16:1> 'int (*)(double)' <FunctionToPointerDecay>
 // CHECK-NEXT: |           | `-DeclRefExpr [[ADDR_25]] <col:1> 'int (double)' Function [[ADDR_26]] 'also_after[implementation={vendor(llvm)}]' 'int (double)'
-// CHECK-NEXT: |           `-CXXFunctionalCastExpr [[ADDR_66]] <line:39:21, col:24> 'double':'double' functional cast to double <NoOp>
-// CHECK-NEXT: |             `-ImplicitCastExpr [[ADDR_67]] <col:23> 'double':'double' <IntegralToFloating> part_of_explicit_cast
+// CHECK-NEXT: |           `-CXXFunctionalCastExpr [[ADDR_66]] <line:39:21, col:24> 'double' functional cast to double <NoOp>
+// CHECK-NEXT: |             `-ImplicitCastExpr [[ADDR_67]] <col:23> 'double' <IntegralToFloating> part_of_explicit_cast
 // CHECK-NEXT: |               `-IntegerLiteral [[ADDR_58]] <col:23> 'int' 0
 // CHECK-NEXT: |-TypedefDecl [[ADDR_70:0x[a-z0-9]*]] <line:42:1, col:18> col:14 referenced Ty 'int (*)({{.*}})'
 // CHECK-NEXT: | `-PointerType [[ADDR_71:0x[a-z0-9]*]] 'int (*)({{.*}})'
@@ -153,7 +153,8 @@ int test() {
 // CHECK-NEXT: |       `-PseudoObjectExpr [[ADDR_85:0x[a-z0-9]*]] <col:10, col:13> 'int'
 // CHECK-NEXT: |         |-CallExpr [[ADDR_86:0x[a-z0-9]*]] <col:10, col:13> 'int'
 // CHECK-NEXT: |         | `-SubstNonTypeTemplateParmExpr [[ADDR_87:0x[a-z0-9]*]] <col:10> 'int (*)({{.*}})'
-// CHECK-NEXT: |         |   `-UnaryOperator [[ADDR_88:0x[a-z0-9]*]] <col:10> 'int (*)({{.*}})' prefix '&' cannot overflow
+// CHECK-NEXT: |         |   |-NonTypeTemplateParmDecl {{.*}} referenced 'Ty':'int (*)()' depth 0 index 0 fn
+// CHECK-NEXT: |         |   `-UnaryOperator [[ADDR_88:0x[a-z0-9]*]] <line:47:10> 'int (*)({{.*}})' prefix '&' cannot overflow
 // CHECK-NEXT: |         |     `-DeclRefExpr [[ADDR_89:0x[a-z0-9]*]] <col:10> 'int ({{.*}})' {{.*}}Function [[ADDR_0]] 'also_before' 'int ({{.*}})'
 // CHECK-NEXT: |         `-CallExpr [[ADDR_90:0x[a-z0-9]*]] <line:21:1, line:47:13> 'int'
 // CHECK-NEXT: |           `-ImplicitCastExpr [[ADDR_91:0x[a-z0-9]*]] <line:21:1> 'int (*)({{.*}})' <FunctionToPointerDecay>

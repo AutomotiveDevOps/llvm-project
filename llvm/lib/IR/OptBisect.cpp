@@ -13,44 +13,86 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/IR/OptBisect.h"
-#include "llvm/ADT/StringRef.h"
 #include "llvm/Pass.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/raw_ostream.h"
 #include <cassert>
-#include <limits>
-#include <string>
 
 using namespace llvm;
 
+static OptBisect &getOptBisector() {
+  static OptBisect OptBisector;
+  return OptBisector;
+}
+
+static OptDisable &getOptDisabler() {
+  static OptDisable OptDisabler;
+  return OptDisabler;
+}
+
 static cl::opt<int> OptBisectLimit("opt-bisect-limit", cl::Hidden,
-                                   cl::init(std::numeric_limits<int>::max()),
-                                   cl::Optional,
+                                   cl::init(OptBisect::Disabled), cl::Optional,
+                                   cl::cb<void, int>([](int Limit) {
+                                     getOptBisector().setLimit(Limit);
+                                   }),
                                    cl::desc("Maximum optimization to perform"));
 
-OptBisect::OptBisect() : OptPassGate() {
-  BisectEnabled = OptBisectLimit != std::numeric_limits<int>::max();
-}
+static cl::opt<bool> OptBisectVerbose(
+    "opt-bisect-verbose",
+    cl::desc("Show verbose output when opt-bisect-limit is set"), cl::Hidden,
+    cl::init(true), cl::Optional);
 
-static void printPassMessage(const StringRef &Name, int PassNum,
-                             StringRef TargetDesc, bool Running) {
+static cl::list<std::string> OptDisablePasses(
+    "opt-disable", cl::Hidden, cl::CommaSeparated, cl::Optional,
+    cl::cb<void, std::string>([](const std::string &Pass) {
+      getOptDisabler().setDisabled(Pass);
+    }),
+    cl::desc("Optimization pass(es) to disable (comma-separated list)"));
+
+static cl::opt<bool>
+    OptDisableVerbose("opt-disable-enable-verbosity",
+                      cl::desc("Show verbose output when opt-disable is set"),
+                      cl::Hidden, cl::init(false), cl::Optional);
+
+static void printPassMessage(StringRef Name, int PassNum, StringRef TargetDesc,
+                             bool Running) {
   StringRef Status = Running ? "" : "NOT ";
-  errs() << "BISECT: " << Status << "running pass "
-         << "(" << PassNum << ") " << Name << " on " << TargetDesc << "\n";
+  errs() << "BISECT: " << Status << "running pass (" << PassNum << ") " << Name
+         << " on " << TargetDesc << '\n';
 }
 
-bool OptBisect::shouldRunPass(const Pass *P, StringRef IRDescription) {
-  assert(BisectEnabled);
-
-  return checkPass(P->getPassName(), IRDescription);
-}
-
-bool OptBisect::checkPass(const StringRef PassName,
-                          const StringRef TargetDesc) {
-  assert(BisectEnabled);
+bool OptBisect::shouldRunPass(StringRef PassName,
+                              StringRef IRDescription) const {
+  assert(isEnabled());
 
   int CurBisectNum = ++LastBisectNum;
-  bool ShouldRun = (OptBisectLimit == -1 || CurBisectNum <= OptBisectLimit);
-  printPassMessage(PassName, CurBisectNum, TargetDesc, ShouldRun);
+  bool ShouldRun = (BisectLimit == -1 || CurBisectNum <= BisectLimit);
+  if (OptBisectVerbose)
+    printPassMessage(PassName, CurBisectNum, IRDescription, ShouldRun);
   return ShouldRun;
+}
+
+static void printDisablePassMessage(const StringRef &Name, StringRef TargetDesc,
+                                    bool Running) {
+  StringRef Status = Running ? "" : "NOT ";
+  dbgs() << "OptDisable: " << Status << "running pass " << Name << " on "
+         << TargetDesc << "\n";
+}
+
+void OptDisable::setDisabled(StringRef Pass) { DisabledPasses.insert(Pass); }
+
+bool OptDisable::shouldRunPass(StringRef PassName,
+                               StringRef IRDescription) const {
+  assert(isEnabled());
+
+  const bool ShouldRun = !DisabledPasses.contains(PassName);
+  if (OptDisableVerbose)
+    printDisablePassMessage(PassName, IRDescription, ShouldRun);
+  return ShouldRun;
+}
+
+OptPassGate &llvm::getGlobalPassGate() {
+  if (getOptDisabler().isEnabled())
+    return getOptDisabler();
+  return getOptBisector();
 }

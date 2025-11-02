@@ -5,6 +5,7 @@ add_clang_library(clangToolingSyntax
   ComputeReplacements.cpp
   Nodes.cpp
   Mutations.cpp
+  TokenBufferTokenManager.cpp
   Synthesis.cpp
   Tokens.cpp
   Tree.cpp
@@ -15,4 +16,7 @@ add_clang_library(clangToolingSyntax
   clangFrontend
   clangLex
   clangToolingCore
+
+  DEPENDS
+  omp_gen
   )

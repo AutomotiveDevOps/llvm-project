@@ -38,20 +38,18 @@
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Statistic.h"
+#include "llvm/CodeGen/TargetPassConfig.h"
 #include "llvm/IR/Argument.h"
-#include "llvm/IR/Constants.h"
 #include "llvm/IR/Dominators.h"
 #include "llvm/IR/Function.h"
+#include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/Instruction.h"
 #include "llvm/IR/Instructions.h"
-#include "llvm/IR/IntrinsicInst.h"
-#include "llvm/IR/OperandTraits.h"
 #include "llvm/IR/Type.h"
 #include "llvm/IR/Use.h"
 #include "llvm/IR/User.h"
 #include "llvm/IR/Value.h"
 #include "llvm/Pass.h"
-#include "llvm/CodeGen/TargetPassConfig.h"
 #include "llvm/Support/Casting.h"
 #include <cassert>
 
@@ -59,7 +57,7 @@ using namespace llvm;
 
 namespace {
 
-#define DEBUG_TYPE "bool-ret-to-int"
+#define DEBUG_TYPE "ppc-bool-ret-to-int"
 
 STATISTIC(NumBoolRetPromotion,
           "Number of times a bool feeding a RetInst was promoted to an int");
@@ -75,12 +73,11 @@ class PPCBoolRetToInt : public FunctionPass {
     WorkList.push_back(V);
     Defs.insert(V);
     while (!WorkList.empty()) {
-      Value *Curr = WorkList.back();
-      WorkList.pop_back();
+      Value *Curr = WorkList.pop_back_val();
       auto *CurrUser = dyn_cast<User>(Curr);
-      // Operands of CallInst are skipped because they may not be Bool type,
-      // and their positions are defined by ABI.
-      if (CurrUser && !isa<CallInst>(Curr))
+      // Operands of CallInst/Constant are skipped because they may not be Bool
+      // type. For CallInst, their positions are defined by ABI.
+      if (CurrUser && !isa<CallInst>(Curr) && !isa<Constant>(Curr))
         for (auto &Op : CurrUser->operands())
           if (Defs.insert(Op).second)
             WorkList.push_back(Op);
@@ -90,36 +87,36 @@ class PPCBoolRetToInt : public FunctionPass {
 
   // Translate a i1 value to an equivalent i32/i64 value:
   Value *translate(Value *V) {
+    assert(V->getType() == Type::getInt1Ty(V->getContext()) &&
+           "Expect an i1 value");
+
     Type *IntTy = ST->isPPC64() ? Type::getInt64Ty(V->getContext())
                                 : Type::getInt32Ty(V->getContext());
 
-    if (auto *C = dyn_cast<Constant>(V))
-      return ConstantExpr::getZExt(C, IntTy);
     if (auto *P = dyn_cast<PHINode>(V)) {
       // Temporarily set the operands to 0. We'll fix this later in
       // runOnUse.
       Value *Zero = Constant::getNullValue(IntTy);
       PHINode *Q =
-        PHINode::Create(IntTy, P->getNumIncomingValues(), P->getName(), P);
-      for (unsigned i = 0; i < P->getNumOperands(); ++i)
-        Q->addIncoming(Zero, P->getIncomingBlock(i));
+        PHINode::Create(IntTy, P->getNumIncomingValues(), P->getName(), P->getIterator());
+      for (unsigned I = 0; I < P->getNumOperands(); ++I)
+        Q->addIncoming(Zero, P->getIncomingBlock(I));
       return Q;
     }
 
-    auto *A = dyn_cast<Argument>(V);
-    auto *I = dyn_cast<Instruction>(V);
-    assert((A || I) && "Unknown value type");
-
-    auto InstPt =
-      A ? &*A->getParent()->getEntryBlock().begin() : I->getNextNode();
-    return new ZExtInst(V, IntTy, "", InstPt);
+    IRBuilder IRB(V->getContext());
+    if (auto *I = dyn_cast<Instruction>(V))
+      IRB.SetInsertPoint(I->getNextNode());
+    else
+      IRB.SetInsertPoint(&Func->getEntryBlock(), Func->getEntryBlock().begin());
+    return IRB.CreateZExt(V, IntTy);
   }
 
   typedef SmallPtrSet<const PHINode *, 8> PHINodeSet;
 
   // A PHINode is Promotable if:
   // 1. Its type is i1 AND
-  // 2. All of its uses are ReturnInt, CallInst, PHINode, or DbgInfoIntrinsic
+  // 2. All of its uses are ReturnInt, CallInst, or PHINode
   // AND
   // 3. All of its operands are Constant or Argument or
   //    CallInst or PHINode AND
@@ -138,8 +135,7 @@ class PPCBoolRetToInt : public FunctionPass {
     for (const PHINode *P : Promotable) {
       // Condition 2 and 3
       auto IsValidUser = [] (const Value *V) -> bool {
-        return isa<ReturnInst>(V) || isa<CallInst>(V) || isa<PHINode>(V) ||
-        isa<DbgInfoIntrinsic>(V);
+        return isa<ReturnInst>(V) || isa<CallInst>(V) || isa<PHINode>(V);
       };
       auto IsValidOperand = [] (const Value *V) -> bool {
         return isa<Constant>(V) || isa<Argument>(V) || isa<CallInst>(V) ||
@@ -180,9 +176,7 @@ class PPCBoolRetToInt : public FunctionPass {
  public:
   static char ID;
 
-  PPCBoolRetToInt() : FunctionPass(ID) {
-    initializePPCBoolRetToIntPass(*PassRegistry::getPassRegistry());
-  }
+  PPCBoolRetToInt() : FunctionPass(ID) {}
 
   bool runOnFunction(Function &F) override {
     if (skipFunction(F))
@@ -194,6 +188,7 @@ class PPCBoolRetToInt : public FunctionPass {
 
     auto &TM = TPC->getTM<PPCTargetMachine>();
     ST = TM.getSubtargetImpl(F);
+    Func = &F;
 
     PHINodeSet PromotablePHINodes = getPromotablePHINodes(F);
     B2IMap Bool2IntMap;
@@ -220,7 +215,7 @@ class PPCBoolRetToInt : public FunctionPass {
     auto Defs = findAllDefs(U);
 
     // If the values are all Constants or Arguments, don't bother
-    if (llvm::none_of(Defs, isa<Instruction, Value *>))
+    if (llvm::none_of(Defs, [](Value *V) { return isa<Instruction>(V); }))
       return false;
 
     // Presently, we only know how to handle PHINode, Constant, Arguments and
@@ -242,9 +237,11 @@ class PPCBoolRetToInt : public FunctionPass {
       ++NumBoolCallPromotion;
     ++NumBoolToIntPromotion;
 
-    for (Value *V : Defs)
-      if (!BoolToIntMap.count(V))
-        BoolToIntMap[V] = translate(V);
+    for (Value *V : Defs) {
+      auto [It, Inserted] = BoolToIntMap.try_emplace(V);
+      if (Inserted)
+        It->second = translate(V);
+    }
 
     // Replace the operands of the translated instructions. They were set to
     // zero in the translate function.
@@ -252,17 +249,18 @@ class PPCBoolRetToInt : public FunctionPass {
       auto *First = dyn_cast<User>(Pair.first);
       auto *Second = dyn_cast<User>(Pair.second);
       assert((!First || Second) && "translated from user to non-user!?");
-      // Operands of CallInst are skipped because they may not be Bool type,
-      // and their positions are defined by ABI.
-      if (First && !isa<CallInst>(First))
-        for (unsigned i = 0; i < First->getNumOperands(); ++i)
-          Second->setOperand(i, BoolToIntMap[First->getOperand(i)]);
+      // Operands of CallInst/Constant are skipped because they may not be Bool
+      // type. For CallInst, their positions are defined by ABI.
+      if (First && !isa<CallInst>(First) && !isa<Constant>(First))
+        for (unsigned I = 0; I < First->getNumOperands(); ++I)
+          Second->setOperand(I, BoolToIntMap[First->getOperand(I)]);
     }
 
     Value *IntRetVal = BoolToIntMap[U];
     Type *Int1Ty = Type::getInt1Ty(U->getContext());
     auto *I = cast<Instruction>(U.getUser());
-    Value *BackToBool = new TruncInst(IntRetVal, Int1Ty, "backToBool", I);
+    Value *BackToBool =
+        new TruncInst(IntRetVal, Int1Ty, "backToBool", I->getIterator());
     U.set(BackToBool);
 
     return true;
@@ -275,13 +273,14 @@ class PPCBoolRetToInt : public FunctionPass {
 
 private:
   const PPCSubtarget *ST;
+  Function *Func;
 };
 
 } // end anonymous namespace
 
 char PPCBoolRetToInt::ID = 0;
-INITIALIZE_PASS(PPCBoolRetToInt, "bool-ret-to-int",
-                "Convert i1 constants to i32/i64 if they are returned",
-                false, false)
+INITIALIZE_PASS(PPCBoolRetToInt, "ppc-bool-ret-to-int",
+                "Convert i1 constants to i32/i64 if they are returned", false,
+                false)
 
 FunctionPass *llvm::createPPCBoolRetToIntPass() { return new PPCBoolRetToInt(); }

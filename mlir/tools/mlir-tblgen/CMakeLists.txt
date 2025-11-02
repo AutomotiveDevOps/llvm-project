@@ -1,29 +1,43 @@
 set(LLVM_LINK_COMPONENTS
+  CodeGenTypes
   Demangle
   Support
   TableGen
-  )
+)
 
 add_tablegen(mlir-tblgen MLIR
+  DESTINATION "${MLIR_TOOLS_INSTALL_DIR}"
+  EXPORT MLIR
+  AttrOrTypeDefGen.cpp
+  AttrOrTypeFormatGen.cpp
+  BytecodeDialectGen.cpp
   DialectGen.cpp
+  DirectiveCommonGen.cpp
   EnumsGen.cpp
+  EnumPythonBindingGen.cpp
+  FormatGen.cpp
   LLVMIRConversionGen.cpp
   LLVMIRIntrinsicGen.cpp
   mlir-tblgen.cpp
+  OmpOpGen.cpp
+  OpClass.cpp
   OpDefinitionsGen.cpp
   OpDocGen.cpp
   OpFormatGen.cpp
+  OpGenHelpers.cpp
   OpInterfacesGen.cpp
-  PassGen.cpp
+  OpPythonBindingGen.cpp
+  PassCAPIGen.cpp
   PassDocGen.cpp
+  PassGen.cpp
   RewriterGen.cpp
   SPIRVUtilsGen.cpp
-  StructsGen.cpp
+  TosaUtilsGen.cpp
+  CppGenUtilities.cpp
   )
 
-set_target_properties(mlir-tblgen PROPERTIES FOLDER "Tablegenning")
 target_link_libraries(mlir-tblgen
   PRIVATE
-  MLIRTableGen)
+  MLIRTblgenLib)
 
 mlir_check_all_link_libraries(mlir-tblgen)

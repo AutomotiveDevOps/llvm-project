@@ -24,6 +24,44 @@
 # CHECK-NEXT: subf 3, 4, symbol@tls
               subf 3, 4, symbol@tls
 
+# Unsigned 1-bit immediate operands
+
+# CHECK: error: invalid operand for instruction
+# CHECK-NEXT: mtmsr 1, 2
+              mtmsr 1, 2
+
+# CHECK: error: invalid operand for instruction
+# CHECK-NEXT: mtmsrd 1, 2
+              mtmsrd 1, 2
+
+# CHECK: error: invalid operand for instruction
+# CHECK-NEXT: mtfsf 1, 2, 2, 1
+              mtfsf 1, 2, 2, 1
+
+# CHECK: error: invalid operand for instruction
+# CHECK-NEXT: mtfsf. 1, 2, 2, 1
+              mtfsf. 1, 2, 2, 1
+
+# Unsigned 2-bit immediate operands
+
+# CHECK: error: invalid operand for instruction
+# CHECK-NEXT: darn 1, 4
+              darn 1, 4
+
+# CHECK: error: invalid operand for instruction
+# CHECK-NEXT: wait 4
+              wait 4
+
+# CHECK: error: invalid operand for instruction
+# CHECK-NEXT: sync 8
+              sync 8
+
+# Unsigned 3-bit immediate operands
+
+# CHECK: error: invalid operand for instruction
+# CHECK-NEXT: dcbf 0, 1, 8
+              dcbf 0, 1, 8
+
 # Signed 16-bit immediate operands
 
 # CHECK: error: invalid operand for instruction
@@ -101,3 +139,22 @@
 # CHECK: error: invalid modifier 'got' (no symbols present)
          addi 4, 3, 123@got
 # CHECK-NEXT: addi 4, 3, 123@got
+
+# CHECK: error: invalid operand for instruction
+# CHECK-NEXT: lwarx 1, 2, 3, a
+              lwarx 1, 2, 3, a
+
+# Instruction requires memory operand
+# CHECK: error: invalid operand for instruction
+# CHECK-NEXT: la 3, 3, 10
+              la 3, 3, 10
+
+# Instruction doesn't support memory operands
+# CHECK: error: invalid operand for instruction
+# CHECK-NEXT: addi 3, 10(3)
+              addi 3, 10(3)
+
+# Invalid memory operand position
+# CHECK: error: invalid operand for instruction
+# CHECK-NEXT: la 0(3), 3
+              la 0(3), 3

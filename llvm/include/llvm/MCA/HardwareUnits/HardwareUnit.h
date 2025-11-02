@@ -12,13 +12,15 @@
 ///
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_MCA_HARDWAREUNIT_H
-#define LLVM_MCA_HARDWAREUNIT_H
+#ifndef LLVM_MCA_HARDWAREUNITS_HARDWAREUNIT_H
+#define LLVM_MCA_HARDWAREUNITS_HARDWAREUNIT_H
+
+#include "llvm/Support/Compiler.h"
 
 namespace llvm {
 namespace mca {
 
-class HardwareUnit {
+class LLVM_ABI HardwareUnit {
   HardwareUnit(const HardwareUnit &H) = delete;
   HardwareUnit &operator=(const HardwareUnit &H) = delete;
 
@@ -29,4 +31,4 @@ public:
 
 } // namespace mca
 } // namespace llvm
-#endif // LLVM_MCA_HARDWAREUNIT_H
+#endif // LLVM_MCA_HARDWAREUNITS_HARDWAREUNIT_H

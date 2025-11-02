@@ -15,59 +15,47 @@
 #include "llvm/Support/PointerLikeTypeTraits.h"
 
 namespace mlir {
-class FloatType;
-class Identifier;
-class IndexType;
-class IntegerType;
-class MLIRContext;
-class TypeStorage;
+class AsmState;
 
-namespace detail {
-struct FunctionTypeStorage;
-struct OpaqueTypeStorage;
-} // namespace detail
-
-/// Instances of the Type class are immutable and uniqued.  They wrap a pointer
-/// to the storage object owned by MLIRContext.  Therefore, instances of Type
-/// are passed around by value.
+/// Instances of the Type class are uniqued, have an immutable identifier and an
+/// optional mutable component.  They wrap a pointer to the storage object owned
+/// by MLIRContext.  Therefore, instances of Type are passed around by value.
 ///
 /// Some types are "primitives" meaning they do not have any parameters, for
 /// example the Index type.  Parametric types have additional information that
-/// differentiates the types of the same kind between them, for example the
-/// Integer type has bitwidth, making i8 and i16 belong to the same kind by be
-/// different instances of the IntegerType.
+/// differentiates the types of the same class, for example the Integer type has
+/// bitwidth, making i8 and i16 belong to the same kind by be different
+/// instances of the IntegerType. Type parameters are part of the unique
+/// immutable key.  The mutable component of the type can be modified after the
+/// type is created, but cannot affect the identity of the type.
 ///
 /// Types are constructed and uniqued via the 'detail::TypeUniquer' class.
 ///
 /// Derived type classes are expected to implement several required
 /// implementation hooks:
-///  * Required:
-///    - static bool kindof(unsigned kind);
-///      * Returns if the provided type kind corresponds to an instance of the
-///        current type. Used for isa/dyn_cast casting functionality.
-///
 ///  * Optional:
-///    - static LogicalResult verifyConstructionInvariants(Location loc,
-///                                                        Args... args)
+///    - static LogicalResult verifyInvariants(
+///                                function_ref<InFlightDiagnostic()> emitError,
+///                                Args... args)
 ///      * This method is invoked when calling the 'TypeBase::get/getChecked'
 ///        methods to ensure that the arguments passed in are valid to construct
 ///        a type instance with.
 ///      * This method is expected to return failure if a type cannot be
 ///        constructed with 'args', success otherwise.
 ///      * 'args' must correspond with the arguments passed into the
-///        'TypeBase::get' call after the type kind.
+///        'TypeBase::get' call.
 ///
 ///
 /// Type storage objects inherit from TypeStorage and contain the following:
-///    - The type kind (for LLVM-style RTTI).
 ///    - The dialect that defined the type.
 ///    - Any parameters of the type.
+///    - An optional mutable component.
 /// For non-parametric types, a convenience DefaultTypeStorage is provided.
 /// Parametric storage types must derive TypeStorage and respect the following:
 ///    - Define a type alias, KeyTy, to a type that uniquely identifies the
-///      instance of the type within its kind.
+///      instance of the type.
 ///      * The key type must be constructible from the values passed into the
-///        detail::TypeUniquer::get call after the type kind.
+///        detail::TypeUniquer::get call.
 ///      * If the KeyTy does not have an llvm::DenseMapInfo specialization, the
 ///        storage class must define a hashing method:
 ///         'static unsigned hashKey(const KeyTy &)'
@@ -75,39 +63,27 @@ struct OpaqueTypeStorage;
 ///    - Provide a method, 'bool operator==(const KeyTy &) const', to
 ///      compare the storage instance against an instance of the key type.
 ///
-///    - Provide a construction method:
+///    - Provide a static construction method:
 ///        'DerivedStorage *construct(TypeStorageAllocator &, const KeyTy &key)'
 ///      that builds a unique instance of the derived storage. The arguments to
 ///      this function are an allocator to store any uniqued data within the
 ///      context and the key type for this storage.
+///
+///    - If they have a mutable component, this component must not be a part of
+///      the key.
 class Type {
 public:
-  /// Integer identifier for all the concrete type kinds.
-  /// Note: This is not an enum class as each dialect will likely define a
-  /// separate enumeration for the specific types that they define. Not being an
-  /// enum class also simplifies the handling of type kinds by not requiring
-  /// casts for each use.
-  enum Kind {
-    // Builtin types.
-    Function,
-    Opaque,
-    LAST_BUILTIN_TYPE = Opaque,
-
-  // Reserve type kinds for dialect specific type system extensions.
-#define DEFINE_SYM_KIND_RANGE(Dialect)                                         \
-  FIRST_##Dialect##_TYPE, LAST_##Dialect##_TYPE = FIRST_##Dialect##_TYPE + 0xff,
-#include "DialectSymbolRegistry.def"
-  };
-
   /// Utility class for implementing types.
-  template <typename ConcreteType, typename BaseType,
-            typename StorageType = DefaultTypeStorage>
+  template <typename ConcreteType, typename BaseType, typename StorageType,
+            template <typename T> class... Traits>
   using TypeBase = detail::StorageUserBase<ConcreteType, BaseType, StorageType,
-                                           detail::TypeUniquer>;
+                                           detail::TypeUniquer, Traits...>;
 
   using ImplType = TypeStorage;
 
-  constexpr Type() : impl(nullptr) {}
+  using AbstractTy = AbstractType;
+
+  constexpr Type() = default;
   /* implicit */ Type(const ImplType *impl)
       : impl(const_cast<ImplType *>(impl)) {}
 
@@ -120,71 +96,69 @@ public:
 
   bool operator!() const { return impl == nullptr; }
 
-  template <typename U> bool isa() const;
-  template <typename U> U dyn_cast() const;
-  template <typename U> U dyn_cast_or_null() const;
-  template <typename U> U cast() const;
+  /// Return a unique identifier for the concrete type. This is used to support
+  /// dynamic type casting.
+  TypeID getTypeID() { return impl->getAbstractType().getTypeID(); }
 
-  // Support type casting Type to itself.
-  static bool classof(Type) { return true; }
-
-  /// Return the classification for this type.
-  unsigned getKind() const;
-
-  /// Return the LLVMContext in which this type was uniqued.
+  /// Return the MLIRContext in which this type was uniqued.
   MLIRContext *getContext() const;
 
   /// Get the dialect this type is registered to.
-  Dialect &getDialect() const;
+  Dialect &getDialect() const { return impl->getAbstractType().getDialect(); }
 
   // Convenience predicates.  This is only for floating point types,
   // derived types should use isa/dyn_cast.
-  bool isIndex();
-  bool isBF16();
-  bool isF16();
-  bool isF32();
-  bool isF64();
+  bool isIndex() const;
+  bool isBF16() const;
+  bool isF16() const;
+  bool isTF32() const;
+  bool isF32() const;
+  bool isF64() const;
+  bool isF80() const;
+  bool isF128() const;
+  /// Return true if this is an float type (with the specified width).
+  bool isFloat() const;
+  bool isFloat(unsigned width) const;
 
-  /// Return true if this is an integer type with the specified width.
-  bool isInteger(unsigned width);
+  /// Return true if this is an integer type (with the specified width).
+  bool isInteger() const;
+  bool isInteger(unsigned width) const;
   /// Return true if this is a signless integer type (with the specified width).
-  bool isSignlessInteger();
-  bool isSignlessInteger(unsigned width);
+  bool isSignlessInteger() const;
+  bool isSignlessInteger(unsigned width) const;
   /// Return true if this is a signed integer type (with the specified width).
-  bool isSignedInteger();
-  bool isSignedInteger(unsigned width);
+  bool isSignedInteger() const;
+  bool isSignedInteger(unsigned width) const;
   /// Return true if this is an unsigned integer type (with the specified
   /// width).
-  bool isUnsignedInteger();
-  bool isUnsignedInteger(unsigned width);
+  bool isUnsignedInteger() const;
+  bool isUnsignedInteger(unsigned width) const;
 
   /// Return the bit width of an integer or a float type, assert failure on
   /// other types.
-  unsigned getIntOrFloatBitWidth();
+  unsigned getIntOrFloatBitWidth() const;
 
   /// Return true if this is a signless integer or index type.
-  bool isSignlessIntOrIndex();
+  bool isSignlessIntOrIndex() const;
   /// Return true if this is a signless integer, index, or float type.
-  bool isSignlessIntOrIndexOrFloat();
+  bool isSignlessIntOrIndexOrFloat() const;
   /// Return true of this is a signless integer or a float type.
-  bool isSignlessIntOrFloat();
+  bool isSignlessIntOrFloat() const;
 
   /// Return true if this is an integer (of any signedness) or an index type.
-  bool isIntOrIndex();
+  bool isIntOrIndex() const;
   /// Return true if this is an integer (of any signedness) or a float type.
-  bool isIntOrFloat();
+  bool isIntOrFloat() const;
   /// Return true if this is an integer (of any signedness), index, or float
   /// type.
-  bool isIntOrIndexOrFloat();
+  bool isIntOrIndexOrFloat() const;
 
   /// Print the current type.
-  void print(raw_ostream &os);
-  void dump();
+  void print(raw_ostream &os) const;
+  void print(raw_ostream &os, AsmState &state) const;
+  void dump() const;
 
   friend ::llvm::hash_code hash_value(Type arg);
-
-  unsigned getSubclassData() const;
-  void setSubclassData(unsigned val);
 
   /// Methods for supporting PointerLikeTypeTraits.
   const void *getAsOpaquePointer() const {
@@ -194,8 +168,70 @@ public:
     return Type(reinterpret_cast<ImplType *>(const_cast<void *>(pointer)));
   }
 
+  /// Returns true if `InterfaceT` has been promised by the dialect or
+  /// implemented.
+  template <typename InterfaceT>
+  bool hasPromiseOrImplementsInterface() {
+    return dialect_extension_detail::hasPromisedInterface(
+               getDialect(), getTypeID(), InterfaceT::getInterfaceID()) ||
+           mlir::isa<InterfaceT>(*this);
+  }
+
+  /// Returns true if the type was registered with a particular trait.
+  template <template <typename T> class Trait>
+  bool hasTrait() {
+    return getAbstractType().hasTrait<Trait>();
+  }
+
+  /// Return the abstract type descriptor for this type.
+  const AbstractTy &getAbstractType() const { return impl->getAbstractType(); }
+
+  /// Return the Type implementation.
+  ImplType *getImpl() const { return impl; }
+
+  /// Walk all of the immediately nested sub-attributes and sub-types. This
+  /// method does not recurse into sub elements.
+  void walkImmediateSubElements(function_ref<void(Attribute)> walkAttrsFn,
+                                function_ref<void(Type)> walkTypesFn) const {
+    getAbstractType().walkImmediateSubElements(*this, walkAttrsFn, walkTypesFn);
+  }
+
+  /// Replace the immediately nested sub-attributes and sub-types with those
+  /// provided. The order of the provided elements is derived from the order of
+  /// the elements returned by the callbacks of `walkImmediateSubElements`. The
+  /// element at index 0 would replace the very first attribute given by
+  /// `walkImmediateSubElements`. On success, the new instance with the values
+  /// replaced is returned. If replacement fails, nullptr is returned.
+  auto replaceImmediateSubElements(ArrayRef<Attribute> replAttrs,
+                                   ArrayRef<Type> replTypes) const {
+    return getAbstractType().replaceImmediateSubElements(*this, replAttrs,
+                                                         replTypes);
+  }
+
+  /// Walk this type and all attibutes/types nested within using the
+  /// provided walk functions. See `AttrTypeWalker` for information on the
+  /// supported walk function types.
+  template <WalkOrder Order = WalkOrder::PostOrder, typename... WalkFns>
+  auto walk(WalkFns &&...walkFns) {
+    AttrTypeWalker walker;
+    (walker.addWalk(std::forward<WalkFns>(walkFns)), ...);
+    return walker.walk<Order>(*this);
+  }
+
+  /// Recursively replace all of the nested sub-attributes and sub-types using
+  /// the provided map functions. Returns nullptr in the case of failure. See
+  /// `AttrTypeReplacer` for information on the support replacement function
+  /// types.
+  template <typename... ReplacementFns>
+  auto replace(ReplacementFns &&...replacementFns) {
+    AttrTypeReplacer replacer;
+    (replacer.addReplacement(std::forward<ReplacementFns>(replacementFns)),
+     ...);
+    return replacer.replace(*this);
+  }
+
 protected:
-  ImplType *impl;
+  ImplType *impl{nullptr};
 };
 
 inline raw_ostream &operator<<(raw_ostream &os, Type type) {
@@ -203,105 +239,105 @@ inline raw_ostream &operator<<(raw_ostream &os, Type type) {
   return os;
 }
 
-/// Function types map from a list of inputs to a list of results.
-class FunctionType
-    : public Type::TypeBase<FunctionType, Type, detail::FunctionTypeStorage> {
+//===----------------------------------------------------------------------===//
+// TypeTraitBase
+//===----------------------------------------------------------------------===//
+
+namespace TypeTrait {
+/// This class represents the base of a type trait.
+template <typename ConcreteType, template <typename> class TraitType>
+using TraitBase = detail::StorageUserTraitBase<ConcreteType, TraitType>;
+} // namespace TypeTrait
+
+//===----------------------------------------------------------------------===//
+// TypeInterface
+//===----------------------------------------------------------------------===//
+
+/// This class represents the base of a type interface. See the definition  of
+/// `detail::Interface` for requirements on the `Traits` type.
+template <typename ConcreteType, typename Traits>
+class TypeInterface : public detail::Interface<ConcreteType, Type, Traits, Type,
+                                               TypeTrait::TraitBase> {
 public:
-  using Base::Base;
+  using Base = TypeInterface<ConcreteType, Traits>;
+  using InterfaceBase =
+      detail::Interface<ConcreteType, Type, Traits, Type, TypeTrait::TraitBase>;
+  using InterfaceBase::InterfaceBase;
 
-  static FunctionType get(ArrayRef<Type> inputs, ArrayRef<Type> results,
-                          MLIRContext *context);
+protected:
+  /// Returns the impl interface instance for the given type.
+  static typename InterfaceBase::Concept *getInterfaceFor(Type type) {
+#ifndef NDEBUG
+    // Check that the current interface isn't an unresolved promise for the
+    // given type.
+    dialect_extension_detail::handleUseOfUndefinedPromisedInterface(
+        type.getDialect(), type.getTypeID(), ConcreteType::getInterfaceID(),
+        llvm::getTypeName<ConcreteType>());
+#endif
 
-  // Input types.
-  unsigned getNumInputs() const { return getSubclassData(); }
+    return type.getAbstractType().getInterface<ConcreteType>();
+  }
 
-  Type getInput(unsigned i) const { return getInputs()[i]; }
-
-  ArrayRef<Type> getInputs() const;
-
-  // Result types.
-  unsigned getNumResults() const;
-
-  Type getResult(unsigned i) const { return getResults()[i]; }
-
-  ArrayRef<Type> getResults() const;
-
-  /// Methods for support type inquiry through isa, cast, and dyn_cast.
-  static bool kindof(unsigned kind) { return kind == Kind::Function; }
+  /// Allow access to 'getInterfaceFor'.
+  friend InterfaceBase;
 };
 
-/// Opaque types represent types of non-registered dialects. These are types
-/// represented in their raw string form, and can only usefully be tested for
-/// type equality.
-class OpaqueType
-    : public Type::TypeBase<OpaqueType, Type, detail::OpaqueTypeStorage> {
-public:
-  using Base::Base;
+//===----------------------------------------------------------------------===//
+// Core TypeTrait
+//===----------------------------------------------------------------------===//
 
-  /// Get or create a new OpaqueType with the provided dialect and string data.
-  static OpaqueType get(Identifier dialect, StringRef typeData,
-                        MLIRContext *context);
+/// This trait is used to determine if a type is mutable or not. It is attached
+/// on a type if the corresponding ImplType defines a `mutate` function with
+/// a proper signature.
+namespace TypeTrait {
+template <typename ConcreteType>
+using IsMutable = detail::StorageUserTrait::IsMutable<ConcreteType>;
+} // namespace TypeTrait
 
-  /// Get or create a new OpaqueType with the provided dialect and string data.
-  /// If the given identifier is not a valid namespace for a dialect, then a
-  /// null type is returned.
-  static OpaqueType getChecked(Identifier dialect, StringRef typeData,
-                               MLIRContext *context, Location location);
-
-  /// Returns the dialect namespace of the opaque type.
-  Identifier getDialectNamespace() const;
-
-  /// Returns the raw type data of the opaque type.
-  StringRef getTypeData() const;
-
-  /// Verify the construction of an opaque type.
-  static LogicalResult verifyConstructionInvariants(Location loc,
-                                                    Identifier dialect,
-                                                    StringRef typeData);
-
-  static bool kindof(unsigned kind) { return kind == Kind::Opaque; }
-};
+//===----------------------------------------------------------------------===//
+// Type Utils
+//===----------------------------------------------------------------------===//
 
 // Make Type hashable.
 inline ::llvm::hash_code hash_value(Type arg) {
-  return ::llvm::hash_value(arg.impl);
+  return DenseMapInfo<const Type::ImplType *>::getHashValue(arg.impl);
 }
 
-template <typename U> bool Type::isa() const {
-  assert(impl && "isa<> used on a null type.");
-  return U::classof(*this);
-}
-template <typename U> U Type::dyn_cast() const {
-  return isa<U>() ? U(impl) : U(nullptr);
-}
-template <typename U> U Type::dyn_cast_or_null() const {
-  return (impl && isa<U>()) ? U(impl) : U(nullptr);
-}
-template <typename U> U Type::cast() const {
-  assert(isa<U>());
-  return U(impl);
-}
-
-} // end namespace mlir
+} // namespace mlir
 
 namespace llvm {
 
 // Type hash just like pointers.
-template <> struct DenseMapInfo<mlir::Type> {
+template <>
+struct DenseMapInfo<mlir::Type> {
   static mlir::Type getEmptyKey() {
-    auto pointer = llvm::DenseMapInfo<void *>::getEmptyKey();
+    auto *pointer = llvm::DenseMapInfo<void *>::getEmptyKey();
     return mlir::Type(static_cast<mlir::Type::ImplType *>(pointer));
   }
   static mlir::Type getTombstoneKey() {
-    auto pointer = llvm::DenseMapInfo<void *>::getTombstoneKey();
+    auto *pointer = llvm::DenseMapInfo<void *>::getTombstoneKey();
     return mlir::Type(static_cast<mlir::Type::ImplType *>(pointer));
   }
   static unsigned getHashValue(mlir::Type val) { return mlir::hash_value(val); }
   static bool isEqual(mlir::Type LHS, mlir::Type RHS) { return LHS == RHS; }
 };
+template <typename T>
+struct DenseMapInfo<T, std::enable_if_t<std::is_base_of<mlir::Type, T>::value &&
+                                        !mlir::detail::IsInterface<T>::value>>
+    : public DenseMapInfo<mlir::Type> {
+  static T getEmptyKey() {
+    const void *pointer = llvm::DenseMapInfo<const void *>::getEmptyKey();
+    return T::getFromOpaquePointer(pointer);
+  }
+  static T getTombstoneKey() {
+    const void *pointer = llvm::DenseMapInfo<const void *>::getTombstoneKey();
+    return T::getFromOpaquePointer(pointer);
+  }
+};
 
 /// We align TypeStorage by 8, so allow LLVM to steal the low bits.
-template <> struct PointerLikeTypeTraits<mlir::Type> {
+template <>
+struct PointerLikeTypeTraits<mlir::Type> {
 public:
   static inline void *getAsVoidPointer(mlir::Type I) {
     return const_cast<void *>(I.getAsOpaquePointer());
@@ -310,6 +346,35 @@ public:
     return mlir::Type::getFromOpaquePointer(P);
   }
   static constexpr int NumLowBitsAvailable = 3;
+};
+
+/// Add support for llvm style casts.
+/// We provide a cast between To and From if From is mlir::Type or derives from
+/// it
+template <typename To, typename From>
+struct CastInfo<
+    To, From,
+    std::enable_if_t<std::is_same_v<mlir::Type, std::remove_const_t<From>> ||
+                     std::is_base_of_v<mlir::Type, From>>>
+    : NullableValueCastFailed<To>,
+      DefaultDoCastIfPossible<To, From, CastInfo<To, From>> {
+  /// Arguments are taken as mlir::Type here and not as `From`, because when
+  /// casting from an intermediate type of the hierarchy to one of its children,
+  /// the val.getTypeID() inside T::classof will use the static getTypeID of the
+  /// parent instead of the non-static Type::getTypeID that returns the dynamic
+  /// ID. This means that T::classof would end up comparing the static TypeID of
+  /// the children to the static TypeID of its parent, making it impossible to
+  /// downcast from the parent to the child.
+  static inline bool isPossible(mlir::Type ty) {
+    /// Return a constant true instead of a dynamic true when casting to self or
+    /// up the hierarchy.
+    if constexpr (std::is_base_of_v<To, From>) {
+      return true;
+    } else {
+      return To::classof(ty);
+    };
+  }
+  static inline To doCast(mlir::Type ty) { return To(ty.getImpl()); }
 };
 
 } // namespace llvm

@@ -27,18 +27,15 @@ class ARCFunctionInfo : public MachineFunctionInfo {
   unsigned ReturnStackOffset;
 
 public:
-  ARCFunctionInfo()
+  explicit ARCFunctionInfo(const Function &F, const TargetSubtargetInfo *STI)
       : ReturnStackOffsetSet(false), VarArgsFrameIndex(0),
         ReturnStackOffset(-1U), MaxCallStackReq(0) {}
-
-  explicit ARCFunctionInfo(MachineFunction &MF)
-      : ReturnStackOffsetSet(false), VarArgsFrameIndex(0),
-        ReturnStackOffset(-1U), MaxCallStackReq(0) {
-    // Functions are 4-byte aligned.
-    MF.setAlignment(Align(4));
-  }
-
   ~ARCFunctionInfo() {}
+
+  MachineFunctionInfo *
+  clone(BumpPtrAllocator &Allocator, MachineFunction &DestMF,
+        const DenseMap<MachineBasicBlock *, MachineBasicBlock *> &Src2DstMBB)
+      const override;
 
   void setVarArgsFrameIndex(int off) { VarArgsFrameIndex = off; }
   int getVarArgsFrameIndex() const { return VarArgsFrameIndex; }

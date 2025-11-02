@@ -1,0 +1,99 @@
+   EREF 2.0: A Programmer’s Reference
+Manual for Freescale Power Architecture®
+                             Processors
+
+
+                                        Supports
+                                  e500 core family
+                 (e500v1, e500v2, e500mc, e5500)
+                                  e200 core family
+
+
+
+
+                                           EREF_RM
+                                              Rev. 0
+                                             09/2011
+How to Reach Us:
+Home Page:
+www.freescale.com
+Web Support:
+http://www.freescale.com/support        Information in this document is provided solely to enable system and software
+USA/Europe or Locations Not Listed:     implementers to use Freescale Semiconductor products. There are no express or
+Freescale Semiconductor, Inc.           implied copyright licenses granted hereunder to design or fabricate any integrated
+Technical Information Center, EL516
+                                        circuits or integrated circuits based on the information in this document.
+2100 East Elliot Road
+Tempe, Arizona 85284                    Freescale Semiconductor reserves the right to make changes without further notice to
++1-800-521-6274 or                      any products herein. Freescale Semiconductor makes no warranty, representation or
++1-480-768-2130
+                                        guarantee regarding the suitability of its products for any particular purpose, nor does
+www.freescale.com/support
+                                        Freescale Semiconductor assume any liability arising out of the application or use of
+Europe, Middle East, and Africa:
+                                        any product or circuit, and specifically disclaims any and all liability, including without
+Freescale Halbleiter Deutschland GmbH
+Technical Information Center            limitation consequential or incidental damages. “Typical” parameters which may be
+Schatzbogen 7                           provided in Freescale Semiconductor data sheets and/or specifications can and do
+81829 Muenchen, Germany                 vary in different applications and actual performance may vary over time. All operating
++44 1296 380 456 (English)
+                                        parameters, including “Typicals” must be validated for each customer application by
++46 8 52200080 (English)
++49 89 92103 559 (German)               customer’s technical experts. Freescale Semiconductor does not convey any license
++33 1 69 35 48 48 (French)              under its patent rights nor the rights of others. Freescale Semiconductor products are
+www.freescale.com/support
+                                        not designed, intended, or authorized for use as components in systems intended for
+Japan:                                  surgical implant into the body, or other applications intended to support or sustain life,
+Freescale Semiconductor Japan Ltd.
+                                        or for any other application in which the failure of the Freescale Semiconductor product
+Headquarters
+ARCO Tower 15F                          could create a situation where personal injury or death may occur. Should Buyer
+1-8-1, Shimo-Meguro, Meguro-ku          purchase or use Freescale Semiconductor products for any such unintended or
+Tokyo 153-0064                          unauthorized application, Buyer shall indemnify and hold Freescale Semiconductor
+Japan
+                                        and its officers, employees, subsidiaries, affiliates, and distributors harmless against all
+0120 191014 or
++81 3 5437 9125                         claims, costs, damages, and expenses, and reasonable attorney fees arising out of,
+support.japan@freescale.com             directly or indirectly, any claim of personal injury or death associated with such
+Asia/Pacific:                           unintended or unauthorized use, even if such claim alleges that Freescale
+Freescale Semiconductor China Ltd.      Semiconductor was negligent regarding the design or manufacture of the part.
+Exchange Building 23F
+No. 118 Jianguo Road
+Chaoyang District
+Beijing 100022
+China                                   Freescale, the Freescale logo, CodeWarrior, ColdFire, PowerQUICC,
++86 010 5879 8000                       StarCore, and Symphony are trademarks of Freescale Semiconductor, Inc.
+support.asia@freescale.com              Reg. U.S. Pat. & Tm. Off. CoreNet, QorIQ, QUICC Engine, and VortiQa are
+For Literature Requests Only:           trademarks of Freescale Semiconductor, Inc. All other product or service
+Freescale Semiconductor                 names are the property of their respective owners. The Power Architecture
+  Literature Distribution Center        and Power.org word marks and the Power and Power.org logos and related
++1-800 441-2447 or                      marks are trademarks and service marks licensed by Power.org.
++1-303-675-2140                         © 2007, 2010, 2011 Freescale Semiconductor, Inc.
+Fax: +1-303-675-2150
+LDCForFreescaleSemiconductor
+  @hibbertgroup.com
+
+
+
+
+Document Number: EREF_RM
+Rev. 0, 09/2011
+                                                             Contents
+Paragraph                                                                                                                                   Page
+Number                                                               Title                                                                Number
+                                                                        Contents
+
+
+
+                 How to Use this Book ..........................................................................................................7
+                 Audience ..............................................................................................................................8
+                 Organization.........................................................................................................................8
+                 Additional Reading ..............................................................................................................9
+                   Documentation Set...........................................................................................................9
+                   General Information.......................................................................................................10
+                 Conventions .......................................................................................................................10
+                 Acronyms and Abbreviations ............................................................................................11
+                 Terminology Conventions..................................................................................................12
+
+                                                                Chapter 1
+                                                                Overview

@@ -11,18 +11,10 @@
 #include "flang/Common/indirection.h"
 #include "flang/Parser/tools.h"
 #include "flang/Parser/user-state.h"
+#include "llvm/ADT/ArrayRef.h"
+#include "llvm/Frontend/OpenMP/OMP.h"
 #include "llvm/Support/raw_ostream.h"
 #include <algorithm>
-
-// So "delete Expr;" calls an external destructor for its typedExpr.
-namespace Fortran::evaluate {
-struct GenericExprWrapper {
-  ~GenericExprWrapper();
-};
-struct GenericAssignmentWrapper {
-  ~GenericAssignmentWrapper();
-};
-} // namespace Fortran::evaluate
 
 namespace Fortran::parser {
 
@@ -42,7 +34,7 @@ CommonStmt::CommonStmt(std::optional<Name> &&name,
 
 // R901 designator
 bool Designator::EndsInBareName() const {
-  return std::visit(
+  return common::visit(
       common::visitors{
           [](const DataRef &dr) {
             return std::holds_alternative<Name>(dr.u) ||
@@ -130,11 +122,11 @@ template <typename T> T WithSource(CharBlock source, T &&x) {
 }
 
 static Expr ActualArgToExpr(ActualArgSpec &arg) {
-  return std::visit(
+  return common::visit(
       common::visitors{
           [&](common::Indirection<Expr> &y) { return std::move(y.value()); },
           [&](common::Indirection<Variable> &y) {
-            return std::visit(
+            return common::visit(
                 common::visitors{
                     [&](common::Indirection<Designator> &z) {
                       return WithSource(
@@ -142,7 +134,7 @@ static Expr ActualArgToExpr(ActualArgSpec &arg) {
                     },
                     [&](common::Indirection<FunctionReference> &z) {
                       return WithSource(
-                          z.value().v.source, Expr{std::move(z.value())});
+                          z.value().source, Expr{std::move(z.value())});
                     },
                 },
                 y.value().u);
@@ -157,14 +149,14 @@ Designator FunctionReference::ConvertToArrayElementRef() {
   for (auto &arg : std::get<std::list<ActualArgSpec>>(v.t)) {
     args.emplace_back(ActualArgToExpr(arg));
   }
-  return std::visit(
+  return common::visit(
       common::visitors{
           [&](const Name &name) {
             return WithSource(
-                v.source, MakeArrayElementRef(name, std::move(args)));
+                source, MakeArrayElementRef(name, std::move(args)));
           },
           [&](ProcComponentRef &pcr) {
-            return WithSource(v.source,
+            return WithSource(source,
                 MakeArrayElementRef(std::move(pcr.v.thing), std::move(args)));
           },
       },
@@ -194,7 +186,7 @@ StructureConstructor ArrayElement::ConvertToStructureConstructor(
   std::list<ComponentSpec> components;
   for (auto &subscript : subscripts) {
     components.emplace_back(std::optional<Keyword>{},
-        ComponentDataSource{std::move(*Unwrap<Expr>(subscript))});
+        ComponentDataSource{std::move(UnwrapRef<Expr>(subscript))});
   }
   DerivedTypeSpec spec{std::move(name), std::list<TypeParamSpec>{}};
   spec.derivedTypeSpec = &derived;
@@ -213,41 +205,47 @@ Substring ArrayElement::ConvertToSubstring() {
 }
 
 // R1544 stmt-function-stmt
-// Convert this stmt-function-stmt to an array element assignment statement.
+// Convert this stmt-function-stmt to an assignment to the result of a
+// pointer-valued function call -- which itself will be converted to a
+// much more likely array element assignment statement if it needs
+// to be.
 Statement<ActionStmt> StmtFunctionStmt::ConvertToAssignment() {
   auto &funcName{std::get<Name>(t)};
   auto &funcArgs{std::get<std::list<Name>>(t)};
   auto &funcExpr{std::get<Scalar<Expr>>(t).thing};
   CharBlock source{funcName.source};
-  std::list<Expr> subscripts;
-  for (Name &arg : funcArgs) {
-    subscripts.push_back(WithSource(arg.source,
-        Expr{common::Indirection{
-            WithSource(arg.source, Designator{DataRef{Name{arg}}})}}));
-    source.ExtendToCover(arg.source);
-  }
-  // extend source to include closing paren
+  // Extend source to include closing parenthesis
   if (funcArgs.empty()) {
     CHECK(*source.end() == '(');
     source = CharBlock{source.begin(), source.end() + 1};
   }
+  std::list<ActualArgSpec> actuals;
+  for (const Name &arg : funcArgs) {
+    actuals.emplace_back(std::optional<Keyword>{},
+        ActualArg{Expr{WithSource(
+            arg.source, Designator{DataRef{Name{arg.source, arg.symbol}}})}});
+    source.ExtendToCover(arg.source);
+  }
   CHECK(*source.end() == ')');
   source = CharBlock{source.begin(), source.end() + 1};
-  auto variable{Variable{common::Indirection{WithSource(
-      source, MakeArrayElementRef(funcName, std::move(subscripts)))}}};
+  FunctionReference funcRef{
+      Call{ProcedureDesignator{Name{funcName.source, funcName.symbol}},
+          std::move(actuals)}};
+  funcRef.source = source;
+  auto variable{Variable{common::Indirection{std::move(funcRef)}}};
   return Statement{std::nullopt,
       ActionStmt{common::Indirection{
           AssignmentStmt{std::move(variable), std::move(funcExpr)}}}};
 }
 
 CharBlock Variable::GetSource() const {
-  return std::visit(
+  return common::visit(
       common::visitors{
           [&](const common::Indirection<Designator> &des) {
             return des.value().source;
           },
           [&](const common::Indirection<parser::FunctionReference> &call) {
-            return call.value().v.source;
+            return call.value().source;
           },
       },
       u);
@@ -257,7 +255,206 @@ llvm::raw_ostream &operator<<(llvm::raw_ostream &os, const Name &x) {
   return os << x.ToString();
 }
 
+OmpDirectiveName::OmpDirectiveName(const Verbatim &name) {
+  std::string_view nameView{name.source.begin(), name.source.size()};
+  std::string nameLower{ToLowerCaseLetters(nameView)};
+  // The function getOpenMPDirectiveKind will return OMPD_unknown in two cases:
+  // (1) if the given string doesn't match any actual directive, or
+  // (2) if the given string was "unknown".
+  // The Verbatim(<token>) parser will succeed as long as the given token
+  // matches the source.
+  // Since using "construct<OmpDirectiveName>(verbatim(...))" will succeed
+  // if the verbatim parser succeeds, in order to get OMPD_unknown the
+  // token given to Verbatim must be invalid. Because it's an internal issue
+  // asserting is ok.
+  v = llvm::omp::getOpenMPDirectiveKind(nameLower);
+  assert(v != llvm::omp::Directive::OMPD_unknown && "Invalid directive name");
+  source = name.source;
+}
+
+OmpDependenceType::Value OmpDoacross::GetDepType() const {
+  return common::visit( //
+      common::visitors{
+          [](const OmpDoacross::Sink &) {
+            return OmpDependenceType::Value::Sink;
+          },
+          [](const OmpDoacross::Source &) {
+            return OmpDependenceType::Value::Source;
+          },
+      },
+      u);
+}
+
+OmpTaskDependenceType::Value OmpDependClause::TaskDep::GetTaskDepType() const {
+  using Modifier = OmpDependClause::TaskDep::Modifier;
+  auto &modifiers{std::get<std::optional<std::list<Modifier>>>(t)};
+  if (modifiers) {
+    for (auto &m : *modifiers) {
+      if (auto *dep{std::get_if<OmpTaskDependenceType>(&m.u)}) {
+        return dep->v;
+      }
+    }
+    llvm_unreachable("expecting OmpTaskDependenceType in TaskDep");
+  } else {
+    llvm_unreachable("expecting modifiers on OmpDependClause::TaskDep");
+  }
+}
+
+std::string OmpTraitSelectorName::ToString() const {
+  return common::visit( //
+      common::visitors{
+          [&](Value v) { //
+            return std::string(EnumToString(v));
+          },
+          [&](llvm::omp::Directive d) {
+            return llvm::omp::getOpenMPDirectiveName(
+                d, llvm::omp::FallbackVersion)
+                .str();
+          },
+          [&](const std::string &s) { //
+            return s;
+          },
+      },
+      u);
+}
+
+std::string OmpTraitSetSelectorName::ToString() const {
+  return std::string(EnumToString(v));
+}
+
+llvm::omp::Clause OpenMPAtomicConstruct::GetKind() const {
+  const OmpDirectiveSpecification &dirSpec{std::get<OmpBeginDirective>(t)};
+  for (auto &clause : dirSpec.Clauses().v) {
+    switch (clause.Id()) {
+    case llvm::omp::Clause::OMPC_read:
+    case llvm::omp::Clause::OMPC_write:
+    case llvm::omp::Clause::OMPC_update:
+      return clause.Id();
+    default:
+      break;
+    }
+  }
+  return llvm::omp::Clause::OMPC_update;
+}
+
+bool OpenMPAtomicConstruct::IsCapture() const {
+  const OmpDirectiveSpecification &dirSpec{std::get<OmpBeginDirective>(t)};
+  return llvm::any_of(dirSpec.Clauses().v, [](auto &clause) {
+    return clause.Id() == llvm::omp::Clause::OMPC_capture;
+  });
+}
+
+bool OpenMPAtomicConstruct::IsCompare() const {
+  const OmpDirectiveSpecification &dirSpec{std::get<OmpBeginDirective>(t)};
+  return llvm::any_of(dirSpec.Clauses().v, [](auto &clause) {
+    return clause.Id() == llvm::omp::Clause::OMPC_compare;
+  });
+}
 } // namespace Fortran::parser
 
-template class std::unique_ptr<Fortran::evaluate::GenericExprWrapper>;
-template class std::unique_ptr<Fortran::evaluate::GenericAssignmentWrapper>;
+template <typename C> static llvm::omp::Clause getClauseIdForClass(C &&) {
+  using namespace Fortran;
+  using A = llvm::remove_cvref_t<C>; // A is referenced in OMP.inc
+  // The code included below contains a sequence of checks like the following
+  // for each OpenMP clause
+  //   if constexpr (std::is_same_v<A, parser::OmpClause::AcqRel>)
+  //     return llvm::omp::Clause::OMPC_acq_rel;
+  //   [...]
+#define GEN_FLANG_CLAUSE_PARSER_KIND_MAP
+#include "llvm/Frontend/OpenMP/OMP.inc"
+}
+
+namespace Fortran::parser {
+llvm::omp::Clause OmpClause::Id() const {
+  return std::visit([](auto &&s) { return getClauseIdForClass(s); }, u);
+}
+
+bool OmpDirectiveName::IsExecutionPart() const {
+  // Can the directive appear in the execution part of the program.
+  llvm::omp::Directive id{v};
+  switch (llvm::omp::getDirectiveCategory(id)) {
+  case llvm::omp::Category::Executable:
+    return true;
+  case llvm::omp::Category::Declarative:
+    switch (id) {
+    case llvm::omp::Directive::OMPD_allocate:
+      return true;
+    default:
+      return false;
+    }
+    break;
+  case llvm::omp::Category::Informational:
+    switch (id) {
+    case llvm::omp::Directive::OMPD_assume:
+      return true;
+    default:
+      return false;
+    }
+    break;
+  case llvm::omp::Category::Meta:
+    return true;
+  case llvm::omp::Category::Subsidiary:
+    switch (id) {
+    // TODO: case llvm::omp::Directive::OMPD_task_iteration:
+    case llvm::omp::Directive::OMPD_section:
+    case llvm::omp::Directive::OMPD_scan:
+      return true;
+    default:
+      return false;
+    }
+    break;
+  case llvm::omp::Category::Utility:
+    switch (id) {
+    case llvm::omp::Directive::OMPD_error:
+    case llvm::omp::Directive::OMPD_nothing:
+      return true;
+    default:
+      return false;
+    }
+    break;
+  }
+  return false;
+}
+
+const OmpArgumentList &OmpDirectiveSpecification::Arguments() const {
+  static OmpArgumentList empty{decltype(OmpArgumentList::v){}};
+  if (auto &arguments = std::get<std::optional<OmpArgumentList>>(t)) {
+    return *arguments;
+  }
+  return empty;
+}
+
+const OmpClauseList &OmpDirectiveSpecification::Clauses() const {
+  static OmpClauseList empty{decltype(OmpClauseList::v){}};
+  if (auto &clauses = std::get<std::optional<OmpClauseList>>(t)) {
+    return *clauses;
+  }
+  return empty;
+}
+
+static bool InitCharBlocksFromStrings(llvm::MutableArrayRef<CharBlock> blocks,
+    llvm::ArrayRef<std::string> strings) {
+  for (auto [i, n] : llvm::enumerate(strings)) {
+    blocks[i] = CharBlock(n);
+  }
+  return true;
+}
+
+// The names should have static storage duration. Keep these names
+// in a sigle place.
+llvm::ArrayRef<CharBlock> OmpCombinerExpression::Variables() {
+  static std::string names[]{"omp_in", "omp_out"};
+  static CharBlock vars[std::size(names)];
+
+  [[maybe_unused]] static bool init = InitCharBlocksFromStrings(vars, names);
+  return vars;
+}
+
+llvm::ArrayRef<CharBlock> OmpInitializerExpression::Variables() {
+  static std::string names[]{"omp_orig", "omp_priv"};
+  static CharBlock vars[std::size(names)];
+
+  [[maybe_unused]] static bool init = InitCharBlocksFromStrings(vars, names);
+  return vars;
+}
+} // namespace Fortran::parser

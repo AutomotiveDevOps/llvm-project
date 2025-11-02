@@ -19,84 +19,78 @@
 #include "test_macros.h"
 #include "test_iterators.h"
 
-typedef std::num_put<char, output_iterator<char*> > F;
+typedef std::num_put<char, cpp17_output_iterator<char*> > F;
 
-class my_facet
-    : public F
-{
+class my_facet : public F {
 public:
-    explicit my_facet(std::size_t refs = 0)
-        : F(refs) {}
+  explicit my_facet(std::size_t refs = 0) : F(refs) {}
 };
 
-class my_numpunct
-    : public std::numpunct<char>
-{
+class my_numpunct : public std::numpunct<char> {
 public:
-    my_numpunct() : std::numpunct<char>() {}
+  my_numpunct() : std::numpunct<char>() {}
 
 protected:
-    virtual string_type do_truename() const {return "yes";}
-    virtual string_type do_falsename() const {return "no";}
+  virtual string_type do_truename() const { return "yes"; }
+  virtual string_type do_falsename() const { return "no"; }
 };
 
-int main(int, char**)
-{
-    const my_facet f(1);
+int main(int, char**) {
+  const my_facet f(1);
+  {
+    std::ios ios(0);
     {
-        std::ios ios(0);
-        {
-            bool v = false;
-            char str[50];
-            output_iterator<char*> iter = f.put(output_iterator<char*>(str), ios, '*', v);
-            std::string ex(str, iter.base());
-            assert(ex == "0");
-        }
-        {
-            bool v = true;
-            char str[50];
-            output_iterator<char*> iter = f.put(output_iterator<char*>(str), ios, '*', v);
-            std::string ex(str, iter.base());
-            assert(ex == "1");
-        }
+      bool v = false;
+      char str[50];
+      cpp17_output_iterator<char*> iter = f.put(cpp17_output_iterator<char*>(str), ios, '*', v);
+      std::string ex(str, base(iter));
+      assert(ex == "0");
     }
     {
-        std::ios ios(0);
-        boolalpha(ios);
-        {
-            bool v = false;
-            char str[50];
-            output_iterator<char*> iter = f.put(output_iterator<char*>(str), ios, '*', v);
-            std::string ex(str, iter.base());
-            assert(ex == "false");
-        }
-        {
-            bool v = true;
-            char str[50];
-            output_iterator<char*> iter = f.put(output_iterator<char*>(str), ios, '*', v);
-            std::string ex(str, iter.base());
-            assert(ex == "true");
-        }
+      bool v = true;
+      char str[50];
+      cpp17_output_iterator<char*> iter = f.put(cpp17_output_iterator<char*>(str), ios, '*', v);
+      std::string ex(str, base(iter));
+      assert(ex == "1");
+    }
+  }
+  {
+    std::ios ios(0);
+    std::boolalpha(ios);
+    {
+      bool v = false;
+      char str[50];
+      cpp17_output_iterator<char*> iter = f.put(cpp17_output_iterator<char*>(str), ios, '*', v);
+      std::string ex(str, base(iter));
+      assert(ex == "false");
     }
     {
-        std::ios ios(0);
-        boolalpha(ios);
-        ios.imbue(std::locale(std::locale::classic(), new my_numpunct));
-        {
-            bool v = false;
-            char str[50];
-            output_iterator<char*> iter = f.put(output_iterator<char*>(str), ios, '*', v);
-            std::string ex(str, iter.base());
-            assert(ex == "no");
-        }
-        {
-            bool v = true;
-            char str[50];
-            output_iterator<char*> iter = f.put(output_iterator<char*>(str), ios, '*', v);
-            std::string ex(str, iter.base());
-            assert(ex == "yes");
-        }
+      bool v = true;
+      char str[50];
+      cpp17_output_iterator<char*> iter = f.put(cpp17_output_iterator<char*>(str), ios, '*', v);
+      std::string ex(str, base(iter));
+      assert(ex == "true");
     }
+  }
+  {
+    std::ios ios(0);
+    std::boolalpha(ios);
+    ios.imbue(std::locale(std::locale::classic(), new my_numpunct));
+    {
+      bool v = false;
+      char str[50];
+      cpp17_output_iterator<char*> iter = f.put(cpp17_output_iterator<char*>(str), ios, '*', v);
+      std::string ex(str, base(iter));
+      assert(ex == "no");
+    }
+    {
+      bool v = true;
+      char str[50];
+      cpp17_output_iterator<char*> iter = f.put(cpp17_output_iterator<char*>(str), ios, '*', v);
+      std::string ex(str, base(iter));
+      assert(ex == "yes");
+    }
+  }
 
   return 0;
 }

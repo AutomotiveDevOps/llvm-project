@@ -1,0 +1,66 @@
+                                                                        Chapter 9. Timer Facilities                 1211
+Version 2.07
+
+
+ 1. Always take the Guest Watchdog Timer interrupt
+    when pending, and never attempt to prevent its
+    occurrence. In this mode, the Guest Watchdog
+    Timer interrupt caused by a first time-out is used to
+    clear GTSRWIS so a second time-out never occurs.
+    GTSRENW is not cleared, thereby allowing the next
+    time-out to cause another interrupt.
+ 2. Always take the Guest Watchdog Timer interrupt
+    when pending, but avoid when possible. In this
+    mode a recurring code loop of reliable duration (or
+    perhaps a periodic interrupt handler such as the
+    Guest Fixed-Interval Timer interrupt handler) is
+    used to repeatedly clear GTSRENW such that a
+    first time-out exception is avoided, and thus no
+    Guest Watchdog Timer interrupt occurs. Once
+    GTSRENW has been cleared, software has
+    between one and two full Guest Watchdog periods
+    before a Guest Watchdog exception will be posted
+    in GTSRWIS. If this occurs before the software is
+    able to clear GTSRENW again, a Guest Watchdog
+    Timer interrupt will occur. In this case, the Guest
+    Watchdog Timer interrupt handler will then clear
+    both GTSRENW and GTSRWIS, in order to (hope-
+    fully) avoid the next Guest Watchdog Timer inter-
+    rupt.
+ 3. Never take the Guest Watchdog Timer interrupt. In
+    this mode, Guest Watchdog Timer interrupts are
+    disabled (via GTCRWIE=0), and the system
+    depends upon a recurring code loop of reliable
+    duration (or perhaps a periodic interrupt handler
+    such as the Guest Fixed-Interval Timer interrupt
+    handler) to repeatedly clear GTSRWIS such that a
+    second time-out is avoided, and thus no virtualized
+    reset occurs. GTSRENW is not cleared, thereby
+    allowing the next time-out to set GTSRWIS again.
+    The recurring code loop must have a period which
+    is less than one Guest Watchdog Timer period in
+    order to guarantee that a Guest Watchdog Timer
+    virtualized reset will not occur.
+
+
+9.13 Freezing the Timer Facili-
+ties
+The debug mechanism provides a means of tempo-
+rarily freezing the timers upon a debug event. When-
+ever a debug event is set in the Debug Status Register,
+all timers will be frozen by preventing the Time Base
+from incrementing. This allows a debugger to simulate
+the appearance of ‘real time’, even though the applica-
+tion has been temporarily ‘halted’ to service the debug
+event. See the description of bit 63 of the Debug Con-
+trol Register 0 (Freeze Timers on Debug Event or
+DBCR0FT) in Section 10.5.1.1 on page 1221.
+
+
+
+
+1212      Power ISA™ - Book III-E
+                                                                                                     Version 2.07
+
+
+

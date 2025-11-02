@@ -41,7 +41,6 @@ static const char dummy_remote_dir[] = "bin";
 static const char module_name[] = "TestModule.so";
 static const char module_uuid[] =
     "F4E7E991-9B61-6AD4-0073-561AC3D9FA10-C043A476";
-static const uint32_t uuid_bytes = 20;
 static const size_t module_size = 5602;
 
 static FileSpec GetDummyRemotePath() {
@@ -73,12 +72,12 @@ void ModuleCacheTest::SetUp() {
 static void VerifyDiskState(const FileSpec &cache_dir, const char *hostname) {
   FileSpec uuid_view = GetUuidView(cache_dir);
   EXPECT_TRUE(FileSystem::Instance().Exists(uuid_view))
-      << "uuid_view is: " << uuid_view.GetCString();
+      << "uuid_view is: " << uuid_view.GetPath();
   EXPECT_EQ(module_size, FileSystem::Instance().GetByteSize(uuid_view));
 
   FileSpec sysroot_view = GetSysrootView(cache_dir, hostname);
   EXPECT_TRUE(FileSystem::Instance().Exists(sysroot_view))
-      << "sysroot_view is: " << sysroot_view.GetCString();
+      << "sysroot_view is: " << sysroot_view.GetPath();
   EXPECT_EQ(module_size, FileSystem::Instance().GetByteSize(sysroot_view));
 }
 
@@ -87,7 +86,7 @@ void ModuleCacheTest::TryGetAndPut(const FileSpec &cache_dir,
   ModuleCache mc;
   ModuleSpec module_spec;
   module_spec.GetFileSpec() = GetDummyRemotePath();
-  module_spec.GetUUID().SetFromStringRef(module_uuid, uuid_bytes);
+  module_spec.GetUUID().SetFromStringRef(module_uuid);
   module_spec.SetObjectSize(module_size);
   ModuleSP module_sp;
   bool did_create;
@@ -98,15 +97,15 @@ void ModuleCacheTest::TryGetAndPut(const FileSpec &cache_dir,
       [&download_called, this](const ModuleSpec &module_spec,
                                const FileSpec &tmp_download_file_spec) {
         download_called = true;
-        EXPECT_STREQ(GetDummyRemotePath().GetCString(),
-                     module_spec.GetFileSpec().GetCString());
+        EXPECT_STREQ(GetDummyRemotePath().GetPath().c_str(),
+                     module_spec.GetFileSpec().GetPath().c_str());
         std::error_code ec = llvm::sys::fs::copy_file(
-            s_test_executable, tmp_download_file_spec.GetCString());
+            s_test_executable, tmp_download_file_spec.GetPath());
         EXPECT_FALSE(ec);
         return Status();
       },
       [](const ModuleSP &module_sp, const FileSpec &tmp_download_file_spec) {
-        return Status("Not supported.");
+        return Status::FromErrorString("Not supported.");
       },
       module_sp, &did_create);
   EXPECT_EQ(expect_download, download_called);
@@ -119,8 +118,8 @@ void ModuleCacheTest::TryGetAndPut(const FileSpec &cache_dir,
   module_sp->FindFunctionSymbols(ConstString("boom"), eFunctionNameTypeFull,
                                  sc_list);
   EXPECT_EQ(1u, sc_list.GetSize());
-  EXPECT_STREQ(GetDummyRemotePath().GetCString(),
-               module_sp->GetPlatformFileSpec().GetCString());
+  EXPECT_STREQ(GetDummyRemotePath().GetPath().c_str(),
+               module_sp->GetPlatformFileSpec().GetPath().c_str());
   EXPECT_STREQ(module_uuid, module_sp->GetUUID().GetAsString().c_str());
 }
 
@@ -141,7 +140,7 @@ TEST_F(ModuleCacheTest, GetAndPutUuidExists) {
   std::error_code ec =
       llvm::sys::fs::create_directories(uuid_view.GetDirectory().GetCString());
   ASSERT_FALSE(ec);
-  ec = llvm::sys::fs::copy_file(s_test_executable, uuid_view.GetCString());
+  ec = llvm::sys::fs::copy_file(s_test_executable, uuid_view.GetPath().c_str());
   ASSERT_FALSE(ec);
 
   const bool expect_download = false;

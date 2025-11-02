@@ -8,6 +8,7 @@
 #include "SemanticHighlighting.h"
 #include "refactor/Tweak.h"
 #include "llvm/ADT/StringRef.h"
+#include "llvm/Support/ScopedPrinter.h"
 
 namespace clang {
 namespace clangd {
@@ -22,20 +23,22 @@ namespace {
 ///   void /* entity.name.function.cpp */ f() { int /* variable.cpp */ abc; }
 class AnnotateHighlightings : public Tweak {
 public:
-  const char *id() const override final;
+  const char *id() const final;
 
   bool prepare(const Selection &Inputs) override { return true; }
   Expected<Effect> apply(const Selection &Inputs) override;
 
   std::string title() const override { return "Annotate highlighting tokens"; }
-  Intent intent() const override { return Refactor; }
+  llvm::StringLiteral kind() const override {
+    return CodeAction::REFACTOR_KIND;
+  }
   bool hidden() const override { return true; }
 };
 REGISTER_TWEAK(AnnotateHighlightings)
 
 Expected<Tweak::Effect> AnnotateHighlightings::apply(const Selection &Inputs) {
   const Decl *CommonDecl = nullptr;
-  for (auto N = Inputs.ASTSelection.commonAncestor(); N && !CommonDecl;
+  for (auto *N = Inputs.ASTSelection.commonAncestor(); N && !CommonDecl;
        N = N->Parent)
     CommonDecl = N->ASTNode.get<Decl>();
 
@@ -44,14 +47,17 @@ Expected<Tweak::Effect> AnnotateHighlightings::apply(const Selection &Inputs) {
     // Now we hit the TUDecl case where commonAncestor() returns null
     // intendedly. We only annotate tokens in the main file, so use the default
     // traversal scope (which is the top level decls of the main file).
-    HighlightingTokens = getSemanticHighlightings(*Inputs.AST);
+    HighlightingTokens = getSemanticHighlightings(
+        *Inputs.AST, /*IncludeInactiveRegionTokens=*/true);
   } else {
     // Store the existing scopes.
-    const auto &BackupScopes = Inputs.AST->getASTContext().getTraversalScope();
+    const std::vector<Decl *> BackupScopes =
+        Inputs.AST->getASTContext().getTraversalScope();
     // Narrow the traversal scope to the selected node.
     Inputs.AST->getASTContext().setTraversalScope(
         {const_cast<Decl *>(CommonDecl)});
-    HighlightingTokens = getSemanticHighlightings(*Inputs.AST);
+    HighlightingTokens = getSemanticHighlightings(
+        *Inputs.AST, /*IncludeInactiveRegionTokens=*/true);
     // Restore the traversal scope.
     Inputs.AST->getASTContext().setTraversalScope(BackupScopes);
   }
@@ -65,9 +71,19 @@ Expected<Tweak::Effect> AnnotateHighlightings::apply(const Selection &Inputs) {
     if (!InsertOffset)
       return InsertOffset.takeError();
 
-    auto InsertReplacement = tooling::Replacement(
-        FilePath, *InsertOffset, 0,
-        ("/* " + toTextMateScope(Token.Kind) + " */").str());
+    std::string Comment = "/* ";
+    Comment.append(llvm::to_string(Token.Kind));
+    for (unsigned I = 0;
+         I <= static_cast<unsigned>(HighlightingModifier::LastModifier); ++I) {
+      if (Token.Modifiers & (1 << I)) {
+        Comment.append(" [");
+        Comment.append(llvm::to_string(static_cast<HighlightingModifier>(I)));
+        Comment.push_back(']');
+      }
+    }
+    Comment.append(" */");
+    auto InsertReplacement =
+        tooling::Replacement(FilePath, *InsertOffset, 0, Comment);
     if (auto Err = Result.add(InsertReplacement))
       return std::move(Err);
   }

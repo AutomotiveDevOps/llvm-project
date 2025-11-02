@@ -1,4 +1,6 @@
-// RUN: %clang_cc1 -emit-llvm -triple i686-windows-itanium -fdeclspec %s -o - | FileCheck %s
+// RUN: %clang_cc1 -emit-llvm -triple i686-windows-itanium -fdeclspec %s -o - | FileCheck %s --check-prefixes=CHECK,WI
+// RUN: %clang_cc1 -emit-llvm -triple x86_64-scei-ps4 -fdeclspec %s -o - | FileCheck %s --check-prefixes=CHECK,PS
+// RUN: %clang_cc1 -emit-llvm -triple x86_64-sie-ps5  -fdeclspec %s -o - | FileCheck %s --check-prefixes=CHECK,PS
 
 #define JOIN2(x, y) x##y
 #define JOIN(x, y) JOIN2(x, y)
@@ -51,5 +53,6 @@ extern template class __declspec(dllimport) outer<char>;
 USEMEMFUNC(outer<char>, f)
 USEMEMFUNC(outer<char>::inner, f)
 
-// CHECK: declare dllimport {{.*}} @_ZN5outerIcE1fEv
-// CHECK: define {{.*}} @_ZN5outerIcE5inner1fEv
+// CHECK-DAG: declare dllimport {{.*}} @_ZN5outerIcE1fEv
+// WI-DAG: define {{.*}} @_ZN5outerIcE5inner1fEv
+// PS-DAG: declare {{.*}} @_ZN5outerIcE5inner1fEv

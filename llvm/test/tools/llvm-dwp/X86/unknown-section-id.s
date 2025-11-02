@@ -13,19 +13,19 @@
 ## identifiers is copied.
 
 # CHECK:      .debug_cu_index contents:
-# CHECK-NEXT: version = 2 slots = 2
+# CHECK-NEXT: version = 2, units = 1, slots = 2
 # CHECK:      Index Signature INFO ABBREV
 # CHECK-NOT:  Unknown
 # CHECK:      -----
-# CHECK-NEXT: 1 0x1100002222222222 [0x00000000, 0x00000014) [0x00000000, 0x00000009)
+# CHECK-NEXT: 1 0x1100002222222222 [0x0000000000000000, 0x0000000000000014) [0x00000000, 0x00000009)
 # CHECK-NOT:  [
 
 # CHECK:      .debug_tu_index contents:
-# CHECK-NEXT: version = 2 slots = 2
+# CHECK-NEXT: version = 2, units = 1, slots = 2
 # CHECK:      Index Signature TYPES ABBREV
 # CHECK-NOT:  Unknown
 # CHECK:      -----
-# CHECK-NEXT: 2 0x1100003333333333 [0x00000000, 0x00000019) [0x00000009, 0x00000014)
+# CHECK-NEXT: 2 0x1100003333333333 [0x0000000000000000, 0x0000000000000019) [0x00000009, 0x00000014)
 # CHECK-NOT:  [
 
 .section .debug_abbrev.dwo, "e", @progbits

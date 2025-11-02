@@ -1,4 +1,4 @@
-// RUN: llvm-mc -n -triple x86_64-apple-darwin9 %s -filetype=obj -o - | llvm-readobj -r --expand-relocs | FileCheck %s
+// RUN: llvm-mc -n -triple x86_64-apple-darwin9 %s -filetype=obj -o - | llvm-readobj -r --expand-relocs - | FileCheck %s
 
 // These examples are taken from <mach-o/x86_64/reloc.h>.
 
@@ -176,20 +176,6 @@ L6:
 // CHECK-NEXT:       Symbol: _foo
 // CHECK-NEXT:     }
 // CHECK-NEXT:     Relocation {
-// CHECK-NEXT:       Offset: 0x9D
-// CHECK-NEXT:       PCRel: 0
-// CHECK-NEXT:       Length: 3
-// CHECK-NEXT:       Type: X86_64_RELOC_SUBTRACTOR (5)
-// CHECK-NEXT:       Symbol: _prev
-// CHECK-NEXT:     }
-// CHECK-NEXT:     Relocation {
-// CHECK-NEXT:       Offset: 0x9D
-// CHECK-NEXT:       PCRel: 0
-// CHECK-NEXT:       Length: 3
-// CHECK-NEXT:       Type: X86_64_RELOC_UNSIGNED (0)
-// CHECK-NEXT:       Symbol: _foo
-// CHECK-NEXT:     }
-// CHECK-NEXT:     Relocation {
 // CHECK-NEXT:       Offset: 0x95
 // CHECK-NEXT:       PCRel: 0
 // CHECK-NEXT:       Length: 3
@@ -237,48 +223,6 @@ L6:
 // CHECK-NEXT:       Length: 2
 // CHECK-NEXT:       Type: X86_64_RELOC_SIGNED (1)
 // CHECK-NEXT:       Symbol: _prev
-// CHECK-NEXT:     }
-// CHECK-NEXT:     Relocation {
-// CHECK-NEXT:       Offset: 0x55
-// CHECK-NEXT:       PCRel: 0
-// CHECK-NEXT:       Length: 2
-// CHECK-NEXT:       Type: X86_64_RELOC_SUBTRACTOR (5)
-// CHECK-NEXT:       Symbol: _bar
-// CHECK-NEXT:     }
-// CHECK-NEXT:     Relocation {
-// CHECK-NEXT:       Offset: 0x55
-// CHECK-NEXT:       PCRel: 0
-// CHECK-NEXT:       Length: 2
-// CHECK-NEXT:       Type: X86_64_RELOC_UNSIGNED (0)
-// CHECK-NEXT:       Symbol: _foo
-// CHECK-NEXT:     }
-// CHECK-NEXT:     Relocation {
-// CHECK-NEXT:       Offset: 0x4D
-// CHECK-NEXT:       PCRel: 0
-// CHECK-NEXT:       Length: 3
-// CHECK-NEXT:       Type: X86_64_RELOC_SUBTRACTOR (5)
-// CHECK-NEXT:       Symbol: _bar
-// CHECK-NEXT:     }
-// CHECK-NEXT:     Relocation {
-// CHECK-NEXT:       Offset: 0x4D
-// CHECK-NEXT:       PCRel: 0
-// CHECK-NEXT:       Length: 3
-// CHECK-NEXT:       Type: X86_64_RELOC_UNSIGNED (0)
-// CHECK-NEXT:       Symbol: _foo
-// CHECK-NEXT:     }
-// CHECK-NEXT:     Relocation {
-// CHECK-NEXT:       Offset: 0x45
-// CHECK-NEXT:       PCRel: 0
-// CHECK-NEXT:       Length: 3
-// CHECK-NEXT:       Type: X86_64_RELOC_SUBTRACTOR (5)
-// CHECK-NEXT:       Symbol: _bar
-// CHECK-NEXT:     }
-// CHECK-NEXT:     Relocation {
-// CHECK-NEXT:       Offset: 0x45
-// CHECK-NEXT:       PCRel: 0
-// CHECK-NEXT:       Length: 3
-// CHECK-NEXT:       Type: X86_64_RELOC_UNSIGNED (0)
-// CHECK-NEXT:       Symbol: _foo
 // CHECK-NEXT:     }
 // CHECK-NEXT:     Relocation {
 // CHECK-NEXT:       Offset: 0x3D

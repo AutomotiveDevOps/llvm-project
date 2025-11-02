@@ -5,9 +5,9 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
-//
+/// \file
 /// Provides analysis for continuously CSEing during GISel passes.
-//
+///
 //===----------------------------------------------------------------------===//
 #ifndef LLVM_CODEGEN_GLOBALISEL_CSEINFO_H
 #define LLVM_CODEGEN_GLOBALISEL_CSEINFO_H
@@ -16,14 +16,14 @@
 #include "llvm/CodeGen/CSEConfigBase.h"
 #include "llvm/CodeGen/GlobalISel/GISelChangeObserver.h"
 #include "llvm/CodeGen/GlobalISel/GISelWorkList.h"
-#include "llvm/CodeGen/GlobalISel/Utils.h"
-#include "llvm/CodeGen/MachineBasicBlock.h"
 #include "llvm/CodeGen/MachineFunctionPass.h"
-#include "llvm/IR/PassManager.h"
-#include "llvm/Pass.h"
+#include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/Support/Allocator.h"
+#include "llvm/Support/CodeGen.h"
+#include "llvm/Support/Compiler.h"
 
 namespace llvm {
+class MachineBasicBlock;
 
 /// A class that wraps MachineInstrs and derives from FoldingSetNode in order to
 /// be uniqued in a CSEMap. The tradeoff here is extra memory allocations for
@@ -34,29 +34,29 @@ class UniqueMachineInstr : public FoldingSetNode {
   explicit UniqueMachineInstr(const MachineInstr *MI) : MI(MI) {}
 
 public:
-  void Profile(FoldingSetNodeID &ID);
+  LLVM_ABI void Profile(FoldingSetNodeID &ID);
 };
 
 // A CSE config for fully optimized builds.
-class CSEConfigFull : public CSEConfigBase {
+class LLVM_ABI CSEConfigFull : public CSEConfigBase {
 public:
-  virtual ~CSEConfigFull() = default;
-  virtual bool shouldCSEOpc(unsigned Opc) override;
+  ~CSEConfigFull() override = default;
+  bool shouldCSEOpc(unsigned Opc) override;
 };
 
 // Commonly used for O0 config.
-class CSEConfigConstantOnly : public CSEConfigBase {
+class LLVM_ABI CSEConfigConstantOnly : public CSEConfigBase {
 public:
-  virtual ~CSEConfigConstantOnly() = default;
-  virtual bool shouldCSEOpc(unsigned Opc) override;
+  ~CSEConfigConstantOnly() override = default;
+  bool shouldCSEOpc(unsigned Opc) override;
 };
 
 // Returns the standard expected CSEConfig for the given optimization level.
 // We have this logic here so targets can make use of it from their derived
 // TargetPassConfig, but can't put this logic into TargetPassConfig directly
 // because the CodeGen library can't depend on GlobalISel.
-std::unique_ptr<CSEConfigBase>
-getStandardCSEConfigForOpt(CodeGenOpt::Level Level);
+LLVM_ABI std::unique_ptr<CSEConfigBase>
+getStandardCSEConfigForOpt(CodeGenOptLevel Level);
 
 /// The CSE Analysis object.
 /// This installs itself as a delegate to the MachineFunction to track
@@ -68,7 +68,7 @@ getStandardCSEConfigForOpt(CodeGenOpt::Level Level);
 /// CSEInfo should assert when trying to enter an incomplete instruction into
 /// the CSEMap. There is Opcode level granularity on which instructions can be
 /// CSE'd and for now, only Generic instructions are CSEable.
-class GISelCSEInfo : public GISelChangeObserver {
+class LLVM_ABI GISelCSEInfo : public GISelChangeObserver {
   // Make it accessible only to CSEMIRBuilder.
   friend class CSEMIRBuilder;
 
@@ -113,10 +113,12 @@ class GISelCSEInfo : public GISelChangeObserver {
   /// into the CSEMap. MI should return true for shouldCSE(MI->getOpcode())
   void insertInstr(MachineInstr *MI, void *InsertPos = nullptr);
 
+  bool HandlingRecordedInstrs = false;
+
 public:
   GISelCSEInfo() = default;
 
-  virtual ~GISelCSEInfo();
+  ~GISelCSEInfo() override;
 
   void setMF(MachineFunction &MF);
 
@@ -174,25 +176,32 @@ public:
   GISelInstProfileBuilder(FoldingSetNodeID &ID, const MachineRegisterInfo &MRI)
       : ID(ID), MRI(MRI) {}
   // Profiling methods.
-  const GISelInstProfileBuilder &addNodeIDOpcode(unsigned Opc) const;
-  const GISelInstProfileBuilder &addNodeIDRegType(const LLT Ty) const;
-  const GISelInstProfileBuilder &addNodeIDRegType(const unsigned) const;
+  LLVM_ABI const GISelInstProfileBuilder &addNodeIDOpcode(unsigned Opc) const;
+  LLVM_ABI const GISelInstProfileBuilder &addNodeIDRegType(const LLT Ty) const;
+  LLVM_ABI const GISelInstProfileBuilder &
+  addNodeIDRegType(const Register) const;
+  LLVM_ABI const GISelInstProfileBuilder &
+      addNodeIDRegType(MachineRegisterInfo::VRegAttrs) const;
 
-  const GISelInstProfileBuilder &
+  LLVM_ABI const GISelInstProfileBuilder &
   addNodeIDRegType(const TargetRegisterClass *RC) const;
-  const GISelInstProfileBuilder &addNodeIDRegType(const RegisterBank *RB) const;
+  LLVM_ABI const GISelInstProfileBuilder &
+  addNodeIDRegType(const RegisterBank *RB) const;
 
-  const GISelInstProfileBuilder &addNodeIDRegNum(unsigned Reg) const;
+  LLVM_ABI const GISelInstProfileBuilder &addNodeIDRegNum(Register Reg) const;
 
-  const GISelInstProfileBuilder &addNodeIDImmediate(int64_t Imm) const;
-  const GISelInstProfileBuilder &
+  LLVM_ABI const GISelInstProfileBuilder &addNodeIDReg(Register Reg) const;
+
+  LLVM_ABI const GISelInstProfileBuilder &addNodeIDImmediate(int64_t Imm) const;
+  LLVM_ABI const GISelInstProfileBuilder &
   addNodeIDMBB(const MachineBasicBlock *MBB) const;
 
-  const GISelInstProfileBuilder &
+  LLVM_ABI const GISelInstProfileBuilder &
   addNodeIDMachineOperand(const MachineOperand &MO) const;
 
-  const GISelInstProfileBuilder &addNodeIDFlag(unsigned Flag) const;
-  const GISelInstProfileBuilder &addNodeID(const MachineInstr *MI) const;
+  LLVM_ABI const GISelInstProfileBuilder &addNodeIDFlag(unsigned Flag) const;
+  LLVM_ABI const GISelInstProfileBuilder &
+  addNodeID(const MachineInstr *MI) const;
 };
 
 /// Simple wrapper that does the following.
@@ -209,15 +218,15 @@ public:
   /// If CSEConfig is already set, and the CSE Analysis has been preserved,
   /// it will not use the new CSEOpt(use Recompute to force using the new
   /// CSEOpt).
-  GISelCSEInfo &get(std::unique_ptr<CSEConfigBase> CSEOpt,
-                    bool ReCompute = false);
+  LLVM_ABI GISelCSEInfo &get(std::unique_ptr<CSEConfigBase> CSEOpt,
+                             bool ReCompute = false);
   void setMF(MachineFunction &MFunc) { MF = &MFunc; }
   void setComputed(bool Computed) { AlreadyComputed = Computed; }
   void releaseMemory() { Info.releaseMemory(); }
 };
 
 /// The actual analysis pass wrapper.
-class GISelCSEAnalysisWrapperPass : public MachineFunctionPass {
+class LLVM_ABI GISelCSEAnalysisWrapperPass : public MachineFunctionPass {
   GISelCSEAnalysisWrapper Wrapper;
 
 public:

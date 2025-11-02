@@ -14,6 +14,8 @@
 #include "llvm/DebugInfo/PDB/PDBSymbolData.h"
 #include "llvm/DebugInfo/PDB/PDBSymbolFunc.h"
 #include "llvm/DebugInfo/PDB/PDBSymbolPublicSymbol.h"
+#include "llvm/DebugInfo/PDB/PDBSymbolTypeFunctionSig.h"
+#include "llvm/DebugInfo/PDB/PDBTypes.h"
 #include "llvm/Object/COFF.h"
 
 using namespace llvm;
@@ -30,8 +32,9 @@ PDBContext::PDBContext(const COFFObjectFile &Object,
 
 void PDBContext::dump(raw_ostream &OS, DIDumpOptions DumpOpts){}
 
-DILineInfo PDBContext::getLineInfoForAddress(object::SectionedAddress Address,
-                                             DILineInfoSpecifier Specifier) {
+std::optional<DILineInfo>
+PDBContext::getLineInfoForAddress(object::SectionedAddress Address,
+                                  DILineInfoSpecifier Specifier) {
   DILineInfo Result;
   Result.FunctionName = getFunctionName(Address.Address, Specifier.FNKind);
 
@@ -62,6 +65,13 @@ DILineInfo PDBContext::getLineInfoForAddress(object::SectionedAddress Address,
   return Result;
 }
 
+std::optional<DILineInfo>
+PDBContext::getLineInfoForDataAddress(object::SectionedAddress Address) {
+  // Unimplemented. S_GDATA and S_LDATA in CodeView (used to describe global
+  // variables) aren't capable of carrying line information.
+  return DILineInfo();
+}
+
 DILineInfoTable
 PDBContext::getLineInfoForAddressRange(object::SectionedAddress Address,
                                        uint64_t Size,
@@ -75,9 +85,10 @@ PDBContext::getLineInfoForAddressRange(object::SectionedAddress Address,
     return Table;
 
   while (auto LineInfo = LineNumbers->getNext()) {
-    DILineInfo LineEntry = getLineInfoForAddress(
-        {LineInfo->getVirtualAddress(), Address.SectionIndex}, Specifier);
-    Table.push_back(std::make_pair(LineInfo->getVirtualAddress(), LineEntry));
+    if (std::optional<DILineInfo> LineEntry = getLineInfoForAddress(
+            {LineInfo->getVirtualAddress(), Address.SectionIndex}, Specifier))
+      Table.push_back(
+          std::make_pair(LineInfo->getVirtualAddress(), *LineEntry));
   }
   return Table;
 }
@@ -86,8 +97,44 @@ DIInliningInfo
 PDBContext::getInliningInfoForAddress(object::SectionedAddress Address,
                                       DILineInfoSpecifier Specifier) {
   DIInliningInfo InlineInfo;
-  DILineInfo Frame = getLineInfoForAddress(Address, Specifier);
-  InlineInfo.addFrame(Frame);
+  DILineInfo CurrentLine =
+      getLineInfoForAddress(Address, Specifier).value_or(DILineInfo());
+
+  // Find the function at this address.
+  std::unique_ptr<PDBSymbol> ParentFunc =
+      Session->findSymbolByAddress(Address.Address, PDB_SymType::Function);
+  if (!ParentFunc) {
+    InlineInfo.addFrame(CurrentLine);
+    return InlineInfo;
+  }
+
+  auto Frames = ParentFunc->findInlineFramesByVA(Address.Address);
+  if (!Frames || Frames->getChildCount() == 0) {
+    InlineInfo.addFrame(CurrentLine);
+    return InlineInfo;
+  }
+
+  while (auto Frame = Frames->getNext()) {
+    uint32_t Length = 1;
+    auto LineNumbers = Frame->findInlineeLinesByVA(Address.Address, Length);
+    if (!LineNumbers || LineNumbers->getChildCount() == 0)
+      break;
+
+    std::unique_ptr<IPDBLineNumber> Line = LineNumbers->getNext();
+    assert(Line);
+
+    DILineInfo LineInfo;
+    LineInfo.FunctionName = Frame->getName();
+    auto SourceFile = Session->getSourceFileById(Line->getSourceFileId());
+    if (SourceFile &&
+        Specifier.FLIKind != DILineInfoSpecifier::FileLineInfoKind::None)
+      LineInfo.FileName = SourceFile->getFileName();
+    LineInfo.Line = Line->getLineNumber();
+    LineInfo.Column = Line->getColumnNumber();
+    InlineInfo.addFrame(LineInfo);
+  }
+
+  InlineInfo.addFrame(CurrentLine);
   return InlineInfo;
 }
 

@@ -2,9 +2,9 @@ include(CheckCXXCompilerFlag)
 include(CheckLibraryExists)
 include_directories(${CMAKE_CURRENT_BINARY_DIR}/..)
 include_directories(${LLDB_SOURCE_DIR}/source)
-include_directories(MacOSX/DarwinLog)
-
 include_directories(MacOSX)
+include_directories(MacOSX/x86_64)
+include_directories(MacOSX/arm64)
 
 function(check_certificate identity result_valid)
   execute_process(
@@ -19,8 +19,8 @@ endfunction()
 
 function(get_debugserver_codesign_identity result)
   string(CONCAT not_found_help
-    "This will cause failures in the test suite."
-    "Pass '-DLLDB_USE_SYSTEM_DEBUGSERVER=ON' to use the system one instead."
+    "This will cause failures in the test suite. "
+    "Pass '-DLLDB_USE_SYSTEM_DEBUGSERVER=ON' to use the system one instead. "
     "See 'Code Signing on macOS' in the documentation."
   )
 
@@ -41,7 +41,7 @@ function(get_debugserver_codesign_identity result)
     return()
   endif()
 
-  message(WARNING "Development code sign identiy not found: 'lldb_codesign' ${not_found_help}")
+  message(WARNING "Development code sign identity not found: 'lldb_codesign' ${not_found_help}")
 
   # LLVM pendant: fallback if available
   if(LLVM_CODESIGNING_IDENTITY)
@@ -60,7 +60,10 @@ endfunction()
 # llvm dependencies in the current scope to the empty set.
 set(LLVM_COMMON_DEPENDS)
 
-set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -stdlib=libc++ -Wl,-sectcreate,__TEXT,__info_plist,${CMAKE_CURRENT_SOURCE_DIR}/../resources/lldb-debugserver-Info.plist")
+set(DEBUGSERVER_RESOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../resources")
+set(DEBUGSERVER_INFO_PLIST "${DEBUGSERVER_RESOURCE_DIR}/lldb-debugserver-Info.plist")
+
+set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -stdlib=libc++ -Wl,-sectcreate,__TEXT,__info_plist,${DEBUGSERVER_INFO_PLIST}")
 
 check_cxx_compiler_flag("-Wno-gnu-zero-variadic-macro-arguments"
                         CXX_SUPPORTS_NO_GNU_ZERO_VARIADIC_MACRO_ARGUMENTS)
@@ -80,11 +83,31 @@ if (CXX_SUPPORTS_NO_EXTENDED_OFFSETOF)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-extended-offsetof")
 endif ()
 
-check_library_exists(compression compression_encode_buffer "" HAVE_LIBCOMPRESSION)
+include(CheckCSourceCompiles)
+check_c_source_compiles(
+    "
+    #include <TargetConditionals.h>
+    #if TARGET_CPU_ARM64
+    #if TARGET_OS_OSX
+    #warning Building for macOS
+    #else
+    #error Not building for macOS
+    #endif
+    #else
+    #error Not building for ARM64
+    #endif
+    int main(void) { return 0; }
+    "
+    BUILDING_FOR_ARM64_OSX
+)
+
+# You can only debug arm64e processes using an arm64e debugserver.
+option(LLDB_ENABLE_ARM64E_DEBUGSERVER "Build debugserver for arm64 and arm64e" OFF)
+if (BUILDING_FOR_ARM64_OSX AND LLDB_ENABLE_ARM64E_DEBUGSERVER)
+  set(CMAKE_OSX_ARCHITECTURES "arm64;arm64e")
+endif ()
 
 find_library(SECURITY_LIBRARY Security)
-
-add_subdirectory(MacOSX)
 
 set(LLDB_CODESIGN_IDENTITY "" CACHE STRING
     "Identity override for debugserver; see 'Code Signing on macOS' in the documentation (Darwin only)")
@@ -94,12 +117,9 @@ get_debugserver_codesign_identity(debugserver_codesign_identity)
 # Override locally, so the identity is used for targets created in this scope.
 set(LLVM_CODESIGNING_IDENTITY ${debugserver_codesign_identity})
 
-# Use the same identity later in the test suite.
-set_property(GLOBAL PROPERTY
-  LLDB_DEBUGSERVER_CODESIGN_IDENTITY ${debugserver_codesign_identity})
-
 if(APPLE)
-  if(IOS)
+  set(LIBCOMPRESSION compression)
+  if(APPLE_EMBEDDED)
     find_library(BACKBOARD_LIBRARY BackBoardServices
       PATHS ${CMAKE_OSX_SYSROOT}/System/Library/PrivateFrameworks)
     find_library(FRONTBOARD_LIBRARY FrontBoardServices
@@ -109,6 +129,10 @@ if(APPLE)
     find_library(MOBILESERVICES_LIBRARY MobileCoreServices
       PATHS ${CMAKE_OSX_SYSROOT}/System/Library/PrivateFrameworks)
     find_library(LOCKDOWN_LIBRARY lockdown)
+    if (APPLE_EMBEDDED STREQUAL "watchos")
+      find_library(CAROUSELSERVICES_LIBRARY CarouselServices
+        PATHS ${CMAKE_OSX_SYSROOT}/System/Library/PrivateFrameworks)
+    endif()
 
     if(NOT BACKBOARD_LIBRARY)
       set(SKIP_TEST_DEBUGSERVER ON CACHE BOOL "" FORCE)
@@ -116,17 +140,41 @@ if(APPLE)
   endif()
 endif()
 
-if(HAVE_LIBCOMPRESSION)
-  set(LIBCOMPRESSION compression)
+if(LLDB_USE_ENTITLEMENTS)
+  if(APPLE_EMBEDDED)
+    set(entitlements ${DEBUGSERVER_RESOURCE_DIR}/debugserver-entitlements.plist)
+  else()
+    if (LLDB_USE_PRIVATE_ENTITLEMENTS)
+      set(entitlements ${DEBUGSERVER_RESOURCE_DIR}/debugserver-macosx-private-entitlements.plist)
+    else()
+      set(entitlements ${DEBUGSERVER_RESOURCE_DIR}/debugserver-macosx-entitlements.plist)
+    endif()
+  endif()
 endif()
 
-if(LLDB_USE_ENTITLEMENTS)
-  if(IOS)
-    set(entitlements ${CMAKE_CURRENT_SOURCE_DIR}/debugserver-entitlements.plist)
-  else()
-    # Same entitlements file as used for lldb-server
-    set(entitlements ${LLDB_SOURCE_DIR}/resources/debugserver-macosx-entitlements.plist)
-  endif()
+add_definitions(-DLLDB_USE_OS_LOG)
+
+# Make sure we have the macOS SDK root as mig needs it and will silently
+# fail to generate its output files without it.
+if(CMAKE_OSX_SYSROOT)
+  set(MIG_SYSROOT ${CMAKE_OSX_SYSROOT})
+else()
+  execute_process(COMMAND xcrun --show-sdk-path
+    OUTPUT_VARIABLE MIG_SYSROOT
+    ERROR_QUIET
+    OUTPUT_STRIP_TRAILING_WHITESPACE)
+endif()
+
+if(NOT MIG_SYSROOT)
+  message(FATAL_ERROR "Unable to obtain sysroot required by mig (Mach Interface Generator). Set CMAKE_OSX_SYSROOT to explicitly specify a sysroot.")
+endif()
+
+if(${CMAKE_OSX_SYSROOT} MATCHES ".Internal.sdk$")
+  message(STATUS "LLDB debugserver energy support is enabled")
+  add_definitions(-DLLDB_ENERGY)
+  set(ENERGY_LIBRARY -lpmenergy -lpmsample)
+else()
+  message(STATUS "LLDB debugserver energy support is disabled")
 endif()
 
 set(generated_mach_interfaces
@@ -144,7 +192,7 @@ endif()
 separate_arguments(MIG_ARCH_FLAGS_SEPARTED NATIVE_COMMAND "${MIG_ARCH_FLAGS}")
 
 add_custom_command(OUTPUT ${generated_mach_interfaces}
-  VERBATIM COMMAND mig ${MIG_ARCH_FLAGS_SEPARTED} -isysroot ${CMAKE_OSX_SYSROOT} ${CMAKE_CURRENT_SOURCE_DIR}/MacOSX/dbgnub-mig.defs
+  VERBATIM COMMAND mig ${MIG_ARCH_FLAGS_SEPARTED} -isysroot ${MIG_SYSROOT} ${CMAKE_CURRENT_SOURCE_DIR}/MacOSX/dbgnub-mig.defs
   DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/MacOSX/dbgnub-mig.defs
   )
 
@@ -163,14 +211,13 @@ set(lldbDebugserverCommonSources
   DNBThreadResumeActions.cpp
   JSON.cpp
   StdStringExtractor.cpp
+  StringConvert.cpp
   # JSON reader depends on the following LLDB-common files
-  ${LLDB_SOURCE_DIR}/source/Host/common/StringConvert.cpp
   ${LLDB_SOURCE_DIR}/source/Host/common/SocketAddress.cpp
   # end JSON reader dependencies
   libdebugserver.cpp
   PseudoTerminal.cpp
   PThreadEvent.cpp
-  PThreadMutex.cpp
   RNBContext.cpp
   RNBRemote.cpp
   RNBServices.cpp
@@ -189,10 +236,17 @@ set(lldbDebugserverCommonSources
   MacOSX/MachVMMemory.cpp
   MacOSX/MachVMRegion.cpp
   MacOSX/OsLogger.cpp
+  MacOSX/arm64/DNBArchImplARM64.cpp
+  MacOSX/x86_64/DNBArchImplX86_64.cpp
   ${generated_mach_interfaces}
   ${DEBUGSERVER_VERS_GENERATED_FILE})
 
-add_library(lldbDebugserverCommon ${lldbDebugserverCommonSources})
+# Tell LLVM not to complain about these source files.
+set(LLVM_OPTIONAL_SOURCES
+  ${lldbDebugserverCommonSources}
+  debugserver.cpp)
+
+add_lldb_library(lldbDebugserverCommon ${lldbDebugserverCommonSources})
 set_target_properties(lldbDebugserverCommon PROPERTIES FOLDER "lldb libraries/debugserver")
 
 target_link_libraries(lldbDebugserverCommon
@@ -204,20 +258,15 @@ target_link_libraries(lldbDebugserverCommon
                       ${SPRINGBOARD_LIBRARY}
                       ${MOBILESERVICES_LIBRARY}
                       ${LOCKDOWN_LIBRARY}
-                      lldbDebugserverArchSupport
-                      lldbDebugserverDarwin_DarwinLog
+                      ${CAROUSELSERVICES_LIBRARY}
                       ${FOUNDATION_LIBRARY}
                       ${SECURITY_LIBRARY}
-                      ${LIBCOMPRESSION})
-if(HAVE_LIBCOMPRESSION)
-  set_property(TARGET lldbDebugserverCommon APPEND PROPERTY
-                COMPILE_DEFINITIONS HAVE_LIBCOMPRESSION)
-endif()
-set(LLVM_OPTIONAL_SOURCES ${lldbDebugserverCommonSources})
+                      ${LIBCOMPRESSION}
+                      ${ENERGY_LIBRARY})
 add_lldb_tool(debugserver ADD_TO_FRAMEWORK
   debugserver.cpp
-  LINK_LIBS lldbDebugserverCommon
   ENTITLEMENTS ${entitlements}
+  LINK_LIBS lldbDebugserverCommon
 )
 
 # Workaround for Xcode-specific code-signing behavior:
@@ -249,12 +298,17 @@ endif()
 
 set_target_properties(debugserver PROPERTIES FOLDER "lldb libraries/debugserver")
 
-if(IOS)
+if(APPLE_EMBEDDED)
   set_property(TARGET lldbDebugserverCommon APPEND PROPERTY COMPILE_DEFINITIONS
     WITH_LOCKDOWN
     WITH_FBS
     WITH_BKS
     )
+  if(CAROUSELSERVICES_LIBRARY)
+    set_property(TARGET lldbDebugserverCommon APPEND PROPERTY COMPILE_DEFINITIONS
+      WITH_CAROUSEL
+      )
+  endif()
   set_property(TARGET debugserver APPEND PROPERTY COMPILE_DEFINITIONS
     WITH_LOCKDOWN
     WITH_FBS
@@ -264,27 +318,20 @@ if(IOS)
     -F${CMAKE_OSX_SYSROOT}/System/Library/PrivateFrameworks
     )
 
-  add_library(lldbDebugserverCommon_NonUI ${lldbDebugserverCommonSources})
+  add_lldb_library(lldbDebugserverCommon_NonUI ${lldbDebugserverCommonSources})
   target_link_libraries(lldbDebugserverCommon_NonUI
                       INTERFACE ${COCOA_LIBRARY}
                       ${CORE_FOUNDATION_LIBRARY}
                       ${FOUNDATION_LIBRARY}
-                      lldbDebugserverArchSupport
-                      lldbDebugserverDarwin_DarwinLog
                       ${SECURITY_LIBRARY}
                       ${LIBCOMPRESSION})
-  if(HAVE_LIBCOMPRESSION)
-    set_property(TARGET lldbDebugserverCommon_NonUI APPEND PROPERTY
-                  COMPILE_DEFINITIONS HAVE_LIBCOMPRESSION)
-  endif()
 
   add_lldb_tool(debugserver-nonui
     debugserver.cpp
 
-    LINK_LIBS
-      lldbDebugserverCommon_NonUI
-
     ENTITLEMENTS
       ${entitlements}
+    LINK_LIBS
+      lldbDebugserverCommon_NonUI
     )
 endif()

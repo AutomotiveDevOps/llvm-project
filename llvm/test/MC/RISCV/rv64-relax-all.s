@@ -6,10 +6,17 @@
 
 NEAR:
 
-# INSTR:           c.beqz    a0, 0 <NEAR>
-# RELAX-INSTR:     beq    a0, zero, 0 <NEAR>
+# INSTR:           c.beqz    a0, 0x0 <NEAR>
+# RELAX-INSTR:     c.bnez    a0, 0x6
+# RELAX-INSTR-NEXT:jal       zero, 0x0 <NEAR>
 c.beqz a0, NEAR
 
-# INSTR:           c.j    -2 <NEAR>
-# RELAX-INSTR:     jal    zero, -4 <NEAR>
+# INSTR:           c.j    0x0 <NEAR>
+# RELAX-INSTR:     jal    zero, 0x0 <NEAR>
 c.j NEAR
+
+bnez s0, .foo
+j    .foo
+beqz s0, .foo
+.foo:
+ret

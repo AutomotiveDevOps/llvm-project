@@ -11,24 +11,22 @@
 // ASan flag parsing logic.
 //===----------------------------------------------------------------------===//
 
-#include "asan_activation.h"
 #include "asan_flags.h"
+
+#include "asan_activation.h"
 #include "asan_interface_internal.h"
 #include "asan_stack.h"
 #include "lsan/lsan_common.h"
 #include "sanitizer_common/sanitizer_common.h"
-#include "sanitizer_common/sanitizer_flags.h"
 #include "sanitizer_common/sanitizer_flag_parser.h"
+#include "sanitizer_common/sanitizer_flags.h"
+#include "sanitizer_common/sanitizer_win_interception.h"
 #include "ubsan/ubsan_flags.h"
 #include "ubsan/ubsan_platform.h"
 
 namespace __asan {
 
 Flags asan_flags_dont_use_directly;  // use via flags().
-
-static const char *MaybeCallAsanDefaultOptions() {
-  return (&__asan_default_options) ? __asan_default_options() : "";
-}
 
 static const char *MaybeUseAsanDefaultOptionsCompileDefinition() {
 #ifdef ASAN_DEFAULT_OPTIONS
@@ -51,7 +49,21 @@ static void RegisterAsanFlags(FlagParser *parser, Flags *f) {
 #undef ASAN_FLAG
 }
 
-void InitializeFlags() {
+static void DisplayHelpMessages(FlagParser *parser) {
+  // TODO(eugenis): dump all flags at verbosity>=2?
+  if (Verbosity()) {
+    ReportUnrecognizedFlags();
+  }
+
+  if (common_flags()->help) {
+    parser->PrintFlagDescriptions();
+  }
+}
+
+static void InitializeDefaultFlags() {
+  Flags *f = flags();
+  FlagParser asan_parser;
+
   // Set the default values and prepare for parsing ASan and common flags.
   SetCommonFlagsDefaults();
   {
@@ -64,10 +76,8 @@ void InitializeFlags() {
     cf.exitcode = 1;
     OverrideCommonFlags(cf);
   }
-  Flags *f = flags();
   f->SetDefaults();
 
-  FlagParser asan_parser;
   RegisterAsanFlags(&asan_parser, f);
   RegisterCommonFlags(&asan_parser);
 
@@ -91,7 +101,7 @@ void InitializeFlags() {
   RegisterCommonFlags(&ubsan_parser);
 #endif
 
-  if (SANITIZER_MAC) {
+  if (SANITIZER_APPLE) {
     // Support macOS MallocScribble and MallocPreScribble:
     // <https://developer.apple.com/library/content/documentation/Performance/
     // Conceptual/ManagingMemory/Articles/MallocDebug.html>
@@ -108,14 +118,14 @@ void InitializeFlags() {
   asan_parser.ParseString(asan_compile_def);
 
   // Override from user-specified string.
-  const char *asan_default_options = MaybeCallAsanDefaultOptions();
+  const char *asan_default_options = __asan_default_options();
   asan_parser.ParseString(asan_default_options);
 #if CAN_SANITIZE_UB
-  const char *ubsan_default_options = __ubsan::MaybeCallUbsanDefaultOptions();
+  const char *ubsan_default_options = __ubsan_default_options();
   ubsan_parser.ParseString(ubsan_default_options);
 #endif
 #if CAN_SANITIZE_LEAKS
-  const char *lsan_default_options = __lsan::MaybeCallLsanDefaultOptions();
+  const char *lsan_default_options = __lsan_default_options();
   lsan_parser.ParseString(lsan_default_options);
 #endif
 
@@ -130,13 +140,13 @@ void InitializeFlags() {
 
   InitializeCommonFlags();
 
-  // TODO(eugenis): dump all flags at verbosity>=2?
-  if (Verbosity()) ReportUnrecognizedFlags();
+  // TODO(samsonov): print all of the flags (ASan, LSan, common).
+  DisplayHelpMessages(&asan_parser);
+}
 
-  if (common_flags()->help) {
-    // TODO(samsonov): print all of the flags (ASan, LSan, common).
-    asan_parser.PrintFlagDescriptions();
-  }
+// Validate flags and report incompatible configurations
+static void ProcessFlags() {
+  Flags *f = flags();
 
   // Flag validation:
   if (!CAN_SANITIZE_LEAKS && common_flags()->detect_leaks) {
@@ -144,9 +154,9 @@ void InitializeFlags() {
            SanitizerToolName);
     Die();
   }
-  // Ensure that redzone is at least SHADOW_GRANULARITY.
-  if (f->redzone < (int)SHADOW_GRANULARITY)
-    f->redzone = SHADOW_GRANULARITY;
+  // Ensure that redzone is at least ASAN_SHADOW_GRANULARITY.
+  if (f->redzone < (int)ASAN_SHADOW_GRANULARITY)
+    f->redzone = ASAN_SHADOW_GRANULARITY;
   // Make "strict_init_order" imply "check_initialization_order".
   // TODO(samsonov): Use a single runtime flag for an init-order checker.
   if (f->strict_init_order) {
@@ -159,10 +169,6 @@ void InitializeFlags() {
   CHECK_LE(f->max_redzone, 2048);
   CHECK(IsPowerOfTwo(f->redzone));
   CHECK(IsPowerOfTwo(f->max_redzone));
-  if (SANITIZER_RTEMS) {
-    CHECK(!f->unmap_shadow_on_exit);
-    CHECK(!f->protect_shadow_gap);
-  }
 
   // quarantine_size is deprecated but we still honor it.
   // quarantine_size can not be used together with quarantine_size_mb.
@@ -205,6 +211,67 @@ void InitializeFlags() {
     Report("WARNING: strndup* interceptors are enabled even though "
            "replace_str=0. Use intercept_strndup=0 to disable them.");
   }
+}
+
+void InitializeFlags() {
+  InitializeDefaultFlags();
+  ProcessFlags();
+
+#if SANITIZER_WINDOWS
+  // On Windows, weak symbols (such as the `__asan_default_options` function)
+  // are emulated by having the user program register which weak functions are
+  // defined. The ASAN DLL will initialize flags prior to user module
+  // initialization, so __asan_default_options will not point to the user
+  // definition yet. We still want to ensure we capture when options are passed
+  // via
+  // __asan_default_options, so we add a callback to be run
+  // when it is registered with the runtime.
+
+  // There is theoretically time between the initial ProcessFlags and
+  // registering the weak callback where a weak function could be added and we
+  // would miss it, but in practice, InitializeFlags will always happen under
+  // the loader lock (if built as a DLL) and so will any calls to
+  // __sanitizer_register_weak_function.
+  AddRegisterWeakFunctionCallback(
+      reinterpret_cast<uptr>(__asan_default_options), []() {
+        // We call `InitializeDefaultFlags` again, instead of just parsing
+        // `__asan_default_options` directly, to ensure that flags set through
+        // `ASAN_OPTS` take precedence over those set through
+        // `__asan_default_options`.
+        InitializeDefaultFlags();
+        ProcessFlags();
+        ApplyFlags();
+      });
+
+#  if CAN_SANITIZE_UB
+  AddRegisterWeakFunctionCallback(
+      reinterpret_cast<uptr>(__ubsan_default_options), []() {
+        FlagParser ubsan_parser;
+
+        __ubsan::RegisterUbsanFlags(&ubsan_parser, __ubsan::flags());
+        RegisterCommonFlags(&ubsan_parser);
+        ubsan_parser.ParseString(__ubsan_default_options());
+
+        // To match normal behavior, do not print UBSan help.
+        ProcessFlags();
+      });
+#  endif
+
+#  if CAN_SANITIZE_LEAKS
+  AddRegisterWeakFunctionCallback(
+      reinterpret_cast<uptr>(__lsan_default_options), []() {
+        FlagParser lsan_parser;
+
+        __lsan::RegisterLsanFlags(&lsan_parser, __lsan::flags());
+        RegisterCommonFlags(&lsan_parser);
+        lsan_parser.ParseString(__lsan_default_options());
+
+        // To match normal behavior, do not print LSan help.
+        ProcessFlags();
+      });
+#  endif
+
+#endif
 }
 
 }  // namespace __asan

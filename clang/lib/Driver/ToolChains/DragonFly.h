@@ -16,12 +16,13 @@
 namespace clang {
 namespace driver {
 namespace tools {
-/// dragonfly -- Directly call GNU Binutils assembler and linker
+
+/// Directly call GNU Binutils assembler and linker
 namespace dragonfly {
-class LLVM_LIBRARY_VISIBILITY Assembler : public GnuTool {
+class LLVM_LIBRARY_VISIBILITY Assembler final : public Tool {
 public:
   Assembler(const ToolChain &TC)
-      : GnuTool("dragonfly::Assembler", "assembler", TC) {}
+      : Tool("dragonfly::Assembler", "assembler", TC) {}
 
   bool hasIntegratedCPP() const override { return false; }
 
@@ -31,9 +32,9 @@ public:
                     const char *LinkingOutput) const override;
 };
 
-class LLVM_LIBRARY_VISIBILITY Linker : public GnuTool {
+class LLVM_LIBRARY_VISIBILITY Linker final : public Tool {
 public:
-  Linker(const ToolChain &TC) : GnuTool("dragonfly::Linker", "linker", TC) {}
+  Linker(const ToolChain &TC) : Tool("dragonfly::Linker", "linker", TC) {}
 
   bool hasIntegratedCPP() const override { return false; }
   bool isLinkJob() const override { return true; }
@@ -54,6 +55,13 @@ public:
             const llvm::opt::ArgList &Args);
 
   bool IsMathErrnoDefault() const override { return false; }
+
+  void
+  AddClangSystemIncludeArgs(const llvm::opt::ArgList &DriverArgs,
+                            llvm::opt::ArgStringList &CC1Args) const override;
+  void addLibStdCxxIncludePaths(
+      const llvm::opt::ArgList &DriverArgs,
+      llvm::opt::ArgStringList &CC1Args) const override;
 
 protected:
   Tool *buildAssembler() const override;

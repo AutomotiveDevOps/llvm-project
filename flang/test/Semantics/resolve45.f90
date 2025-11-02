@@ -1,39 +1,48 @@
-! RUN: %S/test_errors.sh %s %t %f18
+! RUN: %python %S/test_errors.py %s %flang_fc1
+!ERROR: The function result variable 'f1' may not have an explicit SAVE attribute
 function f1(x, y)
+  !ERROR: The dummy argument 'x' may not have an explicit SAVE attribute
   integer x
-  !ERROR: SAVE attribute may not be applied to dummy argument 'x'
-  !ERROR: SAVE attribute may not be applied to dummy argument 'y'
   save x,y
+  !ERROR: The dummy argument 'y' may not have an explicit SAVE attribute
   integer y
-  !ERROR: SAVE attribute may not be applied to function result 'f1'
   save f1
 end
 
-function f2(x, y)
-  !ERROR: SAVE attribute may not be applied to function result 'f2'
-  real, save :: f2
-  !ERROR: SAVE attribute may not be applied to dummy argument 'x'
+!ERROR: The entity 'f2' with an explicit SAVE attribute must be a variable, procedure pointer, or COMMON block
+function f2(x, y) result(r)
+  save f2
+  !ERROR: The function result variable 'r' may not have an explicit SAVE attribute
+  real, save :: r
+  !ERROR: The dummy argument 'x' may not have an explicit SAVE attribute
   complex, save :: x
   allocatable :: y
-  !ERROR: SAVE attribute may not be applied to dummy argument 'y'
-  integer, save :: y
+  !ERROR: The dummy argument 'y' may not have an explicit SAVE attribute
+  integer :: y
+  save :: y
+end
+
+! SAVE statement should not trigger the above errors
+function f2b(x, y)
+  real :: x, y
+  save
 end
 
 subroutine s3(x)
-  !ERROR: SAVE attribute may not be applied to dummy argument 'x'
+  !ERROR: The dummy argument 'x' may not have an explicit SAVE attribute
   procedure(integer), pointer, save :: x
-  !ERROR: Procedure 'y' with SAVE attribute must also have POINTER attribute
+  !ERROR: The entity 'y' with an explicit SAVE attribute must be a variable, procedure pointer, or COMMON block
   procedure(integer), save :: y
 end
 
 subroutine s4
-  !ERROR: Explicit SAVE of 'z' is redundant due to global SAVE statement
+  !WARNING: Explicit SAVE of 'z' is redundant due to global SAVE statement [-Wredundant-attribute]
   save z
   save
   procedure(integer), pointer :: x
-  !ERROR: Explicit SAVE of 'x' is redundant due to global SAVE statement
+  !WARNING: Explicit SAVE of 'x' is redundant due to global SAVE statement [-Wredundant-attribute]
   save :: x
-  !ERROR: Explicit SAVE of 'y' is redundant due to global SAVE statement
+  !WARNING: Explicit SAVE of 'y' is redundant due to global SAVE statement [-Wredundant-attribute]
   integer, save :: y
 end
 
@@ -46,18 +55,18 @@ subroutine s5
   end block
 end
 
-subroutine s6
-  save x
-  save y
-  !ERROR: SAVE attribute was already specified on 'y'
-  integer, save :: y
-  integer, save :: z
-  !ERROR: SAVE attribute was already specified on 'x'
-  !ERROR: SAVE attribute was already specified on 'z'
-  save x,z
-end
-
 subroutine s7
   !ERROR: 'x' appears as a COMMON block in a SAVE statement but not in a COMMON statement
   save /x/
+end
+
+subroutine s8a(n)
+  integer :: n
+  real :: x(n)  ! OK: save statement doesn't affect x
+  save
+end
+subroutine s8b(n)
+  integer :: n
+  !ERROR: The automatic object 'x' may not have an explicit SAVE attribute
+  real, save :: x(n)
 end

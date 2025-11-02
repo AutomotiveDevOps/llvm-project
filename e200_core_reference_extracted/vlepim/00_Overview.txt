@@ -1,0 +1,100 @@
+Variable-Length Encoding (VLE)
+        Extension Programming
+               Interface Manual
+
+
+
+
+                                VLEPIM
+                          Rev. 1, 2/2006
+How to Reach Us:
+Home Page:
+www.freescale.com
+email:
+support@freescale.com
+USA/Europe or Locations Not Listed:
+Freescale Semiconductor
+Technical Information Center, CH370
+1300 N. Alma School Road
+Chandler, Arizona 85224
+(800) 521-6274
+480-768-2130
+support@freescale.com
+Europe, Middle East, and Africa:
+Freescale Halbleiter Deutschland GmbH
+Technical Information Center
+Schatzbogen 7
+81829 Muenchen, Germany
++44 1296 380 456 (English)
++46 8 52200080 (English)                                         Information in this document is provided solely to enable system and software
++49 89 92103 559 (German)                                        implementers to use Freescale Semiconductor products. There are no express or
++33 1 69 35 48 48 (French)                                       implied copyright licenses granted hereunder to design or fabricate any integrated
+support@freescale.com
+                                                                 circuits or integrated circuits based on the information in this document.
+Japan:
+                                                                 Freescale Semiconductor reserves the right to make changes without further notice to
+Freescale Semiconductor Japan Ltd.
+Headquarters                                                     any products herein. Freescale Semiconductor makes no warranty, representation or
+ARCO Tower 15F                                                   guarantee regarding the suitability of its products for any particular purpose, nor does
+1-8-1, Shimo-Meguro, Meguro-ku                                   Freescale Semiconductor assume any liability arising out of the application or use of
+Tokyo 153-0064, Japan
+                                                                 any product or circuit, and specifically disclaims any and all liability, including without
+0120 191014
++81 3 5437 9125                                                  limitation consequential or incidental damages. “Typical” parameters which may be
+support.japan@freescale.com                                      provided in Freescale Semiconductor data sheets and/or specifications can and do
+Asia/Pacific:                                                    vary in different applications and actual performance may vary over time. All operating
+Freescale Semiconductor Hong Kong Ltd.                           parameters, including “Typicals” must be validated for each customer application by
+Technical Information Center                                     customer’s technical experts. Freescale Semiconductor does not convey any license
+2 Dai King Street
+                                                                 under its patent rights nor the rights of others. Freescale Semiconductor products are
+Tai Po Industrial Estate,
+Tai Po, N.T., Hong Kong                                          not designed, intended, or authorized for use as components in systems intended for
++800 2666 8080                                                   surgical implant into the body, or other applications intended to support or sustain life,
+support.asia@freescale.com                                       or for any other application in which the failure of the Freescale Semiconductor product
+For Literature Requests Only:                                    could create a situation where personal injury or death may occur. Should Buyer
+Freescale Semiconductor                                          purchase or use Freescale Semiconductor products for any such unintended or
+  Literature Distribution Center
+P.O. Box 5405                                                    unauthorized application, Buyer shall indemnify and hold Freescale Semiconductor
+Denver, Colorado 80217                                           and its officers, employees, subsidiaries, affiliates, and distributors harmless against all
+(800) 441-2447                                                   claims, costs, damages, and expenses, and reasonable attorney fees arising out of,
+303-675-2140
+                                                                 directly or indirectly, any claim of personal injury or death associated with such
+Fax: 303-675-2150
+LDCForFreescaleSemiconductor                                     unintended or unauthorized use, even if such claim alleges that Freescale
+  @hibbertgroup.com                                              Semiconductor was negligent regarding the design or manufacture of the part.
+
+
+
+Freescale™ and the Freescale logo are trademarks of Freescale Semiconductor, Inc. The PowerPC
+name is a trademark of IBM Corp. and is used under license. All other product or service names are
+the property of their respective owners.
+© Freescale Semiconductor, Inc., 2006. All rights reserved.
+
+
+
+
+Document Number: VLEPIM
+Rev. 1, 2/2006
+                                                           Contents
+Paragraph                                                                                                                                Page
+Number                                                              Title                                                              Number
+                                                                      Contents
+
+
+
+                                                         About this Book
+
+                                                               Chapter 1
+                                                               Overview
+
+1.1             Application Binary Interface (ABI) ................................................................................. 1-1
+1.2             Assembly Language Interface ......................................................................................... 1-1
+1.3             Simplified Mnemonics Assembly Language Interface.................................................... 1-1
+
+                                                      Chapter 2
+                                          Application Binary Interface (ABI)
+
+2.1             Instruction and Data Representation................................................................................ 2-1
+2.2             Executable and Linking Format (ELF) Object Files ....................................................... 2-2
+2.2.1             VLE Information Section............................................................................................. 2-2
+2.2.2             VLE Identification ....................................................................................................... 2-3

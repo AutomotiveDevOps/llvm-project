@@ -1,13 +1,10 @@
-
 import lldb
 from lldbsuite.test.decorators import *
 from lldbsuite.test.lldbtest import *
 from lldbsuite.test import lldbutil
 
+
 class ExprBug35310(TestBase):
-
-    mydir = TestBase.compute_mydir(__file__)
-
     def setUp(self):
         # Call super's setUp().
         TestBase.setUp(self)
@@ -23,16 +20,7 @@ class ExprBug35310(TestBase):
         """
         self.build()
 
-        (target, process, thread, bkpt) = lldbutil.run_to_source_breakpoint(self,
-                                          '// Break here', self.main_source_spec)
-        frame = thread.GetFrameAtIndex(0)
+        lldbutil.run_to_source_breakpoint(self, "// Break here", self.main_source_spec)
 
-        value = frame.EvaluateExpression("a.test_abi_tag()")
-        self.assertTrue(value.IsValid())
-        self.assertTrue(value.GetError().Success())
-        self.assertEqual(value.GetValueAsSigned(0), 1)
-
-        value = frame.EvaluateExpression("a.test_asm_name()")
-        self.assertTrue(value.IsValid())
-        self.assertTrue(value.GetError().Success())
-        self.assertEqual(value.GetValueAsSigned(0), 2)
+        self.expect_expr("a.test_abi_tag()", result_value="1")
+        self.expect_expr("a.test_asm_name()", result_value="2")

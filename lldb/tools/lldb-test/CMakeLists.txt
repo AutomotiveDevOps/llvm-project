@@ -5,8 +5,9 @@ add_lldb_tool(lldb-test
   lldb-test.cpp
   SystemInitializerTest.cpp
 
+  LINK_COMPONENTS
+    Support
   LINK_LIBS
-    lldbBase
     lldbBreakpoint
     lldbCore
     lldbDataFormatters
@@ -17,16 +18,13 @@ add_lldb_tool(lldb-test
     lldbSymbol
     lldbTarget
     lldbUtility
+    lldbVersion
     ${LLDB_ALL_PLUGINS}
-    ${host_lib}
-
-  LINK_COMPONENTS
-    Support
   )
 
-if(PYTHON_RPATH)
-  set_property(TARGET lldb-test APPEND PROPERTY INSTALL_RPATH "${PYTHON_RPATH}")
-  set_property(TARGET lldb-test APPEND PROPERTY BUILD_RPATH   "${PYTHON_RPATH}")
+if(Python3_RPATH)
+  set_property(TARGET lldb-test APPEND PROPERTY INSTALL_RPATH "${Python3_RPATH}")
+  set_property(TARGET lldb-test APPEND PROPERTY BUILD_RPATH   "${Python3_RPATH}")
 endif()
 
 target_include_directories(lldb-test PRIVATE ${LLDB_SOURCE_DIR}/source)

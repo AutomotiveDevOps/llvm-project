@@ -9,10 +9,10 @@
 #ifndef LLVM_MC_MCPARSER_MCASMPARSEREXTENSION_H
 #define LLVM_MC_MCPARSER_MCASMPARSEREXTENSION_H
 
-#include "llvm/ADT/STLExtras.h"
+#include "llvm/ADT/STLFunctionalExtras.h"
 #include "llvm/ADT/StringRef.h"
-#include "llvm/MC/MCParser/MCAsmLexer.h"
 #include "llvm/MC/MCParser/MCAsmParser.h"
+#include "llvm/Support/Compiler.h"
 #include "llvm/Support/SMLoc.h"
 
 namespace llvm {
@@ -22,8 +22,8 @@ class Twine;
 /// Generic interface for extending the MCAsmParser,
 /// which is implemented by target and object file assembly parser
 /// implementations.
-class MCAsmParserExtension {
-  MCAsmParser *Parser;
+class LLVM_ABI MCAsmParserExtension {
+  MCAsmParser *Parser = nullptr;
 
 protected:
   MCAsmParserExtension();
@@ -54,8 +54,8 @@ public:
 
   MCContext &getContext() { return getParser().getContext(); }
 
-  MCAsmLexer &getLexer() { return getParser().getLexer(); }
-  const MCAsmLexer &getLexer() const {
+  AsmLexer &getLexer() { return getParser().getLexer(); }
+  const AsmLexer &getLexer() const {
     return const_cast<MCAsmParserExtension *>(this)->getLexer();
   }
 
@@ -89,6 +89,7 @@ public:
                   const Twine &Msg = "unexpected token") {
     return getParser().parseToken(T, Msg);
   }
+  bool parseEOL() { return getParser().parseEOL(); }
 
   bool parseMany(function_ref<bool()> parseOne, bool hasComma = true) {
     return getParser().parseMany(parseOne, hasComma);
@@ -97,6 +98,10 @@ public:
   bool parseOptionalToken(AsmToken::TokenKind T) {
     return getParser().parseOptionalToken(T);
   }
+
+  bool parseDirectiveCGProfile(StringRef, SMLoc);
+
+  bool maybeParseUniqueID(int64_t &UniqueID);
 
   bool check(bool P, const Twine &Msg) {
     return getParser().check(P, Msg);

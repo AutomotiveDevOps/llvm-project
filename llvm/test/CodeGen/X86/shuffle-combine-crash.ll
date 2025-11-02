@@ -18,7 +18,6 @@
 define void @sample_test() {
 ; CHECK-LABEL: sample_test:
 ; CHECK:       # %bb.0:
-; CHECK-NEXT:    xorl %eax, %eax
 ; CHECK-NEXT:    testb %al, %al
 ; CHECK-NEXT:    jne .LBB0_2
 ; CHECK-NEXT:  # %bb.1:
@@ -28,16 +27,15 @@ define void @sample_test() {
 ; CHECK-NEXT:    movd %xmm0, (%rax)
 ; CHECK-NEXT:  .LBB0_2:
 ; CHECK-NEXT:    retq
-  br i1 undef, label %5, label %1
+  br i1 poison, label %5, label %1
 
 ; <label>:1                                       ; preds = %0
-  %2 = load <4 x i8>, <4 x i8>* undef
+  %2 = load <4 x i8>, ptr undef
   %3 = shufflevector <4 x i8> %2, <4 x i8> undef, <4 x i32> <i32 2, i32 2, i32 0, i32 0>
   %4 = shufflevector <4 x i8> %3, <4 x i8> undef, <4 x i32> <i32 2, i32 3, i32 0, i32 1>
-  store <4 x i8> %4, <4 x i8>* undef
+  store <4 x i8> %4, ptr undef
   br label %5
 
 ; <label>:5                                       ; preds = %1, %0
   ret void
 }
-

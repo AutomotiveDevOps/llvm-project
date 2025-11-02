@@ -1,0 +1,100 @@
+                Power ISA™
+                Version 2.07
+
+
+
+
+May 3, 2013
+
+
+
+
+Softcopy Distribution: www.power.org.documentation
+Version 2.07
+
+
+The following paragraph does not apply to the United        © Copyright International Business Machines Corpora-
+Kingdom or any country or state where such provisions       tion, 1994, 2013. All rights reserved.
+are inconsistent with local law.
+The specifications in this manual are subject to change
+without notice. This manual is provided “AS IS”. Inter-
+national Business Machines Corp. makes no warranty
+of any kind, either expressed or implied, including, but
+not limited to, the implied warranties of merchantability
+and fitness for a particular purpose.
+International Business Machines Corp. does not war-
+rant that the contents of this publication or the accom-
+panying source code examples, whether individually or
+as one or more groups, will meet your requirements or
+that the publication or the accompanying source code
+examples are error-free.
+This publication could include technical inaccuracies or
+typographical errors. Changes are periodically made to
+the information herein; these changes will be incorpo-
+rated in new editions of the publication.
+Address comments to IBM Corporation, 11400 Burnett
+Road, Austin, Texas 78758-3493. IBM may use or dis-
+tribute whatever information you supply in any way it
+believes appropriate without incurring any obligation to
+you.
+The following terms are trademarks of the International
+Business Machines Corporation in the United States
+and/or other countries:
+
+     IBM®
+     Power ISA
+     PowerPC®
+     Power Architecture
+     PowerPC Architecture
+     Power Family
+     RISC/System 6000®
+     POWER®
+     POWER2
+     POWER4
+     POWER4+
+     POWER5
+     POWER5+
+     POWER6®
+     POWER7®
+     System/370
+     System z
+The POWER ARCHITECTURE and POWER.ORG.
+word marks and the Power and Power.org logos and
+related marks are trademarks and service marks
+licensed by Power.org.
+AltiVec is a trademark of Freescale Semiconductor, Inc.
+used under license.
+Notice to U.S. Government Users—Documentation
+Related to Restricted Rights—Use, duplication or dis-
+closure is subject to restrictions set fourth in GSA ADP
+Schedule Contract with IBM Corporation.
+
+
+
+ii         Power ISA™
+                                                                                                     Version 2.07
+
+
+
+
+Preface
+
+The roots of the Power ISA (Instruction Set Architec-        Book II, Power ISA Virtual Environment Architecture,
+ture) extend back over a quarter of a century, to IBM        defines the storage model and related instructions and
+Research. The POWER (Performance Optimization                facilities available to the application programmer.
+With Enhanced RISC) Architecture was introduced with
+                                                             Book III-S, Power ISA Operating Environment Architec-
+the RISC System/6000 product family in early 1990. In
+                                                             ture, defines the supervisor instructions and related
+1991, Apple, IBM, and Motorola began the collabora-
+                                                             facilities used for general purpose implementations.
+tion to evolve to the PowerPC Architecture, expanding
+the architecture’s applicability. In 1997, Motorola and      Book III-E, Power ISA Operating Environment Architec-
+IBM began another collaboration, focused on optimiz-         ture, defines the supervisor instructions and related
+ing PowerPC for embedded systems, which produced             facilities used for embedded implementations. It was
+Book E.                                                      derived from Book E and extended to include APU
+                                                             function.
+In 2006, Freescale and IBM collaborated on the cre-
+ation of the Power ISA Version 2.03, which represented       Book VLE, Power ISAVariable Length Encoded Instruc-
+the reunification of the architecture by combining           tions Architecture, defines alternative instruction
+Book E content with the more general purpose Pow-            encodings and definitions intended to increase instruc-

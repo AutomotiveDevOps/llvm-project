@@ -1,7 +1,10 @@
 ; RUN: llvm-mc -filetype=obj -triple=wasm32-unknown-unknown %p/Inputs/hello.s -o %t.hello.o
 ; RUN: llc -filetype=obj %s -o %t.o
-; RUN: wasm-ld -r -o %t.wasm %t.hello.o %t.o
-; RUN: obj2yaml %t.wasm | FileCheck %s
+; RUN: wasm-ld -r -o %t2.o %t.hello.o %t.o
+; RUN: obj2yaml %t2.o | FileCheck %s
+
+; Verify the resulting object can be used as linker input
+; RUN: wasm-ld --allow-undefined -o %t.wasm %t2.o --export-table
 
 target triple = "wasm32-unknown-unknown"
 
@@ -17,24 +20,29 @@ declare i32 @foo_import() local_unnamed_addr
 declare extern_weak i32 @bar_import() local_unnamed_addr
 @data_import = external global i64
 
-@func_addr1 = hidden global i32()* @my_func, align 4
-@func_addr2 = hidden global i32()* @foo_import, align 4
-@func_addr3 = hidden global i32()* @bar_import, align 4
-@data_addr1 = hidden global i64* @data_import, align 8
+@func_addr1 = hidden global ptr @my_func, align 4
+@func_addr2 = hidden global ptr @foo_import, align 4
+@func_addr3 = hidden global ptr @bar_import, align 4
+@data_addr1 = hidden global ptr @data_import, align 8
 
 $func_comdat = comdat any
 @data_comdat = weak_odr constant [3 x i8] c"abc", comdat($func_comdat)
 define linkonce_odr i32 @func_comdat() comdat {
 entry:
-  ret i32 ptrtoint ([3 x i8]* @data_comdat to i32)
+  ret i32 ptrtoint (ptr @data_comdat to i32)
 }
 
 ; Test that __attribute__(used) (i.e NO_STRIP) is preserved in the relocated symbol table
-@llvm.used = appending global [1 x i8*] [i8* bitcast (i32 ()* @my_func to i8*)], section "llvm.metadata"
+@llvm.used = appending global [1 x ptr] [ptr @my_func], section "llvm.metadata"
+
+define void @_start() {
+  ret void
+}
+
 
 ; CHECK:      --- !WASM
 ; CHECK-NEXT: FileHeader:
-; CHECK-NEXT:   Version:         0x00000001
+; CHECK-NEXT:   Version:         0x1
 ; CHECK-NEXT: Sections:
 ; CHECK-NEXT:   - Type:            TYPE
 ; CHECK-NEXT:     Signatures:
@@ -52,6 +60,14 @@ entry:
 ; CHECK-NEXT:   - Type:            IMPORT
 ; CHECK-NEXT:     Imports:
 ; CHECK-NEXT:       - Module:          env
+; CHECK-NEXT:         Field:           __indirect_function_table
+; CHECK-NEXT:         Kind:            TABLE
+; CHECK-NEXT:         Table:
+; CHECK-NEXT:           Index:           0
+; CHECK-NEXT:           ElemType:        FUNCREF
+; CHECK-NEXT:           Limits:
+; CHECK-NEXT:             Minimum:         0x4
+; CHECK-NEXT:       - Module:          env
 ; CHECK-NEXT:         Field:           puts
 ; CHECK-NEXT:         Kind:            FUNCTION
 ; CHECK-NEXT:         SigIndex:        0
@@ -64,17 +80,10 @@ entry:
 ; CHECK-NEXT:         Kind:            FUNCTION
 ; CHECK-NEXT:         SigIndex:        1
 ; CHECK-NEXT:   - Type:            FUNCTION
-; CHECK-NEXT:     FunctionTypes:   [ 2, 1, 1 ]
-; CHECK-NEXT:   - Type:            TABLE
-; CHECK-NEXT:     Tables:
-; CHECK-NEXT:       - ElemType:        FUNCREF
-; CHECK-NEXT:         Limits:
-; CHECK-NEXT:           Flags:           [ HAS_MAX ]
-; CHECK-NEXT:           Initial:         0x00000004
-; CHECK-NEXT:           Maximum:         0x00000004
+; CHECK-NEXT:     FunctionTypes:   [ 2, 1, 1, 2 ]
 ; CHECK-NEXT:   - Type:            MEMORY
 ; CHECK-NEXT:     Memories:
-; CHECK-NEXT:      - Initial:         0x00000001
+; CHECK-NEXT:      - Minimum:         0x1
 ; CHECK-NEXT:   - Type:            ELEM
 ; CHECK-NEXT:     Segments:
 ; CHECK-NEXT:       - Offset:
@@ -87,19 +96,19 @@ entry:
 ; CHECK-NEXT:     Relocations:
 ; CHECK-NEXT:       - Type:            R_WASM_MEMORY_ADDR_SLEB
 ; CHECK-NEXT:         Index:           1
-; CHECK-NEXT:         Offset:          0x00000004
+; CHECK-NEXT:         Offset:          0x4
 ; CHECK-NEXT:       - Type:            R_WASM_FUNCTION_INDEX_LEB
 ; CHECK-NEXT:         Index:           2
-; CHECK-NEXT:         Offset:          0x0000000A
+; CHECK-NEXT:         Offset:          0xA
 ; CHECK-NEXT:       - Type:            R_WASM_FUNCTION_INDEX_LEB
 ; CHECK-NEXT:         Index:           4
-; CHECK-NEXT:         Offset:          0x00000013
+; CHECK-NEXT:         Offset:          0x13
 ; CHECK-NEXT:       - Type:            R_WASM_FUNCTION_INDEX_LEB
 ; CHECK-NEXT:         Index:           5
-; CHECK-NEXT:         Offset:          0x0000001A
+; CHECK-NEXT:         Offset:          0x1A
 ; CHECK-NEXT:       - Type:            R_WASM_MEMORY_ADDR_SLEB
 ; CHECK-NEXT:         Index:           7
-; CHECK-NEXT:         Offset:          0x00000026
+; CHECK-NEXT:         Offset:          0x26
 ; CHECK-NEXT:     Functions:
 ; CHECK-NEXT:       - Index:         3
 ; CHECK-NEXT:         Locals:
@@ -114,16 +123,16 @@ entry:
 ; NORMAL-NEXT:    Relocations:
 ; NORMAL-NEXT:      - Type:            R_WASM_TABLE_INDEX_I32
 ; NORMAL-NEXT:        Index:           3
-; NORMAL-NEXT:        Offset:          0x0000001A
+; NORMAL-NEXT:        Offset:          0x1A
 ; NORMAL-NEXT:      - Type:            R_WASM_TABLE_INDEX_I32
 ; NORMAL-NEXT:        Index:           4
-; NORMAL-NEXT:        Offset:          0x00000023
+; NORMAL-NEXT:        Offset:          0x23
 ; NORMAL-NEXT:      - Type:            R_WASM_TABLE_INDEX_I32
 ; NORMAL-NEXT:        Index:           5
-; NORMAL-NEXT:        Offset:          0x0000002C
+; NORMAL-NEXT:        Offset:          0x2C
 ; NORMAL-NEXT:      - Type:            R_WASM_MEMORY_ADDR_I32
 ; NORMAL-NEXT:        Index:           12
-; NORMAL-NEXT:        Offset:          0x00000035
+; NORMAL-NEXT:        Offset:          0x35
 ; NORMAL-NEXT:    Segments:
 ; NORMAL-NEXT:      - SectionOffset:   6
 ; NORMAL-NEXT:        InitFlags:       0

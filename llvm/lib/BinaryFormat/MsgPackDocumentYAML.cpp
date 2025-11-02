@@ -1,9 +1,8 @@
 //===-- MsgPackDocumentYAML.cpp - MsgPack Document YAML interface -------*-===//
 //
-//                     The LLVM Compiler Infrastructure
-//
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
 //
@@ -210,12 +209,12 @@ template <> struct CustomMappingTraits<MapDocNode> {
   static void inputOne(IO &IO, StringRef Key, MapDocNode &M) {
     ScalarDocNode KeyObj = M.getDocument()->getNode();
     KeyObj.fromString(Key, "");
-    IO.mapRequired(Key.str().c_str(), M.getMap()[KeyObj]);
+    IO.mapRequired(Key, M.getMap()[KeyObj]);
   }
 
   static void output(IO &IO, MapDocNode &M) {
     for (auto I : M.getMap()) {
-      IO.mapRequired(I.first.toString().c_str(), I.second);
+      IO.mapRequired(I.first.toString(), I.second);
     }
   }
 };

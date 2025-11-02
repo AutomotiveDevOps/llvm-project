@@ -1,13 +1,12 @@
-; RUN: llc -I %p/Inputs -filetype asm -o - %s | FileCheck %s
-; REQUIRES: default_triple
+; RUN: llc -mtriple=x86_64 -I %p/Inputs -filetype asm -o - %s | FileCheck %s
 
 module asm ".include \22module.x\22"
 
-define arm_aapcscc void @f() {
+define void @f() {
 entry:
   call void asm sideeffect ".include \22function.x\22", ""()
   ret void
 }
 
-; CHECK: .set MODULE, 1
-; CHECK: .set FUNCTION, 1
+; CHECK: MODULE = 1
+; CHECK: FUNCTION = 1

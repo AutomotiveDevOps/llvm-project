@@ -13,6 +13,20 @@
 namespace clang {
 namespace clangd {
 
+llvm::raw_ostream &operator<<(llvm::raw_ostream &OS, const RelationKind R) {
+  switch (R) {
+  case RelationKind::BaseOf:
+    return OS << "BaseOf";
+  case RelationKind::OverriddenBy:
+    return OS << "OverriddenBy";
+  }
+  llvm_unreachable("Unhandled RelationKind enum.");
+}
+
+llvm::raw_ostream &operator<<(llvm::raw_ostream &OS, const Relation &R) {
+  return OS << R.Subject << " " << R.Predicate << " " << R.Object;
+}
+
 llvm::iterator_range<RelationSlab::iterator>
 RelationSlab::lookup(const SymbolID &Subject, RelationKind Predicate) const {
   auto IterPair = std::equal_range(Relations.begin(), Relations.end(),
@@ -29,8 +43,7 @@ RelationSlab RelationSlab::Builder::build() && {
   llvm::sort(Relations);
 
   // Remove duplicates.
-  Relations.erase(std::unique(Relations.begin(), Relations.end()),
-                  Relations.end());
+  Relations.erase(llvm::unique(Relations), Relations.end());
 
   return RelationSlab{std::move(Relations)};
 }

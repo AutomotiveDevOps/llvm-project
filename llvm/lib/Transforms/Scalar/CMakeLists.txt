@@ -1,14 +1,17 @@
 add_llvm_component_library(LLVMScalarOpts
   ADCE.cpp
   AlignmentFromAssumptions.cpp
+  AnnotationRemarks.cpp
   BDCE.cpp
   CallSiteSplitting.cpp
   ConstantHoisting.cpp
-  ConstantProp.cpp
+  ConstraintElimination.cpp
   CorrelatedValuePropagation.cpp
   DCE.cpp
   DeadStoreElimination.cpp
+  DFAJumpThreading.cpp
   DivRemPairs.cpp
+  DropUnnecessaryAssumes.cpp
   EarlyCSE.cpp
   FlattenCFGPass.cpp
   Float2Int.cpp
@@ -20,10 +23,13 @@ add_llvm_component_library(LLVMScalarOpts
   InductiveRangeCheckElimination.cpp
   IndVarSimplify.cpp
   InferAddressSpaces.cpp
+  InferAlignment.cpp
   InstSimplifyPass.cpp
   JumpThreading.cpp
+  JumpTableToSwitch.cpp
   LICM.cpp
   LoopAccessAnalysisPrinter.cpp
+  LoopBoundSplit.cpp
   LoopSink.cpp
   LoopDeletion.cpp
   LoopDataPrefetch.cpp
@@ -32,18 +38,18 @@ add_llvm_component_library(LLVMScalarOpts
   LoopIdiomRecognize.cpp
   LoopInstSimplify.cpp
   LoopInterchange.cpp
+  LoopFlatten.cpp
   LoopLoadElimination.cpp
   LoopPassManager.cpp
   LoopPredication.cpp
-  LoopRerollPass.cpp
   LoopRotation.cpp
   LoopSimplifyCFG.cpp
   LoopStrengthReduce.cpp
+  LoopTermFold.cpp
   LoopUnrollPass.cpp
   LoopUnrollAndJamPass.cpp
-  LoopUnswitch.cpp
   LoopVersioningLICM.cpp
-  LowerAtomic.cpp
+  LowerAtomicPass.cpp
   LowerConstantIntrinsics.cpp
   LowerExpectIntrinsic.cpp
   LowerGuardIntrinsic.cpp
@@ -64,12 +70,12 @@ add_llvm_component_library(LLVMScalarOpts
   SROA.cpp
   Scalar.cpp
   Scalarizer.cpp
+  ScalarizeMaskedMemIntrin.cpp
   SeparateConstOffsetFromGEP.cpp
   SimpleLoopUnswitch.cpp
   SimplifyCFGPass.cpp
   Sink.cpp
   SpeculativeExecution.cpp
-  SpeculateAroundPHIs.cpp
   StraightLineStrengthReduce.cpp
   StructurizeCFG.cpp
   TailRecursionElimination.cpp
@@ -81,4 +87,16 @@ add_llvm_component_library(LLVMScalarOpts
 
   DEPENDS
   intrinsics_gen
+
+  COMPONENT_NAME
+  Scalar
+
+  LINK_COMPONENTS
+  AggressiveInstCombine
+  Analysis
+  Core
+  InstCombine
+  ProfileData
+  Support
+  TransformUtils
   )

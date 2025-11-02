@@ -18,13 +18,15 @@
 
 struct exception {
     exception() : x(0) { }
+    exception(const exception&) = default;
+    exception& operator=(const exception&) = default;
     virtual ~exception() { }
     int x;
 };
 
 struct foo : exception { };
 
-int main() {
+int main(int, char**) {
     try {
       throw foo();
     } catch (...) {

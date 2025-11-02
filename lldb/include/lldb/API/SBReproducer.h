@@ -13,19 +13,46 @@
 
 namespace lldb {
 
+#ifndef SWIG
+class LLDB_API SBReplayOptions {
+public:
+  SBReplayOptions();
+  SBReplayOptions(const SBReplayOptions &rhs);
+  ~SBReplayOptions();
+
+  SBReplayOptions &operator=(const SBReplayOptions &rhs);
+
+  void SetVerify(bool verify);
+  bool GetVerify() const;
+
+  void SetCheckVersion(bool check);
+  bool GetCheckVersion() const;
+};
+#endif
+
 /// The SBReproducer class is special because it bootstraps the capture and
 /// replay of SB API calls. As a result we cannot rely on any other SB objects
 /// in the interface or implementation of this class.
 class LLDB_API SBReproducer {
 public:
+#ifndef SWIG
   static const char *Capture();
+#endif
   static const char *Capture(const char *path);
+#ifndef SWIG
   static const char *Replay(const char *path);
   static const char *Replay(const char *path, bool skip_version_check);
+  static const char *Replay(const char *path, const SBReplayOptions &options);
+#endif
   static const char *PassiveReplay(const char *path);
+#ifndef SWIG
+  static const char *Finalize(const char *path);
   static const char *GetPath();
+#endif
   static bool SetAutoGenerate(bool b);
+#ifndef SWIG
   static bool Generate();
+#endif
 
   /// The working directory is set to the current working directory when the
   /// reproducers are initialized. This method allows setting a different

@@ -9,13 +9,14 @@
 #include "ARMTargetObjectFile.h"
 #include "ARMSubtarget.h"
 #include "ARMTargetMachine.h"
+#include "MCTargetDesc/ARMMCAsmInfo.h"
 #include "llvm/BinaryFormat/Dwarf.h"
 #include "llvm/BinaryFormat/ELF.h"
 #include "llvm/MC/MCAsmInfo.h"
 #include "llvm/MC/MCContext.h"
 #include "llvm/MC/MCExpr.h"
 #include "llvm/MC/MCSectionELF.h"
-#include "llvm/MC/MCTargetOptions.h"
+#include "llvm/MC/MCValue.h"
 #include "llvm/MC/SectionKind.h"
 #include "llvm/Target/TargetMachine.h"
 #include <cassert>
@@ -27,10 +28,15 @@ using namespace dwarf;
 //                               ELF Target
 //===----------------------------------------------------------------------===//
 
+ARMElfTargetObjectFile::ARMElfTargetObjectFile() {
+  PLTRelativeSpecifier = ARM::S_PREL31;
+  SupportIndirectSymViaGOTPCRel = true;
+}
+
 void ARMElfTargetObjectFile::Initialize(MCContext &Ctx,
                                         const TargetMachine &TM) {
   const ARMBaseTargetMachine &ARM_TM = static_cast<const ARMBaseTargetMachine &>(TM);
-  bool isAAPCS_ABI = ARM_TM.TargetABI == ARMBaseTargetMachine::ARMABI::ARM_ABI_AAPCS;
+  bool isAAPCS_ABI = ARM_TM.TargetABI == ARM::ARMABI::ARM_ABI_AAPCS;
   bool genExecuteOnly =
       ARM_TM.getMCSubtargetInfo()->hasFeature(ARM::FeatureExecuteOnly);
 
@@ -49,8 +55,26 @@ void ARMElfTargetObjectFile::Initialize(MCContext &Ctx,
     // Since we cannot modify flags for an existing section, we create a new
     // section with the right flags, and use 0 as the unique ID for
     // execute-only text
-    TextSection = Ctx.getELFSection(".text", Type, Flags, 0, "", 0U, nullptr);
+    TextSection =
+        Ctx.getELFSection(".text", Type, Flags, 0, "", false, 0U, nullptr);
   }
+}
+
+MCRegister ARMElfTargetObjectFile::getStaticBase() const { return ARM::R9; }
+
+const MCExpr *ARMElfTargetObjectFile::getIndirectSymViaGOTPCRel(
+    const GlobalValue *GV, const MCSymbol *Sym, const MCValue &MV,
+    int64_t Offset, MachineModuleInfo *MMI, MCStreamer &Streamer) const {
+  int64_t FinalOffset = Offset + MV.getConstant();
+  const MCExpr *Res =
+      MCSymbolRefExpr::create(Sym, ARM::S_GOT_PREL, getContext());
+  const MCExpr *Off = MCConstantExpr::create(FinalOffset, getContext());
+  return MCBinaryExpr::createAdd(Res, Off, getContext());
+}
+
+const MCExpr *ARMElfTargetObjectFile::
+getIndirectSymViaRWPI(const MCSymbol *Sym) const {
+  return MCSymbolRefExpr::create(Sym, ARM::S_SBREL, getContext());
 }
 
 const MCExpr *ARMElfTargetObjectFile::getTTypeGlobalReference(
@@ -62,14 +86,13 @@ const MCExpr *ARMElfTargetObjectFile::getTTypeGlobalReference(
 
   assert(Encoding == DW_EH_PE_absptr && "Can handle absptr encoding only");
 
-  return MCSymbolRefExpr::create(TM.getSymbol(GV),
-                                 MCSymbolRefExpr::VK_ARM_TARGET2, getContext());
+  return MCSymbolRefExpr::create(TM.getSymbol(GV), ARM::S_TARGET2,
+                                 getContext());
 }
 
 const MCExpr *ARMElfTargetObjectFile::
 getDebugThreadLocalSymbol(const MCSymbol *Sym) const {
-  return MCSymbolRefExpr::create(Sym, MCSymbolRefExpr::VK_ARM_TLSLDO,
-                                 getContext());
+  return MCSymbolRefExpr::create(Sym, ARM::S_TLSLDO, getContext());
 }
 
 static bool isExecuteOnlyFunction(const GlobalObject *GO, SectionKind SK,

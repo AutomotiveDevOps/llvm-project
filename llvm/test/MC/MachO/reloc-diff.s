@@ -1,6 +1,7 @@
-// RUN: llvm-mc -triple i386-apple-darwin9 %s -filetype=obj -o - | llvm-readobj -r | FileCheck %s
+// RUN: llvm-mc -triple i386-apple-darwin9 %s -filetype=obj -o - | llvm-readobj -r - | FileCheck %s
 
 _local_def:
+        .p2align 2
         .globl _external_def
 _external_def:
 Ltemp:

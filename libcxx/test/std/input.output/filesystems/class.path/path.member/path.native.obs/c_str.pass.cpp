@@ -7,7 +7,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-// UNSUPPORTED: c++98, c++03
+// UNSUPPORTED: c++03, c++11, c++14
 
 // <filesystem>
 
@@ -15,19 +15,20 @@
 
 // const value_type* c_str() const noexcept;
 
-#include "filesystem_include.h"
-#include <type_traits>
+#include <filesystem>
 #include <cassert>
+#include <string>
+#include <type_traits>
 
+#include "assert_macros.h"
 #include "test_macros.h"
-#include "filesystem_test_helper.h"
+namespace fs = std::filesystem;
 
-
-int main(int, char**)
-{
+int main(int, char**) {
   using namespace fs;
   const char* const value = "hello world";
   const std::string str_value = value;
+  const fs::path::string_type pathstr_value(str_value.begin(), str_value.end());
   { // Check signature
     path p(value);
     ASSERT_SAME_TYPE(path::value_type const*, decltype(p.c_str()));
@@ -35,7 +36,7 @@ int main(int, char**)
   }
   {
     path p(value);
-    assert(p.c_str() == str_value);
+    assert(p.c_str() == pathstr_value);
     assert(p.native().c_str() == p.c_str());
   }
 

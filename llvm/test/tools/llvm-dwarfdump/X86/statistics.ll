@@ -1,6 +1,6 @@
-; RUN: llc -O0 %s -o - -filetype=obj \
+; RUN: llc -O0 %s -o - -filetype=obj -debugger-tune=gdb -accel-tables=Apple \
 ; RUN:   | llvm-dwarfdump -statistics - | FileCheck %s
-; CHECK: "version":5
+; CHECK: "version": 9,
 
 ; namespace test {
 ;  extern int a;
@@ -23,6 +23,11 @@
 ;
 ; int boo(int, int) {}
 
+; struct T {
+;   void empty();
+; };
+; void T::empty() {}
+
 ; Following variables/arguments/members should be counted:
 ;     - GlobalConst,
 ;     - Global,
@@ -30,36 +35,41 @@
 ;     - square::i,
 ;     - cube::i, cube::squared
 ;     - boo::1, boo::2
+;     - this in T::empty()
 ; Skipped entities:
 ;     - declaration of test::a,
 ;     - non-constant member S:fn,
 ;     - arguments of S:fn.
 
-; CHECK: "#unique source variables":9
+; CHECK:      "#unique source variables": 10,
 ; +1 extra inline i.
-; CHECK: "#source variables":10
+; CHECK:      "#source variables": 11,
 ; -1 square::i
-; CHECK: "#source variables with location":9
-; CHECK: "sum_all_local_vars(#bytes in parent scope)":[[BYTES:[0-9]+]]
+; CHECK:      "#source variables with location": 10,
+; CHECK:      "sum_all_local_vars(#bytes in parent scope)": [[BYTES:[0-9]+]]
 ; Because of the dbg.value in the middle of the function, the pc range coverage
 ; must be below 100%.
-; CHECK-NOT: "sum_all_local_vars(#bytes in parent scope covered by DW_AT_location)":0
-; CHECK-NOT: "sum_all_local_vars(#bytes in parent scope covered by DW_AT_location)":[[BYTES]]
-; CHECK: "sum_all_local_vars(#bytes in parent scope covered by DW_AT_location)":
-; CHECK: "#bytes witin functions":[[FUNCSIZE:[0-9]+]]
-; CHECK: "#bytes witin inlined functions":[[INLINESIZE:[0-9]+]]
-; CHECK: "#bytes in __debug_info":380
-; CHECK: "#bytes in __debug_loc":35
-; CHECK: "#bytes in __debug_abbrev":303
-; CHECK: "#bytes in __debug_line":117
-; CHECK: "#bytes in __debug_str":204
+; CHECK-NOT:  "sum_all_local_vars(#bytes in parent scope covered by DW_AT_location)": 0,
+; CHECK-NOT:  "sum_all_local_vars(#bytes in parent scope covered by DW_AT_location)": [[BYTES]]
+; CHECK:      "sum_all_local_vars(#bytes in parent scope covered by DW_AT_location)":
+; CHECK:      "#bytes within functions": [[FUNCSIZE:[0-9]+]]
+; CHECK:      "#bytes within inlined functions": [[INLINESIZE:[0-9]+]]
+; CHECK:      "#bytes in __debug_loc": 35,
+; CHECK-NEXT: "#bytes in __debug_abbrev": 375,
+; CHECK-NEXT: "#bytes in __debug_info": 459,
+; CHECK-NEXT: "#bytes in __debug_str": 231,
+; CHECK-NEXT: "#bytes in __apple_names": 348,
+; CHECK-NEXT: "#bytes in __apple_objc": 36,
+; CHECK-NEXT: "#bytes in __apple_namespac": 60,
+; CHECK-NEXT: "#bytes in __apple_types": 133,
+; CHECK-NEXT: "#bytes in __debug_line": 126,
 
 ; ModuleID = '/tmp/quality.cpp'
 source_filename = "/tmp/quality.cpp"
 target datalayout = "e-m:o-i64:64-f80:128-n8:16:32:64-S128"
 target triple = "x86_64-apple-macosx10.12.0"
 
-%struct.S = type { i8 (i32)* }
+%struct.S = type { ptr }
 
 @GlobalConst = global i32 42, align 4, !dbg !0
 @Global = global i32 0, align 4, !dbg !6
@@ -69,11 +79,11 @@ target triple = "x86_64-apple-macosx10.12.0"
 define i32 @_Z6squarei(i32 %i) #0 !dbg !20 {
 entry:
   %i.addr = alloca i32, align 4
-  store i32 %i, i32* %i.addr, align 4
+  store i32 %i, ptr %i.addr, align 4
   ; Modified to loose debug info for i here.
-  call void @llvm.dbg.declare(metadata i32* undef, metadata !23, metadata !24), !dbg !25
-  %0 = load i32, i32* %i.addr, align 4, !dbg !26
-  %1 = load i32, i32* %i.addr, align 4, !dbg !27
+  call void @llvm.dbg.declare(metadata ptr undef, metadata !23, metadata !24), !dbg !25
+  %0 = load i32, ptr %i.addr, align 4, !dbg !26
+  %1 = load i32, ptr %i.addr, align 4, !dbg !27
   %mul = mul nsw i32 %0, %1, !dbg !28
   ret i32 %mul, !dbg !29
 }
@@ -86,22 +96,22 @@ declare void @llvm.dbg.value(metadata, metadata, metadata) #1
 define i32 @_Z4cubei(i32 %i) #2 !dbg !30 {
 entry:
   %i.addr.i = alloca i32, align 4
-  call void @llvm.dbg.declare(metadata i32* %i.addr.i, metadata !23, metadata !24), !dbg !31
+  call void @llvm.dbg.declare(metadata ptr %i.addr.i, metadata !23, metadata !24), !dbg !31
   %i.addr = alloca i32, align 4
   %squared = alloca i32, align 4
-  store i32 %i, i32* %i.addr, align 4
-  call void @llvm.dbg.declare(metadata i32* %i.addr, metadata !33, metadata !24), !dbg !34
-  %0 = load i32, i32* %i.addr, align 4, !dbg !37
-  store i32 %0, i32* %i.addr.i, align 4
-  %1 = load i32, i32* %i.addr.i, align 4, !dbg !38
-  %2 = load i32, i32* %i.addr.i, align 4, !dbg !39
+  store i32 %i, ptr %i.addr, align 4
+  call void @llvm.dbg.declare(metadata ptr %i.addr, metadata !33, metadata !24), !dbg !34
+  %0 = load i32, ptr %i.addr, align 4, !dbg !37
+  store i32 %0, ptr %i.addr.i, align 4
+  %1 = load i32, ptr %i.addr.i, align 4, !dbg !38
+  %2 = load i32, ptr %i.addr.i, align 4, !dbg !39
   %mul.i = mul nsw i32 %1, %2, !dbg !40
   ; Modified to cover only about 50% of the lexical scope.
   call void @llvm.dbg.value(metadata i32 %mul.i, metadata !35, metadata !24), !dbg !36
-  store i32 %mul.i, i32* %squared, align 4, !dbg !36
-  %3 = load i32, i32* %squared, align 4, !dbg !41
+  store i32 %mul.i, ptr %squared, align 4, !dbg !36
+  %3 = load i32, ptr %squared, align 4, !dbg !41
   call void @llvm.dbg.value(metadata i32 %3, metadata !35, metadata !24), !dbg !36
-  %4 = load i32, i32* %i.addr, align 4, !dbg !42
+  %4 = load i32, ptr %i.addr, align 4, !dbg !42
   %mul = mul nsw i32 %3, %4, !dbg !43
   ret i32 %mul, !dbg !44
 }
@@ -111,11 +121,22 @@ define dso_local i32 @_Z3booii(i32 %0, i32 %1) !dbg !52 {
 entry:
   %.addr = alloca i32, align 4
   %.addr1 = alloca i32, align 4
-  store i32 %0, i32* %.addr, align 4
-  call void @llvm.dbg.declare(metadata i32* %.addr, metadata !55, metadata !DIExpression()), !dbg !56
-  store i32 %1, i32* %.addr1, align 4
-  call void @llvm.dbg.declare(metadata i32* %.addr1, metadata !57, metadata !DIExpression()), !dbg !58
+  store i32 %0, ptr %.addr, align 4
+  call void @llvm.dbg.declare(metadata ptr %.addr, metadata !55, metadata !DIExpression()), !dbg !56
+  store i32 %1, ptr %.addr1, align 4
+  call void @llvm.dbg.declare(metadata ptr %.addr1, metadata !57, metadata !DIExpression()), !dbg !58
   ret i32 0, !dbg !58
+}
+
+%struct.T = type { i8 }
+
+define void @_ZN1T5emptyEv(ptr %this) #2 !dbg !59 {
+entry:
+  %this.addr = alloca ptr, align 8
+  store ptr %this, ptr %this.addr, align 8
+  call void @llvm.dbg.declare(metadata ptr %this.addr, metadata !67, metadata !DIExpression()), !dbg !69
+  %this1 = load ptr, ptr %this.addr, align 8
+  ret void, !dbg !70
 }
 
 attributes #0 = { alwaysinline nounwind ssp uwtable }
@@ -185,3 +206,16 @@ attributes #2 = { noinline nounwind optnone ssp uwtable }
 !56 = !DILocation(line: 10, column: 12, scope: !52)
 !57 = !DILocalVariable(arg: 2, scope: !52, file: !3, line: 10, type: !8)
 !58 = !DILocation(line: 10, column: 17, scope: !52)
+
+!59 = distinct !DISubprogram(name: "empty", linkageName: "_ZN1T5emptyEv", scope: !60, file: !3, line: 25, type: !63, scopeLine: 25, flags: DIFlagPrototyped, spFlags: DISPFlagDefinition, unit: !2, declaration: !62, retainedNodes: !4)
+!60 = distinct !DICompositeType(tag: DW_TAG_structure_type, name: "T", file: !3, line: 22, size: 8, flags: DIFlagTypePassByValue, elements: !61, identifier: "_ZTS1T")
+!61 = !{!62}
+!62 = !DISubprogram(name: "empty", linkageName: "_ZN1T5emptyEv", scope: !60, file: !3, line: 23, type: !63, scopeLine: 23, flags: DIFlagPrototyped, spFlags: 0)
+!63 = !DISubroutineType(types: !64)
+!64 = !{!65, !66}
+!65 = !DIDerivedType(tag: DW_TAG_pointer_type, baseType: null, size: 64)
+!66 = !DIDerivedType(tag: DW_TAG_pointer_type, baseType: !60, size: 64, flags: DIFlagArtificial | DIFlagObjectPointer)
+!67 = !DILocalVariable(name: "this", arg: 1, scope: !59, type: !68, flags: DIFlagArtificial | DIFlagObjectPointer)
+!68 = !DIDerivedType(tag: DW_TAG_pointer_type, baseType: !60, size: 64)
+!69 = !DILocation(line: 0, scope: !59)
+!70 = !DILocation(line: 25, column: 19, scope: !59)

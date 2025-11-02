@@ -1,8 +1,8 @@
-! RUN: %f18 -fdebug-pre-fir-tree -fparse-only -fopenmp %s | FileCheck %s
+! RUN: %flang_fc1 -fdebug-pre-fir-tree -fopenmp %s | FileCheck %s
 
 ! Test Pre-FIR Tree captures OpenMP related constructs
 
-! CHECK: Program test_omp
+! CHECK: Program TEST_OMP
 program test_omp
   ! CHECK: PrintStmt
   print *, "sequential"

@@ -1,5 +1,5 @@
-// RUN: %clang_cc1 -fsyntax-only -std=c++11 -pedantic -verify=expected,cxx11 -fcxx-exceptions %s -fconstexpr-depth 128 -triple i686-pc-linux-gnu
-// RUN: %clang_cc1 -fsyntax-only -std=c++2a -pedantic -verify=expected,cxx20 -fcxx-exceptions %s -fconstexpr-depth 128 -triple i686-pc-linux-gnu
+// RUN: %clang_cc1 -fsyntax-only -std=c++11 -pedantic -verify=expected,cxx11 -fcxx-exceptions %s -fconstexpr-depth=128 -triple i686-pc-linux-gnu
+// RUN: %clang_cc1 -fsyntax-only -std=c++2a -pedantic -verify=expected,cxx20 -fcxx-exceptions %s -fconstexpr-depth=128 -triple i686-pc-linux-gnu
 
 // A conditional-expression is a core constant expression unless it involves one
 // of the following as a potentially evaluated subexpression [...]:
@@ -12,8 +12,8 @@ struct This {
   int this1 : this1; // expected-error {{undeclared}}
   int this2 : this->this1; // expected-error {{invalid}}
   void this3() {
-    int n1[this->this1]; // expected-warning {{variable length array}}
-    int n2[this1]; // expected-warning {{variable length array}}
+    int n1[this->this1]; // expected-warning {{variable length array}} expected-note {{'this'}}
+    int n2[this1]; // expected-warning {{variable length array}} expected-note {{'this'}}
     (void)n1, (void)n2;
   }
 };
@@ -62,11 +62,11 @@ namespace NonConstExprReturn {
   constexpr const int *address_of(const int &a) {
     return &a;
   }
-  constexpr const int *return_param(int n) { // expected-note {{declared here}}
+  constexpr const int *return_param(int n) {
     return address_of(n);
   }
   struct S {
-    int n : *return_param(0); // expected-error {{constant expression}} expected-note {{read of variable whose lifetime has ended}}
+    int n : *return_param(0); // expected-error {{constant expression}} expected-note {{read of object outside its lifetime}}
   };
 }
 
@@ -146,6 +146,7 @@ namespace UndefinedBehavior {
 
   constexpr int int_min = ~0x7fffffff;
   constexpr int minus_int_min = -int_min; // expected-error {{constant expression}} expected-note {{value 2147483648 is outside the range}}
+  constexpr int minus_int_min_from_shift = -(1<<31); // expected-error {{constant expression}} expected-note {{value 2147483648 is outside the range}}
   constexpr int div0 = 3 / 0; // expected-error {{constant expression}} expected-note {{division by zero}}
   constexpr int mod0 = 3 % 0; // expected-error {{constant expression}} expected-note {{division by zero}}
   constexpr int int_min_div_minus_1 = int_min / -1; // expected-error {{constant expression}} expected-note {{value 2147483648 is outside the range}}
@@ -162,9 +163,9 @@ namespace UndefinedBehavior {
   constexpr int shl_signed_ok = 1 << 30; // ok
   constexpr int shl_signed_into_sign = 1 << 31; // ok (DR1457)
   constexpr int shl_signed_into_sign_2 = 0x7fffffff << 1; // ok (DR1457)
-  constexpr int shl_signed_off_end = 2 << 31; // cxx11-error {{constant expression}} cxx11-note {{signed left shift discards bits}} expected-warning {{signed shift result (0x100000000) requires 34 bits to represent, but 'int' only has 32 bits}}
-  constexpr int shl_signed_off_end_2 = 0x7fffffff << 2; // cxx11-error {{constant expression}} cxx11-note {{signed left shift discards bits}} expected-warning {{signed shift result (0x1FFFFFFFC) requires 34 bits to represent, but 'int' only has 32 bits}}
-  constexpr int shl_signed_overflow = 1024 << 31; // cxx11-error {{constant expression}} cxx11-note {{signed left shift discards bits}} expected-warning {{requires 43 bits to represent}}
+  constexpr int shl_signed_off_end = 2 << 31; // cxx11-error {{constant expression}} cxx11-note {{signed left shift discards bits}} cxx11-warning {{signed shift result (0x100000000) requires 34 bits to represent, but 'int' only has 32 bits}}
+  constexpr int shl_signed_off_end_2 = 0x7fffffff << 2; // cxx11-error {{constant expression}} cxx11-note {{signed left shift discards bits}} cxx11-warning {{signed shift result (0x1FFFFFFFC) requires 34 bits to represent, but 'int' only has 32 bits}}
+  constexpr int shl_signed_overflow = 1024 << 31; // cxx11-error {{constant expression}} cxx11-note {{signed left shift discards bits}} cxx11-warning {{requires 43 bits to represent}}
   constexpr int shl_signed_ok2 = 1024 << 20; // ok
 
   constexpr int shr_m1 = 0 >> -1; // expected-error {{constant expression}} expected-note {{negative shift count -1}}
@@ -187,7 +188,7 @@ namespace UndefinedBehavior {
 
   namespace Ptr {
     struct A {};
-    struct B : A { int n; };
+    struct B : A { int n; int m; };
     B a[3][3];
     constexpr B *p = a[0] + 4; // expected-error {{constant expression}} expected-note {{element 4 of array of 3 elements}}
     B b = {};
@@ -198,14 +199,15 @@ namespace UndefinedBehavior {
 
     constexpr A *na = nullptr;
     constexpr B *nb = nullptr;
-    constexpr A &ra = *nb; // expected-error {{constant expression}} expected-note {{cannot access base class of null pointer}}
-    constexpr B &rb = (B&)*na; // expected-error {{constant expression}} expected-note {{cannot access derived class of null pointer}}
+    constexpr A &ra = *nb; // expected-error {{constant expression}} expected-note {{dereferencing a null pointer}}
+    constexpr B &rb = (B&)*na; // expected-error {{constant expression}} expected-note {{dereferencing a null pointer}}
     static_assert((A*)nb == 0, "");
     static_assert((B*)na == 0, "");
     constexpr const int &nf = nb->n; // expected-error {{constant expression}} expected-note {{cannot access field of null pointer}}
+    constexpr const int &mf = nb->m; // expected-error {{constant expression}} expected-note {{cannot access field of null pointer}}
     constexpr const int *np1 = (int*)nullptr + 0; // ok
-    constexpr const int *np2 = &(*(int(*)[4])nullptr)[0]; // ok
-    constexpr const int *np3 = &(*(int(*)[4])nullptr)[2]; // expected-error {{constant expression}} expected-note {{cannot perform pointer arithmetic on null pointer}}
+    constexpr const int *np2 = &(*(int(*)[4])nullptr)[0]; // expected-error {{constant expression}} expected-note {{dereferencing a null pointer}}
+    constexpr const int *np3 = &(*(int(*)[4])nullptr)[2]; // expected-error {{constant expression}} expected-note {{dereferencing a null pointer}}
 
     struct C {
       constexpr int f() const { return 0; }
@@ -280,6 +282,16 @@ namespace UndefinedBehavior {
     constexpr float f10 = f2 - f2; // expected-error {{constant expression}} expected-note {{produces a NaN}}
     constexpr float f11 = f2 + f4; // expected-error {{constant expression}} expected-note {{produces a NaN}}
     constexpr float f12 = f2 / f2; // expected-error {{constant expression}} expected-note {{produces a NaN}}
+#pragma float_control(push)
+#pragma float_control(except, on)
+constexpr float pi = 3.14f;
+constexpr unsigned ubig = 0xFFFFFFFF;
+constexpr float ce = 1.0 / 3.0; // not-expected-error {{constant expression}} not-expected-note {{floating point arithmetic suppressed in strict evaluation modes}}
+constexpr int ci = (int) pi;
+constexpr float fbig = (float) ubig; // not-expected-error {{constant expression}} not-expected-note {{floating point arithmetic suppressed in strict evaluation modes}}
+constexpr float fabspi = __builtin_fabs(pi); // no error expected
+constexpr float negpi = -pi; // expect no error on unary operator
+#pragma float_control(pop)
     static_assert(!isinf(f1), "");
     static_assert(isinf(f2), "");
     static_assert(!isinf(f3), "");
@@ -288,6 +300,15 @@ namespace UndefinedBehavior {
     static_assert(isinf(f6), "");
     static_assert(isinf(f9), "");
   }
+
+#if __cplusplus >= 201703L
+namespace CompoundAssignment {
+constexpr int rem() { // expected-error {{constexpr function never produces a constant expression}}
+    int x = ~__INT_MAX__;
+    return x%=-1; // cxx20-note {{value 2147483648 is outside the range of representable values of type 'int'}}
+}
+}
+#endif
 }
 
 // - a lambda-expression (5.1.2);
@@ -335,7 +356,7 @@ namespace LValueToRValue {
   // - a non-volatile glvalue of literal type that refers to a non-volatile
   //   temporary object whose lifetime has not ended, initialized with a
   //   constant expression;
-  constexpr volatile S f() { return S(); }
+  constexpr volatile S f() { return S(); } // cxx20-warning {{volatile-qualified return type 'volatile S' is deprecated}}
   static_assert(f().i, ""); // expected-error {{constant expression}} expected-note {{read of volatile-qualified type}}
   static_assert(((volatile const S&&)(S)0).i, ""); // expected-error {{constant expression}} expected-note {{read of volatile-qualified type}}
 }
@@ -376,7 +397,7 @@ namespace References {
   int &d = c;
   constexpr int e = 42;
   int &f = const_cast<int&>(e);
-  extern int &g;
+  extern int &g; // expected-note {{here}}
   constexpr int &h(); // expected-note {{here}}
   int &i = h(); // expected-note {{here}}
   constexpr int &j() { return b; }
@@ -390,7 +411,7 @@ namespace References {
     int D2 : &d - &c + 1;
     int E : e / 2;
     int F : f - 11;
-    int G : g; // expected-error {{constant expression}}
+    int G : g; // expected-error {{constant expression}} expected-note {{initializer of 'g' is unknown}}
     int H : h(); // expected-error {{constant expression}} expected-note {{undefined function 'h'}}
     int I : i; // expected-error {{constant expression}} expected-note {{initializer of 'i' is not a constant expression}}
     int J : j();
@@ -417,6 +438,11 @@ namespace ReinterpretCast {
   struct U {
     int m : (long)(S*)6; // expected-warning {{constant expression}} expected-note {{reinterpret_cast}}
   };
+  void f();
+  constexpr void* fp1 = (void*)f; // expected-error {{constant expression}} expected-note {{reinterpret_cast}}
+  constexpr int* fp2 = (int*)f; // expected-error {{constant expression}} expected-note {{reinterpret_cast}}
+  constexpr int (*fp3)() = (int(*)())f; // expected-error {{constant expression}} expected-note {{reinterpret_cast}}
+  constexpr int (&fp4)() = (int(&)())f; // expected-error {{constant expression}} expected-note {{reinterpret_cast}}
 }
 
 // - a pseudo-destructor call (5.2.4);
@@ -427,13 +453,12 @@ namespace PseudoDtor {
     int n : (k.~I(), 1); // expected-error {{constant expression}} expected-note {{visible outside that expression}}
   };
 
-  // FIXME: It's unclear whether this should be accepted in C++20 mode. The parameter is destroyed twice here.
-  constexpr int f(int a = 1) { // cxx11-error {{constant expression}}
+  constexpr int f(int a = 1) { // cxx11-error {{constant expression}} expected-note {{destroying object 'a' whose lifetime has already ended}}
     return (
-        a.~I(), // cxx11-note 2{{pseudo-destructor}}
+        a.~I(), // cxx11-note {{pseudo-destructor}}
         0);
   }
-  static_assert(f() == 0, ""); // cxx11-error {{constant expression}} cxx11-note {{in call}}
+  static_assert(f() == 0, ""); // expected-error {{constant expression}}
 
   // This is OK in C++20: the union has no active member after the
   // pseudo-destructor call, so the union destructor has no effect.
@@ -465,7 +490,7 @@ namespace std {
 namespace TypeId {
   struct S { virtual void f(); };
   constexpr S *p = 0;
-  constexpr const std::type_info &ti1 = typeid(*p); // expected-error {{must be initialized by a constant expression}} cxx11-note {{typeid applied to expression of polymorphic type 'TypeId::S'}} cxx20-note {{dereferenced null pointer}}
+  constexpr const std::type_info &ti1 = typeid(*p); // expected-error {{must be initialized by a constant expression}} cxx11-note {{typeid applied to expression of polymorphic type 'S'}} cxx20-note {{dereferencing a null pointer}}
 
   struct T {} t;
   constexpr const std::type_info &ti2 = typeid(t);
@@ -490,22 +515,23 @@ namespace UnspecifiedRelations {
   // different objects that are not members of the same array or to different
   // functions, or if only one of them is null, the results of p<q, p>q, p<=q,
   // and p>=q are unspecified.
-  constexpr bool u1 = p < q; // expected-error {{constant expression}} expected-note {{comparison has unspecified value}}
-  constexpr bool u2 = p > q; // expected-error {{constant expression}} expected-note {{comparison has unspecified value}}
-  constexpr bool u3 = p <= q; // expected-error {{constant expression}} expected-note {{comparison has unspecified value}}
-  constexpr bool u4 = p >= q; // expected-error {{constant expression}} expected-note {{comparison has unspecified value}}
-  constexpr bool u5 = p < (int*)0; // expected-error {{constant expression}} expected-note {{comparison has unspecified value}}
-  constexpr bool u6 = p <= (int*)0; // expected-error {{constant expression}} expected-note {{comparison has unspecified value}}
-  constexpr bool u7 = p > (int*)0; // expected-error {{constant expression}} expected-note {{comparison has unspecified value}}
-  constexpr bool u8 = p >= (int*)0; // expected-error {{constant expression}} expected-note {{comparison has unspecified value}}
-  constexpr bool u9 = (int*)0 < q; // expected-error {{constant expression}} expected-note {{comparison has unspecified value}}
-  constexpr bool u10 = (int*)0 <= q; // expected-error {{constant expression}} expected-note {{comparison has unspecified value}}
-  constexpr bool u11 = (int*)0 > q; // expected-error {{constant expression}} expected-note {{comparison has unspecified value}}
-  constexpr bool u12 = (int*)0 >= q; // expected-error {{constant expression}} expected-note {{comparison has unspecified value}}
+  constexpr bool u1 = p < q; // expected-error {{constant expression}} expected-note {{comparison between pointers to unrelated objects '&a' and '&b' has unspecified value}}
+  constexpr bool u2 = p > q; // expected-error {{constant expression}} expected-note {{comparison between pointers to unrelated objects '&a' and '&b' has unspecified value}}
+  constexpr bool u3 = p <= q; // expected-error {{constant expression}} expected-note {{comparison between pointers to unrelated objects '&a' and '&b' has unspecified value}}
+  constexpr bool u4 = p >= q; // expected-error {{constant expression}} expected-note {{comparison between pointers to unrelated objects '&a' and '&b' has unspecified value}}
+  constexpr bool u5 = p < (int*)0; // expected-error {{constant expression}} expected-note {{comparison between pointers to unrelated objects '&a' and 'nullptr' has unspecified value}}
+  constexpr bool u6 = p <= (int*)0; // expected-error {{constant expression}} expected-note {{comparison between pointers to unrelated objects '&a' and 'nullptr' has unspecified value}}
+  constexpr bool u7 = p > (int*)0; // expected-error {{constant expression}} expected-note {{comparison between pointers to unrelated objects '&a' and 'nullptr' has unspecified value}}
+  constexpr bool u8 = p >= (int*)0; // expected-error {{constant expression}} expected-note {{comparison between pointers to unrelated objects '&a' and 'nullptr' has unspecified value}}
+  constexpr bool u9 = (int*)0 < q; // expected-error {{constant expression}} expected-note {{comparison between pointers to unrelated objects 'nullptr' and '&b' has unspecified value}}
+  constexpr bool u10 = (int*)0 <= q; // expected-error {{constant expression}} expected-note {{comparison between pointers to unrelated objects 'nullptr' and '&b' has unspecified value}}
+  constexpr bool u11 = (int*)0 > q; // expected-error {{constant expression}} expected-note {{comparison between pointers to unrelated objects 'nullptr' and '&b' has unspecified value}}
+  constexpr bool u12 = (int*)0 >= q; // expected-error {{constant expression}} expected-note {{comparison between pointers to unrelated objects 'nullptr' and '&b' has unspecified value}}
   void f(), g();
 
   constexpr void (*pf)() = &f, (*pg)() = &g;
-  constexpr bool u13 = pf < pg; // expected-error {{constant expression}} expected-note {{comparison has unspecified value}}
+  constexpr bool u13 = pf < pg; // expected-error {{constant expression}} expected-note {{comparison between pointers to unrelated objects '&f' and '&g' has unspecified value}}
+                                // expected-warning@-1 {{ordered comparison of function pointers}}
   constexpr bool u14 = pf == pg;
 
   // If two pointers point to non-static data members of the same object with
@@ -551,18 +577,19 @@ namespace UnspecifiedRelations {
   // [expr.rel]p3: Pointers to void can be compared [...] if both pointers
   // represent the same address or are both the null pointer [...]; otherwise
   // the result is unspecified.
+  // Same address restriction removed by CWG2749
   struct S { int a, b; } s;
   constexpr void *null = 0;
   constexpr void *pv = (void*)&s.a;
   constexpr void *qv = (void*)&s.b;
   constexpr bool v1 = null < (int*)0;
-  constexpr bool v2 = null < pv; // expected-error {{constant expression}} expected-note {{comparison has unspecified value}}
-  constexpr bool v3 = null == pv; // ok
-  constexpr bool v4 = qv == pv; // ok
-  constexpr bool v5 = qv >= pv; // expected-error {{constant expression}} expected-note {{unequal pointers to void}}
-  constexpr bool v6 = qv > null; // expected-error {{constant expression}} expected-note {{comparison has unspecified value}}
-  constexpr bool v7 = qv <= (void*)&s.b; // ok
-  constexpr bool v8 = qv > (void*)&s.a; // expected-error {{constant expression}} expected-note {{unequal pointers to void}}
+  constexpr bool v2 = null < pv; // expected-error {{constant expression}} expected-note {{comparison between pointers to unrelated objects 'nullptr' and '&s.a' has unspecified value}}
+  constexpr bool v3 = null == pv;
+  constexpr bool v4 = qv == pv;
+  constexpr bool v5 = qv >= pv;
+  constexpr bool v6 = qv > null; // expected-error {{constant expression}} expected-note {{comparison between pointers to unrelated objects '&s.b' and 'nullptr' has unspecified value}}
+  constexpr bool v7 = qv <= (void*)&s.b;
+  constexpr bool v8 = qv > (void*)&s.a;
 }
 
 // - an assignment or a compound assignment (5.17); or

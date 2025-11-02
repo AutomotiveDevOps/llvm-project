@@ -6,7 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-// UNSUPPORTED: c++98, c++03, c++11, c++14
+// UNSUPPORTED: c++03, c++11, c++14
 // <optional>
 
 // constexpr optional(const optional<T>& rhs);
@@ -168,6 +168,15 @@ int main(int, char**)
         constexpr std::optional<int> o1{4};
         constexpr std::optional<int> o2 = o1;
         static_assert( *o2 == 4, "" );
+    }
+
+    // LWG3836 https://wg21.link/LWG3836
+    // std::optional<bool> conversion constructor optional(const optional<U>&)
+    // should take precedence over optional(U&&) with operator bool
+    {
+        std::optional<bool> o1(false);
+        std::optional<bool> o2(o1);
+        assert(!o2.value());
     }
 
   return 0;

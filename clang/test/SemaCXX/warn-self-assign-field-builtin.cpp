@@ -4,6 +4,8 @@ struct C {
   int a;
   int b;
 
+  C(int a, int b) : a(a), b(b) {}
+
   void f() {
     a = a; // expected-warning {{assigning field to itself}}
     b = b; // expected-warning {{assigning field to itself}}
@@ -50,7 +52,7 @@ struct C {
     a = (int &)a;
   }
 
-  // Do not diagnose self-assigment in an unevaluated context
+  // Do not diagnose self-assignment in an unevaluated context
   void false_positives_unevaluated_ctx() noexcept(noexcept(a = a)) // expected-warning {{expression with side effects has no effect in an unevaluated context}}
   {
     decltype(a = a) b = a;              // expected-warning {{expression with side effects has no effect in an unevaluated context}}

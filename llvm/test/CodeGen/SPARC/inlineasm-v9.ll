@@ -1,4 +1,4 @@
-; RUN: llc -march=sparcv9 <%s | FileCheck %s
+; RUN: llc -mtriple=sparcv9 <%s | FileCheck %s
 
 ;; Ensures that inline-asm accepts and uses 'f' and 'e' register constraints.
 ; CHECK-LABEL: faddd:
@@ -38,4 +38,32 @@ entry:
   tail call void asm sideeffect "faddd $0,$1,$2", "{f20},{f20},{f20}"(double 9.0, double 10.0, double 11.0)
   tail call void asm sideeffect "faddq $0,$1,$2", "{f40},{f40},{f40}"(fp128 0xL0, fp128 0xL0, fp128 0xL0)
   ret void
+}
+
+;; Ensure that 64-bit immediates aren't truncated
+; CHECK-LABEL: test_large_immediate
+; CHECK: or %i0, %lo(4294967296), %i0
+define i64 @test_large_immediate(i64) {
+entry:
+  %1 = tail call i64 asm "or $0, %lo($1), $0", "=r,i,r"(i64 4294967296, i64 %0)
+  ret i64 %1
+}
+
+; Ensure that the input register value is not truncated to 32bit.
+; CHECK-LABEL: test_constraint_input_type
+; CHECK: ldx [%i0], %o0
+define void @test_constraint_input_type(ptr %arg1) {
+Entry:
+  %val = load i64, ptr %arg1
+  tail call void asm sideeffect "", "{o0}"(i64 %val)
+  ret void
+}
+
+; CHECK-LABEL: test_twinword:
+; CHECK: rd  %pc, %i1
+; CHECK: srlx %i1, 32, %i0
+
+define i64 @test_twinword(){
+  %1 = tail call i64 asm sideeffect "rd %asr5, ${0:L} \0A\09 srlx ${0:L}, 32, ${0:H}", "={i0}"()
+  ret i64 %1
 }

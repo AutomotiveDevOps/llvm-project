@@ -1,5 +1,5 @@
 ; REQUIRES: asserts
-; RUN: opt -S -mtriple=systemz-unknown -mcpu=z13  -O3 -enable-mssa-loop-dependency -enable-simple-loop-unswitch -verify-memoryssa  < %s | FileCheck %s
+; RUN: opt -S -mtriple=systemz-unknown -mcpu=z13  -O3 -verify-memoryssa  < %s | FileCheck %s
 
 target datalayout = "E-m:e-i1:8:16-i8:8:16-i64:64-f128:64-v128:64-a:8:16-n32:64"
 target triple = "s390x-ibm-linux"
@@ -10,56 +10,56 @@ target triple = "s390x-ibm-linux"
 
 ; Function Attrs: nounwind
 ; CHECK-LABEL: @main
-define dso_local void @main() #0 {
+define dso_local void @main() {
 bb:
   call void @func_1()
   unreachable
 }
 
 ; Function Attrs: nounwind
-define dso_local void @func_1() #0 {
+define dso_local void @func_1() {
 bb:
   call void @func_2()
   unreachable
 }
 
 ; Function Attrs: nounwind
-define dso_local void @func_2() #0 {
+define dso_local void @func_2() {
 bb:
   %tmp = alloca i32, align 4
-  store i32 0, i32* @g_80, align 4, !tbaa !1
+  store i32 0, ptr @g_80, align 4, !tbaa !1
   br label %bb1
 
 bb1:                                              ; preds = %bb15, %bb
-  %tmp2 = load i32, i32* @g_80, align 4, !tbaa !1
+  %tmp2 = load i32, ptr @g_80, align 4, !tbaa !1
   %tmp3 = icmp sle i32 %tmp2, 6
   br i1 %tmp3, label %bb4, label %bb18
 
 bb4:                                              ; preds = %bb1
-  %tmp5 = load i32, i32* @g_1683, align 4, !tbaa !1
+  %tmp5 = load i32, ptr @g_1683, align 4, !tbaa !1
   %tmp6 = sext i32 %tmp5 to i64
-  %tmp7 = getelementptr inbounds [7 x i8], [7 x i8]* @0, i64 0, i64 %tmp6
-  %tmp8 = load i8, i8* %tmp7, align 1, !tbaa !5
+  %tmp7 = getelementptr inbounds [7 x i8], ptr @0, i64 0, i64 %tmp6
+  %tmp8 = load i8, ptr %tmp7, align 1, !tbaa !5
   %tmp9 = icmp ne i8 %tmp8, 0
   br i1 %tmp9, label %bb10, label %bb11
 
 bb10:                                             ; preds = %bb4
-  store i32 82, i32* %tmp, align 4
+  store i32 82, ptr %tmp, align 4
   br label %bb12
 
 bb11:                                             ; preds = %bb4
-  store i32 0, i32* %tmp, align 4
+  store i32 0, ptr %tmp, align 4
   br label %bb12
 
 bb12:                                             ; preds = %bb11, %bb10
-  %tmp13 = load i32, i32* %tmp, align 4
+  %tmp13 = load i32, ptr %tmp, align 4
   %tmp14 = icmp ult i32 %tmp13, 1
   br i1 %tmp14, label %bb15, label %bb18
 
 bb15:                                             ; preds = %bb12
-  %tmp16 = load i32, i32* @g_80, align 4, !tbaa !1
+  %tmp16 = load i32, ptr @g_80, align 4, !tbaa !1
   %tmp17 = add nsw i32 %tmp16, 1
-  store i32 %tmp17, i32* @g_80, align 4, !tbaa !1
+  store i32 %tmp17, ptr @g_80, align 4, !tbaa !1
   br label %bb1
 
 bb18:                                             ; preds = %bb12, %bb1
@@ -68,10 +68,7 @@ bb18:                                             ; preds = %bb12, %bb1
 }
 
 ; Function Attrs: cold noreturn nounwind
-declare void @llvm.trap() #1
-
-attributes #0 = { nounwind "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "min-legal-vector-width"="0" "frame-pointer"="none" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="z13" "target-features"="+transactional-execution,+vector" "unsafe-fp-math"="false" "use-soft-float"="false" }
-attributes #1 = { cold noreturn nounwind }
+declare void @llvm.trap()
 
 !llvm.ident = !{!0}
 

@@ -17,8 +17,9 @@
 #include "llvm/ExecutionEngine/SectionMemoryManager.h"
 #include "llvm/IR/Module.h"
 
+#include "lldb/Core/ModuleList.h"
 #include "lldb/Expression/IRMemoryMap.h"
-#include "lldb/Symbol/ObjectFile.h"
+#include "lldb/Expression/ObjectFileJIT.h"
 #include "lldb/Symbol/SymbolContext.h"
 #include "lldb/Utility/DataBufferHeap.h"
 #include "lldb/lldb-forward.h"
@@ -161,6 +162,12 @@ public:
     return m_jitted_global_variables;
   }
 
+  void AppendPreferredSymbolContexts(SymbolContextList const &contexts) {
+    for (auto const &ctx : contexts)
+      if (ctx.module_sp)
+        m_preferred_modules.Append(ctx.module_sp);
+  }
+
 private:
   /// Look up the object in m_address_map that contains a given address, find
   /// where it was copied to, and return the remote address at the same offset
@@ -214,26 +221,21 @@ private:
 
   Status DisassembleFunction(Stream &stream, lldb::ProcessSP &process_sp);
 
-  struct SearchSpec;
-
-  void CollectCandidateCNames(std::vector<SearchSpec> &C_specs,
+  void CollectCandidateCNames(std::vector<ConstString> &C_names,
                               ConstString name);
 
-  void CollectCandidateCPlusPlusNames(std::vector<SearchSpec> &CPP_specs,
-                                      const std::vector<SearchSpec> &C_specs,
+  void CollectCandidateCPlusPlusNames(std::vector<ConstString> &CPP_names,
+                                      const std::vector<ConstString> &C_names,
                                       const SymbolContext &sc);
 
-  void CollectFallbackNames(std::vector<SearchSpec> &fallback_specs,
-                            const std::vector<SearchSpec> &C_specs);
-
-  lldb::addr_t FindInSymbols(const std::vector<SearchSpec> &specs,
+  lldb::addr_t FindInSymbols(const std::vector<ConstString> &names,
                              const lldb_private::SymbolContext &sc,
                              bool &symbol_was_missing_weak);
 
-  lldb::addr_t FindInRuntimes(const std::vector<SearchSpec> &specs,
+  lldb::addr_t FindInRuntimes(const std::vector<ConstString> &names,
                               const lldb_private::SymbolContext &sc);
 
-  lldb::addr_t FindInUserDefinedSymbols(const std::vector<SearchSpec> &specs,
+  lldb::addr_t FindInUserDefinedSymbols(const std::vector<ConstString> &names,
                                         const lldb_private::SymbolContext &sc);
 
   void ReportSymbolLookupError(ConstString name);
@@ -352,10 +354,9 @@ private:
     AllocationRecord(uintptr_t host_address, uint32_t permissions,
                      lldb::SectionType sect_type, size_t size,
                      unsigned alignment, unsigned section_id, const char *name)
-        : m_name(), m_process_address(LLDB_INVALID_ADDRESS),
-          m_host_address(host_address), m_permissions(permissions),
-          m_sect_type(sect_type), m_size(size), m_alignment(alignment),
-          m_section_id(section_id) {
+        : m_process_address(LLDB_INVALID_ADDRESS), m_host_address(host_address),
+          m_permissions(permissions), m_sect_type(sect_type), m_size(size),
+          m_alignment(alignment), m_section_id(section_id) {
       if (name && name[0])
         m_name = name;
     }
@@ -402,6 +403,11 @@ private:
   ///< defining no functions using that variable, would do this.)  If this
   ///< is true, any allocations need to be committed immediately -- no
   ///< opportunity for relocation.
+
+  ///< Any Module in this list will be used for symbol/function lookup
+  ///< before any other module (except for the module corresponding to the
+  ///< current frame).
+  ModuleList m_preferred_modules;
 };
 
 } // namespace lldb_private

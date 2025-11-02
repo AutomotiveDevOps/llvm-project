@@ -29,26 +29,25 @@
 #ifndef LLVM_ANALYSIS_LOOPANALYSISMANAGER_H
 #define LLVM_ANALYSIS_LOOPANALYSISMANAGER_H
 
-#include "llvm/ADT/PostOrderIterator.h"
-#include "llvm/ADT/PriorityWorklist.h"
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/Analysis/AliasAnalysis.h"
-#include "llvm/Analysis/BasicAliasAnalysis.h"
-#include "llvm/Analysis/GlobalsModRef.h"
-#include "llvm/Analysis/LoopInfo.h"
-#include "llvm/Analysis/MemorySSA.h"
-#include "llvm/Analysis/ScalarEvolution.h"
-#include "llvm/Analysis/ScalarEvolutionAliasAnalysis.h"
-#include "llvm/Analysis/TargetLibraryInfo.h"
-#include "llvm/Analysis/TargetTransformInfo.h"
-#include "llvm/IR/Dominators.h"
 #include "llvm/IR/PassManager.h"
+#include "llvm/Support/Compiler.h"
 
 namespace llvm {
 
+class AAResults;
+class AssumptionCache;
+class DominatorTree;
+class Function;
+class Loop;
+class LoopInfo;
+class MemorySSA;
+class ScalarEvolution;
+class TargetLibraryInfo;
+class TargetTransformInfo;
+
 /// The adaptor from a function pass to a loop pass computes these analyses and
 /// makes them available to the loop passes "for free". Each loop pass is
-/// expected expected to update these analyses if necessary to ensure they're
+/// expected to update these analyses if necessary to ensure they're
 /// valid after it runs.
 struct LoopStandardAnalysisResults {
   AAResults &AA;
@@ -62,9 +61,10 @@ struct LoopStandardAnalysisResults {
 };
 
 /// Extern template declaration for the analysis set for this IR unit.
-extern template class AllAnalysesOn<Loop>;
+extern template class LLVM_TEMPLATE_ABI AllAnalysesOn<Loop>;
 
-extern template class AnalysisManager<Loop, LoopStandardAnalysisResults &>;
+extern template class LLVM_TEMPLATE_ABI
+    AnalysisManager<Loop, LoopStandardAnalysisResults &>;
 /// The loop analysis manager.
 ///
 /// See the documentation for the AnalysisManager template for detail
@@ -86,7 +86,7 @@ typedef InnerAnalysisManagerProxy<LoopAnalysisManager, Function>
 template <> class LoopAnalysisManagerFunctionProxy::Result {
 public:
   explicit Result(LoopAnalysisManager &InnerAM, LoopInfo &LI)
-      : InnerAM(&InnerAM), LI(&LI), MSSAUsed(false) {}
+      : InnerAM(&InnerAM), LI(&LI) {}
   Result(Result &&Arg)
       : InnerAM(std::move(Arg.InnerAM)), LI(Arg.LI), MSSAUsed(Arg.MSSAUsed) {
     // We have to null out the analysis manager in the moved-from state
@@ -129,34 +129,34 @@ public:
   /// If the necessary loop infrastructure is not preserved, this will forcibly
   /// clear all of the cached analysis results that are keyed on the \c
   /// LoopInfo for this function.
-  bool invalidate(Function &F, const PreservedAnalyses &PA,
-                  FunctionAnalysisManager::Invalidator &Inv);
+  LLVM_ABI bool invalidate(Function &F, const PreservedAnalyses &PA,
+                           FunctionAnalysisManager::Invalidator &Inv);
 
 private:
   LoopAnalysisManager *InnerAM;
   LoopInfo *LI;
-  bool MSSAUsed;
+  bool MSSAUsed = false;
 };
 
 /// Provide a specialized run method for the \c LoopAnalysisManagerFunctionProxy
 /// so it can pass the \c LoopInfo to the result.
 template <>
-LoopAnalysisManagerFunctionProxy::Result
+LLVM_ABI LoopAnalysisManagerFunctionProxy::Result
 LoopAnalysisManagerFunctionProxy::run(Function &F, FunctionAnalysisManager &AM);
 
 // Ensure the \c LoopAnalysisManagerFunctionProxy is provided as an extern
 // template.
 extern template class InnerAnalysisManagerProxy<LoopAnalysisManager, Function>;
 
-extern template class OuterAnalysisManagerProxy<FunctionAnalysisManager, Loop,
-                                                LoopStandardAnalysisResults &>;
+extern template class LLVM_TEMPLATE_ABI OuterAnalysisManagerProxy<
+    FunctionAnalysisManager, Loop, LoopStandardAnalysisResults &>;
 /// A proxy from a \c FunctionAnalysisManager to a \c Loop.
 typedef OuterAnalysisManagerProxy<FunctionAnalysisManager, Loop,
                                   LoopStandardAnalysisResults &>
     FunctionAnalysisManagerLoopProxy;
 
 /// Returns the minimum set of Analyses that all loop passes must preserve.
-PreservedAnalyses getLoopPassPreservedAnalyses();
+LLVM_ABI PreservedAnalyses getLoopPassPreservedAnalyses();
 }
 
 #endif // LLVM_ANALYSIS_LOOPANALYSISMANAGER_H

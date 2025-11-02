@@ -5,12 +5,11 @@
 
 // REQUIRES: x86_64-target-arch
 // RUN: %clang_asan %s -o %t
-// RUN: export %env_asan_opts=print_scariness=1
-// RUN: not %run %t 0x0000000000000000 2>&1 | FileCheck %s --check-prefixes=ZERO,HINT-PAGE0
-// RUN: not %run %t 0x0000000000000FFF 2>&1 | FileCheck %s --check-prefixes=LOW1,HINT-PAGE0
-// RUN: not %run %t 0x0000000000001000 2>&1 | FileCheck %s --check-prefixes=LOW2,HINT-NONE
-// RUN: not %run %t 0x4141414141414141 2>&1 | FileCheck %s --check-prefixes=HIGH,HINT-HIGHADDR
-// RUN: not %run %t 0xFFFFFFFFFFFFFFFF 2>&1 | FileCheck %s --check-prefixes=MAX,HINT-HIGHADDR
+// RUN: %env_asan_opts=print_scariness=1 not %run %t 0x0000000000000000 2>&1 | FileCheck %s --check-prefixes=ZERO,HINT-PAGE0
+// RUN: %env_asan_opts=print_scariness=1 not %run %t 0x0000000000000FFF 2>&1 | FileCheck %s --check-prefixes=LOW1,HINT-PAGE0
+// RUN: %env_asan_opts=print_scariness=1 not %run %t 0x0000000000001000 2>&1 | FileCheck %s --check-prefixes=LOW2,HINT-NONE
+// RUN: %env_asan_opts=print_scariness=1 not %run %t 0x4141414141414141 2>&1 | FileCheck %s --check-prefixes=HIGH,HINT-HIGHADDR
+// RUN: %env_asan_opts=print_scariness=1 not %run %t 0xFFFFFFFFFFFFFFFF 2>&1 | FileCheck %s --check-prefixes=MAX,HINT-HIGHADDR
 
 #include <stdint.h>
 #include <stdlib.h>
@@ -25,8 +24,8 @@ int main(int argc, const char *argv[]) {
 // ZERO:  SEGV on unknown address 0x000000000000 (pc
 // LOW1:  SEGV on unknown address 0x000000000fff (pc
 // LOW2:  SEGV on unknown address 0x000000001000 (pc
-// HIGH:  SEGV on unknown address (pc
-// MAX:   SEGV on unknown address (pc
+// HIGH:  {{BUS|SEGV}} on unknown address (pc
+// MAX:   {{BUS|SEGV}} on unknown address (pc
 
 // HINT-PAGE0-NOT: Hint: this fault was caused by a dereference of a high value address
 // HINT-PAGE0:     Hint: address points to the zero page.
@@ -40,8 +39,8 @@ int main(int argc, const char *argv[]) {
 // ZERO:  SCARINESS: 10 (null-deref)
 // LOW1:  SCARINESS: 10 (null-deref)
 // LOW2:  SCARINESS: 20 (wild-addr-read)
-// HIGH:  SCARINESS: 20 (wild-addr-read)
-// MAX:   SCARINESS: 20 (wild-addr-read)
+// HIGH:  SCARINESS: {{(20 \(wild-addr-read\))|(60 \(wild-jump\))}}
+// MAX:   SCARINESS: {{(20 \(wild-addr-read\))|(60 \(wild-jump\))}}
 
 // TODO: Currently, register values are only printed on Mac.  Once this changes,
 //       remove the 'TODO_' prefix in the following lines.

@@ -1,5 +1,6 @@
-; RUN: llc -march=bpfel -filetype=asm -o - %s | FileCheck %s
-; RUN: llc -march=bpfel -mattr=+alu32 -filetype=asm -o - %s | FileCheck %s
+; RUN: opt -O2 %s | llvm-dis > %t1
+; RUN: llc -filetype=asm -o - %t1 | FileCheck %s
+; RUN: llc -mattr=+alu32 -filetype=asm -o - %t1 | FileCheck %s
 ;
 ; Source code:
 ;   #pragma clang attribute push (__attribute__((preserve_access_index)), apply_to = record)
@@ -10,16 +11,18 @@
 ;
 ;   int test(__t *arg) { return arg->a; }
 ; Compiler flag to generate IR:
-;   clang -target bpf -S -O2 -g -emit-llvm test.c
+;   clang -target bpf -S -O2 -g -emit-llvm -Xclang -disable-llvm-passes test.c
+
+target triple = "bpf"
 
 %struct.__t = type { i32 }
 
 ; Function Attrs: nounwind readonly
-define dso_local i32 @test(%struct.__t* readonly %arg) local_unnamed_addr #0 !dbg !13 {
+define dso_local i32 @test(ptr readonly %arg) local_unnamed_addr !dbg !13 {
 entry:
-  call void @llvm.dbg.value(metadata %struct.__t* %arg, metadata !18, metadata !DIExpression()), !dbg !19
-  %0 = tail call i32* @llvm.preserve.struct.access.index.p0i32.p0s_struct.__ts(%struct.__t* %arg, i32 0, i32 0), !dbg !20, !llvm.preserve.access.index !4
-  %1 = load i32, i32* %0, align 4, !dbg !20, !tbaa !21
+  call void @llvm.dbg.value(metadata ptr %arg, metadata !18, metadata !DIExpression()), !dbg !19
+  %0 = tail call ptr @llvm.preserve.struct.access.index.p0.p0.__ts(ptr elementtype(%struct.__t) %arg, i32 0, i32 0), !dbg !20, !llvm.preserve.access.index !4
+  %1 = load i32, ptr %0, align 4, !dbg !20, !tbaa !21
   ret i32 %1, !dbg !26
 }
 
@@ -47,14 +50,10 @@ entry:
 ; CHECK-NEXT:        .long   0
 
 ; Function Attrs: nounwind readnone
-declare i32* @llvm.preserve.struct.access.index.p0i32.p0s_struct.__ts(%struct.__t*, i32, i32) #1
+declare ptr @llvm.preserve.struct.access.index.p0.p0.__ts(ptr, i32, i32)
 
 ; Function Attrs: nounwind readnone speculatable
-declare void @llvm.dbg.value(metadata, metadata, metadata) #2
-
-attributes #0 = { nounwind readonly "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "frame-pointer"="all" "less-precise-fpmad"="false" "min-legal-vector-width"="0" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "unsafe-fp-math"="false" "use-soft-float"="false" }
-attributes #1 = { nounwind readnone }
-attributes #2 = { nounwind readnone speculatable}
+declare void @llvm.dbg.value(metadata, metadata, metadata)
 
 !llvm.dbg.cu = !{!0}
 !llvm.module.flags = !{!9, !10, !11}

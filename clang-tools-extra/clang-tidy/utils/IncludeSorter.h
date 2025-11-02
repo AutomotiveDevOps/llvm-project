@@ -1,4 +1,4 @@
-//===------------ IncludeSorter.h - clang-tidy ----------------------------===//
+//===----------------------------------------------------------------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -9,11 +9,11 @@
 #ifndef LLVM_CLANG_TOOLS_EXTRA_CLANG_TIDY_INCLUDESORTER_H
 #define LLVM_CLANG_TOOLS_EXTRA_CLANG_TIDY_INCLUDESORTER_H
 
-#include "../ClangTidy.h"
+#include "../ClangTidyCheck.h"
+#include <optional>
 #include <string>
 
-namespace clang {
-namespace tidy {
+namespace clang::tidy {
 namespace utils {
 
 /// Class used by ``IncludeInserterCallback`` to record the names of the
@@ -23,9 +23,7 @@ namespace utils {
 class IncludeSorter {
 public:
   /// Supported include styles.
-  enum IncludeStyle { IS_LLVM = 0, IS_Google = 1 };
-
-  static ArrayRef<std::pair<StringRef, IncludeStyle>> getMapping();
+  enum IncludeStyle { IS_LLVM = 0, IS_Google = 1, IS_Google_ObjC = 2 };
 
   /// The classifications of inclusions, in the order they should be sorted.
   enum IncludeKinds {
@@ -33,36 +31,29 @@ public:
     IK_CSystemInclude = 1,   ///< e.g. ``#include <stdio.h>``
     IK_CXXSystemInclude = 2, ///< e.g. ``#include <vector>``
     IK_NonSystemInclude = 3, ///< e.g. ``#include "bar.h"``
-    IK_InvalidInclude = 4    ///< total number of valid ``IncludeKind``s
+    IK_GeneratedInclude = 4, ///< e.g. ``#include "bar.proto.h"``
+    IK_InvalidInclude = 5    ///< total number of valid ``IncludeKind``s
   };
 
   /// ``IncludeSorter`` constructor; takes the FileID and name of the file to be
   /// processed by the sorter.
-  IncludeSorter(const SourceManager *SourceMgr, const LangOptions *LangOpts,
-                const FileID FileID, StringRef FileName, IncludeStyle Style);
-
-  /// Returns the ``SourceManager``-specific file ID for the file being handled
-  /// by the sorter.
-  const FileID current_FileID() const { return CurrentFileID; }
+  IncludeSorter(const SourceManager *SourceMgr, FileID FileID,
+                StringRef FileName, IncludeStyle Style);
 
   /// Adds the given include directive to the sorter.
-  void AddInclude(StringRef FileName, bool IsAngled,
+  void addInclude(StringRef FileName, bool IsAngled,
                   SourceLocation HashLocation, SourceLocation EndLocation);
 
-  /// Returns the edits needed to sort the current set of includes and reset the
-  /// internal state (so that different blocks of includes are sorted separately
-  /// within the same file).
-  std::vector<FixItHint> GetEdits();
-
-  /// Creates a quoted inclusion directive in the right sort order. Returns None
-  /// on error or if header inclusion directive for header already exists.
-  Optional<FixItHint> CreateIncludeInsertion(StringRef FileName, bool IsAngled);
+  /// Creates a quoted inclusion directive in the right sort order. Returns
+  /// std::nullopt on error or if header inclusion directive for header already
+  /// exists.
+  std::optional<FixItHint> createIncludeInsertion(StringRef FileName,
+                                                  bool IsAngled);
 
 private:
-  typedef SmallVector<SourceRange, 1> SourceRangeVector;
+  using SourceRangeVector = SmallVector<SourceRange, 1>;
 
   const SourceManager *SourceMgr;
-  const LangOptions *LangOpts;
   const IncludeStyle Style;
   FileID CurrentFileID;
   /// The file name stripped of common suffixes.
@@ -76,6 +67,10 @@ private:
 };
 
 } // namespace utils
-} // namespace tidy
-} // namespace clang
+
+template <> struct OptionEnumMapping<utils::IncludeSorter::IncludeStyle> {
+  static ArrayRef<std::pair<utils::IncludeSorter::IncludeStyle, StringRef>>
+  getEnumMapping();
+};
+} // namespace clang::tidy
 #endif // LLVM_CLANG_TOOLS_EXTRA_CLANG_TIDY_INCLUDESORTER_H

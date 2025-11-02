@@ -8,16 +8,15 @@
 #include "AST.h"
 #include "FindTarget.h"
 #include "Selection.h"
-#include "SourceCode.h"
 #include "refactor/Tweak.h"
+#include "support/Logger.h"
 #include "clang/AST/Decl.h"
 #include "clang/AST/DeclBase.h"
 #include "clang/AST/DeclCXX.h"
 #include "clang/AST/RecursiveASTVisitor.h"
 #include "clang/Basic/SourceLocation.h"
 #include "clang/Tooling/Core/Replacement.h"
-#include "clang/Tooling/Refactoring/RecursiveSymbolVisitor.h"
-#include "llvm/ADT/ScopeExit.h"
+#include <optional>
 
 namespace clang {
 namespace clangd {
@@ -37,8 +36,12 @@ public:
 
   bool prepare(const Selection &Inputs) override;
   Expected<Effect> apply(const Selection &Inputs) override;
-  std::string title() const override;
-  Intent intent() const override { return Refactor; }
+  std::string title() const override {
+    return "Remove using namespace, re-qualify names instead";
+  }
+  llvm::StringLiteral kind() const override {
+    return CodeAction::REFACTOR_KIND;
+  }
 
 private:
   const UsingDirectiveDecl *TargetDirective = nullptr;
@@ -70,11 +73,10 @@ private:
 llvm::Expected<tooling::Replacement>
 removeUsingDirective(ASTContext &Ctx, const UsingDirectiveDecl *D) {
   auto &SM = Ctx.getSourceManager();
-  llvm::Optional<Token> NextTok =
+  std::optional<Token> NextTok =
       Lexer::findNextToken(D->getEndLoc(), SM, Ctx.getLangOpts());
   if (!NextTok || NextTok->isNot(tok::semi))
-    return llvm::createStringError(llvm::inconvertibleErrorCode(),
-                                   "no semicolon after using-directive");
+    return error("no semicolon after using-directive");
   // FIXME: removing the semicolon may be invalid in some obscure cases, e.g.
   //        if (x) using namespace std; else using namespace bar;
   return tooling::Replacement(
@@ -88,16 +90,15 @@ bool isTopLevelDecl(const SelectionTree::Node *Node) {
   return Node->Parent && Node->Parent->ASTNode.get<TranslationUnitDecl>();
 }
 
-// Returns the first visible context that contains this DeclContext.
-// For example: Returns ns1 for S1 and a.
-// namespace ns1 {
-// inline namespace ns2 { struct S1 {}; }
-// enum E { a, b, c, d };
-// }
-const DeclContext *visibleContext(const DeclContext *D) {
-  while (D->isInlineNamespace() || D->isTransparentContext())
+// Return true if `LHS` is declared in `RHS`
+bool isDeclaredIn(const NamedDecl *LHS, const DeclContext *RHS) {
+  const auto *D = LHS->getDeclContext();
+  while (D->isInlineNamespace() || D->isTransparentContext()) {
+    if (D->Equals(RHS))
+      return true;
     D = D->getParent();
-  return D;
+  }
+  return D->Equals(RHS);
 }
 
 bool RemoveUsingNamespace::prepare(const Selection &Inputs) {
@@ -108,7 +109,7 @@ bool RemoveUsingNamespace::prepare(const Selection &Inputs) {
   TargetDirective = CA->ASTNode.get<UsingDirectiveDecl>();
   if (!TargetDirective)
     return false;
-  if (!dyn_cast<Decl>(TargetDirective->getDeclContext()))
+  if (!isa<Decl>(TargetDirective->getDeclContext()))
     return false;
   // FIXME: Unavailable for namespaces containing using-namespace decl.
   // It is non-trivial to deal with cases where identifiers come from the inner
@@ -144,40 +145,58 @@ Expected<Tweak::Effect> RemoveUsingNamespace::apply(const Selection &Inputs) {
   // removing the directive.
   std::vector<SourceLocation> IdentsToQualify;
   for (auto &D : Inputs.AST->getLocalTopLevelDecls()) {
-    findExplicitReferences(D, [&](ReferenceLoc Ref) {
-      if (Ref.Qualifier)
-        return; // This reference is already qualified.
+    findExplicitReferences(
+        D,
+        [&](ReferenceLoc Ref) {
+          if (Ref.Qualifier)
+            return; // This reference is already qualified.
 
-      for (auto *T : Ref.Targets) {
-        if (!visibleContext(T->getDeclContext())
-                 ->Equals(TargetDirective->getNominatedNamespace()))
-          return;
-      }
-      SourceLocation Loc = Ref.NameLoc;
-      if (Loc.isMacroID()) {
-        // Avoid adding qualifiers before macro expansions, it's probably
-        // incorrect, e.g.
-        //   namespace std { int foo(); }
-        //   #define FOO 1 + foo()
-        //   using namespace foo; // provides matrix
-        //   auto x = FOO; // Must not changed to auto x = std::FOO
-        if (!SM.isMacroArgExpansion(Loc))
-          return; // FIXME: report a warning to the users.
-        Loc = SM.getFileLoc(Ref.NameLoc);
-      }
-      assert(Loc.isFileID());
-      if (SM.getFileID(Loc) != SM.getMainFileID())
-        return; // FIXME: report these to the user as warnings?
-      if (SM.isBeforeInTranslationUnit(Loc, FirstUsingDirectiveLoc))
-        return; // Directive was not visible before this point.
-      IdentsToQualify.push_back(Loc);
-    });
+          for (auto *T : Ref.Targets) {
+            if (!isDeclaredIn(T, TargetDirective->getNominatedNamespace()))
+              return;
+            auto Kind = T->getDeclName().getNameKind();
+            // Avoid adding qualifiers before operators, e.g.
+            //   using namespace std;
+            //   cout << "foo"; // Must not changed to std::cout std:: << "foo"
+            if (Kind == DeclarationName::CXXOperatorName)
+              return;
+            // Avoid adding qualifiers before user-defined literals, e.g.
+            //   using namespace std;
+            //   auto s = "foo"s; // Must not changed to auto s = "foo" std::s;
+            // FIXME: Add a using-directive for user-defined literals
+            // declared in an inline namespace, e.g.
+            //   using namespace s^td;
+            //   int main() { cout << "foo"s; }
+            // change to
+            //   using namespace std::literals;
+            //   int main() { std::cout << "foo"s; }
+            if (Kind == DeclarationName::NameKind::CXXLiteralOperatorName)
+              return;
+          }
+          SourceLocation Loc = Ref.NameLoc;
+          if (Loc.isMacroID()) {
+            // Avoid adding qualifiers before macro expansions, it's probably
+            // incorrect, e.g.
+            //   namespace std { int foo(); }
+            //   #define FOO 1 + foo()
+            //   using namespace foo; // provides matrix
+            //   auto x = FOO; // Must not changed to auto x = std::FOO
+            if (!SM.isMacroArgExpansion(Loc))
+              return; // FIXME: report a warning to the users.
+            Loc = SM.getFileLoc(Ref.NameLoc);
+          }
+          assert(Loc.isFileID());
+          if (SM.getFileID(Loc) != SM.getMainFileID())
+            return; // FIXME: report these to the user as warnings?
+          if (SM.isBeforeInTranslationUnit(Loc, FirstUsingDirectiveLoc))
+            return; // Directive was not visible before this point.
+          IdentsToQualify.push_back(Loc);
+        },
+        Inputs.AST->getHeuristicResolver());
   }
   // Remove duplicates.
   llvm::sort(IdentsToQualify);
-  IdentsToQualify.erase(
-      std::unique(IdentsToQualify.begin(), IdentsToQualify.end()),
-      IdentsToQualify.end());
+  IdentsToQualify.erase(llvm::unique(IdentsToQualify), IdentsToQualify.end());
 
   // Produce replacements to remove the using directives.
   tooling::Replacements R;
@@ -198,10 +217,6 @@ Expected<Tweak::Effect> RemoveUsingNamespace::apply(const Selection &Inputs) {
   return Effect::mainFileEdit(SM, std::move(R));
 }
 
-std::string RemoveUsingNamespace::title() const {
-  return std::string(
-      llvm::formatv("Remove using namespace, re-qualify names instead."));
-}
 } // namespace
 } // namespace clangd
 } // namespace clang

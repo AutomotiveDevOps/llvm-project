@@ -1,7 +1,6 @@
-; RUN: llc -march=bpfel -filetype=asm -o - %s | FileCheck -check-prefixes=CHECK %s
-; RUN: llc -march=bpfeb -filetype=asm -o - %s | FileCheck -check-prefixes=CHECK %s
-; RUN: llc -march=bpfel -mattr=+alu32 -filetype=asm -o - %s | FileCheck -check-prefixes=CHECK %s
-; RUN: llc -march=bpfeb -mattr=+alu32 -filetype=asm -o - %s | FileCheck -check-prefixes=CHECK %s
+; RUN: opt -O2 %s | llvm-dis > %t1
+; RUN: llc -filetype=asm -o - %t1 | FileCheck -check-prefixes=CHECK %s
+; RUN: llc -mattr=+alu32 -filetype=asm -o - %t1 | FileCheck -check-prefixes=CHECK %s
 ; Source code:
 ;   typedef struct v3 { int a; int b; } __v3;
 ;   #define _(x) (__builtin_preserve_access_index(x))
@@ -10,17 +9,18 @@
 ;     return get_value(_(&arg[1]));
 ;   }
 ; Compilation flag:
-;   clang -target bpf -O2 -g -S -emit-llvm test.c
+;   clang -target bpf -O2 -g -S -emit-llvm -Xclang -disable-llvm-passes test.c
+
+target triple = "bpf"
 
 %struct.v3 = type { i32, i32 }
 
 ; Function Attrs: nounwind
-define dso_local i32 @test(%struct.v3* %arg) local_unnamed_addr #0 !dbg !15 {
+define dso_local i32 @test(ptr %arg) local_unnamed_addr !dbg !15 {
 entry:
-  call void @llvm.dbg.value(metadata %struct.v3* %arg, metadata !19, metadata !DIExpression()), !dbg !20
-  %0 = tail call %struct.v3* @llvm.preserve.array.access.index.p0s_struct.v3s.p0s_struct.v3s(%struct.v3* %arg, i32 0, i32 1), !dbg !21, !llvm.preserve.access.index !4
-  %1 = getelementptr inbounds %struct.v3, %struct.v3* %0, i64 0, i32 0, !dbg !21
-  %call = tail call i32 @get_value(i32* %1) #4, !dbg !22
+  call void @llvm.dbg.value(metadata ptr %arg, metadata !19, metadata !DIExpression()), !dbg !20
+  %0 = tail call ptr @llvm.preserve.array.access.index.p0.v3s.p0.v3s(ptr elementtype(%struct.v3) %arg, i32 0, i32 1), !dbg !21, !llvm.preserve.access.index !4
+  %call = tail call i32 @get_value(ptr %0), !dbg !22
   ret i32 %call, !dbg !23
 }
 
@@ -42,19 +42,13 @@ entry:
 ; CHECK-NEXT:         .long   32
 ; CHECK-NEXT:         .long   0
 
-declare dso_local i32 @get_value(i32*) local_unnamed_addr #1
+declare dso_local i32 @get_value(ptr) local_unnamed_addr
 
 ; Function Attrs: nounwind readnone
-declare %struct.v3* @llvm.preserve.array.access.index.p0s_struct.v3s.p0s_struct.v3s(%struct.v3*, i32, i32) #2
+declare ptr @llvm.preserve.array.access.index.p0.v3s.p0.v3s(ptr, i32, i32)
 
 ; Function Attrs: nounwind readnone speculatable willreturn
-declare void @llvm.dbg.value(metadata, metadata, metadata) #3
-
-attributes #0 = { nounwind "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "frame-pointer"="all" "less-precise-fpmad"="false" "min-legal-vector-width"="0" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "unsafe-fp-math"="false" "use-soft-float"="false" }
-attributes #1 = { "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "frame-pointer"="all" "less-precise-fpmad"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "unsafe-fp-math"="false" "use-soft-float"="false" }
-attributes #2 = { nounwind readnone }
-attributes #3 = { nounwind readnone speculatable willreturn }
-attributes #4 = { nounwind }
+declare void @llvm.dbg.value(metadata, metadata, metadata)
 
 !llvm.dbg.cu = !{!0}
 !llvm.module.flags = !{!11, !12, !13}

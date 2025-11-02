@@ -1,0 +1,18 @@
+# Automatic Upstream Sync Before Commits
+
+## Git Workflow
+
+### Automatic Upstream Sync Before Commits
+- ALWAYS sync with upstream before committing
+- Workflow: 
+  1. `git fetch upstream && git fetch origin`
+  2. Detect upstream branch: `git symbolic-ref refs/remotes/upstream/HEAD | sed 's@^refs/remotes/upstream/@@' || echo "main"`
+  3. Merge upstream changes: `git merge upstream/<branch>`
+  4. Resolve any merge conflicts automatically when possible
+  5. Then proceed with commit
+  6. After commit, push if remote exists
+
+### Commit Requirements
+- All git commits SHALL be followed by a git push if and only if a remote exists
+- Never use git operations in Makefiles
+- Change git user to "<user> | Cursor.sh | <model>" before committing

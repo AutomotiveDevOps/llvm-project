@@ -7,10 +7,22 @@ set(LLVM_LINK_COMPONENTS
   AMDGPUCodeGen
   AMDGPUDesc
   AMDGPUInfo
+  AMDGPUUtils
+  CodeGen
+  CodeGenTypes
+  Core
+  GlobalISel
   MC
+  MIRParser
   Support
+  TargetParser
   )
 
 add_llvm_target_unittest(AMDGPUTests
+  AMDGPUUnitTests.cpp
+  CSETest.cpp
   DwarfRegMappings.cpp
+  ExecMayBeModifiedBeforeAnyUse.cpp
+  LiveRegUnits.cpp
+  PALMetadata.cpp
   )

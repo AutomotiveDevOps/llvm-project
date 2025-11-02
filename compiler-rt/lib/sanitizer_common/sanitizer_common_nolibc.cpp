@@ -10,25 +10,28 @@
 // libc in no-libcdep sources.
 //===----------------------------------------------------------------------===//
 
-#include "sanitizer_platform.h"
 #include "sanitizer_common.h"
+#include "sanitizer_flags.h"
 #include "sanitizer_libc.h"
+#include "sanitizer_platform.h"
 
 namespace __sanitizer {
 
 // The Windows implementations of these functions use the win32 API directly,
 // bypassing libc.
 #if !SANITIZER_WINDOWS
-#if SANITIZER_LINUX
+#  if SANITIZER_LINUX
 void LogMessageOnPrintf(const char *str) {}
-#endif
+void InitTlsSize() {}
+#  endif
 void WriteToSyslog(const char *buffer) {}
 void Abort() { internal__exit(1); }
-void SleepForSeconds(int seconds) { internal_sleep(seconds); }
-#endif // !SANITIZER_WINDOWS
+bool CreateDir(const char *pathname) { return false; }
+#endif  // !SANITIZER_WINDOWS
 
-#if !SANITIZER_WINDOWS && !SANITIZER_MAC
+#if !SANITIZER_WINDOWS && !SANITIZER_APPLE
 void ListOfModules::init() {}
+void InitializePlatformCommonFlags(CommonFlags *cf) {}
 #endif
 
 }  // namespace __sanitizer

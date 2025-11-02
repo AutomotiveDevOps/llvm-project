@@ -14,15 +14,17 @@
 #ifndef LLVM_UNITTESTS_EXECUTIONENGINE_ORC_ORCTESTCOMMON_H
 #define LLVM_UNITTESTS_EXECUTIONENGINE_ORC_ORCTESTCOMMON_H
 
-#include "llvm/ExecutionEngine/ExecutionEngine.h"
 #include "llvm/ExecutionEngine/JITSymbol.h"
+#include "llvm/ExecutionEngine/Orc/Core.h"
+#include "llvm/ExecutionEngine/Orc/ExecutorProcessControl.h"
+#include "llvm/ExecutionEngine/Orc/InProcessMemoryAccess.h"
 #include "llvm/ExecutionEngine/Orc/IndirectionUtils.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
+#include "llvm/MC/TargetRegistry.h"
 #include "llvm/Object/ObjectFile.h"
-#include "llvm/Support/TargetRegistry.h"
 #include "llvm/Support/TargetSelect.h"
 #include "gtest/gtest.h"
 
@@ -44,26 +46,82 @@ namespace orc {
 //     linkage and non-hidden visibility.
 // (5) V -- A JITDylib associated with ES.
 class CoreAPIsBasedStandardTest : public testing::Test {
+public:
+  ~CoreAPIsBasedStandardTest() override {
+    if (auto Err = ES.endSession())
+      ES.reportError(std::move(Err));
+  }
+
 protected:
+  class OverridableDispatcher : public InPlaceTaskDispatcher {
+  public:
+    OverridableDispatcher(CoreAPIsBasedStandardTest &Parent) : Parent(Parent) {}
+    void dispatch(std::unique_ptr<Task> T) override;
+
+  private:
+    CoreAPIsBasedStandardTest &Parent;
+  };
+
+  std::unique_ptr<llvm::orc::ExecutorProcessControl>
+  makeEPC(std::shared_ptr<SymbolStringPool> SSP);
+
   std::shared_ptr<SymbolStringPool> SSP = std::make_shared<SymbolStringPool>();
-  ExecutionSession ES{SSP};
+  ExecutionSession ES{makeEPC(SSP)};
   JITDylib &JD = ES.createBareJITDylib("JD");
   SymbolStringPtr Foo = ES.intern("foo");
   SymbolStringPtr Bar = ES.intern("bar");
   SymbolStringPtr Baz = ES.intern("baz");
   SymbolStringPtr Qux = ES.intern("qux");
-  static const JITTargetAddress FooAddr = 1U;
-  static const JITTargetAddress BarAddr = 2U;
-  static const JITTargetAddress BazAddr = 3U;
-  static const JITTargetAddress QuxAddr = 4U;
-  JITEvaluatedSymbol FooSym =
-      JITEvaluatedSymbol(FooAddr, JITSymbolFlags::Exported);
-  JITEvaluatedSymbol BarSym =
-      JITEvaluatedSymbol(BarAddr, JITSymbolFlags::Exported);
-  JITEvaluatedSymbol BazSym =
-      JITEvaluatedSymbol(BazAddr, JITSymbolFlags::Exported);
-  JITEvaluatedSymbol QuxSym =
-      JITEvaluatedSymbol(QuxAddr, JITSymbolFlags::Exported);
+  static constexpr ExecutorAddr FooAddr{1};
+  static constexpr ExecutorAddr BarAddr{2};
+  static constexpr ExecutorAddr BazAddr{3};
+  static constexpr ExecutorAddr QuxAddr{4};
+  ExecutorSymbolDef FooSym{FooAddr, JITSymbolFlags::Exported};
+  ExecutorSymbolDef BarSym{BarAddr, JITSymbolFlags::Exported};
+  ExecutorSymbolDef BazSym{BazAddr, JITSymbolFlags::Exported};
+  ExecutorSymbolDef QuxSym{QuxAddr, JITSymbolFlags::Exported};
+  unique_function<void(std::unique_ptr<Task>)> DispatchOverride;
+};
+
+/// A ExecutorProcessControl instance that asserts if any of its methods are
+/// used. Suitable for use is unit tests, and by ORC clients who haven't moved
+/// to ExecutorProcessControl-based APIs yet.
+class UnsupportedExecutorProcessControl : public ExecutorProcessControl,
+                                          private InProcessMemoryAccess {
+public:
+  UnsupportedExecutorProcessControl(
+      std::shared_ptr<SymbolStringPool> SSP = nullptr,
+      std::unique_ptr<TaskDispatcher> D = nullptr, const std::string &TT = "",
+      unsigned PageSize = 0)
+      : ExecutorProcessControl(
+            SSP ? std::move(SSP) : std::make_shared<SymbolStringPool>(),
+            D ? std::move(D) : std::make_unique<InPlaceTaskDispatcher>()),
+        InProcessMemoryAccess(Triple(TT).isArch64Bit()) {
+    this->TargetTriple = Triple(TT);
+    this->PageSize = PageSize;
+    this->MemAccess = this;
+  }
+
+  Expected<int32_t> runAsMain(ExecutorAddr MainFnAddr,
+                              ArrayRef<std::string> Args) override {
+    llvm_unreachable("Unsupported");
+  }
+
+  Expected<int32_t> runAsVoidFunction(ExecutorAddr VoidFnAddr) override {
+    llvm_unreachable("Unsupported");
+  }
+
+  Expected<int32_t> runAsIntFunction(ExecutorAddr IntFnAddr, int Arg) override {
+    llvm_unreachable("Unsupported");
+  }
+
+  void callWrapperAsync(ExecutorAddr WrapperFnAddr,
+                        IncomingWFRHandler OnComplete,
+                        ArrayRef<char> ArgBuffer) override {
+    llvm_unreachable("Unsupported");
+  }
+
+  Error disconnect() override { return Error::success(); }
 };
 
 } // end namespace orc
@@ -86,7 +144,7 @@ private:
 class SimpleMaterializationUnit : public orc::MaterializationUnit {
 public:
   using MaterializeFunction =
-      std::function<void(orc::MaterializationResponsibility)>;
+      std::function<void(std::unique_ptr<orc::MaterializationResponsibility>)>;
   using DiscardFunction =
       std::function<void(const orc::JITDylib &, orc::SymbolStringPtr)>;
   using DestructorFunction = std::function<void()>;
@@ -96,8 +154,8 @@ public:
       orc::SymbolStringPtr InitSym = nullptr,
       DiscardFunction Discard = DiscardFunction(),
       DestructorFunction Destructor = DestructorFunction())
-      : MaterializationUnit(std::move(SymbolFlags), std::move(InitSym),
-                            orc::VModuleKey()),
+      : MaterializationUnit(
+            Interface(std::move(SymbolFlags), std::move(InitSym))),
         Materialize(std::move(Materialize)), Discard(std::move(Discard)),
         Destructor(std::move(Destructor)) {}
 
@@ -108,7 +166,8 @@ public:
 
   StringRef getName() const override { return "<Simple>"; }
 
-  void materialize(orc::MaterializationResponsibility R) override {
+  void
+  materialize(std::unique_ptr<orc::MaterializationResponsibility> R) override {
     Materialize(std::move(R));
   }
 
@@ -124,44 +183,6 @@ private:
   MaterializeFunction Materialize;
   DiscardFunction Discard;
   DestructorFunction Destructor;
-};
-
-// Base class for Orc tests that will execute code.
-class OrcExecutionTest {
-public:
-
-  OrcExecutionTest() {
-
-    // Initialize the native target if it hasn't been done already.
-    OrcNativeTarget::initialize();
-
-    // Try to select a TargetMachine for the host.
-    TM.reset(EngineBuilder().selectTarget());
-
-    if (TM) {
-      // If we found a TargetMachine, check that it's one that Orc supports.
-      const Triple& TT = TM->getTargetTriple();
-
-      // Bail out for windows platforms. We do not support these yet.
-      if ((TT.getArch() != Triple::x86_64 && TT.getArch() != Triple::x86) ||
-           TT.isOSWindows())
-        return;
-
-      // Target can JIT?
-      SupportsJIT = TM->getTarget().hasJIT();
-      // Use ability to create callback manager to detect whether Orc
-      // has indirection support on this platform. This way the test
-      // and Orc code do not get out of sync.
-      SupportsIndirection = !!orc::createLocalCompileCallbackManager(TT, ES, 0);
-    }
-  };
-
-protected:
-  orc::ExecutionSession ES;
-  LLVMContext Context;
-  std::unique_ptr<TargetMachine> TM;
-  bool SupportsJIT = false;
-  bool SupportsIndirection = false;
 };
 
 class ModuleBuilder {
@@ -189,89 +210,6 @@ struct DummyStruct {
 inline StructType *getDummyStructTy(LLVMContext &Context) {
   return StructType::get(ArrayType::get(Type::getInt32Ty(Context), 256));
 }
-
-template <typename HandleT, typename ModuleT>
-class MockBaseLayer {
-public:
-
-  using ModuleHandleT = HandleT;
-
-  using AddModuleSignature =
-    Expected<ModuleHandleT>(ModuleT M,
-                            std::shared_ptr<JITSymbolResolver> R);
-
-  using RemoveModuleSignature = Error(ModuleHandleT H);
-  using FindSymbolSignature = JITSymbol(const std::string &Name,
-                                        bool ExportedSymbolsOnly);
-  using FindSymbolInSignature = JITSymbol(ModuleHandleT H,
-                                          const std::string &Name,
-                                          bool ExportedSymbolsONly);
-  using EmitAndFinalizeSignature = Error(ModuleHandleT H);
-
-  std::function<AddModuleSignature> addModuleImpl;
-  std::function<RemoveModuleSignature> removeModuleImpl;
-  std::function<FindSymbolSignature> findSymbolImpl;
-  std::function<FindSymbolInSignature> findSymbolInImpl;
-  std::function<EmitAndFinalizeSignature> emitAndFinalizeImpl;
-
-  Expected<ModuleHandleT> addModule(ModuleT M,
-                                    std::shared_ptr<JITSymbolResolver> R) {
-    assert(addModuleImpl &&
-           "addModule called, but no mock implementation was provided");
-    return addModuleImpl(std::move(M), std::move(R));
-  }
-
-  Error removeModule(ModuleHandleT H) {
-    assert(removeModuleImpl &&
-           "removeModule called, but no mock implementation was provided");
-    return removeModuleImpl(H);
-  }
-
-  JITSymbol findSymbol(const std::string &Name, bool ExportedSymbolsOnly) {
-    assert(findSymbolImpl &&
-           "findSymbol called, but no mock implementation was provided");
-    return findSymbolImpl(Name, ExportedSymbolsOnly);
-  }
-
-  JITSymbol findSymbolIn(ModuleHandleT H, const std::string &Name,
-                         bool ExportedSymbolsOnly) {
-    assert(findSymbolInImpl &&
-           "findSymbolIn called, but no mock implementation was provided");
-    return findSymbolInImpl(H, Name, ExportedSymbolsOnly);
-  }
-
-  Error emitAndFinaliez(ModuleHandleT H) {
-    assert(emitAndFinalizeImpl &&
-           "emitAndFinalize called, but no mock implementation was provided");
-    return emitAndFinalizeImpl(H);
-  }
-};
-
-class ReturnNullJITSymbol {
-public:
-  template <typename... Args>
-  JITSymbol operator()(Args...) const {
-    return nullptr;
-  }
-};
-
-template <typename ReturnT>
-class DoNothingAndReturn {
-public:
-  DoNothingAndReturn(ReturnT Ret) : Ret(std::move(Ret)) {}
-
-  template <typename... Args>
-  void operator()(Args...) const { return Ret; }
-private:
-  ReturnT Ret;
-};
-
-template <>
-class DoNothingAndReturn<void> {
-public:
-  template <typename... Args>
-  void operator()(Args...) const { }
-};
 
 } // namespace llvm
 

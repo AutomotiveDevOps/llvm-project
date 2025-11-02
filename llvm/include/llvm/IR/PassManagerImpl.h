@@ -5,7 +5,7 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
-///
+/// \file
 /// Provides implementations for PassManager and AnalysisManager template
 /// methods. These classes should be explicitly instantiated for any IR unit,
 /// and files doing the explicit instantiation should include this header.
@@ -15,14 +15,90 @@
 #ifndef LLVM_IR_PASSMANAGERIMPL_H
 #define LLVM_IR_PASSMANAGERIMPL_H
 
+#include "llvm/IR/Function.h"
+#include "llvm/IR/PassInstrumentation.h"
 #include "llvm/IR/PassManager.h"
+#include "llvm/Support/CommandLine.h"
+#include "llvm/Support/Compiler.h"
+#include "llvm/Support/PrettyStackTrace.h"
 
 namespace llvm {
 
+template <typename IRUnitT, typename AnalysisManagerT, typename... ExtraArgTs>
+PreservedAnalyses PassManager<IRUnitT, AnalysisManagerT, ExtraArgTs...>::run(
+    IRUnitT &IR, AnalysisManagerT &AM, ExtraArgTs... ExtraArgs) {
+  class StackTraceEntry : public PrettyStackTraceEntry {
+    const PassInstrumentation &PI;
+    IRUnitT &IR;
+    PassConceptT *Pass = nullptr;
+
+  public:
+    explicit StackTraceEntry(const PassInstrumentation &PI, IRUnitT &IR)
+        : PI(PI), IR(IR) {}
+
+    void setPass(PassConceptT *P) { Pass = P; }
+
+    void print(raw_ostream &OS) const override {
+      OS << "Running pass \"";
+      if (Pass)
+        Pass->printPipeline(OS, [this](StringRef ClassName) {
+          auto PassName = PI.getPassNameForClassName(ClassName);
+          return PassName.empty() ? ClassName : PassName;
+        });
+      else
+        OS << "unknown";
+      OS << "\" on ";
+      printIRUnitNameForStackTrace(OS, IR);
+      OS << "\n";
+    }
+  };
+
+  PreservedAnalyses PA = PreservedAnalyses::all();
+
+  // Request PassInstrumentation from analysis manager, will use it to run
+  // instrumenting callbacks for the passes later.
+  // Here we use std::tuple wrapper over getResult which helps to extract
+  // AnalysisManager's arguments out of the whole ExtraArgs set.
+  PassInstrumentation PI =
+      detail::getAnalysisResult<PassInstrumentationAnalysis>(
+          AM, IR, std::tuple<ExtraArgTs...>(ExtraArgs...));
+
+  StackTraceEntry Entry(PI, IR);
+  for (auto &Pass : Passes) {
+    Entry.setPass(&*Pass);
+
+    // Check the PassInstrumentation's BeforePass callbacks before running the
+    // pass, skip its execution completely if asked to (callback returns
+    // false).
+    if (!PI.runBeforePass<IRUnitT>(*Pass, IR))
+      continue;
+
+    PreservedAnalyses PassPA = Pass->run(IR, AM, ExtraArgs...);
+
+    // Update the analysis manager as each pass runs and potentially
+    // invalidates analyses.
+    AM.invalidate(IR, PassPA);
+
+    // Call onto PassInstrumentation's AfterPass callbacks immediately after
+    // running the pass.
+    PI.runAfterPass<IRUnitT>(*Pass, IR, PassPA);
+
+    // Finally, intersect the preserved analyses to compute the aggregate
+    // preserved set for this pass manager.
+    PA.intersect(std::move(PassPA));
+  }
+
+  // Invalidation was handled after each pass in the above loop for the
+  // current unit of IR. Therefore, the remaining analysis results in the
+  // AnalysisManager are preserved. We mark this with a set so that we don't
+  // need to inspect each one individually.
+  PA.preserveSet<AllAnalysesOn<IRUnitT>>();
+
+  return PA;
+}
+
 template <typename IRUnitT, typename... ExtraArgTs>
-inline AnalysisManager<IRUnitT, ExtraArgTs...>::AnalysisManager(
-    bool DebugLogging)
-    : DebugLogging(DebugLogging) {}
+inline AnalysisManager<IRUnitT, ExtraArgTs...>::AnalysisManager() = default;
 
 template <typename IRUnitT, typename... ExtraArgTs>
 inline AnalysisManager<IRUnitT, ExtraArgTs...>::AnalysisManager(
@@ -37,8 +113,8 @@ template <typename IRUnitT, typename... ExtraArgTs>
 inline void
 AnalysisManager<IRUnitT, ExtraArgTs...>::clear(IRUnitT &IR,
                                                llvm::StringRef Name) {
-  if (DebugLogging)
-    dbgs() << "Clearing all analysis results for: " << Name << "\n";
+  if (auto *PI = getCachedResult<PassInstrumentationAnalysis>(IR))
+    PI->runAnalysesCleared(Name);
 
   auto ResultsListI = AnalysisResultLists.find(&IR);
   if (ResultsListI == AnalysisResultLists.end())
@@ -55,18 +131,12 @@ template <typename IRUnitT, typename... ExtraArgTs>
 inline typename AnalysisManager<IRUnitT, ExtraArgTs...>::ResultConceptT &
 AnalysisManager<IRUnitT, ExtraArgTs...>::getResultImpl(
     AnalysisKey *ID, IRUnitT &IR, ExtraArgTs... ExtraArgs) {
-  typename AnalysisResultMapT::iterator RI;
-  bool Inserted;
-  std::tie(RI, Inserted) = AnalysisResults.insert(std::make_pair(
-      std::make_pair(ID, &IR), typename AnalysisResultListT::iterator()));
+  auto [RI, Inserted] = AnalysisResults.try_emplace(std::make_pair(ID, &IR));
 
   // If we don't have a cached result for this function, look up the pass and
   // run it to produce a result, which we then add to the cache.
   if (Inserted) {
     auto &P = this->lookUpPass(ID);
-    if (DebugLogging)
-      dbgs() << "Running analysis: " << P.name() << " on " << IR.getName()
-             << "\n";
 
     PassInstrumentation PI;
     if (ID != PassInstrumentationAnalysis::ID()) {
@@ -96,10 +166,6 @@ inline void AnalysisManager<IRUnitT, ExtraArgTs...>::invalidate(
   // We're done if all analyses on this IR unit are preserved.
   if (PA.allAnalysesInSetPreserved<AllAnalysesOn<IRUnitT>>())
     return;
-
-  if (DebugLogging)
-    dbgs() << "Invalidating all non-preserved analyses for: " << IR.getName()
-           << "\n";
 
   // Track whether each analysis's result is invalidated in
   // IsResultInvalidated.
@@ -140,9 +206,8 @@ inline void AnalysisManager<IRUnitT, ExtraArgTs...>::invalidate(
         continue;
       }
 
-      if (DebugLogging)
-        dbgs() << "Invalidating analysis: " << this->lookUpPass(ID).name()
-               << " on " << IR.getName() << "\n";
+      if (auto *PI = getCachedResult<PassInstrumentationAnalysis>(IR))
+        PI->runAnalysisInvalidated(this->lookUpPass(ID), IR);
 
       I = ResultsList.erase(I);
       AnalysisResults.erase({ID, &IR});

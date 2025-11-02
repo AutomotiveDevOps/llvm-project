@@ -50,28 +50,19 @@ public:
 
   bool TracingEnabled() { return m_enabled; }
 
-  bool EnableSingleStep(bool value) {
-    bool old_value = m_single_step;
-    m_single_step = value;
-    return old_value;
-  }
-
-  bool SingleStepEnabled() { return m_single_step; }
-  
   Thread &GetThread();
 
 protected:
   Process &m_process;
   lldb::tid_t m_tid;
 
-  Stream *GetLogStream();
+  lldb::StreamSP GetLogStreamSP();
 
   virtual void Log();
 
 private:
   bool TracerExplainsStop();
 
-  bool m_single_step;
   bool m_enabled;
   lldb::StreamSP m_stream_sp;
   Thread *m_thread;

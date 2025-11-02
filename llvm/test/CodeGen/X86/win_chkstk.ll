@@ -1,6 +1,8 @@
 ; RUN: llc < %s -mtriple=i686-pc-win32 | FileCheck %s -check-prefix=WIN_X32
 ; RUN: llc < %s -mtriple=x86_64-pc-win32 | FileCheck %s -check-prefix=WIN_X64
 ; RUN: llc < %s -mtriple=x86_64-pc-win32 -code-model=large | FileCheck %s -check-prefix=WIN64_LARGE
+; RUN: llc < %s -mtriple=x86_64-uefi | FileCheck %s -check-prefix=WIN_X64
+; RUN: llc < %s -mtriple=x86_64-uefi -code-model=large | FileCheck %s -check-prefix=WIN64_LARGE
 ; RUN: llc < %s -mtriple=i686-pc-mingw32 | FileCheck %s -check-prefix=MINGW_X32
 ; RUN: llc < %s -mtriple=x86_64-pc-mingw32 | FileCheck %s -check-prefix=MINGW_X64
 ; RUN: llc < %s -mtriple=i386-pc-linux | FileCheck %s -check-prefix=LINUX
@@ -22,7 +24,7 @@ entry:
 ; MINGW_X32:  calll __alloca
 ; MINGW_X64:  callq ___chkstk_ms
 ; LINUX-NOT:  call __chkstk
-  %array4096 = alloca [4096 x i8], align 16       ; <[4096 x i8]*> [#uses=0]
+  %array4096 = alloca [4096 x i8], align 16       ; <ptr> [#uses=0]
   ret i32 0
 }
 
@@ -45,7 +47,7 @@ entry:
 ; LINUX:         # %bb.0:
 ; LINUX-NOT:     call __chkstk
 ; LINUX:         ret
-  %array128 = alloca [128 x i8], align 16         ; <[128 x i8]*> [#uses=0]
+  %array128 = alloca [128 x i8], align 16         ; <ptr> [#uses=0]
   ret i32 0
 }
 
@@ -60,7 +62,7 @@ entry:
 ; MINGW_X32:  calll __alloca
 ; MINGW_X64:  callq ___chkstk_ms
 ; LINUX-NOT:  call __chkstk
-  %array4096 = alloca [4096 x i8], align 16       ; <[4096 x i8]*> [#uses=0]
+  %array4096 = alloca [4096 x i8], align 16       ; <ptr> [#uses=0]
   ret i32 0
 }
 

@@ -11,41 +11,24 @@
 // template <class Alloc>
 // struct allocator_traits
 // {
-//     static pointer allocate(allocator_type& a, size_type n);
+//     static constexpr pointer allocate(allocator_type& a, size_type n);
 //     ...
 // };
 
-// UNSUPPORTED: c++98, c++03, c++11, c++14, c++17
+// UNSUPPORTED: c++03, c++11, c++14, c++17
 
+#include <cstddef>
 #include <memory>
-#include <cstdint>
-#include <cassert>
-
-#include "test_macros.h"
 
 template <class T>
-struct A
-{
+struct A {
     typedef T value_type;
-
-    value_type* allocate(std::size_t n)
-    {
-        assert(n == 12);
-        return reinterpret_cast<value_type*>(static_cast<std::uintptr_t>(0xEEADBEEF));
-    }
-    value_type* allocate(std::size_t n, const void* p)
-    {
-        assert(n == 11);
-        assert(p == 0);
-        return reinterpret_cast<value_type*>(static_cast<std::uintptr_t>(0xFEADBEEF));
-    }
+    value_type* allocate(std::size_t n);
+    value_type* allocate(std::size_t n, const void* p);
 };
 
-int main(int, char**)
-{
+void f() {
     A<int> a;
     std::allocator_traits<A<int> >::allocate(a, 10);          // expected-warning {{ignoring return value of function declared with 'nodiscard' attribute}}
     std::allocator_traits<A<int> >::allocate(a, 10, nullptr); // expected-warning {{ignoring return value of function declared with 'nodiscard' attribute}}
-
-    return 0;
 }

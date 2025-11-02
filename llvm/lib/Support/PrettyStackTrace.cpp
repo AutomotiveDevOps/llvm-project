@@ -13,7 +13,6 @@
 
 #include "llvm/Support/PrettyStackTrace.h"
 #include "llvm-c/ErrorHandling.h"
-#include "llvm/ADT/SmallString.h"
 #include "llvm/Config/config.h"
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/SaveAndRestore.h"
@@ -21,10 +20,15 @@
 #include "llvm/Support/Watchdog.h"
 #include "llvm/Support/raw_ostream.h"
 
+#ifdef __APPLE__
+#include "llvm/ADT/SmallString.h"
+#endif
+
 #include <atomic>
 #include <cassert>
 #include <cstdarg>
 #include <cstdio>
+#include <cstring>
 #include <tuple>
 
 #ifdef HAVE_CRASHREPORTERCLIENT_H
@@ -32,6 +36,10 @@
 #endif
 
 using namespace llvm;
+
+static const char *BugReportMsg =
+    "PLEASE submit a bug report to " BUG_REPORT_URL
+    " and include the crash backtrace and instructions to reproduce the bug.\n";
 
 // If backtrace support is not enabled, compile out support for pretty stack
 // traces.  This has the secondary effect of not requiring thread local storage
@@ -56,8 +64,7 @@ static LLVM_THREAD_LOCAL PrettyStackTraceEntry *PrettyStackTraceHead = nullptr;
 // the current thread". If the user happens to overflow an 'unsigned' with
 // SIGINFO requests, it's possible that some threads will stop responding to it,
 // but the program won't crash.
-static volatile std::atomic<unsigned> GlobalSigInfoGenerationCounter =
-    ATOMIC_VAR_INIT(1);
+static volatile std::atomic<unsigned> GlobalSigInfoGenerationCounter = 1;
 static LLVM_THREAD_LOCAL unsigned ThreadLocalSigInfoGenerationCounter = 0;
 
 namespace llvm {
@@ -68,7 +75,7 @@ PrettyStackTraceEntry *ReverseStackTrace(PrettyStackTraceEntry *Head) {
         std::make_tuple(Head, Head->NextEntry, Prev);
   return Prev;
 }
-}
+} // namespace llvm
 
 static void PrintStack(raw_ostream &OS) {
   // Print out the stack in reverse order. To avoid recursion (which is likely
@@ -107,22 +114,34 @@ static void PrintCurStackTrace(raw_ostream &OS) {
 //  If any clients of llvm try to link to libCrashReporterClient.a themselves,
 //  only one crash info struct will be used.
 extern "C" {
+#ifdef CRASHREPORTER_ANNOTATIONS_INITIALIZER
+// Should be available in CRASHREPORTER_ANNOTATIONS_VERSION > 5
+CRASHREPORTER_ANNOTATIONS_INITIALIZER()
+#else
+// Older CrashReporter annotations layouts
 CRASH_REPORTER_CLIENT_HIDDEN
 struct crashreporter_annotations_t gCRAnnotations
-        __attribute__((section("__DATA," CRASHREPORTER_ANNOTATIONS_SECTION)))
-#if CRASHREPORTER_ANNOTATIONS_VERSION < 5
-        = { CRASHREPORTER_ANNOTATIONS_VERSION, 0, 0, 0, 0, 0, 0 };
-#else
-        = { CRASHREPORTER_ANNOTATIONS_VERSION, 0, 0, 0, 0, 0, 0, 0 };
-#endif
-}
+    __attribute__((section("__DATA," CRASHREPORTER_ANNOTATIONS_SECTION))) = {
+        CRASHREPORTER_ANNOTATIONS_VERSION,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+#if CRASHREPORTER_ANNOTATIONS_VERSION > 4
+        0
+#endif // CRASHREPORTER_ANNOTATIONS_VERSION > 4
+};
+#endif // CRASHREPORTER_ANNOTATIONS_INITIALIZER
+} // extern "C"
 #elif defined(__APPLE__) && HAVE_CRASHREPORTER_INFO
 extern "C" const char *__crashreporter_info__
     __attribute__((visibility("hidden"))) = 0;
 asm(".desc ___crashreporter_info__, 0x10");
 #endif
 
-static void setCrashLogMessage(const char *msg) LLVM_ATTRIBUTE_UNUSED;
+[[maybe_unused]] static void setCrashLogMessage(const char *msg);
 static void setCrashLogMessage(const char *msg) {
 #ifdef HAVE_CRASHREPORTERCLIENT_H
   (void)CRSetCrashLogMessage(msg);
@@ -136,15 +155,10 @@ static void setCrashLogMessage(const char *msg) {
 
 #ifdef __APPLE__
 using CrashHandlerString = SmallString<2048>;
-using CrashHandlerStringStorage =
-    std::aligned_storage<sizeof(CrashHandlerString),
-                         alignof(CrashHandlerString)>::type;
-static CrashHandlerStringStorage crashHandlerStringStorage;
+using CrashHandlerStringStorage = std::byte[sizeof(CrashHandlerString)];
+alignas(CrashHandlerString) static CrashHandlerStringStorage
+    crashHandlerStringStorage;
 #endif
-
-static const char *BugReportMsg =
-    "PLEASE submit a bug report to " BUG_REPORT_URL
-    " and include the crash backtrace.\n";
 
 /// This callback is run if a fatal signal is delivered to the process, it
 /// prints the pretty stack trace.
@@ -183,8 +197,9 @@ static void CrashHandler(void *) {
   if (!crashHandlerString.empty()) {
     setCrashLogMessage(crashHandlerString.c_str());
     errs() << crashHandlerString.str();
-  } else
+  } else {
     setCrashLogMessage("No crash information.");
+  }
 #endif
 }
 
@@ -203,9 +218,11 @@ static void printForSigInfoIfNeeded() {
 #endif // ENABLE_BACKTRACES
 
 void llvm::setBugReportMsg(const char *Msg) {
-#if ENABLE_BACKTRACES
   BugReportMsg = Msg;
-#endif
+}
+
+const char *llvm::getBugReportMsg() {
+  return BugReportMsg;
 }
 
 PrettyStackTraceEntry::PrettyStackTraceEntry() {
@@ -251,8 +268,16 @@ void PrettyStackTraceFormat::print(raw_ostream &OS) const { OS << Str << "\n"; }
 void PrettyStackTraceProgram::print(raw_ostream &OS) const {
   OS << "Program arguments: ";
   // Print the argument list.
-  for (unsigned i = 0, e = ArgC; i != e; ++i)
-    OS << ArgV[i] << ' ';
+  for (int I = 0; I < ArgC; ++I) {
+    const bool HaveSpace = ::strchr(ArgV[I], ' ');
+    if (I)
+      OS << ' ';
+    if (HaveSpace)
+      OS << '"';
+    OS.write_escaped(ArgV[I]);
+    if (HaveSpace)
+      OS << '"';
+  }
   OS << '\n';
 }
 

@@ -19,21 +19,21 @@ using namespace lld;
 
 // TODO(sbc): Remove this once CGOptLevel can be set completely based on bitcode
 // function metadata.
-CodeGenOpt::Level lld::args::getCGOptLevel(int optLevelLTO) {
-  if (optLevelLTO == 3)
-    return CodeGenOpt::Aggressive;
-  assert(optLevelLTO < 3);
-  return CodeGenOpt::Default;
+int lld::args::getCGOptLevel(int optLevelLTO) {
+  return std::clamp(optLevelLTO, 2, 3);
 }
 
-int64_t lld::args::getInteger(opt::InputArgList &args, unsigned key,
-                              int64_t Default) {
+static int64_t getInteger(opt::InputArgList &args, unsigned key,
+                          int64_t Default, unsigned base) {
   auto *a = args.getLastArg(key);
   if (!a)
     return Default;
 
   int64_t v;
-  if (to_integer(a->getValue(), v, 10))
+  StringRef s = a->getValue();
+  if (base == 16)
+    s.consume_front_insensitive("0x");
+  if (to_integer(s, v, base))
     return v;
 
   StringRef spelling = args.getArgString(a->getIndex());
@@ -41,25 +41,35 @@ int64_t lld::args::getInteger(opt::InputArgList &args, unsigned key,
   return 0;
 }
 
-std::vector<StringRef> lld::args::getStrings(opt::InputArgList &args, int id) {
-  std::vector<StringRef> v;
+int64_t lld::args::getInteger(opt::InputArgList &args, unsigned key,
+                              int64_t Default) {
+  return ::getInteger(args, key, Default, 10);
+}
+
+int64_t lld::args::getHex(opt::InputArgList &args, unsigned key,
+                          int64_t Default) {
+  return ::getInteger(args, key, Default, 16);
+}
+
+SmallVector<StringRef, 0> lld::args::getStrings(opt::InputArgList &args,
+                                                int id) {
+  SmallVector<StringRef, 0> v;
   for (auto *arg : args.filtered(id))
     v.push_back(arg->getValue());
   return v;
 }
 
 uint64_t lld::args::getZOptionValue(opt::InputArgList &args, int id,
-                                    StringRef key, uint64_t Default) {
-  for (auto *arg : args.filtered_reverse(id)) {
+                                    StringRef key, uint64_t defaultValue) {
+  for (auto *arg : args.filtered(id)) {
     std::pair<StringRef, StringRef> kv = StringRef(arg->getValue()).split('=');
     if (kv.first == key) {
-      uint64_t result = Default;
-      if (!to_integer(kv.second, result))
+      if (!to_integer(kv.second, defaultValue))
         error("invalid " + key + ": " + kv.second);
-      return result;
+      arg->claim();
     }
   }
-  return Default;
+  return defaultValue;
 }
 
 std::vector<StringRef> lld::args::getLines(MemoryBufferRef mb) {
@@ -76,7 +86,7 @@ std::vector<StringRef> lld::args::getLines(MemoryBufferRef mb) {
 }
 
 StringRef lld::args::getFilenameWithoutExe(StringRef path) {
-  if (path.endswith_lower(".exe"))
+  if (path.ends_with_insensitive(".exe"))
     return sys::path::stem(path);
   return sys::path::filename(path);
 }

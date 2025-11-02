@@ -1,6 +1,9 @@
 // Regression test for
 // https://code.google.com/p/address-sanitizer/issues/detail?id=180
 
+// FIXME: Implement.
+// XFAIL: hwasan
+
 // RUN: %clangxx -O0 %s -o %t
 
 // RUN: %env_tool_opts=handle_segv=0 not %run %t 2>&1 | FileCheck %s --check-prefix=CHECK0
@@ -18,19 +21,20 @@
 // Flaky errors in debuggerd with "waitpid returned unexpected pid (0)" in logcat.
 // UNSUPPORTED: android && i386-target-arch
 
+// Note: this test case is unusual because it retrieves the original
+// (ASan-installed) signal handler; thus, it is incompatible with the
+// cloak_sanitizer_signal_handlers runtime option.
+
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 
-struct sigaction original_sigaction_sigbus;
 struct sigaction original_sigaction_sigsegv;
 
 void User_OnSIGSEGV(int signum, siginfo_t *siginfo, void *context) {
   fprintf(stderr, "User sigaction called\n");
   struct sigaction original_sigaction = {};
-  if (signum == SIGBUS)
-    original_sigaction = original_sigaction_sigbus;
-  else if (signum == SIGSEGV)
+  if (signum == SIGSEGV)
     original_sigaction = original_sigaction_sigsegv;
   else {
     printf("Invalid signum");
@@ -46,11 +50,6 @@ void User_OnSIGSEGV(int signum, siginfo_t *siginfo, void *context) {
   exit(1);
 }
 
-int DoSEGV() {
-  volatile int *x = 0;
-  return *x;
-}
-
 bool InstallHandler(int signum, struct sigaction *original_sigaction) {
   struct sigaction user_sigaction = {};
   user_sigaction.sa_sigaction = User_OnSIGSEGV;
@@ -63,13 +62,15 @@ bool InstallHandler(int signum, struct sigaction *original_sigaction) {
 }
 
 int main() {
-  // Let's install handlers for both SIGSEGV and SIGBUS, since pre-Yosemite
-  // 32-bit Darwin triggers SIGBUS instead.
-  if (InstallHandler(SIGSEGV, &original_sigaction_sigsegv) &&
-      InstallHandler(SIGBUS, &original_sigaction_sigbus)) {
+  if (InstallHandler(SIGSEGV, &original_sigaction_sigsegv))
     fprintf(stderr, "User sigaction installed\n");
-  }
-  return DoSEGV();
+
+  // Trying to organically segfault by dereferencing a pointer can be tricky
+  // when the sanitizer runtime is built with assertions. Additionally, some
+  // older platforms may SIGBUS instead.
+  raise(SIGSEGV);
+
+  return 0;
 }
 
 // CHECK0-NOT: Sanitizer:DEADLYSIGNAL

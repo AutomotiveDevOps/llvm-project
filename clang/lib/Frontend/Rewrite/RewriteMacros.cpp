@@ -11,16 +11,15 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "clang/Rewrite/Frontend/Rewriters.h"
 #include "clang/Basic/SourceManager.h"
 #include "clang/Lex/Preprocessor.h"
 #include "clang/Rewrite/Core/Rewriter.h"
-#include "llvm/Support/Path.h"
-#include "llvm/Support/raw_ostream.h"
+#include "clang/Rewrite/Frontend/Rewriters.h"
+#include "llvm/ADT/RewriteBuffer.h"
 #include <cstdio>
-#include <memory>
 
 using namespace clang;
+using llvm::RewriteBuffer;
 
 /// isSameToken - Return true if the two specified tokens start have the same
 /// content.
@@ -64,7 +63,7 @@ static void LexRawTokensFromMainFile(Preprocessor &PP,
 
   // Create a lexer to lex all the tokens of the main file in raw mode.  Even
   // though it is in raw mode, it will not return comments.
-  const llvm::MemoryBuffer *FromFile = SM.getBuffer(SM.getMainFileID());
+  llvm::MemoryBufferRef FromFile = SM.getBufferOrFake(SM.getMainFileID());
   Lexer RawLex(SM.getMainFileID(), FromFile, SM, PP.getLangOpts());
 
   // Switch on comment lexing because we really do want them.

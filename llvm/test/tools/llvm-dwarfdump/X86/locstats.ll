@@ -1,88 +1,106 @@
 ; RUN: llc -debug-entry-values %s -o - -filetype=obj \
 ; RUN:   | llvm-dwarfdump -statistics - | FileCheck %s
+; RUN: llc -debug-entry-values --dwarf-version=4 %s -o - -filetype=obj \
+; RUN:   | llvm-dwarfdump -statistics - | FileCheck %s
+; RUN: llc -debug-entry-values --dwarf-version=3 %s -o - -filetype=obj \
+; RUN:   | llvm-dwarfdump -statistics - | FileCheck %s
+; RUN: llc -debug-entry-values --dwarf-version=2 %s -o - -filetype=obj \
+; RUN:   | llvm-dwarfdump -statistics - | FileCheck %s
 
-; CHECK: "sum_all_variables(#bytes in parent scope covered by DW_OP_entry_value)":5
-; CHECK: "sum_all_params(#bytes in parent scope)":20
-; CHECK: "sum_all_params(#bytes in parent scope covered by DW_AT_location)":20
-; CHECK: "sum_all_params(#bytes in parent scope covered by DW_OP_entry_value)":5
-; CHECK: "sum_all_local_vars(#bytes in parent scope)":90
-; CHECK: "sum_all_local_vars(#bytes in parent scope covered by DW_AT_location)":60
-; CHECK: "sum_all_local_vars(#bytes in parent scope covered by DW_OP_entry_value)":0
-; CHECK: "#variables processed by location statistics":6
-; CHECK: "#variables with 0% of parent scope covered by DW_AT_location":1
-; CHECK: "#variables with (0%,10%) of parent scope covered by DW_AT_location":0
-; CHECK: "#variables with [10%,20%) of parent scope covered by DW_AT_location":0
-; CHECK: "#variables with [20%,30%) of parent scope covered by DW_AT_location":0
-; CHECK: "#variables with [30%,40%) of parent scope covered by DW_AT_location":0
-; CHECK: "#variables with [40%,50%) of parent scope covered by DW_AT_location":0
-; CHECK: "#variables with [50%,60%) of parent scope covered by DW_AT_location":1
-; CHECK: "#variables with [60%,70%) of parent scope covered by DW_AT_location":0
-; CHECK: "#variables with [70%,80%) of parent scope covered by DW_AT_location":0
-; CHECK: "#variables with [80%,90%) of parent scope covered by DW_AT_location":1
-; CHECK: "#variables with [90%,100%) of parent scope covered by DW_AT_location":0
-; CHECK: "#variables with 100% of parent scope covered by DW_AT_location":3
-; CHECK: "#variables - entry values with 0% of parent scope covered by DW_AT_location":1
-; CHECK: "#variables - entry values with (0%,10%) of parent scope covered by DW_AT_location":0
-; CHECK: "#variables - entry values with [10%,20%) of parent scope covered by DW_AT_location":0
-; CHECK: "#variables - entry values with [20%,30%) of parent scope covered by DW_AT_location":0
-; CHECK: "#variables - entry values with [30%,40%) of parent scope covered by DW_AT_location":0
-; CHECK: "#variables - entry values with [40%,50%) of parent scope covered by DW_AT_location":0
-; CHECK: "#variables - entry values with [50%,60%) of parent scope covered by DW_AT_location":2
-; CHECK: "#variables - entry values with [60%,70%) of parent scope covered by DW_AT_location":0
-; CHECK: "#variables - entry values with [70%,80%) of parent scope covered by DW_AT_location":0
-; CHECK: "#variables - entry values with [80%,90%) of parent scope covered by DW_AT_location":1
-; CHECK: "#variables - entry values with [90%,100%) of parent scope covered by DW_AT_location":0
-; CHECK: "#variables - entry values with 100% of parent scope covered by DW_AT_location":2
-; CHECK: "#params processed by location statistics":2
-; CHECK: "#params with 0% of parent scope covered by DW_AT_location":0
-; CHECK: "#params with (0%,10%) of parent scope covered by DW_AT_location":0
-; CHECK: "#params with [10%,20%) of parent scope covered by DW_AT_location":0
-; CHECK: "#params with [20%,30%) of parent scope covered by DW_AT_location":0
-; CHECK: "#params with [30%,40%) of parent scope covered by DW_AT_location":0
-; CHECK: "#params with [40%,50%) of parent scope covered by DW_AT_location":0
-; CHECK: "#params with [50%,60%) of parent scope covered by DW_AT_location":0
-; CHECK: "#params with [60%,70%) of parent scope covered by DW_AT_location":0
-; CHECK: "#params with [70%,80%) of parent scope covered by DW_AT_location":0
-; CHECK: "#params with [80%,90%) of parent scope covered by DW_AT_location":0
-; CHECK: "#params with [90%,100%) of parent scope covered by DW_AT_location":0
-; CHECK: "#params with 100% of parent scope covered by DW_AT_location":2
-; CHECK: "#params - entry values with 0% of parent scope covered by DW_AT_location":0
-; CHECK: "#params - entry values with (0%,10%) of parent scope covered by DW_AT_location":0
-; CHECK: "#params - entry values with [10%,20%) of parent scope covered by DW_AT_location":0
-; CHECK: "#params - entry values with [20%,30%) of parent scope covered by DW_AT_location":0
-; CHECK: "#params - entry values with [30%,40%) of parent scope covered by DW_AT_location":0
-; CHECK: "#params - entry values with [40%,50%) of parent scope covered by DW_AT_location":0
-; CHECK: "#params - entry values with [50%,60%) of parent scope covered by DW_AT_location":1
-; CHECK: "#params - entry values with [60%,70%) of parent scope covered by DW_AT_location":0
-; CHECK: "#params - entry values with [70%,80%) of parent scope covered by DW_AT_location":0
-; CHECK: "#params - entry values with [80%,90%) of parent scope covered by DW_AT_location":0
-; CHECK: "#params - entry values with [90%,100%) of parent scope covered by DW_AT_location":0
-; CHECK: "#params - entry values with 100% of parent scope covered by DW_AT_location":1
-; CHECK: "#local vars processed by location statistics":4
-; CHECK: "#local vars with 0% of parent scope covered by DW_AT_location":1
-; CHECK: "#local vars with (0%,10%) of parent scope covered by DW_AT_location":0
-; CHECK: "#local vars with [10%,20%) of parent scope covered by DW_AT_location":0
-; CHECK: "#local vars with [20%,30%) of parent scope covered by DW_AT_location":0
-; CHECK: "#local vars with [30%,40%) of parent scope covered by DW_AT_location":0
-; CHECK: "#local vars with [40%,50%) of parent scope covered by DW_AT_location":0
-; CHECK: "#local vars with [50%,60%) of parent scope covered by DW_AT_location":1
-; CHECK: "#local vars with [60%,70%) of parent scope covered by DW_AT_location":0
-; CHECK: "#local vars with [70%,80%) of parent scope covered by DW_AT_location":0
-; CHECK: "#local vars with [80%,90%) of parent scope covered by DW_AT_location":1
-; CHECK: "#local vars with [90%,100%) of parent scope covered by DW_AT_location":0
-; CHECK: "#local vars with 100% of parent scope covered by DW_AT_location":1
-; CHECK: "#local vars - entry values with 0% of parent scope covered by DW_AT_location":1
-; CHECK: "#local vars - entry values with (0%,10%) of parent scope covered by DW_AT_location":0
-; CHECK: "#local vars - entry values with [10%,20%) of parent scope covered by DW_AT_location":0
-; CHECK: "#local vars - entry values with [20%,30%) of parent scope covered by DW_AT_location":0
-; CHECK: "#local vars - entry values with [30%,40%) of parent scope covered by DW_AT_location":0
-; CHECK: "#local vars - entry values with [40%,50%) of parent scope covered by DW_AT_location":0
-; CHECK: "#local vars - entry values with [50%,60%) of parent scope covered by DW_AT_location":1
-; CHECK: "#local vars - entry values with [60%,70%) of parent scope covered by DW_AT_location":0
-; CHECK: "#local vars - entry values with [70%,80%) of parent scope covered by DW_AT_location":0
-; CHECK: "#local vars - entry values with [80%,90%) of parent scope covered by DW_AT_location":1
-; CHECK: "#local vars - entry values with [90%,100%) of parent scope covered by DW_AT_location":0
-; CHECK: "#local vars - entry values with 100% of parent scope covered by DW_AT_location":1
+; CHECK:      "sum_all_variables(#bytes in parent scope covered by DW_OP_entry_value)": 5,
+; CHECK-NEXT: "sum_all_params(#bytes in parent scope)": 20,
+; CHECK-NEXT: "sum_all_params(#bytes in parent scope covered by DW_AT_location)": 20,
+; CHECK-NEXT: "sum_all_params(#bytes in parent scope covered by DW_OP_entry_value)": 5,
+; CHECK-NEXT: "sum_all_local_vars(#bytes in parent scope)": 90,
+; CHECK-NEXT: "sum_all_local_vars(#bytes in parent scope covered by DW_AT_location)": 60,
+; CHECK-NEXT: "sum_all_local_vars(#bytes in parent scope covered by DW_OP_entry_value)": 0,
+; CHECK-NEXT: "#bytes within functions": 45,
+; CHECK-NEXT: "#bytes within inlined functions": 0,
+; CHECK-NEXT: "#params": 2,
+; CHECK-NEXT: "#params with source location": 2,
+; CHECK-NEXT: "#params with type": 2,
+; CHECK-NEXT: "#params with binary location": 2,
+; CHECK:      "#variables processed by location statistics": 6,
+; CHECK-NEXT: "#variables with 0% of parent scope covered by DW_AT_location": 1,
+; CHECK-NEXT: "#variables with (0%,10%) of parent scope covered by DW_AT_location": 0,
+; CHECK-NEXT: "#variables with [10%,20%) of parent scope covered by DW_AT_location": 0,
+; CHECK-NEXT: "#variables with [20%,30%) of parent scope covered by DW_AT_location": 0,
+; CHECK-NEXT: "#variables with [30%,40%) of parent scope covered by DW_AT_location": 0,
+; CHECK-NEXT: "#variables with [40%,50%) of parent scope covered by DW_AT_location": 0,
+; CHECK-NEXT: "#variables with [50%,60%) of parent scope covered by DW_AT_location": 1,
+; CHECK-NEXT: "#variables with [60%,70%) of parent scope covered by DW_AT_location": 0,
+; CHECK-NEXT: "#variables with [70%,80%) of parent scope covered by DW_AT_location": 0,
+; CHECK-NEXT: "#variables with [80%,90%) of parent scope covered by DW_AT_location": 1,
+; CHECK-NEXT: "#variables with [90%,100%) of parent scope covered by DW_AT_location": 0,
+; CHECK-NEXT: "#variables with 100% of parent scope covered by DW_AT_location": 3,
+; CHECK-NEXT: "#variables - entry values with 0% of parent scope covered by DW_AT_location": 1,
+; CHECK-NEXT: "#variables - entry values with (0%,10%) of parent scope covered by DW_AT_location": 0,
+; CHECK-NEXT: "#variables - entry values with [10%,20%) of parent scope covered by DW_AT_location": 0,
+; CHECK-NEXT: "#variables - entry values with [20%,30%) of parent scope covered by DW_AT_location": 0,
+; CHECK-NEXT: "#variables - entry values with [30%,40%) of parent scope covered by DW_AT_location": 0,
+; CHECK-NEXT: "#variables - entry values with [40%,50%) of parent scope covered by DW_AT_location": 0,
+; CHECK-NEXT: "#variables - entry values with [50%,60%) of parent scope covered by DW_AT_location": 2,
+; CHECK-NEXT: "#variables - entry values with [60%,70%) of parent scope covered by DW_AT_location": 0,
+; CHECK-NEXT: "#variables - entry values with [70%,80%) of parent scope covered by DW_AT_location": 0,
+; CHECK-NEXT: "#variables - entry values with [80%,90%) of parent scope covered by DW_AT_location": 1,
+; CHECK-NEXT: "#variables - entry values with [90%,100%) of parent scope covered by DW_AT_location": 0,
+; CHECK-NEXT: "#variables - entry values with 100% of parent scope covered by DW_AT_location": 2,
+; CHECK-NEXT: "#params processed by location statistics": 2,
+; CHECK-NEXT: "#params with 0% of parent scope covered by DW_AT_location": 0,
+; CHECK-NEXT: "#params with (0%,10%) of parent scope covered by DW_AT_location": 0,
+; CHECK-NEXT: "#params with [10%,20%) of parent scope covered by DW_AT_location": 0,
+; CHECK-NEXT: "#params with [20%,30%) of parent scope covered by DW_AT_location": 0,
+; CHECK-NEXT: "#params with [30%,40%) of parent scope covered by DW_AT_location": 0,
+; CHECK-NEXT: "#params with [40%,50%) of parent scope covered by DW_AT_location": 0,
+; CHECK-NEXT: "#params with [50%,60%) of parent scope covered by DW_AT_location": 0,
+; CHECK-NEXT: "#params with [60%,70%) of parent scope covered by DW_AT_location": 0,
+; CHECK-NEXT: "#params with [70%,80%) of parent scope covered by DW_AT_location": 0,
+; CHECK-NEXT: "#params with [80%,90%) of parent scope covered by DW_AT_location": 0,
+; CHECK-NEXT: "#params with [90%,100%) of parent scope covered by DW_AT_location": 0,
+; CHECK-NEXT: "#params with 100% of parent scope covered by DW_AT_location": 2,
+; CHECK-NEXT: "#params - entry values with 0% of parent scope covered by DW_AT_location": 0,
+; CHECK-NEXT: "#params - entry values with (0%,10%) of parent scope covered by DW_AT_location": 0,
+; CHECK-NEXT: "#params - entry values with [10%,20%) of parent scope covered by DW_AT_location": 0,
+; CHECK-NEXT: "#params - entry values with [20%,30%) of parent scope covered by DW_AT_location": 0,
+; CHECK-NEXT: "#params - entry values with [30%,40%) of parent scope covered by DW_AT_location": 0,
+; CHECK-NEXT: "#params - entry values with [40%,50%) of parent scope covered by DW_AT_location": 0,
+; CHECK-NEXT: "#params - entry values with [50%,60%) of parent scope covered by DW_AT_location": 1,
+; CHECK-NEXT: "#params - entry values with [60%,70%) of parent scope covered by DW_AT_location": 0,
+; CHECK-NEXT: "#params - entry values with [70%,80%) of parent scope covered by DW_AT_location": 0,
+; CHECK-NEXT: "#params - entry values with [80%,90%) of parent scope covered by DW_AT_location": 0,
+; CHECK-NEXT: "#params - entry values with [90%,100%) of parent scope covered by DW_AT_location": 0,
+; CHECK-NEXT: "#params - entry values with 100% of parent scope covered by DW_AT_location": 1,
+; CHECK-NEXT: "#local vars processed by location statistics": 4,
+; CHECK-NEXT: "#local vars with 0% of parent scope covered by DW_AT_location": 1,
+; CHECK-NEXT: "#local vars with (0%,10%) of parent scope covered by DW_AT_location": 0,
+; CHECK-NEXT: "#local vars with [10%,20%) of parent scope covered by DW_AT_location": 0,
+; CHECK-NEXT: "#local vars with [20%,30%) of parent scope covered by DW_AT_location": 0,
+; CHECK-NEXT: "#local vars with [30%,40%) of parent scope covered by DW_AT_location": 0,
+; CHECK-NEXT: "#local vars with [40%,50%) of parent scope covered by DW_AT_location": 0,
+; CHECK-NEXT: "#local vars with [50%,60%) of parent scope covered by DW_AT_location": 1,
+; CHECK-NEXT: "#local vars with [60%,70%) of parent scope covered by DW_AT_location": 0,
+; CHECK-NEXT: "#local vars with [70%,80%) of parent scope covered by DW_AT_location": 0,
+; CHECK-NEXT: "#local vars with [80%,90%) of parent scope covered by DW_AT_location": 1,
+; CHECK-NEXT: "#local vars with [90%,100%) of parent scope covered by DW_AT_location": 0,
+; CHECK-NEXT: "#local vars with 100% of parent scope covered by DW_AT_location": 1,
+; CHECK-NEXT: "#local vars - entry values with 0% of parent scope covered by DW_AT_location": 1,
+; CHECK-NEXT: "#local vars - entry values with (0%,10%) of parent scope covered by DW_AT_location": 0,
+; CHECK-NEXT: "#local vars - entry values with [10%,20%) of parent scope covered by DW_AT_location": 0,
+; CHECK-NEXT: "#local vars - entry values with [20%,30%) of parent scope covered by DW_AT_location": 0,
+; CHECK-NEXT: "#local vars - entry values with [30%,40%) of parent scope covered by DW_AT_location": 0,
+; CHECK-NEXT: "#local vars - entry values with [40%,50%) of parent scope covered by DW_AT_location": 0,
+; CHECK-NEXT: "#local vars - entry values with [50%,60%) of parent scope covered by DW_AT_location": 1,
+; CHECK-NEXT: "#local vars - entry values with [60%,70%) of parent scope covered by DW_AT_location": 0,
+; CHECK-NEXT: "#local vars - entry values with [70%,80%) of parent scope covered by DW_AT_location": 0,
+; CHECK-NEXT: "#local vars - entry values with [80%,90%) of parent scope covered by DW_AT_location": 1,
+; CHECK-NEXT: "#local vars - entry values with [90%,100%) of parent scope covered by DW_AT_location": 0,
+; CHECK-NEXT: "#local vars - entry values with 100% of parent scope covered by DW_AT_location": 1
+; CHECK-NEXT: "#bytes with line information": 51,
+; CHECK-NEXT: "#bytes with line-0 locations": 3,
+; CHECK-NEXT: "#line entries": 7,
+; CHECK-NEXT: "#line entries (is_stmt)": 5,
+; CHECK-NEXT: "#line entries (unique)": 6,
+; CHECK-NEXT: "#line entries (unique non-0)": 5
 
 ; The source code of the test case:
 ; extern void fn3(int *);
@@ -132,37 +150,35 @@ entry:
 }
 
 ; Function Attrs: argmemonly nounwind willreturn
-declare void @llvm.lifetime.start.p0i8(i64 immarg, i8* nocapture)
+declare void @llvm.lifetime.start.p0(i64 immarg, ptr nocapture)
 
 declare !dbg !4 dso_local void @fn2(i32) local_unnamed_addr
 
 ; Function Attrs: argmemonly nounwind willreturn
-declare void @llvm.lifetime.end.p0i8(i64 immarg, i8* nocapture)
+declare void @llvm.lifetime.end.p0(i64 immarg, ptr nocapture)
 
 ; Function Attrs: noinline nounwind uwtable
 define dso_local i32 @f() local_unnamed_addr !dbg !27 {
 entry:
   %l = alloca i32, align 4
   %k = alloca i32, align 4
-  %0 = bitcast i32* %l to i8*, !dbg !33
-  call void @llvm.lifetime.start.p0i8(i64 4, i8* nonnull %0), !dbg !33
-  %1 = bitcast i32* %k to i8*, !dbg !33
-  call void @llvm.lifetime.start.p0i8(i64 4, i8* nonnull %1), !dbg !33
-  call void @llvm.dbg.value(metadata i32* %l, metadata !31, metadata !DIExpression(DW_OP_deref)), !dbg !34
-  call void @fn3(i32* nonnull %l), !dbg !35
-  call void @llvm.dbg.value(metadata i32* %k, metadata !32, metadata !DIExpression(DW_OP_deref)), !dbg !34
-  call void @fn3(i32* nonnull %k), !dbg !36
-  %2 = load i32, i32* %l, align 4, !dbg !37
-  call void @llvm.dbg.value(metadata i32 %2, metadata !31, metadata !DIExpression()), !dbg !34
-  %3 = load i32, i32* %k, align 4, !dbg !37
-  call void @llvm.dbg.value(metadata i32 %3, metadata !32, metadata !DIExpression()), !dbg !34
-  call void @fn1(i32 %2, i32 %3), !dbg !37
-  call void @llvm.lifetime.end.p0i8(i64 4, i8* nonnull %1), !dbg !37
-  call void @llvm.lifetime.end.p0i8(i64 4, i8* nonnull %0), !dbg !37
+  call void @llvm.lifetime.start.p0(i64 4, ptr nonnull %l), !dbg !33
+  call void @llvm.lifetime.start.p0(i64 4, ptr nonnull %k), !dbg !33
+  call void @llvm.dbg.value(metadata ptr %l, metadata !31, metadata !DIExpression(DW_OP_deref)), !dbg !34
+  call void @fn3(ptr nonnull %l), !dbg !35
+  call void @llvm.dbg.value(metadata ptr %k, metadata !32, metadata !DIExpression(DW_OP_deref)), !dbg !34
+  call void @fn3(ptr nonnull %k), !dbg !36
+  %0 = load i32, ptr %l, align 4, !dbg !37
+  call void @llvm.dbg.value(metadata i32 %0, metadata !31, metadata !DIExpression()), !dbg !34
+  %1 = load i32, ptr %k, align 4, !dbg !37
+  call void @llvm.dbg.value(metadata i32 %1, metadata !32, metadata !DIExpression()), !dbg !34
+  call void @fn1(i32 %0, i32 %1), !dbg !37
+  call void @llvm.lifetime.end.p0(i64 4, ptr nonnull %k), !dbg !37
+  call void @llvm.lifetime.end.p0(i64 4, ptr nonnull %l), !dbg !37
   ret i32 0, !dbg !37
 }
 
-declare !dbg !8 dso_local void @fn3(i32*) local_unnamed_addr
+declare !dbg !8 dso_local void @fn3(ptr) local_unnamed_addr
 
 ; Function Attrs: nounwind readnone speculatable willreturn
 declare void @llvm.dbg.value(metadata, metadata, metadata)

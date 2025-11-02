@@ -9,9 +9,10 @@
 #ifndef FORTRAN_COMMON_FORMAT_H_
 #define FORTRAN_COMMON_FORMAT_H_
 
+#include "Fortran-consts.h"
 #include "enum-set.h"
-#include "flang/Common/Fortran.h"
 #include <cstring>
+#include <limits>
 
 // Define a FormatValidator class template to validate a format expression
 // of a given CHAR type.  To enable use in runtime library code as well as
@@ -27,6 +28,80 @@
 // checks are also done.
 
 namespace Fortran::common {
+
+// AddOverflow and MulOverflow are copied from
+// llvm/include/llvm/Support/MathExtras.h and specialised to int64_t.
+
+// __has_builtin is not defined in some compilers. Make sure it is defined.
+#ifndef __has_builtin
+#define __has_builtin(x) 0
+#endif
+
+/// Add two signed integers, computing the two's complement truncated result,
+/// returning true if overflow occurred.
+static inline bool AddOverflow(
+    std::int64_t x, std::int64_t y, std::int64_t &result) {
+#if __has_builtin(__builtin_add_overflow)
+  return __builtin_add_overflow(x, y, &result);
+#else
+  // Perform the unsigned addition.
+  const std::uint64_t ux{static_cast<std::uint64_t>(x)};
+  const std::uint64_t uy{static_cast<std::uint64_t>(y)};
+  const std::uint64_t uresult{ux + uy};
+
+  // Convert to signed.
+  result = static_cast<std::int64_t>(uresult);
+
+  // Adding two positive numbers should result in a positive number.
+  if (x > 0 && y > 0) {
+    return result <= 0;
+  }
+  // Adding two negatives should result in a negative number.
+  if (x < 0 && y < 0) {
+    return result >= 0;
+  }
+  return false;
+#endif
+}
+
+/// Multiply two signed integers, computing the two's complement truncated
+/// result, returning true if an overflow occurred.
+static inline bool MulOverflow(
+    std::int64_t x, std::int64_t y, std::int64_t &result) {
+#if __has_builtin(__builtin_mul_overflow)
+  return __builtin_mul_overflow(x, y, &result);
+#else
+  // Perform the unsigned multiplication on absolute values.
+  const std::uint64_t ux{x < 0 ? (0 - static_cast<std::uint64_t>(x))
+                               : static_cast<std::uint64_t>(x)};
+  const std::uint64_t uy{y < 0 ? (0 - static_cast<std::uint64_t>(y))
+                               : static_cast<std::uint64_t>(y)};
+  const std::uint64_t uresult{ux * uy};
+
+  // Convert to signed.
+  const bool isNegative = (x < 0) ^ (y < 0);
+  result = isNegative ? (0 - uresult) : uresult;
+
+  // If any of the args was 0, result is 0 and no overflow occurs.
+  if (ux == 0 || uy == 0) {
+    return false;
+  }
+
+  // ux and uy are in [1, 2^n], where n is the number of digits.
+  // Check how the max allowed absolute value (2^n for negative, 2^(n-1) for
+  // positive) divided by an argument compares to the other.
+  if (isNegative) {
+    return ux >
+        (static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max()) +
+            std::uint64_t{1}) /
+        uy;
+  } else {
+    return ux >
+        (static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max())) /
+        uy;
+  }
+#endif
+}
 
 struct FormatMessage {
   const char *text; // message text; may have one %s argument
@@ -125,7 +200,8 @@ private:
   void check_r(bool allowed = true);
   bool check_w();
   void check_m();
-  bool check_d();
+  bool check_d(bool checkScaleFactor = false);
+  void check_k();
   void check_e();
 
   const CHAR *const format_; // format text
@@ -135,12 +211,14 @@ private:
 
   const CHAR *cursor_{}; // current location in format_
   const CHAR *laCursor_{}; // lookahead cursor
+  Token previousToken_{};
   Token token_{}; // current token
-  int64_t integerValue_{-1}; // value of UnsignedInteger token
   Token knrToken_{}; // k, n, or r UnsignedInteger token
-  int64_t knrValue_{-1}; // -1 ==> not present
-  int64_t wValue_{-1};
-  bool previousTokenWasInt_{false};
+  Token scaleFactorToken_{}; // most recent scale factor token P
+  std::int64_t integerValue_{-1}; // value of UnsignedInteger token
+  std::int64_t knrValue_{-1}; // -1 ==> not present
+  std::int64_t scaleFactorValue_{}; // signed k in kP
+  std::int64_t wValue_{-1};
   char argString_[3]{}; // 1-2 character msg arg; usually edit descriptor name
   bool formatHasErrors_{false};
   bool unterminatedFormatError_{false};
@@ -149,9 +227,20 @@ private:
   int maxNesting_{0}; // max level of nested parentheses
 };
 
+template <typename CHAR> static inline bool IsWhite(CHAR c) {
+  // White space.  ' ' is standard.  Other characters are extensions.
+  // Extension candidates:
+  //   '\t' (horizontal tab)
+  //   '\n' (new line)
+  //   '\v' (vertical tab)
+  //   '\f' (form feed)
+  //   '\r' (carriage ret)
+  return c == ' ' || c == '\t' || c == '\v';
+}
+
 template <typename CHAR> CHAR FormatValidator<CHAR>::NextChar() {
   for (++cursor_; cursor_ < end_; ++cursor_) {
-    if (*cursor_ != ' ') {
+    if (!IsWhite(*cursor_)) {
       return toupper(*cursor_);
     }
   }
@@ -161,7 +250,7 @@ template <typename CHAR> CHAR FormatValidator<CHAR>::NextChar() {
 
 template <typename CHAR> CHAR FormatValidator<CHAR>::LookAheadChar() {
   for (laCursor_ = cursor_ + 1; laCursor_ < end_; ++laCursor_) {
-    if (*laCursor_ != ' ') {
+    if (!IsWhite(*laCursor_)) {
       return toupper(*laCursor_);
     }
   }
@@ -179,7 +268,7 @@ template <typename CHAR> void FormatValidator<CHAR>::NextToken() {
   // At entry, cursor_ points before the start of the next token.
   // At exit, cursor_ points to last CHAR of token_.
 
-  previousTokenWasInt_ = token_.kind() == TokenKind::UnsignedInteger;
+  previousToken_ = token_;
   CHAR c{NextChar()};
   token_.set_kind(TokenKind::None);
   token_.set_offset(cursor_ - format_);
@@ -200,16 +289,18 @@ template <typename CHAR> void FormatValidator<CHAR>::NextToken() {
   case '7':
   case '8':
   case '9': {
-    int64_t lastValue;
-    const CHAR *lastCursor;
+    const CHAR *lastCursor{};
     integerValue_ = 0;
     bool overflow{false};
     do {
-      lastValue = integerValue_;
       lastCursor = cursor_;
-      integerValue_ = 10 * integerValue_ + c - '0';
-      if (lastValue > integerValue_) {
-        overflow = true;
+      if (!overflow) {
+        overflow = MulOverflow(
+            static_cast<std::int64_t>(10), integerValue_, integerValue_);
+      }
+      if (!overflow) {
+        overflow = AddOverflow(
+            integerValue_, static_cast<std::int64_t>(c - '0'), integerValue_);
       }
       c = NextChar();
     } while (c >= '0' && c <= '9');
@@ -416,10 +507,11 @@ template <typename CHAR> void FormatValidator<CHAR>::NextToken() {
       }
     }
     SetLength();
-    if (stmt_ == IoStmtKind::Read) { // 13.3.2p6
-      ReportError("String edit descriptor in READ format expression");
-    } else if (token_.kind() != TokenKind::String) {
+    if (token_.kind() != TokenKind::String) {
       ReportError("Unterminated string");
+    } else if (stmt_ == IoStmtKind::Read &&
+        previousToken_.kind() != TokenKind::DT) { // 13.3.2p6
+      ReportWarning("String edit descriptor in READ format expression");
     }
     break;
   default:
@@ -448,15 +540,18 @@ template <typename CHAR> void FormatValidator<CHAR>::check_r(bool allowed) {
 template <typename CHAR> bool FormatValidator<CHAR>::check_w() {
   if (token_.kind() == TokenKind::UnsignedInteger) {
     wValue_ = integerValue_;
-    if (wValue_ == 0 &&
-        (*argString_ == 'A' || *argString_ == 'L' ||
-            stmt_ == IoStmtKind::Read)) { // C1306, 13.7.2.1p6
-      ReportError("'%s' edit descriptor 'w' value must be positive");
+    if (wValue_ == 0) {
+      if (*argString_ == 'A' || stmt_ == IoStmtKind::Read) {
+        // C1306, 13.7.2.1p6
+        ReportError("'%s' edit descriptor 'w' value must be positive");
+      } else if (*argString_ == 'L') {
+        ReportWarning("'%s' edit descriptor 'w' value should be positive");
+      }
     }
     NextToken();
     return true;
   }
-  if (*argString_ != 'A') {
+  if (*argString_ != 'A' && *argString_ != 'L') {
     ReportWarning("Expected '%s' edit descriptor 'w' value"); // C1306
   }
   return false;
@@ -479,7 +574,8 @@ template <typename CHAR> void FormatValidator<CHAR>::check_m() {
 }
 
 // Return the predicate "d value is present" to control further processing.
-template <typename CHAR> bool FormatValidator<CHAR>::check_d() {
+template <typename CHAR>
+bool FormatValidator<CHAR>::check_d(bool checkScaleFactor) {
   if (token_.kind() != TokenKind::Point) {
     ReportError("Expected '%s' edit descriptor '.d' value");
     return false;
@@ -489,8 +585,39 @@ template <typename CHAR> bool FormatValidator<CHAR>::check_d() {
     ReportError("Expected '%s' edit descriptor 'd' value after '.'");
     return false;
   }
+  if (checkScaleFactor) {
+    check_k();
+  }
   NextToken();
   return true;
+}
+
+// Check the value of scale factor k against a field width d.
+template <typename CHAR> void FormatValidator<CHAR>::check_k() {
+  // Limit the check to D and E edit descriptors in output statements that
+  // explicitly set the scale factor.
+  if (stmt_ != IoStmtKind::Print && stmt_ != IoStmtKind::Write) {
+    return;
+  }
+  if (!scaleFactorToken_.IsSet()) {
+    return;
+  }
+  // 13.7.2.3.3p5 - The values of d and k must satisfy:
+  //   −d < k <= 0; or
+  //    0 < k < d+2
+  const int64_t d{integerValue_};
+  const int64_t k{scaleFactorValue_};
+  // Exception:  d = k = 0 is nonstandard, but has a reasonable interpretation.
+  if (d == 0 && k == 0) {
+    return;
+  }
+  if (k <= 0 && !(-d < k)) {
+    ReportError("Negative scale factor k (from kP) and width d in a '%s' "
+                "edit descriptor must satisfy '-d < k'");
+  } else if (k > 0 && !(k < d + 2)) {
+    ReportError("Positive scale factor k (from kP) and width d in a '%s' "
+                "edit descriptor must satisfy 'k < d+2'");
+  }
 }
 
 template <typename CHAR> void FormatValidator<CHAR>::check_e() {
@@ -572,28 +699,32 @@ template <typename CHAR> bool FormatValidator<CHAR>::Check() {
       }
       break;
     case TokenKind::D:
-    case TokenKind::F:
+    case TokenKind::F: {
       // R1307 data-edit-desc -> D w . d | F w . d
+      bool isD{token_.kind() == TokenKind::D};
       hasDataEditDesc = true;
       check_r();
       NextToken();
       if (check_w()) {
-        check_d();
+        check_d(/*checkScaleFactor=*/isD);
       }
       break;
+    }
     case TokenKind::E:
     case TokenKind::EN:
     case TokenKind::ES:
-    case TokenKind::EX:
+    case TokenKind::EX: {
       // R1307 data-edit-desc ->
       //   E w . d [E e] | EN w . d [E e] | ES w . d [E e] | EX w . d [E e]
+      bool isE{token_.kind() == TokenKind::E};
       hasDataEditDesc = true;
       check_r();
       NextToken();
-      if (check_w() && check_d()) {
+      if (check_w() && check_d(/*checkScaleFactor=*/isE)) {
         check_e();
       }
       break;
+    }
     case TokenKind::G:
       // R1307 data-edit-desc -> G w [. d [E e]]
       hasDataEditDesc = true;
@@ -605,8 +736,8 @@ template <typename CHAR> bool FormatValidator<CHAR>::Check() {
             check_e();
           }
         } else if (token_.kind() == TokenKind::Point && check_d() &&
-            token_.kind() == TokenKind::E) {
-          ReportError("Unexpected 'e' in 'G0' edit descriptor"); // C1308
+            token_.kind() == TokenKind::E) { // C1308
+          ReportError("A 'G0' edit descriptor must not have an 'e' value");
           NextToken();
           if (token_.kind() == TokenKind::UnsignedInteger) {
             NextToken();
@@ -683,6 +814,13 @@ template <typename CHAR> bool FormatValidator<CHAR>::Check() {
       // R1313 control-edit-desc -> k P
       if (knrValue_ < 0) {
         ReportError("'P' edit descriptor must have a scale factor");
+      } else {
+        scaleFactorToken_ = knrToken_;
+        if (signToken.IsSet() && format_[signToken.offset()] == '-') {
+          scaleFactorValue_ = -knrValue_;
+        } else {
+          scaleFactorValue_ = knrValue_;
+        }
       }
       // Diagnosing C1302 may require multiple token lookahead.
       // Save current cursor position to enable backup.
@@ -829,7 +967,10 @@ template <typename CHAR> bool FormatValidator<CHAR>::Check() {
       // Possible first token of the next format item; token not yet processed.
       if (commaRequired) {
         const char *s{"Expected ',' or ')' in format expression"}; // C1302
-        if (previousTokenWasInt_ && itemsWithLeadingInts_.test(token_.kind())) {
+        if (previousToken_.kind() == TokenKind::UnsignedInteger &&
+            previousToken_.length() > 1 &&
+            itemsWithLeadingInts_.test(token_.kind())) {
+          // F10.32F10.3 is ambiguous, F10.3F10.3 is not
           ReportError(s);
         } else {
           ReportWarning(s);

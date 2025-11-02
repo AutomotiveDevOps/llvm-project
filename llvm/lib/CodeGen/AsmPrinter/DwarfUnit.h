@@ -15,29 +15,28 @@
 
 #include "DwarfDebug.h"
 #include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/Optional.h"
-#include "llvm/ADT/StringMap.h"
 #include "llvm/CodeGen/AsmPrinter.h"
 #include "llvm/CodeGen/DIE.h"
-#include "llvm/IR/DIBuilder.h"
-#include "llvm/IR/DebugInfo.h"
-#include "llvm/MC/MCDwarf.h"
-#include "llvm/MC/MCExpr.h"
-#include "llvm/MC/MCSection.h"
+#include "llvm/IR/DebugInfoMetadata.h"
+#include "llvm/Target/TargetMachine.h"
+#include <optional>
+#include <string>
 
 namespace llvm {
 
-class MachineOperand;
-class ConstantInt;
 class ConstantFP;
-class DbgVariable;
+class ConstantInt;
 class DwarfCompileUnit;
+class MCDwarfDwoLineTable;
+class MCSymbol;
 
 //===----------------------------------------------------------------------===//
 /// This dwarf writer support class manages information associated with a
 /// source file.
 class DwarfUnit : public DIEUnit {
 protected:
+  /// A numeric ID unique among all CUs in the module
+  unsigned UniqueID;
   /// MDNode for the compile unit.
   const DICompileUnit *CUNode;
 
@@ -47,6 +46,9 @@ protected:
   /// Target of Dwarf emission.
   AsmPrinter *Asm;
 
+  /// The start of the unit within its section.
+  MCSymbol *LabelBegin = nullptr;
+
   /// Emitted at the end of the CU and used to compute the CU Length field.
   MCSymbol *EndLabel = nullptr;
 
@@ -55,7 +57,7 @@ protected:
   DwarfFile *DU;
 
   /// An anonymous type for index type.  Owned by DIEUnit.
-  DIE *IndexTyDie;
+  DIE *IndexTyDie = nullptr;
 
   /// Tracks the mapping of unit level debug information variables to debug
   /// information entries.
@@ -72,22 +74,43 @@ protected:
   /// corresponds to the MDNode mapped with the subprogram DIE.
   DenseMap<DIE *, const DINode *> ContainingTypeMap;
 
-  DwarfUnit(dwarf::Tag, const DICompileUnit *Node, AsmPrinter *A, DwarfDebug *DW,
-            DwarfFile *DWU);
+  DwarfUnit(dwarf::Tag, const DICompileUnit *Node, AsmPrinter *A,
+            DwarfDebug *DW, DwarfFile *DWU, unsigned UniqueID = 0);
 
-  bool applySubprogramDefinitionAttributes(const DISubprogram *SP, DIE &SPDie);
+  bool applySubprogramDefinitionAttributes(const DISubprogram *SP, DIE &SPDie, bool Minimal);
 
-  bool shareAcrossDWOCUs() const;
   bool isShareableAcrossCUs(const DINode *D) const;
 
+  template <typename T>
+  void addAttribute(DIEValueList &Die, dwarf::Attribute Attribute,
+                    dwarf::Form Form, T &&Value) {
+    // For strict DWARF mode, only generate attributes available to current
+    // DWARF version.
+    // Attribute 0 is used when emitting form-encoded values in blocks, which
+    // don't have attributes (only forms) so we cannot detect their DWARF
+    // version compatibility here and assume they are compatible.
+    if (Attribute != 0 && Asm->TM.Options.DebugStrictDwarf &&
+        DD->getDwarfVersion() < dwarf::AttributeVersion(Attribute))
+      return;
+
+    Die.addValue(DIEValueAllocator,
+                 DIEValue(Attribute, Form, std::forward<T>(Value)));
+  }
+
 public:
+  /// Gets Unique ID for this unit.
+  unsigned getUniqueID() const { return UniqueID; }
   // Accessors.
   AsmPrinter* getAsmPrinter() const { return Asm; }
+  /// Get the the symbol for start of the section for this unit.
+  MCSymbol *getLabelBegin() const {
+    assert(LabelBegin && "LabelBegin is not initialized");
+    return LabelBegin;
+  }
   MCSymbol *getEndLabel() const { return EndLabel; }
-  uint16_t getLanguage() const { return CUNode->getSourceLanguage(); }
+  llvm::dwarf::SourceLanguage getSourceLanguage() const;
   const DICompileUnit *getCUNode() const { return CUNode; }
-
-  uint16_t getDwarfVersion() const { return DD->getDwarfVersion(); }
+  DwarfDebug &getDwarfDebug() const { return *DD; }
 
   /// Return true if this compile unit has something to write out.
   bool hasContent() const { return getUnitDie().hasChildren(); }
@@ -106,8 +129,10 @@ public:
                              const DIScope *Context) = 0;
 
   /// Add a new global type to the compile unit.
-  virtual void addGlobalType(const DIType *Ty, const DIE &Die,
-                             const DIScope *Context) = 0;
+  virtual void addGlobalTypeImpl(const DIType *Ty, const DIE &Die,
+                                 const DIScope *Context) = 0;
+
+  void addGlobalType(const DIType *Ty, const DIE &Die, const DIScope *Context);
 
   /// Returns the DIE map slot for the specified debug variable.
   ///
@@ -133,15 +158,20 @@ public:
 
   /// Add an unsigned integer attribute data and value.
   void addUInt(DIEValueList &Die, dwarf::Attribute Attribute,
-               Optional<dwarf::Form> Form, uint64_t Integer);
+               std::optional<dwarf::Form> Form, uint64_t Integer);
 
   void addUInt(DIEValueList &Block, dwarf::Form Form, uint64_t Integer);
 
   /// Add an signed integer attribute data and value.
   void addSInt(DIEValueList &Die, dwarf::Attribute Attribute,
-               Optional<dwarf::Form> Form, int64_t Integer);
+               std::optional<dwarf::Form> Form, int64_t Integer);
 
-  void addSInt(DIELoc &Die, Optional<dwarf::Form> Form, int64_t Integer);
+  void addSInt(DIEValueList &Die, std::optional<dwarf::Form> Form,
+               int64_t Integer);
+
+  /// Add an integer attribute data and value; value may be any width.
+  void addInt(DIE &Die, dwarf::Attribute Attribute, const APInt &Integer,
+	      bool Unsigned);
 
   /// Add a string attribute data and value.
   ///
@@ -152,10 +182,8 @@ public:
   void addString(DIE &Die, dwarf::Attribute Attribute, StringRef Str);
 
   /// Add a Dwarf label attribute data and value.
-  DIEValueList::value_iterator addLabel(DIEValueList &Die,
-                                        dwarf::Attribute Attribute,
-                                        dwarf::Form Form,
-                                        const MCSymbol *Label);
+  void addLabel(DIEValueList &Die, dwarf::Attribute Attribute, dwarf::Form Form,
+                const MCSymbol *Label);
 
   void addLabel(DIELoc &Die, dwarf::Form Form, const MCSymbol *Label);
 
@@ -165,10 +193,11 @@ public:
   /// Add a dwarf op address data and value using the form given and an
   /// op of either DW_FORM_addr or DW_FORM_GNU_addr_index.
   void addOpAddress(DIELoc &Die, const MCSymbol *Sym);
+  void addPoolOpAddress(DIEValueList &Die, const MCSymbol *Label);
 
   /// Add a label delta attribute data and value.
-  void addLabelDelta(DIE &Die, dwarf::Attribute Attribute, const MCSymbol *Hi,
-                     const MCSymbol *Lo);
+  void addLabelDelta(DIEValueList &Die, dwarf::Attribute Attribute,
+                     const MCSymbol *Hi, const MCSymbol *Lo);
 
   /// Add a DIE attribute data and value.
   void addDIEEntry(DIE &Die, dwarf::Attribute Attribute, DIE &Entry);
@@ -184,9 +213,12 @@ public:
 
   /// Add block data.
   void addBlock(DIE &Die, dwarf::Attribute Attribute, DIEBlock *Block);
+  void addBlock(DIE &Die, dwarf::Attribute Attribute, dwarf::Form Form,
+                DIEBlock *Block);
 
   /// Add location information to specified debug information entry.
-  void addSourceLine(DIE &Die, unsigned Line, const DIFile *File);
+  void addSourceLine(DIE &Die, unsigned Line, unsigned Column,
+                     const DIFile *File);
   void addSourceLine(DIE &Die, const DILocalVariable *V);
   void addSourceLine(DIE &Die, const DIGlobalVariable *G);
   void addSourceLine(DIE &Die, const DISubprogram *SP);
@@ -195,7 +227,6 @@ public:
   void addSourceLine(DIE &Die, const DIObjCProperty *Ty);
 
   /// Add constant value entry in variable DIE.
-  void addConstantValue(DIE &Die, const MachineOperand &MO, const DIType *Ty);
   void addConstantValue(DIE &Die, const ConstantInt *CI, const DIType *Ty);
   void addConstantValue(DIE &Die, const APInt &Val, const DIType *Ty);
   void addConstantValue(DIE &Die, const APInt &Val, bool Unsigned);
@@ -203,7 +234,6 @@ public:
   void addConstantValue(DIE &Die, bool Unsigned, uint64_t Val);
 
   /// Add constant value entry in variable DIE.
-  void addConstantFPValue(DIE &Die, const MachineOperand &MO);
   void addConstantFPValue(DIE &Die, const ConstantFP *CFP);
 
   /// Add a linkage name, if it isn't empty.
@@ -215,6 +245,9 @@ public:
   /// Add thrown types.
   void addThrownTypes(DIE &Die, DINodeArray ThrownTypes);
 
+  /// Add the accessibility attribute.
+  void addAccess(DIE &Die, DINode::DIFlags Flags);
+
   /// Add a new type attribute to the specified entity.
   ///
   /// This takes and attribute parameter because DW_AT_friend attributes are
@@ -224,7 +257,9 @@ public:
 
   DIE *getOrCreateNameSpace(const DINamespace *NS);
   DIE *getOrCreateModule(const DIModule *M);
-  DIE *getOrCreateSubprogramDIE(const DISubprogram *SP, bool Minimal = false);
+  virtual DIE *getOrCreateSubprogramDIE(const DISubprogram *SP,
+                                        const Function *FnHint,
+                                        bool Minimal = false);
 
   void applySubprogramAttributes(const DISubprogram *SP, DIE &SPDie,
                                  bool SkipSPAttributes = false);
@@ -233,20 +268,24 @@ public:
   DIE *createTypeDIE(const DIScope *Context, DIE &ContextDIE, const DIType *Ty);
 
   /// Find existing DIE or create new DIE for the given type.
-  DIE *getOrCreateTypeDIE(const MDNode *TyNode);
+  virtual DIE *getOrCreateTypeDIE(const MDNode *TyNode);
 
   /// Get context owner's DIE.
-  DIE *getOrCreateContextDIE(const DIScope *Context);
+  virtual DIE *getOrCreateContextDIE(const DIScope *Context);
 
   /// Construct DIEs for types that contain vtables.
   void constructContainingTypeDIEs();
 
   /// Construct function argument DIEs.
-  void constructSubprogramArguments(DIE &Buffer, DITypeRefArray Args);
+  ///
+  /// \returns The index of the object parameter in \c Args if one exists.
+  /// Returns std::nullopt otherwise.
+  std::optional<unsigned> constructSubprogramArguments(DIE &Buffer,
+                                                       DITypeRefArray Args);
 
   /// Create a DIE with the given Tag, add the DIE to its parent, and
   /// call insertDIE if MD is not null.
-  DIE &createAndAddDIE(unsigned Tag, DIE &Parent, const DINode *N = nullptr);
+  DIE &createAndAddDIE(dwarf::Tag Tag, DIE &Parent, const DINode *N = nullptr);
 
   bool useSegmentedStringOffsetsTable() const {
     return DD->useSegmentedStringOffsetsTable();
@@ -255,9 +294,9 @@ public:
   /// Compute the size of a header for this unit, not including the initial
   /// length field.
   virtual unsigned getHeaderSize() const {
-    return sizeof(int16_t) + // DWARF version number
-           sizeof(int32_t) + // Offset Into Abbrev. Section
-           sizeof(int8_t) +  // Pointer Size (in bytes)
+    return sizeof(int16_t) +               // DWARF version number
+           Asm->getDwarfOffsetByteSize() + // Offset Into Abbrev. Section
+           sizeof(int8_t) +                // Pointer Size (in bytes)
            (DD->getDwarfVersion() >= 5 ? sizeof(int8_t)
                                        : 0); // DWARF v5 unit type
   }
@@ -276,23 +315,26 @@ public:
   void constructTypeDIE(DIE &Buffer, const DICompositeType *CTy);
 
   /// addSectionDelta - Add a label delta attribute data and value.
-  DIE::value_iterator addSectionDelta(DIE &Die, dwarf::Attribute Attribute,
-                                      const MCSymbol *Hi, const MCSymbol *Lo);
+  void addSectionDelta(DIE &Die, dwarf::Attribute Attribute, const MCSymbol *Hi,
+                       const MCSymbol *Lo);
 
   /// Add a Dwarf section label attribute data and value.
-  DIE::value_iterator addSectionLabel(DIE &Die, dwarf::Attribute Attribute,
-                                      const MCSymbol *Label,
-                                      const MCSymbol *Sec);
+  void addSectionLabel(DIE &Die, dwarf::Attribute Attribute,
+                       const MCSymbol *Label, const MCSymbol *Sec);
 
-  /// If the \p File has an MD5 checksum, return it as an MD5Result
-  /// allocated in the MCContext.
-  Optional<MD5::MD5Result> getMD5AsBytes(const DIFile *File) const;
+  /// Add DW_TAG_LLVM_annotation.
+  void addAnnotation(DIE &Buffer, DINodeArray Annotations);
 
   /// Get context owner's DIE.
   DIE *createTypeDIE(const DICompositeType *Ty);
 
+  /// If this is a named finished type then include it in the list of types for
+  /// the accelerator tables.
+  void updateAcceleratorTables(const DIScope *Context, const DIType *Ty,
+                               const DIE &TyDIE);
+
 protected:
-  ~DwarfUnit();
+  ~DwarfUnit() override;
 
   /// Create new static data member DIE.
   DIE *getOrCreateStaticMemberDIE(const DIDerivedType *DT);
@@ -304,11 +346,39 @@ protected:
   /// Emit the common part of the header for this unit.
   void emitCommonHeader(bool UseOffsets, dwarf::UnitType UT);
 
+  bool shouldPlaceInUnitDIE(const DISubprogram *SP, bool Minimal) {
+    // Add subprogram declarations to the CU die directly.
+    return Minimal || SP->getDeclaration();
+  }
+
+  DIE *getOrCreateSubprogramContextDIE(const DISubprogram *SP,
+                                       bool IgnoreScope) {
+    if (IgnoreScope)
+      return &getUnitDie();
+    return getOrCreateContextDIE(SP->getScope());
+  }
+
 private:
+  DISourceLanguageName getLanguage() const {
+    return CUNode->getSourceLanguage();
+  }
+
+  /// A helper to add a wide integer constant to a DIE using a block
+  /// form.
+  void addIntAsBlock(DIE &Die, dwarf::Attribute Attribute, const APInt &Val);
+
+  // Add discriminant constants to a DW_TAG_variant DIE.
+  void addDiscriminant(DIE &Variant, Constant *Discriminant, bool IsUnsigned);
+
   void constructTypeDIE(DIE &Buffer, const DIBasicType *BTy);
+  void constructTypeDIE(DIE &Buffer, const DIFixedPointType *BTy);
+  void constructTypeDIE(DIE &Buffer, const DIStringType *BTy);
   void constructTypeDIE(DIE &Buffer, const DIDerivedType *DTy);
   void constructTypeDIE(DIE &Buffer, const DISubroutineType *CTy);
-  void constructSubrangeDIE(DIE &Buffer, const DISubrange *SR, DIE *IndexTy);
+  void constructSubrangeDIE(DIE &Buffer, const DISubrangeType *SR,
+                            bool ForArray = false);
+  void constructSubrangeDIE(DIE &Buffer, const DISubrange *SR);
+  void constructGenericSubrangeDIE(DIE &Buffer, const DIGenericSubrange *SR);
   void constructArrayTypeDIE(DIE &Buffer, const DICompositeType *CTy);
   void constructEnumTypeDIE(DIE &Buffer, const DICompositeType *CTy);
   DIE &constructMemberDIE(DIE &Buffer, const DIDerivedType *DT);
@@ -330,13 +400,12 @@ private:
 
   virtual void finishNonUnitTypeDIE(DIE& D, const DICompositeType *CTy) = 0;
 
-  /// If this is a named finished type then include it in the list of types for
-  /// the accelerator tables.
-  void updateAcceleratorTables(const DIScope *Context, const DIType *Ty,
-                               const DIE &TyDIE);
-
   virtual bool isDwoUnit() const = 0;
   const MCSymbol *getCrossSectionRelativeBaseAddress() const override;
+
+  /// Returns 'true' if the current DwarfVersion is compatible
+  /// with the specified \p Version.
+  bool isCompatibleWithVersion(uint16_t Version) const;
 };
 
 class DwarfTypeUnit final : public DwarfUnit {
@@ -352,21 +421,24 @@ class DwarfTypeUnit final : public DwarfUnit {
 
 public:
   DwarfTypeUnit(DwarfCompileUnit &CU, AsmPrinter *A, DwarfDebug *DW,
-                DwarfFile *DWU, MCDwarfDwoLineTable *SplitLineTable = nullptr);
+                DwarfFile *DWU, unsigned UniqueID,
+                MCDwarfDwoLineTable *SplitLineTable = nullptr);
 
   void setTypeSignature(uint64_t Signature) { TypeSignature = Signature; }
+  /// Returns Type Signature.
+  uint64_t getTypeSignature() const { return TypeSignature; }
   void setType(const DIE *Ty) { this->Ty = Ty; }
 
   /// Emit the header for this unit, not including the initial length field.
   void emitHeader(bool UseOffsets) override;
   unsigned getHeaderSize() const override {
     return DwarfUnit::getHeaderSize() + sizeof(uint64_t) + // Type Signature
-           sizeof(uint32_t);                               // Type DIE Offset
+           Asm->getDwarfOffsetByteSize();                  // Type DIE Offset
   }
   void addGlobalName(StringRef Name, const DIE &Die,
                      const DIScope *Context) override;
-  void addGlobalType(const DIType *Ty, const DIE &Die,
-                     const DIScope *Context) override;
+  void addGlobalTypeImpl(const DIType *Ty, const DIE &Die,
+                         const DIScope *Context) override;
   DwarfCompileUnit &getCU() override { return CU; }
 };
 } // end llvm namespace

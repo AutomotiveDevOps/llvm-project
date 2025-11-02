@@ -1,4 +1,4 @@
-//===----------------------- catch_function_01.cpp ------------------------===//
+//===----------------------------------------------------------------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -8,10 +8,11 @@
 
 // Can you have a catch clause of array type that catches anything?
 
+// UNSUPPORTED: no-exceptions
+
 // GCC incorrectly allows function pointer to be caught by reference.
 // See https://gcc.gnu.org/bugzilla/show_bug.cgi?id=69372
 // XFAIL: gcc
-// UNSUPPORTED: no-exceptions
 
 #include <cassert>
 
@@ -23,7 +24,7 @@ bool can_convert(...) { return false; }
 
 void f() {}
 
-int main()
+int main(int, char**)
 {
     typedef void Function();
     assert(!can_convert<Function&>(&f));
@@ -48,4 +49,6 @@ int main()
     {
         assert(false);
     }
+
+    return 0;
 }

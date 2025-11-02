@@ -9,11 +9,12 @@
 #ifndef LLDB_UTILITY_IOOBJECT_H
 #define LLDB_UTILITY_IOOBJECT_H
 
-#include <stdarg.h>
-#include <stdio.h>
+#include <cstdarg>
+#include <cstdio>
 #include <sys/types.h>
 
 #include "lldb/lldb-private.h"
+#include "lldb/lldb-types.h"
 
 namespace lldb_private {
 
@@ -24,9 +25,9 @@ public:
     eFDTypeSocket, // Socket requiring send/recv
   };
 
-  // TODO: On Windows this should be a HANDLE, and wait should use
-  // WaitForMultipleObjects
-  typedef int WaitableHandle;
+  // A handle for integrating with the host event loop model.
+  using WaitableHandle = lldb::file_t;
+
   static const WaitableHandle kInvalidHandleValue;
 
   IOObject(FDType type) : m_fd_type(type) {}
@@ -45,7 +46,8 @@ protected:
   FDType m_fd_type;
 
 private:
-  DISALLOW_COPY_AND_ASSIGN(IOObject);
+  IOObject(const IOObject &) = delete;
+  const IOObject &operator=(const IOObject &) = delete;
 };
 } // namespace lldb_private
 

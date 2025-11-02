@@ -1,4 +1,4 @@
-//===--- ParentVirtualCallCheck.cpp - clang-tidy---------------------------===//
+//===----------------------------------------------------------------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -12,14 +12,11 @@
 #include "clang/Tooling/FixIt.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallVector.h"
-#include <algorithm>
 #include <cctype>
 
 using namespace clang::ast_matchers;
 
-namespace clang {
-namespace tidy {
-namespace bugprone {
+namespace clang::tidy::bugprone {
 
 using BasesVector = llvm::SmallVector<const CXXRecordDecl *, 5>;
 
@@ -28,12 +25,11 @@ static bool isParentOf(const CXXRecordDecl &Parent,
   if (Parent.getCanonicalDecl() == ThisClass.getCanonicalDecl())
     return true;
   const CXXRecordDecl *ParentCanonicalDecl = Parent.getCanonicalDecl();
-  return ThisClass.bases_end() !=
-         llvm::find_if(ThisClass.bases(), [=](const CXXBaseSpecifier &Base) {
-           auto *BaseDecl = Base.getType()->getAsCXXRecordDecl();
-           assert(BaseDecl);
-           return ParentCanonicalDecl == BaseDecl->getCanonicalDecl();
-         });
+  return llvm::any_of(ThisClass.bases(), [=](const CXXBaseSpecifier &Base) {
+    auto *BaseDecl = Base.getType()->getAsCXXRecordDecl();
+    assert(BaseDecl);
+    return ParentCanonicalDecl == BaseDecl->getCanonicalDecl();
+  });
 }
 
 static BasesVector getParentsByGrandParent(const CXXRecordDecl &GrandParent,
@@ -73,18 +69,16 @@ static std::string getNameAsString(const NamedDecl *Decl) {
 static std::string getExprAsString(const clang::Expr &E,
                                    clang::ASTContext &AC) {
   std::string Text = tooling::fixit::getText(E, AC).str();
-  Text.erase(
-      llvm::remove_if(
-          Text,
-          [](char C) { return llvm::isSpace(static_cast<unsigned char>(C)); }),
-      Text.end());
+  llvm::erase_if(Text, [](char C) {
+    return llvm::isSpace(static_cast<unsigned char>(C));
+  });
   return Text;
 }
 
 void ParentVirtualCallCheck::registerMatchers(MatchFinder *Finder) {
   Finder->addMatcher(
       traverse(
-          ast_type_traits::TK_AsIs,
+          TK_AsIs,
           cxxMemberCallExpr(
               callee(memberExpr(hasDescendant(implicitCastExpr(
                                     hasImplicitDestinationType(pointsTo(
@@ -137,9 +131,9 @@ void ParentVirtualCallCheck::check(const MatchFinder::MatchResult &Result) {
   assert(Member->getQualifierLoc().getSourceRange().getBegin().isValid());
   auto Diag = diag(Member->getQualifierLoc().getSourceRange().getBegin(),
                    "qualified name '%0' refers to a member overridden "
-                   "in subclass%1; did you mean %2?")
+                   "in %plural{1:subclass|:subclasses}1; did you mean %2?")
               << getExprAsString(*Member, *Result.Context)
-              << (Parents.size() > 1 ? "es" : "") << ParentsStr;
+              << static_cast<unsigned>(Parents.size()) << ParentsStr;
 
   // Propose a fix if there's only one parent class...
   if (Parents.size() == 1 &&
@@ -150,6 +144,4 @@ void ParentVirtualCallCheck::check(const MatchFinder::MatchResult &Result) {
         getNameAsString(Parents.front()) + "::");
 }
 
-} // namespace bugprone
-} // namespace tidy
-} // namespace clang
+} // namespace clang::tidy::bugprone

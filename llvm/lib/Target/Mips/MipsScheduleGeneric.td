@@ -160,12 +160,12 @@ def GenericWriteMDUtoGPR : SchedWriteRes<[GenericIssueMDU]> {
 def GenericWriteDIV : SchedWriteRes<[GenericIssueDIV]> {
   // Estimated worst case
   let Latency = 33;
-  let ResourceCycles = [33];
+  let ReleaseAtCycles = [33];
 }
 def GenericWriteDIVU : SchedWriteRes<[GenericIssueDIV]> {
   // Estimated worst case
   let Latency = 31;
-  let ResourceCycles = [31];
+  let ReleaseAtCycles = [31];
 }
 
 // mul
@@ -285,7 +285,7 @@ def GenericWriteJumpAndLink : SchedWriteRes<[GenericIssueCTISTD]> {
 // jalr, jr.hb, jr, jalr.hb, jarlc, jialc
 def : InstRW<[GenericWriteJump], (instrs B, BAL, BAL_BR, BEQ, BNE, BGTZ, BGEZ,
                                   BLEZ, BLTZ, BLTZAL, J, JALX, JR, JR_HB, ERET,
-                                  ERet, ERETNC, DERET)>;
+                                  ERet, ERETNC, DERET, NAL)>;
 
 def : InstRW<[GenericWriteJump], (instrs BEQL, BNEL, BGEZL, BGTZL, BLEZL,
                                   BLTZL)>;
@@ -761,35 +761,35 @@ def GenericWriteFPUMoveGPRFPU : SchedWriteRes<[GenericIssueFPUMove]> {
 }
 def GenericWriteFPUDivS : SchedWriteRes<[GenericFPUDivSqrt]> {
   let Latency = 17;
-  let ResourceCycles = [ 14 ];
+  let ReleaseAtCycles = [ 14 ];
 }
 def GenericWriteFPUDivD : SchedWriteRes<[GenericFPUDivSqrt]> {
   let Latency = 32;
-  let ResourceCycles = [ 29 ];
+  let ReleaseAtCycles = [ 29 ];
 }
 def GenericWriteFPURcpS : SchedWriteRes<[GenericFPUDivSqrt]> {
   let Latency = 13;
-  let ResourceCycles = [ 10 ];
+  let ReleaseAtCycles = [ 10 ];
 }
 def GenericWriteFPURcpD : SchedWriteRes<[GenericFPUDivSqrt]> {
   let Latency = 25;
-  let ResourceCycles = [ 21 ];
+  let ReleaseAtCycles = [ 21 ];
 }
 def GenericWriteFPURsqrtS : SchedWriteRes<[GenericFPUDivSqrt]> {
   let Latency = 17;
-  let ResourceCycles = [ 14 ];
+  let ReleaseAtCycles = [ 14 ];
 }
 def GenericWriteFPURsqrtD : SchedWriteRes<[GenericFPUDivSqrt]> {
   let Latency = 32;
-  let ResourceCycles = [ 29 ];
+  let ReleaseAtCycles = [ 29 ];
 }
 def GenericWriteFPUSqrtS : SchedWriteRes<[GenericFPUDivSqrt]> {
   let Latency = 17;
-  let ResourceCycles = [ 14 ];
+  let ReleaseAtCycles = [ 14 ];
 }
 def GenericWriteFPUSqrtD : SchedWriteRes<[GenericFPUDivSqrt]> {
   let Latency = 29;
-  let ResourceCycles = [ 29 ];
+  let ReleaseAtCycles = [ 29 ];
 }
 
 // Floating point compare and branch
@@ -829,10 +829,11 @@ def : InstRW<[GenericWriteFPUL], (instrs ADDR_PS64,
                                   CVT_L_S, CVT_S_D32, CVT_S_D64, CVT_S_L,
                                   CVT_S_W, CVT_W_D32, CVT_W_D64, CVT_W_S,
                                   CVT_PS_S64, CVT_S_PL64, CVT_S_PU64,
-                                  CVT_PS_PW64, CVT_PW_PS64,
+                                  CVT_PS_PW64, CVT_PW_PS64, FADD_PS64,
                                   FLOOR_L_D64, FLOOR_L_S, FLOOR_W_D32,
                                   FLOOR_W_D64, FLOOR_W_S, FMUL_D32, FMUL_D64,
-                                  MADD_D32, MADD_D64, MSUB_D32, MSUB_D64, MULR_PS64,
+                                  FMUL_PS64, FSUB_PS64, MADD_D32, MADD_D64,
+                                  MSUB_D32, MSUB_D64, MULR_PS64,
                                   NMADD_D32, NMADD_D64, NMSUB_D32, NMSUB_D64,
                                   PLL_PS64, PLU_PS64, PUL_PS64, PUU_PS64,
                                   ROUND_L_D64, ROUND_L_S, ROUND_W_D32,
@@ -956,13 +957,13 @@ def : InstRW<[GenericWriteFPURcpS], (instrs RECIP_S_MM, RSQRT_S_MM)>;
 def : InstRW<[GenericWriteFPURcpD], (instrs RECIP_D32_MM, RECIP_D64_MM,
                                      RSQRT_D32_MM, RSQRT_D64_MM)>;
 
-def : InstRW<[GenericWriteFPUStore], (instrs SDC1_MM, SWC1_MM, SUXC1_MM,
-                                      SWXC1_MM)>;
+def : InstRW<[GenericWriteFPUStore], (instrs SDC1_MM_D32, SDC1_MM_D64, SWC1_MM,
+                                      SUXC1_MM, SWXC1_MM)>;
 
 def : InstRW<[GenericWriteFPUMoveGPRFPU], (instrs CFC1_MM, CTC1_MM)>;
 
-def : InstRW<[GenericWriteFPULoad], (instrs LDC1_MM, LUXC1_MM, LWC1_MM,
-                                     LWXC1_MM)>;
+def : InstRW<[GenericWriteFPULoad], (instrs LDC1_MM_D32, LDC1_MM_D64, LUXC1_MM,
+                                     LWC1_MM, LWXC1_MM)>;
 
 // microMIPS32r6
 // =============
@@ -1404,7 +1405,7 @@ let Latency = 5;
 }
 def GenericWriteFPUDivI : SchedWriteRes<[GenericFPQ]> {
   let Latency = 33;
-  let ResourceCycles = [ 33 ];
+  let ReleaseAtCycles = [ 33 ];
 }
 
 // FPUS is also used in moves from floating point and MSA registers to general

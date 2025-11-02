@@ -38,10 +38,10 @@ RegisterFileStatistics::RegisterFileStatistics(const MCSubtargetInfo &sti)
   unsigned NumRegFiles = std::max(PI.NumRegisterFiles, 1U);
 
   PRFUsage.resize(NumRegFiles);
-  std::fill(PRFUsage.begin(), PRFUsage.end(), RFUEmpty);
+  llvm::fill(PRFUsage, RFUEmpty);
 
   MoveElimInfo.resize(NumRegFiles);
-  std::fill(MoveElimInfo.begin(), MoveElimInfo.end(), MEIEmpty);
+  llvm::fill(MoveElimInfo, MEIEmpty);
 }
 
 void RegisterFileStatistics::updateRegisterFileUsage(
@@ -60,18 +60,21 @@ void RegisterFileStatistics::updateMoveElimInfo(const Instruction &Inst) {
   if (!Inst.isOptimizableMove())
     return;
 
-  assert(Inst.getDefs().size() == 1 && "Expected a single definition!");
-  assert(Inst.getUses().size() == 1 && "Expected a single register use!");
-  const WriteState &WS = Inst.getDefs()[0];
-  const ReadState &RS = Inst.getUses()[0];
+  if (Inst.getDefs().size() != Inst.getUses().size())
+    return;
 
-  MoveEliminationInfo &Info =
-      MoveElimInfo[Inst.getDefs()[0].getRegisterFileID()];
-  Info.TotalMoveEliminationCandidates++;
-  if (WS.isEliminated())
-    Info.CurrentMovesEliminated++;
-  if (WS.isWriteZero() && RS.isReadZero())
-    Info.TotalMovesThatPropagateZero++;
+  for (size_t I = 0, E = Inst.getDefs().size(); I < E; ++I) {
+    const WriteState &WS = Inst.getDefs()[I];
+    const ReadState &RS = Inst.getUses()[E - (I + 1)];
+
+    MoveEliminationInfo &Info =
+        MoveElimInfo[Inst.getDefs()[0].getRegisterFileID()];
+    Info.TotalMoveEliminationCandidates++;
+    if (WS.isEliminated())
+      Info.CurrentMovesEliminated++;
+    if (WS.isWriteZero() && RS.isReadZero())
+      Info.TotalMovesThatPropagateZero++;
+  }
 }
 
 void RegisterFileStatistics::onEvent(const HWInstructionEvent &Event) {

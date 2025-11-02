@@ -1,0 +1,578 @@
+Chapter 1
+e200z4 Core Complex Overview
+This chapter provides an overview of the e200z4 microprocessor core built on Power Architecture™
+technology for embedded processors. It includes the following:
+    • An overview of the core, including the block diagram (Figure 1-1)
+    • A summary of the feature set for this core (see Section 1.2, “Features”)
+       — A description of the execution units (see Section 1.2.1, “Execution Unit Features”)
+       — A description of the memory management architecture (see Section 1.2.3, “Memory
+           Management Unit Features”)
+       — High-level details of the core memory and coherency model (see Section 1.2.4, “System Bus
+           (Core Complex Interface) Features”)
+       — High-level details of the Nexus 3+ features (see Section 1.2.5, “Nexus 3+ Features”)
+    • A summary of the programming model for this core (see Section 1.3, “Programming Model”)
+       — An overview of the register set (see Section 1.3.1, “Register Set”)
+       — An overview of the instruction set (see Section 1.3.2, “Instruction Set”)
+       — An overview of interrupts and exception handling (see Section 1.3.3, “Interrupts and Exception
+           Handling”)
+    • A summary of instruction pipeline and flow (see Section 1.4, “Microarchitecture Summary”)
+
+1.1       Overview
+The e200z4 processor family is a set of CPU cores that implement low-cost versions of Power Architecture
+technology. The e200z4 core is a dual-issue, 32-bit design with 64-bit general-purpose registers (GPRs).
+The e200z446n3 integrates an e200z4 CPU core, a memory management unit (MMU), a 4-Kbyte
+instruction cache, and a Nexus Class 3+ real-time debug unit. Separate instruction and data AHB 2.v6
+system interfaces are provided.
+The e200z4 is compliant with the PowerPC™ instruction set architecture (ISA). It does not support Power
+ISA floating-point instructions in hardware, but traps them so they can be emulated by software.
+Instructions of the embedded floating-point category are provided to support real-time single-precision
+embedded numerics operations using the general-purpose registers.
+Instructions of the signal processing extension (SPE) category are provided to support real-time SIMD
+fixed-point and single-precision embedded numerics operations using the general-purpose registers. All
+arithmetic instructions that execute in the core operate on data in the general-purpose registers (GPRs).
+The GPRs have been extended to 64-bits in order to support vector instructions defined by the SPE
+category. These instructions operate on a vector pair of 16-bit or 32-bit data types and deliver vector and
+scalar results.
+
+                          e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+Freescale Semiconductor                                                                                 1-1
+In addition to the base Power ISA embedded category instruction set, the core also implements the
+variable-length encoding category (VLE), which provides improved code density. See the EREF and
+supplementary VLE Programming Environments Manual (VLEPEM) for more information about the VLE
+extension.
+The processor integrates a pair of integer execution units, a branch control unit, instruction fetch unit and
+load/store unit, and a multi-ported register file capable of sustaining six read and three write operations per
+clock cycle. Most integer instructions execute in a single clock cycle. Branch target prefetching is
+performed by the branch unit to allow single-cycle branches in many cases.
+Throughout the remainder of this document, the core is referred to as the “e200z4” when speaking of
+e200z4-specific implementations, the “e200z4xx” when speaking of a specific variety of e200z4 core, or
+“e200” when referring to the whole e200 family.
+Figure 1-1 shows the block diagram for the device.
+
+         Additional Features                     Instruction/Control Unit                           Instruction Memory Unit
+       • OnCe/Nexus 1/Nexus 3                                             Fetch Unit                            Software-Managed
+                                          Instruction Buffer                                   Two/Four
+         control logic                                                 Program Counter        Instructions       L1 Unified MMU
+                                         (8/16 Instructions)
+       • Dual AHB 2.v6 buses
+                                                                          One-Stage                                  16-Entry
+       • SPE (SIMD)                                                        Fetch                             Fully Associative    ••
+                                                                                                                                   •
+       • Embedded scalar/                                                                                                TLB
+         vector floating-point                                     Branch Processing Unit                        1-, 4-, 16-, 64-,
+       • Power management                                                                                     256-Kbyte, 1-, 4-, 16-,
+                                                                      +      EA Calc
+       • Time base/decrementer                Decode                                                           64-, 256-Mbyte, 1-,
+         counter                               Stage                         8-Entry Branch                    4-Gbyte page sizes
+                                                                             Target Buffer
+
+                                              Two-Instruction, In-Order Dispatch                               MAS
+                                                                                                             Registers
+                                              Execution Units
+                         Execute Stage      Executes all e200z446n3 instructions (including           2- or 4-Way Set-Associative
+      32 GPRs         Two-stage,            Power ISA base, SPE, and VLE categories) as                4-Kbyte Instruction Cache
+       (64-Bit)       single-path           described in Chapter 3, “Instruction Model.” As
+                      execute pipeline      many as two instructions can execute
+                      with overlapped
+                      execution and         simultaneously, as described in Chapter 4,
+                      feed forwarding       “Instruction Pipeline and Execution Timing.”           Instruction Bus Interface Unit
+                                                                               Load/Store
+                                                                                  Unit               32              64                 N
+       CR                                                                       + EA Calc
+      XER
+                                                                                                 Address          Data           Control
+       LR
+      CTR             Write-Back Stage
+      Additional
+        SPRs                                                                                          Data Bus Interface Unit
+                              Two-Instruction, In-Order Write-Back
+                                                                                                       32                64             N
+
+                                                                                                 Address          Data           Control
+                                          Figure 1-1. e200z446n3 Block Diagram
+
+
+
+
+                               e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+1-2                                                                                                          Freescale Semiconductor
+1.2       Features
+Key features of the e200z446n3 are summarized as follows:
+   • Dual-issue, 32-bit Power ISA-compliant core
+   • Implementation of the VLE category for reduced code footprint
+   • In-order execution and retirement
+   • Precise exception handling
+   • Branch processing unit (BPU)
+       — Dedicated branch address calculation adder
+       — Branch target prefetching using an 8-entry branch target buffer (BTB)
+   • Supports independent instruction and data accesses to different memory subsystems, such as
+       SRAM and flash memory by means of independent instruction and data bus interface units.
+   • Load/store unit
+   • 64-bit general-purpose register file
+   • Dual advanced high-performance (AHB) 2.v6 64-bit system buses
+   • Memory management unit (MMU) with 16-entry fully associative TLB and multiple page-size
+       support
+   • 4 Kbyte, 2/4-way set-associative instruction cache
+   • Signal processing extension unit, version 1.1 supporting SIMD fixed-point operations using the
+       64-bit general-purpose register file.
+   • Embedded floating-point (FPU) unit, version 2 supporting scalar and vector SIMD
+       single-precision floating-point operations using the 64-bit general-purpose register file.
+   • Nexus Class 3+ real-time development unit
+   • Power management
+       — Low power design—extensive clock gating
+       — Power saving modes: doze, nap, sleep, wait
+       — Dynamic power management of execution units, cache, and MMU
+   • Testability
+       — Synthesizeable, MuxD scan design
+       — ABIST/MBIST for arrays
+       — Built-in parallel signature unit
+See the following sections for more details about specific units.
+
+1.2.1        Execution Unit Features
+The following subsections describes the execution units’ main features.
+
+
+
+
+                          e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+Freescale Semiconductor                                                                           1-3
+1.2.1.1      Instruction Unit Features
+The instruction unit features the following:
+   • 64-bit path to cache supports fetching of two 32-bit Power ISA instructions or four 16-bit VLE
+       instructions per clock cycle.
+   • Instruction buffer holds up to eight 32-bit Power ISA instructions or sixteen 16-bit VLE
+       instructions.
+   • Dedicated program counter (PC) incrementer supports instruction prefetches.
+   • Branch unit with dedicated branch address adder and branch target buffer supports single-cycle
+       execution of successfully predicted branches.
+
+1.2.1.2      Integer Unit Features
+The integer units feature support for single-cycle execution of most integer instructions, as follows:
+   • 32-bit AU for arithmetic and comparison operations
+   • 32-bit LU for logical operations
+   • 32-bit priority encoder for count-leading-zeros function
+   • 32-bit single-cycle barrel shifter for static shifts and rotates
+   • 32-bit mask unit for data masking and insertion
+   • Divider logic for signed and unsigned divide in ≤ 14 clock cycles with minimized execution timing
+       (integer unit 1 only)
+   • Pipelined 32 × 32 hardware multiplier array supports 32 × 32→32 multiply with 2 clock latency,
+       1 clock throughput
+
+1.2.1.3      Load/Store Unit Features
+The load/store unit supports load, store, and load multiple/store multiple instructions by means of the
+following:
+    • 32-bit effective address adder for data memory address calculations
+    • Pipelined operation supports throughput of one load or store operation per cycle
+    • Dedicated 64-bit interface to memory supports saving and restoring of up to two registers per cycle
+       for load multiple and store multiple word instructions
+    • Fully pipelined
+    • Two-cycle load latency
+    • Big- and little-endian support
+    • Misaligned access support
+
+1.2.2       L1 Cache Features
+The L1 cache features the following:
+   • 4 Kbyte, 2- or 4-way configurable set-associative instruction cache
+   • 64-bit data, 32-bit address bus plus attributes and control
+
+                          e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+1-4                                                                                  Freescale Semiconductor
+    •   32-byte line size
+    •   Cache line locking
+    •   Way allocation
+    •   Tag and data parity or multi-bit EDC protection with correction/auto-invalidation capability
+    •   Virtually indexed, physically tagged
+    •   Pseudo round-robin replacement algorithm
+    •   Line-fill buffer
+    •   Hit under fill
+    •   Supports tag and data parity
+    •   Supports tag and data double error detection
+    •   Correction/auto-invalidation capability
+
+1.2.3        Memory Management Unit Features
+The memory management unit features the following:
+   • Virtual memory support
+   • 32-bit virtual and physical addresses
+   • 8-bit process identifier
+   • 16-entry fully associative TLB
+   • Hardware assist for TLB miss exceptions
+   • Per-entry multiple page size support from 1 Kbyte to 4 Gbyte
+   • Entry flush protection
+   • Software managed by tlbre, tlbwe, tlbsx, tlbsync, and tlbivax instructions
+   • Freescale EIS MMU architecture compliant
+   • Support for external control of entry matching for a subset of TID values to support non-intrusive
+      runtime mapping modifications
+
+1.2.4        System Bus (Core Complex Interface) Features
+The core complex interface features the following:
+   • Independent instruction and data buses
+   • Advanced microcontroller bus architecture (AMBA) AHB 2.v6 protocol
+   • 32-bit address bus, 64-bit data bus, plus attributes and control
+   • Separate unidirectional 64-bit read and write data buses
+   • Support for HCLK running at a slower rate than CPU clock
+
+
+
+
+                          e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+Freescale Semiconductor                                                                                1-5
+1.2.5       Nexus 3+ Features
+The Nexus 3+ module provides real-time development capabilities for e200z4 processors in compliance
+with the IEEE-ISTO 5001-2008™ standard. The ‘3+’ suffix indicates that some Nexus Class 4 features
+are available. A portion of the pin interface (the JTAG port) is also shared with the OnCE/Nexus 1 unit.
+The following features are implemented:
+   • Program trace by means of branch trace messaging.
+       — Branch trace messaging displays program flow discontinuities (direct and indirect branches,
+          exceptions, etc.), allowing the development tool to interpolate what transpires between the
+          discontinuities. Thus, static code may be traced.
+   • Data trace by means of data write messaging and data read messaging.
+       — Provides the capability for the development tool to trace reads and/or writes to selected internal
+          memory resources.
+   • Ownership trace by means of ownership trace messaging (OTM).
+       — OTM facilitates ownership trace by providing visibility of which process ID or operating
+          system task is activated.An ownership trace message is transmitted when a new process/task is
+          activated, allowing the development tool to trace ownership flow.
+       — Allows enhanced download/upload capabilities.
+   • Data acquisition messaging
+       — Allows code to be instrumented to export customized information to the Nexus auxiliary output
+          port.
+   • Watchpoint messaging by means of the auxiliary interface
+   • Watchpoint trigger enable of program and/or data trace messaging
+   • Run-time access to the processor memory map by means of the JTAG port
+   • Auxiliary interface for higher data input/output
+       — Configurable (min/max) message data out pins (nex_mdo[n:0])
+       — One or two message start/end out pins (nex_mseo_b[1:0])
+       — One read/write ready pin (nex_rdy_b) pin
+       — One watchpoint event pin (nex_evto_b)
+       — Three additional watchpoint event output pins (nex_wevt[2:0]) for SoC use
+       — One event-in pin (nex_evti_b)
+       — One MCKO (Message Clock Out) pin
+All features are controllable and configurable by means of the JTAG port.
+
+1.3      Programming Model
+This section describes the register model, instruction model, and the interrupt model as they are defined
+by the Power ISA, Freescale EIS, and the e200z446n3 implementation.
+
+
+
+
+                          e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+1-6                                                                                  Freescale Semiconductor
+1.3.1        Register Set
+Figure 1-2 and Figure 1-3 show the complete e200z446n3 register set, including the sets of the registers
+that are accessible in supervisor mode and the set of registers that are accessible in user mode. The number
+to the right of the special-purpose registers (SPRs) is the decimal number used in the instruction syntax to
+access the register. For example, the integer exception register (XER) is SPR 1.
+Figure 1-2 shows the registers that can be accessed by supervisor-level software. User-level software can
+access only those registers listed in Figure 1-3.
+
+
+
+
+                          e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+Freescale Semiconductor                                                                                  1-7
+                                                                                        Exception Handling/Control Registers
+            General Registers
+                                                                       SPR General                 Save and Restore              Interrupt Vector Prefix
+        Condition Register            General-Purpose Registers              SPRG0     SPR 272          SRR0         SPR 26           IVPR        SPR 63
+              CR                                  GPR0                       SPRG1     SPR 273          SRR1         SPR 27      Interrupt Vector Offset
+        Count Register                            GPR1                       SPRG2     SPR 274         CSRR0         SPR 58                       SPR 400
+                                                                                                                                     IVOR0
+              CTR          SPR 9                                             SPRG3     SPR 275         CSRR1         SPR 59          IVOR1        SPR 401
+
+        Link Register                                                        SPRG4     SPR 276        DSRR02        SPR 574
+                                                GPR31                        SPRG5     SPR 277        DSRR12        SPR 575
+              LR           SPR 8
+                                                                             SPRG6     SPR 278                  2
+                                          Accumulator                                                 MCSRR0        SPR 570          IVOR15       SPR 415
+        XER                                                                  SPRG7     SPR 279        MCSRR12       SPR 571                  2
+                                                ACC                                                                                 IVOR32        SPR 528
+              XER          SPR 1                                             SPRG8     SPR 604
+                                                                             SPRG9     SPR 605      Exception Syndrome
+         Processor Control Registers                                                                                                IVOR342       SPR 530
+                                                                                                         ESR          SPR 62
+                                                                       User SPR
+      Machine State                 Hardware Implementation
+                                                                                                    Machine Check                 Machine Check
+          MSR                       Dependent1                            USPRG0       SPR 256      Syndrome Register             Address Register
+                                        HID0   SPR 1008
+      Processor Version                                                       Timers                     MCSR         SPR 572          MCAR        SPR 573
+           PVR                          HID1       SPR 1009
+                       SPR 287                                         Decrementer                  Data Exception Address
+      Processor ID
+                                     System Version2                          DEC       SPR 22           DEAR         SPR 61
+           PIR         SPR 286
+                                         SVR       SPR 1023                  DECAR      SPR 54                                  BTB Register
+                      Debug Registers2                                 Time Base (write only)                                    BTB Control1
+      Debug Control                 Instruction Address Compare               TBL       SPR 284                                      BUCSR        SPR 1013
+        DBCR0             SPR 308       IAC1        SPR 312                   TBU       SPR 285
+        DBCR1             SPR 309       IAC2        SPR 313            Control and Status                                       SPE Register
+        DBCR2             SPR 310       IAC3        SPR 314                                                                      SP E Status and Control
+                                                                              TCR      SPR 340
+                 1        SPR 561
+        DBCR3                           IAC4        SPR 315                   TSR      SPR 336                                     SPEFSCR        SPR 512
+        DBCR41            SPR 563       IAC5        SPR 565
+                                                                                             Memory Management Registers
+        DBCR51            SPR 564       IAC6        SPR 566
+        DBCR61            SPR 603                                      MMU Assist1                 Process ID                    Control & Configuration
+                                        IAC7        SPR 567
+       DBERC01            SPR 569                                            MAS0      SPR 624          PID0        SPR 48         MMUCSR0        SPR 1012
+                                        IAC8        SPR 568
+                                                                             MAS1      SPR 625                                     MMUCFG         SPR 1015
+      Debug Status                  Data Address Compare                     MAS2      SPR 626                                     TLB0CFG        SPR 688
+          DBSR         SPR 304         DAC1         SPR 316                  MAS3      SPR 627                                     TLB1CFG        SPR 689
+                      1                DAC2         SPR 317                  MAS4      SPR 628                  Cache Registers
+      Debug Counter
+         DBCNT         SPR 562       Data Value Compare (64-bit)             MAS6      SPR 630     Cache Configuration
+                                           DVC1            SPR 318                                 (Read-only)                   Cache Control1
+
+                                           DVC2            SPR 319                                   L1CFG0         SPR 515         L1CSR1        SPR 1011
+
+                                                                                                     L1CFG1         SPR 516         L1FINV1       SPR 959
+                    Device Control Registers (DCRs)1
+      Cache Access Registers                   PSU Registers
+         CDACNTL           DCR 351                     PSCR        DCR 272           PSCTR       DCR 276
+         CDADATA           DCR 350                     PSSR        DCR 273          PSUHR        DCR 277
+                                                       PSHR        DCR 274           PSULR       DCR 278
+                                                       PSLR        DCR 275
+
+          1 - These e200-specific registers may not be supported by other processors built on Power Architecture technology
+          2 - Optional registers defined by the Power ISA embedded architecture
+          3 - Read-only registers
+
+                                    Figure 1-2. e200z446n3 Supervisor Mode Programmer’s Model
+
+
+                                        e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+1-8                                                                                                                             Freescale Semiconductor
+Figure 1-3 shows the user-mode special-purpose registers.
+
+                          General Registers                 Timers (Read only)           Cache Register
+                                                                                          (Read-only)
+          Condition Register                                  Time Base
+                                                                  TBL     SPR 268     Cache Configuration
+                 CR             General-Purpose Registers
+          Count Register                                          TBU     SPR 269
+                                         GPR0                                           L1CFG0     SPR 515
+              CTR     SPR 9              GPR1
+                                                                                        L1CFG1     SPR 516
+          Link                             •                Control Registers
+                                           •
+                 LR   SPR 8                •                SPR General (Read-only)
+                                        GPR31                   SPRG4     SPR 260
+          XER
+                                                                SPRG5     SPR 261     Category Registers
+              XER     SPR 1
+                                                                SPRG6     SPR 262     SPE Status and
+                                Accumulator                     SPRG7     SPR 263     Control Register
+
+                                ACC                           User SPR                SPEFSCR     SPR 512
+
+                                                               USPRG0     SPR 256
+
+
+                           Figure 1-3. e200z446n3 User Mode Programmer’s Model SPRs
+
+The GPRs are accessed through instruction operands. Access to other registers can be explicit, by using
+instructions for that purpose such as the Move to Special-Purpose Register (mtspr) and Move from
+Special-Purpose Register (mfspr) instructions. Access to other registers can also be implicit, as part of the
+execution of an instruction. Some registers are accessed both explicitly and implicitly.
+
+1.3.2        Instruction Set
+The e200z4 supports the Power ISA instruction set for 32-bit embedded implementations. This is
+composed primarily of the user-level instructions defined by the user instruction set architecture (UISA).
+The e200z4 does not include the Power ISA floating-point, load string, or store string instructions.
+The e200z446n3 core implements the following architectural extensions:
+    •   The VLE category
+    •   The integer select category (ISEL)
+    •   Enhanced debug and the debug notify halt instruction categories
+    •   The machine check category
+    •   The WAIT category
+    •   The volatile context save/restore category
+    •   The embedded floating-point unit, version 2
+    •   The signal processing extension unit, version 1.1
+    •   The cache line locking category
+    •   The enhanced reservations category
+
+
+
+
+                               e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+Freescale Semiconductor                                                                                      1-9
+1.3.3        Interrupts and Exception Handling
+The e200z4 core supports an extended exception handling model with nested interrupt capability and
+extensive interrupt vector programmability. In general, interrupt processing begins with an exception that
+occurs due to external conditions, errors, or program execution problems. When an exception occurs, the
+processor checks whether interrupt processing is enabled for that particular exception. If enabled, the
+interrupt causes the state of the processor to be saved in the appropriate registers and begins execution of
+the handler located at the associated vector address for that particular exception.
+Once the handler is executing, the implementation may need to check bits in the exception syndrome
+register (ESR), the machine check syndrome register (MCSR), or the signal processing and embedded
+floating-point status and control register (SPEFSCR) to verify the specific cause of the exception and take
+appropriate action.
+The core complex supports the interrupts described in Table 1-1.
+                                              Table 1-1. Interrupt Registers
+
+ Register                                                       Description
+
+                                               Noncritical Interrupt Registers
+
+  SRR0      Save/restore register 0—On noncritical interrupts, stores either the address of the instruction causing the exception
+            or the address of the instruction that executes after the rfi instruction.
+
+  SRR1      Save/restore register 1—Saves machine state on noncritical interrupts and restores machine state after an rfi
+            instruction is executed.
+
+                                                 Critical Interrupt Registers
+
+  CSRR0     Critical save/restore register 0—On critical interrupts, stores either the address of the instruction causing the
+            exception or the address of the instruction that executes after the rfci instruction.
+
+  CSRR1     Critical save/restore register 1—Saves machine state on critical interrupts and restores machine state after an rfci
+            instruction is executed.
+
+                                                 Debug Interrupt Registers
+
+  DSRR0     Debug save/restore register 0—On debug interrupts, stores either the address of the instruction causing the
+            exception or the address of the instruction that executes after the rfdi instruction.
+
+  DSRR1     Debug save/restore register 1—Saves machine state on debug interrupts and restores machine state after an rfdi
+            instruction is executed.
+
+                                                 Machine Check Interrupts
+
+ MCSRR0     Machine check save/restore register 0—On machine check interrupts, stores either the address of the instruction
+            causing the exception or the address of the instruction that executes after the rfmci instruction.
+
+ MCSRR1     Machine check save/restore register 1—Saves machine state on machine check interrupts and restores those
+            values when an rfmci instruction is executed
+
+                                                    Syndrome Registers
+
+  MCSR      Machine check syndrome register—Saves machine check syndrome information on machine check interrupts.
+
+   ESR      Exception syndrome register—Provides a syndrome to differentiate among the different kinds of exceptions that
+            generate the same interrupt type. Upon generation of a specific exception type, the associated bits are set and all
+            other bits are cleared.
+
+
+
+
+                              e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+1-10                                                                                                   Freescale Semiconductor
+                                         Table 1-1. Interrupt Registers (Continued)
+
+ Register                                                         Description
+
+                                                     SPE Interrupt Registers
+
+SPEFSCR Signal processing and embedded floating-point status and control register—Provides interrupt control and status
+        as well as various condition bits associated with the operations performed by the SPE. See Table 1-2 for a list of
+        the associated IVORs.
+
+                                                    Other Interrupt Registers
+
+  DEAR        Data exception address register—Contains the address that was referenced by a load, store, or cache
+              management instruction that caused an alignment, data TLB miss, or data storage interrupt.
+
+   IVPR       Together, IVPR[32–47] || IVORn [48–59] || 0b0000 define the address of an interrupt-processing routine. See
+  IVORs       Table 1-2 and Chapter 5, “Interrupts and Exceptions,” for more information.
+
+      MSR     Machine state register—Defines the state of the processor. When an interrupt occurs, it is updated to preclude
+              unrecoverable interrupts from occurring during the initial portion of the interrupt handler
+
+
+Each interrupt has an associated interrupt vector address, obtained by concatenating IVPR[32–47] with the
+address index in the associated IVOR (that is, IVPR[32–47] || IVORn[48–59] || 0b0000). The resulting
+address is that of the instruction to be executed when that interrupt occurs. IVPR and IVOR values are
+indeterminate on reset and must be initialized by the system software using mtspr.
+Table 1-2 lists IVOR registers implemented on the e200z446n3 and the associated interrupts.
+                                           Table 1-2. Exceptions and Conditions
+
+      IVORn                       Interrupt Type                       IVORn                       Interrupt Type
+
+      None1      System reset (not an interrupt)                          9       AP unavailable (not used by this core)
+
+        02       Critical input                                          10       Decrementer
+
+         1       Machine check                                           11       Fixed-interval timer
+
+                 Machine check (non-maskable interrupt)                  12       Watchdog timer
+
+         2       Data storage                                            13       Data TLB error
+
+         3       Instruction storage                                     14       Instruction TLB error
+
+        42       External input                                          15       Debug
+
+         5       Alignment                                             16–31      Reserved
+
+         6       Program                                                 32       SPE unavailable
+
+         7       Floating-point unavailable                              33       SPE data exception
+
+         8       System call                                             34       SPE round exception
+  1   Vector to [p_rstbase[0:29]] || 0xFFC.
+  2   Autovectored external and critical input interrupts use this IVOR. Vectored interrupts supply an interrupt vector offset
+      directly.
+
+
+
+
+                                  e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+Freescale Semiconductor                                                                                                          1-11
+1.4       Microarchitecture Summary
+The e200z4 processor utilizes a five-stage pipeline for instruction execution. These stages operate in an
+overlapped fashion, allowing single clock-cycle instruction execution for most instructions. The stages are
+as follows:
+    1. Instruction fetch
+    2. Instruction decode/register file read/effective address calculation
+    3. Execute 0/memory access 0
+    4. Execute 1/memory access 1
+    5. Register write-back
+The integer execution units consist of a 32-bit arithmetic unit, a logic unit, a 32-bit barrel shifter, a
+mask-insertion unit, a condition register manipulation unit, a count-leading-zeros unit, a 32 × 32 hardware
+multiplier array, and result feed-forward hardware. Integer unit 1 also supports hardware division.
+Most arithmetic and logical operations are executed in a single cycle with the exception of multiply, which
+is implemented with a 2-cycle pipelined hardware array, and the divide instructions. A count-leading-zeros
+unit operates in a single clock cycle.
+The instruction unit contains a program counter incrementer and dedicated branch address adder to
+minimize delays during change-of-flow operations. Sequential prefetching is performed to ensure a supply
+of instructions into the execution pipeline. Branch target prefetching using the BTB is performed to
+accelerate taken branches. Prefetched instructions are placed into an 8-entry instruction buffer, with each
+entry capable of holding a single 32-bit instruction or a pair of 16-bit instructions.
+Branch target addresses are calculated in parallel with branch instruction decode. Conditional branches
+that are not taken execute in a single clock cycle. Branches with successful BTB target prefetching have
+an effective execution time of one clock cycle if correctly predicted. All other taken branches have an
+execution time of two clock cycles.
+Memory load and store operations are provided for byte, half-word, word (32-bit), and double-word data
+with automatic zero or sign extension of byte and half-word load data as well as optional byte reversal of
+data. These instructions can be pipelined to allow effective single-cycle throughput. Load and store
+multiple word instructions allow low-overhead context save and restore operations. The load/store unit
+contains a dedicated effective address adder to allow effective address generation to be optimized. There
+is a single load-to-use bubble for load instructions.
+The condition register unit supports the condition register (CR) and condition register operations defined
+by the architecture. The condition register consists of eight 4-bit fields that reflect the results of certain
+operations, such as move, integer and floating-point compare, arithmetic, and logical instructions. It also
+provides a mechanism for testing and branching.
+Vectored and autovectored interrupts are supported by the CPU. Vectored interrupt support is provided to
+allow multiple interrupt sources to have unique interrupt handlers invoked with no software overhead.
+The SPE or SPE2 category supports vector instructions operating on 8-, 16-, and 32-bit fixed-point data
+types, as well as 32-bit IEEE Std. 754™ single-precision floating-point formats. It supports
+single-precision floating-point operations in a pipelined fashion.
+
+
+                           e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+1-12                                                                                    Freescale Semiconductor
+The 64-bit general-purpose register file is used for source and destination operands, and there is a unified
+storage model for single-precision floating-point data types of 32-bits and the normal integer type. Low
+latency fixed-point and floating-point add, subtract, multiply, multiply-add, multiply-sub, divide,
+compare, and conversion operations are provided. Most operations can be pipelined.
+
+
+
+
+                          e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+Freescale Semiconductor                                                                                 1-13
+       e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+1-14                                                              Freescale Semiconductor

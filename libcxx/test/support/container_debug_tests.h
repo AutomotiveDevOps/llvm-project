@@ -9,38 +9,28 @@
 #ifndef TEST_SUPPORT_CONTAINER_DEBUG_TESTS_H
 #define TEST_SUPPORT_CONTAINER_DEBUG_TESTS_H
 
-#include <ciso646>
+#include "test_macros.h"
+
 #ifndef _LIBCPP_VERSION
 #error This header may only be used for libc++ tests
 #endif
 
-#ifndef _LIBCPP_DEBUG
-#error _LIBCPP_DEBUG must be defined before including this header
+#if _LIBCPP_HARDENING_MODE != _LIBCPP_HARDENING_MODE_DEBUG
+#error The library must be built with the debug mode enabled in order to use this header
 #endif
 
-#include <__debug>
 #include <utility>
 #include <cstddef>
 #include <cstdlib>
 #include <cassert>
-#include <string>
-#include <sstream>
-#include <iostream>
 
-#include "test_macros.h"
-#include "debug_mode_helper.h"
-#include "assert_checkpoint.h"
+#include "check_assertion.h"
 #include "test_allocator.h"
 
 // These test make use of 'if constexpr'.
 #if TEST_STD_VER <= 14
 #error This header may only be used in C++17 and greater
 #endif
-
-#ifndef __cpp_if_constexpr
-#error These tests require if constexpr
-#endif
-
 
 namespace IteratorDebugChecks {
 
@@ -194,7 +184,7 @@ struct BasicContainerChecks {
   // Iterator tests
   template <class Iter>
   static void TestNullIterators() {
-    CHECKPOINT("testing null iterator");
+    // testing null iterator
     Iter it;
     EXPECT_DEATH( ++it );
     EXPECT_DEATH( it++ );
@@ -209,7 +199,7 @@ struct BasicContainerChecks {
   }
 
   static void DecrementBegin() {
-    CHECKPOINT("testing decrement on begin");
+    // testing decrement on begin
     Container C = makeContainer(1);
     iterator i = C.end();
     const_iterator ci = C.cend();
@@ -223,7 +213,7 @@ struct BasicContainerChecks {
   }
 
   static void IncrementEnd() {
-    CHECKPOINT("testing increment on end");
+    // testing increment on end
     Container C = makeContainer(1);
     iterator i = C.begin();
     const_iterator ci = C.begin();
@@ -237,7 +227,7 @@ struct BasicContainerChecks {
   }
 
   static void DerefEndIterator() {
-    CHECKPOINT("testing deref end iterator");
+    // testing deref end iterator
     Container C = makeContainer(1);
     iterator i = C.begin();
     const_iterator ci = C.cbegin();
@@ -258,7 +248,7 @@ struct BasicContainerChecks {
 
   // Container tests
   static void CopyInvalidatesIterators() {
-    CHECKPOINT("copy invalidates iterators");
+    // copy invalidates iterators
     Container C1 = makeContainer(3);
     iterator i = C1.begin();
     Container C2 = C1;
@@ -278,7 +268,7 @@ struct BasicContainerChecks {
   }
 
   static void MoveInvalidatesIterators() {
-    CHECKPOINT("copy move invalidates iterators");
+    // copy move invalidates iterators
     Container C1 = makeContainer(3);
     iterator i = C1.begin();
     Container C2 = std::move(C1);
@@ -294,7 +284,7 @@ struct BasicContainerChecks {
   }
 
   static void EraseIter() {
-    CHECKPOINT("testing erase invalidation");
+    // testing erase invalidation
     Container C1 = makeContainer(2);
     iterator it1 = C1.begin();
     iterator it1_next = it1;
@@ -309,7 +299,7 @@ struct BasicContainerChecks {
   }
 
   static void EraseIterIter() {
-    CHECKPOINT("testing erase iter iter invalidation");
+    // testing erase iter iter invalidation
     Container C1 = makeContainer(2);
     iterator it1 = C1.begin();
     iterator it1_next = it1;
@@ -326,7 +316,7 @@ struct BasicContainerChecks {
 
   // Allocator aware tests
   static void SwapInvalidatesIterators() {
-    CHECKPOINT("testing swap invalidates iterators");
+    // testing swap invalidates iterators
     Container C1 = makeContainer(3);
     Container C2 = makeContainer(3);
     iterator it1 = C1.begin();
@@ -342,7 +332,7 @@ struct BasicContainerChecks {
   }
 
   static void SwapNonEqualAllocators() {
-    CHECKPOINT("testing swap with non-equal allocators");
+    // testing swap with non-equal allocators
     Container C1 = makeContainer(3, allocator_type(1));
     Container C2 = makeContainer(1, allocator_type(2));
     Container C3 = makeContainer(2, allocator_type(2));

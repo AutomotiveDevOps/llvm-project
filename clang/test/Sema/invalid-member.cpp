@@ -13,3 +13,19 @@ class Y {
 };
 // Should be able to evaluate sizeof without crashing.
 static_assert(sizeof(Y) == 1, "No valid members");
+
+class Z {
+  int array[sizeof(invalid())]; // expected-error {{use of undeclared identifier}}
+};
+// Should be able to evaluate sizeof without crashing.
+static_assert(sizeof(Z) == 1, "No valid members");
+
+constexpr int N = undef; // expected-error {{use of undeclared identifier}} \
+                            expected-note {{declared here}}
+template<int a>
+class ABC {};
+class T {
+  ABC<N> abc; // expected-error {{non-type template argument is not a constant expression}} \
+                 expected-note {{initializer of 'N' is unknown}}
+};
+static_assert(sizeof(T) == 1, "No valid members");

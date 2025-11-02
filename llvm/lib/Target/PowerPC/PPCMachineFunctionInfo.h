@@ -22,6 +22,18 @@ namespace llvm {
 /// PPCFunctionInfo - This class is derived from MachineFunction private
 /// PowerPC target-specific information for each MachineFunction.
 class PPCFunctionInfo : public MachineFunctionInfo {
+public:
+  enum ParamType {
+    FixedType,
+    ShortFloatingPoint,
+    LongFloatingPoint,
+    VectorChar,
+    VectorShort,
+    VectorInt,
+    VectorFloat
+  };
+
+private:
   virtual void anchor();
 
   /// FramePointerSaveIndex - Frame index of where the old frame pointer is
@@ -38,6 +50,9 @@ class PPCFunctionInfo : public MachineFunctionInfo {
 
   /// Frame index where the old PIC base pointer is stored.
   int PICBasePointerSaveIndex = 0;
+
+  /// Frame index where the ROP Protection Hash is stored.
+  int ROPProtectionHashSaveIndex = 0;
 
   /// MustSaveLR - Indicates whether LR is defined (or clobbered) in the current
   /// function.  This is only valid after the initial scan of the function by
@@ -69,6 +84,7 @@ class PPCFunctionInfo : public MachineFunctionInfo {
   /// disabled.
   bool DisableNonVolatileCR = false;
 
+<<<<<<< HEAD
   /// Indicates whether VRSAVE is spilled in the current function.
   bool SpillsVRSAVE = false;
 
@@ -90,6 +106,8 @@ class PPCFunctionInfo : public MachineFunctionInfo {
   /// must be saved/restored because FPU operations modify it implicitly.
   bool MustSaveSPEFSCR = false;
 
+=======
+>>>>>>> upstream/main
   /// LRStoreRequired - The bool indicates whether there is some explicit use of
   /// the LR/LR8 stack slot that is not obvious from scanning the code.  This
   /// requires that the code generator produce a store of LR to the stack on
@@ -128,6 +146,19 @@ class PPCFunctionInfo : public MachineFunctionInfo {
   /// register for parameter passing.
   unsigned VarArgsNumFPR = 0;
 
+  /// FixedParmsNum - The number of fixed parameters.
+  unsigned FixedParmsNum = 0;
+
+  /// FloatingParmsNum - The number of floating parameters.
+  unsigned FloatingParmsNum = 0;
+
+  /// VectorParmsNum - The number of vector parameters.
+  unsigned VectorParmsNum = 0;
+
+  /// ParamtersType - Store all the parameter's type that are saved on
+  /// registers.
+  SmallVector<ParamType, 32> ParamtersType;
+
   /// CRSpillFrameIndex - FrameIndex for CR spill slot for 32-bit SVR4.
   int CRSpillFrameIndex = 0;
 
@@ -136,9 +167,6 @@ class PPCFunctionInfo : public MachineFunctionInfo {
   /// 64-bit SVR4 ABI.
   SmallVector<Register, 3> MustSaveCRs;
 
-  /// Hold onto our MachineFunction context.
-  MachineFunction &MF;
-
   /// Whether this uses the PIC Base register or not.
   bool UsesPICBase = false;
 
@@ -146,8 +174,18 @@ class PPCFunctionInfo : public MachineFunctionInfo {
   /// to use SExt/ZExt flags in later optimization.
   std::vector<std::pair<Register, ISD::ArgFlagsTy>> LiveInAttrs;
 
+  /// Flags for aix-shared-lib-tls-model-opt, will be lazily initialized for
+  /// each function.
+  bool AIXFuncUseTLSIEForLD = false;
+  bool AIXFuncTLSModelOptInitDone = false;
+
 public:
-  explicit PPCFunctionInfo(MachineFunction &MF);
+  explicit PPCFunctionInfo(const Function &F, const TargetSubtargetInfo *STI);
+
+  MachineFunctionInfo *
+  clone(BumpPtrAllocator &Allocator, MachineFunction &DestMF,
+        const DenseMap<MachineBasicBlock *, MachineBasicBlock *> &Src2DstMBB)
+      const override;
 
   int getFramePointerSaveIndex() const { return FramePointerSaveIndex; }
   void setFramePointerSaveIndex(int Idx) { FramePointerSaveIndex = Idx; }
@@ -160,6 +198,13 @@ public:
 
   int getPICBasePointerSaveIndex() const { return PICBasePointerSaveIndex; }
   void setPICBasePointerSaveIndex(int Idx) { PICBasePointerSaveIndex = Idx; }
+
+  int getROPProtectionHashSaveIndex() const {
+    return ROPProtectionHashSaveIndex;
+  }
+  void setROPProtectionHashSaveIndex(int Idx) {
+    ROPProtectionHashSaveIndex = Idx;
+  }
 
   unsigned getMinReservedArea() const { return MinReservedArea; }
   void setMinReservedArea(unsigned size) { MinReservedArea = size; }
@@ -196,6 +241,7 @@ public:
   void setDisableNonVolatileCR() { DisableNonVolatileCR = true; }
   bool isNonVolatileCRDisabled() const { return DisableNonVolatileCR; }
 
+<<<<<<< HEAD
   void setSpillsVRSAVE()       { SpillsVRSAVE = true; }
   bool isVRSAVESpilled() const { return SpillsVRSAVE; }
 
@@ -211,6 +257,8 @@ public:
   void setMustSaveSPEFSCR(bool U) { MustSaveSPEFSCR = U; }
   bool mustSaveSPEFSCR() const     { return MustSaveSPEFSCR; }
 
+=======
+>>>>>>> upstream/main
   void setLRStoreRequired() { LRStoreRequired = true; }
   bool isLRStoreRequired() const { return LRStoreRequired; }
 
@@ -220,6 +268,13 @@ public:
   void setHasFastCall() { HasFastCall = true; }
   bool hasFastCall() const { return HasFastCall;}
 
+  void setAIXFuncTLSModelOptInitDone() { AIXFuncTLSModelOptInitDone = true; }
+  bool isAIXFuncTLSModelOptInitDone() const {
+    return AIXFuncTLSModelOptInitDone;
+  }
+  void setAIXFuncUseTLSIEForLD() { AIXFuncUseTLSIEForLD = true; }
+  bool isAIXFuncUseTLSIEForLD() const { return AIXFuncUseTLSIEForLD; }
+
   int getVarArgsFrameIndex() const { return VarArgsFrameIndex; }
   void setVarArgsFrameIndex(int Index) { VarArgsFrameIndex = Index; }
 
@@ -228,6 +283,17 @@ public:
 
   unsigned getVarArgsNumGPR() const { return VarArgsNumGPR; }
   void setVarArgsNumGPR(unsigned Num) { VarArgsNumGPR = Num; }
+
+  unsigned getFixedParmsNum() const { return FixedParmsNum; }
+  unsigned getFloatingPointParmsNum() const { return FloatingParmsNum; }
+  unsigned getVectorParmsNum() const { return VectorParmsNum; }
+  bool hasVectorParms() const { return VectorParmsNum != 0; }
+
+  uint32_t getParmsType() const;
+
+  uint32_t getVecExtParmsType() const;
+
+  void appendParameterType(ParamType Type);
 
   unsigned getVarArgsNumFPR() const { return VarArgsNumFPR; }
   void setVarArgsNumFPR(unsigned Num) { VarArgsNumFPR = Num; }
@@ -255,11 +321,11 @@ public:
   void setUsesPICBase(bool uses) { UsesPICBase = uses; }
   bool usesPICBase() const { return UsesPICBase; }
 
-  MCSymbol *getPICOffsetSymbol() const;
+  MCSymbol *getPICOffsetSymbol(MachineFunction &MF) const;
 
-  MCSymbol *getGlobalEPSymbol() const;
-  MCSymbol *getLocalEPSymbol() const;
-  MCSymbol *getTOCOffsetSymbol() const;
+  MCSymbol *getGlobalEPSymbol(MachineFunction &MF) const;
+  MCSymbol *getLocalEPSymbol(MachineFunction &MF) const;
+  MCSymbol *getTOCOffsetSymbol(MachineFunction &MF) const;
 };
 
 } // end namespace llvm

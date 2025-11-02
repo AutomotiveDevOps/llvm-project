@@ -6,7 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-// UNSUPPORTED: c++98, c++03
+// UNSUPPORTED: c++03
 
 // <memory>
 
@@ -21,24 +21,22 @@
 #include "test_macros.h"
 #include "allocators.h"
 
-int main(int, char**)
-{
-    {
-        typedef std::scoped_allocator_adaptor<A1<int>> A;
-        const A a(A1<int>(100));
-        assert(a.max_size() == 100);
-    }
-    {
-        typedef std::scoped_allocator_adaptor<A1<int>, A2<int>> A;
-        const A a(A1<int>(20), A2<int>());
-        assert(a.max_size() == 20);
-    }
-    {
-        typedef std::scoped_allocator_adaptor<A1<int>, A2<int>, A3<int>> A;
-        const A a(A1<int>(200), A2<int>(), A3<int>());
-        assert(a.max_size() == 200);
-    }
-
+int main(int, char**) {
+  {
+    typedef std::scoped_allocator_adaptor<A1<int>> A;
+    const A a(A1<int>(100));
+    assert(a.max_size() == 100);
+  }
+  {
+    typedef std::scoped_allocator_adaptor<A1<int>, A2<int>> A;
+    const A a(A1<int>(20), A2<int>());
+    assert(a.max_size() == 20);
+  }
+  {
+    typedef std::scoped_allocator_adaptor<A1<int>, A2<int>, A3<int>> A;
+    const A a(A1<int>(200), A2<int>(), A3<int>());
+    assert(a.max_size() == 200);
+  }
 
   return 0;
 }

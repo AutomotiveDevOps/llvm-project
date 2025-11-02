@@ -8,11 +8,6 @@
 
 #include "Standalone/StandaloneOps.h"
 #include "Standalone/StandaloneDialect.h"
-#include "mlir/IR/OpImplementation.h"
 
-namespace mlir {
-namespace standalone {
 #define GET_OP_CLASSES
 #include "Standalone/StandaloneOps.cpp.inc"
-} // namespace standalone
-} // namespace mlir

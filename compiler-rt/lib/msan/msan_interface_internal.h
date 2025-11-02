@@ -31,7 +31,7 @@ SANITIZER_INTERFACE_ATTRIBUTE
 void __msan_warning();
 
 // Print a warning and die.
-// Intrumentation inserts calls to this function when building in "fast" mode
+// Instrumentation inserts calls to this function when building in "fast" mode
 // (i.e. -mllvm -msan-keep-going)
 SANITIZER_INTERFACE_ATTRIBUTE __attribute__((noreturn))
 void __msan_warning_noreturn();
@@ -46,6 +46,12 @@ using __sanitizer::u32;
 using __sanitizer::u16;
 using __sanitizer::u8;
 
+// Versions of the above which take Origin as a parameter
+SANITIZER_INTERFACE_ATTRIBUTE
+void __msan_warning_with_origin(u32 origin);
+SANITIZER_INTERFACE_ATTRIBUTE __attribute__((noreturn)) void
+__msan_warning_with_origin_noreturn(u32 origin);
+
 SANITIZER_INTERFACE_ATTRIBUTE
 void __msan_maybe_warning_1(u8 s, u32 o);
 SANITIZER_INTERFACE_ATTRIBUTE
@@ -54,6 +60,8 @@ SANITIZER_INTERFACE_ATTRIBUTE
 void __msan_maybe_warning_4(u32 s, u32 o);
 SANITIZER_INTERFACE_ATTRIBUTE
 void __msan_maybe_warning_8(u64 s, u32 o);
+SANITIZER_INTERFACE_ATTRIBUTE
+void __msan_maybe_warning_N(void *shadow, u64 size, u32 o);
 
 SANITIZER_INTERFACE_ATTRIBUTE
 void __msan_maybe_store_origin_1(u8 s, void *p, u32 o);
@@ -103,6 +111,11 @@ void __msan_set_alloca_origin(void *a, uptr size, char *descr);
 SANITIZER_INTERFACE_ATTRIBUTE
 void __msan_set_alloca_origin4(void *a, uptr size, char *descr, uptr pc);
 SANITIZER_INTERFACE_ATTRIBUTE
+void __msan_set_alloca_origin_with_descr(void *a, uptr size, u32 *id_ptr,
+                                         char *descr);
+SANITIZER_INTERFACE_ATTRIBUTE
+void __msan_set_alloca_origin_no_descr(void *a, uptr size, u32 *id_ptr);
+SANITIZER_INTERFACE_ATTRIBUTE
 u32 __msan_chain_origin(u32 id);
 SANITIZER_INTERFACE_ATTRIBUTE
 u32 __msan_get_origin(const void *a);
@@ -123,8 +136,8 @@ void __msan_set_keep_going(int keep_going);
 SANITIZER_INTERFACE_ATTRIBUTE
 int __msan_set_poison_in_malloc(int do_poison);
 
-SANITIZER_INTERFACE_ATTRIBUTE SANITIZER_WEAK_ATTRIBUTE
-/* OPTIONAL */ const char* __msan_default_options();
+SANITIZER_INTERFACE_ATTRIBUTE
+const char *__msan_default_options();
 
 // For testing.
 SANITIZER_INTERFACE_ATTRIBUTE
@@ -151,6 +164,10 @@ void __msan_allocated_memory(const void* data, uptr size);
 // uninitialized.
 SANITIZER_INTERFACE_ATTRIBUTE
 void __sanitizer_dtor_callback(const void* data, uptr size);
+SANITIZER_INTERFACE_ATTRIBUTE
+void __sanitizer_dtor_callback_fields(const void *data, uptr size);
+SANITIZER_INTERFACE_ATTRIBUTE
+void __sanitizer_dtor_callback_vptr(const void *data);
 
 SANITIZER_INTERFACE_ATTRIBUTE
 u16 __sanitizer_unaligned_load16(const uu16 *p);
@@ -181,6 +198,12 @@ void __msan_scoped_disable_interceptor_checks();
 
 SANITIZER_INTERFACE_ATTRIBUTE
 void __msan_scoped_enable_interceptor_checks();
+
+SANITIZER_INTERFACE_ATTRIBUTE
+void __msan_start_switch_fiber(const void *bottom, uptr size);
+
+SANITIZER_INTERFACE_ATTRIBUTE
+void __msan_finish_switch_fiber(const void **bottom_old, uptr *size_old);
 }  // extern "C"
 
 #endif  // MSAN_INTERFACE_INTERNAL_H

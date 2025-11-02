@@ -17,16 +17,16 @@
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/Twine.h"
+#include "llvm/Support/Alignment.h"
 #include "llvm/Support/CBindingWrapping.h"
+#include "llvm/Support/Compiler.h"
 #include "llvm/Support/ErrorOr.h"
+#include "llvm/Support/MemoryBufferRef.h"
 #include <cstddef>
 #include <cstdint>
 #include <memory>
 
 namespace llvm {
-
-class MemoryBufferRef;
-
 namespace sys {
 namespace fs {
 // Duplicated from FileSystem.h to avoid a dependency.
@@ -49,7 +49,7 @@ using file_t = int;
 /// be more efficient for clients which are reading all the data to stop
 /// reading when they encounter a '\0' than to continually check the file
 /// position to see if it has reached the end of the file.
-class MemoryBuffer {
+class LLVM_ABI MemoryBuffer {
   const char *BufferStart; // Start of the buffer.
   const char *BufferEnd;   // End of the buffer.
 
@@ -76,17 +76,29 @@ public:
   /// from.
   virtual StringRef getBufferIdentifier() const { return "Unknown buffer"; }
 
+  /// For read-only MemoryBuffer_MMap, mark the buffer as unused in the near
+  /// future and the kernel can free resources associated with it. Further
+  /// access is supported but may be expensive. This calls
+  /// madvise(MADV_DONTNEED) on read-only file mappings on *NIX systems. This
+  /// function should not be called on a writable buffer.
+  virtual void dontNeedIfMmap() {}
+
   /// Open the specified file as a MemoryBuffer, returning a new MemoryBuffer
-  /// if successful, otherwise returning null. If FileSize is specified, this
-  /// means that the client knows that the file exists and that it has the
-  /// specified size.
+  /// if successful, otherwise returning null.
+  ///
+  /// \param IsText Set to true to indicate that the file should be read in
+  /// text mode.
   ///
   /// \param IsVolatile Set to true to indicate that the contents of the file
   /// can change outside the user's control, e.g. when libclang tries to parse
   /// while the user is editing/updating the file or if the file is on an NFS.
+  ///
+  /// \param Alignment Set to indicate that the buffer should be aligned to at
+  /// least the specified alignment.
   static ErrorOr<std::unique_ptr<MemoryBuffer>>
-  getFile(const Twine &Filename, int64_t FileSize = -1,
-          bool RequiresNullTerminator = true, bool IsVolatile = false);
+  getFile(const Twine &Filename, bool IsText = false,
+          bool RequiresNullTerminator = true, bool IsVolatile = false,
+          std::optional<Align> Alignment = std::nullopt);
 
   /// Read all of the specified file into a MemoryBuffer as a stream
   /// (i.e. until EOF reached). This is useful for special files that
@@ -99,7 +111,8 @@ public:
   /// Since this is in the middle of a file, the buffer is not null terminated.
   static ErrorOr<std::unique_ptr<MemoryBuffer>>
   getOpenFileSlice(sys::fs::file_t FD, const Twine &Filename, uint64_t MapSize,
-                   int64_t Offset, bool IsVolatile = false);
+                   int64_t Offset, bool IsVolatile = false,
+                   std::optional<Align> Alignment = std::nullopt);
 
   /// Given an already-open file descriptor, read the file and return a
   /// MemoryBuffer.
@@ -107,9 +120,13 @@ public:
   /// \param IsVolatile Set to true to indicate that the contents of the file
   /// can change outside the user's control, e.g. when libclang tries to parse
   /// while the user is editing/updating the file or if the file is on an NFS.
+  ///
+  /// \param Alignment Set to indicate that the buffer should be aligned to at
+  /// least the specified alignment.
   static ErrorOr<std::unique_ptr<MemoryBuffer>>
   getOpenFile(sys::fs::file_t FD, const Twine &Filename, uint64_t FileSize,
-              bool RequiresNullTerminator = true, bool IsVolatile = false);
+              bool RequiresNullTerminator = true, bool IsVolatile = false,
+              std::optional<Align> Alignment = std::nullopt);
 
   /// Open the specified memory range as a MemoryBuffer. Note that InputData
   /// must be null terminated if RequiresNullTerminator is true.
@@ -131,13 +148,15 @@ public:
   /// Open the specified file as a MemoryBuffer, or open stdin if the Filename
   /// is "-".
   static ErrorOr<std::unique_ptr<MemoryBuffer>>
-  getFileOrSTDIN(const Twine &Filename, int64_t FileSize = -1,
-                 bool RequiresNullTerminator = true);
+  getFileOrSTDIN(const Twine &Filename, bool IsText = false,
+                 bool RequiresNullTerminator = true,
+                 std::optional<Align> Alignment = std::nullopt);
 
   /// Map a subrange of the specified file as a MemoryBuffer.
   static ErrorOr<std::unique_ptr<MemoryBuffer>>
   getFileSlice(const Twine &Filename, uint64_t MapSize, uint64_t Offset,
-               bool IsVolatile = false);
+               bool IsVolatile = false,
+               std::optional<Align> Alignment = std::nullopt);
 
   //===--------------------------------------------------------------------===//
   // Provided for performance analysis.
@@ -181,25 +200,30 @@ public:
     return {getBufferStart(), getBufferEnd()};
   }
 
-  static ErrorOr<std::unique_ptr<WritableMemoryBuffer>>
-  getFile(const Twine &Filename, int64_t FileSize = -1,
-          bool IsVolatile = false);
+  LLVM_ABI static ErrorOr<std::unique_ptr<WritableMemoryBuffer>>
+  getFile(const Twine &Filename, bool IsVolatile = false,
+          std::optional<Align> Alignment = std::nullopt);
 
   /// Map a subrange of the specified file as a WritableMemoryBuffer.
-  static ErrorOr<std::unique_ptr<WritableMemoryBuffer>>
+  LLVM_ABI static ErrorOr<std::unique_ptr<WritableMemoryBuffer>>
   getFileSlice(const Twine &Filename, uint64_t MapSize, uint64_t Offset,
-               bool IsVolatile = false);
+               bool IsVolatile = false,
+               std::optional<Align> Alignment = std::nullopt);
 
   /// Allocate a new MemoryBuffer of the specified size that is not initialized.
   /// Note that the caller should initialize the memory allocated by this
   /// method. The memory is owned by the MemoryBuffer object.
-  static std::unique_ptr<WritableMemoryBuffer>
-  getNewUninitMemBuffer(size_t Size, const Twine &BufferName = "");
+  ///
+  /// \param Alignment Set to indicate that the buffer should be aligned to at
+  /// least the specified alignment.
+  LLVM_ABI static std::unique_ptr<WritableMemoryBuffer>
+  getNewUninitMemBuffer(size_t Size, const Twine &BufferName = "",
+                        std::optional<Align> Alignment = std::nullopt);
 
   /// Allocate a new zero-initialized MemoryBuffer of the specified size. Note
   /// that the caller need not initialize the memory allocated by this method.
   /// The memory is owned by the MemoryBuffer object.
-  static std::unique_ptr<WritableMemoryBuffer>
+  LLVM_ABI static std::unique_ptr<WritableMemoryBuffer>
   getNewMemBuffer(size_t Size, const Twine &BufferName = "");
 
 private:
@@ -240,11 +264,11 @@ public:
     return {getBufferStart(), getBufferEnd()};
   }
 
-  static ErrorOr<std::unique_ptr<WriteThroughMemoryBuffer>>
+  LLVM_ABI static ErrorOr<std::unique_ptr<WriteThroughMemoryBuffer>>
   getFile(const Twine &Filename, int64_t FileSize = -1);
 
   /// Map a subrange of the specified file as a ReadWriteMemoryBuffer.
-  static ErrorOr<std::unique_ptr<WriteThroughMemoryBuffer>>
+  LLVM_ABI static ErrorOr<std::unique_ptr<WriteThroughMemoryBuffer>>
   getFileSlice(const Twine &Filename, uint64_t MapSize, uint64_t Offset);
 
 private:
@@ -258,26 +282,6 @@ private:
   using MemoryBuffer::getOpenFile;
   using MemoryBuffer::getOpenFileSlice;
   using MemoryBuffer::getSTDIN;
-};
-
-class MemoryBufferRef {
-  StringRef Buffer;
-  StringRef Identifier;
-
-public:
-  MemoryBufferRef() = default;
-  MemoryBufferRef(const MemoryBuffer& Buffer)
-      : Buffer(Buffer.getBuffer()), Identifier(Buffer.getBufferIdentifier()) {}
-  MemoryBufferRef(StringRef Buffer, StringRef Identifier)
-      : Buffer(Buffer), Identifier(Identifier) {}
-
-  StringRef getBuffer() const { return Buffer; }
-
-  StringRef getBufferIdentifier() const { return Identifier; }
-
-  const char *getBufferStart() const { return Buffer.begin(); }
-  const char *getBufferEnd() const { return Buffer.end(); }
-  size_t getBufferSize() const { return Buffer.size(); }
 };
 
 // Create wrappers for C Binding types (see CBindingWrapping.h).

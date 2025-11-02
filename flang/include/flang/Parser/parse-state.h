@@ -16,11 +16,11 @@
 // and recovery during parsing!
 
 #include "user-state.h"
-#include "flang/Common/Fortran-features.h"
 #include "flang/Common/idioms.h"
 #include "flang/Parser/characters.h"
 #include "flang/Parser/message.h"
 #include "flang/Parser/provenance.h"
+#include "flang/Support/Fortran-features.h"
 #include <cstddef>
 #include <cstring>
 #include <list>
@@ -34,9 +34,8 @@ using common::LanguageFeature;
 
 class ParseState {
 public:
-  // TODO: Add a constructor for parsing a normalized module file.
   ParseState(const CookedSource &cooked)
-      : p_{&cooked.data().front()}, limit_{&cooked.data().back() + 1} {}
+      : p_{cooked.AsCharBlock().begin()}, limit_{cooked.AsCharBlock().end()} {}
   ParseState(const ParseState &that)
       : p_{that.p_}, limit_{that.limit_}, context_{that.context_},
         userState_{that.userState_}, inFixedForm_{that.inFixedForm_},
@@ -131,19 +130,18 @@ public:
     context_ = context_->attachment();
   }
 
-  template <typename... A> void Say(CharBlock range, A &&... args) {
+  template <typename... A> void Say(CharBlock range, A &&...args) {
     if (deferMessages_) {
       anyDeferredMessages_ = true;
     } else {
       messages_.Say(range, std::forward<A>(args)...).SetContext(context_.get());
     }
   }
-  template <typename... A>
-  void Say(const MessageFixedText &text, A &&... args) {
+  template <typename... A> void Say(const MessageFixedText &text, A &&...args) {
     Say(p_, text, std::forward<A>(args)...);
   }
   template <typename... A>
-  void Say(const MessageExpectedText &text, A &&... args) {
+  void Say(const MessageExpectedText &text, A &&...args) {
     Say(p_, text, std::forward<A>(args)...);
   }
 

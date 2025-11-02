@@ -1,4 +1,4 @@
-//===--- UseNullptrCheck.cpp - clang-tidy----------------------------------===//
+//===----------------------------------------------------------------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -7,6 +7,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "UseNullptrCheck.h"
+#include "../utils/Matchers.h"
+#include "../utils/OptionsUtils.h"
 #include "clang/AST/ASTContext.h"
 #include "clang/AST/RecursiveASTVisitor.h"
 #include "clang/ASTMatchers/ASTMatchFinder.h"
@@ -16,12 +18,8 @@ using namespace clang;
 using namespace clang::ast_matchers;
 using namespace llvm;
 
-namespace clang {
-namespace tidy {
-namespace modernize {
+namespace clang::tidy::modernize {
 namespace {
-
-const char CastSequence[] = "sequence";
 
 AST_MATCHER(Type, sugaredNullptrType) {
   const Type *DesugaredType = Node.getUnqualifiedDesugaredType();
@@ -30,35 +28,70 @@ AST_MATCHER(Type, sugaredNullptrType) {
   return false;
 }
 
+} // namespace
+
+static const char CastSequence[] = "sequence";
+
 /// Create a matcher that finds implicit casts as well as the head of a
 /// sequence of zero or more nested explicit casts that have an implicit cast
 /// to null within.
 /// Finding sequences of explicit casts is necessary so that an entire sequence
 /// can be replaced instead of just the inner-most implicit cast.
-StatementMatcher makeCastSequenceMatcher() {
-  StatementMatcher ImplicitCastToNull = implicitCastExpr(
+///
+/// TODO/NOTE: The second "anyOf" below discards matches on a substituted type,
+/// since we don't know if that would _always_ be a pointer type for all other
+/// specializations, unless the expression was "__null", in which case we assume
+/// that all specializations are expected to be for pointer types. Ideally this
+/// would check for the "NULL" macro instead, but that'd be harder to express.
+/// In practice, "NULL" is often defined as "__null", and this is a useful
+/// condition.
+static StatementMatcher
+makeCastSequenceMatcher(llvm::ArrayRef<StringRef> NameList) {
+  auto ImplicitCastToNull = implicitCastExpr(
       anyOf(hasCastKind(CK_NullToPointer), hasCastKind(CK_NullToMemberPointer)),
-      unless(hasImplicitDestinationType(qualType(substTemplateTypeParmType()))),
-      unless(hasSourceExpression(hasType(sugaredNullptrType()))));
+      anyOf(hasSourceExpression(gnuNullExpr()),
+            unless(hasImplicitDestinationType(
+                qualType(substTemplateTypeParmType())))),
+      unless(hasSourceExpression(hasType(sugaredNullptrType()))),
+      unless(hasImplicitDestinationType(
+          qualType(matchers::matchesAnyListedTypeName(NameList)))));
+
+  auto IsOrHasDescendant = [](const auto &InnerMatcher) {
+    return anyOf(InnerMatcher, hasDescendant(InnerMatcher));
+  };
 
   return traverse(
-      ast_type_traits::TK_AsIs,
-      castExpr(anyOf(ImplicitCastToNull,
-                     explicitCastExpr(hasDescendant(ImplicitCastToNull))),
-               unless(hasAncestor(explicitCastExpr())))
-          .bind(CastSequence));
+      TK_AsIs,
+      anyOf(castExpr(anyOf(ImplicitCastToNull,
+                           explicitCastExpr(hasDescendant(ImplicitCastToNull))),
+                     unless(hasAncestor(explicitCastExpr())),
+                     unless(hasAncestor(cxxRewrittenBinaryOperator())))
+                .bind(CastSequence),
+            cxxRewrittenBinaryOperator(
+                // Match rewritten operators, but verify (in the check method)
+                // that if an implicit cast is found, it is not from another
+                // nested rewritten operator.
+                expr().bind("matchBinopOperands"),
+                hasEitherOperand(IsOrHasDescendant(
+                    implicitCastExpr(
+                        ImplicitCastToNull,
+                        hasAncestor(cxxRewrittenBinaryOperator().bind(
+                            "checkBinopOperands")))
+                        .bind(CastSequence))),
+                // Skip defaulted comparison operators.
+                unless(hasAncestor(functionDecl(isDefaulted()))))));
 }
 
-bool isReplaceableRange(SourceLocation StartLoc, SourceLocation EndLoc,
-                        const SourceManager &SM) {
+static bool isReplaceableRange(SourceLocation StartLoc, SourceLocation EndLoc,
+                               const SourceManager &SM) {
   return SM.isWrittenInSameFile(StartLoc, EndLoc);
 }
 
 /// Replaces the provided range with the text "nullptr", but only if
 /// the start and end location are both in main file.
 /// Returns true if and only if a replacement was made.
-void replaceWithNullptr(ClangTidyCheck &Check, SourceManager &SM,
-                        SourceLocation StartLoc, SourceLocation EndLoc) {
+static void replaceWithNullptr(ClangTidyCheck &Check, SourceManager &SM,
+                               SourceLocation StartLoc, SourceLocation EndLoc) {
   CharSourceRange Range(SourceRange(StartLoc, EndLoc), true);
   // Add a space if nullptr follows an alphanumeric character. This happens
   // whenever there is an c-style explicit cast to nullptr not surrounded by
@@ -76,8 +109,9 @@ void replaceWithNullptr(ClangTidyCheck &Check, SourceManager &SM,
 /// #define MY_NULL NULL
 /// \endcode
 /// If \p Loc points to NULL, this function will return the name MY_NULL.
-StringRef getOutermostMacroName(SourceLocation Loc, const SourceManager &SM,
-                                const LangOptions &LO) {
+static StringRef getOutermostMacroName(SourceLocation Loc,
+                                       const SourceManager &SM,
+                                       const LangOptions &LO) {
   assert(Loc.isMacroID());
   SourceLocation OutermostMacroLoc;
 
@@ -89,14 +123,15 @@ StringRef getOutermostMacroName(SourceLocation Loc, const SourceManager &SM,
   return Lexer::getImmediateMacroName(OutermostMacroLoc, SM, LO);
 }
 
+namespace {
+
 /// RecursiveASTVisitor for ensuring all nodes rooted at a given AST
 /// subtree that have file-level source locations corresponding to a macro
 /// argument have implicit NullTo(Member)Pointer nodes as ancestors.
 class MacroArgUsageVisitor : public RecursiveASTVisitor<MacroArgUsageVisitor> {
 public:
   MacroArgUsageVisitor(SourceLocation CastLoc, const SourceManager &SM)
-      : CastLoc(CastLoc), SM(SM), Visited(false), CastFound(false),
-        InvalidFound(false) {
+      : CastLoc(CastLoc), SM(SM) {
     assert(CastLoc.isFileID());
   }
 
@@ -154,9 +189,9 @@ private:
   SourceLocation CastLoc;
   const SourceManager &SM;
 
-  bool Visited;
-  bool CastFound;
-  bool InvalidFound;
+  bool Visited = false;
+  bool CastFound = false;
+  bool InvalidFound = false;
 };
 
 /// Looks for implicit casts as well as sequences of 0 or more explicit
@@ -173,10 +208,9 @@ private:
 class CastSequenceVisitor : public RecursiveASTVisitor<CastSequenceVisitor> {
 public:
   CastSequenceVisitor(ASTContext &Context, ArrayRef<StringRef> NullMacros,
-                      ClangTidyCheck &check)
+                      ClangTidyCheck &Check)
       : SM(Context.getSourceManager()), Context(Context),
-        NullMacros(NullMacros), Check(check), FirstSubExpr(nullptr),
-        PruneSubtree(false) {}
+        NullMacros(NullMacros), Check(Check) {}
 
   bool TraverseStmt(Stmt *S) {
     // Stop traversing down the tree if requested.
@@ -201,7 +235,7 @@ public:
       return true;
     }
 
-    auto* CastSubExpr = C->getSubExpr()->IgnoreParens();
+    auto *CastSubExpr = C->getSubExpr()->IgnoreParens();
     // Ignore cast expressions which cast nullptr literal.
     if (isa<CXXNullPtrLiteralExpr>(CastSubExpr)) {
       return true;
@@ -277,10 +311,9 @@ private:
       return false;
 
     // Step 2: Find the first ancestor that doesn't expand from this macro.
-    ast_type_traits::DynTypedNode ContainingAncestor;
-    if (!findContainingAncestor(
-            ast_type_traits::DynTypedNode::create<Stmt>(*CE), MacroLoc,
-            ContainingAncestor))
+    DynTypedNode ContainingAncestor;
+    if (!findContainingAncestor(DynTypedNode::create<Stmt>(*CE), MacroLoc,
+                                ContainingAncestor))
       return false;
 
     // Step 3:
@@ -407,9 +440,8 @@ private:
   ///
   /// \pre MacroLoc.isFileID()
   /// \returns true if such an ancestor was found, false otherwise.
-  bool findContainingAncestor(ast_type_traits::DynTypedNode Start,
-                              SourceLocation MacroLoc,
-                              ast_type_traits::DynTypedNode &Result) {
+  bool findContainingAncestor(DynTypedNode Start, SourceLocation MacroLoc,
+                              DynTypedNode &Result) {
     // Below we're only following the first parent back up the AST. This should
     // be fine since for the statements we care about there should only be one
     // parent, except for the case specified below.
@@ -431,7 +463,7 @@ private:
         }
       }
 
-      const ast_type_traits::DynTypedNode &Parent = Parents[0];
+      const DynTypedNode &Parent = Parents[0];
 
       SourceLocation Loc;
       if (const auto *D = Parent.get<Decl>())
@@ -453,34 +485,42 @@ private:
     llvm_unreachable("findContainingAncestor");
   }
 
-private:
   SourceManager &SM;
   ASTContext &Context;
   ArrayRef<StringRef> NullMacros;
   ClangTidyCheck &Check;
-  Expr *FirstSubExpr;
-  bool PruneSubtree;
+  Expr *FirstSubExpr = nullptr;
+  bool PruneSubtree = false;
 };
 
 } // namespace
 
 UseNullptrCheck::UseNullptrCheck(StringRef Name, ClangTidyContext *Context)
     : ClangTidyCheck(Name, Context),
-      NullMacrosStr(Options.get("NullMacros", "")) {
-  StringRef(NullMacrosStr).split(NullMacros, ",");
+      NullMacrosStr(Options.get("NullMacros", "NULL")),
+      IgnoredTypes(utils::options::parseStringList(Options.get(
+          "IgnoredTypes", "_CmpUnspecifiedParam;^std::__cmp_cat::__unspec"))) {
+  NullMacrosStr.split(NullMacros, ",");
 }
 
 void UseNullptrCheck::storeOptions(ClangTidyOptions::OptionMap &Opts) {
   Options.store(Opts, "NullMacros", NullMacrosStr);
+  Options.store(Opts, "IgnoredTypes",
+                utils::options::serializeStringList(IgnoredTypes));
 }
 
 void UseNullptrCheck::registerMatchers(MatchFinder *Finder) {
-  Finder->addMatcher(makeCastSequenceMatcher(), this);
+  Finder->addMatcher(makeCastSequenceMatcher(IgnoredTypes), this);
 }
 
 void UseNullptrCheck::check(const MatchFinder::MatchResult &Result) {
   const auto *NullCast = Result.Nodes.getNodeAs<CastExpr>(CastSequence);
   assert(NullCast && "Bad Callback. No node provided");
+
+  if (Result.Nodes.getNodeAs<CXXRewrittenBinaryOperator>(
+          "matchBinopOperands") !=
+      Result.Nodes.getNodeAs<CXXRewrittenBinaryOperator>("checkBinopOperands"))
+    return;
 
   // Given an implicit null-ptr cast or an explicit cast with an implicit
   // null-to-pointer cast within use CastSequenceVisitor to identify sequences
@@ -489,6 +529,4 @@ void UseNullptrCheck::check(const MatchFinder::MatchResult &Result) {
       .TraverseStmt(const_cast<CastExpr *>(NullCast));
 }
 
-} // namespace modernize
-} // namespace tidy
-} // namespace clang
+} // namespace clang::tidy::modernize

@@ -37,6 +37,7 @@ UBSAN_CHECK(IntegerDivideByZero, "integer-divide-by-zero",
             "integer-divide-by-zero")
 UBSAN_CHECK(FloatDivideByZero, "float-divide-by-zero", "float-divide-by-zero")
 UBSAN_CHECK(InvalidBuiltin, "invalid-builtin-use", "invalid-builtin-use")
+UBSAN_CHECK(InvalidObjCCast, "invalid-objc-cast", "invalid-objc-cast")
 UBSAN_CHECK(ImplicitUnsignedIntegerTruncation,
             "implicit-unsigned-integer-truncation",
             "implicit-unsigned-integer-truncation")
@@ -52,6 +53,7 @@ UBSAN_CHECK(ImplicitSignedIntegerTruncationOrSignChange,
 UBSAN_CHECK(InvalidShiftBase, "invalid-shift-base", "shift-base")
 UBSAN_CHECK(InvalidShiftExponent, "invalid-shift-exponent", "shift-exponent")
 UBSAN_CHECK(OutOfBoundsIndex, "out-of-bounds-index", "bounds")
+UBSAN_CHECK(LocalOutOfBounds, "local-out-of-bounds", "local-bounds")
 UBSAN_CHECK(UnreachableCall, "unreachable-call", "unreachable")
 UBSAN_CHECK(MissingReturn, "missing-return", "return")
 UBSAN_CHECK(NonPositiveVLAIndex, "non-positive-vla-index", "vla-bound")

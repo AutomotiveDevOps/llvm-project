@@ -1,14 +1,13 @@
+; Test misexpect checks do not issue diagnostics when profiling weights and
+; branch weights added by llvm.expect agree
+
 ; RUN: llvm-profdata merge %S/Inputs/misexpect-branch-correct.proftext -o %t.profdata
 
-; RUN: opt < %s -lower-expect -pgo-instr-use -pgo-test-profile-file=%t.profdata -S -pgo-warn-misexpect -pass-remarks=misexpect 2>&1 | FileCheck %s
-
-; New PM
 ; RUN: opt < %s -passes="function(lower-expect),pgo-instr-use" -pgo-test-profile-file=%t.profdata -pgo-warn-misexpect -pass-remarks=misexpect -S  2>&1 | FileCheck %s
 
 ; CHECK-NOT: warning: {{.*}}
 ; CHECK-NOT: remark: {{.*}}
-; CHECK: !{!"misexpect", i64 1, i64 2000, i64 1}
-
+; CHECK: !{!"branch_weights", i32 0, i32 200000}
 
 ; ModuleID = 'misexpect-branch-correct.c'
 source_filename = "misexpect-branch-correct.c"
@@ -19,19 +18,17 @@ target triple = "x86_64-unknown-linux-gnu"
 @outer_loop = constant i32 2000, align 4
 
 ; Function Attrs: nounwind
-define i32 @bar() #0 {
+define i32 @bar() {
 entry:
   %rando = alloca i32, align 4
   %x = alloca i32, align 4
-  %0 = bitcast i32* %rando to i8*
-  call void @llvm.lifetime.start.p0i8(i64 4, i8* %0) #4
+  call void @llvm.lifetime.start.p0(ptr %rando)
   %call = call i32 (...) @buzz()
-  store i32 %call, i32* %rando, align 4, !tbaa !3
-  %1 = bitcast i32* %x to i8*
-  call void @llvm.lifetime.start.p0i8(i64 4, i8* %1) #4
-  store i32 0, i32* %x, align 4, !tbaa !3
-  %2 = load i32, i32* %rando, align 4, !tbaa !3
-  %rem = srem i32 %2, 200000
+  store i32 %call, ptr %rando, align 4, !tbaa !3
+  call void @llvm.lifetime.start.p0(ptr %x)
+  store i32 0, ptr %x, align 4, !tbaa !3
+  %0 = load i32, ptr %rando, align 4, !tbaa !3
+  %rem = srem i32 %0, 200000
   %cmp = icmp eq i32 %rem, 0
   %lnot = xor i1 %cmp, true
   %lnot1 = xor i1 %lnot, true
@@ -42,45 +39,37 @@ entry:
   br i1 %tobool, label %if.then, label %if.else
 
 if.then:                                          ; preds = %entry
-  %3 = load i32, i32* %rando, align 4, !tbaa !3
-  %call2 = call i32 @baz(i32 %3)
-  store i32 %call2, i32* %x, align 4, !tbaa !3
+  %1 = load i32, ptr %rando, align 4, !tbaa !3
+  %call2 = call i32 @baz(i32 %1)
+  store i32 %call2, ptr %x, align 4, !tbaa !3
   br label %if.end
 
 if.else:                                          ; preds = %entry
   %call3 = call i32 @foo(i32 50)
-  store i32 %call3, i32* %x, align 4, !tbaa !3
+  store i32 %call3, ptr %x, align 4, !tbaa !3
   br label %if.end
 
 if.end:                                           ; preds = %if.else, %if.then
-  %4 = load i32, i32* %x, align 4, !tbaa !3
-  %5 = bitcast i32* %x to i8*
-  call void @llvm.lifetime.end.p0i8(i64 4, i8* %5) #4
-  %6 = bitcast i32* %rando to i8*
-  call void @llvm.lifetime.end.p0i8(i64 4, i8* %6) #4
-  ret i32 %4
+  %2 = load i32, ptr %x, align 4, !tbaa !3
+  call void @llvm.lifetime.end.p0(ptr %x)
+  call void @llvm.lifetime.end.p0(ptr %rando)
+  ret i32 %2
 }
 
 ; Function Attrs: argmemonly nounwind willreturn
-declare void @llvm.lifetime.start.p0i8(i64 immarg, i8* nocapture) #1
+declare void @llvm.lifetime.start.p0(ptr nocapture)
 
-declare i32 @buzz(...) #2
+declare i32 @buzz(...)
 
 ; Function Attrs: nounwind readnone willreturn
-declare i64 @llvm.expect.i64(i64, i64) #3
+declare i64 @llvm.expect.i64(i64, i64)
 
-declare i32 @baz(i32) #2
+declare i32 @baz(i32)
 
-declare i32 @foo(i32) #2
+declare i32 @foo(i32)
 
 ; Function Attrs: argmemonly nounwind willreturn
-declare void @llvm.lifetime.end.p0i8(i64 immarg, i8* nocapture) #1
-
-attributes #0 = { nounwind "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "frame-pointer"="none" "less-precise-fpmad"="false" "min-legal-vector-width"="0" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-features"="+cx8,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
-attributes #1 = { argmemonly nounwind willreturn }
-attributes #2 = { "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "frame-pointer"="none" "less-precise-fpmad"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-features"="+cx8,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
-attributes #3 = { nounwind readnone willreturn }
-attributes #4 = { nounwind }
+declare void @llvm.lifetime.end.p0(ptr nocapture)
 
 !llvm.module.flags = !{!0, !1}
 !llvm.ident = !{!2}

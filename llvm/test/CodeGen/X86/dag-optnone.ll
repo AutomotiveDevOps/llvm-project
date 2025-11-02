@@ -28,7 +28,7 @@
 ; a repeated fadd that can be combined into an fmul.  We show that this
 ; happens in both the non-optnone function and the optnone function.
 
-define float @foo(float %x, ...) #0 {
+define float @foo(float %x, ...) {
 entry:
   %add = fadd fast float %x, %x
   %add1 = fadd fast float %add, %x
@@ -62,11 +62,10 @@ entry:
 define void @bar(...) #1 {
 entry:
   %id83 = alloca <16 x i8>, align 16
-  %0 = load <16 x i32>, <16 x i32>* @id84, align 64
+  %0 = load <16 x i32>, ptr @id84, align 64
   %conv = trunc <16 x i32> %0 to <16 x i8>
-  store <16 x i8> %conv, <16 x i8>* %id83, align 16
+  store <16 x i8> %conv, ptr %id83, align 16
   ret void
 }
 
-attributes #0 = { "unsafe-fp-math"="true" }
-attributes #1 = { noinline optnone "unsafe-fp-math"="true" }
+attributes #1 = { noinline optnone }

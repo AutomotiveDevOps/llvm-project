@@ -15,6 +15,7 @@
 
 #include "Sparc.h"
 #include "llvm/CodeGen/TargetFrameLowering.h"
+#include "llvm/Support/TypeSize.h"
 
 namespace llvm {
 
@@ -34,17 +35,19 @@ public:
                                 MachineBasicBlock::iterator I) const override;
 
   bool hasReservedCallFrame(const MachineFunction &MF) const override;
-  bool hasFP(const MachineFunction &MF) const override;
   void determineCalleeSaves(MachineFunction &MF, BitVector &SavedRegs,
                             RegScavenger *RS = nullptr) const override;
 
-  int getFrameIndexReference(const MachineFunction &MF, int FI,
-                             Register &FrameReg) const override;
+  StackOffset getFrameIndexReference(const MachineFunction &MF, int FI,
+                                     Register &FrameReg) const override;
 
   /// targetHandlesStackFrameRounding - Returns true if the target is
   /// responsible for rounding up the stack frame (probably at emitPrologue
   /// time).
   bool targetHandlesStackFrameRounding() const override { return true; }
+
+protected:
+  bool hasFPImpl(const MachineFunction &MF) const override;
 
 private:
   // Remap input registers to output registers for leaf procedure.

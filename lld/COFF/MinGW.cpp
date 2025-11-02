@@ -7,10 +7,15 @@
 //===----------------------------------------------------------------------===//
 
 #include "MinGW.h"
+#include "COFFLinkerContext.h"
+#include "Driver.h"
+#include "InputFiles.h"
 #include "SymbolTable.h"
-#include "lld/Common/ErrorHandler.h"
-#include "llvm/Object/COFF.h"
+#include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/DenseSet.h"
+#include "llvm/Support/Parallel.h"
 #include "llvm/Support/Path.h"
+#include "llvm/Support/TimeProfiler.h"
 #include "llvm/Support/raw_ostream.h"
 
 using namespace llvm;
@@ -18,7 +23,9 @@ using namespace llvm::COFF;
 using namespace lld;
 using namespace lld::coff;
 
-AutoExporter::AutoExporter() {
+AutoExporter::AutoExporter(
+    SymbolTable &symtab, const llvm::DenseSet<StringRef> &manualExcludeSymbols)
+    : manualExcludeSymbols(manualExcludeSymbols), symtab(symtab) {
   excludeLibs = {
       "libgcc",
       "libgcc_s",
@@ -34,11 +41,24 @@ AutoExporter::AutoExporter() {
       "libclang_rt.builtins-arm",
       "libclang_rt.builtins-i386",
       "libclang_rt.builtins-x86_64",
+      "libclang_rt.profile",
+      "libclang_rt.profile-aarch64",
+      "libclang_rt.profile-arm",
+      "libclang_rt.profile-i386",
+      "libclang_rt.profile-x86_64",
+      "libcygwin",
+      "libmsys-2.0",
       "libc++",
       "libc++abi",
+      "libflang_rt.runtime",
       "libunwind",
       "libmsvcrt",
+      "libmsvcrt-os",
       "libucrtbase",
+      "libucrt",
+      "libucrtapp",
+      "libpthread",
+      "libwinpthread",
   };
 
   excludeObjects = {
@@ -57,6 +77,10 @@ AutoExporter::AutoExporter() {
       "__builtin_",
       // Artificial symbols such as .refptr
       ".",
+      // profile generate symbols
+      "__profc_",
+      "__profd_",
+      "__profvp_",
   };
 
   excludeSymbolSuffixes = {
@@ -64,7 +88,7 @@ AutoExporter::AutoExporter() {
       "_NULL_THUNK_DATA",
   };
 
-  if (config->machine == I386) {
+  if (symtab.machine == I386) {
     excludeSymbols = {
         "__NULL_IMPORT_DESCRIPTOR",
         "__pei386_runtime_relocator",
@@ -74,6 +98,7 @@ AutoExporter::AutoExporter() {
         "__fmode",
         "_environ",
         "___dso_handle",
+        "__load_config_used",
         // These are the MinGW names that differ from the standard
         // ones (lacking an extra underscore).
         "_DllMain@12",
@@ -91,6 +116,7 @@ AutoExporter::AutoExporter() {
         "_fmode",
         "environ",
         "__dso_handle",
+        "_load_config_used",
         // These are the MinGW names that differ from the standard
         // ones (lacking an extra underscore).
         "DllMain",
@@ -98,6 +124,10 @@ AutoExporter::AutoExporter() {
         "DllMainCRTStartup",
     };
     excludeSymbolPrefixes.insert("_head_");
+  }
+  if (symtab.isEC()) {
+    excludeSymbols.insert("__chpe_metadata");
+    excludeSymbolPrefixes.insert("__os_arm64x_");
   }
 }
 
@@ -108,26 +138,30 @@ void AutoExporter::addWholeArchive(StringRef path) {
   excludeLibs.erase(libName);
 }
 
+void AutoExporter::addExcludedSymbol(StringRef symbol) {
+  excludeSymbols.insert(symbol);
+}
+
 bool AutoExporter::shouldExport(Defined *sym) const {
-  if (!sym || !sym->isLive() || !sym->getChunk())
+  if (!sym || !sym->getChunk())
     return false;
 
   // Only allow the symbol kinds that make sense to export; in particular,
   // disallow import symbols.
   if (!isa<DefinedRegular>(sym) && !isa<DefinedCommon>(sym))
     return false;
-  if (excludeSymbols.count(sym->getName()))
+  if (excludeSymbols.count(sym->getName()) || manualExcludeSymbols.count(sym->getName()))
     return false;
 
   for (StringRef prefix : excludeSymbolPrefixes.keys())
-    if (sym->getName().startswith(prefix))
+    if (sym->getName().starts_with(prefix))
       return false;
   for (StringRef suffix : excludeSymbolSuffixes.keys())
-    if (sym->getName().endswith(suffix))
+    if (sym->getName().ends_with(suffix))
       return false;
 
   // If a corresponding __imp_ symbol exists and is defined, don't export it.
-  if (symtab->find(("__imp_" + sym->getName()).str()))
+  if (symtab.find(("__imp_" + sym->getName()).str()))
     return false;
 
   // Check that file is non-null before dereferencing it, symbols not
@@ -146,14 +180,16 @@ bool AutoExporter::shouldExport(Defined *sym) const {
   return !excludeObjects.count(fileName);
 }
 
-void lld::coff::writeDefFile(StringRef name) {
+void lld::coff::writeDefFile(COFFLinkerContext &ctx, StringRef name,
+                             const std::vector<Export> &exports) {
+  llvm::TimeTraceScope timeScope("Write .def file");
   std::error_code ec;
   raw_fd_ostream os(name, ec, sys::fs::OF_None);
   if (ec)
-    fatal("cannot open " + name + ": " + ec.message());
+    Fatal(ctx) << "cannot open " << name << ": " << ec.message();
 
   os << "EXPORTS\n";
-  for (Export &e : config->exports) {
+  for (const Export &e : exports) {
     os << "    " << e.exportName << " "
        << "@" << e.ordinal;
     if (auto *def = dyn_cast_or_null<Defined>(e.sym)) {
@@ -163,4 +199,94 @@ void lld::coff::writeDefFile(StringRef name) {
     }
     os << "\n";
   }
+}
+
+static StringRef mangle(Twine sym, MachineTypes machine) {
+  assert(machine != IMAGE_FILE_MACHINE_UNKNOWN);
+  if (machine == I386)
+    return saver().save("_" + sym);
+  return saver().save(sym);
+}
+
+// Handles -wrap option.
+//
+// This function instantiates wrapper symbols. At this point, they seem
+// like they are not being used at all, so we explicitly set some flags so
+// that LTO won't eliminate them.
+void lld::coff::addWrappedSymbols(SymbolTable &symtab,
+                                  opt::InputArgList &args) {
+  std::vector<WrappedSymbol> v;
+  DenseSet<StringRef> seen;
+
+  for (auto *arg : args.filtered(OPT_wrap)) {
+    StringRef name = arg->getValue();
+    if (!seen.insert(name).second)
+      continue;
+
+    Symbol *sym = symtab.findUnderscore(name);
+    if (!sym)
+      continue;
+
+    Symbol *real =
+        symtab.addUndefined(mangle("__real_" + name, symtab.machine));
+    Symbol *wrap =
+        symtab.addUndefined(mangle("__wrap_" + name, symtab.machine));
+    v.push_back({sym, real, wrap});
+
+    // These symbols may seem undefined initially, but don't bail out
+    // at symtab.reportUnresolvable() due to them, but let wrapSymbols
+    // below sort things out before checking finally with
+    // symtab.resolveRemainingUndefines().
+    sym->deferUndefined = true;
+    real->deferUndefined = true;
+    // We want to tell LTO not to inline symbols to be overwritten
+    // because LTO doesn't know the final symbol contents after renaming.
+    real->canInline = false;
+    sym->canInline = false;
+
+    // Tell LTO not to eliminate these symbols.
+    sym->isUsedInRegularObj = true;
+    if (!isa<Undefined>(wrap))
+      wrap->isUsedInRegularObj = true;
+  }
+  symtab.wrapped = std::move(v);
+}
+
+// Do renaming for -wrap by updating pointers to symbols.
+//
+// When this function is executed, only InputFiles and symbol table
+// contain pointers to symbol objects. We visit them to replace pointers,
+// so that wrapped symbols are swapped as instructed by the command line.
+void lld::coff::wrapSymbols(SymbolTable &symtab) {
+  DenseMap<Symbol *, Symbol *> map;
+  for (const WrappedSymbol &w : symtab.wrapped) {
+    map[w.sym] = w.wrap;
+    map[w.real] = w.sym;
+    if (Defined *d = dyn_cast<Defined>(w.wrap)) {
+      Symbol *imp = symtab.find(("__imp_" + w.sym->getName()).str());
+      // Create a new defined local import for the wrap symbol. If
+      // no imp prefixed symbol existed, there's no need for it.
+      // (We can't easily distinguish whether any object file actually
+      // referenced it or not, though.)
+      if (imp) {
+        if (Symbol *wrapimp =
+                symtab.find(("__imp_" + w.wrap->getName()).str())) {
+          map[imp] = wrapimp;
+        } else {
+          DefinedLocalImport *localwrapimp = make<DefinedLocalImport>(
+              symtab.ctx, saver().save("__imp_" + w.wrap->getName()), d);
+          symtab.localImportChunks.push_back(localwrapimp->getChunk());
+          map[imp] = localwrapimp;
+        }
+      }
+    }
+  }
+
+  // Update pointers in input files.
+  parallelForEach(symtab.ctx.objFileInstances, [&](ObjFile *file) {
+    MutableArrayRef<Symbol *> syms = file->getMutableSymbols();
+    for (auto &sym : syms)
+      if (Symbol *s = map.lookup(sym))
+        sym = s;
+  });
 }

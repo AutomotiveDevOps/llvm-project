@@ -18,13 +18,7 @@
 #define LLVM_LIB_TARGET_AMDGPU_GCNITERATIVESCHEDULER_H
 
 #include "GCNRegPressure.h"
-#include "llvm/ADT/ArrayRef.h"
-#include "llvm/CodeGen/MachineBasicBlock.h"
 #include "llvm/CodeGen/MachineScheduler.h"
-#include "llvm/Support/Allocator.h"
-#include <limits>
-#include <memory>
-#include <vector>
 
 namespace llvm {
 
@@ -83,6 +77,8 @@ protected:
   const StrategyKind Strategy;
   mutable GCNUpwardRPTracker UPTracker;
 
+  std::vector<std::unique_ptr<ScheduleDAGMutation>> SavedMutations;
+
   class BuildDAG;
   class OverrideLegacyStrategy;
 
@@ -97,6 +93,7 @@ protected:
     return getRegionPressure(R.Begin, R.End);
   }
 
+  void swapIGLPMutations(const Region &R, bool IsReentry);
   void setBestSchedule(Region &R,
                        ScheduleRef Schedule,
                        const GCNRegPressure &MaxRP = GCNRegPressure());

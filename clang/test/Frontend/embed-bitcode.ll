@@ -7,7 +7,10 @@
 ; RUN: %clang_cc1 -triple thumbv7-apple-ios8.0.0 -emit-llvm \
 ; RUN:    -fembed-bitcode=marker -x ir %s -o - \
 ; RUN:    | FileCheck %s -check-prefix=CHECK-MARKER
-; RUN: %clang_cc1 -triple aarch64-unknown-linux-gnueabi -emit-llvm \
+; RUN: %clang_cc1 -triple aarch64 -emit-llvm \
+; RUN:    -fembed-bitcode=all -x ir %s -o - \
+; RUN:    | FileCheck %s -check-prefix=CHECK-ELF
+; RUN: %clang_cc1 -triple spirv64-amd-amdhsa -emit-llvm \
 ; RUN:    -fembed-bitcode=all -x ir %s -o - \
 ; RUN:    | FileCheck %s -check-prefix=CHECK-ELF
 
@@ -37,10 +40,15 @@
 ; CHECK: @llvm.cmdline = private constant
 ; CHECK: section "__LLVM,__cmdline"
 
+; check warning options are not embedded
+; RUN: %clang_cc1 -triple thumbv7-apple-ios8.0.0 -emit-llvm \
+; RUN:    -fembed-bitcode=all -x ir %s -o - -Wall -Wundef-prefix=TEST \
+; RUN:    | FileCheck %s -check-prefix=CHECK-WARNING
+
 ; CHECK-ELF: @llvm.embedded.module
-; CHECK-ELF: section ".llvmbc"
+; CHECK-ELF-SAME: section ".llvmbc", align 1
 ; CHECK-ELF: @llvm.cmdline
-; CHECK-ELF: section ".llvmcmd"
+; CHECK-ELF-SAME: section ".llvmcmd", align 1
 
 ; CHECK-ONLY-BITCODE: @llvm.embedded.module = private constant
 ; CHECK-ONLY-BITCODE: c"\DE\C0\17\0B
@@ -53,6 +61,9 @@
 ; CHECK-MARKER: section "__LLVM,__bitcode"
 ; CHECK-MARKER: @llvm.cmdline
 ; CHECK-MARKER: section "__LLVM,__cmdline"
+
+; CHECK-WARNING-NOT: Wall
+; CHECK-WARNING-NOT: Wundef-prefix
 
 define i32 @f0() {
   ret i32 0

@@ -1,5 +1,4 @@
-//===--- DurationUnnecessaryConversionCheck.cpp - clang-tidy
-//-----------------------===//
+//===----------------------------------------------------------------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -15,9 +14,7 @@
 
 using namespace clang::ast_matchers;
 
-namespace clang {
-namespace tidy {
-namespace abseil {
+namespace clang::tidy::abseil {
 
 void DurationUnnecessaryConversionCheck::registerMatchers(MatchFinder *Finder) {
   for (const auto &Scale : {"Hours", "Minutes", "Seconds", "Milliseconds",
@@ -30,31 +27,31 @@ void DurationUnnecessaryConversionCheck::registerMatchers(MatchFinder *Finder) {
 
     // Matcher which matches the current scale's factory with a `1` argument,
     // e.g. `absl::Seconds(1)`.
-    auto factory_matcher = ignoringElidableConstructorCall(
+    auto FactoryMatcher = ignoringElidableConstructorCall(
         callExpr(callee(functionDecl(hasName(DurationFactory))),
                  hasArgument(0, ignoringImpCasts(integerLiteral(equals(1))))));
 
     // Matcher which matches either inverse function and binds its argument,
     // e.g. `absl::ToDoubleSeconds(dur)`.
-    auto inverse_function_matcher = callExpr(
+    auto InverseFunctionMatcher = callExpr(
         callee(functionDecl(hasAnyName(FloatConversion, IntegerConversion))),
         hasArgument(0, expr().bind("arg")));
 
     // Matcher which matches a duration divided by the factory_matcher above,
     // e.g. `dur / absl::Seconds(1)`.
-    auto division_operator_matcher = cxxOperatorCallExpr(
+    auto DivisionOperatorMatcher = cxxOperatorCallExpr(
         hasOverloadedOperatorName("/"), hasArgument(0, expr().bind("arg")),
-        hasArgument(1, factory_matcher));
+        hasArgument(1, FactoryMatcher));
 
     // Matcher which matches a duration argument to `FDivDuration`,
     // e.g. `absl::FDivDuration(dur, absl::Seconds(1))`
-    auto fdiv_matcher = callExpr(
+    auto FdivMatcher = callExpr(
         callee(functionDecl(hasName("::absl::FDivDuration"))),
-        hasArgument(0, expr().bind("arg")), hasArgument(1, factory_matcher));
+        hasArgument(0, expr().bind("arg")), hasArgument(1, FactoryMatcher));
 
     // Matcher which matches a duration argument being scaled,
     // e.g. `absl::ToDoubleSeconds(dur) * 2`
-    auto scalar_matcher = ignoringImpCasts(
+    auto ScalarMatcher = ignoringImpCasts(
         binaryOperator(hasOperatorName("*"),
                        hasEitherOperand(expr(ignoringParenImpCasts(
                            callExpr(callee(functionDecl(hasAnyName(
@@ -65,9 +62,9 @@ void DurationUnnecessaryConversionCheck::registerMatchers(MatchFinder *Finder) {
 
     Finder->addMatcher(
         callExpr(callee(functionDecl(hasName(DurationFactory))),
-                 hasArgument(0, anyOf(inverse_function_matcher,
-                                      division_operator_matcher, fdiv_matcher,
-                                      scalar_matcher)))
+                 hasArgument(0, anyOf(InverseFunctionMatcher,
+                                      DivisionOperatorMatcher, FdivMatcher,
+                                      ScalarMatcher)))
             .bind("call"),
         this);
   }
@@ -113,6 +110,4 @@ void DurationUnnecessaryConversionCheck::check(
       << Hint;
 }
 
-} // namespace abseil
-} // namespace tidy
-} // namespace clang
+} // namespace clang::tidy::abseil

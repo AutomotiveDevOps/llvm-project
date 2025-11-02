@@ -1,3 +1,4 @@
+; XFAIL: target={{.*}}-aix{{.*}}
 ; RUN: llc -filetype=asm -asm-verbose=0 -O0 < %s | FileCheck %s
 
 ; Generated with clang from multiline.c:
@@ -9,7 +10,6 @@
 
 
 ; CHECK: .file 1 "/tmp/dbginfo{{.*}}multiline.c"
-; CHECK: .loc 1 2 0
 ; CHECK: .loc 1 3 3
 ; CHECK: .loc 1 3 9
 ; CHECK: .loc 1 3 15
@@ -18,7 +18,7 @@
 ; CHECK: .loc 1 4 15
 ; CHECK: .loc 1 5 1
 
-; CHECK-NOT: .section .{{debug.*}}
+; CHECK-NOT: .section .{{debug_.*}}
 
 ; Function Attrs: nounwind uwtable
 define void @f2() #0 !dbg !4 {
@@ -34,8 +34,8 @@ entry:
 
 declare void @f1(...) #1
 
-attributes #0 = { nounwind uwtable "less-precise-fpmad"="false" "frame-pointer"="all" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "unsafe-fp-math"="false" "use-soft-float"="false" }
-attributes #1 = { "less-precise-fpmad"="false" "frame-pointer"="all" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "unsafe-fp-math"="false" "use-soft-float"="false" }
+attributes #0 = { nounwind uwtable "less-precise-fpmad"="false" "frame-pointer"="all" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "use-soft-float"="false" }
+attributes #1 = { "less-precise-fpmad"="false" "frame-pointer"="all" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "stack-protector-buffer-size"="8" "use-soft-float"="false" }
 
 !llvm.dbg.cu = !{!0}
 !llvm.module.flags = !{!8, !9}

@@ -12,6 +12,14 @@ decrease overall compile time by 20%.
 This guide walks you through how to build Clang with PGO, though it also applies
 to other subprojects, such as LLD.
 
+If you want to build other software with PGO, see the `end-user documentation
+for PGO <https://clang.llvm.org/docs/UsersManual.html#profile-guided-optimization>`_.
+
+
+Using preconfigured CMake caches
+================================
+
+See https://llvm.org/docs/AdvancedBuilds.html#multi-stage-pgo
 
 Using the script
 ================
@@ -62,8 +70,8 @@ This is configurable in the script itself.
 Building Clang with PGO
 =======================
 
-If you prefer to not use the script, this briefly goes over how to build
-Clang/LLVM with PGO.
+If you prefer to not use the script or the cmake cache, this briefly goes over
+how to build Clang/LLVM with PGO.
 
 First, you should have at least LLVM, Clang, and compiler-rt checked out
 locally.
@@ -157,7 +165,6 @@ If this worked well for you and you plan on doing it often, there's a slight
 optimization that can be made: LLVM and Clang have a tool called tblgen that's
 built and run during the build process. While it's potentially nice to build
 this for coverage as part of step 3, none of your other builds should benefit
-from building it. You can pass the CMake options
-``-DCLANG_TABLEGEN=/path/to/stage1/bin/clang-tblgen
--DLLVM_TABLEGEN=/path/to/stage1/bin/llvm-tblgen`` to steps 2 and onward to avoid
-these useless rebuilds.
+from building it. You can pass the CMake option
+``-DLLVM_NATIVE_TOOL_DIR=/path/to/stage1/bin``
+to steps 2 and onward to avoid these useless rebuilds.

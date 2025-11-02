@@ -10,6 +10,7 @@
 
 #include "lldb/DataFormatters/FormatManager.h"
 #include "lldb/Interpreter/OptionArgParser.h"
+#include "lldb/Interpreter/OptionValue.h"
 #include "lldb/Utility/Stream.h"
 
 using namespace lldb;
@@ -23,7 +24,17 @@ void OptionValueFormat::DumpValue(const ExecutionContext *exe_ctx, Stream &strm,
     if (dump_mask & eDumpOptionType)
       strm.PutCString(" = ");
     strm.PutCString(FormatManager::GetFormatAsCString(m_current_value));
+    if (dump_mask & eDumpOptionDefaultValue &&
+        m_current_value != m_default_value) {
+      DefaultValueFormat label(strm);
+      strm.PutCString(FormatManager::GetFormatAsCString(m_default_value));
+    }
   }
+}
+
+llvm::json::Value
+OptionValueFormat::ToJSON(const ExecutionContext *exe_ctx) const {
+  return FormatManager::GetFormatAsCString(m_current_value);
 }
 
 Status OptionValueFormat::SetValueFromString(llvm::StringRef value,
@@ -55,8 +66,4 @@ Status OptionValueFormat::SetValueFromString(llvm::StringRef value,
     break;
   }
   return error;
-}
-
-lldb::OptionValueSP OptionValueFormat::DeepCopy() const {
-  return OptionValueSP(new OptionValueFormat(*this));
 }

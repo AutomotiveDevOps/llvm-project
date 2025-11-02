@@ -14,50 +14,16 @@
 #ifndef MLIR_INITALLDIALECTS_H_
 #define MLIR_INITALLDIALECTS_H_
 
-#include "mlir/Dialect/AVX512/AVX512Dialect.h"
-#include "mlir/Dialect/Affine/IR/AffineOps.h"
-#include "mlir/Dialect/GPU/GPUDialect.h"
-#include "mlir/Dialect/LLVMIR/LLVMAVX512Dialect.h"
-#include "mlir/Dialect/LLVMIR/LLVMDialect.h"
-#include "mlir/Dialect/LLVMIR/NVVMDialect.h"
-#include "mlir/Dialect/LLVMIR/ROCDLDialect.h"
-#include "mlir/Dialect/Linalg/IR/LinalgOps.h"
-#include "mlir/Dialect/OpenMP/OpenMPDialect.h"
-#include "mlir/Dialect/Quant/QuantOps.h"
-#include "mlir/Dialect/SCF/SCF.h"
-#include "mlir/Dialect/SDBM/SDBMDialect.h"
-#include "mlir/Dialect/SPIRV/SPIRVDialect.h"
-#include "mlir/Dialect/Shape/IR/Shape.h"
-#include "mlir/Dialect/StandardOps/IR/Ops.h"
-#include "mlir/Dialect/Vector/VectorOps.h"
-#include "mlir/IR/Dialect.h"
-
 namespace mlir {
+class DialectRegistry;
+class MLIRContext;
 
-// This function should be called before creating any MLIRContext if one expect
-// all the possible dialects to be made available to the context automatically.
-inline void registerAllDialects() {
-  static bool init_once = []() {
-    registerDialect<AffineDialect>();
-    registerDialect<avx512::AVX512Dialect>();
-    registerDialect<gpu::GPUDialect>();
-    registerDialect<LLVM::LLVMAVX512Dialect>();
-    registerDialect<LLVM::LLVMDialect>();
-    registerDialect<linalg::LinalgDialect>();
-    registerDialect<scf::SCFDialect>();
-    registerDialect<omp::OpenMPDialect>();
-    registerDialect<quant::QuantizationDialect>();
-    registerDialect<spirv::SPIRVDialect>();
-    registerDialect<StandardOpsDialect>();
-    registerDialect<vector::VectorDialect>();
-    registerDialect<NVVM::NVVMDialect>();
-    registerDialect<ROCDL::ROCDLDialect>();
-    registerDialect<SDBMDialect>();
-    registerDialect<shape::ShapeDialect>();
-    return true;
-  }();
-  (void)init_once;
-}
+/// Add all the MLIR dialects to the provided registry.
+void registerAllDialects(DialectRegistry &registry);
+
+/// Append all the MLIR dialects to the registry contained in the given context.
+void registerAllDialects(MLIRContext &context);
+
 } // namespace mlir
 
 #endif // MLIR_INITALLDIALECTS_H_

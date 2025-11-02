@@ -8,8 +8,8 @@ define float @f_i128_f(float %v) nounwind {
 ; CHECK-LABEL: f_i128_f:
 ; CHECK:       # %bb.0: # %entry
 ; CHECK-NEXT:    mflr 0
-; CHECK-NEXT:    std 0, 16(1)
 ; CHECK-NEXT:    stdu 1, -32(1)
+; CHECK-NEXT:    std 0, 48(1)
 ; CHECK-NEXT:    bl __fixsfti
 ; CHECK-NEXT:    nop
 ; CHECK-NEXT:    bl __floattisf
@@ -29,8 +29,7 @@ entry:
 define float @f_i128_fi_nsz(float %v) #0 {
 ; CHECK-LABEL: f_i128_fi_nsz:
 ; CHECK:       # %bb.0: # %entry
-; CHECK-NEXT:    xsrdpiz 0, 1
-; CHECK-NEXT:    fmr 1, 0
+; CHECK-NEXT:    xsrdpiz 1, 1
 ; CHECK-NEXT:    blr
 entry:
   %a = fptosi float %v to i128

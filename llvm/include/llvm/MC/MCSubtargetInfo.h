@@ -14,14 +14,16 @@
 #define LLVM_MC_MCSUBTARGETINFO_H
 
 #include "llvm/ADT/ArrayRef.h"
+#include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/StringRef.h"
-#include "llvm/ADT/Triple.h"
 #include "llvm/MC/MCInstrItineraries.h"
 #include "llvm/MC/MCSchedule.h"
-#include "llvm/MC/SubtargetFeature.h"
-#include <algorithm>
+#include "llvm/Support/Compiler.h"
+#include "llvm/TargetParser/SubtargetFeature.h"
+#include "llvm/TargetParser/Triple.h"
 #include <cassert>
 #include <cstdint>
+#include <optional>
 #include <string>
 
 namespace llvm {
@@ -54,6 +56,7 @@ struct SubtargetFeatureKV {
 struct SubtargetSubTypeKV {
   const char *Key;                      ///< K-V key string
   FeatureBitArray Implies;              ///< K-V bit mask
+  FeatureBitArray TuneImplies;          ///< K-V bit mask
   const MCSchedModel *SchedModel;
 
   /// Compare routine for std::lower_bound
@@ -71,9 +74,11 @@ struct SubtargetSubTypeKV {
 ///
 /// Generic base class for all target subtargets.
 ///
-class MCSubtargetInfo {
+class LLVM_ABI MCSubtargetInfo {
   Triple TargetTriple;
   std::string CPU; // CPU being targeted.
+  std::string TuneCPU; // CPU being tuned for.
+  ArrayRef<StringRef> ProcNames; // Processor list, including aliases
   ArrayRef<SubtargetFeatureKV> ProcFeatures;  // Processor feature list
   ArrayRef<SubtargetSubTypeKV> ProcDesc;  // Processor descriptions
 
@@ -87,10 +92,12 @@ class MCSubtargetInfo {
   const unsigned *OperandCycles;       // Itinerary operand cycles
   const unsigned *ForwardingPaths;
   FeatureBitset FeatureBits;           // Feature bits for current CPU + FS
+  std::string FeatureString;           // Feature string
 
 public:
   MCSubtargetInfo(const MCSubtargetInfo &) = default;
-  MCSubtargetInfo(const Triple &TT, StringRef CPU, StringRef FS,
+  MCSubtargetInfo(const Triple &TT, StringRef CPU, StringRef TuneCPU,
+                  StringRef FS, ArrayRef<StringRef> PN,
                   ArrayRef<SubtargetFeatureKV> PF,
                   ArrayRef<SubtargetSubTypeKV> PD,
                   const MCWriteProcResEntry *WPR, const MCWriteLatencyEntry *WL,
@@ -103,11 +110,14 @@ public:
 
   const Triple &getTargetTriple() const { return TargetTriple; }
   StringRef getCPU() const { return CPU; }
+  StringRef getTuneCPU() const { return TuneCPU; }
 
   const FeatureBitset& getFeatureBits() const { return FeatureBits; }
   void setFeatureBits(const FeatureBitset &FeatureBits_) {
     FeatureBits = FeatureBits_;
   }
+
+  StringRef getFeatureString() const { return FeatureString; }
 
   bool hasFeature(unsigned Feature) const {
     return FeatureBits[Feature];
@@ -118,12 +128,12 @@ protected:
   ///
   /// FIXME: Find a way to stick this in the constructor, since it should only
   /// be called during initialization.
-  void InitMCProcessorInfo(StringRef CPU, StringRef FS);
+  void InitMCProcessorInfo(StringRef CPU, StringRef TuneCPU, StringRef FS);
 
 public:
-  /// Set the features to the default for the given CPU with an appended feature
-  /// string.
-  void setDefaultFeatures(StringRef CPU, StringRef FS);
+  /// Set the features to the default for the given CPU and TuneCPU, with ano
+  /// appended feature string.
+  void setDefaultFeatures(StringRef CPU, StringRef TuneCPU, StringRef FS);
 
   /// Toggle a feature and return the re-computed feature bits.
   /// This version does not change the implied bits.
@@ -210,35 +220,74 @@ public:
   void initInstrItins(InstrItineraryData &InstrItins) const;
 
   /// Resolve a variant scheduling class for the given MCInst and CPU.
-  virtual unsigned
-  resolveVariantSchedClass(unsigned SchedClass, const MCInst *MI,
-                           unsigned CPUID) const {
+  virtual unsigned resolveVariantSchedClass(unsigned SchedClass,
+                                            const MCInst *MI,
+                                            const MCInstrInfo *MCII,
+                                            unsigned CPUID) const {
     return 0;
   }
 
   /// Check whether the CPU string is valid.
-  bool isCPUStringValid(StringRef CPU) const {
-    auto Found = std::lower_bound(ProcDesc.begin(), ProcDesc.end(), CPU);
+  virtual bool isCPUStringValid(StringRef CPU) const {
+    auto Found = llvm::lower_bound(ProcDesc, CPU);
     return Found != ProcDesc.end() && StringRef(Found->Key) == CPU;
   }
 
-  virtual unsigned getHwMode() const { return 0; }
+  /// Return processor descriptions.
+  ArrayRef<SubtargetSubTypeKV> getAllProcessorDescriptions() const {
+    return ProcDesc;
+  }
+
+  /// Return processor features.
+  ArrayRef<SubtargetFeatureKV> getAllProcessorFeatures() const {
+    return ProcFeatures;
+  }
+
+  /// Return the list of processor features currently enabled.
+  std::vector<SubtargetFeatureKV> getEnabledProcessorFeatures() const;
+
+  /// HwMode IDs are stored and accessed in a bit set format, enabling
+  /// users to efficiently retrieve specific IDs, such as the RegInfo
+  /// HwMode ID, from the set as required. Using this approach, various
+  /// types of HwMode IDs can be added to a subtarget to manage different
+  /// attributes within that subtarget, significantly enhancing the
+  /// scalability and usability of HwMode. Moreover, to ensure compatibility,
+  /// this method also supports controlling multiple attributes with a single
+  /// HwMode ID, just as was done previously.
+  enum HwModeType {
+    HwMode_Default,     // Return the smallest HwMode ID of current subtarget.
+    HwMode_ValueType,   // Return the HwMode ID that controls the ValueType.
+    HwMode_RegInfo,     // Return the HwMode ID that controls the RegSizeInfo,
+                        // SubRegRange, and RegisterClass.
+    HwMode_EncodingInfo // Return the HwMode ID that controls the EncodingInfo.
+  };
+
+  /// Return a bit set containing all HwMode IDs of the current subtarget.
+  virtual unsigned getHwModeSet() const { return 0; }
+
+  /// HwMode ID corresponding to the 'type' parameter is retrieved from the
+  /// HwMode bit set of the current subtarget. It’s important to note that if
+  /// the current subtarget possesses two HwMode IDs and both control a single
+  /// attribute (such as RegInfo), this interface will result in an error.
+  virtual unsigned getHwMode(enum HwModeType type = HwMode_Default) const {
+    return 0;
+  }
 
   /// Return the cache size in bytes for the given level of cache.
   /// Level is zero-based, so a value of zero means the first level of
   /// cache.
   ///
-  virtual Optional<unsigned> getCacheSize(unsigned Level) const;
+  virtual std::optional<unsigned> getCacheSize(unsigned Level) const;
 
   /// Return the cache associatvity for the given level of cache.
   /// Level is zero-based, so a value of zero means the first level of
   /// cache.
   ///
-  virtual Optional<unsigned> getCacheAssociativity(unsigned Level) const;
+  virtual std::optional<unsigned> getCacheAssociativity(unsigned Level) const;
 
   /// Return the target cache line size in bytes at a given level.
   ///
-  virtual Optional<unsigned> getCacheLineSize(unsigned Level) const;
+  virtual std::optional<unsigned> getCacheLineSize(unsigned Level) const;
 
   /// Return the target cache line size in bytes.  By default, return
   /// the line size for the bottom-most level of cache.  This provides
@@ -247,7 +296,7 @@ public:
   /// cache model.
   ///
   virtual unsigned getCacheLineSize() const {
-    Optional<unsigned> Size = getCacheLineSize(0);
+    std::optional<unsigned> Size = getCacheLineSize(0);
     if (Size)
       return *Size;
 
@@ -274,6 +323,9 @@ public:
                                         unsigned NumStridedMemAccesses,
                                         unsigned NumPrefetches,
                                         bool HasCall) const;
+
+  /// \return if target want to issue a prefetch in address space \p AS.
+  virtual bool shouldPrefetchAddressSpace(unsigned AS) const;
 };
 
 } // end namespace llvm

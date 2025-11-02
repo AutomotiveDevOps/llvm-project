@@ -12,18 +12,16 @@
 
 #include "llvm/Object/TapiFile.h"
 #include "llvm/ADT/StringRef.h"
-#include "llvm/Object/Error.h"
-#include "llvm/Support/MemoryBuffer.h"
+#include "llvm/BinaryFormat/MachO.h"
+#include "llvm/Support/MemoryBufferRef.h"
+#include "llvm/TextAPI/ArchitectureSet.h"
+#include "llvm/TextAPI/InterfaceFile.h"
+#include "llvm/TextAPI/Platform.h"
+#include "llvm/TextAPI/Symbol.h"
 
 using namespace llvm;
 using namespace MachO;
 using namespace object;
-
-static constexpr StringLiteral ObjC1ClassNamePrefix = ".objc_class_name_";
-static constexpr StringLiteral ObjC2ClassNamePrefix = "_OBJC_CLASS_$_";
-static constexpr StringLiteral ObjC2MetaClassNamePrefix = "_OBJC_METACLASS_$_";
-static constexpr StringLiteral ObjC2EHTypePrefix = "_OBJC_EHTYPE_$_";
-static constexpr StringLiteral ObjC2IVarPrefix = "_OBJC_IVAR_$_";
 
 static uint32_t getFlags(const Symbol *Sym) {
   uint32_t Flags = BasicSymbolRef::SF_Global;
@@ -38,36 +36,47 @@ static uint32_t getFlags(const Symbol *Sym) {
   return Flags;
 }
 
-TapiFile::TapiFile(MemoryBufferRef Source, const InterfaceFile &interface,
+static SymbolRef::Type getType(const Symbol *Sym) {
+  SymbolRef::Type Type = SymbolRef::ST_Unknown;
+  if (Sym->isData())
+    Type = SymbolRef::ST_Data;
+  else if (Sym->isText())
+    Type = SymbolRef::ST_Function;
+
+  return Type;
+}
+
+TapiFile::TapiFile(MemoryBufferRef Source, const InterfaceFile &Interface,
                    Architecture Arch)
-    : SymbolicFile(ID_TapiFile, Source) {
-  for (const auto *Symbol : interface.symbols()) {
+    : SymbolicFile(ID_TapiFile, Source), Arch(Arch),
+      FileKind(Interface.getFileType()) {
+  for (const auto *Symbol : Interface.symbols()) {
     if (!Symbol->getArchitectures().has(Arch))
       continue;
 
     switch (Symbol->getKind()) {
-    case SymbolKind::GlobalSymbol:
-      Symbols.emplace_back(StringRef(), Symbol->getName(), getFlags(Symbol));
+    case EncodeKind::GlobalSymbol:
+      Symbols.emplace_back(StringRef(), Symbol->getName(), getFlags(Symbol),
+                           ::getType(Symbol));
       break;
-    case SymbolKind::ObjectiveCClass:
-      if (interface.getPlatforms().count(PlatformKind::macOS) &&
-          Arch == AK_i386) {
+    case EncodeKind::ObjectiveCClass:
+      if (Interface.getPlatforms().count(PLATFORM_MACOS) && Arch == AK_i386) {
         Symbols.emplace_back(ObjC1ClassNamePrefix, Symbol->getName(),
-                             getFlags(Symbol));
+                             getFlags(Symbol), ::getType(Symbol));
       } else {
         Symbols.emplace_back(ObjC2ClassNamePrefix, Symbol->getName(),
-                             getFlags(Symbol));
+                             getFlags(Symbol), ::getType(Symbol));
         Symbols.emplace_back(ObjC2MetaClassNamePrefix, Symbol->getName(),
-                             getFlags(Symbol));
+                             getFlags(Symbol), ::getType(Symbol));
       }
       break;
-    case SymbolKind::ObjectiveCClassEHType:
+    case EncodeKind::ObjectiveCClassEHType:
       Symbols.emplace_back(ObjC2EHTypePrefix, Symbol->getName(),
-                           getFlags(Symbol));
+                           getFlags(Symbol), ::getType(Symbol));
       break;
-    case SymbolKind::ObjectiveCInstanceVariable:
-      Symbols.emplace_back(ObjC2IVarPrefix, Symbol->getName(),
-                           getFlags(Symbol));
+    case EncodeKind::ObjectiveCInstanceVariable:
+      Symbols.emplace_back(ObjC2IVarPrefix, Symbol->getName(), getFlags(Symbol),
+                           ::getType(Symbol));
       break;
     }
   }
@@ -75,30 +84,33 @@ TapiFile::TapiFile(MemoryBufferRef Source, const InterfaceFile &interface,
 
 TapiFile::~TapiFile() = default;
 
-void TapiFile::moveSymbolNext(DataRefImpl &DRI) const {
-  const auto *Sym = reinterpret_cast<const Symbol *>(DRI.p);
-  DRI.p = reinterpret_cast<uintptr_t>(++Sym);
-}
+void TapiFile::moveSymbolNext(DataRefImpl &DRI) const { DRI.d.a++; }
 
 Error TapiFile::printSymbolName(raw_ostream &OS, DataRefImpl DRI) const {
-  const auto *Sym = reinterpret_cast<const Symbol *>(DRI.p);
-  OS << Sym->Prefix << Sym->Name;
+  assert(DRI.d.a < Symbols.size() && "Attempt to access symbol out of bounds");
+  const Symbol &Sym = Symbols[DRI.d.a];
+  OS << Sym.Prefix << Sym.Name;
   return Error::success();
 }
 
+Expected<SymbolRef::Type> TapiFile::getSymbolType(DataRefImpl DRI) const {
+  assert(DRI.d.a < Symbols.size() && "Attempt to access symbol out of bounds");
+  return Symbols[DRI.d.a].Type;
+}
+
 Expected<uint32_t> TapiFile::getSymbolFlags(DataRefImpl DRI) const {
-  const auto *Sym = reinterpret_cast<const Symbol *>(DRI.p);
-  return Sym->Flags;
+  assert(DRI.d.a < Symbols.size() && "Attempt to access symbol out of bounds");
+  return Symbols[DRI.d.a].Flags;
 }
 
 basic_symbol_iterator TapiFile::symbol_begin() const {
   DataRefImpl DRI;
-  DRI.p = reinterpret_cast<uintptr_t>(&*Symbols.begin());
+  DRI.d.a = 0;
   return BasicSymbolRef{DRI, this};
 }
 
 basic_symbol_iterator TapiFile::symbol_end() const {
   DataRefImpl DRI;
-  DRI.p = reinterpret_cast<uintptr_t>(&*Symbols.end());
+  DRI.d.a = Symbols.size();
   return BasicSymbolRef{DRI, this};
 }

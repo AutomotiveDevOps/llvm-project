@@ -14,7 +14,6 @@
 #define LLDB_TOOLS_DEBUGSERVER_SOURCE_RNBREMOTE_H
 
 #include "DNB.h"
-#include "PThreadMutex.h"
 #include "RNBContext.h"
 #include "RNBDefs.h"
 #include "RNBSocket.h"
@@ -25,7 +24,6 @@
 
 class RNBSocket;
 class RNBContext;
-class PThreadEvents;
 
 enum event_loop_mode { debug_nub, gdb_remote_protocol, done };
 
@@ -33,6 +31,7 @@ enum class compression_types { zlib_deflate, lz4, lzma, lzfse, none };
 
 class RNBRemote {
 public:
+  // clang-format off
   enum PacketEnum {
     invalid_packet = 0,
     ack,                           // '+'
@@ -45,8 +44,6 @@ public:
     cont,                          // 'c'
     continue_with_sig,             // 'C'
     detach,                        // 'D'
-    read_general_regs,             // 'g'
-    write_general_regs,            // 'G'
     set_thread,                    // 'H'
     step_inferior_one_cycle,       // 'i'
     signal_and_step_inf_one_cycle, // 'I'
@@ -110,6 +107,7 @@ public:
     start_noack_mode,                              // 'QStartNoAckMode'
     prefix_reg_packets_with_tid,        // 'QPrefixRegisterPacketsWithThreadID
     set_logging_mode,                   // 'QSetLogging:'
+    set_ignored_exceptions,             // 'QSetIgnoredExceptions'           
     set_max_packet_size,                // 'QSetMaxPacketSize:'
     set_max_payload_size,               // 'QSetMaxPayloadSize:'
     set_environment_variable,           // 'QEnvironment:'
@@ -123,6 +121,7 @@ public:
     set_list_threads_in_stop_reply,     // 'QListThreadsInStopReply:'
     sync_thread_state,                  // 'QSyncThreadState:'
     memory_region_info,                 // 'qMemoryRegionInfo:'
+    get_memory_tags,                    // 'qMemTags:'
     get_profile_data,                   // 'qGetProfileData'
     set_enable_profiling,               // 'QSetEnableAsyncProfiling'
     enable_compression,                 // 'QEnableCompression:'
@@ -135,10 +134,12 @@ public:
     speed_test,                         // 'qSpeedTest:'
     set_detach_on_error,                // 'QSetDetachOnError:'
     query_transfer,                     // 'qXfer:'
-    query_supported_async_json_packets, // 'QSupportedAsyncJSONPackets'
-    configure_darwin_log,               // 'ConfigureDarwinLog:'
+    json_query_dyld_process_state,      // 'jGetDyldProcessState'
+    enable_error_strings,               // 'QEnableErrorStrings'
+    multi_mem_read,                     // 'MultiMemRead'
     unknown_type
   };
+  // clang-format on
 
   typedef rnb_err_t (RNBRemote::*HandlePacketCallback)(const char *p);
 
@@ -196,9 +197,11 @@ public:
   rnb_err_t HandlePacket_qGDBServerVersion(const char *p);
   rnb_err_t HandlePacket_qProcessInfo(const char *p);
   rnb_err_t HandlePacket_qSymbol(const char *p);
+  rnb_err_t HandlePacket_QEnableErrorStrings(const char *p);
   rnb_err_t HandlePacket_QStartNoAckMode(const char *p);
   rnb_err_t HandlePacket_QThreadSuffixSupported(const char *p);
   rnb_err_t HandlePacket_QSetLogging(const char *p);
+  rnb_err_t HandlePacket_QSetIgnoredExceptions(const char *p);
   rnb_err_t HandlePacket_QSetDisableASLR(const char *p);
   rnb_err_t HandlePacket_QSetSTDIO(const char *p);
   rnb_err_t HandlePacket_QSetWorkingDir(const char *p);
@@ -214,10 +217,9 @@ public:
   rnb_err_t HandlePacket_last_signal(const char *p);
   rnb_err_t HandlePacket_m(const char *p);
   rnb_err_t HandlePacket_M(const char *p);
+  rnb_err_t HandlePacket_MultiMemRead(const char *p);
   rnb_err_t HandlePacket_x(const char *p);
   rnb_err_t HandlePacket_X(const char *p);
-  rnb_err_t HandlePacket_g(const char *p);
-  rnb_err_t HandlePacket_G(const char *p);
   rnb_err_t HandlePacket_z(const char *p);
   rnb_err_t HandlePacket_T(const char *p);
   rnb_err_t HandlePacket_p(const char *p);
@@ -238,6 +240,7 @@ public:
   rnb_err_t HandlePacket_SaveRegisterState(const char *p);
   rnb_err_t HandlePacket_RestoreRegisterState(const char *p);
   rnb_err_t HandlePacket_MemoryRegionInfo(const char *p);
+  rnb_err_t HandlePacket_qMemTags(const char *p);
   rnb_err_t HandlePacket_GetProfileData(const char *p);
   rnb_err_t HandlePacket_SetEnableAsyncProfiling(const char *p);
   rnb_err_t HandlePacket_QEnableCompression(const char *p);
@@ -246,9 +249,7 @@ public:
   rnb_err_t HandlePacket_qXfer(const char *p);
   rnb_err_t HandlePacket_stop_process(const char *p);
   rnb_err_t HandlePacket_QSetDetachOnError(const char *p);
-  rnb_err_t HandlePacket_qStructuredDataPlugins(const char *p);
-  rnb_err_t HandlePacket_QConfigureDarwinLog(const char *p);
-
+  rnb_err_t HandlePacket_jGetDyldProcessState(const char *p);
   rnb_err_t SendStopReplyPacketForThread(nub_thread_t tid);
   rnb_err_t SendHexEncodedBytePacket(const char *header, const void *buf,
                                      size_t buf_len, const char *footer);
@@ -257,7 +258,6 @@ public:
   void FlushSTDIO();
   void SendAsyncProfileData();
   rnb_err_t SendAsyncProfileDataPacket(char *buf, nub_size_t buf_size);
-  void SendAsyncDarwinLogData();
   rnb_err_t SendAsyncJSONPacket(const JSONGenerator::Dictionary &dictionary);
 
   RNBContext &Context() { return m_ctx; }
@@ -358,6 +358,8 @@ protected:
   rnb_err_t GetPacket(std::string &packet_data, RNBRemote::Packet &packet_info,
                       bool wait);
   rnb_err_t SendPacket(const std::string &);
+  rnb_err_t SendErrorPacket(std::string errcode,
+                            const std::string &errmsg = "");
   std::string CompressString(const std::string &);
 
   void CreatePacketTable();
@@ -379,7 +381,7 @@ protected:
   std::string m_arch;
   nub_thread_t m_continue_thread; // thread to continue; 0 for any, -1 for all
   nub_thread_t m_thread;          // thread for other ops; 0 for any, -1 for all
-  PThreadMutex m_mutex;           // Mutex that protects
+  std::mutex m_mutex;             // Mutex that protects
   DispatchQueueOffsets m_dispatch_queue_offsets;
   nub_addr_t m_dispatch_queue_offsets_addr;
   uint32_t m_qSymbol_index;
@@ -407,6 +409,9 @@ protected:
   bool m_enable_compression_next_send_packet;
 
   compression_types m_compression_mode;
+
+  bool m_enable_error_strings; // Whether we can append asciihex error strings
+                               // after Exx error replies
 };
 
 /* We translate the /usr/include/mach/exception_types.h exception types

@@ -23,22 +23,17 @@ makeTUDiagnostics(const std::string &MainSourceFile, StringRef DiagnosticName,
                   const StringMap<Replacements> &Replacements,
                   StringRef BuildDirectory) {
   TUDiagnostics TUs;
-  TUs.push_back({MainSourceFile,
-                 {{DiagnosticName,
-                   Message,
-                   {},
-                   Diagnostic::Warning,
-                   BuildDirectory,
-                   {}}}});
+  TUs.push_back(
+      {MainSourceFile,
+       {{DiagnosticName, Message, {}, Diagnostic::Warning, BuildDirectory}}});
   return TUs;
 }
 
 // Test to ensure diagnostics with no fixes, will be merged correctly
 // before applying.
 TEST(ApplyReplacementsTest, mergeDiagnosticsWithNoFixes) {
-  IntrusiveRefCntPtr<DiagnosticOptions> DiagOpts(new DiagnosticOptions());
-  DiagnosticsEngine Diagnostics(
-      IntrusiveRefCntPtr<DiagnosticIDs>(new DiagnosticIDs()), DiagOpts.get());
+  DiagnosticOptions DiagOpts;
+  DiagnosticsEngine Diagnostics(DiagnosticIDs::create(), DiagOpts);
   FileManager Files((FileSystemOptions()));
   SourceManager SM(Diagnostics, Files);
   TUReplacements TURs;

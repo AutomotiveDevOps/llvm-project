@@ -6,20 +6,31 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "hdr/signal_macros.h"
 #include "src/string/strcpy.h"
-#include "utils/UnitTest/Test.h"
+#include "test/UnitTest/Test.h"
 
-TEST(StrCpyTest, EmptyDest) {
+TEST(LlvmLibcStrCpyTest, EmptySrc) {
+  const char *empty = "";
+  char dest[4] = {'a', 'b', 'c', '\0'};
+
+  char *result = LIBC_NAMESPACE::strcpy(dest, empty);
+  ASSERT_EQ(dest, result);
+  ASSERT_STREQ(dest, result);
+  ASSERT_STREQ(dest, empty);
+}
+
+TEST(LlvmLibcStrCpyTest, EmptyDest) {
   const char *abc = "abc";
   char dest[4];
 
-  char *result = __llvm_libc::strcpy(dest, abc);
+  char *result = LIBC_NAMESPACE::strcpy(dest, abc);
   ASSERT_EQ(dest, result);
   ASSERT_STREQ(dest, result);
   ASSERT_STREQ(dest, abc);
 }
 
-TEST(StrCpyTest, OffsetDest) {
+TEST(LlvmLibcStrCpyTest, OffsetDest) {
   const char *abc = "abc";
   char dest[7];
 
@@ -27,8 +38,17 @@ TEST(StrCpyTest, OffsetDest) {
   dest[1] = 'y';
   dest[2] = 'z';
 
-  char *result = __llvm_libc::strcpy(dest + 3, abc);
+  char *result = LIBC_NAMESPACE::strcpy(dest + 3, abc);
   ASSERT_EQ(dest + 3, result);
   ASSERT_STREQ(dest + 3, result);
   ASSERT_STREQ(dest, "xyzabc");
 }
+
+#if defined(LIBC_ADD_NULL_CHECKS)
+
+TEST(LlvmLibcStrCpyTest, CrashOnNullPtr) {
+  ASSERT_DEATH([]() { LIBC_NAMESPACE::strcpy(nullptr, nullptr); },
+               WITH_SIGNAL(-1));
+}
+
+#endif // defined(LIBC_ADD_NULL_CHECKS)

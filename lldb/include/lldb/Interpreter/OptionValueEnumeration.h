@@ -19,7 +19,8 @@
 
 namespace lldb_private {
 
-class OptionValueEnumeration : public OptionValue {
+class OptionValueEnumeration
+    : public Cloneable<OptionValueEnumeration, OptionValue> {
 public:
   typedef int64_t enum_type;
   struct EnumeratorInfo {
@@ -31,7 +32,7 @@ public:
 
   OptionValueEnumeration(const OptionEnumValues &enumerators, enum_type value);
 
-  ~OptionValueEnumeration() override;
+  ~OptionValueEnumeration() override = default;
 
   // Virtual subclass pure virtual overrides
 
@@ -40,20 +41,16 @@ public:
   void DumpValue(const ExecutionContext *exe_ctx, Stream &strm,
                  uint32_t dump_mask) override;
 
+  llvm::json::Value ToJSON(const ExecutionContext *exe_ctx) const override;
+
   Status
   SetValueFromString(llvm::StringRef value,
                      VarSetOperationType op = eVarSetOperationAssign) override;
-  Status
-  SetValueFromString(const char *,
-                     VarSetOperationType = eVarSetOperationAssign) = delete;
 
-  bool Clear() override {
+  void Clear() override {
     m_current_value = m_default_value;
     m_value_was_set = false;
-    return true;
   }
-
-  lldb::OptionValueSP DeepCopy() const override;
 
   void AutoComplete(CommandInterpreter &interpreter,
                     CompletionRequest &request) override;
@@ -75,6 +72,7 @@ public:
 
 protected:
   void SetEnumerations(const OptionEnumValues &enumerators);
+  void DumpEnum(Stream &strm, enum_type value);
 
   enum_type m_current_value;
   enum_type m_default_value;

@@ -107,6 +107,8 @@ static cl::opt<AggregationType> RequestedAggregation(
                    "of all callees.")),
     cl::sub(Stack), cl::init(AggregationType::TOTAL_TIME));
 
+namespace {
+
 /// A helper struct to work with formatv and XRayRecords. Makes it easier to
 /// use instrumentation map names or addresses in formatted output.
 struct format_xray_record : public FormatAdapter<XRayRecord> {
@@ -253,34 +255,31 @@ private:
 /// through all the instrumented call stacks which we know about.
 
 struct StackDuration {
-  llvm::SmallVector<int64_t, 4> TerminalDurations;
-  llvm::SmallVector<int64_t, 4> IntermediateDurations;
+  SmallVector<int64_t, 4> TerminalDurations;
+  SmallVector<int64_t, 4> IntermediateDurations;
 };
+} // namespace
 
-StackDuration mergeStackDuration(const StackDuration &Left,
-                                 const StackDuration &Right) {
+static StackDuration mergeStackDuration(const StackDuration &Left,
+                                        const StackDuration &Right) {
   StackDuration Data{};
   Data.TerminalDurations.reserve(Left.TerminalDurations.size() +
                                  Right.TerminalDurations.size());
   Data.IntermediateDurations.reserve(Left.IntermediateDurations.size() +
                                      Right.IntermediateDurations.size());
   // Aggregate the durations.
-  for (auto duration : Left.TerminalDurations)
-    Data.TerminalDurations.push_back(duration);
-  for (auto duration : Right.TerminalDurations)
-    Data.TerminalDurations.push_back(duration);
+  llvm::append_range(Data.TerminalDurations, Left.TerminalDurations);
+  llvm::append_range(Data.TerminalDurations, Right.TerminalDurations);
 
-  for (auto duration : Left.IntermediateDurations)
-    Data.IntermediateDurations.push_back(duration);
-  for (auto duration : Right.IntermediateDurations)
-    Data.IntermediateDurations.push_back(duration);
+  llvm::append_range(Data.IntermediateDurations, Left.IntermediateDurations);
+  llvm::append_range(Data.IntermediateDurations, Right.IntermediateDurations);
   return Data;
 }
 
 using StackTrieNode = TrieNode<StackDuration>;
 
 template <AggregationType AggType>
-std::size_t GetValueForStack(const StackTrieNode *Node);
+static std::size_t GetValueForStack(const StackTrieNode *Node);
 
 // When computing total time spent in a stack, we're adding the timings from
 // its callees and the timings from when it was a leaf.
@@ -312,6 +311,7 @@ std::size_t GetValueForStack(const StackTrieNode *Node) {
   return 0;
 }
 
+namespace {
 class StackTrie {
   // Avoid the magic number of 4 propagated through the code with an alias.
   // We use this SmallVector to track the root nodes in a call graph.
@@ -454,8 +454,7 @@ public:
     int Level = 0;
     OS << formatv("{0,-5} {1,-60} {2,+12} {3,+16}\n", "lvl", "function",
                   "count", "sum");
-    for (auto *F :
-         reverse(make_range(CurrentStack.begin() + 1, CurrentStack.end()))) {
+    for (auto *F : reverse(drop_begin(CurrentStack))) {
       auto Sum = std::accumulate(F->ExtraData.IntermediateDurations.begin(),
                                  F->ExtraData.IntermediateDurations.end(), 0LL);
       auto FuncId = FN.SymbolOrNumber(F->FuncId);
@@ -477,7 +476,7 @@ public:
 
   /// Prints top stacks for each thread.
   void printPerThread(raw_ostream &OS, FuncIdConversionHelper &FN) {
-    for (auto iter : Roots) {
+    for (const auto &iter : Roots) {
       OS << "Thread " << iter.first << ":\n";
       print(OS, FN, iter.second);
       OS << "\n";
@@ -488,12 +487,8 @@ public:
   template <AggregationType AggType>
   void printAllPerThread(raw_ostream &OS, FuncIdConversionHelper &FN,
                          StackOutputFormat format) {
-    for (auto iter : Roots) {
-      uint32_t threadId = iter.first;
-      RootVector &perThreadRoots = iter.second;
-      bool reportThreadId = true;
-      printAll<AggType>(OS, FN, perThreadRoots, threadId, reportThreadId);
-    }
+    for (const auto &iter : Roots)
+      printAll<AggType>(OS, FN, iter.second, iter.first, true);
   }
 
   /// Prints top stacks from looking at all the leaves and ignoring thread IDs.
@@ -502,16 +497,8 @@ public:
   void printIgnoringThreads(raw_ostream &OS, FuncIdConversionHelper &FN) {
     RootVector RootValues;
 
-    // Function to pull the values out of a map iterator.
-    using RootsType = decltype(Roots.begin())::value_type;
-    auto MapValueFn = [](const RootsType &Value) { return Value.second; };
-
-    for (const auto &RootNodeRange :
-         make_range(map_iterator(Roots.begin(), MapValueFn),
-                    map_iterator(Roots.end(), MapValueFn))) {
-      for (auto *RootNode : RootNodeRange)
-        RootValues.push_back(RootNode);
-    }
+    for (const auto &RootNodeRange : make_second_range(Roots))
+      llvm::append_range(RootValues, RootNodeRange);
 
     print(OS, FN, RootValues);
   }
@@ -520,7 +507,7 @@ public:
   /// thread IDs.
   RootVector mergeAcrossThreads(std::forward_list<StackTrieNode> &NodeStore) {
     RootVector MergedByThreadRoots;
-    for (auto MapIter : Roots) {
+    for (const auto &MapIter : Roots) {
       const auto &RootNodeVector = MapIter.second;
       for (auto *Node : RootNodeVector) {
         auto MaybeFoundIter =
@@ -568,8 +555,7 @@ public:
       while (!S.empty()) {
         auto *Top = S.pop_back_val();
         printSingleStack<AggType>(OS, FN, ReportThread, ThreadId, Top);
-        for (const auto *C : Top->Callees)
-          S.push_back(C);
+        llvm::append_range(S, Top->Callees);
       }
     }
   }
@@ -638,16 +624,13 @@ public:
           {
             auto E =
                 std::make_pair(Top, Top->ExtraData.TerminalDurations.size());
-            TopStacksByCount.insert(std::lower_bound(TopStacksByCount.begin(),
-                                                     TopStacksByCount.end(), E,
-                                                     greater_second),
-                                    E);
+            TopStacksByCount.insert(
+                llvm::lower_bound(TopStacksByCount, E, greater_second), E);
             if (TopStacksByCount.size() == 11)
               TopStacksByCount.pop_back();
           }
         }
-        for (const auto *C : Top->Callees)
-          S.push_back(C);
+        llvm::append_range(S, Top->Callees);
       }
     }
 
@@ -668,10 +651,11 @@ public:
     OS << "\n";
   }
 };
+} // namespace
 
-std::string CreateErrorMessage(StackTrie::AccountRecordStatus Error,
-                               const XRayRecord &Record,
-                               const FuncIdConversionHelper &Converter) {
+static std::string CreateErrorMessage(StackTrie::AccountRecordStatus Error,
+                                      const XRayRecord &Record,
+                                      const FuncIdConversionHelper &Converter) {
   switch (Error) {
   case StackTrie::AccountRecordStatus::ENTRY_NOT_FOUND:
     return std::string(

@@ -1,4 +1,3 @@
-// -*- C++ -*-
 //===----------------------------------------------------------------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
@@ -7,25 +6,16 @@
 //
 //===----------------------------------------------------------------------===//
 
-// UNSUPPORTED: c++98, c++03
+// UNSUPPORTED: c++03
 
 // <tuple>
 
-// See llvm.org/PR20855
+// See https://llvm.org/PR20855.
 
 #include <functional>
 #include <tuple>
 #include <string>
 #include <cassert>
-#include "test_macros.h"
-
-#if TEST_HAS_BUILTIN_IDENTIFIER(__reference_binds_to_temporary)
-# define ASSERT_REFERENCE_BINDS_TEMPORARY(...) static_assert(__reference_binds_to_temporary(__VA_ARGS__), "")
-# define ASSERT_NOT_REFERENCE_BINDS_TEMPORARY(...) static_assert(!__reference_binds_to_temporary(__VA_ARGS__), "")
-#else
-# define ASSERT_REFERENCE_BINDS_TEMPORARY(...) static_assert(true, "")
-# define ASSERT_NOT_REFERENCE_BINDS_TEMPORARY(...) static_assert(true, "")
-#endif
 
 template <class Tp>
 struct ConvertsTo {
@@ -40,17 +30,6 @@ struct ConvertsTo {
 
 struct Base {};
 struct Derived : Base {};
-
-
-static_assert(std::is_same<decltype("abc"), decltype(("abc"))>::value, "");
-ASSERT_REFERENCE_BINDS_TEMPORARY(std::string const&, decltype("abc"));
-ASSERT_REFERENCE_BINDS_TEMPORARY(std::string const&, decltype(("abc")));
-ASSERT_REFERENCE_BINDS_TEMPORARY(std::string const&, const char*&&);
-
-ASSERT_NOT_REFERENCE_BINDS_TEMPORARY(int&, const ConvertsTo<int&>&);
-ASSERT_NOT_REFERENCE_BINDS_TEMPORARY(const int&, ConvertsTo<int&>&);
-ASSERT_NOT_REFERENCE_BINDS_TEMPORARY(Base&, Derived&);
-
 
 static_assert(std::is_constructible<int&, std::reference_wrapper<int>>::value, "");
 static_assert(std::is_constructible<int const&, std::reference_wrapper<int>>::value, "");

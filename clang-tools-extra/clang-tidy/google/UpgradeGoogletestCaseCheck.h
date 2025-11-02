@@ -1,4 +1,4 @@
-//===--- UpgradeGoogletestCaseCheck.h - clang-tidy --------------*- C++ -*-===//
+//===----------------------------------------------------------------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -11,15 +11,13 @@
 
 #include "../ClangTidyCheck.h"
 
-namespace clang {
-namespace tidy {
-namespace google {
+namespace clang::tidy::google {
 
 /// Finds uses of deprecated Googletest APIs with names containing "case" and
 /// replaces them with equivalent names containing "suite".
 ///
 /// For the user-facing documentation see:
-/// https://clang.llvm.org/extra/clang-tidy/checks/google-upgrade-googletest-case.html
+/// https://clang.llvm.org/extra/clang-tidy/checks/google/upgrade-googletest-case.html
 class UpgradeGoogletestCaseCheck : public ClangTidyCheck {
 public:
   UpgradeGoogletestCaseCheck(StringRef Name, ClangTidyContext *Context)
@@ -33,11 +31,9 @@ public:
   void check(const ast_matchers::MatchFinder::MatchResult &Result) override;
 
 private:
-  llvm::DenseSet<unsigned> MatchedTemplateLocations;
+  llvm::DenseSet<SourceLocation> MatchedTemplateLocations;
 };
 
-} // namespace google
-} // namespace tidy
-} // namespace clang
+} // namespace clang::tidy::google
 
 #endif // LLVM_CLANG_TOOLS_EXTRA_CLANG_TIDY_GOOGLE_UPGRADEGOOGLETESTCASECHECK_H

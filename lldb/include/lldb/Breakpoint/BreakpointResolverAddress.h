@@ -30,9 +30,8 @@ public:
 
   ~BreakpointResolverAddress() override = default;
 
-  static BreakpointResolver *
-  CreateFromStructuredData(const lldb::BreakpointSP &bkpt,
-                           const StructuredData::Dictionary &options_dict,
+  static lldb::BreakpointResolverSP
+  CreateFromStructuredData(const StructuredData::Dictionary &options_dict,
                            Status &error);
 
   StructuredData::ObjectSP SerializeToStructuredData() override;
@@ -71,7 +70,9 @@ protected:
   // to a Section+Offset address in this module, whenever that module gets
   // around to being loaded.
 private:
-  DISALLOW_COPY_AND_ASSIGN(BreakpointResolverAddress);
+  BreakpointResolverAddress(const BreakpointResolverAddress &) = delete;
+  const BreakpointResolverAddress &
+  operator=(const BreakpointResolverAddress &) = delete;
 };
 
 } // namespace lldb_private

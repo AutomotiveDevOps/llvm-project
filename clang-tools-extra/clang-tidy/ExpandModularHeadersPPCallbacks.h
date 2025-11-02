@@ -9,16 +9,15 @@
 #ifndef LLVM_CLANG_TOOLING_EXPANDMODULARHEADERSPPCALLBACKS_H_
 #define LLVM_CLANG_TOOLING_EXPANDMODULARHEADERSPPCALLBACKS_H_
 
+#include "clang/Lex/HeaderSearchOptions.h"
 #include "clang/Lex/PPCallbacks.h"
 #include "clang/Lex/Preprocessor.h"
 #include "llvm/ADT/DenseSet.h"
 
-namespace llvm {
-namespace vfs {
+namespace llvm::vfs {
 class OverlayFileSystem;
 class InMemoryFileSystem;
-} // namespace vfs
-} // namespace llvm
+} // namespace llvm::vfs
 
 namespace clang {
 class CompilerInstance;
@@ -36,16 +35,16 @@ namespace tooling {
 /// including the contents of the modular headers and all their transitive
 /// includes.
 ///
-/// This allows existing tools based on PPCallbacks to retain their functionality
-/// when running with C++ modules enabled. This only works in the backwards
-/// compatible modules mode, i.e. when code can still be parsed in non-modular
-/// way.
+/// This allows existing tools based on PPCallbacks to retain their
+/// functionality when running with C++ modules enabled. This only works in the
+/// backwards compatible modules mode, i.e. when code can still be parsed in
+/// non-modular way.
 class ExpandModularHeadersPPCallbacks : public PPCallbacks {
 public:
   ExpandModularHeadersPPCallbacks(
-      CompilerInstance *Compiler,
+      CompilerInstance *CI,
       IntrusiveRefCntPtr<llvm::vfs::OverlayFileSystem> OverlayFS);
-  ~ExpandModularHeadersPPCallbacks();
+  ~ExpandModularHeadersPPCallbacks() override;
 
   /// Returns the preprocessor that provides callbacks for the whole
   /// translation unit, including the main file, textual headers, and modular
@@ -69,8 +68,9 @@ private:
   void InclusionDirective(SourceLocation DirectiveLoc,
                           const Token &IncludeToken, StringRef IncludedFilename,
                           bool IsAngled, CharSourceRange FilenameRange,
-                          const FileEntry *IncludedFile, StringRef SearchPath,
-                          StringRef RelativePath, const Module *Imported,
+                          OptionalFileEntryRef IncludedFile,
+                          StringRef SearchPath, StringRef RelativePath,
+                          const Module *SuggestedModule, bool ModuleImported,
                           SrcMgr::CharacteristicKind FileType) override;
 
   void EndOfMainFile() override;
@@ -90,11 +90,12 @@ private:
   void PragmaDiagnosticPop(SourceLocation Loc, StringRef) override;
   void PragmaDiagnostic(SourceLocation Loc, StringRef, diag::Severity,
                         StringRef) override;
-  void HasInclude(SourceLocation Loc, StringRef, bool, Optional<FileEntryRef> ,
+  void HasInclude(SourceLocation Loc, StringRef, bool, OptionalFileEntryRef,
                   SrcMgr::CharacteristicKind) override;
   void PragmaOpenCLExtension(SourceLocation NameLoc, const IdentifierInfo *,
                              SourceLocation StateLoc, unsigned) override;
-  void PragmaWarning(SourceLocation Loc, StringRef, ArrayRef<int>) override;
+  void PragmaWarning(SourceLocation Loc, PragmaWarningSpecifier,
+                     ArrayRef<int>) override;
   void PragmaWarningPush(SourceLocation Loc, int) override;
   void PragmaWarningPop(SourceLocation Loc) override;
   void PragmaAssumeNonNullBegin(SourceLocation Loc) override;
@@ -127,8 +128,10 @@ private:
   llvm::IntrusiveRefCntPtr<llvm::vfs::InMemoryFileSystem> InMemoryFs;
 
   SourceManager &Sources;
+  DiagnosticOptions DiagOpts;
   DiagnosticsEngine Diags;
   LangOptions LangOpts;
+  HeaderSearchOptions HSOpts;
   TrivialModuleLoader ModuleLoader;
 
   std::unique_ptr<HeaderSearch> HeaderInfo;

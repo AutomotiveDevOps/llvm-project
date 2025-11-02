@@ -85,13 +85,13 @@ enum CleanupKind : unsigned {
 
   NormalAndEHCleanup = EHCleanup | NormalCleanup,
 
-  InactiveCleanup = 0x4,
-  InactiveEHCleanup = EHCleanup | InactiveCleanup,
-  InactiveNormalCleanup = NormalCleanup | InactiveCleanup,
-  InactiveNormalAndEHCleanup = NormalAndEHCleanup | InactiveCleanup,
-
   LifetimeMarker = 0x8,
   NormalEHLifetimeMarker = LifetimeMarker | NormalAndEHCleanup,
+
+  // FakeUse needs to be recognized as a special cleanup similar to lifetime
+  // markers chiefly to be ignored in most contexts.
+  FakeUse = 0x10,
+  NormalFakeUse = FakeUse | NormalCleanup,
 };
 
 /// A stack of scopes which respond to exceptions, including cleanups
@@ -143,7 +143,7 @@ public:
   ///
   /// Cleanup implementations should generally be declared in an
   /// anonymous namespace.
-  class Cleanup {
+  class LLVM_MOVABLE_POLYMORPHIC_TYPE alignas(uint64_t) Cleanup {
     // Anchor the construction vtable.
     virtual void anchor();
 
@@ -153,7 +153,15 @@ public:
   public:
     Cleanup(const Cleanup &) = default;
     Cleanup(Cleanup &&) {}
+
+    // The copy and move assignment operator is defined as deleted pending
+    // further motivation.
+    Cleanup &operator=(const Cleanup &) = delete;
+    Cleanup &operator=(Cleanup &&) = delete;
+
     Cleanup() = default;
+
+    virtual bool isRedundantBeforeReturn() { return false; }
 
     /// Generation flags.
     class Flags {
@@ -163,10 +171,10 @@ public:
         F_IsEHCleanupKind = 0x4,
         F_HasExitSwitch = 0x8,
       };
-      unsigned flags;
+      unsigned flags = 0;
 
     public:
-      Flags() : flags(0) {}
+      Flags() = default;
 
       /// isForEH - true if the current emission is for an EH cleanup.
       bool isForEHCleanup() const { return flags & F_IsForEH; }
@@ -241,6 +249,9 @@ private:
   /// The innermost EH scope on the stack.
   stable_iterator InnermostEHScope;
 
+  /// The CGF this Stack belong to
+  CodeGenFunction* CGF;
+
   /// The current set of branch fixups.  A branch fixup is a jump to
   /// an as-yet unemitted label, i.e. a label for which we don't yet
   /// know the EH stack depth.  Whenever we pop a cleanup, we have
@@ -266,10 +277,14 @@ private:
   void *pushCleanup(CleanupKind K, size_t DataSize);
 
 public:
-  EHScopeStack() : StartOfBuffer(nullptr), EndOfBuffer(nullptr),
-                   StartOfData(nullptr), InnermostNormalCleanup(stable_end()),
-                   InnermostEHScope(stable_end()) {}
+  EHScopeStack()
+    : StartOfBuffer(nullptr), EndOfBuffer(nullptr), StartOfData(nullptr),
+      InnermostNormalCleanup(stable_end()), InnermostEHScope(stable_end()),
+      CGF(nullptr) {}
   ~EHScopeStack() { delete[] StartOfBuffer; }
+
+  EHScopeStack(const EHScopeStack &) = delete;
+  EHScopeStack &operator=(const EHScopeStack &) = delete;
 
   /// Push a lazily-created cleanup on the stack.
   template <class T, class... As> void pushCleanup(CleanupKind Kind, As... A) {
@@ -316,6 +331,8 @@ public:
     std::memcpy(Buffer, Cleanup, Size);
   }
 
+  void setCGF(CodeGenFunction *inCGF) { CGF = inCGF; }
+
   /// Pops a cleanup scope off the stack.  This is private to CGCleanup.cpp.
   void popCleanup();
 
@@ -340,8 +357,8 @@ public:
   void popTerminate();
 
   // Returns true iff the current scope is either empty or contains only
-  // lifetime markers, i.e. no real cleanup code
-  bool containsOnlyLifetimeMarkers(stable_iterator Old) const;
+  // noop cleanups, i.e. lifetime markers and fake uses.
+  bool containsOnlyNoopCleanups(stable_iterator Old) const;
 
   /// Determines whether the exception-scopes stack is empty.
   bool empty() const { return StartOfData == EndOfBuffer; }

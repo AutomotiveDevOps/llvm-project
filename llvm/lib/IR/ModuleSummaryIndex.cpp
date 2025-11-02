@@ -14,7 +14,6 @@
 #include "llvm/IR/ModuleSummaryIndex.h"
 #include "llvm/ADT/SCCIterator.h"
 #include "llvm/ADT/Statistic.h"
-#include "llvm/ADT/StringMap.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/raw_ostream.h"
@@ -36,15 +35,32 @@ static cl::opt<bool> ImportConstantsWithRefs(
     cl::desc("Import constant global variables with references"));
 
 FunctionSummary FunctionSummary::ExternalNode =
-    FunctionSummary::makeDummyFunctionSummary({});
+    FunctionSummary::makeDummyFunctionSummary(
+        SmallVector<FunctionSummary::EdgeTy, 0>());
 
-bool ValueInfo::isDSOLocal() const {
-  // Need to check all summaries are local in case of hash collisions.
-  return getSummaryList().size() &&
-         llvm::all_of(getSummaryList(),
-                      [](const std::unique_ptr<GlobalValueSummary> &Summary) {
-                        return Summary->isDSOLocal();
-                      });
+GlobalValue::VisibilityTypes ValueInfo::getELFVisibility() const {
+  bool HasProtected = false;
+  for (const auto &S : make_pointee_range(getSummaryList())) {
+    if (S.getVisibility() == GlobalValue::HiddenVisibility)
+      return GlobalValue::HiddenVisibility;
+    if (S.getVisibility() == GlobalValue::ProtectedVisibility)
+      HasProtected = true;
+  }
+  return HasProtected ? GlobalValue::ProtectedVisibility
+                      : GlobalValue::DefaultVisibility;
+}
+
+bool ValueInfo::isDSOLocal(bool WithDSOLocalPropagation) const {
+  // With DSOLocal propagation done, the flag in evey summary is the same.
+  // Check the first one is enough.
+  return WithDSOLocalPropagation
+             ? getSummaryList().size() && getSummaryList()[0]->isDSOLocal()
+             : getSummaryList().size() &&
+                   llvm::all_of(
+                       getSummaryList(),
+                       [](const std::unique_ptr<GlobalValueSummary> &Summary) {
+                         return Summary->isDSOLocal();
+                       });
 }
 
 bool ValueInfo::canAutoHide() const {
@@ -70,27 +86,34 @@ std::pair<unsigned, unsigned> FunctionSummary::specialRefCounts() const {
   return {RORefCnt, WORefCnt};
 }
 
-constexpr uint64_t ModuleSummaryIndex::BitcodeSummaryVersion;
-
 uint64_t ModuleSummaryIndex::getFlags() const {
   uint64_t Flags = 0;
+  // Flags & 0x4 is reserved. DO NOT REUSE.
   if (withGlobalValueDeadStripping())
     Flags |= 0x1;
   if (skipModuleByDistributedBackend())
     Flags |= 0x2;
-  if (hasSyntheticEntryCounts())
-    Flags |= 0x4;
   if (enableSplitLTOUnit())
     Flags |= 0x8;
   if (partiallySplitLTOUnits())
     Flags |= 0x10;
   if (withAttributePropagation())
     Flags |= 0x20;
+  if (withDSOLocalPropagation())
+    Flags |= 0x40;
+  if (withWholeProgramVisibility())
+    Flags |= 0x80;
+  if (withSupportsHotColdNew())
+    Flags |= 0x100;
+  if (hasUnifiedLTO())
+    Flags |= 0x200;
+  if (withInternalizeAndPromote())
+    Flags |= 0x400;
   return Flags;
 }
 
 void ModuleSummaryIndex::setFlags(uint64_t Flags) {
-  assert(Flags <= 0x3f && "Unexpected bits in flag");
+  assert(Flags <= 0x7ff && "Unexpected bits in flag");
   // 1 bit: WithGlobalValueDeadStripping flag.
   // Set on combined index only.
   if (Flags & 0x1)
@@ -99,10 +122,7 @@ void ModuleSummaryIndex::setFlags(uint64_t Flags) {
   // Set on combined index only.
   if (Flags & 0x2)
     setSkipModuleByDistributedBackend();
-  // 1 bit: HasSyntheticEntryCounts flag.
-  // Set on combined index only.
-  if (Flags & 0x4)
-    setHasSyntheticEntryCounts();
+  // Flags & 0x4 is reserved. DO NOT REUSE.
   // 1 bit: DisableSplitLTOUnit flag.
   // Set on per module indexes. It is up to the client to validate
   // the consistency of this flag across modules being linked.
@@ -116,6 +136,26 @@ void ModuleSummaryIndex::setFlags(uint64_t Flags) {
   // Set on combined index only.
   if (Flags & 0x20)
     setWithAttributePropagation();
+  // 1 bit: WithDSOLocalPropagation flag.
+  // Set on combined index only.
+  if (Flags & 0x40)
+    setWithDSOLocalPropagation();
+  // 1 bit: WithWholeProgramVisibility flag.
+  // Set on combined index only.
+  if (Flags & 0x80)
+    setWithWholeProgramVisibility();
+  // 1 bit: WithSupportsHotColdNew flag.
+  // Set on combined index only.
+  if (Flags & 0x100)
+    setWithSupportsHotColdNew();
+  // 1 bit: WithUnifiedLTO flag.
+  // Set on combined index only.
+  if (Flags & 0x200)
+    setUnifiedLTO();
+  // 1 bit: WithInternalizeAndPromote flag.
+  // Set on combined index only.
+  if (Flags & 0x400)
+    setWithInternalizeAndPromote();
 }
 
 // Collect for the given module the list of function it defines
@@ -124,7 +164,7 @@ void ModuleSummaryIndex::collectDefinedFunctionsForModule(
     StringRef ModulePath, GVSummaryMapTy &GVSummaryMap) const {
   for (auto &GlobalList : *this) {
     auto GUID = GlobalList.first;
-    for (auto &GlobSummary : GlobalList.second.SummaryList) {
+    for (auto &GlobSummary : GlobalList.second.getSummaryList()) {
       auto *Summary = dyn_cast_or_null<FunctionSummary>(GlobSummary.get());
       if (!Summary)
         // Ignore global variable, focus on functions
@@ -161,7 +201,9 @@ bool ModuleSummaryIndex::isGUIDLive(GlobalValue::GUID GUID) const {
   return false;
 }
 
-static void propagateAttributesToRefs(GlobalValueSummary *S) {
+static void
+propagateAttributesToRefs(GlobalValueSummary *S,
+                          DenseSet<ValueInfo> &MarkedNonReadWriteOnly) {
   // If reference is not readonly or writeonly then referenced summary is not
   // read/writeonly either. Note that:
   // - All references from GlobalVarSummary are conservatively considered as
@@ -172,6 +214,11 @@ static void propagateAttributesToRefs(GlobalValueSummary *S) {
   //   for them.
   for (auto &VI : S->refs()) {
     assert(VI.getAccessSpecifier() == 0 || isa<FunctionSummary>(S));
+    if (!VI.getAccessSpecifier()) {
+      if (!MarkedNonReadWriteOnly.insert(VI).second)
+        continue;
+    } else if (MarkedNonReadWriteOnly.contains(VI))
+      continue;
     for (auto &Ref : VI.getSummaryList())
       // If references to alias is not read/writeonly then aliasee
       // is not read/writeonly
@@ -184,7 +231,7 @@ static void propagateAttributesToRefs(GlobalValueSummary *S) {
   }
 }
 
-// Do the access attribute propagation in combined index.
+// Do the access attribute and DSOLocal propagation in combined index.
 // The goal of attribute propagation is internalization of readonly (RO)
 // or writeonly (WO) variables. To determine which variables are RO or WO
 // and which are not we take following steps:
@@ -195,7 +242,7 @@ static void propagateAttributesToRefs(GlobalValueSummary *S) {
 //   or doesn't read it (writeonly).
 //
 // - After computing dead symbols in combined index we do the attribute
-//   propagation. During this step we:
+//   and DSOLocal propagation. During this step we:
 //   a. clear RO and WO attributes from variables which are preserved or
 //      can't be imported
 //   b. clear RO and WO attributes from variables referenced by any global
@@ -204,6 +251,7 @@ static void propagateAttributesToRefs(GlobalValueSummary *S) {
 //      reference is not readonly
 //   d. clear WO attribute from variable referenced by a function when
 //      reference is not writeonly
+//   e. clear IsDSOLocal flag in every summary if any of them is false.
 //
 //   Because of (c, d) we don't internalize variables read by function A
 //   and modified by function B.
@@ -214,11 +262,26 @@ void ModuleSummaryIndex::propagateAttributes(
     const DenseSet<GlobalValue::GUID> &GUIDPreservedSymbols) {
   if (!PropagateAttrs)
     return;
-  for (auto &P : *this)
-    for (auto &S : P.second.SummaryList) {
-      if (!isGlobalValueLive(S.get()))
+  DenseSet<ValueInfo> MarkedNonReadWriteOnly;
+  for (auto &P : *this) {
+    bool IsDSOLocal = true;
+    for (auto &S : P.second.getSummaryList()) {
+      if (!isGlobalValueLive(S.get())) {
+        // computeDeadSymbolsAndUpdateIndirectCalls should have marked all
+        // copies live. Note that it is possible that there is a GUID collision
+        // between internal symbols with the same name in different files of the
+        // same name but not enough distinguishing path. Because
+        // computeDeadSymbolsAndUpdateIndirectCalls should conservatively mark
+        // all copies live we can assert here that all are dead if any copy is
+        // dead.
+        assert(llvm::none_of(
+            P.second.getSummaryList(),
+            [&](const std::unique_ptr<GlobalValueSummary> &Summary) {
+              return isGlobalValueLive(Summary.get());
+            }));
         // We don't examine references from dead objects
-        continue;
+        break;
+      }
 
       // Global variable can't be marked read/writeonly if it is not eligible
       // to import since we need to ensure that all external references get
@@ -238,14 +301,25 @@ void ModuleSummaryIndex::propagateAttributes(
           GVS->setReadOnly(false);
           GVS->setWriteOnly(false);
         }
-      propagateAttributesToRefs(S.get());
+      propagateAttributesToRefs(S.get(), MarkedNonReadWriteOnly);
+
+      // If the flag from any summary is false, the GV is not DSOLocal.
+      IsDSOLocal &= S->isDSOLocal();
     }
+    if (!IsDSOLocal)
+      // Mark the flag in all summaries false so that we can do quick check
+      // without going through the whole list.
+      for (const std::unique_ptr<GlobalValueSummary> &Summary :
+           P.second.getSummaryList())
+        Summary->setDSOLocal(false);
+  }
   setWithAttributePropagation();
+  setWithDSOLocalPropagation();
   if (llvm::AreStatisticsEnabled())
     for (auto &P : *this)
-      if (P.second.SummaryList.size())
+      if (P.second.getSummaryList().size())
         if (auto *GVS = dyn_cast<GlobalVarSummary>(
-                P.second.SummaryList[0]->getBaseObject()))
+                P.second.getSummaryList()[0]->getBaseObject()))
           if (isGlobalValueLive(GVS)) {
             if (GVS->maybeReadOnly())
               ReadOnlyLiveGVars++;
@@ -254,8 +328,15 @@ void ModuleSummaryIndex::propagateAttributes(
           }
 }
 
-bool ModuleSummaryIndex::canImportGlobalVar(GlobalValueSummary *S,
+bool ModuleSummaryIndex::canImportGlobalVar(const GlobalValueSummary *S,
                                             bool AnalyzeRefs) const {
+  bool CanImportDecl;
+  return canImportGlobalVar(S, AnalyzeRefs, CanImportDecl);
+}
+
+bool ModuleSummaryIndex::canImportGlobalVar(const GlobalValueSummary *S,
+                                            bool AnalyzeRefs,
+                                            bool &CanImportDecl) const {
   auto HasRefsPreventingImport = [this](const GlobalVarSummary *GVS) {
     // We don't analyze GV references during attribute propagation, so
     // GV with non-trivial initializer can be marked either read or
@@ -276,13 +357,20 @@ bool ModuleSummaryIndex::canImportGlobalVar(GlobalValueSummary *S,
   };
   auto *GVS = cast<GlobalVarSummary>(S->getBaseObject());
 
+  const bool nonInterposable =
+      !GlobalValue::isInterposableLinkage(S->linkage());
+  const bool eligibleToImport = !S->notEligibleToImport();
+
+  // It's correct to import a global variable only when it is not interposable
+  // and eligible to import.
+  CanImportDecl = (nonInterposable && eligibleToImport);
+
   // Global variable with non-trivial initializer can be imported
   // if it's readonly. This gives us extra opportunities for constant
   // folding and converting indirect calls to direct calls. We don't
   // analyze GV references during attribute propagation, because we
   // don't know yet if it is readonly or not.
-  return !GlobalValue::isInterposableLinkage(S->linkage()) &&
-         !S->notEligibleToImport() &&
+  return nonInterposable && eligibleToImport &&
          (!AnalyzeRefs || !HasRefsPreventingImport(GVS));
 }
 
@@ -323,7 +411,7 @@ struct Edge {
   GlobalValue::GUID Src;
   GlobalValue::GUID Dst;
 };
-}
+} // namespace
 
 void Attributes::add(const Twine &Name, const Twine &Value,
                      const Twine &Comment) {
@@ -389,9 +477,17 @@ static std::string linkageToString(GlobalValue::LinkageTypes LT) {
 
 static std::string fflagsToString(FunctionSummary::FFlags F) {
   auto FlagValue = [](unsigned V) { return V ? '1' : '0'; };
-  char FlagRep[] = {FlagValue(F.ReadNone),     FlagValue(F.ReadOnly),
-                    FlagValue(F.NoRecurse),    FlagValue(F.ReturnDoesNotAlias),
-                    FlagValue(F.NoInline), FlagValue(F.AlwaysInline), 0};
+  char FlagRep[] = {FlagValue(F.ReadNone),
+                    FlagValue(F.ReadOnly),
+                    FlagValue(F.NoRecurse),
+                    FlagValue(F.ReturnDoesNotAlias),
+                    FlagValue(F.NoInline),
+                    FlagValue(F.AlwaysInline),
+                    FlagValue(F.NoUnwind),
+                    FlagValue(F.MayThrow),
+                    FlagValue(F.HasUnknownCall),
+                    FlagValue(F.MustBeUnreachable),
+                    0};
 
   return FlagRep;
 }
@@ -471,6 +567,17 @@ void ModuleSummaryIndex::exportToDot(
   std::map<StringRef, GVSOrderedMapTy> ModuleToDefinedGVS;
   collectDefinedGVSummariesPerModule(ModuleToDefinedGVS);
 
+  // Assign an id to each module path for use in graph labels. Since the
+  // StringMap iteration order isn't guaranteed, order by path string before
+  // assigning ids.
+  std::vector<StringRef> ModulePaths;
+  for (auto &[ModPath, _] : modulePaths())
+    ModulePaths.push_back(ModPath);
+  llvm::sort(ModulePaths);
+  DenseMap<StringRef, uint64_t> ModuleIdMap;
+  for (auto &ModPath : ModulePaths)
+    ModuleIdMap.try_emplace(ModPath, ModuleIdMap.size());
+
   // Get node identifier in form MXXX_<GUID>. The MXXX prefix is required,
   // because we may have multiple linkonce functions summaries.
   auto NodeId = [](uint64_t ModId, GlobalValue::GUID Id) {
@@ -499,15 +606,17 @@ void ModuleSummaryIndex::exportToDot(
         " [color=brown]; // call (hotness : Hot)",
         " [style=bold,color=red]; // call (hotness : Critical)"};
 
-    assert(static_cast<size_t>(TypeOrHotness) <
-           sizeof(EdgeAttrs) / sizeof(EdgeAttrs[0]));
+    assert(static_cast<size_t>(TypeOrHotness) < std::size(EdgeAttrs));
     OS << Pfx << NodeId(SrcMod, SrcId) << " -> " << NodeId(DstMod, DstId)
        << EdgeAttrs[TypeOrHotness] << "\n";
   };
 
   OS << "digraph Summary {\n";
   for (auto &ModIt : ModuleToDefinedGVS) {
-    auto ModId = getModuleId(ModIt.first);
+    // Will be empty for a just built per-module index, which doesn't setup a
+    // module paths table. In that case use 0 as the module id.
+    assert(ModuleIdMap.count(ModIt.first) || ModuleIdMap.empty());
+    auto ModId = ModuleIdMap.empty() ? 0 : ModuleIdMap[ModIt.first];
     OS << "  // Module: " << ModIt.first << "\n";
     OS << "  subgraph cluster_" << std::to_string(ModId) << " {\n";
     OS << "    style = filled;\n";
@@ -542,10 +651,16 @@ void ModuleSummaryIndex::exportToDot(
         if (Flags.Live && hasConstantFlag(SummaryIt.second))
           A.addComment("constant");
       }
+      if (Flags.Visibility)
+        A.addComment("visibility");
       if (Flags.DSOLocal)
         A.addComment("dsoLocal");
       if (Flags.CanAutoHide)
         A.addComment("canAutoHide");
+      if (Flags.ImportType == GlobalValueSummary::ImportKind::Definition)
+        A.addComment("definition");
+      else if (Flags.ImportType == GlobalValueSummary::ImportKind::Declaration)
+        A.addComment("declaration");
       if (GUIDPreservedSymbols.count(SummaryIt.first))
         A.addComment("preserved");
 

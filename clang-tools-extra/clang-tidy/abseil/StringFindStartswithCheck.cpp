@@ -1,4 +1,4 @@
-//===--- StringFindStartswithCheck.cc - clang-tidy---------------*- C++ -*-===//
+//===----------------------------------------------------------------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -12,36 +12,36 @@
 #include "clang/AST/ASTContext.h"
 #include "clang/ASTMatchers/ASTMatchers.h"
 #include "clang/Frontend/CompilerInstance.h"
-
-#include <cassert>
+#include "clang/Lex/Lexer.h"
+#include "clang/Lex/Preprocessor.h"
 
 using namespace clang::ast_matchers;
 
-namespace clang {
-namespace tidy {
-namespace abseil {
+namespace clang::tidy::abseil {
+
+const auto DefaultStringLikeClasses =
+    "::std::basic_string;::std::basic_string_view";
 
 StringFindStartswithCheck::StringFindStartswithCheck(StringRef Name,
                                                      ClangTidyContext *Context)
     : ClangTidyCheck(Name, Context),
       StringLikeClasses(utils::options::parseStringList(
-          Options.get("StringLikeClasses", "::std::basic_string"))),
-      IncludeStyle(Options.getLocalOrGlobal("IncludeStyle",
-                                            utils::IncludeSorter::getMapping(),
-                                            utils::IncludeSorter::IS_LLVM)),
+          Options.get("StringLikeClasses", DefaultStringLikeClasses))),
+      IncludeInserter(Options.getLocalOrGlobal("IncludeStyle",
+                                               utils::IncludeSorter::IS_LLVM),
+                      areDiagsSelfContained()),
       AbseilStringsMatchHeader(
           Options.get("AbseilStringsMatchHeader", "absl/strings/match.h")) {}
 
 void StringFindStartswithCheck::registerMatchers(MatchFinder *Finder) {
   auto ZeroLiteral = integerLiteral(equals(0));
-  auto StringClassMatcher = cxxRecordDecl(hasAnyName(SmallVector<StringRef, 4>(
-      StringLikeClasses.begin(), StringLikeClasses.end())));
+  auto StringClassMatcher = cxxRecordDecl(hasAnyName(StringLikeClasses));
   auto StringType = hasUnqualifiedDesugaredType(
       recordType(hasDeclaration(StringClassMatcher)));
 
   auto StringFind = cxxMemberCallExpr(
       // .find()-call on a string...
-      callee(cxxMethodDecl(hasName("find"))),
+      callee(cxxMethodDecl(hasName("find")).bind("findfun")),
       on(hasType(StringType)),
       // ... with some search expression ...
       hasArgument(0, expr().bind("needle")),
@@ -54,6 +54,25 @@ void StringFindStartswithCheck::registerMatchers(MatchFinder *Finder) {
           hasAnyOperatorName("==", "!="),
           hasOperands(ignoringParenImpCasts(ZeroLiteral),
                       ignoringParenImpCasts(StringFind.bind("findexpr"))))
+          .bind("expr"),
+      this);
+
+  auto StringRFind = cxxMemberCallExpr(
+      // .rfind()-call on a string...
+      callee(cxxMethodDecl(hasName("rfind")).bind("findfun")),
+      on(hasType(StringType)),
+      // ... with some search expression ...
+      hasArgument(0, expr().bind("needle")),
+      // ... and "0" as second argument.
+      hasArgument(1, ZeroLiteral));
+
+  Finder->addMatcher(
+      // Match [=!]= with either a zero or npos on one side and a string.rfind
+      // on the other.
+      binaryOperator(
+          hasAnyOperatorName("==", "!="),
+          hasOperands(ignoringParenImpCasts(ZeroLiteral),
+                      ignoringParenImpCasts(StringRFind.bind("findexpr"))))
           .bind("expr"),
       this);
 }
@@ -70,6 +89,10 @@ void StringFindStartswithCheck::check(const MatchFinder::MatchResult &Result) {
   const Expr *Haystack = Result.Nodes.getNodeAs<CXXMemberCallExpr>("findexpr")
                              ->getImplicitObjectArgument();
   assert(Haystack != nullptr);
+  const auto *FindFun = Result.Nodes.getNodeAs<CXXMethodDecl>("findfun");
+  assert(FindFun != nullptr);
+
+  bool Rev = FindFun->getName().contains("rfind");
 
   if (ComparisonExpr->getBeginLoc().isMacroID())
     return;
@@ -84,49 +107,39 @@ void StringFindStartswithCheck::check(const MatchFinder::MatchResult &Result) {
       Context.getLangOpts());
 
   // Create the StartsWith string, negating if comparison was "!=".
-  bool Neg = ComparisonExpr->getOpcodeStr() == "!=";
-  StringRef StartswithStr;
-  if (Neg) {
-    StartswithStr = "!absl::StartsWith";
-  } else {
-    StartswithStr = "absl::StartsWith";
-  }
+  bool Neg = ComparisonExpr->getOpcode() == BO_NE;
 
   // Create the warning message and a FixIt hint replacing the original expr.
   auto Diagnostic =
       diag(ComparisonExpr->getBeginLoc(),
-           (StringRef("use ") + StartswithStr + " instead of find() " +
-            ComparisonExpr->getOpcodeStr() + " 0")
-               .str());
+           "use %select{absl::StartsWith|!absl::StartsWith}0 "
+           "instead of %select{find()|rfind()}1 %select{==|!=}0 0")
+      << Neg << Rev;
 
   Diagnostic << FixItHint::CreateReplacement(
       ComparisonExpr->getSourceRange(),
-      (StartswithStr + "(" + HaystackExprCode + ", " + NeedleExprCode + ")")
+      ((Neg ? "!absl::StartsWith(" : "absl::StartsWith(") + HaystackExprCode +
+       ", " + NeedleExprCode + ")")
           .str());
 
-  // Create a preprocessor #include FixIt hint (CreateIncludeInsertion checks
+  // Create a preprocessor #include FixIt hint (createIncludeInsertion checks
   // whether this already exists).
-  Diagnostic << IncludeInserter->CreateIncludeInsertion(
-      Source.getFileID(ComparisonExpr->getBeginLoc()), AbseilStringsMatchHeader,
-      false);
+  Diagnostic << IncludeInserter.createIncludeInsertion(
+      Source.getFileID(ComparisonExpr->getBeginLoc()),
+      AbseilStringsMatchHeader);
 }
 
 void StringFindStartswithCheck::registerPPCallbacks(
     const SourceManager &SM, Preprocessor *PP, Preprocessor *ModuleExpanderPP) {
-  IncludeInserter = std::make_unique<utils::IncludeInserter>(SM, getLangOpts(),
-                                                              IncludeStyle);
-  PP->addPPCallbacks(IncludeInserter->CreatePPCallbacks());
+  IncludeInserter.registerPreprocessor(PP);
 }
 
 void StringFindStartswithCheck::storeOptions(
     ClangTidyOptions::OptionMap &Opts) {
   Options.store(Opts, "StringLikeClasses",
                 utils::options::serializeStringList(StringLikeClasses));
-  Options.store(Opts, "IncludeStyle", IncludeStyle,
-                utils::IncludeSorter::getMapping());
+  Options.store(Opts, "IncludeStyle", IncludeInserter.getStyle());
   Options.store(Opts, "AbseilStringsMatchHeader", AbseilStringsMatchHeader);
 }
 
-} // namespace abseil
-} // namespace tidy
-} // namespace clang
+} // namespace clang::tidy::abseil

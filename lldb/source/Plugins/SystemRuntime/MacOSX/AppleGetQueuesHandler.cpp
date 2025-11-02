@@ -20,6 +20,7 @@
 #include "lldb/Target/Target.h"
 #include "lldb/Target/Thread.h"
 #include "lldb/Utility/ConstString.h"
+#include "lldb/Utility/LLDBLog.h"
 #include "lldb/Utility/Log.h"
 #include "lldb/Utility/StreamString.h"
 
@@ -99,7 +100,7 @@ AppleGetQueuesHandler::AppleGetQueuesHandler(Process *process)
       m_get_queues_return_buffer_addr(LLDB_INVALID_ADDRESS),
       m_get_queues_retbuffer_mutex() {}
 
-AppleGetQueuesHandler::~AppleGetQueuesHandler() {}
+AppleGetQueuesHandler::~AppleGetQueuesHandler() = default;
 
 void AppleGetQueuesHandler::Detach() {
 
@@ -146,7 +147,7 @@ AppleGetQueuesHandler::SetupGetQueuesFunction(Thread &thread,
 
   Address impl_code_address;
   DiagnosticManager diagnostics;
-  Log *log(lldb_private::GetLogIfAllCategoriesSet(LIBLLDB_LOG_SYSTEM_RUNTIME));
+  Log *log = GetLog(LLDBLog::SystemRuntime);
   lldb::addr_t args_addr = LLDB_INVALID_ADDRESS;
 
   FunctionCaller *get_queues_caller = nullptr;
@@ -159,27 +160,16 @@ AppleGetQueuesHandler::SetupGetQueuesFunction(Thread &thread,
 
     if (!m_get_queues_impl_code_up) {
       if (g_get_current_queues_function_code != nullptr) {
-        Status error;
-        m_get_queues_impl_code_up.reset(
-            exe_ctx.GetTargetRef().GetUtilityFunctionForLanguage(
-                g_get_current_queues_function_code, eLanguageTypeC,
-                g_get_current_queues_function_name, error));
-        if (error.Fail()) {
-          LLDB_LOGF(
-              log,
-              "Failed to get UtilityFunction for queues introspection: %s.",
-              error.AsCString());
+        auto utility_fn_or_error = exe_ctx.GetTargetRef().CreateUtilityFunction(
+            g_get_current_queues_function_code,
+            g_get_current_queues_function_name, eLanguageTypeC, exe_ctx);
+        if (!utility_fn_or_error) {
+          LLDB_LOG_ERROR(log, utility_fn_or_error.takeError(),
+                         "Failed to create UtilityFunction for queues "
+                         "introspection: {0}.");
           return args_addr;
         }
-
-        if (!m_get_queues_impl_code_up->Install(diagnostics, exe_ctx)) {
-          if (log) {
-            LLDB_LOGF(log, "Failed to install queues introspection");
-            diagnostics.Dump(log);
-          }
-          m_get_queues_impl_code_up.reset();
-          return args_addr;
-        }
+        m_get_queues_impl_code_up = std::move(*utility_fn_or_error);
       } else {
         if (log) {
           LLDB_LOGF(log, "No queues introspection code found.");
@@ -190,10 +180,10 @@ AppleGetQueuesHandler::SetupGetQueuesFunction(Thread &thread,
     }
 
     // Next make the runner function for our implementation utility function.
-    TypeSystemClang *clang_ast_context =
-        TypeSystemClang::GetScratch(thread.GetProcess()->GetTarget());
+    TypeSystemClangSP scratch_ts_sp =
+        ScratchTypeSystemClang::GetForTarget(thread.GetProcess()->GetTarget());
     CompilerType get_queues_return_type =
-        clang_ast_context->GetBasicType(eBasicTypeVoid).GetPointerType();
+        scratch_ts_sp->GetBasicType(eBasicTypeVoid).GetPointerType();
     Status error;
     get_queues_caller = m_get_queues_impl_code_up->MakeFunctionCaller(
         get_queues_return_type, get_queues_arglist, thread_sp, error);
@@ -231,8 +221,9 @@ AppleGetQueuesHandler::GetCurrentQueues(Thread &thread, addr_t page_to_free,
   lldb::StackFrameSP thread_cur_frame = thread.GetStackFrameAtIndex(0);
   ProcessSP process_sp(thread.CalculateProcess());
   TargetSP target_sp(thread.CalculateTarget());
-  TypeSystemClang *clang_ast_context = TypeSystemClang::GetScratch(*target_sp);
-  Log *log(lldb_private::GetLogIfAllCategoriesSet(LIBLLDB_LOG_SYSTEM_RUNTIME));
+  TypeSystemClangSP scratch_ts_sp =
+      ScratchTypeSystemClang::GetForTarget(*target_sp);
+  Log *log = GetLog(LLDBLog::SystemRuntime);
 
   GetQueuesReturnInfo return_value;
   return_value.queues_buffer_ptr = LLDB_INVALID_ADDRESS;
@@ -244,7 +235,8 @@ AppleGetQueuesHandler::GetCurrentQueues(Thread &thread, addr_t page_to_free,
   if (!thread.SafeToCallFunctions()) {
     LLDB_LOGF(log, "Not safe to call functions on thread 0x%" PRIx64,
               thread.GetID());
-    error.SetErrorString("Not safe to call functions on this thread.");
+    error =
+        Status::FromErrorString("Not safe to call functions on this thread.");
     return return_value;
   }
 
@@ -272,24 +264,24 @@ AppleGetQueuesHandler::GetCurrentQueues(Thread &thread, addr_t page_to_free,
   // already allocated by lldb in the inferior process.
 
   CompilerType clang_void_ptr_type =
-      clang_ast_context->GetBasicType(eBasicTypeVoid).GetPointerType();
+      scratch_ts_sp->GetBasicType(eBasicTypeVoid).GetPointerType();
   Value return_buffer_ptr_value;
-  return_buffer_ptr_value.SetValueType(Value::eValueTypeScalar);
+  return_buffer_ptr_value.SetValueType(Value::ValueType::Scalar);
   return_buffer_ptr_value.SetCompilerType(clang_void_ptr_type);
 
-  CompilerType clang_int_type = clang_ast_context->GetBasicType(eBasicTypeInt);
+  CompilerType clang_int_type = scratch_ts_sp->GetBasicType(eBasicTypeInt);
   Value debug_value;
-  debug_value.SetValueType(Value::eValueTypeScalar);
+  debug_value.SetValueType(Value::ValueType::Scalar);
   debug_value.SetCompilerType(clang_int_type);
 
   Value page_to_free_value;
-  page_to_free_value.SetValueType(Value::eValueTypeScalar);
+  page_to_free_value.SetValueType(Value::ValueType::Scalar);
   page_to_free_value.SetCompilerType(clang_void_ptr_type);
 
   CompilerType clang_uint64_type =
-      clang_ast_context->GetBasicType(eBasicTypeUnsignedLongLong);
+      scratch_ts_sp->GetBasicType(eBasicTypeUnsignedLongLong);
   Value page_to_free_size_value;
-  page_to_free_size_value.SetValueType(Value::eValueTypeScalar);
+  page_to_free_size_value.SetValueType(Value::ValueType::Scalar);
   page_to_free_size_value.SetCompilerType(clang_uint64_type);
 
   std::lock_guard<std::mutex> guard(m_get_queues_retbuffer_mutex);
@@ -324,7 +316,7 @@ AppleGetQueuesHandler::GetCurrentQueues(Thread &thread, addr_t page_to_free,
   addr_t args_addr = SetupGetQueuesFunction(thread, argument_values);
 
   if (!m_get_queues_impl_code_up) {
-    error.SetErrorString(
+    error = Status::FromErrorString(
         "Unable to compile __introspection_dispatch_get_queues.");
     return return_value;
   }
@@ -333,7 +325,7 @@ AppleGetQueuesHandler::GetCurrentQueues(Thread &thread, addr_t page_to_free,
       m_get_queues_impl_code_up->GetFunctionCaller();
 
   if (get_queues_caller == nullptr) {
-    error.SetErrorString(
+    error = Status::FromErrorString(
         "Unable to get caller for call __introspection_dispatch_get_queues");
     return return_value;
   }
@@ -362,8 +354,9 @@ AppleGetQueuesHandler::GetCurrentQueues(Thread &thread, addr_t page_to_free,
               "Unable to call introspection_get_dispatch_queues(), got "
               "ExpressionResults %d, error contains %s",
               func_call_ret, error.AsCString(""));
-    error.SetErrorString("Unable to call introspection_get_dispatch_queues() "
-                         "for list of queues");
+    error = Status::FromErrorString(
+        "Unable to call introspection_get_dispatch_queues() "
+        "for list of queues");
     return return_value;
   }
 

@@ -8,9 +8,9 @@
 
 #include "llvm/DebugInfo/CodeView/TypeTableCollection.h"
 
-#include "llvm/DebugInfo/CodeView/CVTypeVisitor.h"
 #include "llvm/DebugInfo/CodeView/RecordName.h"
-#include "llvm/Support/BinaryStreamReader.h"
+#include "llvm/DebugInfo/CodeView/TypeIndex.h"
+#include "llvm/Support/ErrorHandling.h"
 
 using namespace llvm;
 using namespace llvm::codeview;
@@ -20,17 +20,17 @@ TypeTableCollection::TypeTableCollection(ArrayRef<ArrayRef<uint8_t>> Records)
   Names.resize(Records.size());
 }
 
-Optional<TypeIndex> TypeTableCollection::getFirst() {
+std::optional<TypeIndex> TypeTableCollection::getFirst() {
   if (empty())
-    return None;
+    return std::nullopt;
   return TypeIndex::fromArrayIndex(0);
 }
 
-Optional<TypeIndex> TypeTableCollection::getNext(TypeIndex Prev) {
+std::optional<TypeIndex> TypeTableCollection::getNext(TypeIndex Prev) {
   assert(contains(Prev));
   ++Prev;
   if (Prev.toArrayIndex() == size())
-    return None;
+    return std::nullopt;
   return Prev;
 }
 
@@ -58,3 +58,8 @@ bool TypeTableCollection::contains(TypeIndex Index) {
 uint32_t TypeTableCollection::size() { return Records.size(); }
 
 uint32_t TypeTableCollection::capacity() { return Records.size(); }
+
+bool TypeTableCollection::replaceType(TypeIndex &Index, CVType Data,
+                                      bool Stabilize) {
+  llvm_unreachable("Method cannot be called");
+}

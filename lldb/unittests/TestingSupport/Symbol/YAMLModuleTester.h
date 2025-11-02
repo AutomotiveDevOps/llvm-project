@@ -9,12 +9,15 @@
 #ifndef LLDB_UNITTESTS_TESTINGSUPPORT_SYMBOL_YAMLMODULETESTER_H
 #define LLDB_UNITTESTS_TESTINGSUPPORT_SYMBOL_YAMLMODULETESTER_H
 
+#include "Plugins/ObjectFile/ELF/ObjectFileELF.h"
 #include "Plugins/SymbolFile/DWARF/DWARFUnit.h"
 #include "Plugins/SymbolFile/DWARF/SymbolFileDWARF.h"
 #include "Plugins/TypeSystem/Clang/TypeSystemClang.h"
 #include "TestingSupport/SubsystemRAII.h"
+#include "TestingSupport/TestUtilities.h"
 #include "lldb/Core/Module.h"
 #include "lldb/Host/HostInfo.h"
+#include <optional>
 
 namespace lldb_private {
 
@@ -22,17 +25,17 @@ namespace lldb_private {
 /// DWARF expressions on it.
 class YAMLModuleTester {
 protected:
-  SubsystemRAII<FileSystem, HostInfo, TypeSystemClang> subsystems;
-  llvm::StringMap<std::unique_ptr<llvm::MemoryBuffer>> m_sections_map;
+  SubsystemRAII<FileSystem, HostInfo, TypeSystemClang, ObjectFileELF,
+                plugin::dwarf::SymbolFileDWARF>
+      subsystems;
+  std::optional<TestFile> m_file;
   lldb::ModuleSP m_module_sp;
-  lldb::ObjectFileSP m_objfile_sp;
-  DWARFUnitSP m_dwarf_unit;
-  std::unique_ptr<SymbolFileDWARF> m_symfile_dwarf;
+  plugin::dwarf::DWARFUnit *m_dwarf_unit;
 
 public:
   /// Parse the debug info sections from the YAML description.
-  YAMLModuleTester(llvm::StringRef yaml_data, llvm::StringRef triple);
-  DWARFUnitSP GetDwarfUnit() const { return m_dwarf_unit; }
+  YAMLModuleTester(llvm::StringRef yaml_data, size_t cu_index = 0);
+  plugin::dwarf::DWARFUnit *GetDwarfUnit() const { return m_dwarf_unit; }
   lldb::ModuleSP GetModule() const { return m_module_sp; }
 };
 

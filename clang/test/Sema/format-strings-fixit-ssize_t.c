@@ -11,8 +11,8 @@
 int printf(char const *, ...);
 int scanf(const char *, ...);
 
-void test() {
-  typedef signed long int ssize_t;
+typedef long ssize_t;
+void test(void) {
   printf("%f", (ssize_t) 42);
   ssize_t s;
   scanf("%f",  &s);

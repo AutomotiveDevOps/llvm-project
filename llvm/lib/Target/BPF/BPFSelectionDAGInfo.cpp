@@ -12,14 +12,13 @@
 
 #include "BPFTargetMachine.h"
 #include "llvm/CodeGen/SelectionDAG.h"
-#include "llvm/IR/DerivedTypes.h"
 using namespace llvm;
 
 #define DEBUG_TYPE "bpf-selectiondag-info"
 
 SDValue BPFSelectionDAGInfo::EmitTargetCodeForMemcpy(
     SelectionDAG &DAG, const SDLoc &dl, SDValue Chain, SDValue Dst, SDValue Src,
-    SDValue Size, unsigned Align, bool isVolatile, bool AlwaysInline,
+    SDValue Size, Align Alignment, bool isVolatile, bool AlwaysInline,
     MachinePointerInfo DstPtrInfo, MachinePointerInfo SrcPtrInfo) const {
   // Requires the copy size to be a constant.
   ConstantSDNode *ConstantSize = dyn_cast<ConstantSDNode>(Size);
@@ -27,7 +26,7 @@ SDValue BPFSelectionDAGInfo::EmitTargetCodeForMemcpy(
     return SDValue();
 
   unsigned CopyLen = ConstantSize->getZExtValue();
-  unsigned StoresNumEstimate = alignTo(CopyLen, Align) >> Log2_32(Align);
+  unsigned StoresNumEstimate = alignTo(CopyLen, Alignment) >> Log2(Alignment);
   // Impose the same copy length limit as MaxStoresPerMemcpy.
   if (StoresNumEstimate > getCommonMaxStoresPerMemFunc())
     return SDValue();
@@ -36,7 +35,7 @@ SDValue BPFSelectionDAGInfo::EmitTargetCodeForMemcpy(
 
   Dst = DAG.getNode(BPFISD::MEMCPY, dl, VTs, Chain, Dst, Src,
                     DAG.getConstant(CopyLen, dl, MVT::i64),
-                    DAG.getConstant(Align, dl, MVT::i64));
+                    DAG.getConstant(Alignment.value(), dl, MVT::i64));
 
   return Dst.getValue(0);
 }

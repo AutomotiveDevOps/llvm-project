@@ -18,7 +18,6 @@
 
 namespace llvm {
 class ARMSubtarget;
-class ScheduleHazardRecognizer;
 
 class Thumb2InstrInfo : public ARMBaseInstrInfo {
   ThumbRegisterInfo RI;
@@ -26,7 +25,7 @@ public:
   explicit Thumb2InstrInfo(const ARMSubtarget &STI);
 
   /// Return the noop instruction to use for a noop.
-  void getNoop(MCInst &NopInst) const override;
+  MCInst getNop() const override;
 
   // Return the non-pre/post incrementing version of 'Opc'. Return 0
   // if there is not such an opcode.
@@ -39,26 +38,39 @@ public:
                            MachineBasicBlock::iterator MBBI) const override;
 
   void copyPhysReg(MachineBasicBlock &MBB, MachineBasicBlock::iterator I,
-                   const DebugLoc &DL, MCRegister DestReg, MCRegister SrcReg,
-                   bool KillSrc) const override;
+                   const DebugLoc &DL, Register DestReg, Register SrcReg,
+                   bool KillSrc, bool RenamableDest = false,
+                   bool RenamableSrc = false) const override;
 
-  void storeRegToStackSlot(MachineBasicBlock &MBB,
-                           MachineBasicBlock::iterator MBBI,
-                           Register SrcReg, bool isKill, int FrameIndex,
-                           const TargetRegisterClass *RC,
-                           const TargetRegisterInfo *TRI) const override;
+  void storeRegToStackSlot(
+      MachineBasicBlock &MBB, MachineBasicBlock::iterator MBBI, Register SrcReg,
+      bool isKill, int FrameIndex, const TargetRegisterClass *RC,
+      const TargetRegisterInfo *TRI, Register VReg,
+      MachineInstr::MIFlag Flags = MachineInstr::NoFlags) const override;
 
-  void loadRegFromStackSlot(MachineBasicBlock &MBB,
-                            MachineBasicBlock::iterator MBBI,
-                            Register DestReg, int FrameIndex,
-                            const TargetRegisterClass *RC,
-                            const TargetRegisterInfo *TRI) const override;
+  void loadRegFromStackSlot(
+      MachineBasicBlock &MBB, MachineBasicBlock::iterator MBBI,
+      Register DestReg, int FrameIndex, const TargetRegisterClass *RC,
+      const TargetRegisterInfo *TRI, Register VReg,
+      MachineInstr::MIFlag Flags = MachineInstr::NoFlags) const override;
 
   /// getRegisterInfo - TargetInstrInfo is a superset of MRegister info.  As
   /// such, whenever a client has an instance of instruction info, it should
   /// always be able to get register info as well (through this method).
   ///
   const ThumbRegisterInfo &getRegisterInfo() const override { return RI; }
+
+  MachineInstr *optimizeSelect(MachineInstr &MI,
+                               SmallPtrSetImpl<MachineInstr *> &SeenMIs,
+                               bool) const override;
+
+  MachineInstr *commuteInstructionImpl(MachineInstr &MI, bool NewMI,
+                                       unsigned OpIdx1,
+                                       unsigned OpIdx2) const override;
+
+  bool isSchedulingBoundary(const MachineInstr &MI,
+                            const MachineBasicBlock *MBB,
+                            const MachineFunction &MF) const override;
 
 private:
   void expandLoadStackGuard(MachineBasicBlock::iterator MI) const override;
@@ -78,6 +90,9 @@ inline ARMVCC::VPTCodes getVPTInstrPredicate(const MachineInstr &MI) {
   Register PredReg;
   return getVPTInstrPredicate(MI, PredReg);
 }
+// Identify the input operand in an MVE predicated instruction which
+// contributes the values of any inactive vector lanes.
+int findVPTInactiveOperandIdx(const MachineInstr &MI);
 
 // Recomputes the Block Mask of Instr, a VPT or VPST instruction.
 // This rebuilds the block mask of the instruction depending on the predicates

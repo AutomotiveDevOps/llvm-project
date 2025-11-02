@@ -11,7 +11,6 @@
 #include "lldb/Core/Debugger.h"
 #include "lldb/Host/FileSystem.h"
 #include "lldb/Host/HostInfo.h"
-#include "lldb/Utility/Reproducer.h"
 #include "lldb/lldb-enumerations.h"
 #include "lldb/lldb-forward.h"
 #include "lldb/lldb-private-enumerations.h"
@@ -20,14 +19,12 @@
 #include "gtest/gtest.h"
 
 using namespace lldb_private;
-using namespace lldb_private::repro;
 using namespace lldb;
 
 namespace {
 class StackFrameRecognizerTest : public ::testing::Test {
 public:
   void SetUp() override {
-    llvm::cantFail(Reproducer::Initialize(ReproducerMode::Off, llvm::None));
     FileSystem::Initialize();
     HostInfo::Initialize();
 
@@ -42,7 +39,6 @@ public:
     platform_linux::PlatformLinux::Terminate();
     HostInfo::Terminate();
     FileSystem::Terminate();
-    Reproducer::Terminate();
   }
 };
 
@@ -51,18 +47,14 @@ public:
   std::string GetName() override { return "Dummy StackFrame Recognizer"; }
 };
 
-void RegisterDummyStackFrameRecognizer() {
-  static llvm::once_flag g_once_flag;
+void RegisterDummyStackFrameRecognizer(StackFrameRecognizerManager &manager) {
+  RegularExpressionSP module_regex_sp = nullptr;
+  RegularExpressionSP symbol_regex_sp(new RegularExpression("boom"));
 
-  llvm::call_once(g_once_flag, []() {
-    RegularExpressionSP module_regex_sp = nullptr;
-    RegularExpressionSP symbol_regex_sp(new RegularExpression("boom"));
+  StackFrameRecognizerSP dummy_recognizer_sp(new DummyStackFrameRecognizer());
 
-    StackFrameRecognizerSP dummy_recognizer_sp(new DummyStackFrameRecognizer());
-
-    StackFrameRecognizerManager::AddRecognizer(
-        dummy_recognizer_sp, module_regex_sp, symbol_regex_sp, false);
-  });
+  manager.AddRecognizer(dummy_recognizer_sp, module_regex_sp, symbol_regex_sp,
+                        Mangled::NamePreference::ePreferDemangled, false);
 }
 
 } // namespace
@@ -71,13 +63,16 @@ TEST_F(StackFrameRecognizerTest, NullModuleRegex) {
   DebuggerSP debugger_sp = Debugger::CreateInstance();
   ASSERT_TRUE(debugger_sp);
 
-  RegisterDummyStackFrameRecognizer();
+  StackFrameRecognizerManager manager;
+
+  RegisterDummyStackFrameRecognizer(manager);
 
   bool any_printed = false;
-  StackFrameRecognizerManager::ForEach(
-      [&any_printed](uint32_t recognizer_id, std::string name,
-                     std::string function, llvm::ArrayRef<ConstString> symbols,
-                     bool regexp) { any_printed = true; });
+  manager.ForEach([&any_printed](uint32_t recognizer_id, bool enabled,
+                                 std::string name, std::string function,
+                                 llvm::ArrayRef<ConstString> symbols,
+                                 Mangled::NamePreference symbol_mangling,
+                                 bool regexp) { any_printed = true; });
 
   EXPECT_TRUE(any_printed);
 }

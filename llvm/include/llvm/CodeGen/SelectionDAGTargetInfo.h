@@ -16,12 +16,14 @@
 #define LLVM_CODEGEN_SELECTIONDAGTARGETINFO_H
 
 #include "llvm/CodeGen/MachineMemOperand.h"
+#include "llvm/CodeGen/SDNodeInfo.h"
 #include "llvm/CodeGen/SelectionDAGNodes.h"
 #include "llvm/Support/CodeGen.h"
 #include <utility>
 
 namespace llvm {
 
+class CallInst;
 class SelectionDAG;
 
 //===----------------------------------------------------------------------===//
@@ -34,6 +36,29 @@ public:
   SelectionDAGTargetInfo(const SelectionDAGTargetInfo &) = delete;
   SelectionDAGTargetInfo &operator=(const SelectionDAGTargetInfo &) = delete;
   virtual ~SelectionDAGTargetInfo();
+
+  /// Returns the name of the given target-specific opcode, suitable for
+  /// debug printing.
+  virtual const char *getTargetNodeName(unsigned Opcode) const {
+    return nullptr;
+  }
+
+  /// Returns true if a node with the given target-specific opcode has
+  /// a memory operand. Nodes with such opcodes can only be created with
+  /// `SelectionDAG::getMemIntrinsicNode`.
+  virtual bool isTargetMemoryOpcode(unsigned Opcode) const { return false; }
+
+  /// Returns true if a node with the given target-specific opcode has
+  /// strict floating-point semantics.
+  virtual bool isTargetStrictFPOpcode(unsigned Opcode) const { return false; }
+
+  /// Returns true if a node with the given target-specific opcode
+  /// may raise a floating-point exception.
+  virtual bool mayRaiseFPException(unsigned Opcode) const;
+
+  /// Checks that the given target-specific node is valid. Aborts if it is not.
+  virtual void verifyTargetNode(const SelectionDAG &DAG,
+                                const SDNode *N) const {}
 
   /// Emit target-specific code that performs a memcpy.
   /// This can be used by targets to provide code sequences for cases
@@ -51,7 +76,7 @@ public:
   virtual SDValue EmitTargetCodeForMemcpy(SelectionDAG &DAG, const SDLoc &dl,
                                           SDValue Chain, SDValue Op1,
                                           SDValue Op2, SDValue Op3,
-                                          unsigned Align, bool isVolatile,
+                                          Align Alignment, bool isVolatile,
                                           bool AlwaysInline,
                                           MachinePointerInfo DstPtrInfo,
                                           MachinePointerInfo SrcPtrInfo) const {
@@ -66,7 +91,7 @@ public:
   /// lowering strategy should be used.
   virtual SDValue EmitTargetCodeForMemmove(
       SelectionDAG &DAG, const SDLoc &dl, SDValue Chain, SDValue Op1,
-      SDValue Op2, SDValue Op3, unsigned Align, bool isVolatile,
+      SDValue Op2, SDValue Op3, Align Alignment, bool isVolatile,
       MachinePointerInfo DstPtrInfo, MachinePointerInfo SrcPtrInfo) const {
     return SDValue();
   }
@@ -76,24 +101,25 @@ public:
   /// that don't fit the target's parameters for simple stores and can be more
   /// efficient than using a library call. This function can return a null
   /// SDValue if the target declines to use custom code and a different
-  /// lowering strategy should be used.
+  /// lowering strategy should be used. Note that if AlwaysInline is true the
+  /// function has to return a valid SDValue.
   virtual SDValue EmitTargetCodeForMemset(SelectionDAG &DAG, const SDLoc &dl,
                                           SDValue Chain, SDValue Op1,
                                           SDValue Op2, SDValue Op3,
-                                          unsigned Align, bool isVolatile,
+                                          Align Alignment, bool isVolatile,
+                                          bool AlwaysInline,
                                           MachinePointerInfo DstPtrInfo) const {
     return SDValue();
   }
 
-  /// Emit target-specific code that performs a memcmp, in cases where that is
+  /// Emit target-specific code that performs a memcmp/bcmp, in cases where that is
   /// faster than a libcall. The first returned SDValue is the result of the
   /// memcmp and the second is the chain. Both SDValues can be null if a normal
   /// libcall should be used.
   virtual std::pair<SDValue, SDValue>
   EmitTargetCodeForMemcmp(SelectionDAG &DAG, const SDLoc &dl, SDValue Chain,
                           SDValue Op1, SDValue Op2, SDValue Op3,
-                          MachinePointerInfo Op1PtrInfo,
-                          MachinePointerInfo Op2PtrInfo) const {
+                          const CallInst *CI) const {
     return std::make_pair(SDValue(), SDValue());
   }
 
@@ -136,7 +162,7 @@ public:
 
   virtual std::pair<SDValue, SDValue>
   EmitTargetCodeForStrlen(SelectionDAG &DAG, const SDLoc &DL, SDValue Chain,
-                          SDValue Src, MachinePointerInfo SrcPtrInfo) const {
+                          SDValue Src, const CallInst *CI) const {
     return std::make_pair(SDValue(), SDValue());
   }
 
@@ -155,15 +181,46 @@ public:
     return SDValue();
   }
 
-  // Return true when the decision to generate FMA's (or FMS, FMLA etc) rather
-  // than FMUL and ADD is delegated to the machine combiner.
-  virtual bool generateFMAsInMachineCombiner(CodeGenOpt::Level OptLevel) const {
+  // Return true if the DAG Combiner should disable generic combines.
+  virtual bool disableGenericCombines(CodeGenOptLevel OptLevel) const {
+    return false;
+  }
+};
+
+/// Proxy class that targets should inherit from if they wish to use
+/// the generated node descriptions.
+class SelectionDAGGenTargetInfo : public SelectionDAGTargetInfo {
+protected:
+  const SDNodeInfo &GenNodeInfo;
+
+  explicit SelectionDAGGenTargetInfo(const SDNodeInfo &GenNodeInfo)
+      : GenNodeInfo(GenNodeInfo) {}
+
+public:
+  ~SelectionDAGGenTargetInfo() override;
+
+  const char *getTargetNodeName(unsigned Opcode) const override {
+    assert(GenNodeInfo.hasDesc(Opcode) &&
+           "The name should be provided by the derived class");
+    return GenNodeInfo.getName(Opcode).data();
+  }
+
+  bool isTargetMemoryOpcode(unsigned Opcode) const override {
+    if (GenNodeInfo.hasDesc(Opcode))
+      return GenNodeInfo.getDesc(Opcode).hasProperty(SDNPMemOperand);
     return false;
   }
 
-  // Return true if the DAG Combiner should disable generic combines.
-  virtual bool disableGenericCombines(CodeGenOpt::Level OptLevel) const {
+  bool isTargetStrictFPOpcode(unsigned Opcode) const override {
+    if (GenNodeInfo.hasDesc(Opcode))
+      return GenNodeInfo.getDesc(Opcode).hasFlag(SDNFIsStrictFP);
     return false;
+  }
+
+  void verifyTargetNode(const SelectionDAG &DAG,
+                        const SDNode *N) const override {
+    if (GenNodeInfo.hasDesc(N->getOpcode()))
+      GenNodeInfo.verifyNode(DAG, N);
   }
 };
 

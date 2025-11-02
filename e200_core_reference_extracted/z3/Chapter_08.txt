@@ -1,0 +1,172 @@
+Chapter 8
+Power Management
+This chapter describes the power management facilities as they are defined by Book E and implemented
+in devices that contain the core. The scope of this chapter is limited to core complex features. Additional
+power management capabilities associated with a device that integrates this core (referred to as an
+integrated device) are documented separately.
+
+8.1          Overview
+Power management minimizes overall system power consumption. The core provides the ability to initiate
+power management from external sources as well as through software techniques. Table 8-1 describes core
+power states.
+                                                   Table 8-1. Power States
+
+   State                                                           Description
+
+  Active     All internal units on the core operate at full processor clock speed. The core provides dynamic power management
+ (Default)   in which idle internal units may stop clocking automatically.
+
+  Halted     Instruction execution and bus activity are suspended, and most internal clocks are gated off. The core asserts
+             p_halted to indicate it is in the halted state. Before entering halted state, all outstanding bus transactions complete,
+             and the cache’s store and push buffers are flushed. The m_clk input should remain running to allow further
+             transitions into the power-down state if requested and to keep the time base operational if it is using m_clk as the
+             clock source.
+
+   Power     All core functional units except the time base unit and clock control state machine logic are stopped. m_clk may
+   down      be kept running to keep the time base active and to allow quick recovery to full-on state. Clocks are not running to
+ (stopped)   functional units except to the time base. The core reaches power-down state after transitioning through halted state
+             with p_stop asserted; at this point p_stopped output is asserted.
+             Additional power may be saved by disabling the time base by asserting p_tbdisable or by integrated logic stopping
+             m_clk after the core is in power-down state and has asserted p_stopped.
+             To exit power-down state, integrated logic must first restart m_clk.
+             Because the time base is off during power-down state, if m_clk is the clock source and is stopped, or if time base
+             clocking is disabled by the assertion of p_tbdisable, system software must usually have to access an external time
+             base source after returning to the full-on state to reinitialize the time base unit. A time-base related interrupt source
+             (such as the decrementer) cannot be used to exit low-power states.
+             The core also provides the ability to clock the time base from an independent (but externally synchronized) clock
+             source, which allows the time base to be maintained during the power-down state, and allows a time-base related
+             interrupt to be generated to indicate an exit condition from the power-down state.
+
+
+
+
+                                 e200z3 Power Architecture Core Reference Manual, Rev. 2
+Freescale Semiconductor                                                                                                            8-1
+Power Management
+
+
+Figure 8-1 is a power management state diagram.
+
+                                                        Active             ~p_halt & ~p_stop
+
+
+                                      p_halt | p_stop            ~p_halt & ~p_stop
+
+
+                                                    Halted                 ~p_stop & p_halt
+                                              (p_halted asserted)
+
+                                             p_stop              ~p_stop
+
+
+
+                                                 Power-Down                p_stop
+                                             (p_stopped asserted)
+
+
+                                     Figure 8-1. Power Management State Diagram
+
+
+8.1.1           Power Management Signals
+Table 8-1 summarizes power management signals. More detailed information is provided in Section 7.5.5,
+“Power Management.”
+                      Table 8-2. Descriptions of Timer Facility and Power Management Signals
+
+      Signal    I/O                                                Signal Description
+
+      p_halt     I    Processor halt request. The active-high p_halt input requests that the core enter the halted state.
+
+  p_halted      O     Processor halted. The active-high p_halted output indicates that the core entered the halted state.
+
+      p_stop     I    Processor stop request. The active-high p_stop input requests that the core enter the stopped state.
+
+ p_stopped      O     Processor stopped. The active-high p_stopped output indicates that the core entered stopped state.
+
+      p_doze    O     Low-power mode. These signals are asserted by the core to reflect the settings of the HID0[DOZE],
+       p_nap          HID0[NAP], and HID0[SLEEP] control bits when MSR[WE] is set. The core can be placed in a low-power
+      p_sleep         state by forcing m_clk to a quiescent state, and brought out of low-power state by re-enabling m_clk. The
+                      time base facilities may be separately enabled or disabled using combinations of the timer facility control
+                      signals.
+
+ p_wakeup       O     Wakeup. Used by external logic to remove the core and system logic from a low-power state. It can also
+                      indicate to the system clock controller that m_clk should be re-enabled for debug purposes.
+                      p_wakeup (or other system state) should be monitored to determine when to release the core (and system
+                      if applicable) from a low-power state.
+
+ p_tbdisable     I    Timer disable. Used to disable the internal time base and decrementer counters. This signal can be used
+                      to freeze the state of the time base and decrementer during low power or debug operation.
+
+      p_tbclk    I    Timer external clock. Used as an alternate clock source for the time base and decrementer counters.
+                      Selection of this clock is made using HID0[SEL_TBCLK] (see Section 2.13.1, “Hardware
+                      Implementation-Dependent Register 0 (HID0)”).
+
+      p_tbint   O     Timer interrupt status. Indicates whether an internal timer facility unit is requesting an interrupt
+                      (TSR[WIS] = 1 and TCR[WIE] = 1, or TSR[DIS] = 1 and TCR[DIE] = 1, or
+                      TSR[FIS] = 1 and TCR[FIE] = 1). May be used to exit low-power operation or for other system purposes.
+
+
+
+                                  e200z3 Power Architecture Core Reference Manual, Rev. 2
+8-2                                                                                                     Freescale Semiconductor
+                                                                                                             Power Management
+
+
+8.1.2         Power Management Control Bits
+Software uses the register fields listed in Table 8-3 to generate a request to enter a power-saving state and
+to choose the state to be entered.
+                                     Table 8-3. Power Management Control Bits
+
+      Bit                                                        Description
+
+  MSR[WE]       Used to qualify assertion of the p_doze, p_nap, and p_sleep outputs to the integrated logic. When MSR[WE]
+                is negated, these signals are negated. If MSR[WE] is set, these pins reflect the state of their respective HID0
+                control bits.
+
+ HID0[DOZE]     The interpretation of the DOZE mode bit is done by the external integrated logic. Doze mode on the core is
+                intended to be the halted state with the clocks running.
+
+  HID0[NAP]     The interpretation of the NAP mode bit is done by the external integrated logic. Nap mode on the core may be
+                used for a power-down state with the time base enabled.
+
+ HID0[SLEEP] The interpretation of the SLEEP mode bit is done by the external integrated logic. Sleep mode on the core may
+             be used for a power-down state with the time base disabled.
+
+
+8.1.3         Software Considerations for Power Management
+Setting MSR[WE] generates a request to enter a power-saving state (doze, nap, or sleep). This state must
+be previously determined by setting the appropriate HID0 bit. Setting MSR[WE] does not directly affect
+execution, but is reflected on p_doze, p_nap, and p_sleep, depending on the setting of the HID0 DOZE,
+NAP, and SLEEP bits. Note that the core is not affected by assertion of these signals directly. External
+system hardware may interpret the state of these signals and activate the p_halt and/or p_stop inputs to
+cause the core to enter a quiescent state, in which clocks may be disabled for low-power operation.
+To ensure a clean transition into and out of a power-saving mode, the following program sequence is
+recommended:
+            sync
+            mtmsr (WE)
+            isync
+loop:       br loop
+
+An interrupt is typically used to exit a power-saving state. The p_wakeup output is used to indicate to the
+system logic that an interrupt (or a debug request) has become pending. System logic uses this output to
+re-enable the clocks and exit a low-power state. The interrupt handler is responsible for determining how
+to exit the low-power loop if one is used. The vectored interrupt capability provided by the core may help
+determine whether an external hardware interrupt is used to perform the wake-up.
+
+8.1.4         Debug Considerations for Power Management
+When a debug request is presented to the core when it is in either the halted or stopped state, p_wakeup is
+asserted, and when m_clk is provided to the CPU, it temporarily exits the halted or stopped state and enters
+debug mode, regardless of the assertion of p_halt or p_stop. The p_halted and p_stopped outputs are
+negated as long as the CPU remains in a debug session (jd_debug_b asserted). When the debug session is
+exited, the CPU resamples the p_halt and p_stop inputs and re-enters halted or stopped state as appropriate.
+
+
+
+                               e200z3 Power Architecture Core Reference Manual, Rev. 2
+Freescale Semiconductor                                                                                                      8-3
+Power Management
+
+
+
+
+                   e200z3 Power Architecture Core Reference Manual, Rev. 2
+8-4                                                                          Freescale Semiconductor

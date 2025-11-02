@@ -32,11 +32,10 @@ public:
 
   void ClearPseudoMemory();
 
-  bool LoadPseudoRegistersFromFrame(lldb_private::StackFrame &frame);
-
   bool LoadStateFromDictionary(lldb_private::OptionValueDictionary *test_data);
 
-  bool CompareState(EmulationStateARM &other_state);
+  bool CompareState(EmulationStateARM &other_state,
+                    lldb_private::Stream &out_stream);
 
   static size_t
   ReadPseudoMemory(lldb_private::EmulateInstruction *instruction, void *baton,
@@ -61,7 +60,11 @@ public:
                       const lldb_private::RegisterValue &reg_value);
 
 private:
-  uint32_t m_gpr[17];
+  bool LoadRegistersStateFromDictionary(
+      lldb_private::OptionValueDictionary *reg_dict, char kind, int first_reg,
+      int num);
+
+  uint32_t m_gpr[17] = {0};
   struct _sd_regs {
     uint32_t s_regs[32]; // sregs 0 - 31 & dregs 0 - 15
 
@@ -73,7 +76,8 @@ private:
                                              // uint32_t to a data buffer heap
                                              // type.
 
-  DISALLOW_COPY_AND_ASSIGN(EmulationStateARM);
+  EmulationStateARM(const EmulationStateARM &) = delete;
+  const EmulationStateARM &operator=(const EmulationStateARM &) = delete;
 };
 
 #endif // LLDB_SOURCE_PLUGINS_INSTRUCTION_ARM_EMULATIONSTATEARM_H

@@ -40,12 +40,12 @@ void IsOverloaded(void *p PS(0)) overloaded; // expected-note 2 {{candidate addr
 // char* inestead of void* is intentional
 void IsOverloaded(char *p) overloaded; // expected-note{{passing argument to parameter 'p' here}} expected-note 2 {{type mismatch}}
 
-void FunctionPtrs() {
+void FunctionPtrs(void) {
   void (*p)(void *) = NotOverloaded; //expected-error{{cannot take address of function 'NotOverloaded' because parameter 1 has pass_object_size attribute}}
   void (*p2)(void *) = &NotOverloaded; //expected-error{{cannot take address of function 'NotOverloaded' because parameter 1 has pass_object_size attribute}}
 
-  void (*p3)(void *) = IsOverloaded; //expected-warning{{incompatible function pointer types initializing 'void (*)(void *)' with an expression of type '<overloaded function type>'}}
-  void (*p4)(void *) = &IsOverloaded; //expected-warning{{incompatible function pointer types initializing 'void (*)(void *)' with an expression of type '<overloaded function type>'}}
+  void (*p3)(void *) = IsOverloaded; //expected-error{{incompatible function pointer types initializing 'void (*)(void *)' with an expression of type '<overloaded function type>'}}
+  void (*p4)(void *) = &IsOverloaded; //expected-error{{incompatible function pointer types initializing 'void (*)(void *)' with an expression of type '<overloaded function type>'}}
 
   void (*p5)(char *) = IsOverloaded;
   void (*p6)(char *) = &IsOverloaded;
@@ -58,7 +58,7 @@ void FunctionPtrs() {
 
   int P;
   (&NotOverloaded)(&P); //expected-error{{cannot take address of function 'NotOverloaded' because parameter 1 has pass_object_size attribute}}
-  (&IsOverloaded)(&P); //expected-warning{{incompatible pointer types passing 'int *' to parameter of type 'char *'}}
+  (&IsOverloaded)(&P); //expected-error{{incompatible pointer types passing 'int *' to parameter of type 'char *'}}
 }
 
 void mismatch(void *p __attribute__((pass_object_size(0)))); // expected-note {{previous declaration is here}}

@@ -6,7 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-// UNSUPPORTED: c++98, c++03
+// UNSUPPORTED: c++03
 
 // <algorithm>
 
@@ -16,6 +16,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <utility>
 
 #include "test_macros.h"
 

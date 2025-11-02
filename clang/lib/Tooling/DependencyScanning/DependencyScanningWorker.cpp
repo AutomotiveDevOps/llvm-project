@@ -7,216 +7,189 @@
 //===----------------------------------------------------------------------===//
 
 #include "clang/Tooling/DependencyScanning/DependencyScanningWorker.h"
-#include "clang/Frontend/CompilerInstance.h"
-#include "clang/Frontend/CompilerInvocation.h"
-#include "clang/Frontend/FrontendActions.h"
-#include "clang/Frontend/TextDiagnosticPrinter.h"
-#include "clang/Frontend/Utils.h"
-#include "clang/Lex/PreprocessorOptions.h"
-#include "clang/Tooling/DependencyScanning/DependencyScanningService.h"
-#include "clang/Tooling/DependencyScanning/ModuleDepCollector.h"
-#include "clang/Tooling/Tooling.h"
+#include "DependencyScannerImpl.h"
+#include "clang/Basic/DiagnosticFrontend.h"
+#include "clang/Driver/Driver.h"
+#include "clang/Driver/Tool.h"
 
 using namespace clang;
 using namespace tooling;
 using namespace dependencies;
 
-namespace {
-
-/// Forwards the gatherered dependencies to the consumer.
-class DependencyConsumerForwarder : public DependencyFileGenerator {
-public:
-  DependencyConsumerForwarder(std::unique_ptr<DependencyOutputOptions> Opts,
-                              DependencyConsumer &C)
-      : DependencyFileGenerator(*Opts), Opts(std::move(Opts)), C(C) {}
-
-  void finishedMainFile(DiagnosticsEngine &Diags) override {
-    llvm::SmallString<256> CanonPath;
-    for (const auto &File : getDependencies()) {
-      CanonPath = File;
-      llvm::sys::path::remove_dots(CanonPath, /*remove_dot_dot=*/true);
-      C.handleFileDependency(*Opts, CanonPath);
-    }
-  }
-
-private:
-  std::unique_ptr<DependencyOutputOptions> Opts;
-  DependencyConsumer &C;
-};
-
-/// A proxy file system that doesn't call `chdir` when changing the working
-/// directory of a clang tool.
-class ProxyFileSystemWithoutChdir : public llvm::vfs::ProxyFileSystem {
-public:
-  ProxyFileSystemWithoutChdir(
-      llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem> FS)
-      : ProxyFileSystem(std::move(FS)) {}
-
-  llvm::ErrorOr<std::string> getCurrentWorkingDirectory() const override {
-    assert(!CWD.empty() && "empty CWD");
-    return CWD;
-  }
-
-  std::error_code setCurrentWorkingDirectory(const Twine &Path) override {
-    CWD = Path.str();
-    return {};
-  }
-
-private:
-  std::string CWD;
-};
-
-/// A clang tool that runs the preprocessor in a mode that's optimized for
-/// dependency scanning for the given compiler invocation.
-class DependencyScanningAction : public tooling::ToolAction {
-public:
-  DependencyScanningAction(
-      StringRef WorkingDirectory, DependencyConsumer &Consumer,
-      llvm::IntrusiveRefCntPtr<DependencyScanningWorkerFilesystem> DepFS,
-      ExcludedPreprocessorDirectiveSkipMapping *PPSkipMappings,
-      ScanningOutputFormat Format)
-      : WorkingDirectory(WorkingDirectory), Consumer(Consumer),
-        DepFS(std::move(DepFS)), PPSkipMappings(PPSkipMappings),
-        Format(Format) {}
-
-  bool runInvocation(std::shared_ptr<CompilerInvocation> Invocation,
-                     FileManager *FileMgr,
-                     std::shared_ptr<PCHContainerOperations> PCHContainerOps,
-                     DiagnosticConsumer *DiagConsumer) override {
-    // Create a compiler instance to handle the actual work.
-    CompilerInstance Compiler(std::move(PCHContainerOps));
-    Compiler.setInvocation(std::move(Invocation));
-
-    // Don't print 'X warnings and Y errors generated'.
-    Compiler.getDiagnosticOpts().ShowCarets = false;
-    // Create the compiler's actual diagnostics engine.
-    Compiler.createDiagnostics(DiagConsumer, /*ShouldOwnClient=*/false);
-    if (!Compiler.hasDiagnostics())
-      return false;
-
-    // Use the dependency scanning optimized file system if we can.
-    if (DepFS) {
-      const CompilerInvocation &CI = Compiler.getInvocation();
-      // Add any filenames that were explicity passed in the build settings and
-      // that might be opened, as we want to ensure we don't run source
-      // minimization on them.
-      DepFS->IgnoredFiles.clear();
-      for (const auto &Entry : CI.getHeaderSearchOpts().UserEntries)
-        DepFS->IgnoredFiles.insert(Entry.Path);
-      for (const auto &Entry : CI.getHeaderSearchOpts().VFSOverlayFiles)
-        DepFS->IgnoredFiles.insert(Entry);
-
-      // Support for virtual file system overlays on top of the caching
-      // filesystem.
-      FileMgr->setVirtualFileSystem(createVFSFromCompilerInvocation(
-          CI, Compiler.getDiagnostics(), DepFS));
-
-      // Pass the skip mappings which should speed up excluded conditional block
-      // skipping in the preprocessor.
-      if (PPSkipMappings)
-        Compiler.getPreprocessorOpts()
-            .ExcludedConditionalDirectiveSkipMappings = PPSkipMappings;
-    }
-
-    FileMgr->getFileSystemOpts().WorkingDir = std::string(WorkingDirectory);
-    Compiler.setFileManager(FileMgr);
-    Compiler.createSourceManager(*FileMgr);
-
-    // Create the dependency collector that will collect the produced
-    // dependencies.
-    //
-    // This also moves the existing dependency output options from the
-    // invocation to the collector. The options in the invocation are reset,
-    // which ensures that the compiler won't create new dependency collectors,
-    // and thus won't write out the extra '.d' files to disk.
-    auto Opts = std::make_unique<DependencyOutputOptions>(
-        std::move(Compiler.getInvocation().getDependencyOutputOpts()));
-    // We need at least one -MT equivalent for the generator to work.
-    if (Opts->Targets.empty())
-      Opts->Targets = {"clang-scan-deps dependency"};
-
-    switch (Format) {
-    case ScanningOutputFormat::Make:
-      Compiler.addDependencyCollector(
-          std::make_shared<DependencyConsumerForwarder>(std::move(Opts),
-                                                        Consumer));
-      break;
-    case ScanningOutputFormat::Full:
-      Compiler.addDependencyCollector(std::make_shared<ModuleDepCollector>(
-          std::move(Opts), Compiler, Consumer));
-      break;
-    }
-
-    // Consider different header search and diagnostic options to create
-    // different modules. This avoids the unsound aliasing of module PCMs.
-    //
-    // TODO: Implement diagnostic bucketing and header search pruning to reduce
-    // the impact of strict context hashing.
-    Compiler.getHeaderSearchOpts().ModulesStrictContextHash = true;
-
-    auto Action = std::make_unique<PreprocessOnlyAction>();
-    const bool Result = Compiler.ExecuteAction(*Action);
-    if (!DepFS)
-      FileMgr->clearStatCache();
-    return Result;
-  }
-
-private:
-  StringRef WorkingDirectory;
-  DependencyConsumer &Consumer;
-  llvm::IntrusiveRefCntPtr<DependencyScanningWorkerFilesystem> DepFS;
-  ExcludedPreprocessorDirectiveSkipMapping *PPSkipMappings;
-  ScanningOutputFormat Format;
-};
-
-} // end anonymous namespace
-
 DependencyScanningWorker::DependencyScanningWorker(
-    DependencyScanningService &Service)
-    : Format(Service.getFormat()) {
-  DiagOpts = new DiagnosticOptions();
+    DependencyScanningService &Service,
+    llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem> FS)
+    : Service(Service) {
   PCHContainerOps = std::make_shared<PCHContainerOperations>();
-  RealFS = new ProxyFileSystemWithoutChdir(llvm::vfs::getRealFileSystem());
-  if (Service.canSkipExcludedPPRanges())
-    PPSkipMappings =
-        std::make_unique<ExcludedPreprocessorDirectiveSkipMapping>();
-  if (Service.getMode() == ScanningMode::MinimizedSourcePreprocessing)
-    DepFS = new DependencyScanningWorkerFilesystem(
-        Service.getSharedCache(), RealFS, PPSkipMappings.get());
-  if (Service.canReuseFileManager())
-    Files = new FileManager(FileSystemOptions(), RealFS);
-}
+  // We need to read object files from PCH built outside the scanner.
+  PCHContainerOps->registerReader(
+      std::make_unique<ObjectFilePCHContainerReader>());
+  // The scanner itself writes only raw ast files.
+  PCHContainerOps->registerWriter(std::make_unique<RawPCHContainerWriter>());
 
-static llvm::Error runWithDiags(
-    DiagnosticOptions *DiagOpts,
-    llvm::function_ref<bool(DiagnosticConsumer &DC)> BodyShouldSucceed) {
-  // Capture the emitted diagnostics and report them to the client
-  // in the case of a failure.
-  std::string DiagnosticOutput;
-  llvm::raw_string_ostream DiagnosticsOS(DiagnosticOutput);
-  TextDiagnosticPrinter DiagPrinter(DiagnosticsOS, DiagOpts);
+  if (Service.shouldTraceVFS())
+    FS = llvm::makeIntrusiveRefCnt<llvm::vfs::TracingFileSystem>(std::move(FS));
 
-  if (BodyShouldSucceed(DiagPrinter))
-    return llvm::Error::success();
-  return llvm::make_error<llvm::StringError>(DiagnosticsOS.str(),
-                                             llvm::inconvertibleErrorCode());
+  switch (Service.getMode()) {
+  case ScanningMode::DependencyDirectivesScan:
+    DepFS = llvm::makeIntrusiveRefCnt<DependencyScanningWorkerFilesystem>(
+        Service.getSharedCache(), FS);
+    BaseFS = DepFS;
+    break;
+  case ScanningMode::CanonicalPreprocessing:
+    DepFS = nullptr;
+    BaseFS = FS;
+    break;
+  }
 }
 
 llvm::Error DependencyScanningWorker::computeDependencies(
-    const std::string &Input, StringRef WorkingDirectory,
-    const CompilationDatabase &CDB, DependencyConsumer &Consumer) {
-  RealFS->setCurrentWorkingDirectory(WorkingDirectory);
-  return runWithDiags(DiagOpts.get(), [&](DiagnosticConsumer &DC) {
-    /// Create the tool that uses the underlying file system to ensure that any
-    /// file system requests that are made by the driver do not go through the
-    /// dependency scanning filesystem.
-    tooling::ClangTool Tool(CDB, Input, PCHContainerOps, RealFS, Files);
-    Tool.clearArgumentsAdjusters();
-    Tool.setRestoreWorkingDir(false);
-    Tool.setPrintErrorMessage(false);
-    Tool.setDiagnosticConsumer(&DC);
-    DependencyScanningAction Action(WorkingDirectory, Consumer, DepFS,
-                                    PPSkipMappings.get(), Format);
-    return !Tool.run(&Action);
-  });
+    StringRef WorkingDirectory, const std::vector<std::string> &CommandLine,
+    DependencyConsumer &Consumer, DependencyActionController &Controller,
+    std::optional<llvm::MemoryBufferRef> TUBuffer) {
+  // Capture the emitted diagnostics and report them to the client
+  // in the case of a failure.
+  TextDiagnosticsPrinterWithOutput DiagPrinterWithOS(CommandLine);
+
+  if (computeDependencies(WorkingDirectory, CommandLine, Consumer, Controller,
+                          DiagPrinterWithOS.DiagPrinter, TUBuffer))
+    return llvm::Error::success();
+  return llvm::make_error<llvm::StringError>(
+      DiagPrinterWithOS.DiagnosticsOS.str(), llvm::inconvertibleErrorCode());
 }
+
+llvm::Error DependencyScanningWorker::computeDependencies(
+    StringRef WorkingDirectory, const std::vector<std::string> &CommandLine,
+    DependencyConsumer &Consumer, DependencyActionController &Controller,
+    StringRef ModuleName) {
+  // Capture the emitted diagnostics and report them to the client
+  // in the case of a failure.
+  TextDiagnosticsPrinterWithOutput DiagPrinterWithOS(CommandLine);
+
+  if (computeDependencies(WorkingDirectory, CommandLine, Consumer, Controller,
+                          DiagPrinterWithOS.DiagPrinter, ModuleName))
+    return llvm::Error::success();
+  return llvm::make_error<llvm::StringError>(
+      DiagPrinterWithOS.DiagnosticsOS.str(), llvm::inconvertibleErrorCode());
+}
+
+static bool forEachDriverJob(
+    ArrayRef<std::string> ArgStrs, DiagnosticsEngine &Diags,
+    IntrusiveRefCntPtr<llvm::vfs::FileSystem> FS,
+    llvm::function_ref<bool(const driver::Command &Cmd)> Callback) {
+  // Compilation holds a non-owning a reference to the Driver, hence we need to
+  // keep the Driver alive when we use Compilation. Arguments to commands may be
+  // owned by Alloc when expanded from response files.
+  llvm::BumpPtrAllocator Alloc;
+  auto [Driver, Compilation] = buildCompilation(ArgStrs, Diags, FS, Alloc);
+  if (!Compilation)
+    return false;
+  for (const driver::Command &Job : Compilation->getJobs()) {
+    if (!Callback(Job))
+      return false;
+  }
+  return true;
+}
+
+static bool createAndRunToolInvocation(
+    const std::vector<std::string> &CommandLine,
+    DependencyScanningAction &Action,
+    IntrusiveRefCntPtr<llvm::vfs::FileSystem> FS,
+    std::shared_ptr<clang::PCHContainerOperations> &PCHContainerOps,
+    DiagnosticsEngine &Diags, DependencyConsumer &Consumer) {
+  auto Invocation = createCompilerInvocation(CommandLine, Diags);
+  if (!Invocation)
+    return false;
+
+  if (!Action.runInvocation(std::move(Invocation), std::move(FS),
+                            PCHContainerOps, Diags.getClient()))
+    return false;
+
+  std::vector<std::string> Args = Action.takeLastCC1Arguments();
+  Consumer.handleBuildCommand({CommandLine[0], std::move(Args)});
+  return true;
+}
+
+bool DependencyScanningWorker::scanDependencies(
+    StringRef WorkingDirectory, const std::vector<std::string> &CommandLine,
+    DependencyConsumer &Consumer, DependencyActionController &Controller,
+    DiagnosticConsumer &DC, llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem> FS,
+    std::optional<StringRef> ModuleName) {
+  DignosticsEngineWithDiagOpts DiagEngineWithCmdAndOpts(CommandLine, FS, DC);
+  DependencyScanningAction Action(Service, WorkingDirectory, Consumer,
+                                  Controller, DepFS, ModuleName);
+
+  bool Success = false;
+  if (CommandLine[1] == "-cc1") {
+    Success = createAndRunToolInvocation(
+        CommandLine, Action, FS, PCHContainerOps,
+        *DiagEngineWithCmdAndOpts.DiagEngine, Consumer);
+  } else {
+    Success = forEachDriverJob(
+        CommandLine, *DiagEngineWithCmdAndOpts.DiagEngine, FS,
+        [&](const driver::Command &Cmd) {
+          if (StringRef(Cmd.getCreator().getName()) != "clang") {
+            // Non-clang command. Just pass through to the dependency
+            // consumer.
+            Consumer.handleBuildCommand(
+                {Cmd.getExecutable(),
+                 {Cmd.getArguments().begin(), Cmd.getArguments().end()}});
+            return true;
+          }
+
+          // Insert -cc1 comand line options into Argv
+          std::vector<std::string> Argv;
+          Argv.push_back(Cmd.getExecutable());
+          llvm::append_range(Argv, Cmd.getArguments());
+
+          // Create an invocation that uses the underlying file
+          // system to ensure that any file system requests that
+          // are made by the driver do not go through the
+          // dependency scanning filesystem.
+          return createAndRunToolInvocation(
+              std::move(Argv), Action, FS, PCHContainerOps,
+              *DiagEngineWithCmdAndOpts.DiagEngine, Consumer);
+        });
+  }
+
+  if (Success && !Action.hasScanned())
+    DiagEngineWithCmdAndOpts.DiagEngine->Report(
+        diag::err_fe_expected_compiler_job)
+        << llvm::join(CommandLine, " ");
+
+  // Ensure finish() is called even if we never reached ExecuteAction().
+  if (!Action.hasDiagConsumerFinished())
+    DC.finish();
+
+  return Success && Action.hasScanned();
+}
+
+bool DependencyScanningWorker::computeDependencies(
+    StringRef WorkingDirectory, const std::vector<std::string> &CommandLine,
+    DependencyConsumer &Consumer, DependencyActionController &Controller,
+    DiagnosticConsumer &DC, std::optional<llvm::MemoryBufferRef> TUBuffer) {
+  if (TUBuffer) {
+    auto [FinalFS, FinalCommandLine] = initVFSForTUBuferScanning(
+        BaseFS, CommandLine, WorkingDirectory, *TUBuffer);
+    return scanDependencies(WorkingDirectory, FinalCommandLine, Consumer,
+                            Controller, DC, FinalFS,
+                            /*ModuleName=*/std::nullopt);
+  } else {
+    BaseFS->setCurrentWorkingDirectory(WorkingDirectory);
+    return scanDependencies(WorkingDirectory, CommandLine, Consumer, Controller,
+                            DC, BaseFS, /*ModuleName=*/std::nullopt);
+  }
+}
+
+bool DependencyScanningWorker::computeDependencies(
+    StringRef WorkingDirectory, const std::vector<std::string> &CommandLine,
+    DependencyConsumer &Consumer, DependencyActionController &Controller,
+    DiagnosticConsumer &DC, StringRef ModuleName) {
+  auto [OverlayFS, ModifiedCommandLine] = initVFSForByNameScanning(
+      BaseFS, CommandLine, WorkingDirectory, ModuleName);
+
+  return scanDependencies(WorkingDirectory, ModifiedCommandLine, Consumer,
+                          Controller, DC, OverlayFS, ModuleName);
+}
+
+DependencyActionController::~DependencyActionController() {}

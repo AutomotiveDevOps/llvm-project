@@ -19,14 +19,8 @@ namespace change_namespace {
 
 namespace {
 
-inline std::string
-joinNamespaces(const llvm::SmallVectorImpl<StringRef> &Namespaces) {
-  if (Namespaces.empty())
-    return "";
-  std::string Result(Namespaces.front());
-  for (auto I = Namespaces.begin() + 1, E = Namespaces.end(); I != E; ++I)
-    Result += ("::" + *I).str();
-  return Result;
+inline std::string joinNamespaces(ArrayRef<StringRef> Namespaces) {
+  return llvm::join(Namespaces, "::");
 }
 
 // Given "a::b::c", returns {"a", "b", "c"}.
@@ -37,24 +31,9 @@ llvm::SmallVector<llvm::StringRef, 4> splitSymbolName(llvm::StringRef Name) {
   return Splitted;
 }
 
-SourceLocation startLocationForType(TypeLoc TLoc) {
-  // For elaborated types (e.g. `struct a::A`) we want the portion after the
-  // `struct` but including the namespace qualifier, `a::`.
-  if (TLoc.getTypeLocClass() == TypeLoc::Elaborated) {
-    NestedNameSpecifierLoc NestedNameSpecifier =
-        TLoc.castAs<ElaboratedTypeLoc>().getQualifierLoc();
-    if (NestedNameSpecifier.getNestedNameSpecifier())
-      return NestedNameSpecifier.getBeginLoc();
-    TLoc = TLoc.getNextTypeLoc();
-  }
-  return TLoc.getBeginLoc();
-}
-
 SourceLocation endLocationForType(TypeLoc TLoc) {
-  // Dig past any namespace or keyword qualifications.
-  while (TLoc.getTypeLocClass() == TypeLoc::Elaborated ||
-         TLoc.getTypeLocClass() == TypeLoc::Qualified)
-    TLoc = TLoc.getNextTypeLoc();
+  if (auto QTL = TLoc.getAs<QualifiedTypeLoc>())
+    TLoc = QTL.getUnqualifiedLoc();
 
   // The location for template specializations (e.g. Foo<int>) includes the
   // templated types in its location range.  We want to restrict this to just
@@ -119,7 +98,7 @@ static SourceLocation getStartOfNextLine(SourceLocation Loc,
                                          const SourceManager &SM,
                                          const LangOptions &LangOpts) {
   std::unique_ptr<Lexer> Lex = getLexerStartingFromLoc(Loc, SM, LangOpts);
-  if (!Lex.get())
+  if (!Lex)
     return SourceLocation();
   llvm::SmallVector<char, 16> Line;
   // FIXME: this is a bit hacky to get ReadToEndOfLine work.
@@ -212,7 +191,7 @@ std::string getShortestQualifiedNameInNamespace(llvm::StringRef DeclName,
                                                 llvm::StringRef NsName) {
   DeclName = DeclName.ltrim(':');
   NsName = NsName.ltrim(':');
-  if (DeclName.find(':') == llvm::StringRef::npos)
+  if (!DeclName.contains(':'))
     return std::string(DeclName);
 
   auto NsNameSplitted = splitSymbolName(NsName);
@@ -314,24 +293,20 @@ bool conflictInNamespace(const ASTContext &AST, llvm::StringRef QualifiedSymbol,
     // symbol name would have been shortened.
     const NamedDecl *Scope =
         LookupDecl(*AST.getTranslationUnitDecl(), NsSplitted.front());
-    for (auto I = NsSplitted.begin() + 1, E = NsSplitted.end(); I != E; ++I) {
-      if (*I == SymbolTopNs) // Handles "::ny" in "::nx::ny" case.
+    for (const auto &I : llvm::drop_begin(NsSplitted)) {
+      if (I == SymbolTopNs) // Handles "::ny" in "::nx::ny" case.
         return true;
       // Handles "::util" and "::nx::util" conflicts.
       if (Scope) {
         if (LookupDecl(*Scope, SymbolTopNs))
           return true;
-        Scope = LookupDecl(*Scope, *I);
+        Scope = LookupDecl(*Scope, I);
       }
     }
     if (Scope && LookupDecl(*Scope, SymbolTopNs))
       return true;
   }
   return false;
-}
-
-AST_MATCHER(EnumDecl, isScoped) {
-    return Node.isScoped();
 }
 
 bool isTemplateParameter(TypeLoc Type) {
@@ -347,7 +322,7 @@ bool isTemplateParameter(TypeLoc Type) {
 
 ChangeNamespaceTool::ChangeNamespaceTool(
     llvm::StringRef OldNs, llvm::StringRef NewNs, llvm::StringRef FilePattern,
-    llvm::ArrayRef<std::string> WhiteListedSymbolPatterns,
+    llvm::ArrayRef<std::string> AllowedSymbolPatterns,
     std::map<std::string, tooling::Replacements> *FileToReplacements,
     llvm::StringRef FallbackStyle)
     : FallbackStyle(FallbackStyle), FileToReplacements(*FileToReplacements),
@@ -365,8 +340,8 @@ ChangeNamespaceTool::ChangeNamespaceTool(
   DiffOldNamespace = joinNamespaces(OldNsSplitted);
   DiffNewNamespace = joinNamespaces(NewNsSplitted);
 
-  for (const auto &Pattern : WhiteListedSymbolPatterns)
-    WhiteListedSymbolRegexes.emplace_back(Pattern);
+  for (const auto &Pattern : AllowedSymbolPatterns)
+    AllowedSymbolRegexes.emplace_back(Pattern);
 }
 
 void ChangeNamespaceTool::registerMatchers(ast_matchers::MatchFinder *Finder) {
@@ -452,7 +427,7 @@ void ChangeNamespaceTool::registerMatchers(ast_matchers::MatchFinder *Finder) {
                                hasDeclaration(DeclMatcher),
                                unless(templateSpecializationType()))))),
                            hasParent(nestedNameSpecifierLoc()),
-                           hasAncestor(isImplicit()),
+                           hasAncestor(decl(isImplicit())),
                            hasAncestor(UsingShadowDeclInClass),
                            hasAncestor(functionDecl(isDefaulted())))),
               hasAncestor(decl().bind("dc")))
@@ -476,7 +451,7 @@ void ChangeNamespaceTool::registerMatchers(ast_matchers::MatchFinder *Finder) {
           hasAncestor(decl(IsInMovedNs).bind("dc")),
           loc(nestedNameSpecifier(
               specifiesType(hasDeclaration(DeclMatcher.bind("from_decl"))))),
-          unless(anyOf(hasAncestor(isImplicit()),
+          unless(anyOf(hasAncestor(decl(isImplicit())),
                        hasAncestor(UsingShadowDeclInClass),
                        hasAncestor(functionDecl(isDefaulted())),
                        hasAncestor(typeLoc(loc(qualType(hasDeclaration(
@@ -505,7 +480,7 @@ void ChangeNamespaceTool::registerMatchers(ast_matchers::MatchFinder *Finder) {
                                 hasAncestor(cxxRecordDecl()))),
                    hasParent(namespaceDecl()));
   Finder->addMatcher(expr(hasAncestor(decl().bind("dc")), IsInMovedNs,
-                          unless(hasAncestor(isImplicit())),
+                          unless(hasAncestor(decl(isImplicit()))),
                           anyOf(callExpr(callee(FuncMatcher)).bind("call"),
                                 declRefExpr(to(FuncMatcher.bind("func_decl")))
                                     .bind("func_ref"))),
@@ -560,8 +535,8 @@ void ChangeNamespaceTool::run(
                  Result.Nodes.getNodeAs<NestedNameSpecifierLoc>(
                      "nested_specifier_loc")) {
     SourceLocation Start = Specifier->getBeginLoc();
-    SourceLocation End = endLocationForType(Specifier->getTypeLoc());
-    fixTypeLoc(Result, Start, End, Specifier->getTypeLoc());
+    SourceLocation End = endLocationForType(Specifier->castAsTypeLoc());
+    fixTypeLoc(Result, Start, End, Specifier->castAsTypeLoc());
   } else if (const auto *BaseInitializer =
                  Result.Nodes.getNodeAs<CXXCtorInitializer>(
                      "base_initializer")) {
@@ -572,21 +547,16 @@ void ChangeNamespaceTool::run(
     // filtered by matchers in some cases, e.g. the type is templated. We should
     // handle the record type qualifier instead.
     TypeLoc Loc = *TLoc;
-    while (Loc.getTypeLocClass() == TypeLoc::Qualified)
-      Loc = Loc.getNextTypeLoc();
-    if (Loc.getTypeLocClass() == TypeLoc::Elaborated) {
-      NestedNameSpecifierLoc NestedNameSpecifier =
-          Loc.castAs<ElaboratedTypeLoc>().getQualifierLoc();
-      // This happens for friend declaration of a base class with injected class
-      // name.
-      if (!NestedNameSpecifier.getNestedNameSpecifier())
-        return;
-      const Type *SpecifierType =
-          NestedNameSpecifier.getNestedNameSpecifier()->getAsType();
-      if (SpecifierType && SpecifierType->isRecordType())
-        return;
-    }
-    fixTypeLoc(Result, startLocationForType(Loc), endLocationForType(Loc), Loc);
+    if (auto QTL = Loc.getAs<QualifiedTypeLoc>())
+      Loc = QTL.getUnqualifiedLoc();
+    // FIXME: avoid changing injected class names.
+    if (NestedNameSpecifier NestedNameSpecifier =
+            Loc.getPrefix().getNestedNameSpecifier();
+        NestedNameSpecifier.getKind() == NestedNameSpecifier::Kind::Type &&
+        NestedNameSpecifier.getAsType()->isRecordType())
+      return;
+    fixTypeLoc(Result, Loc.getNonElaboratedBeginLoc(), endLocationForType(Loc),
+               Loc);
   } else if (const auto *VarRef =
                  Result.Nodes.getNodeAs<DeclRefExpr>("var_ref")) {
     const auto *Var = Result.Nodes.getNodeAs<VarDecl>("var_decl");
@@ -600,10 +570,9 @@ void ChangeNamespaceTool::run(
   } else if (const auto *EnumConstRef =
                  Result.Nodes.getNodeAs<DeclRefExpr>("enum_const_ref")) {
     // Do not rename the reference if it is already scoped by the EnumDecl name.
-    if (EnumConstRef->hasQualifier() &&
-        EnumConstRef->getQualifier()->getKind() ==
-            NestedNameSpecifier::SpecifierKind::TypeSpec &&
-        EnumConstRef->getQualifier()->getAsType()->isEnumeralType())
+    if (NestedNameSpecifier Qualifier = EnumConstRef->getQualifier();
+        Qualifier.getKind() == NestedNameSpecifier::Kind::Type &&
+        Qualifier.getAsType()->isEnumeralType())
       return;
     const auto *EnumConstDecl =
         Result.Nodes.getNodeAs<EnumConstantDecl>("enum_const_decl");
@@ -618,9 +587,8 @@ void ChangeNamespaceTool::run(
                  Result.Nodes.getNodeAs<DeclRefExpr>("func_ref")) {
     // If this reference has been processed as a function call, we do not
     // process it again.
-    if (ProcessedFuncRefs.count(FuncRef))
+    if (!ProcessedFuncRefs.insert(FuncRef).second)
       return;
-    ProcessedFuncRefs.insert(FuncRef);
     const auto *Func = Result.Nodes.getNodeAs<FunctionDecl>("func_decl");
     assert(Func);
     const auto *Context = Result.Nodes.getNodeAs<Decl>("dc");
@@ -660,9 +628,8 @@ static SourceLocation getLocAfterNamespaceLBrace(const NamespaceDecl *NsDecl,
                                                  const LangOptions &LangOpts) {
   std::unique_ptr<Lexer> Lex =
       getLexerStartingFromLoc(NsDecl->getBeginLoc(), SM, LangOpts);
-  assert(Lex.get() &&
-         "Failed to create lexer from the beginning of namespace.");
-  if (!Lex.get())
+  assert(Lex && "Failed to create lexer from the beginning of namespace.");
+  if (!Lex)
     return SourceLocation();
   Token Tok;
   while (!Lex->LexFromRawLexer(Tok) && Tok.isNot(tok::TokenKind::l_brace)) {
@@ -800,7 +767,7 @@ void ChangeNamespaceTool::replaceQualifiedSymbolInDeclContext(
           Result.SourceManager->getSpellingLoc(End)),
       *Result.SourceManager, Result.Context->getLangOpts());
   std::string FromDeclName = FromDecl->getQualifiedNameAsString();
-  for (llvm::Regex &RE : WhiteListedSymbolRegexes)
+  for (llvm::Regex &RE : AllowedSymbolRegexes)
     if (RE.match(FromDeclName))
       return;
   std::string ReplaceName =
@@ -839,10 +806,10 @@ void ChangeNamespaceTool::replaceQualifiedSymbolInDeclContext(
       // "IsVisibleInNewNs" matcher.
       if (AliasQualifiedName != AliasName) {
         // The alias is defined in some namespace.
-        assert(StringRef(AliasQualifiedName).endswith("::" + AliasName));
+        assert(StringRef(AliasQualifiedName).ends_with("::" + AliasName));
         llvm::StringRef AliasNs =
             StringRef(AliasQualifiedName).drop_back(AliasName.size() + 2);
-        if (!llvm::StringRef(OldNs).startswith(AliasNs))
+        if (!llvm::StringRef(OldNs).starts_with(AliasNs))
           continue;
       }
       std::string NameWithAliasNamespace =
@@ -874,7 +841,7 @@ void ChangeNamespaceTool::replaceQualifiedSymbolInDeclContext(
   // If the new nested name in the new namespace is the same as it was in the
   // old namespace, we don't create replacement unless there can be ambiguity.
   if ((NestedName == ReplaceName && !Conflict) ||
-      (NestedName.startswith("::") && NestedName.drop_front(2) == ReplaceName))
+      (NestedName.starts_with("::") && NestedName.drop_front(2) == ReplaceName))
     return;
   // If the reference need to be fully-qualified, add a leading "::" unless
   // NewNamespace is the global namespace.
@@ -903,7 +870,7 @@ void ChangeNamespaceTool::fixTypeLoc(
   // a typedef type, we need to use the typedef type instead.
   auto IsInMovedNs = [&](const NamedDecl *D) {
     if (!llvm::StringRef(D->getQualifiedNameAsString())
-             .startswith(OldNamespace + "::"))
+             .starts_with(OldNamespace + "::"))
       return false;
     auto ExpansionLoc = Result.SourceManager->getExpansionLoc(D->getBeginLoc());
     if (ExpansionLoc.isInvalid())

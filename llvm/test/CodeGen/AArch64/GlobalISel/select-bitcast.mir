@@ -22,18 +22,23 @@ legalized:       true
 regBankSelected: true
 registers:
   - { id: 0, class: gpr }
-  - { id: 1, class: gpr }
-
+  - { id: 1, class: fpr }
+  - { id: 2, class: gpr }
 body:             |
   bb.0:
     liveins: $w0
 
     ; CHECK-LABEL: name: bitcast_s32_gpr
-    ; CHECK: [[COPY:%[0-9]+]]:gpr32all = COPY $w0
-    ; CHECK: $w0 = COPY [[COPY]]
+    ; CHECK: liveins: $w0
+    ; CHECK-NEXT: {{  $}}
+    ; CHECK-NEXT: [[COPY:%[0-9]+]]:gpr32all = COPY $w0
+    ; CHECK-NEXT: [[COPY1:%[0-9]+]]:fpr32 = COPY [[COPY]]
+    ; CHECK-NEXT: [[COPY2:%[0-9]+]]:gpr32all = COPY [[COPY1]]
+    ; CHECK-NEXT: $w0 = COPY [[COPY2]]
     %0(s32) = COPY $w0
-    %1(s32) = G_BITCAST %0
-    $w0 = COPY %1(s32)
+    %1(<2 x s16>) = G_BITCAST %0
+    %2(s32) = G_BITCAST %1
+    $w0 = COPY %2
 ...
 
 ---
@@ -43,18 +48,23 @@ regBankSelected: true
 
 registers:
   - { id: 0, class: fpr }
-  - { id: 1, class: fpr }
-
+  - { id: 1, class: gpr }
+  - { id: 2, class: fpr }
 body:             |
   bb.0:
     liveins: $s0
 
     ; CHECK-LABEL: name: bitcast_s32_fpr
-    ; CHECK: [[COPY:%[0-9]+]]:fpr32 = COPY $s0
-    ; CHECK: $s0 = COPY [[COPY]]
+    ; CHECK: liveins: $s0
+    ; CHECK-NEXT: {{  $}}
+    ; CHECK-NEXT: [[COPY:%[0-9]+]]:fpr32 = COPY $s0
+    ; CHECK-NEXT: [[COPY1:%[0-9]+]]:gpr32all = COPY [[COPY]]
+    ; CHECK-NEXT: [[COPY2:%[0-9]+]]:fpr32 = COPY [[COPY1]]
+    ; CHECK-NEXT: $s0 = COPY [[COPY2]]
     %0(s32) = COPY $s0
-    %1(s32) = G_BITCAST %0
-    $s0 = COPY %1(s32)
+    %1(<2 x s16>) = G_BITCAST %0
+    %2(s32) = G_BITCAST %1
+    $s0 = COPY %2
 ...
 
 ---
@@ -71,12 +81,14 @@ body:             |
     liveins: $w0
 
     ; CHECK-LABEL: name: bitcast_s32_gpr_fpr
-    ; CHECK: [[COPY:%[0-9]+]]:gpr32all = COPY $w0
-    ; CHECK: [[COPY1:%[0-9]+]]:fpr32 = COPY [[COPY]]
-    ; CHECK: $s0 = COPY [[COPY1]]
+    ; CHECK: liveins: $w0
+    ; CHECK-NEXT: {{  $}}
+    ; CHECK-NEXT: [[COPY:%[0-9]+]]:gpr32all = COPY $w0
+    ; CHECK-NEXT: [[COPY1:%[0-9]+]]:fpr32 = COPY [[COPY]]
+    ; CHECK-NEXT: $s0 = COPY [[COPY1]]
     %0(s32) = COPY $w0
-    %1(s32) = G_BITCAST %0
-    $s0 = COPY %1(s32)
+    %1(<2 x s16>) = G_BITCAST %0
+    $s0 = COPY %1
 ...
 
 ---
@@ -93,10 +105,12 @@ body:             |
     liveins: $s0
 
     ; CHECK-LABEL: name: bitcast_s32_fpr_gpr
-    ; CHECK: [[COPY:%[0-9]+]]:fpr32 = COPY $s0
-    ; CHECK: [[COPY1:%[0-9]+]]:gpr32 = COPY [[COPY]]
-    ; CHECK: $w0 = COPY [[COPY1]]
-    %0(s32) = COPY $s0
+    ; CHECK: liveins: $s0
+    ; CHECK-NEXT: {{  $}}
+    ; CHECK-NEXT: [[COPY:%[0-9]+]]:fpr32 = COPY $s0
+    ; CHECK-NEXT: [[COPY1:%[0-9]+]]:gpr32all = COPY [[COPY]]
+    ; CHECK-NEXT: $w0 = COPY [[COPY1]]
+    %0(<2 x s16>) = COPY $s0
     %1(s32) = G_BITCAST %0
     $w0 = COPY %1(s32)
 ...
@@ -108,18 +122,24 @@ regBankSelected: true
 
 registers:
   - { id: 0, class: gpr }
-  - { id: 1, class: gpr }
+  - { id: 1, class: fpr }
+  - { id: 2, class: gpr }
 
 body:             |
   bb.0:
     liveins: $x0
 
     ; CHECK-LABEL: name: bitcast_s64_gpr
-    ; CHECK: [[COPY:%[0-9]+]]:gpr64all = COPY $x0
-    ; CHECK: $x0 = COPY [[COPY]]
+    ; CHECK: liveins: $x0
+    ; CHECK-NEXT: {{  $}}
+    ; CHECK-NEXT: [[COPY:%[0-9]+]]:gpr64all = COPY $x0
+    ; CHECK-NEXT: [[COPY1:%[0-9]+]]:fpr64 = COPY [[COPY]]
+    ; CHECK-NEXT: [[COPY2:%[0-9]+]]:gpr64 = COPY [[COPY1]]
+    ; CHECK-NEXT: $x0 = COPY [[COPY2]]
     %0(s64) = COPY $x0
-    %1(s64) = G_BITCAST %0
-    $x0 = COPY %1(s64)
+    %1(<2 x s32>) = G_BITCAST %0
+    %2(s64) = G_BITCAST %1
+    $x0 = COPY %2(s64)
 ...
 
 ---
@@ -136,11 +156,13 @@ body:             |
     liveins: $d0
 
     ; CHECK-LABEL: name: bitcast_s64_fpr
-    ; CHECK: [[COPY:%[0-9]+]]:fpr64 = COPY $d0
-    ; CHECK: $d0 = COPY [[COPY]]
+    ; CHECK: liveins: $d0
+    ; CHECK-NEXT: {{  $}}
+    ; CHECK-NEXT: [[COPY:%[0-9]+]]:fpr64 = COPY $d0
+    ; CHECK-NEXT: $d0 = COPY [[COPY]]
     %0(s64) = COPY $d0
-    %1(s64) = G_BITCAST %0
-    $d0 = COPY %1(s64)
+    %1(<2 x s32>) = G_BITCAST %0
+    $d0 = COPY %1
 ...
 
 ---
@@ -156,12 +178,14 @@ body:             |
     liveins: $x0
 
     ; CHECK-LABEL: name: bitcast_s64_gpr_fpr
-    ; CHECK: [[COPY:%[0-9]+]]:gpr64all = COPY $x0
-    ; CHECK: [[COPY1:%[0-9]+]]:fpr64 = COPY [[COPY]]
-    ; CHECK: $d0 = COPY [[COPY1]]
+    ; CHECK: liveins: $x0
+    ; CHECK-NEXT: {{  $}}
+    ; CHECK-NEXT: [[COPY:%[0-9]+]]:gpr64all = COPY $x0
+    ; CHECK-NEXT: [[COPY1:%[0-9]+]]:fpr64 = COPY [[COPY]]
+    ; CHECK-NEXT: $d0 = COPY [[COPY1]]
     %0(s64) = COPY $x0
-    %1(s64) = G_BITCAST %0
-    $d0 = COPY %1(s64)
+    %1(<2 x s32>) = G_BITCAST %0
+    $d0 = COPY %1
 ...
 
 ---
@@ -178,12 +202,14 @@ body:             |
     liveins: $d0
 
     ; CHECK-LABEL: name: bitcast_s64_fpr_gpr
-    ; CHECK: [[COPY:%[0-9]+]]:fpr64 = COPY $d0
-    ; CHECK: [[COPY1:%[0-9]+]]:gpr64 = COPY [[COPY]]
-    ; CHECK: $x0 = COPY [[COPY1]]
+    ; CHECK: liveins: $d0
+    ; CHECK-NEXT: {{  $}}
+    ; CHECK-NEXT: [[COPY:%[0-9]+]]:fpr64 = COPY $d0
+    ; CHECK-NEXT: [[COPY1:%[0-9]+]]:gpr64all = COPY [[COPY]]
+    ; CHECK-NEXT: $x0 = COPY [[COPY1]]
     %0(s64) = COPY $d0
-    %1(s64) = G_BITCAST %0
-    $x0 = COPY %1(s64)
+    %1(<2 x s32>) = G_BITCAST %0
+    $x0 = COPY %1
 ...
 
 ---
@@ -200,8 +226,10 @@ body:             |
     liveins: $d0
 
     ; CHECK-LABEL: name: bitcast_s64_v2f32_fpr
-    ; CHECK: [[COPY:%[0-9]+]]:fpr64 = COPY $d0
-    ; CHECK: $x0 = COPY [[COPY]]
+    ; CHECK: liveins: $d0
+    ; CHECK-NEXT: {{  $}}
+    ; CHECK-NEXT: [[COPY:%[0-9]+]]:fpr64 = COPY $d0
+    ; CHECK-NEXT: $x0 = COPY [[COPY]]
     %0(s64) = COPY $d0
     %1(<2 x s32>) = G_BITCAST %0
     $x0 = COPY %1(<2 x s32>)
@@ -221,8 +249,10 @@ body:             |
     liveins: $d0
 
     ; CHECK-LABEL: name: bitcast_s64_v8i8_fpr
-    ; CHECK: [[COPY:%[0-9]+]]:fpr64 = COPY $d0
-    ; CHECK: $x0 = COPY [[COPY]]
+    ; CHECK: liveins: $d0
+    ; CHECK-NEXT: {{  $}}
+    ; CHECK-NEXT: [[COPY:%[0-9]+]]:fpr64 = COPY $d0
+    ; CHECK-NEXT: $x0 = COPY [[COPY]]
     %0(s64) = COPY $d0
     %1(<8 x s8>) = G_BITCAST %0
     $x0 = COPY %1(<8 x s8>)

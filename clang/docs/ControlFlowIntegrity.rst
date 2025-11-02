@@ -19,11 +19,12 @@ of undefined behavior that can potentially allow attackers to subvert the
 program's control flow. These schemes have been optimized for performance,
 allowing developers to enable them in release builds.
 
-To enable Clang's available CFI schemes, use the flag ``-fsanitize=cfi``.
-You can also enable a subset of available :ref:`schemes <cfi-schemes>`.
-As currently implemented, all schemes rely on link-time optimization (LTO);
-so it is required to specify ``-flto``, and the linker used must support LTO,
-for example via the `gold plugin`_.
+To enable Clang's available CFI schemes, use the flag
+``-fsanitize=cfi``. You can also enable a subset of available
+:ref:`schemes <cfi-schemes>`. As currently implemented, all schemes
+except for ``kcfi`` rely on link-time optimization (LTO); so it is
+required to specify ``-flto`` or ``-flto=thin``, and the linker used
+must support LTO, for example via the `gold plugin`_.
 
 To allow the checks to be implemented efficiently, the program must
 be structured such that certain object files are compiled with CFI
@@ -40,6 +41,11 @@ require that a ``-fvisibility=`` flag also be specified. This is because the
 default visibility setting is ``-fvisibility=default``, which would disable
 CFI checks for classes without visibility attributes. Most users will want
 to specify ``-fvisibility=hidden``, which enables CFI checks for such classes.
+
+When using ``-fsanitize=cfi*`` with ``-flto=thin``, it is recommended
+to reduce link times by passing `-funique-source-file-names
+<UsersManual.html#cmdoption-f-no-unique-source-file-names>`_, provided
+that your program is compatible with it.
 
 Experimental support for :ref:`cross-DSO control flow integrity
 <cfi-cross-dso>` exists that does not require classes to have hidden LTO
@@ -76,8 +82,8 @@ For example, you can build your program with
 to use all schemes except for non-virtual member function call and indirect call
 checking.
 
-Remember that you have to provide ``-flto`` if at least one CFI scheme is
-enabled.
+Remember that you have to provide ``-flto`` or ``-flto=thin`` if at
+least one CFI scheme is enabled.
 
 Trapping and Diagnostics
 ========================
@@ -92,7 +98,7 @@ similar to the one below before the program aborts.
     bad-cast.cpp:109:7: runtime error: control flow integrity check for type 'B' failed during base-to-derived cast (vtable address 0x000000425a50)
     0x000000425a50: note: vtable is of type 'A'
      00 00 00 00  f0 f1 41 00 00 00 00 00  00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00  20 5a 42 00
-                  ^ 
+                  ^
 
 If diagnostics are enabled, you can also configure CFI to continue program
 execution instead of aborting by using the :ref:`-fsanitize-recover=
@@ -108,7 +114,7 @@ This CFI scheme can be enabled on its own using ``-fsanitize=cfi-vcall``.
 
 For this scheme to work, all translation units containing the definition
 of a virtual member function (whether inline or not), other than members
-of :ref:`blacklisted <cfi-blacklist>` types or types with public :doc:`LTO
+of :ref:`ignored <cfi-ignorelist>` types or types with public :doc:`LTO
 visibility <LTOVisibility>`, must be compiled with ``-flto`` or ``-flto=thin``
 enabled and be statically linked into the program.
 
@@ -151,11 +157,11 @@ If a program as a matter of policy forbids the second type of cast, that
 restriction can normally be enforced. However it may in some cases be necessary
 for a function to perform a forbidden cast to conform with an external API
 (e.g. the ``allocate`` member function of a standard library allocator). Such
-functions may be :ref:`blacklisted <cfi-blacklist>`.
+functions may be :ref:`ignored <cfi-ignorelist>`.
 
 For this scheme to work, all translation units containing the definition
 of a virtual member function (whether inline or not), other than members
-of :ref:`blacklisted <cfi-blacklist>` types or types with public :doc:`LTO
+of :ref:`ignored <cfi-ignorelist>` types or types with public :doc:`LTO
 visibility <LTOVisibility>`, must be compiled with ``-flto`` or ``-flto=thin``
 enabled and be statically linked into the program.
 
@@ -171,7 +177,7 @@ polymorphic class type.  This CFI scheme can be enabled on its own using
 
 For this scheme to work, all translation units containing the definition
 of a virtual member function (whether inline or not), other than members
-of :ref:`blacklisted <cfi-blacklist>` types or types with public :doc:`LTO
+of :ref:`ignored <cfi-ignorelist>` types or types with public :doc:`LTO
 visibility <LTOVisibility>`, must be compiled with ``-flto`` or ``-flto=thin``
 enabled and be statically linked into the program.
 
@@ -201,7 +207,7 @@ the static type used at the call. This CFI scheme can be enabled on its own
 using ``-fsanitize=cfi-icall``.
 
 For this scheme to work, each indirect function call in the program, other
-than calls in :ref:`blacklisted <cfi-blacklist>` functions, must call a
+than calls in :ref:`ignored <cfi-ignorelist>` functions, must call a
 function which was either compiled with ``-fsanitize=cfi-icall`` enabled,
 or whose address was taken by a function in a translation unit compiled with
 ``-fsanitize=cfi-icall``.
@@ -217,7 +223,8 @@ statically linked into the program or shared library, and calls across
 shared library boundaries are handled as if the callee was not compiled with
 ``-fsanitize=cfi-icall``.
 
-This scheme is currently only supported on the x86 and x86_64 architectures.
+This scheme is currently supported on a limited set of targets: x86,
+x86_64, arm, arch64 and wasm.
 
 ``-fsanitize-cfi-icall-generalize-pointers``
 --------------------------------------------
@@ -234,6 +241,25 @@ long as the qualifiers for the type they point to match. For example, ``char*``,
 
 ``-fsanitize-cfi-icall-generalize-pointers`` is not compatible with
 ``-fsanitize-cfi-cross-dso``.
+
+.. _cfi-icall-experimental-normalize-integers:
+
+``-fsanitize-cfi-icall-experimental-normalize-integers``
+--------------------------------------------------------
+
+This option enables normalizing integer types as vendor extended types for
+cross-language LLVM CFI/KCFI support with other languages that can't represent
+and encode C/C++ integer types.
+
+Specifically, integer types are encoded as their defined representations (e.g.,
+8-bit signed integer, 16-bit signed integer, 32-bit signed integer, ...) for
+compatibility with languages that define explicitly-sized integer types (e.g.,
+i8, i16, i32, ..., in Rust).
+
+``-fsanitize-cfi-icall-experimental-normalize-integers`` is compatible with
+``-fsanitize-cfi-icall-generalize-pointers``.
+
+This option is currently experimental.
 
 .. _cfi-canonical-jump-tables:
 
@@ -282,7 +308,7 @@ for CFI. For example, this is necessary when a function's address
 is taken by assembly code and then called by CFI-checking C code. The
 ``__attribute__((cfi_canonical_jump_table))`` attribute may be used to make
 the jump table entry of a specific function canonical so that the external
-code will end up taking a address for the function that will pass CFI checks.
+code will end up taking an address for the function that will pass CFI checks.
 
 ``-fsanitize=cfi-icall`` and ``-fsanitize=function``
 ----------------------------------------------------
@@ -294,16 +320,36 @@ to find bugs in local development builds, whereas ``-fsanitize=cfi-icall``
 is a security hardening mechanism designed to be deployed in release builds.
 
 ``-fsanitize=function`` has a higher space and time overhead due to a more
-complex type check at indirect call sites, as well as a need for run-time
-type information (RTTI), which may make it unsuitable for deployment. Because
-of the need for RTTI, ``-fsanitize=function`` can only be used with C++
-programs, whereas ``-fsanitize=cfi-icall`` can protect both C and C++ programs.
+complex type check at indirect call sites, which may make it unsuitable for
+deployment.
 
 On the other hand, ``-fsanitize=function`` conforms more closely with the C++
 standard and user expectations around interaction with shared libraries;
 the identity of function pointers is maintained, and calls across shared
 library boundaries are no different from calls within a single program or
 shared library.
+
+.. _kcfi:
+
+``-fsanitize=kcfi``
+-------------------
+
+This is an alternative indirect call control-flow integrity scheme designed
+for low-level system software, such as operating system kernels. Unlike
+``-fsanitize=cfi-icall``, it doesn't require ``-flto``, won't result in
+function pointers being replaced with jump table references, and never breaks
+cross-DSO function address equality. These properties make KCFI easier to
+adopt in low-level software. KCFI is limited to checking only function
+pointers, and isn't compatible with executable-only memory.
+
+``-fsanitize-kcfi-arity``
+-----------------------------
+
+For supported targets, this feature extends kCFI by telling the compiler to
+record information about each indirect-callable function's arity (i.e., the
+number of arguments passed in registers) into the binary. Some kernel CFI
+techniques, such as FineIBT, may be able to use this information to provide
+enhanced security.
 
 Member Function Pointer Call Checking
 =====================================
@@ -326,17 +372,17 @@ base types to be complete if they may be used for a call.
 
 For this scheme to work, all translation units containing the definition
 of a virtual member function (whether inline or not), other than members
-of :ref:`blacklisted <cfi-blacklist>` types or types with public :doc:`LTO
+of :ref:`ignored <cfi-ignorelist>` types or types with public :doc:`LTO
 visibility <LTOVisibility>`, must be compiled with ``-flto`` or ``-flto=thin``
 enabled and be statically linked into the program.
 
 This scheme is currently not compatible with cross-DSO CFI or the
 Microsoft ABI.
 
-.. _cfi-blacklist:
+.. _cfi-ignorelist:
 
-Blacklist
-=========
+Ignorelist
+==========
 
 A :doc:`SanitizerSpecialCaseList` can be used to relax CFI checks for certain
 source files, functions and types using the ``src``, ``fun`` and ``type``
@@ -368,11 +414,11 @@ Shared library support
 Use **-f[no-]sanitize-cfi-cross-dso** to enable the cross-DSO control
 flow integrity mode, which allows all CFI schemes listed above to
 apply across DSO boundaries. As in the regular CFI, each DSO must be
-built with ``-flto``.
+built with ``-flto`` or ``-flto=thin``.
 
 Normally, CFI checks will only be performed for classes that have hidden LTO
 visibility. With this flag enabled, the compiler will emit cross-DSO CFI
-checks for all classes, except for those which appear in the CFI blacklist
+checks for all classes, except for those which appear in the CFI ignorelist
 or which use a ``no_sanitize`` attribute.
 
 Design
@@ -386,6 +432,6 @@ Publications
 `Control-Flow Integrity: Principles, Implementations, and Applications <https://research.microsoft.com/pubs/64250/ccs05.pdf>`_.
 Martin Abadi, Mihai Budiu, Úlfar Erlingsson, Jay Ligatti.
 
-`Enforcing Forward-Edge Control-Flow Integrity in GCC & LLVM <http://www.pcc.me.uk/~peter/acad/usenix14.pdf>`_.
+`Enforcing Forward-Edge Control-Flow Integrity in GCC & LLVM <https://www.usenix.org/system/files/conference/usenixsecurity14/sec14-paper-tice.pdf>`_.
 Caroline Tice, Tom Roeder, Peter Collingbourne, Stephen Checkoway,
 Úlfar Erlingsson, Luis Lozano, Geoff Pike.

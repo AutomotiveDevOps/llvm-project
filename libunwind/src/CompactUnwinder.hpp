@@ -1,4 +1,4 @@
-//===-------------------------- CompactUnwinder.hpp -----------------------===//
+//===----------------------------------------------------------------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -19,6 +19,7 @@
 #include <mach-o/compact_unwind_encoding.h>
 
 #include "Registers.hpp"
+#include "libunwind_ext.h"
 
 #define EXTRACT_BITS(value, mask)                                              \
   ((value >> __builtin_ctz(mask)) & (((1 << __builtin_popcount(mask))) - 1))
@@ -537,74 +538,80 @@ int CompactUnwinder_arm64<A>::stepWithCompactEncodingFrameless(
   uint64_t savedRegisterLoc = registers.getSP() + stackSize;
 
   if (encoding & UNWIND_ARM64_FRAME_X19_X20_PAIR) {
-    registers.setRegister(UNW_ARM64_X19, addressSpace.get64(savedRegisterLoc));
+    registers.setRegister(UNW_AARCH64_X19, addressSpace.get64(savedRegisterLoc));
     savedRegisterLoc -= 8;
-    registers.setRegister(UNW_ARM64_X20, addressSpace.get64(savedRegisterLoc));
+    registers.setRegister(UNW_AARCH64_X20, addressSpace.get64(savedRegisterLoc));
     savedRegisterLoc -= 8;
   }
   if (encoding & UNWIND_ARM64_FRAME_X21_X22_PAIR) {
-    registers.setRegister(UNW_ARM64_X21, addressSpace.get64(savedRegisterLoc));
+    registers.setRegister(UNW_AARCH64_X21, addressSpace.get64(savedRegisterLoc));
     savedRegisterLoc -= 8;
-    registers.setRegister(UNW_ARM64_X22, addressSpace.get64(savedRegisterLoc));
+    registers.setRegister(UNW_AARCH64_X22, addressSpace.get64(savedRegisterLoc));
     savedRegisterLoc -= 8;
   }
   if (encoding & UNWIND_ARM64_FRAME_X23_X24_PAIR) {
-    registers.setRegister(UNW_ARM64_X23, addressSpace.get64(savedRegisterLoc));
+    registers.setRegister(UNW_AARCH64_X23, addressSpace.get64(savedRegisterLoc));
     savedRegisterLoc -= 8;
-    registers.setRegister(UNW_ARM64_X24, addressSpace.get64(savedRegisterLoc));
+    registers.setRegister(UNW_AARCH64_X24, addressSpace.get64(savedRegisterLoc));
     savedRegisterLoc -= 8;
   }
   if (encoding & UNWIND_ARM64_FRAME_X25_X26_PAIR) {
-    registers.setRegister(UNW_ARM64_X25, addressSpace.get64(savedRegisterLoc));
+    registers.setRegister(UNW_AARCH64_X25, addressSpace.get64(savedRegisterLoc));
     savedRegisterLoc -= 8;
-    registers.setRegister(UNW_ARM64_X26, addressSpace.get64(savedRegisterLoc));
+    registers.setRegister(UNW_AARCH64_X26, addressSpace.get64(savedRegisterLoc));
     savedRegisterLoc -= 8;
   }
   if (encoding & UNWIND_ARM64_FRAME_X27_X28_PAIR) {
-    registers.setRegister(UNW_ARM64_X27, addressSpace.get64(savedRegisterLoc));
+    registers.setRegister(UNW_AARCH64_X27, addressSpace.get64(savedRegisterLoc));
     savedRegisterLoc -= 8;
-    registers.setRegister(UNW_ARM64_X28, addressSpace.get64(savedRegisterLoc));
+    registers.setRegister(UNW_AARCH64_X28, addressSpace.get64(savedRegisterLoc));
     savedRegisterLoc -= 8;
   }
 
   if (encoding & UNWIND_ARM64_FRAME_D8_D9_PAIR) {
-    registers.setFloatRegister(UNW_ARM64_D8,
+    registers.setFloatRegister(UNW_AARCH64_V8,
                                addressSpace.getDouble(savedRegisterLoc));
     savedRegisterLoc -= 8;
-    registers.setFloatRegister(UNW_ARM64_D9,
+    registers.setFloatRegister(UNW_AARCH64_V9,
                                addressSpace.getDouble(savedRegisterLoc));
     savedRegisterLoc -= 8;
   }
   if (encoding & UNWIND_ARM64_FRAME_D10_D11_PAIR) {
-    registers.setFloatRegister(UNW_ARM64_D10,
+    registers.setFloatRegister(UNW_AARCH64_V10,
                                addressSpace.getDouble(savedRegisterLoc));
     savedRegisterLoc -= 8;
-    registers.setFloatRegister(UNW_ARM64_D11,
+    registers.setFloatRegister(UNW_AARCH64_V11,
                                addressSpace.getDouble(savedRegisterLoc));
     savedRegisterLoc -= 8;
   }
   if (encoding & UNWIND_ARM64_FRAME_D12_D13_PAIR) {
-    registers.setFloatRegister(UNW_ARM64_D12,
+    registers.setFloatRegister(UNW_AARCH64_V12,
                                addressSpace.getDouble(savedRegisterLoc));
     savedRegisterLoc -= 8;
-    registers.setFloatRegister(UNW_ARM64_D13,
+    registers.setFloatRegister(UNW_AARCH64_V13,
                                addressSpace.getDouble(savedRegisterLoc));
     savedRegisterLoc -= 8;
   }
   if (encoding & UNWIND_ARM64_FRAME_D14_D15_PAIR) {
-    registers.setFloatRegister(UNW_ARM64_D14,
+    registers.setFloatRegister(UNW_AARCH64_V14,
                                addressSpace.getDouble(savedRegisterLoc));
     savedRegisterLoc -= 8;
-    registers.setFloatRegister(UNW_ARM64_D15,
+    registers.setFloatRegister(UNW_AARCH64_V15,
                                addressSpace.getDouble(savedRegisterLoc));
     savedRegisterLoc -= 8;
   }
 
+  // We load the link register prior to setting the new SP as the authentication
+  // schema for LR entangles the SP of the old frame into the diversifier.
+  Registers_arm64::reg_t linkRegister = registers.getRegister(UNW_AARCH64_LR);
+
   // subtract stack size off of sp
   registers.setSP(savedRegisterLoc);
 
-  // set pc to be value in lr
-  registers.setIP(registers.getRegister(UNW_ARM64_LR));
+  // Set pc to be value in lr. This needs to be performed after the new SP has
+  // been set, as the PC authentication schema entangles the SP of the new
+  // frame.
+  registers.setIP(linkRegister);
 
   return UNW_STEP_SUCCESS;
 }
@@ -613,77 +620,82 @@ template <typename A>
 int CompactUnwinder_arm64<A>::stepWithCompactEncodingFrame(
     compact_unwind_encoding_t encoding, uint64_t, A &addressSpace,
     Registers_arm64 &registers) {
-  uint64_t savedRegisterLoc = registers.getFP() - 8;
+  Registers_arm64::reg_t savedRegisterLoc = registers.getFP() - 8;
 
   if (encoding & UNWIND_ARM64_FRAME_X19_X20_PAIR) {
-    registers.setRegister(UNW_ARM64_X19, addressSpace.get64(savedRegisterLoc));
+    registers.setRegister(UNW_AARCH64_X19, addressSpace.get64(savedRegisterLoc));
     savedRegisterLoc -= 8;
-    registers.setRegister(UNW_ARM64_X20, addressSpace.get64(savedRegisterLoc));
+    registers.setRegister(UNW_AARCH64_X20, addressSpace.get64(savedRegisterLoc));
     savedRegisterLoc -= 8;
   }
   if (encoding & UNWIND_ARM64_FRAME_X21_X22_PAIR) {
-    registers.setRegister(UNW_ARM64_X21, addressSpace.get64(savedRegisterLoc));
+    registers.setRegister(UNW_AARCH64_X21, addressSpace.get64(savedRegisterLoc));
     savedRegisterLoc -= 8;
-    registers.setRegister(UNW_ARM64_X22, addressSpace.get64(savedRegisterLoc));
+    registers.setRegister(UNW_AARCH64_X22, addressSpace.get64(savedRegisterLoc));
     savedRegisterLoc -= 8;
   }
   if (encoding & UNWIND_ARM64_FRAME_X23_X24_PAIR) {
-    registers.setRegister(UNW_ARM64_X23, addressSpace.get64(savedRegisterLoc));
+    registers.setRegister(UNW_AARCH64_X23, addressSpace.get64(savedRegisterLoc));
     savedRegisterLoc -= 8;
-    registers.setRegister(UNW_ARM64_X24, addressSpace.get64(savedRegisterLoc));
+    registers.setRegister(UNW_AARCH64_X24, addressSpace.get64(savedRegisterLoc));
     savedRegisterLoc -= 8;
   }
   if (encoding & UNWIND_ARM64_FRAME_X25_X26_PAIR) {
-    registers.setRegister(UNW_ARM64_X25, addressSpace.get64(savedRegisterLoc));
+    registers.setRegister(UNW_AARCH64_X25, addressSpace.get64(savedRegisterLoc));
     savedRegisterLoc -= 8;
-    registers.setRegister(UNW_ARM64_X26, addressSpace.get64(savedRegisterLoc));
+    registers.setRegister(UNW_AARCH64_X26, addressSpace.get64(savedRegisterLoc));
     savedRegisterLoc -= 8;
   }
   if (encoding & UNWIND_ARM64_FRAME_X27_X28_PAIR) {
-    registers.setRegister(UNW_ARM64_X27, addressSpace.get64(savedRegisterLoc));
+    registers.setRegister(UNW_AARCH64_X27, addressSpace.get64(savedRegisterLoc));
     savedRegisterLoc -= 8;
-    registers.setRegister(UNW_ARM64_X28, addressSpace.get64(savedRegisterLoc));
+    registers.setRegister(UNW_AARCH64_X28, addressSpace.get64(savedRegisterLoc));
     savedRegisterLoc -= 8;
   }
 
   if (encoding & UNWIND_ARM64_FRAME_D8_D9_PAIR) {
-    registers.setFloatRegister(UNW_ARM64_D8,
+    registers.setFloatRegister(UNW_AARCH64_V8,
                                addressSpace.getDouble(savedRegisterLoc));
     savedRegisterLoc -= 8;
-    registers.setFloatRegister(UNW_ARM64_D9,
+    registers.setFloatRegister(UNW_AARCH64_V9,
                                addressSpace.getDouble(savedRegisterLoc));
     savedRegisterLoc -= 8;
   }
   if (encoding & UNWIND_ARM64_FRAME_D10_D11_PAIR) {
-    registers.setFloatRegister(UNW_ARM64_D10,
+    registers.setFloatRegister(UNW_AARCH64_V10,
                                addressSpace.getDouble(savedRegisterLoc));
     savedRegisterLoc -= 8;
-    registers.setFloatRegister(UNW_ARM64_D11,
+    registers.setFloatRegister(UNW_AARCH64_V11,
                                addressSpace.getDouble(savedRegisterLoc));
     savedRegisterLoc -= 8;
   }
   if (encoding & UNWIND_ARM64_FRAME_D12_D13_PAIR) {
-    registers.setFloatRegister(UNW_ARM64_D12,
+    registers.setFloatRegister(UNW_AARCH64_V12,
                                addressSpace.getDouble(savedRegisterLoc));
     savedRegisterLoc -= 8;
-    registers.setFloatRegister(UNW_ARM64_D13,
+    registers.setFloatRegister(UNW_AARCH64_V13,
                                addressSpace.getDouble(savedRegisterLoc));
     savedRegisterLoc -= 8;
   }
   if (encoding & UNWIND_ARM64_FRAME_D14_D15_PAIR) {
-    registers.setFloatRegister(UNW_ARM64_D14,
+    registers.setFloatRegister(UNW_AARCH64_V14,
                                addressSpace.getDouble(savedRegisterLoc));
     savedRegisterLoc -= 8;
-    registers.setFloatRegister(UNW_ARM64_D15,
+    registers.setFloatRegister(UNW_AARCH64_V15,
                                addressSpace.getDouble(savedRegisterLoc));
     savedRegisterLoc -= 8;
   }
 
-  uint64_t fp = registers.getFP();
+  Registers_arm64::reg_t fp = registers.getFP();
+
   // fp points to old fp
   registers.setFP(addressSpace.get64(fp));
-  // old sp is fp less saved fp and lr
+
+  // Old sp is fp less saved fp and lr. We need to set this prior to setting
+  // the lr as the pointer authentication schema for the lr incorporates the
+  // sp as part of the diversifier.
   registers.setSP(fp + 16);
+
   // pop return address into pc
   registers.setIP(addressSpace.get64(fp + 8));
 

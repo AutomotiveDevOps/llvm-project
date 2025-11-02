@@ -1,4 +1,4 @@
-// RUN: %clang_cc1 -fsyntax-only -verify -pedantic -ftrigraphs %s
+// RUN: %clang_cc1 -fsyntax-only -verify -Wfour-char-constants -pedantic -ftrigraphs %s
 
 int x = 000000080;  // expected-error {{invalid digit}}
 
@@ -46,7 +46,6 @@ int e = 'abcd';  // still warn: expected-warning {{multi-character character con
 
 int f = 'abcd';  // ignored.
 
-// rdar://problem/6974641
 float t0[] = {
   1.9e20f,
   1.9e-20f,

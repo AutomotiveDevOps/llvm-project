@@ -1,6 +1,7 @@
 ; RUN: llc < %s -mtriple=x86_64-unknown-linux-gnu -mcpu=haswell | FileCheck %s --check-prefix=HSW
 ; RUN: llc < %s -mtriple=x86_64-unknown-linux-gnu -mcpu=skylake | FileCheck %s --check-prefix=SKL
 ; RUN: llc < %s -mtriple=x86_64-unknown-linux-gnu -mcpu=skx | FileCheck %s --check-prefix=SKL
+; RUN: llc < %s -mtriple=x86_64-unknown-linux-gnu -mcpu=alderlake | FileCheck %s --check-prefix=ADL
 ; RUN: llc < %s -mtriple=x86_64-unknown-linux-gnu -mcpu=silvermont -mattr=+lzcnt,+bmi | FileCheck %s --check-prefix=SKL
 ; RUN: llc < %s -mtriple=x86_64-unknown-linux-gnu -mcpu=goldmont -mattr=+lzcnt,+bmi | FileCheck %s --check-prefix=SKL
 
@@ -13,9 +14,9 @@ declare i32 @llvm.cttz.i32(i32, i1)
 declare i64 @llvm.cttz.i64(i64, i1)
 declare i32 @llvm.ctlz.i32(i32, i1)
 
-define i32 @loopdep_popcnt32(i32* nocapture %x, double* nocapture %y) nounwind {
+define i32 @loopdep_popcnt32(ptr nocapture %x, ptr nocapture %y) nounwind {
 entry:
-  %vx = load i32, i32* %x
+  %vx = load i32, ptr %x
   br label %loop
 loop:
   %i = phi i32 [ 1, %entry ], [ %inc, %loop ]
@@ -37,11 +38,15 @@ ret:
 ;SKL-LABEL:@loopdep_popcnt32
 ;SKL: xorl [[GPR0:%e[a-d]x]], [[GPR0]]
 ;SKL-NEXT: popcntl {{.*}}, [[GPR0]]
+
+;ADL-LABEL:@loopdep_popcnt32
+;ADL-NOT: xor
+;ADL: popcntl
 }
 
-define i64 @loopdep_popcnt64(i64* nocapture %x, double* nocapture %y) nounwind {
+define i64 @loopdep_popcnt64(ptr nocapture %x, ptr nocapture %y) nounwind {
 entry:
-  %vx = load i64, i64* %x
+  %vx = load i64, ptr %x
   br label %loop
 loop:
   %i = phi i64 [ 1, %entry ], [ %inc, %loop ]
@@ -63,11 +68,15 @@ ret:
 ;SKL-LABEL:@loopdep_popcnt64
 ;SKL: xorl %e[[GPR0:[a-d]x]], %e[[GPR0]]
 ;SKL-NEXT: popcntq {{.*}}, %r[[GPR0]]
+
+;ADL-LABEL:@loopdep_popcnt64
+;ADL-NOT: xor
+;ADL: popcntq
 }
 
-define i32 @loopdep_tzct32(i32* nocapture %x, double* nocapture %y) nounwind {
+define i32 @loopdep_tzct32(ptr nocapture %x, ptr nocapture %y) nounwind {
 entry:
-  %vx = load i32, i32* %x
+  %vx = load i32, ptr %x
   br label %loop
 loop:
   %i = phi i32 [ 1, %entry ], [ %inc, %loop ]
@@ -92,9 +101,9 @@ ret:
 ;SKL: tzcntl
 }
 
-define i64 @loopdep_tzct64(i64* nocapture %x, double* nocapture %y) nounwind {
+define i64 @loopdep_tzct64(ptr nocapture %x, ptr nocapture %y) nounwind {
 entry:
-  %vx = load i64, i64* %x
+  %vx = load i64, ptr %x
   br label %loop
 loop:
   %i = phi i64 [ 1, %entry ], [ %inc, %loop ]
@@ -119,9 +128,9 @@ ret:
 ;SKL: tzcntq
 }
 
-define i32 @loopdep_lzct32(i32* nocapture %x, double* nocapture %y) nounwind {
+define i32 @loopdep_lzct32(ptr nocapture %x, ptr nocapture %y) nounwind {
 entry:
-  %vx = load i32, i32* %x
+  %vx = load i32, ptr %x
   br label %loop
 loop:
   %i = phi i32 [ 1, %entry ], [ %inc, %loop ]
@@ -146,9 +155,9 @@ ret:
 ;SKL: lzcntl
 }
 
-define i64 @loopdep_lzct64(i64* nocapture %x, double* nocapture %y) nounwind {
+define i64 @loopdep_lzct64(ptr nocapture %x, ptr nocapture %y) nounwind {
 entry:
-  %vx = load i64, i64* %x
+  %vx = load i64, ptr %x
   br label %loop
 loop:
   %i = phi i64 [ 1, %entry ], [ %inc, %loop ]

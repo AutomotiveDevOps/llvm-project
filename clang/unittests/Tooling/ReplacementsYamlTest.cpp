@@ -43,7 +43,7 @@ TEST(ReplacementsYamlTest, serializesReplacements) {
                "    Length:          2\n"
                "    ReplacementText: 'replacement #2'\n"
                "...\n",
-               YamlContentStream.str().c_str());
+               YamlContent.c_str());
 }
 
 TEST(ReplacementsYamlTest, serializesNewLines) {
@@ -65,9 +65,9 @@ TEST(ReplacementsYamlTest, serializesNewLines) {
                "  - FilePath:        '/path/to/file1.h'\n"
                "    Offset:          0\n"
                "    Length:          0\n"
-               "    ReplacementText: '#include <utility>\n\n'\n"
+               "    ReplacementText: \"#include <utility>\\n\"\n"
                "...\n",
-               YamlContentStream.str().c_str());
+               YamlContent.c_str());
 }
 
 TEST(ReplacementsYamlTest, deserializesReplacements) {

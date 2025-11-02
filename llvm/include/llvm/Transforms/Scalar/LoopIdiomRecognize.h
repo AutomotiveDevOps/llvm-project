@@ -23,6 +23,28 @@ namespace llvm {
 class Loop;
 class LPMUpdater;
 
+/// Options to disable Loop Idiom Recognize, which can be shared with other
+/// passes.
+struct DisableLIRP {
+  /// When true, the entire pass is disabled.
+  static bool All;
+
+  /// When true, Memset is disabled.
+  static bool Memset;
+
+  /// When true, Memcpy is disabled.
+  static bool Memcpy;
+
+  /// When true, Strlen is disabled.
+  static bool Strlen;
+
+  /// When true, Wcslen is disabled.
+  static bool Wcslen;
+
+  /// When true, HashRecognize is disabled.
+  static bool HashRecognize;
+};
+
 /// Performs Loop Idiom Recognize Pass.
 class LoopIdiomRecognizePass : public PassInfoMixin<LoopIdiomRecognizePass> {
 public:

@@ -8,10 +8,14 @@ set(LLVM_LINK_COMPONENTS
 add_clang_library(clangASTMatchers
   ASTMatchFinder.cpp
   ASTMatchersInternal.cpp
-  GtestMatchers.cpp
+  LowLevelHelpers.cpp
 
   LINK_LIBS
   clangAST
   clangBasic
   clangLex
+
+  DEPENDS
+  omp_gen
+  ClangDriverOptions
   )

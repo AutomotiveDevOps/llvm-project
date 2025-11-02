@@ -6,6 +6,11 @@
 
 extern "C" {
 
+// CHECK: @sizeof_OverSizedBitfield ={{.*}} global i32 8
+// CHECK: @alignof_OverSizedBitfield ={{.*}} global i32 8
+// CHECK: @sizeof_VeryOverSizedBitfield ={{.*}} global i32 16
+// CHECK: @alignof_VeryOverSizedBitfield ={{.*}} global i32 8
+
 // Base case, nothing interesting.
 struct S {
   int x, y;
@@ -18,11 +23,11 @@ void g0() {
   f0(1, s);
   f0m(1, 2, 3, 4, 5, s);
 }
-// CHECK: define void @g0
-// CHECK: call void @f0(i32 1, [2 x i32] [i32 6, i32 7]
-// CHECK: call void @f0m(i32 1, i32 2, i32 3, i32 4, i32 5, [2 x i32] [i32 6, i32 7]
-// CHECK: declare void @f0(i32, [2 x i32])
-// CHECK: declare void @f0m(i32, i32, i32, i32, i32, [2 x i32])
+// CHECK: define{{.*}} void @g0
+// CHECK: call void @f0(i32 noundef 1, [2 x i32] [i32 6, i32 7]
+// CHECK: call void @f0m(i32 noundef 1, i32 noundef 2, i32 noundef 3, i32 noundef 4, i32 noundef 5, [2 x i32] [i32 6, i32 7]
+// CHECK: declare void @f0(i32 noundef, [2 x i32])
+// CHECK: declare void @f0m(i32 noundef, i32 noundef, i32 noundef, i32 noundef, i32 noundef, [2 x i32])
 
 // Aligned struct, passed according to its natural alignment.
 struct __attribute__((aligned(8))) S8 {
@@ -36,11 +41,11 @@ void g1() {
   f1(1, s);
   f1m(1, 2, 3, 4, 5, s);
 }
-// CHECK: define void @g1
-// CHECK: call void @f1(i32 1, [2 x i32] [i32 6, i32 7]
-// CHECK: call void @f1m(i32 1, i32 2, i32 3, i32 4, i32 5, [2 x i32] [i32 6, i32 7]
-// CHECK: declare void @f1(i32, [2 x i32])
-// CHECK: declare void @f1m(i32, i32, i32, i32, i32, [2 x i32])
+// CHECK: define{{.*}} void @g1
+// CHECK: call void @f1(i32 noundef 1, [2 x i32] [i32 6, i32 7]
+// CHECK: call void @f1m(i32 noundef 1, i32 noundef 2, i32 noundef 3, i32 noundef 4, i32 noundef 5, [2 x i32] [i32 6, i32 7]
+// CHECK: declare void @f1(i32 noundef, [2 x i32])
+// CHECK: declare void @f1m(i32 noundef, i32 noundef, i32 noundef, i32 noundef, i32 noundef, [2 x i32])
 
 // Aligned struct, passed according to its natural alignment.
 struct alignas(16) S16 {
@@ -55,11 +60,11 @@ void g2() {
   f2(1, s);
   f2m(1, 2, 3, 4, 5, s);
 }
-// CHECK: define void @g2
-// CHECK: call void @f2(i32 1, [4 x i32] [i32 6, i32 7
-// CHECK: call void @f2m(i32 1, i32 2, i32 3, i32 4, i32 5, [4 x i32] [i32 6, i32 7
-// CHECK: declare void @f2(i32, [4 x i32])
-// CHECK: declare void @f2m(i32, i32, i32, i32, i32, [4 x i32])
+// CHECK: define{{.*}} void @g2
+// CHECK: call void @f2(i32 noundef 1, [4 x i32] [i32 6, i32 7
+// CHECK: call void @f2m(i32 noundef 1, i32 noundef 2, i32 noundef 3, i32 noundef 4, i32 noundef 5, [4 x i32] [i32 6, i32 7
+// CHECK: declare void @f2(i32 noundef, [4 x i32])
+// CHECK: declare void @f2m(i32 noundef, i32 noundef, i32 noundef, i32 noundef, i32 noundef, [4 x i32])
 
 // Increased natural alignment.
 struct SF8 {
@@ -74,11 +79,11 @@ void g3() {
   f3(1, s);
   f3m(1, 2, 3, 4, 5, s);
 }
-// CHECK: define void @g3
-// CHECK: call void @f3(i32 1, [1 x i64] [i64 30064771078]
-// CHECK: call void @f3m(i32 1, i32 2, i32 3, i32 4, i32 5, [1 x i64] [i64 30064771078]
-// CHECK: declare void @f3(i32, [1 x i64])
-// CHECK: declare void @f3m(i32, i32, i32, i32, i32, [1 x i64])
+// CHECK: define{{.*}} void @g3
+// CHECK: call void @f3(i32 noundef 1, [1 x i64] [i64 30064771078]
+// CHECK: call void @f3m(i32 noundef 1, i32 noundef 2, i32 noundef 3, i32 noundef 4, i32 noundef 5, [1 x i64] [i64 30064771078]
+// CHECK: declare void @f3(i32 noundef, [1 x i64])
+// CHECK: declare void @f3m(i32 noundef, i32 noundef, i32 noundef, i32 noundef, i32 noundef, [1 x i64])
 
 // Increased natural alignment, capped to 8 though.
 struct SF16 {
@@ -94,11 +99,11 @@ void g4() {
   f4(1, s);
   f4m(1, 2, 3, 4, 5, s);
 }
-// CHECK: define void @g4
-// CHECK: call void @f4(i32 1, %struct.SF16* nonnull byval(%struct.SF16) align 8
-// CHECK: call void @f4m(i32 1, i32 2, i32 3, i32 4, i32 5, %struct.SF16* nonnull byval(%struct.SF16) align 8
-// CHECK: declare void @f4(i32, %struct.SF16* byval(%struct.SF16) align 8)
-// CHECK: declare void @f4m(i32, i32, i32, i32, i32, %struct.SF16* byval(%struct.SF16) align 8)
+// CHECK: define{{.*}} void @g4
+// CHECK: call void @f4(i32 noundef 1, ptr noundef nonnull byval(%struct.SF16) align 8
+// CHECK: call void @f4m(i32 noundef 1, i32 noundef 2, i32 noundef 3, i32 noundef 4, i32 noundef 5, ptr noundef nonnull byval(%struct.SF16) align 8
+// CHECK: declare void @f4(i32 noundef, ptr noundef byval(%struct.SF16) align 8)
+// CHECK: declare void @f4m(i32 noundef, i32 noundef, i32 noundef, i32 noundef, i32 noundef, ptr noundef byval(%struct.SF16) align 8)
 
 // Packed structure.
 struct  __attribute__((packed)) P {
@@ -113,11 +118,11 @@ void g5() {
   f5(1, s);
   f5m(1, 2, 3, 4, 5, s);
 }
-// CHECK: define void @g5
-// CHECK: call void @f5(i32 1, [3 x i32] [i32 6, i32 7, i32 0])
-// CHECK: call void @f5m(i32 1, i32 2, i32 3, i32 4, i32 5, [3 x i32] [i32 6, i32 7, i32 0])
-// CHECK: declare void @f5(i32, [3 x i32])
-// CHECK: declare void @f5m(i32, i32, i32, i32, i32, [3 x i32])
+// CHECK: define{{.*}} void @g5
+// CHECK: call void @f5(i32 noundef 1, [3 x i32] [i32 6, i32 7, i32 0])
+// CHECK: call void @f5m(i32 noundef 1, i32 noundef 2, i32 noundef 3, i32 noundef 4, i32 noundef 5, [3 x i32] [i32 6, i32 7, i32 0])
+// CHECK: declare void @f5(i32 noundef, [3 x i32])
+// CHECK: declare void @f5m(i32 noundef, i32 noundef, i32 noundef, i32 noundef, i32 noundef, [3 x i32])
 
 
 // Packed and aligned, alignement causes padding at the end.
@@ -133,9 +138,47 @@ void g6() {
   f6(1, s);
   f6m(1, 2, 3, 4, 5, s);
 }
-// CHECK: define void @g6
-// CHECK: call void @f6(i32 1, [4 x i32] [i32 6, i32 7, i32 0, i32 0])
-// CHECK: call void @f6m(i32 1, i32 2, i32 3, i32 4, i32 5, [4 x i32] [i32 6, i32 7, i32 0, i32 0])
-// CHECK: declare void @f6(i32, [4 x i32])
-// CHECK: declare void @f6m(i32, i32, i32, i32, i32, [4 x i32])
+// CHECK: define{{.*}} void @g6
+// CHECK: call void @f6(i32 noundef 1, [4 x i32] [i32 6, i32 7, i32 0, i32 undef])
+// CHECK: call void @f6m(i32 noundef 1, i32 noundef 2, i32 noundef 3, i32 noundef 4, i32 noundef 5, [4 x i32] [i32 6, i32 7, i32 0, i32 undef])
+// CHECK: declare void @f6(i32 noundef, [4 x i32])
+// CHECK: declare void @f6m(i32 noundef, i32 noundef, i32 noundef, i32 noundef, i32 noundef, [4 x i32])
+
+// Over-sized bitfield, which results in a 64-bit container type, so 64-bit
+// alignment.
+struct OverSizedBitfield {
+  int x : 64;
+};
+
+unsigned sizeof_OverSizedBitfield = sizeof(OverSizedBitfield);
+unsigned alignof_OverSizedBitfield = alignof(OverSizedBitfield);
+
+// CHECK: define{{.*}} void @g7
+// CHECK: call void @f7(i32 noundef 1, [1 x i64] [i64 42])
+// CHECK: declare void @f7(i32 noundef, [1 x i64])
+void f7(int a, OverSizedBitfield b);
+void g7() {
+  OverSizedBitfield s = {42};
+  f7(1, s);
+}
+
+// There are no 128-bit fundamental data types defined by AAPCS32, so this gets
+// a 64-bit container plus 64 bits of padding, giving it a size of 16 bytes and
+// alignment of 8 bytes.
+struct VeryOverSizedBitfield {
+  int x : 128;
+};
+
+unsigned sizeof_VeryOverSizedBitfield = sizeof(VeryOverSizedBitfield);
+unsigned alignof_VeryOverSizedBitfield = alignof(VeryOverSizedBitfield);
+
+// CHECK: define{{.*}} void @g8
+// CHECK: call void @f8(i32 noundef 1, [2 x i64] [i64 42, i64 0])
+// CHECK: declare void @f8(i32 noundef, [2 x i64])
+void f8(int a, VeryOverSizedBitfield b);
+void g8() {
+  VeryOverSizedBitfield s = {42};
+  f8(1, s);
+}
+
 }

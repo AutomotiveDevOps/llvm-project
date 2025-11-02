@@ -5,22 +5,28 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
-//
-// This file defines a hash set that can be used to remove duplication of nodes
-// in a graph.  This code was originally created by Chris Lattner for use with
-// SelectionDAGCSEMap, but was isolated to provide use across the llvm code set.
-//
+///
+/// \file
+/// This file defines a hash set that can be used to remove duplication of nodes
+/// in a graph.  This code was originally created by Chris Lattner for use with
+/// SelectionDAGCSEMap, but was isolated to provide use across the llvm code
+/// set.
 //===----------------------------------------------------------------------===//
 
 #ifndef LLVM_ADT_FOLDINGSET_H
 #define LLVM_ADT_FOLDINGSET_H
 
+#include "llvm/ADT/Hashing.h"
+#include "llvm/ADT/STLForwardCompat.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/iterator.h"
 #include "llvm/Support/Allocator.h"
+#include "llvm/Support/Compiler.h"
+#include "llvm/Support/xxhash.h"
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
+#include <type_traits>
 #include <utility>
 
 namespace llvm {
@@ -121,10 +127,10 @@ protected:
   /// is greater than twice the number of buckets.
   unsigned NumNodes;
 
-  explicit FoldingSetBase(unsigned Log2InitSize = 6);
-  FoldingSetBase(FoldingSetBase &&Arg);
-  FoldingSetBase &operator=(FoldingSetBase &&RHS);
-  ~FoldingSetBase();
+  LLVM_ABI explicit FoldingSetBase(unsigned Log2InitSize = 6);
+  LLVM_ABI FoldingSetBase(FoldingSetBase &&Arg);
+  LLVM_ABI FoldingSetBase &operator=(FoldingSetBase &&RHS);
+  LLVM_ABI ~FoldingSetBase();
 
 public:
   //===--------------------------------------------------------------------===//
@@ -144,7 +150,7 @@ public:
   };
 
   /// clear - Remove all nodes from the folding set.
-  void clear();
+  LLVM_ABI void clear();
 
   /// size - Returns the number of nodes in the folding set.
   unsigned size() const { return NumNodes; }
@@ -198,27 +204,29 @@ protected:
   /// reserve - Increase the number of buckets such that adding the
   /// EltCount-th node won't cause a rebucket operation. reserve is permitted
   /// to allocate more space than requested by EltCount.
-  void reserve(unsigned EltCount, const FoldingSetInfo &Info);
+  LLVM_ABI void reserve(unsigned EltCount, const FoldingSetInfo &Info);
 
   /// RemoveNode - Remove a node from the folding set, returning true if one
   /// was removed or false if the node was not in the folding set.
-  bool RemoveNode(Node *N);
+  LLVM_ABI bool RemoveNode(Node *N);
 
   /// GetOrInsertNode - If there is an existing simple Node exactly
   /// equal to the specified node, return it.  Otherwise, insert 'N' and return
   /// it instead.
-  Node *GetOrInsertNode(Node *N, const FoldingSetInfo &Info);
+  LLVM_ABI Node *GetOrInsertNode(Node *N, const FoldingSetInfo &Info);
 
   /// FindNodeOrInsertPos - Look up the node specified by ID.  If it exists,
   /// return it.  If not, return the insertion token that will make insertion
   /// faster.
-  Node *FindNodeOrInsertPos(const FoldingSetNodeID &ID, void *&InsertPos,
-                            const FoldingSetInfo &Info);
+  LLVM_ABI Node *FindNodeOrInsertPos(const FoldingSetNodeID &ID,
+                                     void *&InsertPos,
+                                     const FoldingSetInfo &Info);
 
   /// InsertNode - Insert the specified node into the folding set, knowing that
   /// it is not already in the folding set.  InsertPos must be obtained from
   /// FindNodeOrInsertPos.
-  void InsertNode(Node *N, void *InsertPos, const FoldingSetInfo &Info);
+  LLVM_ABI void InsertNode(Node *N, void *InsertPos,
+                           const FoldingSetInfo &Info);
 };
 
 //===----------------------------------------------------------------------===//
@@ -254,8 +262,8 @@ template<typename T> struct DefaultFoldingSetTrait {
 /// through template specialization the behavior can be tailored for specific
 /// types.  Combined with the FoldingSetNodeWrapper class, one can add objects
 /// to FoldingSets that were not originally designed to have that behavior.
-template<typename T> struct FoldingSetTrait
-  : public DefaultFoldingSetTrait<T> {};
+template <typename T, typename Enable = void>
+struct FoldingSetTrait : public DefaultFoldingSetTrait<T> {};
 
 /// DefaultContextualFoldingSetTrait - Like DefaultFoldingSetTrait, but
 /// for ContextualFoldingSets.
@@ -290,17 +298,26 @@ public:
   FoldingSetNodeIDRef() = default;
   FoldingSetNodeIDRef(const unsigned *D, size_t S) : Data(D), Size(S) {}
 
-  /// ComputeHash - Compute a strong hash value for this FoldingSetNodeIDRef,
-  /// used to lookup the node in the FoldingSetBase.
-  unsigned ComputeHash() const;
+  // Compute a strong hash value used to lookup the node in the FoldingSetBase.
+  // The hash value is not guaranteed to be deterministic across processes.
+  unsigned ComputeHash() const {
+    return static_cast<unsigned>(hash_combine_range(Data, Data + Size));
+  }
 
-  bool operator==(FoldingSetNodeIDRef) const;
+  // Compute a deterministic hash value across processes that is suitable for
+  // on-disk serialization.
+  unsigned computeStableHash() const {
+    return static_cast<unsigned>(xxh3_64bits(ArrayRef(
+        reinterpret_cast<const uint8_t *>(Data), sizeof(unsigned) * Size)));
+  }
+
+  LLVM_ABI bool operator==(FoldingSetNodeIDRef) const;
 
   bool operator!=(FoldingSetNodeIDRef RHS) const { return !(*this == RHS); }
 
   /// Used to compare the "ordering" of two nodes as defined by the
   /// profiled bits and their ordering defined by memcmp().
-  bool operator<(FoldingSetNodeIDRef) const;
+  LLVM_ABI bool operator<(FoldingSetNodeIDRef) const;
 
   const unsigned *getData() const { return Data; }
   size_t getSize() const { return Size; }
@@ -315,6 +332,14 @@ class FoldingSetNodeID {
   /// Use a SmallVector to avoid a heap allocation in the common case.
   SmallVector<unsigned, 32> Bits;
 
+  template <typename T> void AddIntegerImpl(T I) {
+    static_assert(std::is_integral_v<T> && sizeof(T) <= sizeof(unsigned) * 2,
+                  "T must be an integer type no wider than 64 bits");
+    Bits.push_back(static_cast<unsigned>(I));
+    if constexpr (sizeof(unsigned) < sizeof(T))
+      Bits.push_back(static_cast<unsigned long long>(I) >> 32);
+  }
+
 public:
   FoldingSetNodeID() = default;
 
@@ -322,16 +347,24 @@ public:
     : Bits(Ref.getData(), Ref.getData() + Ref.getSize()) {}
 
   /// Add* - Add various data types to Bit data.
-  void AddPointer(const void *Ptr);
-  void AddInteger(signed I);
-  void AddInteger(unsigned I);
-  void AddInteger(long I);
-  void AddInteger(unsigned long I);
-  void AddInteger(long long I);
-  void AddInteger(unsigned long long I);
+  void AddPointer(const void *Ptr) {
+    // Note: this adds pointers to the hash using sizes and endianness that
+    // depend on the host. It doesn't matter, however, because hashing on
+    // pointer values is inherently unstable. Nothing should depend on the
+    // ordering of nodes in the folding set.
+    static_assert(sizeof(uintptr_t) <= sizeof(unsigned long long),
+                  "unexpected pointer size");
+    AddInteger(reinterpret_cast<uintptr_t>(Ptr));
+  }
+  void AddInteger(signed I) { AddIntegerImpl(I); }
+  void AddInteger(unsigned I) { AddIntegerImpl(I); }
+  void AddInteger(long I) { AddIntegerImpl(I); }
+  void AddInteger(unsigned long I) { AddIntegerImpl(I); }
+  void AddInteger(long long I) { AddIntegerImpl(I); }
+  void AddInteger(unsigned long long I) { AddIntegerImpl(I); }
   void AddBoolean(bool B) { AddInteger(B ? 1U : 0U); }
-  void AddString(StringRef String);
-  void AddNodeID(const FoldingSetNodeID &ID);
+  LLVM_ABI void AddString(StringRef String);
+  LLVM_ABI void AddNodeID(const FoldingSetNodeID &ID);
 
   template <typename T>
   inline void Add(const T &x) { FoldingSetTrait<T>::Profile(x, *this); }
@@ -340,26 +373,35 @@ public:
   /// object to be used to compute a new profile.
   inline void clear() { Bits.clear(); }
 
-  /// ComputeHash - Compute a strong hash value for this FoldingSetNodeID, used
-  /// to lookup the node in the FoldingSetBase.
-  unsigned ComputeHash() const;
+  // Compute a strong hash value for this FoldingSetNodeID, used to lookup the
+  // node in the FoldingSetBase. The hash value is not guaranteed to be
+  // deterministic across processes.
+  unsigned ComputeHash() const {
+    return FoldingSetNodeIDRef(Bits.data(), Bits.size()).ComputeHash();
+  }
+
+  // Compute a deterministic hash value across processes that is suitable for
+  // on-disk serialization.
+  unsigned computeStableHash() const {
+    return FoldingSetNodeIDRef(Bits.data(), Bits.size()).computeStableHash();
+  }
 
   /// operator== - Used to compare two nodes to each other.
-  bool operator==(const FoldingSetNodeID &RHS) const;
-  bool operator==(const FoldingSetNodeIDRef RHS) const;
+  LLVM_ABI bool operator==(const FoldingSetNodeID &RHS) const;
+  LLVM_ABI bool operator==(const FoldingSetNodeIDRef RHS) const;
 
   bool operator!=(const FoldingSetNodeID &RHS) const { return !(*this == RHS); }
   bool operator!=(const FoldingSetNodeIDRef RHS) const { return !(*this ==RHS);}
 
   /// Used to compare the "ordering" of two nodes as defined by the
   /// profiled bits and their ordering defined by memcmp().
-  bool operator<(const FoldingSetNodeID &RHS) const;
-  bool operator<(const FoldingSetNodeIDRef RHS) const;
+  LLVM_ABI bool operator<(const FoldingSetNodeID &RHS) const;
+  LLVM_ABI bool operator<(const FoldingSetNodeIDRef RHS) const;
 
   /// Intern - Copy this node's data to a memory region allocated from the
   /// given allocator and return a FoldingSetNodeIDRef describing the
   /// interned data.
-  FoldingSetNodeIDRef Intern(BumpPtrAllocator &Allocator) const;
+  LLVM_ABI FoldingSetNodeIDRef Intern(BumpPtrAllocator &Allocator) const;
 };
 
 // Convenience type to hide the implementation of the folding set.
@@ -666,9 +708,9 @@ class FoldingSetIteratorImpl {
 protected:
   FoldingSetNode *NodePtr;
 
-  FoldingSetIteratorImpl(void **Bucket);
+  LLVM_ABI FoldingSetIteratorImpl(void **Bucket);
 
-  void advance();
+  LLVM_ABI void advance();
 
 public:
   bool operator==(const FoldingSetIteratorImpl &RHS) const {
@@ -708,7 +750,7 @@ class FoldingSetBucketIteratorImpl {
 protected:
   void *Ptr;
 
-  explicit FoldingSetBucketIteratorImpl(void **Bucket);
+  LLVM_ABI explicit FoldingSetBucketIteratorImpl(void **Bucket);
 
   FoldingSetBucketIteratorImpl(void **Bucket, bool) : Ptr(Bucket) {}
 
@@ -799,6 +841,13 @@ struct FoldingSetTrait<std::pair<T1, T2>> {
                              FoldingSetNodeID &ID) {
     ID.Add(P.first);
     ID.Add(P.second);
+  }
+};
+
+template <typename T>
+struct FoldingSetTrait<T, std::enable_if_t<std::is_enum<T>::value>> {
+  static void Profile(const T &X, FoldingSetNodeID &ID) {
+    ID.AddInteger(llvm::to_underlying(X));
   }
 };
 

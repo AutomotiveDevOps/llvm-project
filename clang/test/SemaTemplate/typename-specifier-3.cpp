@@ -1,7 +1,8 @@
-// RUN: %clang_cc1 -fsyntax-only -verify %s
+// RUN: %clang_cc1 -fsyntax-only -verify=expected,precxx17 %std_cxx11-14 %s
+// RUN: %clang_cc1 -fsyntax-only -verify=expected,cxx17 %std_cxx17- %s
 
 // PR4364
-template<class T> struct a { // expected-note {{here}}
+template<class T> struct a { // precxx17-note {{here}}
   T b() {
     return typename T::x();
   }
@@ -16,8 +17,8 @@ B c() {
 
 // Some extra tests for invalid cases
 template<class T> struct test2 { T b() { return typename T::a; } }; // expected-error{{expected '(' for function-style cast or type construction}}
-template<class T> struct test3 { T b() { return typename a; } }; // expected-error{{expected a qualified name after 'typename'}}
-template<class T> struct test4 { T b() { return typename ::a; } }; // expected-error{{refers to non-type member}} expected-error{{expected '(' for function-style cast or type construction}}
+template<class T> struct test3 { T b() { return typename a; } }; // expected-error{{expected a qualified name after 'typename'}} cxx17-error{{expected '(' for function-style cast or type construction}}
+template<class T> struct test4 { T b() { return typename ::a; } }; // precxx17-error{{refers to non-type member}} expected-error{{expected '(' for function-style cast or type construction}}
 
 // PR12884
 namespace PR12884_original {
@@ -27,7 +28,7 @@ namespace PR12884_original {
       typedef int arg;
     };
     struct C {
-      typedef B::X<typename B::arg> x; // expected-error {{missing 'typename'}}
+      typedef B::X<typename B::arg> x; // precxx17-warning{{missing 'typename' prior to dependent type name 'B::X' is a C++20 extension}}
     };
   };
 
@@ -74,3 +75,21 @@ namespace PR12884_fixed {
 
   A<int>::C::x a; // ok
 }
+
+namespace preserve_keyword {
+  template <class T> struct A {
+    using type = T;
+  };
+
+  template <class T> using B = A<T>::type*; // precxx17-warning {{missing 'typename'}}
+  void *t1 = *B<int>(); // expected-error {{lvalue of type 'A<int>::type' (aka 'int')}}
+
+  template <class T> using C = typename A<T>::type*;
+  void *t2 = *C<int>(); // expected-error {{lvalue of type 'typename A<int>::type' (aka 'int')}}
+
+  using D = A<int>::type*;
+  void *t3 = *D(); // expected-error {{lvalue of type 'A<int>::type' (aka 'int')}}
+
+  using D = typename A<int>::type*;
+  void *t4 = *D(); // expected-error {{lvalue of type 'typename A<int>::type' (aka 'int')}}
+} // namespace preserve_keyword

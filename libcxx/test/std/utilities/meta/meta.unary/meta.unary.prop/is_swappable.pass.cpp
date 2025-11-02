@@ -6,7 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-// UNSUPPORTED: c++98, c++03, c++11, c++14
+// UNSUPPORTED: c++03, c++11, c++14
 
 // type_traits
 
@@ -61,7 +61,7 @@ struct AmbiguousSwap {};
 template <class T>
 void swap(T&, T&) {}
 
-} // end namespace MyNS2
+} // namespace MyNS2
 
 int main(int, char**)
 {

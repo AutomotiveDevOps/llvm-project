@@ -1,10 +1,18 @@
-; RUN: llc -mtriple=x86_64-pc-linux -filetype=asm -function-sections < %s | FileCheck --implicit-check-not=loclists_table_base %s
+; RUN: llc -mtriple=x86_64-pc-linux -filetype=asm -function-sections < %s | \
+; RUN:   FileCheck --check-prefixes=CHECK,DWARF32 --implicit-check-not=loclists_table_base %s
+; RUN: llc -dwarf64 -mtriple=x86_64-pc-linux -filetype=asm -function-sections < %s | \
+; RUN:   FileCheck --check-prefixes=CHECK,DWARF64 --implicit-check-not=loclists_table_base %s
 
-; CHECK: {{^}}.Lloclists_table_base0:
-; CHECK-NEXT: .long   .Ldebug_loc0-.Lloclists_table_base0
-; CHECK-NEXT: .long   .Ldebug_loc1-.Lloclists_table_base0
-; CHECK: .long   .Lloclists_table_base0  # DW_AT_loclists_base
-; CHECK: .long   .Lloclists_table_base0  # DW_AT_loclists_base
+; CHECK:        {{^}}.Lloclists_table_base0:
+; DWARF32-NEXT: .long   .Ldebug_loc0-.Lloclists_table_base0
+; DWARF32-NEXT: .long   .Ldebug_loc1-.Lloclists_table_base0
+; DWARF64-NEXT: .quad   .Ldebug_loc0-.Lloclists_table_base0
+; DWARF64-NEXT: .quad   .Ldebug_loc1-.Lloclists_table_base0
+
+; DWARF32:      .long   .Lloclists_table_base0  # DW_AT_loclists_base
+; DWARF32:      .long   .Lloclists_table_base0  # DW_AT_loclists_base
+; DWARF64:      .quad   .Lloclists_table_base0  # DW_AT_loclists_base
+; DWARF64:      .quad   .Lloclists_table_base0  # DW_AT_loclists_base
 
 ; Function Attrs: uwtable
 define dso_local void @_Z2f2v() local_unnamed_addr #0 !dbg !15 {
@@ -26,8 +34,8 @@ entry:
   ret void, !dbg !29
 }
 
-attributes #0 = { uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "frame-pointer"="none" "less-precise-fpmad"="false" "min-legal-vector-width"="0" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
-attributes #1 = { "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "frame-pointer"="none" "less-precise-fpmad"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "unsafe-fp-math"="false" "use-soft-float"="false" }
+attributes #0 = { uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "frame-pointer"="none" "less-precise-fpmad"="false" "min-legal-vector-width"="0" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "use-soft-float"="false" }
+attributes #1 = { "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "frame-pointer"="none" "less-precise-fpmad"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="x86-64" "target-features"="+cx8,+fxsr,+mmx,+sse,+sse2,+x87" "use-soft-float"="false" }
 attributes #2 = { nounwind readnone speculatable willreturn }
 
 !llvm.dbg.cu = !{!0, !7}

@@ -10,13 +10,12 @@
 #define LLVM_DEBUGINFO_CODEVIEW_LAZYRANDOMTYPECOLLECTION_H
 
 #include "llvm/ADT/ArrayRef.h"
-#include "llvm/ADT/Optional.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/DebugInfo/CodeView/TypeCollection.h"
 #include "llvm/DebugInfo/CodeView/TypeIndex.h"
-#include "llvm/DebugInfo/CodeView/TypeRecord.h"
 #include "llvm/Support/Allocator.h"
 #include "llvm/Support/BinaryStreamArray.h"
+#include "llvm/Support/Compiler.h"
 #include "llvm/Support/Error.h"
 #include "llvm/Support/StringSaver.h"
 #include <cstdint>
@@ -47,7 +46,7 @@ namespace codeview {
 /// require more than one linear scan.  For a type stream of N elements divided
 /// into M chunks of roughly equal size, this yields a worst case lookup time
 /// of O(N/M) and an amortized time of O(1).
-class LazyRandomTypeCollection : public TypeCollection {
+class LLVM_ABI LazyRandomTypeCollection : public TypeCollection {
   using PartialOffsetArray = FixedStreamArray<TypeIndexOffset>;
 
   struct CacheEntry {
@@ -70,15 +69,16 @@ public:
 
   uint32_t getOffsetOfType(TypeIndex Index);
 
-  Optional<CVType> tryGetType(TypeIndex Index);
+  std::optional<CVType> tryGetType(TypeIndex Index);
 
   CVType getType(TypeIndex Index) override;
   StringRef getTypeName(TypeIndex Index) override;
   bool contains(TypeIndex Index) override;
   uint32_t size() override;
   uint32_t capacity() override;
-  Optional<TypeIndex> getFirst() override;
-  Optional<TypeIndex> getNext(TypeIndex Prev) override;
+  std::optional<TypeIndex> getFirst() override;
+  std::optional<TypeIndex> getNext(TypeIndex Prev) override;
+  bool replaceType(TypeIndex &Index, CVType Data, bool Stabilize) override;
 
 private:
   Error ensureTypeExists(TypeIndex Index);

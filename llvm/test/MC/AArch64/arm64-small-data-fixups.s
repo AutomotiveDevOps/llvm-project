@@ -1,7 +1,8 @@
-; RUN: llvm-mc -triple arm64-apple-darwin -filetype=obj -o - %s | llvm-readobj -r | FileCheck %s
+; RUN: llvm-mc -triple arm64-apple-darwin -filetype=obj -o - %s | llvm-readobj -r - | FileCheck %s
 
 foo:
   .long 0
+  .p2align 2
 bar:
   .long 1
 

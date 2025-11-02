@@ -15,10 +15,12 @@
 #ifndef LLVM_MC_MCDISASSEMBLER_MCSYMBOLIZER_H
 #define LLVM_MC_MCDISASSEMBLER_MCSYMBOLIZER_H
 
+#include "llvm/ADT/ArrayRef.h"
 #include "llvm/MC/MCDisassembler/MCRelocationInfo.h"
-#include <algorithm>
+#include "llvm/Support/Compiler.h"
 #include <cstdint>
 #include <memory>
+#include <utility>
 
 namespace llvm {
 
@@ -35,7 +37,7 @@ class raw_ostream;
 /// inside each disassembler, but would use the instr info to determine what
 /// operands are actually symbolizable, and in what way. I don't think this
 /// information exists right now.
-class MCSymbolizer {
+class LLVM_ABI MCSymbolizer {
 protected:
   MCContext &Ctx;
   std::unique_ptr<MCRelocationInfo> RelInfo;
@@ -62,12 +64,13 @@ public:
   /// \param Address   - Load address of the instruction.
   /// \param IsBranch  - Is the instruction a branch?
   /// \param Offset    - Byte offset of the operand inside the inst.
+  /// \param OpSize    - Size of the operand in bytes.
   /// \param InstSize  - Size of the instruction in bytes.
   /// \return Whether a symbolic operand was added.
   virtual bool tryAddingSymbolicOperand(MCInst &Inst, raw_ostream &cStream,
                                         int64_t Value, uint64_t Address,
                                         bool IsBranch, uint64_t Offset,
-                                        uint64_t InstSize) = 0;
+                                        uint64_t OpSize, uint64_t InstSize) = 0;
 
   /// Try to add a comment on the PC-relative load.
   /// For instance, in Mach-O, this is used to add annotations to instructions
@@ -75,6 +78,17 @@ public:
   virtual void tryAddingPcLoadReferenceComment(raw_ostream &cStream,
                                                int64_t Value,
                                                uint64_t Address) = 0;
+
+  /// Get the MCSymbolizer's list of addresses that were referenced by
+  /// symbolizable operands but not resolved to a symbol. The caller (some
+  /// code that is disassembling a section or other chunk of code) would
+  /// typically create a synthetic label at each address and add them to its
+  /// list of symbols in the section, before creating a new MCSymbolizer with
+  /// the enhanced symbol list and retrying disassembling the section.
+  /// The returned array is unordered and may have duplicates.
+  /// The returned ArrayRef stops being valid on any call to or destruction of
+  /// the MCSymbolizer object.
+  virtual ArrayRef<uint64_t> getReferencedAddresses() const { return {}; }
 };
 
 } // end namespace llvm

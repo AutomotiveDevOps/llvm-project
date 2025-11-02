@@ -6,6 +6,9 @@
 //
 //===----------------------------------------------------------------------===//
 
+#ifndef LLDB_PLUGINS_SCRIPTINTERPRETER_PYTHON_SCRIPTINTERPRETERPYTHONIMPL_H
+#define LLDB_PLUGINS_SCRIPTINTERPRETER_PYTHON_SCRIPTINTERPRETERPYTHONIMPL_H
+
 #include "lldb/Host/Config.h"
 
 #if LLDB_ENABLE_PYTHON
@@ -75,35 +78,7 @@ public:
   CreateScriptCommandObject(const char *class_name) override;
 
   StructuredData::ObjectSP
-  CreateScriptedThreadPlan(const char *class_name,
-                           StructuredDataImpl *args_data,
-                           std::string &error_str,
-                           lldb::ThreadPlanSP thread_plan) override;
-
-  bool ScriptedThreadPlanExplainsStop(StructuredData::ObjectSP implementor_sp,
-                                      Event *event,
-                                      bool &script_error) override;
-
-  bool ScriptedThreadPlanShouldStop(StructuredData::ObjectSP implementor_sp,
-                                    Event *event, bool &script_error) override;
-
-  bool ScriptedThreadPlanIsStale(StructuredData::ObjectSP implementor_sp,
-                                 bool &script_error) override;
-
-  lldb::StateType
-  ScriptedThreadPlanGetRunState(StructuredData::ObjectSP implementor_sp,
-                                bool &script_error) override;
-
-  StructuredData::GenericSP
-  CreateScriptedBreakpointResolver(const char *class_name,
-                                   StructuredDataImpl *args_data,
-                                   lldb::BreakpointSP &bkpt_sp) override;
-  bool ScriptedBreakpointResolverSearchCallback(
-      StructuredData::GenericSP implementor_sp,
-      SymbolContext *sym_ctx) override;
-
-  lldb::SearchDepth ScriptedBreakpointResolverSearchDepth(
-      StructuredData::GenericSP implementor_sp) override;
+  CreateStructuredDataFromScriptObject(ScriptObject obj) override;
 
   StructuredData::GenericSP
   CreateFrameRecognizer(const char *class_name) override;
@@ -112,23 +87,24 @@ public:
   GetRecognizedArguments(const StructuredData::ObjectSP &implementor,
                          lldb::StackFrameSP frame_sp) override;
 
-  StructuredData::GenericSP
-  OSPlugin_CreatePluginObject(const char *class_name,
-                              lldb::ProcessSP process_sp) override;
+  bool ShouldHide(const StructuredData::ObjectSP &implementor,
+                  lldb::StackFrameSP frame_sp) override;
 
-  StructuredData::DictionarySP
-  OSPlugin_RegisterInfo(StructuredData::ObjectSP os_plugin_object_sp) override;
+  lldb::ScriptedProcessInterfaceUP CreateScriptedProcessInterface() override;
 
-  StructuredData::ArraySP
-  OSPlugin_ThreadsInfo(StructuredData::ObjectSP os_plugin_object_sp) override;
+  lldb::ScriptedStopHookInterfaceSP CreateScriptedStopHookInterface() override;
 
-  StructuredData::StringSP
-  OSPlugin_RegisterContextData(StructuredData::ObjectSP os_plugin_object_sp,
-                               lldb::tid_t thread_id) override;
+  lldb::ScriptedBreakpointInterfaceSP
+  CreateScriptedBreakpointInterface() override;
 
-  StructuredData::DictionarySP
-  OSPlugin_CreateThread(StructuredData::ObjectSP os_plugin_object_sp,
-                        lldb::tid_t tid, lldb::addr_t context) override;
+  lldb::ScriptedThreadInterfaceSP CreateScriptedThreadInterface() override;
+
+  lldb::ScriptedFrameInterfaceSP CreateScriptedFrameInterface() override;
+
+  lldb::ScriptedThreadPlanInterfaceSP
+  CreateScriptedThreadPlanInterface() override;
+
+  lldb::OperatingSystemInterfaceSP CreateOperatingSystemInterface() override;
 
   StructuredData::ObjectSP
   LoadPluginModule(const FileSpec &file_spec,
@@ -146,8 +122,9 @@ public:
   GetChildAtIndex(const StructuredData::ObjectSP &implementor,
                   uint32_t idx) override;
 
-  int GetIndexOfChildWithName(const StructuredData::ObjectSP &implementor,
-                              const char *child_name) override;
+  llvm::Expected<uint32_t>
+  GetIndexOfChildWithName(const StructuredData::ObjectSP &implementor,
+                          const char *child_name) override;
 
   bool UpdateSynthProviderInstance(
       const StructuredData::ObjectSP &implementor) override;
@@ -174,21 +151,43 @@ public:
       lldb_private::CommandReturnObject &cmd_retobj, Status &error,
       const lldb_private::ExecutionContext &exe_ctx) override;
 
-  Status GenerateFunction(const char *signature,
-                          const StringList &input) override;
+  bool RunScriptBasedParsedCommand(
+      StructuredData::GenericSP impl_obj_sp, Args &args,
+      ScriptedCommandSynchronicity synchronicity,
+      lldb_private::CommandReturnObject &cmd_retobj, Status &error,
+      const lldb_private::ExecutionContext &exe_ctx) override;
 
-  Status GenerateBreakpointCommandCallbackData(
-      StringList &input,
-      std::string &output,
-      bool has_extra_args) override;
+  std::optional<std::string>
+  GetRepeatCommandForScriptedCommand(StructuredData::GenericSP impl_obj_sp,
+                                     Args &args) override;
+
+  StructuredData::DictionarySP HandleArgumentCompletionForScriptedCommand(
+      StructuredData::GenericSP impl_obj_sp, std::vector<llvm::StringRef> &args,
+      size_t args_pos, size_t char_in_arg) override;
+
+  StructuredData::DictionarySP HandleOptionArgumentCompletionForScriptedCommand(
+      StructuredData::GenericSP impl_obj_sp, llvm::StringRef &long_options,
+      size_t char_in_arg) override;
+
+  Status GenerateFunction(const char *signature, const StringList &input,
+                          bool is_callback) override;
+
+  Status GenerateBreakpointCommandCallbackData(StringList &input,
+                                               std::string &output,
+                                               bool has_extra_args,
+                                               bool is_callback) override;
 
   bool GenerateWatchpointCommandCallbackData(StringList &input,
-                                             std::string &output) override;
+                                             std::string &output,
+                                             bool is_callback) override;
 
   bool GetScriptedSummary(const char *function_name, lldb::ValueObjectSP valobj,
                           StructuredData::ObjectSP &callee_wrapper_sp,
                           const TypeSummaryOptions &options,
                           std::string &retval) override;
+
+  bool FormatterCallbackFunction(const char *function_name,
+                                 lldb::TypeImplSP type_impl_sp) override;
 
   bool GetDocumentationForItem(const char *item, std::string &dest) override;
 
@@ -200,6 +199,20 @@ public:
 
   bool GetLongHelpForCommandObject(StructuredData::GenericSP cmd_obj_sp,
                                    std::string &dest) override;
+                                   
+  StructuredData::ObjectSP
+  GetOptionsForCommandObject(StructuredData::GenericSP cmd_obj_sp) override;
+
+  StructuredData::ObjectSP
+  GetArgumentsForCommandObject(StructuredData::GenericSP cmd_obj_sp) override;
+
+  bool SetOptionValueForCommandObject(StructuredData::GenericSP cmd_obj_sp,
+                                      ExecutionContext *exe_ctx,
+                                      llvm::StringRef long_option, 
+                                      llvm::StringRef value) override;
+
+  void OptionParsingStartedForCommandObject(
+      StructuredData::GenericSP cmd_obj_sp) override;
 
   bool CheckObjectExists(const char *name) override {
     if (!name || !name[0])
@@ -223,17 +236,19 @@ public:
   bool RunScriptFormatKeyword(const char *impl_function, ValueObject *value,
                               std::string &output, Status &error) override;
 
-  bool
-  LoadScriptingModule(const char *filename, bool init_session,
-                      lldb_private::Status &error,
-                      StructuredData::ObjectSP *module_sp = nullptr) override;
+  bool LoadScriptingModule(const char *filename,
+                           const LoadScriptOptions &options,
+                           lldb_private::Status &error,
+                           StructuredData::ObjectSP *module_sp = nullptr,
+                           FileSpec extra_search_dir = {},
+                           lldb::TargetSP loaded_into_target_sp = {}) override;
 
   bool IsReservedWord(const char *word) override;
 
   std::unique_ptr<ScriptInterpreterLocker> AcquireInterpreterLock() override;
 
   void CollectDataForBreakpointCommandCallback(
-      std::vector<BreakpointOptions *> &bp_options_vec,
+      std::vector<std::reference_wrapper<BreakpointOptions>> &bp_options_vec,
       CommandReturnObject &result) override;
 
   void
@@ -241,27 +256,29 @@ public:
                                           CommandReturnObject &result) override;
 
   /// Set the callback body text into the callback for the breakpoint.
-  Status SetBreakpointCommandCallback(BreakpointOptions *bp_options,
-                                      const char *callback_body) override;
+  Status SetBreakpointCommandCallback(BreakpointOptions &bp_options,
+                                      const char *callback_body,
+                                      bool is_callback) override;
 
   Status SetBreakpointCommandCallbackFunction(
-      BreakpointOptions *bp_options,
-      const char *function_name,
+      BreakpointOptions &bp_options, const char *function_name,
       StructuredData::ObjectSP extra_args_sp) override;
 
   /// This one is for deserialization:
   Status SetBreakpointCommandCallback(
-      BreakpointOptions *bp_options,
+      BreakpointOptions &bp_options,
       std::unique_ptr<BreakpointOptions::CommandData> &data_up) override;
 
-  Status SetBreakpointCommandCallback(BreakpointOptions *bp_options,
+  Status SetBreakpointCommandCallback(BreakpointOptions &bp_options,
                                       const char *command_body_text,
                                       StructuredData::ObjectSP extra_args_sp,
-                                      bool uses_extra_args);
+                                      bool uses_extra_args,
+                                      bool is_callback);
 
   /// Set a one-liner as the callback for the watchpoint.
   void SetWatchpointCommandCallback(WatchpointOptions *wp_options,
-                                    const char *oneliner) override;
+                                    const char *user_input,
+                                    bool is_callback) override;
 
   const char *GetDictionaryName() { return m_dictionary_name.c_str(); }
 
@@ -281,9 +298,7 @@ public:
   static lldb::ScriptInterpreterSP CreateInstance(Debugger &debugger);
 
   // PluginInterface protocol
-  lldb_private::ConstString GetPluginName() override;
-
-  uint32_t GetPluginVersion() override;
+  llvm::StringRef GetPluginName() override { return GetPluginNameStatic(); }
 
   class Locker : public ScriptInterpreterLocker {
   public:
@@ -331,7 +346,7 @@ public:
   static bool WatchpointCallbackFunction(void *baton,
                                          StoppointCallbackContext *context,
                                          lldb::user_id_t watch_id);
-  static void InitializePrivate();
+  static void Initialize();
 
   class SynchronicityHandler {
   private:
@@ -354,11 +369,18 @@ public:
 
   void LeaveSession();
 
-  uint32_t IsExecutingPython() const { return m_lock_count > 0; }
+  uint32_t IsExecutingPython() {
+    std::lock_guard<std::mutex> guard(m_mutex);
+    return m_lock_count > 0;
+  }
 
-  uint32_t IncrementLockCount() { return ++m_lock_count; }
+  uint32_t IncrementLockCount() {
+    std::lock_guard<std::mutex> guard(m_mutex);
+    return ++m_lock_count;
+  }
 
   uint32_t DecrementLockCount() {
+    std::lock_guard<std::mutex> guard(m_mutex);
     if (m_lock_count > 0)
       --m_lock_count;
     return m_lock_count;
@@ -395,9 +417,10 @@ public:
   std::string m_dictionary_name;
   ActiveIOHandler m_active_io_handler;
   bool m_session_is_active;
-  bool m_pty_slave_is_open;
+  bool m_pty_secondary_is_open;
   bool m_valid_session;
   uint32_t m_lock_count;
+  std::mutex m_mutex;
   PyThreadState *m_command_thread_state;
 };
 
@@ -408,12 +431,13 @@ public:
       : IOHandler(debugger, IOHandler::Type::PythonInterpreter),
         m_python(python) {}
 
-  ~IOHandlerPythonInterpreter() override {}
+  ~IOHandlerPythonInterpreter() override = default;
 
-  ConstString GetControlSequence(char ch) override {
+  llvm::StringRef GetControlSequence(char ch) override {
+    static constexpr llvm::StringLiteral control_sequence("quit()\n");
     if (ch == 'd')
-      return ConstString("quit()\n");
-    return ConstString();
+      return control_sequence;
+    return {};
   }
 
   void Run() override {
@@ -421,13 +445,12 @@ public:
       int stdin_fd = GetInputFD();
       if (stdin_fd >= 0) {
         Terminal terminal(stdin_fd);
-        TerminalState terminal_state;
-        const bool is_a_tty = terminal.IsATerminal();
+        TerminalState terminal_state(terminal);
 
-        if (is_a_tty) {
-          terminal_state.Save(stdin_fd, false);
-          terminal.SetCanonical(false);
-          terminal.SetEcho(true);
+        if (terminal.IsATerminal()) {
+          // FIXME: error handling?
+          llvm::consumeError(terminal.SetCanonical(false));
+          llvm::consumeError(terminal.SetEcho(true));
         }
 
         ScriptInterpreterPythonImpl::Locker locker(
@@ -454,10 +477,7 @@ public:
         StreamString run_string;
         run_string.Printf("run_python_interpreter (%s)",
                           m_python->GetDictionaryName());
-        PyRun_SimpleString(run_string.GetData());
-
-        if (is_a_tty)
-          terminal_state.Restore();
+        python::RunSimpleString(run_string.GetData());
       }
     }
     SetIsDone(true);
@@ -475,4 +495,5 @@ protected:
 
 } // namespace lldb_private
 
-#endif
+#endif // LLDB_ENABLE_PYTHON
+#endif // LLDB_PLUGINS_SCRIPTINTERPRETER_PYTHON_SCRIPTINTERPRETERPYTHONIMPL_H

@@ -26,6 +26,7 @@ struct ForallStmt;
 struct InquireSpec;
 struct IoControlSpec;
 struct OutputImpliedDo;
+struct InputImpliedDo;
 struct StatVariable;
 } // namespace Fortran::parser
 
@@ -50,14 +51,18 @@ public:
   void Leave(const parser::ForallStmt &);
   void Leave(const parser::ForallAssignmentStmt &s);
   void Enter(const parser::ExitStmt &);
+  void Enter(const parser::Expr &);
   void Leave(const parser::Expr &);
   void Leave(const parser::InquireSpec &);
   void Leave(const parser::IoControlSpec &);
   void Leave(const parser::OutputImpliedDo &);
+  void Leave(const parser::InputImpliedDo &);
   void Leave(const parser::StatVariable &);
 
 private:
   SemanticsContext &context_;
+  int exprDepth_{0};
+  std::list<SemanticsContext::IndexVarKind> nestedWithinConcurrent_;
 
   void SayBadLeave(
       StmtType, const char *enclosingStmt, const ConstructNode &) const;

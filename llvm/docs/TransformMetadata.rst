@@ -196,7 +196,7 @@ is transformed into (using an unroll factor of 4):
 .. code-block:: c
 
     int i = 0;
-    for (; i + 3 < n; i+=4) // unrolled loop
+    for (; i + 3 < n; i+=4) { // unrolled loop
       Stmt(i);
       Stmt(i+1);
       Stmt(i+2);
@@ -345,6 +345,18 @@ It is recommended to add ``llvm.loop.disable_nonforced`` to
 ``llvm.loop.distribute.followup_fallback``. This avoids that the
 fallback version (which is likely never executed) is further optimized
 which would increase the code size.
+
+Attributes defined in ``llvm.loop.isdistributed`` are added to successfully
+distributed loops to prevent subsequent reprocessing.
+
+As an example, the following instructs a loop to be ignored during
+loop distribution.
+
+.. code-block:: llvm
+
+    !4 = distinct !{!4, !5, !6}
+    !5 = !{!"llvm.loop.mustprogress"}
+    !6 = !{!"llvm.loop.isdistributed", i32 1}
 
 Versioning LICM
 ---------------

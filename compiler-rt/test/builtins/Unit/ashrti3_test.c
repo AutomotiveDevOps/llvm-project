@@ -1,17 +1,6 @@
 // RUN: %clang_builtins %s %librt -o %t && %run %t
 // REQUIRES: librt_has_ashrti3
 // REQUIRES: int128
-//===-- ashrti3_test.c - Test __ashrti3 -----------------------------------===//
-//
-// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
-// See https://llvm.org/LICENSE.txt for license information.
-// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-//
-//===----------------------------------------------------------------------===//
-//
-// This file tests __ashrti3 for the compiler_rt library.
-//
-//===----------------------------------------------------------------------===//
 
 #include "int_lib.h"
 #include <stdio.h>
@@ -22,25 +11,23 @@
 
 // Precondition:  0 <= b < bits_in_tword
 
-COMPILER_RT_ABI ti_int __ashrti3(ti_int a, si_int b);
+COMPILER_RT_ABI ti_int __ashrti3(ti_int a, int b);
 
-int test__ashrti3(ti_int a, si_int b, ti_int expected)
-{
-    ti_int x = __ashrti3(a, b);
-    if (x != expected)
-    {
-        twords at;
-        at.all = a;
-        twords xt;
-        xt.all = x;
-        twords expectedt;
-        expectedt.all = expected;
-        printf("error in __ashrti3: 0x%llX%.16llX >> %d = 0x%llX%.16llX,"
-               " expected 0x%llX%.16llX\n",
-                at.s.high, at.s.low, b, xt.s.high, xt.s.low,
-                expectedt.s.high, expectedt.s.low);
-    }
-    return x != expected;
+int test__ashrti3(ti_int a, int b, ti_int expected) {
+  ti_int x = __ashrti3(a, b);
+  if (x != expected) {
+    twords at;
+    at.all = a;
+    twords xt;
+    xt.all = x;
+    twords expectedt;
+    expectedt.all = expected;
+    printf("error in __ashrti3: 0x%llX%.16llX >> %d = 0x%llX%.16llX,"
+           " expected 0x%llX%.16llX\n",
+           at.s.high, at.s.low, b, xt.s.high, xt.s.low, expectedt.s.high,
+           expectedt.s.low);
+  }
+  return x != expected;
 }
 
 char assumption_1[sizeof(ti_int) == 2*sizeof(di_int)] = {0};

@@ -11,10 +11,15 @@
 #include "lldb/Utility/Stream.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/Format.h"
+#include "llvm/Support/RandomNumberGenerator.h"
 
-#include <ctype.h>
-#include <stdio.h>
-#include <string.h>
+#include <cctype>
+#include <chrono>
+#include <climits>
+#include <cstdint>
+#include <cstdio>
+#include <cstring>
+#include <random>
 
 using namespace lldb_private;
 
@@ -35,6 +40,17 @@ static inline bool separate(size_t count) {
   }
 }
 
+UUID::UUID(UUID::CvRecordPdb70 debug_info) {
+  llvm::sys::swapByteOrder(debug_info.Uuid.Data1);
+  llvm::sys::swapByteOrder(debug_info.Uuid.Data2);
+  llvm::sys::swapByteOrder(debug_info.Uuid.Data3);
+  llvm::sys::swapByteOrder(debug_info.Age);
+  if (debug_info.Age)
+    *this = UUID(&debug_info, sizeof(debug_info));
+  else
+    *this = UUID(&debug_info.Uuid, sizeof(debug_info.Uuid));
+}
+
 std::string UUID::GetAsString(llvm::StringRef separator) const {
   std::string result;
   llvm::raw_string_ostream os(result);
@@ -45,12 +61,11 @@ std::string UUID::GetAsString(llvm::StringRef separator) const {
 
     os << llvm::format_hex_no_prefix(B.value(), 2, true);
   }
-  os.flush();
 
   return result;
 }
 
-void UUID::Dump(Stream *s) const { s->PutCString(GetAsString()); }
+void UUID::Dump(Stream &s) const { s.PutCString(GetAsString()); }
 
 static inline int xdigit_to_int(char ch) {
   ch = tolower(ch);
@@ -61,10 +76,9 @@ static inline int xdigit_to_int(char ch) {
 
 llvm::StringRef
 UUID::DecodeUUIDBytesFromString(llvm::StringRef p,
-                                llvm::SmallVectorImpl<uint8_t> &uuid_bytes,
-                                uint32_t num_uuid_bytes) {
+                                llvm::SmallVectorImpl<uint8_t> &uuid_bytes) {
   uuid_bytes.clear();
-  while (!p.empty()) {
+  while (p.size() >= 2) {
     if (isxdigit(p[0]) && isxdigit(p[1])) {
       int hi_nibble = xdigit_to_int(p[0]);
       int lo_nibble = xdigit_to_int(p[1]);
@@ -73,11 +87,6 @@ UUID::DecodeUUIDBytesFromString(llvm::StringRef p,
 
       // Skip both hex digits
       p = p.drop_front(2);
-
-      // Increment the byte that we are decoding within the UUID value and
-      // break out if we are done
-      if (uuid_bytes.size() == num_uuid_bytes)
-        break;
     } else if (p.front() == '-') {
       // Skip dashes
       p = p.drop_front();
@@ -89,35 +98,36 @@ UUID::DecodeUUIDBytesFromString(llvm::StringRef p,
   return p;
 }
 
-size_t UUID::SetFromStringRef(llvm::StringRef str, uint32_t num_uuid_bytes) {
+bool UUID::SetFromStringRef(llvm::StringRef str) {
   llvm::StringRef p = str;
 
   // Skip leading whitespace characters
   p = p.ltrim();
 
   llvm::SmallVector<uint8_t, 20> bytes;
-  llvm::StringRef rest =
-      UUID::DecodeUUIDBytesFromString(p, bytes, num_uuid_bytes);
+  llvm::StringRef rest = UUID::DecodeUUIDBytesFromString(p, bytes);
 
-  // If we successfully decoded a UUID, return the amount of characters that
-  // were consumed
-  if (bytes.size() == num_uuid_bytes) {
-    *this = fromData(bytes);
-    return str.size() - rest.size();
-  }
+  // Return false if we could not consume the entire string or if the parsed
+  // UUID is empty.
+  if (!rest.empty() || bytes.empty())
+    return false;
 
-  // Else return zero to indicate we were not able to parse a UUID value
-  return 0;
+  *this = UUID(bytes);
+  return true;
 }
 
-size_t UUID::SetFromOptionalStringRef(llvm::StringRef str, 
-                                      uint32_t num_uuid_bytes) {
-  size_t num_chars_consumed = SetFromStringRef(str, num_uuid_bytes);
-  if (num_chars_consumed) {
-    if (llvm::all_of(m_bytes, [](uint8_t b) { return b == 0; }))
-        Clear();
-  }
-  
-  return num_chars_consumed;
-}
+UUID UUID::Generate(uint32_t num_bytes) {
+  llvm::SmallVector<uint8_t, 20> bytes(num_bytes);
+  auto ec = llvm::getRandomBytes(bytes.data(), bytes.size());
 
+  // If getRandomBytes failed, fall back to a lower entropy source.
+  if (ec) {
+    auto seed = std::chrono::steady_clock::now().time_since_epoch().count();
+    std::independent_bits_engine<std::default_random_engine, CHAR_BIT,
+                                 unsigned short>
+        engine(seed);
+    std::generate(bytes.begin(), bytes.end(), std::ref(engine));
+  }
+
+  return UUID(bytes);
+}

@@ -14,7 +14,6 @@
 #include "llvm/CodeGen/LivePhysRegs.h"
 #include "llvm/CodeGen/MachineBasicBlock.h"
 #include "llvm/Support/Compiler.h"
-#include <cstdint>
 #include <vector>
 
 namespace llvm {
@@ -23,7 +22,6 @@ class BasicBlock;
 class MachineBranchProbabilityInfo;
 class MachineFunction;
 class MachineLoopInfo;
-class MachineModuleInfo;
 class MachineRegisterInfo;
 class MBFIWrapper;
 class ProfileSummaryInfo;
@@ -32,8 +30,7 @@ class TargetRegisterInfo;
 
   class LLVM_LIBRARY_VISIBILITY BranchFolder {
   public:
-    explicit BranchFolder(bool defaultEnableTailMerge,
-                          bool CommonHoist,
+    explicit BranchFolder(bool DefaultEnableTailMerge, bool CommonHoist,
                           MBFIWrapper &FreqInfo,
                           const MachineBranchProbabilityInfo &ProbInfo,
                           ProfileSummaryInfo *PSI,
@@ -45,7 +42,7 @@ class TargetRegisterInfo;
     /// given function.  Block placement changes the layout and may create new
     /// tail merging opportunities.
     bool OptimizeFunction(MachineFunction &MF, const TargetInstrInfo *tii,
-                          const TargetRegisterInfo *tri, MachineModuleInfo *mmi,
+                          const TargetRegisterInfo *tri,
                           MachineLoopInfo *mli = nullptr,
                           bool AfterPlacement = false);
 
@@ -53,10 +50,11 @@ class TargetRegisterInfo;
     class MergePotentialsElt {
       unsigned Hash;
       MachineBasicBlock *Block;
+      DebugLoc BranchDebugLoc;
 
     public:
-      MergePotentialsElt(unsigned h, MachineBasicBlock *b)
-        : Hash(h), Block(b) {}
+      MergePotentialsElt(unsigned h, MachineBasicBlock *b, DebugLoc bdl)
+          : Hash(h), Block(b), BranchDebugLoc(std::move(bdl)) {}
 
       unsigned getHash() const { return Hash; }
       MachineBasicBlock *getBlock() const { return Block; }
@@ -64,6 +62,8 @@ class TargetRegisterInfo;
       void setBlock(MachineBasicBlock *MBB) {
         Block = MBB;
       }
+
+      const DebugLoc &getBranchDebugLoc() { return BranchDebugLoc; }
 
       bool operator<(const MergePotentialsElt &) const;
     };
@@ -116,16 +116,15 @@ class TargetRegisterInfo;
     };
     std::vector<SameTailElt> SameTails;
 
-    bool AfterBlockPlacement;
-    bool EnableTailMerge;
-    bool EnableHoistCommonCode;
-    bool UpdateLiveIns;
+    bool AfterBlockPlacement = false;
+    bool EnableTailMerge = false;
+    bool EnableHoistCommonCode = false;
+    bool UpdateLiveIns = false;
     unsigned MinCommonTailLength;
-    const TargetInstrInfo *TII;
-    const MachineRegisterInfo *MRI;
-    const TargetRegisterInfo *TRI;
-    MachineModuleInfo *MMI;
-    MachineLoopInfo *MLI;
+    const TargetInstrInfo *TII = nullptr;
+    const MachineRegisterInfo *MRI = nullptr;
+    const TargetRegisterInfo *TRI = nullptr;
+    MachineLoopInfo *MLI = nullptr;
     LivePhysRegs LiveRegs;
 
   private:
@@ -166,8 +165,9 @@ class TargetRegisterInfo;
 
     /// Remove all blocks with hash CurHash from MergePotentials, restoring
     /// branches at ends of blocks as appropriate.
-    void RemoveBlocksWithHash(unsigned CurHash, MachineBasicBlock* SuccBB,
-                                                MachineBasicBlock* PredBB);
+    void RemoveBlocksWithHash(unsigned CurHash, MachineBasicBlock *SuccBB,
+                              MachineBasicBlock *PredBB,
+                              const DebugLoc &BranchDL);
 
     /// None of the blocks to be tail-merged consist only of the common tail.
     /// Create a block that does by splitting one.

@@ -22,24 +22,23 @@ void f4() __attribute__((no_speculative_load_hardening, speculative_load_hardeni
 void f5() __attribute__((speculative_load_hardening, no_speculative_load_hardening)); // expected-error {{attributes are not compatible}}
 // expected-note@-1 {{conflicting attribute is here}}
 
-void f6() __attribute__((no_speculative_load_hardening));
+void f6() __attribute__((no_speculative_load_hardening)); // expected-note {{conflicting attribute is here}}
 
-void f6() __attribute__((speculative_load_hardening)); // expected-error@-2 {{'no_speculative_load_hardening' and 'speculative_load_hardening' attributes are not compatible}}
-// expected-note@-1 {{conflicting attribute is here}}
+void f6() __attribute__((speculative_load_hardening)); // expected-error {{'speculative_load_hardening' and 'no_speculative_load_hardening' attributes are not compatible}}
 
-int ci [[clang::speculative_load_hardening]]; // expected-error {{'speculative_load_hardening' attribute only applies to functions}}
+int ci [[clang::speculative_load_hardening]]; // expected-error {{'clang::speculative_load_hardening' attribute only applies to functions}}
 
 [[clang::speculative_load_hardening]] void cf1();
-[[clang::speculative_load_hardening(1)]] void cf2(); // expected-error {{'speculative_load_hardening' attribute takes no arguments}}
+[[clang::speculative_load_hardening(1)]] void cf2(); // expected-error {{'clang::speculative_load_hardening' attribute takes no arguments}}
 
 template <typename T>
 [[clang::speculative_load_hardening]]
 void ctf1();
 
-int cf3(int c[[clang::speculative_load_hardening]], int); // expected-error {{'speculative_load_hardening' attribute only applies to functions}}
+int cf3(int c[[clang::speculative_load_hardening]], int); // expected-error {{'clang::speculative_load_hardening' attribute only applies to functions}}
 
 struct CA {
-  int f [[clang::speculative_load_hardening]];  // expected-error {{'speculative_load_hardening' attribute only applies to functions}}
+  int f [[clang::speculative_load_hardening]];  // expected-error {{'clang::speculative_load_hardening' attribute only applies to functions}}
   [[clang::speculative_load_hardening]] void mf1();
   [[clang::speculative_load_hardening]] static void mf2();
 };
@@ -51,8 +50,8 @@ struct CA {
 // expected-note@-1 {{conflicting attribute is here}}
 
 [[clang::speculative_load_hardening]]
-void cf6();
+void cf6(); // expected-note@-1 {{conflicting attribute is here}}
 
 [[clang::no_speculative_load_hardening]]
-void cf6(); // expected-error@-4 {{'speculative_load_hardening' and 'no_speculative_load_hardening' attributes are not compatible}} \
-// expected-note@-1 {{conflicting attribute is here}}
+void cf6(); // expected-error@-1 {{'clang::no_speculative_load_hardening' and 'clang::speculative_load_hardening' attributes are not compatible}} \
+

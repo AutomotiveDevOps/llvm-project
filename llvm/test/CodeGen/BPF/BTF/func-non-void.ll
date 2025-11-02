@@ -1,5 +1,5 @@
-; RUN: llc -march=bpfel -filetype=asm -o - %s | FileCheck -check-prefixes=CHECK %s
-; RUN: llc -march=bpfeb -filetype=asm -o - %s | FileCheck -check-prefixes=CHECK %s
+; RUN: llc -mtriple=bpfel -filetype=asm -o - %s | FileCheck -check-prefixes=CHECK %s
+; RUN: llc -mtriple=bpfeb -filetype=asm -o - %s | FileCheck -check-prefixes=CHECK %s
 
 ; Source code:
 ;   int f1(int a1) { return a1; }
@@ -7,7 +7,7 @@
 ;   clang -target bpf -O2 -g -S -emit-llvm t.c
 
 ; Function Attrs: nounwind readnone
-define dso_local i32 @f1(i32 returned) local_unnamed_addr #0 !dbg !7 {
+define dso_local i32 @f1(i32 returned) local_unnamed_addr !dbg !7 {
   call void @llvm.dbg.value(metadata i32 %0, metadata !12, metadata !DIExpression()), !dbg !13
   ret i32 %0, !dbg !14
 }
@@ -42,7 +42,7 @@ define dso_local i32 @f1(i32 returned) local_unnamed_addr #0 !dbg !7 {
 ; CHECK-NEXT:        .byte   0
 ; CHECK-NEXT:        .ascii  ".text"                 # string offset=11
 ; CHECK-NEXT:        .byte   0
-; CHECK-NEXT:        .ascii  "/tmp/t.c"              # string offset=17
+; CHECK-NEXT:        .ascii  "/DNE/t.c"              # string offset=17
 ; CHECK-NEXT:        .byte   0
 ; CHECK-NEXT:        .section        .BTF.ext,"",@progbits
 ; CHECK-NEXT:        .short  60319                   # 0xeb9f
@@ -73,17 +73,14 @@ define dso_local i32 @f1(i32 returned) local_unnamed_addr #0 !dbg !7 {
 ; CHECK-NEXT:        .long   1042                    # Line 1 Col 18
 
 ; Function Attrs: nounwind readnone speculatable
-declare void @llvm.dbg.value(metadata, metadata, metadata) #1
-
-attributes #0 = { nounwind readnone "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "min-legal-vector-width"="0" "frame-pointer"="all" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "unsafe-fp-math"="false" "use-soft-float"="false" }
-attributes #1 = { nounwind readnone speculatable }
+declare void @llvm.dbg.value(metadata, metadata, metadata)
 
 !llvm.dbg.cu = !{!0}
 !llvm.module.flags = !{!3, !4, !5}
 !llvm.ident = !{!6}
 
 !0 = distinct !DICompileUnit(language: DW_LANG_C99, file: !1, producer: "clang version 8.0.0 (trunk 345562) (llvm/trunk 345560)", isOptimized: true, runtimeVersion: 0, emissionKind: FullDebug, enums: !2, nameTableKind: None)
-!1 = !DIFile(filename: "t.c", directory: "/tmp")
+!1 = !DIFile(filename: "t.c", directory: "/DNE")
 !2 = !{}
 !3 = !{i32 2, !"Dwarf Version", i32 4}
 !4 = !{i32 2, !"Debug Info Version", i32 3}

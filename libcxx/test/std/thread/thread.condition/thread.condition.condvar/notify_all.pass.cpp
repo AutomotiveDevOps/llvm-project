@@ -6,7 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// UNSUPPORTED: libcpp-has-no-threads
+// UNSUPPORTED: no-threads
 
 // <condition_variable>
 
@@ -14,11 +14,13 @@
 
 // void notify_all();
 
+#include <atomic>
 #include <condition_variable>
 #include <mutex>
 #include <thread>
 #include <cassert>
 
+#include "make_test_thread.h"
 #include "test_macros.h"
 
 std::condition_variable cv;
@@ -28,10 +30,13 @@ int test0 = 0;
 int test1 = 0;
 int test2 = 0;
 
+std::atomic<int> ready_count(0);
+
 void f1()
 {
     std::unique_lock<std::mutex> lk(mut);
     assert(test1 == 0);
+    ready_count += 1;
     while (test1 == 0)
         cv.wait(lk);
     assert(test1 == 1);
@@ -42,6 +47,7 @@ void f2()
 {
     std::unique_lock<std::mutex> lk(mut);
     assert(test2 == 0);
+    ready_count += 1;
     while (test2 == 0)
         cv.wait(lk);
     assert(test2 == 1);
@@ -50,9 +56,11 @@ void f2()
 
 int main(int, char**)
 {
-    std::thread t1(f1);
-    std::thread t2(f2);
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    std::thread t1 = support::make_test_thread(f1);
+    std::thread t2 = support::make_test_thread(f2);
+    while (ready_count.load() != 2) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    }
     {
         std::unique_lock<std::mutex>lk(mut);
         test1 = 1;

@@ -14,31 +14,61 @@
 #include "clang/Basic/Builtins.h"
 #include "clang/Basic/Diagnostic.h"
 #include "clang/Basic/TargetBuiltins.h"
-#include "llvm/ADT/StringExtras.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/StringSwitch.h"
-#include "llvm/Support/TargetParser.h"
+#include "llvm/TargetParser/X86TargetParser.h"
+#include <optional>
 
 namespace clang {
 namespace targets {
 
-const Builtin::Info BuiltinInfoX86[] = {
-#define BUILTIN(ID, TYPE, ATTRS)                                               \
-  {#ID, TYPE, ATTRS, nullptr, ALL_LANGUAGES, nullptr},
-#define TARGET_BUILTIN(ID, TYPE, ATTRS, FEATURE)                               \
-  {#ID, TYPE, ATTRS, nullptr, ALL_LANGUAGES, FEATURE},
-#define TARGET_HEADER_BUILTIN(ID, TYPE, ATTRS, HEADER, LANGS, FEATURE)         \
-  {#ID, TYPE, ATTRS, HEADER, LANGS, FEATURE},
-#include "clang/Basic/BuiltinsX86.def"
+// The x86-32 builtins are a subset and prefix of the x86-64 builtins.
+static constexpr int NumX86Builtins =
+    X86::LastX86CommonBuiltin - Builtin::FirstTSBuiltin + 1;
+static constexpr int NumX86_64Builtins =
+    X86::LastTSBuiltin - X86::FirstX86_64Builtin;
+static constexpr int NumBuiltins = X86::LastTSBuiltin - Builtin::FirstTSBuiltin;
+static_assert(NumBuiltins == (NumX86Builtins + NumX86_64Builtins));
 
-#define BUILTIN(ID, TYPE, ATTRS)                                               \
-  {#ID, TYPE, ATTRS, nullptr, ALL_LANGUAGES, nullptr},
-#define TARGET_BUILTIN(ID, TYPE, ATTRS, FEATURE)                               \
-  {#ID, TYPE, ATTRS, nullptr, ALL_LANGUAGES, FEATURE},
-#define TARGET_HEADER_BUILTIN(ID, TYPE, ATTRS, HEADER, LANGS, FEATURE)         \
-  {#ID, TYPE, ATTRS, HEADER, LANGS, FEATURE},
-#include "clang/Basic/BuiltinsX86_64.def"
+namespace X86 {
+#define GET_BUILTIN_STR_TABLE
+#include "clang/Basic/BuiltinsX86.inc"
+#undef GET_BUILTIN_STR_TABLE
+
+static constexpr Builtin::Info BuiltinInfos[] = {
+#define GET_BUILTIN_INFOS
+#include "clang/Basic/BuiltinsX86.inc"
+#undef GET_BUILTIN_INFOS
 };
+
+static constexpr Builtin::Info PrefixedBuiltinInfos[] = {
+#define GET_BUILTIN_PREFIXED_INFOS
+#include "clang/Basic/BuiltinsX86.inc"
+#undef GET_BUILTIN_PREFIXED_INFOS
+};
+static_assert((std::size(BuiltinInfos) + std::size(PrefixedBuiltinInfos)) ==
+              NumX86Builtins);
+} // namespace X86
+
+namespace X86_64 {
+#define GET_BUILTIN_STR_TABLE
+#include "clang/Basic/BuiltinsX86_64.inc"
+#undef GET_BUILTIN_STR_TABLE
+
+static constexpr Builtin::Info BuiltinInfos[] = {
+#define GET_BUILTIN_INFOS
+#include "clang/Basic/BuiltinsX86_64.inc"
+#undef GET_BUILTIN_INFOS
+};
+
+static constexpr Builtin::Info PrefixedBuiltinInfos[] = {
+#define GET_BUILTIN_PREFIXED_INFOS
+#include "clang/Basic/BuiltinsX86_64.inc"
+#undef GET_BUILTIN_PREFIXED_INFOS
+};
+static_assert((std::size(BuiltinInfos) + std::size(PrefixedBuiltinInfos)) ==
+              NumX86_64Builtins);
+} // namespace X86_64
 
 static const char *const GCCRegNames[] = {
     "ax",    "dx",    "cx",    "bx",    "si",      "di",    "bp",    "sp",
@@ -62,6 +92,9 @@ static const char *const GCCRegNames[] = {
     "cr0",   "cr2",   "cr3",   "cr4",   "cr8",
     "dr0",   "dr1",   "dr2",   "dr3",   "dr6",     "dr7",
     "bnd0",  "bnd1",  "bnd2",  "bnd3",
+    "tmm0",  "tmm1",  "tmm2",  "tmm3",  "tmm4",    "tmm5",  "tmm6",  "tmm7",
+    "r16",   "r17",   "r18",   "r19",   "r20",     "r21",   "r22",   "r23",
+    "r24",   "r25",   "r26",   "r27",   "r28",     "r29",   "r30",   "r31",
 };
 
 const TargetInfo::AddlRegName AddlRegNames[] = {
@@ -81,8 +114,23 @@ const TargetInfo::AddlRegName AddlRegNames[] = {
     {{"r13d", "r13w", "r13b"}, 43},
     {{"r14d", "r14w", "r14b"}, 44},
     {{"r15d", "r15w", "r15b"}, 45},
+    {{"r16d", "r16w", "r16b"}, 165},
+    {{"r17d", "r17w", "r17b"}, 166},
+    {{"r18d", "r18w", "r18b"}, 167},
+    {{"r19d", "r19w", "r19b"}, 168},
+    {{"r20d", "r20w", "r20b"}, 169},
+    {{"r21d", "r21w", "r21b"}, 170},
+    {{"r22d", "r22w", "r22b"}, 171},
+    {{"r23d", "r23w", "r23b"}, 172},
+    {{"r24d", "r24w", "r24b"}, 173},
+    {{"r25d", "r25w", "r25b"}, 174},
+    {{"r26d", "r26w", "r26b"}, 175},
+    {{"r27d", "r27w", "r27b"}, 176},
+    {{"r28d", "r28w", "r28b"}, 177},
+    {{"r29d", "r29w", "r29b"}, 178},
+    {{"r30d", "r30w", "r30b"}, 179},
+    {{"r31d", "r31w", "r31b"}, 180},
 };
-
 } // namespace targets
 } // namespace clang
 
@@ -107,340 +155,29 @@ bool X86TargetInfo::initFeatureMap(
   // FIXME: This *really* should not be here.
   // X86_64 always has SSE2.
   if (getTriple().getArch() == llvm::Triple::x86_64)
-    setFeatureEnabledImpl(Features, "sse2", true);
+    setFeatureEnabled(Features, "sse2", true);
 
-  const CPUKind Kind = getCPUKind(CPU);
+  using namespace llvm::X86;
 
-  // Enable X87 for all X86 processors but Lakemont.
-  if (Kind != CK_Lakemont)
-    setFeatureEnabledImpl(Features, "x87", true);
+  SmallVector<StringRef, 16> CPUFeatures;
+  getFeaturesForCPU(CPU, CPUFeatures);
+  for (auto &F : CPUFeatures)
+    setFeatureEnabled(Features, F, true);
 
-  // Enable cmpxchg8 for i586 and greater CPUs. Include generic for backwards
-  // compatibility.
-  if (Kind >= CK_i586 || Kind == CK_Generic)
-    setFeatureEnabledImpl(Features, "cx8", true);
+  std::vector<std::string> UpdatedFeaturesVec;
+  for (const auto &Feature : FeaturesVec) {
+    // Expand general-regs-only to -x86, -mmx and -sse
+    if (Feature == "+general-regs-only") {
+      UpdatedFeaturesVec.push_back("-x87");
+      UpdatedFeaturesVec.push_back("-mmx");
+      UpdatedFeaturesVec.push_back("-sse");
+      continue;
+    }
 
-  switch (Kind) {
-  case CK_Generic:
-  case CK_i386:
-  case CK_i486:
-  case CK_i586:
-  case CK_Pentium:
-  case CK_PentiumPro:
-  case CK_i686:
-  case CK_Lakemont:
-    break;
-
-  case CK_Cooperlake:
-    // CPX inherits all CLX features plus AVX512BF16
-    setFeatureEnabledImpl(Features, "avx512bf16", true);
-    LLVM_FALLTHROUGH;
-  case CK_Cascadelake:
-    // CLX inherits all SKX features plus AVX512VNNI
-    setFeatureEnabledImpl(Features, "avx512vnni", true);
-    LLVM_FALLTHROUGH;
-  case CK_SkylakeServer:
-    setFeatureEnabledImpl(Features, "avx512f", true);
-    setFeatureEnabledImpl(Features, "avx512cd", true);
-    setFeatureEnabledImpl(Features, "avx512dq", true);
-    setFeatureEnabledImpl(Features, "avx512bw", true);
-    setFeatureEnabledImpl(Features, "avx512vl", true);
-    setFeatureEnabledImpl(Features, "clwb", true);
-    setFeatureEnabledImpl(Features, "pku", true);
-    // SkylakeServer cores inherits all SKL features, except SGX
-    goto SkylakeCommon;
-
-  case CK_Tigerlake:
-    setFeatureEnabledImpl(Features, "avx512vp2intersect", true);
-    setFeatureEnabledImpl(Features, "movdiri", true);
-    setFeatureEnabledImpl(Features, "movdir64b", true);
-    setFeatureEnabledImpl(Features, "shstk", true);
-    // Tigerlake cores inherits IcelakeClient, except pconfig and wbnoinvd
-    goto IcelakeCommon;
-
-  case CK_IcelakeServer:
-    setFeatureEnabledImpl(Features, "pconfig", true);
-    setFeatureEnabledImpl(Features, "wbnoinvd", true);
-    LLVM_FALLTHROUGH;
-  case CK_IcelakeClient:
-IcelakeCommon:
-    setFeatureEnabledImpl(Features, "vaes", true);
-    setFeatureEnabledImpl(Features, "gfni", true);
-    setFeatureEnabledImpl(Features, "vpclmulqdq", true);
-    setFeatureEnabledImpl(Features, "avx512bitalg", true);
-    setFeatureEnabledImpl(Features, "avx512vbmi2", true);
-    setFeatureEnabledImpl(Features, "avx512vnni", true);
-    setFeatureEnabledImpl(Features, "avx512vpopcntdq", true);
-    setFeatureEnabledImpl(Features, "rdpid", true);
-    setFeatureEnabledImpl(Features, "clwb", true);
-    LLVM_FALLTHROUGH;
-  case CK_Cannonlake:
-    setFeatureEnabledImpl(Features, "avx512f", true);
-    setFeatureEnabledImpl(Features, "avx512cd", true);
-    setFeatureEnabledImpl(Features, "avx512dq", true);
-    setFeatureEnabledImpl(Features, "avx512bw", true);
-    setFeatureEnabledImpl(Features, "avx512vl", true);
-    setFeatureEnabledImpl(Features, "avx512ifma", true);
-    setFeatureEnabledImpl(Features, "avx512vbmi", true);
-    setFeatureEnabledImpl(Features, "pku", true);
-    setFeatureEnabledImpl(Features, "sha", true);
-    LLVM_FALLTHROUGH;
-  case CK_SkylakeClient:
-    setFeatureEnabledImpl(Features, "sgx", true);
-    // SkylakeServer cores inherits all SKL features, except SGX
-SkylakeCommon:
-    setFeatureEnabledImpl(Features, "xsavec", true);
-    setFeatureEnabledImpl(Features, "xsaves", true);
-    setFeatureEnabledImpl(Features, "clflushopt", true);
-    setFeatureEnabledImpl(Features, "aes", true);
-    LLVM_FALLTHROUGH;
-  case CK_Broadwell:
-    setFeatureEnabledImpl(Features, "rdseed", true);
-    setFeatureEnabledImpl(Features, "adx", true);
-    setFeatureEnabledImpl(Features, "prfchw", true);
-    LLVM_FALLTHROUGH;
-  case CK_Haswell:
-    setFeatureEnabledImpl(Features, "avx2", true);
-    setFeatureEnabledImpl(Features, "lzcnt", true);
-    setFeatureEnabledImpl(Features, "bmi", true);
-    setFeatureEnabledImpl(Features, "bmi2", true);
-    setFeatureEnabledImpl(Features, "fma", true);
-    setFeatureEnabledImpl(Features, "invpcid", true);
-    setFeatureEnabledImpl(Features, "movbe", true);
-    LLVM_FALLTHROUGH;
-  case CK_IvyBridge:
-    setFeatureEnabledImpl(Features, "rdrnd", true);
-    setFeatureEnabledImpl(Features, "f16c", true);
-    setFeatureEnabledImpl(Features, "fsgsbase", true);
-    LLVM_FALLTHROUGH;
-  case CK_SandyBridge:
-    setFeatureEnabledImpl(Features, "avx", true);
-    setFeatureEnabledImpl(Features, "xsave", true);
-    setFeatureEnabledImpl(Features, "xsaveopt", true);
-    LLVM_FALLTHROUGH;
-  case CK_Westmere:
-    setFeatureEnabledImpl(Features, "pclmul", true);
-    LLVM_FALLTHROUGH;
-  case CK_Nehalem:
-    setFeatureEnabledImpl(Features, "sse4.2", true);
-    LLVM_FALLTHROUGH;
-  case CK_Penryn:
-    setFeatureEnabledImpl(Features, "sse4.1", true);
-    LLVM_FALLTHROUGH;
-  case CK_Core2:
-    setFeatureEnabledImpl(Features, "ssse3", true);
-    setFeatureEnabledImpl(Features, "sahf", true);
-    LLVM_FALLTHROUGH;
-  case CK_Nocona:
-    setFeatureEnabledImpl(Features, "cx16", true);
-    LLVM_FALLTHROUGH;
-  case CK_Yonah:
-  case CK_Prescott:
-    setFeatureEnabledImpl(Features, "sse3", true);
-    LLVM_FALLTHROUGH;
-  case CK_PentiumM:
-  case CK_Pentium4:
-  case CK_x86_64:
-    setFeatureEnabledImpl(Features, "sse2", true);
-    LLVM_FALLTHROUGH;
-  case CK_Pentium3:
-  case CK_C3_2:
-    setFeatureEnabledImpl(Features, "sse", true);
-    LLVM_FALLTHROUGH;
-  case CK_Pentium2:
-    setFeatureEnabledImpl(Features, "fxsr", true);
-    LLVM_FALLTHROUGH;
-  case CK_PentiumMMX:
-  case CK_K6:
-  case CK_WinChipC6:
-    setFeatureEnabledImpl(Features, "mmx", true);
-    break;
-
-  case CK_Tremont:
-    setFeatureEnabledImpl(Features, "cldemote", true);
-    setFeatureEnabledImpl(Features, "movdiri", true);
-    setFeatureEnabledImpl(Features, "movdir64b", true);
-    setFeatureEnabledImpl(Features, "gfni", true);
-    setFeatureEnabledImpl(Features, "waitpkg", true);
-    LLVM_FALLTHROUGH;
-  case CK_GoldmontPlus:
-    setFeatureEnabledImpl(Features, "ptwrite", true);
-    setFeatureEnabledImpl(Features, "rdpid", true);
-    setFeatureEnabledImpl(Features, "sgx", true);
-    LLVM_FALLTHROUGH;
-  case CK_Goldmont:
-    setFeatureEnabledImpl(Features, "sha", true);
-    setFeatureEnabledImpl(Features, "rdseed", true);
-    setFeatureEnabledImpl(Features, "xsave", true);
-    setFeatureEnabledImpl(Features, "xsaveopt", true);
-    setFeatureEnabledImpl(Features, "xsavec", true);
-    setFeatureEnabledImpl(Features, "xsaves", true);
-    setFeatureEnabledImpl(Features, "clflushopt", true);
-    setFeatureEnabledImpl(Features, "fsgsbase", true);
-    setFeatureEnabledImpl(Features, "aes", true);
-    LLVM_FALLTHROUGH;
-  case CK_Silvermont:
-    setFeatureEnabledImpl(Features, "rdrnd", true);
-    setFeatureEnabledImpl(Features, "pclmul", true);
-    setFeatureEnabledImpl(Features, "sse4.2", true);
-    setFeatureEnabledImpl(Features, "prfchw", true);
-    LLVM_FALLTHROUGH;
-  case CK_Bonnell:
-    setFeatureEnabledImpl(Features, "movbe", true);
-    setFeatureEnabledImpl(Features, "ssse3", true);
-    setFeatureEnabledImpl(Features, "fxsr", true);
-    setFeatureEnabledImpl(Features, "cx16", true);
-    setFeatureEnabledImpl(Features, "sahf", true);
-    setFeatureEnabledImpl(Features, "mmx", true);
-    break;
-
-  case CK_KNM:
-    // TODO: Add avx5124fmaps/avx5124vnniw.
-    setFeatureEnabledImpl(Features, "avx512vpopcntdq", true);
-    LLVM_FALLTHROUGH;
-  case CK_KNL:
-    setFeatureEnabledImpl(Features, "avx512f", true);
-    setFeatureEnabledImpl(Features, "avx512cd", true);
-    setFeatureEnabledImpl(Features, "avx512er", true);
-    setFeatureEnabledImpl(Features, "avx512pf", true);
-    setFeatureEnabledImpl(Features, "prfchw", true);
-    setFeatureEnabledImpl(Features, "prefetchwt1", true);
-    setFeatureEnabledImpl(Features, "fxsr", true);
-    setFeatureEnabledImpl(Features, "rdseed", true);
-    setFeatureEnabledImpl(Features, "adx", true);
-    setFeatureEnabledImpl(Features, "lzcnt", true);
-    setFeatureEnabledImpl(Features, "bmi", true);
-    setFeatureEnabledImpl(Features, "bmi2", true);
-    setFeatureEnabledImpl(Features, "fma", true);
-    setFeatureEnabledImpl(Features, "rdrnd", true);
-    setFeatureEnabledImpl(Features, "f16c", true);
-    setFeatureEnabledImpl(Features, "fsgsbase", true);
-    setFeatureEnabledImpl(Features, "aes", true);
-    setFeatureEnabledImpl(Features, "pclmul", true);
-    setFeatureEnabledImpl(Features, "cx16", true);
-    setFeatureEnabledImpl(Features, "xsaveopt", true);
-    setFeatureEnabledImpl(Features, "xsave", true);
-    setFeatureEnabledImpl(Features, "movbe", true);
-    setFeatureEnabledImpl(Features, "sahf", true);
-    setFeatureEnabledImpl(Features, "mmx", true);
-    break;
-
-  case CK_K6_2:
-  case CK_K6_3:
-  case CK_WinChip2:
-  case CK_C3:
-    setFeatureEnabledImpl(Features, "3dnow", true);
-    break;
-
-  case CK_AMDFAM10:
-    setFeatureEnabledImpl(Features, "sse4a", true);
-    setFeatureEnabledImpl(Features, "lzcnt", true);
-    setFeatureEnabledImpl(Features, "popcnt", true);
-    setFeatureEnabledImpl(Features, "sahf", true);
-    LLVM_FALLTHROUGH;
-  case CK_K8SSE3:
-    setFeatureEnabledImpl(Features, "sse3", true);
-    LLVM_FALLTHROUGH;
-  case CK_K8:
-    setFeatureEnabledImpl(Features, "sse2", true);
-    LLVM_FALLTHROUGH;
-  case CK_AthlonXP:
-    setFeatureEnabledImpl(Features, "sse", true);
-    setFeatureEnabledImpl(Features, "fxsr", true);
-    LLVM_FALLTHROUGH;
-  case CK_Athlon:
-  case CK_Geode:
-    setFeatureEnabledImpl(Features, "3dnowa", true);
-    break;
-
-  case CK_BTVER2:
-    setFeatureEnabledImpl(Features, "avx", true);
-    setFeatureEnabledImpl(Features, "aes", true);
-    setFeatureEnabledImpl(Features, "pclmul", true);
-    setFeatureEnabledImpl(Features, "bmi", true);
-    setFeatureEnabledImpl(Features, "f16c", true);
-    setFeatureEnabledImpl(Features, "xsaveopt", true);
-    setFeatureEnabledImpl(Features, "movbe", true);
-    LLVM_FALLTHROUGH;
-  case CK_BTVER1:
-    setFeatureEnabledImpl(Features, "ssse3", true);
-    setFeatureEnabledImpl(Features, "sse4a", true);
-    setFeatureEnabledImpl(Features, "lzcnt", true);
-    setFeatureEnabledImpl(Features, "popcnt", true);
-    setFeatureEnabledImpl(Features, "prfchw", true);
-    setFeatureEnabledImpl(Features, "cx16", true);
-    setFeatureEnabledImpl(Features, "fxsr", true);
-    setFeatureEnabledImpl(Features, "sahf", true);
-    setFeatureEnabledImpl(Features, "mmx", true);
-    break;
-
-  case CK_ZNVER2:
-    setFeatureEnabledImpl(Features, "clwb", true);
-    setFeatureEnabledImpl(Features, "rdpid", true);
-    setFeatureEnabledImpl(Features, "wbnoinvd", true);
-    LLVM_FALLTHROUGH;
-  case CK_ZNVER1:
-    setFeatureEnabledImpl(Features, "adx", true);
-    setFeatureEnabledImpl(Features, "aes", true);
-    setFeatureEnabledImpl(Features, "avx2", true);
-    setFeatureEnabledImpl(Features, "bmi", true);
-    setFeatureEnabledImpl(Features, "bmi2", true);
-    setFeatureEnabledImpl(Features, "clflushopt", true);
-    setFeatureEnabledImpl(Features, "clzero", true);
-    setFeatureEnabledImpl(Features, "cx16", true);
-    setFeatureEnabledImpl(Features, "f16c", true);
-    setFeatureEnabledImpl(Features, "fma", true);
-    setFeatureEnabledImpl(Features, "fsgsbase", true);
-    setFeatureEnabledImpl(Features, "fxsr", true);
-    setFeatureEnabledImpl(Features, "lzcnt", true);
-    setFeatureEnabledImpl(Features, "mmx", true);
-    setFeatureEnabledImpl(Features, "mwaitx", true);
-    setFeatureEnabledImpl(Features, "movbe", true);
-    setFeatureEnabledImpl(Features, "pclmul", true);
-    setFeatureEnabledImpl(Features, "popcnt", true);
-    setFeatureEnabledImpl(Features, "prfchw", true);
-    setFeatureEnabledImpl(Features, "rdrnd", true);
-    setFeatureEnabledImpl(Features, "rdseed", true);
-    setFeatureEnabledImpl(Features, "sahf", true);
-    setFeatureEnabledImpl(Features, "sha", true);
-    setFeatureEnabledImpl(Features, "sse4a", true);
-    setFeatureEnabledImpl(Features, "xsave", true);
-    setFeatureEnabledImpl(Features, "xsavec", true);
-    setFeatureEnabledImpl(Features, "xsaveopt", true);
-    setFeatureEnabledImpl(Features, "xsaves", true);
-    break;
-
-  case CK_BDVER4:
-    setFeatureEnabledImpl(Features, "avx2", true);
-    setFeatureEnabledImpl(Features, "bmi2", true);
-    setFeatureEnabledImpl(Features, "mwaitx", true);
-    LLVM_FALLTHROUGH;
-  case CK_BDVER3:
-    setFeatureEnabledImpl(Features, "fsgsbase", true);
-    setFeatureEnabledImpl(Features, "xsaveopt", true);
-    LLVM_FALLTHROUGH;
-  case CK_BDVER2:
-    setFeatureEnabledImpl(Features, "bmi", true);
-    setFeatureEnabledImpl(Features, "fma", true);
-    setFeatureEnabledImpl(Features, "f16c", true);
-    setFeatureEnabledImpl(Features, "tbm", true);
-    LLVM_FALLTHROUGH;
-  case CK_BDVER1:
-    // xop implies avx, sse4a and fma4.
-    setFeatureEnabledImpl(Features, "xop", true);
-    setFeatureEnabledImpl(Features, "lwp", true);
-    setFeatureEnabledImpl(Features, "lzcnt", true);
-    setFeatureEnabledImpl(Features, "aes", true);
-    setFeatureEnabledImpl(Features, "pclmul", true);
-    setFeatureEnabledImpl(Features, "prfchw", true);
-    setFeatureEnabledImpl(Features, "cx16", true);
-    setFeatureEnabledImpl(Features, "fxsr", true);
-    setFeatureEnabledImpl(Features, "xsave", true);
-    setFeatureEnabledImpl(Features, "sahf", true);
-    setFeatureEnabledImpl(Features, "mmx", true);
-    break;
+    UpdatedFeaturesVec.push_back(Feature);
   }
-  if (!TargetInfo::initFeatureMap(Features, Diags, CPU, FeaturesVec))
+
+  if (!TargetInfo::initFeatureMap(Features, Diags, CPU, UpdatedFeaturesVec))
     return false;
 
   // Can't do this earlier because we need to be able to explicitly enable
@@ -449,280 +186,46 @@ SkylakeCommon:
   // Enable popcnt if sse4.2 is enabled and popcnt is not explicitly disabled.
   auto I = Features.find("sse4.2");
   if (I != Features.end() && I->getValue() &&
-      llvm::find(FeaturesVec, "-popcnt") == FeaturesVec.end())
+      !llvm::is_contained(UpdatedFeaturesVec, "-popcnt"))
     Features["popcnt"] = true;
-
-  // Enable prfchw if 3DNow! is enabled and prfchw is not explicitly disabled.
-  I = Features.find("3dnow");
-  if (I != Features.end() && I->getValue() &&
-      llvm::find(FeaturesVec, "-prfchw") == FeaturesVec.end())
-    Features["prfchw"] = true;
 
   // Additionally, if SSE is enabled and mmx is not explicitly disabled,
   // then enable MMX.
   I = Features.find("sse");
   if (I != Features.end() && I->getValue() &&
-      llvm::find(FeaturesVec, "-mmx") == FeaturesVec.end())
+      !llvm::is_contained(UpdatedFeaturesVec, "-mmx"))
     Features["mmx"] = true;
+
+  // Enable xsave if avx is enabled and xsave is not explicitly disabled.
+  I = Features.find("avx");
+  if (I != Features.end() && I->getValue() &&
+      !llvm::is_contained(UpdatedFeaturesVec, "-xsave"))
+    Features["xsave"] = true;
+
+  // Enable CRC32 if SSE4.2 is enabled and CRC32 is not explicitly disabled.
+  I = Features.find("sse4.2");
+  if (I != Features.end() && I->getValue() &&
+      !llvm::is_contained(UpdatedFeaturesVec, "-crc32"))
+    Features["crc32"] = true;
 
   return true;
 }
 
-void X86TargetInfo::setSSELevel(llvm::StringMap<bool> &Features,
-                                X86SSEEnum Level, bool Enabled) {
-  if (Enabled) {
-    switch (Level) {
-    case AVX512F:
-      Features["avx512f"] = true;
-      Features["fma"] = true;
-      Features["f16c"] = true;
-      LLVM_FALLTHROUGH;
-    case AVX2:
-      Features["avx2"] = true;
-      LLVM_FALLTHROUGH;
-    case AVX:
-      Features["avx"] = true;
-      Features["xsave"] = true;
-      LLVM_FALLTHROUGH;
-    case SSE42:
-      Features["sse4.2"] = true;
-      LLVM_FALLTHROUGH;
-    case SSE41:
-      Features["sse4.1"] = true;
-      LLVM_FALLTHROUGH;
-    case SSSE3:
-      Features["ssse3"] = true;
-      LLVM_FALLTHROUGH;
-    case SSE3:
-      Features["sse3"] = true;
-      LLVM_FALLTHROUGH;
-    case SSE2:
-      Features["sse2"] = true;
-      LLVM_FALLTHROUGH;
-    case SSE1:
-      Features["sse"] = true;
-      LLVM_FALLTHROUGH;
-    case NoSSE:
-      break;
-    }
-    return;
-  }
-
-  switch (Level) {
-  case NoSSE:
-  case SSE1:
-    Features["sse"] = false;
-    LLVM_FALLTHROUGH;
-  case SSE2:
-    Features["sse2"] = Features["pclmul"] = Features["aes"] = false;
-    Features["sha"] = Features["gfni"] = false;
-    LLVM_FALLTHROUGH;
-  case SSE3:
-    Features["sse3"] = false;
-    setXOPLevel(Features, NoXOP, false);
-    LLVM_FALLTHROUGH;
-  case SSSE3:
-    Features["ssse3"] = false;
-    LLVM_FALLTHROUGH;
-  case SSE41:
-    Features["sse4.1"] = false;
-    LLVM_FALLTHROUGH;
-  case SSE42:
-    Features["sse4.2"] = false;
-    LLVM_FALLTHROUGH;
-  case AVX:
-    Features["fma"] = Features["avx"] = Features["f16c"] = false;
-    Features["xsave"] = Features["xsaveopt"] = Features["vaes"] = false;
-    Features["vpclmulqdq"] = false;
-    setXOPLevel(Features, FMA4, false);
-    LLVM_FALLTHROUGH;
-  case AVX2:
-    Features["avx2"] = false;
-    LLVM_FALLTHROUGH;
-  case AVX512F:
-    Features["avx512f"] = Features["avx512cd"] = Features["avx512er"] = false;
-    Features["avx512pf"] = Features["avx512dq"] = Features["avx512bw"] = false;
-    Features["avx512vl"] = Features["avx512vbmi"] = false;
-    Features["avx512ifma"] = Features["avx512vpopcntdq"] = false;
-    Features["avx512bitalg"] = Features["avx512vnni"] = false;
-    Features["avx512vbmi2"] = Features["avx512bf16"] = false;
-    Features["avx512vp2intersect"] = false;
-    break;
-  }
-}
-
-void X86TargetInfo::setMMXLevel(llvm::StringMap<bool> &Features,
-                                MMX3DNowEnum Level, bool Enabled) {
-  if (Enabled) {
-    switch (Level) {
-    case AMD3DNowAthlon:
-      Features["3dnowa"] = true;
-      LLVM_FALLTHROUGH;
-    case AMD3DNow:
-      Features["3dnow"] = true;
-      LLVM_FALLTHROUGH;
-    case MMX:
-      Features["mmx"] = true;
-      LLVM_FALLTHROUGH;
-    case NoMMX3DNow:
-      break;
-    }
-    return;
-  }
-
-  switch (Level) {
-  case NoMMX3DNow:
-  case MMX:
-    Features["mmx"] = false;
-    LLVM_FALLTHROUGH;
-  case AMD3DNow:
-    Features["3dnow"] = false;
-    LLVM_FALLTHROUGH;
-  case AMD3DNowAthlon:
-    Features["3dnowa"] = false;
-    break;
-  }
-}
-
-void X86TargetInfo::setXOPLevel(llvm::StringMap<bool> &Features, XOPEnum Level,
-                                bool Enabled) {
-  if (Enabled) {
-    switch (Level) {
-    case XOP:
-      Features["xop"] = true;
-      LLVM_FALLTHROUGH;
-    case FMA4:
-      Features["fma4"] = true;
-      setSSELevel(Features, AVX, true);
-      LLVM_FALLTHROUGH;
-    case SSE4A:
-      Features["sse4a"] = true;
-      setSSELevel(Features, SSE3, true);
-      LLVM_FALLTHROUGH;
-    case NoXOP:
-      break;
-    }
-    return;
-  }
-
-  switch (Level) {
-  case NoXOP:
-  case SSE4A:
-    Features["sse4a"] = false;
-    LLVM_FALLTHROUGH;
-  case FMA4:
-    Features["fma4"] = false;
-    LLVM_FALLTHROUGH;
-  case XOP:
-    Features["xop"] = false;
-    break;
-  }
-}
-
-void X86TargetInfo::setFeatureEnabledImpl(llvm::StringMap<bool> &Features,
-                                          StringRef Name, bool Enabled) {
-  // This is a bit of a hack to deal with the sse4 target feature when used
-  // as part of the target attribute. We handle sse4 correctly everywhere
-  // else. See below for more information on how we handle the sse4 options.
-  if (Name != "sse4")
-    Features[Name] = Enabled;
-
-  if (Name == "mmx") {
-    setMMXLevel(Features, MMX, Enabled);
-  } else if (Name == "sse") {
-    setSSELevel(Features, SSE1, Enabled);
-  } else if (Name == "sse2") {
-    setSSELevel(Features, SSE2, Enabled);
-  } else if (Name == "sse3") {
-    setSSELevel(Features, SSE3, Enabled);
-  } else if (Name == "ssse3") {
-    setSSELevel(Features, SSSE3, Enabled);
-  } else if (Name == "sse4.2") {
-    setSSELevel(Features, SSE42, Enabled);
-  } else if (Name == "sse4.1") {
-    setSSELevel(Features, SSE41, Enabled);
-  } else if (Name == "3dnow") {
-    setMMXLevel(Features, AMD3DNow, Enabled);
-  } else if (Name == "3dnowa") {
-    setMMXLevel(Features, AMD3DNowAthlon, Enabled);
-  } else if (Name == "aes") {
-    if (Enabled)
-      setSSELevel(Features, SSE2, Enabled);
-    else
-      Features["vaes"] = false;
-  } else if (Name == "vaes") {
-    if (Enabled) {
-      setSSELevel(Features, AVX, Enabled);
-      Features["aes"] = true;
-    }
-  } else if (Name == "pclmul") {
-    if (Enabled)
-      setSSELevel(Features, SSE2, Enabled);
-    else
-      Features["vpclmulqdq"] = false;
-  } else if (Name == "vpclmulqdq") {
-    if (Enabled) {
-      setSSELevel(Features, AVX, Enabled);
-      Features["pclmul"] = true;
-    }
-  } else if (Name == "gfni") {
-     if (Enabled)
-      setSSELevel(Features, SSE2, Enabled);
-  } else if (Name == "avx") {
-    setSSELevel(Features, AVX, Enabled);
-  } else if (Name == "avx2") {
-    setSSELevel(Features, AVX2, Enabled);
-  } else if (Name == "avx512f") {
-    setSSELevel(Features, AVX512F, Enabled);
-  } else if (Name.startswith("avx512")) {
-    if (Enabled)
-      setSSELevel(Features, AVX512F, Enabled);
-    // Enable BWI instruction if certain features are being enabled.
-    if ((Name == "avx512vbmi" || Name == "avx512vbmi2" ||
-         Name == "avx512bitalg" || Name == "avx512bf16") && Enabled)
-      Features["avx512bw"] = true;
-    // Also disable some features if BWI is being disabled.
-    if (Name == "avx512bw" && !Enabled) {
-      Features["avx512vbmi"] = false;
-      Features["avx512vbmi2"] = false;
-      Features["avx512bitalg"] = false;
-      Features["avx512bf16"] = false;
-    }
-  } else if (Name == "fma") {
-    if (Enabled)
-      setSSELevel(Features, AVX, Enabled);
-    else
-      setSSELevel(Features, AVX512F, Enabled);
-  } else if (Name == "fma4") {
-    setXOPLevel(Features, FMA4, Enabled);
-  } else if (Name == "xop") {
-    setXOPLevel(Features, XOP, Enabled);
-  } else if (Name == "sse4a") {
-    setXOPLevel(Features, SSE4A, Enabled);
-  } else if (Name == "f16c") {
-    if (Enabled)
-      setSSELevel(Features, AVX, Enabled);
-    else
-      setSSELevel(Features, AVX512F, Enabled);
-  } else if (Name == "sha") {
-    if (Enabled)
-      setSSELevel(Features, SSE2, Enabled);
-  } else if (Name == "sse4") {
+void X86TargetInfo::setFeatureEnabled(llvm::StringMap<bool> &Features,
+                                      StringRef Name, bool Enabled) const {
+  if (Name == "sse4") {
     // We can get here via the __target__ attribute since that's not controlled
     // via the -msse4/-mno-sse4 command line alias. Handle this the same way
     // here - turn on the sse4.2 if enabled, turn off the sse4.1 level if
     // disabled.
     if (Enabled)
-      setSSELevel(Features, SSE42, Enabled);
+      Name = "sse4.2";
     else
-      setSSELevel(Features, SSE41, Enabled);
-  } else if (Name == "xsave") {
-    if (!Enabled)
-      Features["xsaveopt"] = false;
-  } else if (Name == "xsaveopt" || Name == "xsavec" || Name == "xsaves") {
-    if (Enabled)
-      Features["xsave"] = true;
+      Name = "sse4.1";
   }
+
+  Features[Name] = Enabled;
+  llvm::X86::updateImpliedFeatures(Name, Enabled, Features);
 }
 
 /// handleTargetFeatures - Perform initialization based on the user
@@ -733,7 +236,9 @@ bool X86TargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
     if (Feature[0] != '+')
       continue;
 
-    if (Feature == "+aes") {
+    if (Feature == "+mmx") {
+      HasMMX = true;
+    } else if (Feature == "+aes") {
       HasAES = true;
     } else if (Feature == "+vaes") {
       HasVAES = true;
@@ -771,6 +276,11 @@ bool X86TargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
       HasF16C = true;
     } else if (Feature == "+gfni") {
       HasGFNI = true;
+    } else if (Feature == "+avx10.1") {
+      HasAVX10_1 = true;
+    } else if (Feature == "+avx10.2") {
+      HasAVX10_2 = true;
+      HasFullBFloat16 = true;
     } else if (Feature == "+avx512cd") {
       HasAVX512CD = true;
     } else if (Feature == "+avx512vpopcntdq") {
@@ -779,10 +289,9 @@ bool X86TargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
       HasAVX512VNNI = true;
     } else if (Feature == "+avx512bf16") {
       HasAVX512BF16 = true;
-    } else if (Feature == "+avx512er") {
-      HasAVX512ER = true;
-    } else if (Feature == "+avx512pf") {
-      HasAVX512PF = true;
+    } else if (Feature == "+avx512fp16") {
+      HasAVX512FP16 = true;
+      HasFastHalfType = true;
     } else if (Feature == "+avx512dq") {
       HasAVX512DQ = true;
     } else if (Feature == "+avx512bitalg") {
@@ -801,10 +310,18 @@ bool X86TargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
       HasAVX512VP2INTERSECT = true;
     } else if (Feature == "+sha") {
       HasSHA = true;
+    } else if (Feature == "+sha512") {
+      HasSHA512 = true;
     } else if (Feature == "+shstk") {
       HasSHSTK = true;
+    } else if (Feature == "+sm3") {
+      HasSM3 = true;
+    } else if (Feature == "+sm4") {
+      HasSM4 = true;
     } else if (Feature == "+movbe") {
       HasMOVBE = true;
+    } else if (Feature == "+movrs") {
+      HasMOVRS = true;
     } else if (Feature == "+sgx") {
       HasSGX = true;
     } else if (Feature == "+cx8") {
@@ -831,14 +348,20 @@ bool X86TargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
       HasCLWB = true;
     } else if (Feature == "+wbnoinvd") {
       HasWBNOINVD = true;
-    } else if (Feature == "+prefetchwt1") {
-      HasPREFETCHWT1 = true;
+    } else if (Feature == "+prefetchi") {
+      HasPREFETCHI = true;
     } else if (Feature == "+clzero") {
       HasCLZERO = true;
     } else if (Feature == "+cldemote") {
       HasCLDEMOTE = true;
     } else if (Feature == "+rdpid") {
       HasRDPID = true;
+    } else if (Feature == "+rdpru") {
+      HasRDPRU = true;
+    } else if (Feature == "+kl") {
+      HasKL = true;
+    } else if (Feature == "+widekl") {
+      HasWIDEKL = true;
     } else if (Feature == "+retpoline-external-thunk") {
       HasRetpolineExternalThunk = true;
     } else if (Feature == "+sahf") {
@@ -857,10 +380,74 @@ bool X86TargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
       HasINVPCID = true;
     } else if (Feature == "+enqcmd") {
       HasENQCMD = true;
+    } else if (Feature == "+hreset") {
+      HasHRESET = true;
+    } else if (Feature == "+amx-bf16") {
+      HasAMXBF16 = true;
+    } else if (Feature == "+amx-fp16") {
+      HasAMXFP16 = true;
+    } else if (Feature == "+amx-int8") {
+      HasAMXINT8 = true;
+    } else if (Feature == "+amx-tile") {
+      HasAMXTILE = true;
+    } else if (Feature == "+amx-complex") {
+      HasAMXCOMPLEX = true;
+    } else if (Feature == "+amx-fp8") {
+      HasAMXFP8 = true;
+    } else if (Feature == "+amx-movrs") {
+      HasAMXMOVRS = true;
+    } else if (Feature == "+amx-avx512") {
+      HasAMXAVX512 = true;
+    } else if (Feature == "+amx-tf32") {
+      HasAMXTF32 = true;
+    } else if (Feature == "+cmpccxadd") {
+      HasCMPCCXADD = true;
+    } else if (Feature == "+raoint") {
+      HasRAOINT = true;
+    } else if (Feature == "+avxifma") {
+      HasAVXIFMA = true;
+    } else if (Feature == "+avxneconvert") {
+      HasAVXNECONVERT= true;
+    } else if (Feature == "+avxvnni") {
+      HasAVXVNNI = true;
+    } else if (Feature == "+avxvnniint16") {
+      HasAVXVNNIINT16 = true;
+    } else if (Feature == "+avxvnniint8") {
+      HasAVXVNNIINT8 = true;
     } else if (Feature == "+serialize") {
       HasSERIALIZE = true;
     } else if (Feature == "+tsxldtrk") {
       HasTSXLDTRK = true;
+    } else if (Feature == "+uintr") {
+      HasUINTR = true;
+    } else if (Feature == "+usermsr") {
+      HasUSERMSR = true;
+    } else if (Feature == "+crc32") {
+      HasCRC32 = true;
+    } else if (Feature == "+x87") {
+      HasX87 = true;
+    } else if (Feature == "+fullbf16") {
+      HasFullBFloat16 = true;
+    } else if (Feature == "+egpr") {
+      HasEGPR = true;
+    } else if (Feature == "+inline-asm-use-gpr32") {
+      HasInlineAsmUseGPR32 = true;
+    } else if (Feature == "+push2pop2") {
+      HasPush2Pop2 = true;
+    } else if (Feature == "+ppx") {
+      HasPPX = true;
+    } else if (Feature == "+ndd") {
+      HasNDD = true;
+    } else if (Feature == "+ccmp") {
+      HasCCMP = true;
+    } else if (Feature == "+nf") {
+      HasNF = true;
+    } else if (Feature == "+cf") {
+      HasCF = true;
+    } else if (Feature == "+zu") {
+      HasZU = true;
+    } else if (Feature == "+branch-hint") {
+      HasBranchHint = true;
     }
 
     X86SSEEnum Level = llvm::StringSwitch<X86SSEEnum>(Feature)
@@ -876,12 +463,18 @@ bool X86TargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
                            .Default(NoSSE);
     SSELevel = std::max(SSELevel, Level);
 
-    MMX3DNowEnum ThreeDNowLevel = llvm::StringSwitch<MMX3DNowEnum>(Feature)
-                                      .Case("+3dnowa", AMD3DNowAthlon)
-                                      .Case("+3dnow", AMD3DNow)
-                                      .Case("+mmx", MMX)
-                                      .Default(NoMMX3DNow);
-    MMX3DNowLevel = std::max(MMX3DNowLevel, ThreeDNowLevel);
+    HasFloat16 = SSELevel >= SSE2;
+
+    // X86 target has bfloat16 emulation support in the backend, where
+    // bfloat16 is treated as a 32-bit float, arithmetic operations are
+    // performed in 32-bit, and the result is converted back to bfloat16.
+    // Truncation and extension between bfloat16 and 32-bit float are supported
+    // by the compiler-rt library. However, native bfloat16 support is currently
+    // not available in the X86 target. Hence, HasFullBFloat16 will be false
+    // until native bfloat16 support is available. HasFullBFloat16 is used to
+    // determine whether to automatically use excess floating point precision
+    // for bfloat16 arithmetic operations in the front-end.
+    HasBFloat16 = SSELevel >= SSE2;
 
     XOPEnum XLevel = llvm::StringSwitch<XOPEnum>(Feature)
                          .Case("+xop", XOP)
@@ -900,8 +493,11 @@ bool X86TargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
     return false;
   }
 
-  SimdDefaultAlign =
-      hasFeature("avx512f") ? 512 : hasFeature("avx") ? 256 : 128;
+  // FIXME: We should allow long double type on 32-bits to match with GCC.
+  // This requires backend to be able to lower f80 without x87 first.
+  if (!HasX87 && LongDoubleFormat == &llvm::APFloat::x87DoubleExtended())
+    HasLongDouble = false;
+
   return true;
 }
 
@@ -939,8 +535,9 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
   // Subtarget options.
   // FIXME: We are hard-coding the tune parameters based on the CPU, but they
   // truly should be based on -mtune options.
+  using namespace llvm::X86;
   switch (CPU) {
-  case CK_Generic:
+  case CK_None:
     break;
   case CK_i386:
     // The rest are coming from the i386 define above.
@@ -955,7 +552,7 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
   case CK_PentiumMMX:
     Builder.defineMacro("__pentium_mmx__");
     Builder.defineMacro("__tune_pentium_mmx__");
-    LLVM_FALLTHROUGH;
+    [[fallthrough]];
   case CK_i586:
   case CK_Pentium:
     defineCPUMacros(Builder, "i586");
@@ -964,11 +561,11 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
   case CK_Pentium3:
   case CK_PentiumM:
     Builder.defineMacro("__tune_pentium3__");
-    LLVM_FALLTHROUGH;
+    [[fallthrough]];
   case CK_Pentium2:
   case CK_C3_2:
     Builder.defineMacro("__tune_pentium2__");
-    LLVM_FALLTHROUGH;
+    [[fallthrough]];
   case CK_PentiumPro:
   case CK_i686:
     defineCPUMacros(Builder, "i686");
@@ -1001,6 +598,8 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
   case CK_Tremont:
     defineCPUMacros(Builder, "tremont");
     break;
+  // Gracemont and later atom-cores use P-core cpu macros.
+  case CK_Gracemont:
   case CK_Nehalem:
   case CK_Westmere:
   case CK_SandyBridge:
@@ -1013,8 +612,26 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
   case CK_Cooperlake:
   case CK_Cannonlake:
   case CK_IcelakeClient:
+  case CK_Rocketlake:
   case CK_IcelakeServer:
   case CK_Tigerlake:
+  case CK_SapphireRapids:
+  case CK_Alderlake:
+  case CK_Raptorlake:
+  case CK_Meteorlake:
+  case CK_Arrowlake:
+  case CK_ArrowlakeS:
+  case CK_Lunarlake:
+  case CK_Pantherlake:
+  case CK_Wildcatlake:
+  case CK_Novalake:
+  case CK_Sierraforest:
+  case CK_Grandridge:
+  case CK_Graniterapids:
+  case CK_GraniterapidsD:
+  case CK_Emeraldrapids:
+  case CK_Clearwaterforest:
+  case CK_Diamondrapids:
     // FIXME: Historically, we defined this legacy name, it would be nice to
     // remove it at some point. We've never exposed fine-grained names for
     // recent primary x86 CPUs, and we should keep it that way.
@@ -1033,7 +650,7 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
   case CK_K6_2:
     Builder.defineMacro("__k6_2__");
     Builder.defineMacro("__tune_k6_2__");
-    LLVM_FALLTHROUGH;
+    [[fallthrough]];
   case CK_K6_3:
     if (CPU != CK_K6_2) { // In case of fallthrough
       // FIXME: GCC may be enabling these in cases where some other k6
@@ -1042,7 +659,7 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
       Builder.defineMacro("__k6_3__");
       Builder.defineMacro("__tune_k6_3__");
     }
-    LLVM_FALLTHROUGH;
+    [[fallthrough]];
   case CK_K6:
     defineCPUMacros(Builder, "k6");
     break;
@@ -1058,6 +675,10 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
   case CK_K8SSE3:
   case CK_x86_64:
     defineCPUMacros(Builder, "k8");
+    break;
+  case CK_x86_64_v2:
+  case CK_x86_64_v3:
+  case CK_x86_64_v4:
     break;
   case CK_AMDFAM10:
     defineCPUMacros(Builder, "amdfam10");
@@ -1086,6 +707,15 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
   case CK_ZNVER2:
     defineCPUMacros(Builder, "znver2");
     break;
+  case CK_ZNVER3:
+    defineCPUMacros(Builder, "znver3");
+    break;
+  case CK_ZNVER4:
+    defineCPUMacros(Builder, "znver4");
+    break;
+  case CK_ZNVER5:
+    defineCPUMacros(Builder, "znver5");
+    break;
   case CK_Geode:
     defineCPUMacros(Builder, "geode");
     break;
@@ -1110,6 +740,11 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
 
   if (HasVPCLMULQDQ)
     Builder.defineMacro("__VPCLMULQDQ__");
+
+  // Note, in 32-bit mode, GCC does not define the macro if -mno-sahf. In LLVM,
+  // the feature flag only applies to 64-bit mode.
+  if (HasLAHFSAHF || getTriple().getArch() == llvm::Triple::x86)
+    Builder.defineMacro("__LAHF_SAHF__");
 
   if (HasLZCNT)
     Builder.defineMacro("__LZCNT__");
@@ -1156,13 +791,13 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
   switch (XOPLevel) {
   case XOP:
     Builder.defineMacro("__XOP__");
-    LLVM_FALLTHROUGH;
+    [[fallthrough]];
   case FMA4:
     Builder.defineMacro("__FMA4__");
-    LLVM_FALLTHROUGH;
+    [[fallthrough]];
   case SSE4A:
     Builder.defineMacro("__SSE4A__");
-    LLVM_FALLTHROUGH;
+    [[fallthrough]];
   case NoXOP:
     break;
   }
@@ -1176,6 +811,14 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
   if (HasGFNI)
     Builder.defineMacro("__GFNI__");
 
+  if (HasAVX10_1) {
+    Builder.defineMacro("__AVX10_1__");
+    Builder.defineMacro("__AVX10_1_512__");
+  }
+  if (HasAVX10_2) {
+    Builder.defineMacro("__AVX10_2__");
+    Builder.defineMacro("__AVX10_2_512__");
+  }
   if (HasAVX512CD)
     Builder.defineMacro("__AVX512CD__");
   if (HasAVX512VPOPCNTDQ)
@@ -1184,18 +827,17 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
     Builder.defineMacro("__AVX512VNNI__");
   if (HasAVX512BF16)
     Builder.defineMacro("__AVX512BF16__");
-  if (HasAVX512ER)
-    Builder.defineMacro("__AVX512ER__");
-  if (HasAVX512PF)
-    Builder.defineMacro("__AVX512PF__");
+  if (HasAVX512FP16)
+    Builder.defineMacro("__AVX512FP16__");
   if (HasAVX512DQ)
     Builder.defineMacro("__AVX512DQ__");
   if (HasAVX512BITALG)
     Builder.defineMacro("__AVX512BITALG__");
   if (HasAVX512BW)
     Builder.defineMacro("__AVX512BW__");
-  if (HasAVX512VL)
+  if (HasAVX512VL) {
     Builder.defineMacro("__AVX512VL__");
+  }
   if (HasAVX512VBMI)
     Builder.defineMacro("__AVX512VBMI__");
   if (HasAVX512VBMI2)
@@ -1206,6 +848,8 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
     Builder.defineMacro("__AVX512VP2INTERSECT__");
   if (HasSHA)
     Builder.defineMacro("__SHA__");
+  if (HasSHA512)
+    Builder.defineMacro("__SHA512__");
 
   if (HasFXSR)
     Builder.defineMacro("__FXSR__");
@@ -1229,12 +873,22 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
     Builder.defineMacro("__SHSTK__");
   if (HasSGX)
     Builder.defineMacro("__SGX__");
-  if (HasPREFETCHWT1)
-    Builder.defineMacro("__PREFETCHWT1__");
+  if (HasSM3)
+    Builder.defineMacro("__SM3__");
+  if (HasSM4)
+    Builder.defineMacro("__SM4__");
+  if (HasPREFETCHI)
+    Builder.defineMacro("__PREFETCHI__");
   if (HasCLZERO)
     Builder.defineMacro("__CLZERO__");
+  if (HasKL)
+    Builder.defineMacro("__KL__");
+  if (HasWIDEKL)
+    Builder.defineMacro("__WIDEKL__");
   if (HasRDPID)
     Builder.defineMacro("__RDPID__");
+  if (HasRDPRU)
+    Builder.defineMacro("__RDPRU__");
   if (HasCLDEMOTE)
     Builder.defineMacro("__CLDEMOTE__");
   if (HasWAITPKG)
@@ -1243,6 +897,8 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
     Builder.defineMacro("__MOVDIRI__");
   if (HasMOVDIR64B)
     Builder.defineMacro("__MOVDIR64B__");
+  if (HasMOVRS)
+    Builder.defineMacro("__MOVRS__");
   if (HasPCONFIG)
     Builder.defineMacro("__PCONFIG__");
   if (HasPTWRITE)
@@ -1251,42 +907,102 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
     Builder.defineMacro("__INVPCID__");
   if (HasENQCMD)
     Builder.defineMacro("__ENQCMD__");
+  if (HasHRESET)
+    Builder.defineMacro("__HRESET__");
+  if (HasAMXTILE)
+    Builder.defineMacro("__AMX_TILE__");
+  if (HasAMXINT8)
+    Builder.defineMacro("__AMX_INT8__");
+  if (HasAMXBF16)
+    Builder.defineMacro("__AMX_BF16__");
+  if (HasAMXFP16)
+    Builder.defineMacro("__AMX_FP16__");
+  if (HasAMXCOMPLEX)
+    Builder.defineMacro("__AMX_COMPLEX__");
+  if (HasAMXFP8)
+    Builder.defineMacro("__AMX_FP8__");
+  if (HasAMXMOVRS)
+    Builder.defineMacro("__AMX_MOVRS__");
+  if (HasAMXAVX512)
+    Builder.defineMacro("__AMX_AVX512__");
+  if (HasAMXTF32)
+    Builder.defineMacro("__AMX_TF32__");
+  if (HasCMPCCXADD)
+    Builder.defineMacro("__CMPCCXADD__");
+  if (HasRAOINT)
+    Builder.defineMacro("__RAOINT__");
+  if (HasAVXIFMA)
+    Builder.defineMacro("__AVXIFMA__");
+  if (HasAVXNECONVERT)
+    Builder.defineMacro("__AVXNECONVERT__");
+  if (HasAVXVNNI)
+    Builder.defineMacro("__AVXVNNI__");
+  if (HasAVXVNNIINT16)
+    Builder.defineMacro("__AVXVNNIINT16__");
+  if (HasAVXVNNIINT8)
+    Builder.defineMacro("__AVXVNNIINT8__");
   if (HasSERIALIZE)
     Builder.defineMacro("__SERIALIZE__");
   if (HasTSXLDTRK)
     Builder.defineMacro("__TSXLDTRK__");
+  if (HasUINTR)
+    Builder.defineMacro("__UINTR__");
+  if (HasUSERMSR)
+    Builder.defineMacro("__USERMSR__");
+  if (HasCRC32)
+    Builder.defineMacro("__CRC32__");
+  if (HasEGPR)
+    Builder.defineMacro("__EGPR__");
+  if (HasPush2Pop2)
+    Builder.defineMacro("__PUSH2POP2__");
+  if (HasPPX)
+    Builder.defineMacro("__PPX__");
+  if (HasNDD)
+    Builder.defineMacro("__NDD__");
+  if (HasCCMP)
+    Builder.defineMacro("__CCMP__");
+  if (HasNF)
+    Builder.defineMacro("__NF__");
+  if (HasCF)
+    Builder.defineMacro("__CF__");
+  if (HasZU)
+    Builder.defineMacro("__ZU__");
+  if (HasEGPR && HasPush2Pop2 && HasPPX && HasNDD && HasCCMP && HasNF && HasZU)
+    Builder.defineMacro("__APX_F__");
+  if (HasEGPR && HasInlineAsmUseGPR32)
+    Builder.defineMacro("__APX_INLINE_ASM_USE_GPR32__");
 
   // Each case falls through to the previous one here.
   switch (SSELevel) {
   case AVX512F:
     Builder.defineMacro("__AVX512F__");
-    LLVM_FALLTHROUGH;
+    [[fallthrough]];
   case AVX2:
     Builder.defineMacro("__AVX2__");
-    LLVM_FALLTHROUGH;
+    [[fallthrough]];
   case AVX:
     Builder.defineMacro("__AVX__");
-    LLVM_FALLTHROUGH;
+    [[fallthrough]];
   case SSE42:
     Builder.defineMacro("__SSE4_2__");
-    LLVM_FALLTHROUGH;
+    [[fallthrough]];
   case SSE41:
     Builder.defineMacro("__SSE4_1__");
-    LLVM_FALLTHROUGH;
+    [[fallthrough]];
   case SSSE3:
     Builder.defineMacro("__SSSE3__");
-    LLVM_FALLTHROUGH;
+    [[fallthrough]];
   case SSE3:
     Builder.defineMacro("__SSE3__");
-    LLVM_FALLTHROUGH;
+    [[fallthrough]];
   case SSE2:
     Builder.defineMacro("__SSE2__");
     Builder.defineMacro("__SSE2_MATH__"); // -mfp-math=sse always implied.
-    LLVM_FALLTHROUGH;
+    [[fallthrough]];
   case SSE1:
     Builder.defineMacro("__SSE__");
     Builder.defineMacro("__SSE_MATH__"); // -mfp-math=sse always implied.
-    LLVM_FALLTHROUGH;
+    [[fallthrough]];
   case NoSSE:
     break;
   }
@@ -1313,21 +1029,11 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
   }
 
   // Each case falls through to the previous one here.
-  switch (MMX3DNowLevel) {
-  case AMD3DNowAthlon:
-    Builder.defineMacro("__3dNOW_A__");
-    LLVM_FALLTHROUGH;
-  case AMD3DNow:
-    Builder.defineMacro("__3dNOW__");
-    LLVM_FALLTHROUGH;
-  case MMX:
+  if (HasMMX) {
     Builder.defineMacro("__MMX__");
-    LLVM_FALLTHROUGH;
-  case NoMMX3DNow:
-    break;
   }
 
-  if (CPU >= CK_i486 || CPU == CK_Generic) {
+  if (CPU >= CK_i486 || CPU == CK_None) {
     Builder.defineMacro("__GCC_HAVE_SYNC_COMPARE_AND_SWAP_1");
     Builder.defineMacro("__GCC_HAVE_SYNC_COMPARE_AND_SWAP_2");
     Builder.defineMacro("__GCC_HAVE_SYNC_COMPARE_AND_SWAP_4");
@@ -1339,23 +1045,35 @@ void X86TargetInfo::getTargetDefines(const LangOptions &Opts,
 
   if (HasFloat128)
     Builder.defineMacro("__SIZEOF_FLOAT128__", "16");
+
+  if (Opts.CFProtectionReturn || Opts.CFProtectionBranch)
+    Builder.defineMacro("__CET__", Twine{(Opts.CFProtectionReturn << 1) |
+                                         Opts.CFProtectionBranch});
 }
 
 bool X86TargetInfo::isValidFeatureName(StringRef Name) const {
   return llvm::StringSwitch<bool>(Name)
-      .Case("3dnow", true)
-      .Case("3dnowa", true)
       .Case("adx", true)
       .Case("aes", true)
+      .Case("amx-avx512", true)
+      .Case("amx-bf16", true)
+      .Case("amx-complex", true)
+      .Case("amx-fp16", true)
+      .Case("amx-fp8", true)
+      .Case("amx-int8", true)
+      .Case("amx-movrs", true)
+      .Case("amx-tf32", true)
+      .Case("amx-tile", true)
       .Case("avx", true)
+      .Case("avx10.1", true)
+      .Case("avx10.2", true)
       .Case("avx2", true)
       .Case("avx512f", true)
       .Case("avx512cd", true)
       .Case("avx512vpopcntdq", true)
       .Case("avx512vnni", true)
       .Case("avx512bf16", true)
-      .Case("avx512er", true)
-      .Case("avx512pf", true)
+      .Case("avx512fp16", true)
       .Case("avx512dq", true)
       .Case("avx512bitalg", true)
       .Case("avx512bw", true)
@@ -1364,12 +1082,19 @@ bool X86TargetInfo::isValidFeatureName(StringRef Name) const {
       .Case("avx512vbmi2", true)
       .Case("avx512ifma", true)
       .Case("avx512vp2intersect", true)
+      .Case("avxifma", true)
+      .Case("avxneconvert", true)
+      .Case("avxvnni", true)
+      .Case("avxvnniint16", true)
+      .Case("avxvnniint8", true)
       .Case("bmi", true)
       .Case("bmi2", true)
       .Case("cldemote", true)
       .Case("clflushopt", true)
       .Case("clwb", true)
       .Case("clzero", true)
+      .Case("cmpccxadd", true)
+      .Case("crc32", true)
       .Case("cx16", true)
       .Case("enqcmd", true)
       .Case("f16c", true)
@@ -1377,12 +1102,17 @@ bool X86TargetInfo::isValidFeatureName(StringRef Name) const {
       .Case("fma4", true)
       .Case("fsgsbase", true)
       .Case("fxsr", true)
+      .Case("general-regs-only", true)
       .Case("gfni", true)
+      .Case("hreset", true)
       .Case("invpcid", true)
+      .Case("kl", true)
+      .Case("widekl", true)
       .Case("lwp", true)
       .Case("lzcnt", true)
       .Case("mmx", true)
       .Case("movbe", true)
+      .Case("movrs", true)
       .Case("movdiri", true)
       .Case("movdir64b", true)
       .Case("mwaitx", true)
@@ -1390,10 +1120,13 @@ bool X86TargetInfo::isValidFeatureName(StringRef Name) const {
       .Case("pconfig", true)
       .Case("pku", true)
       .Case("popcnt", true)
-      .Case("prefetchwt1", true)
+      .Case("prefer-256-bit", true)
+      .Case("prefetchi", true)
       .Case("prfchw", true)
       .Case("ptwrite", true)
+      .Case("raoint", true)
       .Case("rdpid", true)
+      .Case("rdpru", true)
       .Case("rdrnd", true)
       .Case("rdseed", true)
       .Case("rtm", true)
@@ -1401,7 +1134,10 @@ bool X86TargetInfo::isValidFeatureName(StringRef Name) const {
       .Case("serialize", true)
       .Case("sgx", true)
       .Case("sha", true)
+      .Case("sha512", true)
       .Case("shstk", true)
+      .Case("sm3", true)
+      .Case("sm4", true)
       .Case("sse", true)
       .Case("sse2", true)
       .Case("sse3", true)
@@ -1412,6 +1148,8 @@ bool X86TargetInfo::isValidFeatureName(StringRef Name) const {
       .Case("sse4a", true)
       .Case("tbm", true)
       .Case("tsxldtrk", true)
+      .Case("uintr", true)
+      .Case("usermsr", true)
       .Case("vaes", true)
       .Case("vpclmulqdq", true)
       .Case("wbnoinvd", true)
@@ -1422,6 +1160,14 @@ bool X86TargetInfo::isValidFeatureName(StringRef Name) const {
       .Case("xsavec", true)
       .Case("xsaves", true)
       .Case("xsaveopt", true)
+      .Case("egpr", true)
+      .Case("push2pop2", true)
+      .Case("ppx", true)
+      .Case("ndd", true)
+      .Case("ccmp", true)
+      .Case("nf", true)
+      .Case("cf", true)
+      .Case("zu", true)
       .Default(false);
 }
 
@@ -1429,15 +1175,25 @@ bool X86TargetInfo::hasFeature(StringRef Feature) const {
   return llvm::StringSwitch<bool>(Feature)
       .Case("adx", HasADX)
       .Case("aes", HasAES)
+      .Case("amx-avx512", HasAMXAVX512)
+      .Case("amx-bf16", HasAMXBF16)
+      .Case("amx-complex", HasAMXCOMPLEX)
+      .Case("amx-fp16", HasAMXFP16)
+      .Case("amx-fp8", HasAMXFP8)
+      .Case("amx-int8", HasAMXINT8)
+      .Case("amx-movrs", HasAMXMOVRS)
+      .Case("amx-tf32", HasAMXTF32)
+      .Case("amx-tile", HasAMXTILE)
       .Case("avx", SSELevel >= AVX)
+      .Case("avx10.1", HasAVX10_1)
+      .Case("avx10.2", HasAVX10_2)
       .Case("avx2", SSELevel >= AVX2)
       .Case("avx512f", SSELevel >= AVX512F)
       .Case("avx512cd", HasAVX512CD)
       .Case("avx512vpopcntdq", HasAVX512VPOPCNTDQ)
       .Case("avx512vnni", HasAVX512VNNI)
       .Case("avx512bf16", HasAVX512BF16)
-      .Case("avx512er", HasAVX512ER)
-      .Case("avx512pf", HasAVX512PF)
+      .Case("avx512fp16", HasAVX512FP16)
       .Case("avx512dq", HasAVX512DQ)
       .Case("avx512bitalg", HasAVX512BITALG)
       .Case("avx512bw", HasAVX512BW)
@@ -1446,12 +1202,19 @@ bool X86TargetInfo::hasFeature(StringRef Feature) const {
       .Case("avx512vbmi2", HasAVX512VBMI2)
       .Case("avx512ifma", HasAVX512IFMA)
       .Case("avx512vp2intersect", HasAVX512VP2INTERSECT)
+      .Case("avxifma", HasAVXIFMA)
+      .Case("avxneconvert", HasAVXNECONVERT)
+      .Case("avxvnni", HasAVXVNNI)
+      .Case("avxvnniint16", HasAVXVNNIINT16)
+      .Case("avxvnniint8", HasAVXVNNIINT8)
       .Case("bmi", HasBMI)
       .Case("bmi2", HasBMI2)
       .Case("cldemote", HasCLDEMOTE)
       .Case("clflushopt", HasCLFLUSHOPT)
       .Case("clwb", HasCLWB)
       .Case("clzero", HasCLZERO)
+      .Case("cmpccxadd", HasCMPCCXADD)
+      .Case("crc32", HasCRC32)
       .Case("cx8", HasCX8)
       .Case("cx16", HasCX16)
       .Case("enqcmd", HasENQCMD)
@@ -1461,13 +1224,15 @@ bool X86TargetInfo::hasFeature(StringRef Feature) const {
       .Case("fsgsbase", HasFSGSBASE)
       .Case("fxsr", HasFXSR)
       .Case("gfni", HasGFNI)
+      .Case("hreset", HasHRESET)
       .Case("invpcid", HasINVPCID)
+      .Case("kl", HasKL)
+      .Case("widekl", HasWIDEKL)
       .Case("lwp", HasLWP)
       .Case("lzcnt", HasLZCNT)
-      .Case("mm3dnow", MMX3DNowLevel >= AMD3DNow)
-      .Case("mm3dnowa", MMX3DNowLevel >= AMD3DNowAthlon)
-      .Case("mmx", MMX3DNowLevel >= MMX)
+      .Case("mmx", HasMMX)
       .Case("movbe", HasMOVBE)
+      .Case("movrs", HasMOVRS)
       .Case("movdiri", HasMOVDIRI)
       .Case("movdir64b", HasMOVDIR64B)
       .Case("mwaitx", HasMWAITX)
@@ -1475,10 +1240,12 @@ bool X86TargetInfo::hasFeature(StringRef Feature) const {
       .Case("pconfig", HasPCONFIG)
       .Case("pku", HasPKU)
       .Case("popcnt", HasPOPCNT)
-      .Case("prefetchwt1", HasPREFETCHWT1)
+      .Case("prefetchi", HasPREFETCHI)
       .Case("prfchw", HasPRFCHW)
       .Case("ptwrite", HasPTWRITE)
+      .Case("raoint", HasRAOINT)
       .Case("rdpid", HasRDPID)
+      .Case("rdpru", HasRDPRU)
       .Case("rdrnd", HasRDRND)
       .Case("rdseed", HasRDSEED)
       .Case("retpoline-external-thunk", HasRetpolineExternalThunk)
@@ -1487,7 +1254,10 @@ bool X86TargetInfo::hasFeature(StringRef Feature) const {
       .Case("serialize", HasSERIALIZE)
       .Case("sgx", HasSGX)
       .Case("sha", HasSHA)
+      .Case("sha512", HasSHA512)
       .Case("shstk", HasSHSTK)
+      .Case("sm3", HasSM3)
+      .Case("sm4", HasSM4)
       .Case("sse", SSELevel >= SSE1)
       .Case("sse2", SSELevel >= SSE2)
       .Case("sse3", SSELevel >= SSE3)
@@ -1497,6 +1267,8 @@ bool X86TargetInfo::hasFeature(StringRef Feature) const {
       .Case("sse4a", XOPLevel >= SSE4A)
       .Case("tbm", HasTBM)
       .Case("tsxldtrk", HasTSXLDTRK)
+      .Case("uintr", HasUINTR)
+      .Case("usermsr", HasUSERMSR)
       .Case("vaes", HasVAES)
       .Case("vpclmulqdq", HasVPCLMULQDQ)
       .Case("wbnoinvd", HasWBNOINVD)
@@ -1504,11 +1276,22 @@ bool X86TargetInfo::hasFeature(StringRef Feature) const {
       .Case("x86", true)
       .Case("x86_32", getTriple().getArch() == llvm::Triple::x86)
       .Case("x86_64", getTriple().getArch() == llvm::Triple::x86_64)
+      .Case("x87", HasX87)
       .Case("xop", XOPLevel >= XOP)
       .Case("xsave", HasXSAVE)
       .Case("xsavec", HasXSAVEC)
       .Case("xsaves", HasXSAVES)
       .Case("xsaveopt", HasXSAVEOPT)
+      .Case("fullbf16", HasFullBFloat16)
+      .Case("egpr", HasEGPR)
+      .Case("push2pop2", HasPush2Pop2)
+      .Case("ppx", HasPPX)
+      .Case("ndd", HasNDD)
+      .Case("ccmp", HasCCMP)
+      .Case("nf", HasNF)
+      .Case("cf", HasCF)
+      .Case("zu", HasZU)
+      .Case("branch-hint", HasBranchHint)
       .Default(false);
 }
 
@@ -1519,86 +1302,59 @@ bool X86TargetInfo::hasFeature(StringRef Feature) const {
 // X86TargetInfo::hasFeature for a somewhat comprehensive list).
 bool X86TargetInfo::validateCpuSupports(StringRef FeatureStr) const {
   return llvm::StringSwitch<bool>(FeatureStr)
-#define X86_FEATURE_COMPAT(VAL, ENUM, STR) .Case(STR, true)
-#include "llvm/Support/X86TargetParser.def"
+#define X86_FEATURE_COMPAT(ENUM, STR, PRIORITY) .Case(STR, true)
+#define X86_MICROARCH_LEVEL(ENUM, STR, PRIORITY) .Case(STR, true)
+#include "llvm/TargetParser/X86TargetParser.def"
       .Default(false);
 }
 
 static llvm::X86::ProcessorFeatures getFeature(StringRef Name) {
   return llvm::StringSwitch<llvm::X86::ProcessorFeatures>(Name)
-#define X86_FEATURE_COMPAT(VAL, ENUM, STR) .Case(STR, llvm::X86::ENUM)
-#include "llvm/Support/X86TargetParser.def"
+#define X86_FEATURE_COMPAT(ENUM, STR, PRIORITY)                                \
+  .Case(STR, llvm::X86::FEATURE_##ENUM)
+
+#include "llvm/TargetParser/X86TargetParser.def"
       ;
   // Note, this function should only be used after ensuring the value is
   // correct, so it asserts if the value is out of range.
 }
 
-static unsigned getFeaturePriority(llvm::X86::ProcessorFeatures Feat) {
-  enum class FeatPriority {
-#define FEATURE(FEAT) FEAT,
-#include "clang/Basic/X86Target.def"
-  };
-  switch (Feat) {
-#define FEATURE(FEAT)                                                          \
-  case llvm::X86::FEAT:                                                        \
-    return static_cast<unsigned>(FeatPriority::FEAT);
-#include "clang/Basic/X86Target.def"
-  default:
-    llvm_unreachable("No Feature Priority for non-CPUSupports Features");
-  }
-}
-
-unsigned X86TargetInfo::multiVersionSortPriority(StringRef Name) const {
-  // Valid CPUs have a 'key feature' that compares just better than its key
-  // feature.
-  CPUKind Kind = getCPUKind(Name);
-  if (Kind != CK_Generic) {
-    switch (Kind) {
-    default:
-      llvm_unreachable(
-          "CPU Type without a key feature used in 'target' attribute");
-#define PROC_WITH_FEAT(ENUM, STR, IS64, KEY_FEAT)                              \
-  case CK_##ENUM:                                                              \
-    return (getFeaturePriority(llvm::X86::KEY_FEAT) << 1) + 1;
-#include "clang/Basic/X86Target.def"
+llvm::APInt X86TargetInfo::getFMVPriority(ArrayRef<StringRef> Features) const {
+  auto getPriority = [](StringRef Feature) -> unsigned {
+    // Valid CPUs have a 'key feature' that compares just better than its key
+    // feature.
+    using namespace llvm::X86;
+    CPUKind Kind = parseArchX86(Feature);
+    if (Kind != CK_None) {
+      ProcessorFeatures KeyFeature = getKeyFeature(Kind);
+      return (getFeaturePriority(KeyFeature) << 1) + 1;
     }
-  }
+    // Now we know we have a feature, so get its priority and shift it a few so
+    // that we have sufficient room for the CPUs (above).
+    return getFeaturePriority(getFeature(Feature)) << 1;
+  };
 
-  // Now we know we have a feature, so get its priority and shift it a few so
-  // that we have sufficient room for the CPUs (above).
-  return getFeaturePriority(getFeature(Name)) << 1;
+  unsigned Priority = 0;
+  for (StringRef Feature : Features)
+    if (!Feature.empty())
+      Priority = std::max(Priority, getPriority(Feature));
+  return llvm::APInt(32, Priority);
 }
 
 bool X86TargetInfo::validateCPUSpecificCPUDispatch(StringRef Name) const {
-  return llvm::StringSwitch<bool>(Name)
-#define CPU_SPECIFIC(NAME, MANGLING, FEATURES) .Case(NAME, true)
-#define CPU_SPECIFIC_ALIAS(NEW_NAME, NAME) .Case(NEW_NAME, true)
-#include "clang/Basic/X86Target.def"
-      .Default(false);
-}
-
-static StringRef CPUSpecificCPUDispatchNameDealias(StringRef Name) {
-  return llvm::StringSwitch<StringRef>(Name)
-#define CPU_SPECIFIC_ALIAS(NEW_NAME, NAME) .Case(NEW_NAME, NAME)
-#include "clang/Basic/X86Target.def"
-      .Default(Name);
+  return llvm::X86::validateCPUSpecificCPUDispatch(Name);
 }
 
 char X86TargetInfo::CPUSpecificManglingCharacter(StringRef Name) const {
-  return llvm::StringSwitch<char>(CPUSpecificCPUDispatchNameDealias(Name))
-#define CPU_SPECIFIC(NAME, MANGLING, FEATURES) .Case(NAME, MANGLING)
-#include "clang/Basic/X86Target.def"
-      .Default(0);
+  return llvm::X86::getCPUDispatchMangling(Name);
 }
 
 void X86TargetInfo::getCPUSpecificCPUDispatchFeatures(
     StringRef Name, llvm::SmallVectorImpl<StringRef> &Features) const {
-  StringRef WholeList =
-      llvm::StringSwitch<StringRef>(CPUSpecificCPUDispatchNameDealias(Name))
-#define CPU_SPECIFIC(NAME, MANGLING, FEATURES) .Case(NAME, FEATURES)
-#include "clang/Basic/X86Target.def"
-          .Default("");
-  WholeList.split(Features, ',', /*MaxSplit=*/-1, /*KeepEmpty=*/false);
+  SmallVector<StringRef, 32> TargetCPUFeatures;
+  llvm::X86::getFeaturesForCPU(Name, TargetCPUFeatures, true);
+  for (auto &F : TargetCPUFeatures)
+    Features.push_back(F);
 }
 
 // We can't use a generic validation scheme for the cpus accepted here
@@ -1608,15 +1364,15 @@ void X86TargetInfo::getCPUSpecificCPUDispatchFeatures(
 bool X86TargetInfo::validateCpuIs(StringRef FeatureStr) const {
   return llvm::StringSwitch<bool>(FeatureStr)
 #define X86_VENDOR(ENUM, STRING) .Case(STRING, true)
-#define X86_CPU_TYPE_COMPAT_WITH_ALIAS(ARCHNAME, ENUM, STR, ALIAS)             \
-  .Cases(STR, ALIAS, true)
-#define X86_CPU_TYPE_COMPAT(ARCHNAME, ENUM, STR) .Case(STR, true)
-#define X86_CPU_SUBTYPE_COMPAT(ARCHNAME, ENUM, STR) .Case(STR, true)
-#include "llvm/Support/X86TargetParser.def"
+#define X86_CPU_TYPE_ALIAS(ENUM, ALIAS) .Case(ALIAS, true)
+#define X86_CPU_TYPE(ENUM, STR) .Case(STR, true)
+#define X86_CPU_SUBTYPE_ALIAS(ENUM, ALIAS) .Case(ALIAS, true)
+#define X86_CPU_SUBTYPE(ENUM, STR) .Case(STR, true)
+#include "llvm/TargetParser/X86TargetParser.def"
       .Default(false);
 }
 
-static unsigned matchAsmCCConstraint(const char *&Name) {
+static unsigned matchAsmCCConstraint(const char *Name) {
   auto RV = llvm::StringSwitch<unsigned>(Name)
                 .Case("@cca", 4)
                 .Case("@ccae", 5)
@@ -1684,6 +1440,14 @@ bool X86TargetInfo::validateAsmConstraint(
   case 'O':
     Info.setRequiresImmediate(0, 127);
     return true;
+  case 'W':
+    switch (*++Name) {
+    default:
+      return false;
+    case 's':
+      Info.setAllowsRegister();
+      return true;
+    }
   // Register constraints.
   case 'Y': // 'Y' is the first character for several 2-character constraints.
     // Shift the pointer to the second character of the constraint.
@@ -1702,7 +1466,7 @@ bool X86TargetInfo::validateAsmConstraint(
     }
   case 'f': // Any x87 floating point stack register.
     // Constraint 'f' cannot be used for output operands.
-    if (Info.ConstraintStr[0] == '=')
+    if (Info.ConstraintStr[0] == '=' || Info.ConstraintStr[0] == '+')
       return false;
     Info.setAllowsRegister();
     return true;
@@ -1731,11 +1495,24 @@ bool X86TargetInfo::validateAsmConstraint(
   case 'C': // SSE floating point constant.
   case 'G': // x87 floating point constant.
     return true;
+  case 'j':
+    Name++;
+    switch (*Name) {
+    default:
+      return false;
+    case 'r':
+      Info.setAllowsRegister();
+      return true;
+    case 'R':
+      Info.setAllowsRegister();
+      return true;
+    }
   case '@':
     // CC condition changes.
     if (auto Len = matchAsmCCConstraint(Name)) {
       Name += Len - 1;
       Info.setAllowsRegister();
+      Info.setOutputOperandBounds(0, 2);
       return true;
     }
     return false;
@@ -1756,7 +1533,7 @@ bool X86TargetInfo::validateAsmConstraint(
 // | Sandy Bridge                       |                      64 | https://en.wikipedia.org/wiki/Sandy_Bridge and https://www.7-cpu.com/cpu/SandyBridge.html                                                                    |
 // | Ivy Bridge                         |                      64 | https://blog.stuffedcow.net/2013/01/ivb-cache-replacement/ and https://www.7-cpu.com/cpu/IvyBridge.html                                                      |
 // | Haswell                            |                      64 | https://www.7-cpu.com/cpu/Haswell.html                                                                                                                       |
-// | Boadwell                           |                      64 | https://www.7-cpu.com/cpu/Broadwell.html                                                                                                                     |
+// | Broadwell                          |                      64 | https://www.7-cpu.com/cpu/Broadwell.html                                                                                                                     |
 // | Skylake (including skylake-avx512) |                      64 | https://www.nas.nasa.gov/hecc/support/kb/skylake-processors_550.html "Cache Hierarchy"                                                                       |
 // | Cascade Lake                       |                      64 | https://www.nas.nasa.gov/hecc/support/kb/cascade-lake-processors_579.html "Cache Hierarchy"                                                                  |
 // | Skylake                            |                      64 | https://en.wikichip.org/wiki/intel/microarchitectures/kaby_lake "Memory Hierarchy"                                                                           |
@@ -1764,7 +1541,8 @@ bool X86TargetInfo::validateAsmConstraint(
 // | Knights Landing                    |                      64 | https://software.intel.com/en-us/articles/intel-xeon-phi-processor-7200-family-memory-management-optimizations "The Intel® Xeon Phi™ Processor Architecture" |
 // | Knights Mill                       |                      64 | https://software.intel.com/sites/default/files/managed/9e/bc/64-ia-32-architectures-optimization-manual.pdf?countrylabel=Colombia "2.5.5.2 L1 DCache "       |
 // +------------------------------------+-------------------------+--------------------------------------------------------------------------------------------------------------------------------------------------------------+
-Optional<unsigned> X86TargetInfo::getCPUCacheLineSize() const {
+std::optional<unsigned> X86TargetInfo::getCPUCacheLineSize() const {
+  using namespace llvm::X86;
   switch (CPU) {
     // i386
     case CK_i386:
@@ -1806,6 +1584,7 @@ Optional<unsigned> X86TargetInfo::getCPUCacheLineSize() const {
     case CK_Goldmont:
     case CK_GoldmontPlus:
     case CK_Tremont:
+    case CK_Gracemont:
 
     case CK_Westmere:
     case CK_SandyBridge:
@@ -1819,8 +1598,26 @@ Optional<unsigned> X86TargetInfo::getCPUCacheLineSize() const {
     case CK_Cooperlake:
     case CK_Cannonlake:
     case CK_Tigerlake:
+    case CK_SapphireRapids:
     case CK_IcelakeClient:
+    case CK_Rocketlake:
     case CK_IcelakeServer:
+    case CK_Alderlake:
+    case CK_Raptorlake:
+    case CK_Meteorlake:
+    case CK_Arrowlake:
+    case CK_ArrowlakeS:
+    case CK_Lunarlake:
+    case CK_Pantherlake:
+    case CK_Wildcatlake:
+    case CK_Novalake:
+    case CK_Sierraforest:
+    case CK_Grandridge:
+    case CK_Graniterapids:
+    case CK_GraniterapidsD:
+    case CK_Emeraldrapids:
+    case CK_Clearwaterforest:
+    case CK_Diamondrapids:
     case CK_KNL:
     case CK_KNM:
     // K7
@@ -1841,8 +1638,14 @@ Optional<unsigned> X86TargetInfo::getCPUCacheLineSize() const {
     // Zen
     case CK_ZNVER1:
     case CK_ZNVER2:
+    case CK_ZNVER3:
+    case CK_ZNVER4:
+    case CK_ZNVER5:
     // Deprecated
     case CK_x86_64:
+    case CK_x86_64_v2:
+    case CK_x86_64_v3:
+    case CK_x86_64_v4:
     case CK_Yonah:
     case CK_Penryn:
     case CK_Core2:
@@ -1850,8 +1653,8 @@ Optional<unsigned> X86TargetInfo::getCPUCacheLineSize() const {
 
     // The following currently have unknown cache line sizes (but they are probably all 64):
     // Core
-    case CK_Generic:
-      return None;
+    case CK_None:
+      return std::nullopt;
   }
   llvm_unreachable("Unknown CPU kind");
 }
@@ -1860,8 +1663,7 @@ bool X86TargetInfo::validateOutputSize(const llvm::StringMap<bool> &FeatureMap,
                                        StringRef Constraint,
                                        unsigned Size) const {
   // Strip off constraint modifiers.
-  while (Constraint[0] == '=' || Constraint[0] == '+' || Constraint[0] == '&')
-    Constraint = Constraint.substr(1);
+  Constraint = Constraint.ltrim("=+&");
 
   return validateOperandSize(FeatureMap, Constraint, Size);
 }
@@ -1897,13 +1699,13 @@ bool X86TargetInfo::validateOperandSize(const llvm::StringMap<bool> &FeatureMap,
       return Size <= 64;
     case 'z':
       // XMM0/YMM/ZMM0
-      if (FeatureMap.lookup("avx512f"))
+      if (hasFeatureEnabled(FeatureMap, "avx512f"))
         // ZMM0 can be used if target supports AVX512F.
         return Size <= 512U;
-      else if (FeatureMap.lookup("avx"))
+      else if (hasFeatureEnabled(FeatureMap, "avx"))
         // YMM0 can be used if target supports AVX.
         return Size <= 256U;
-      else if (FeatureMap.lookup("sse"))
+      else if (hasFeatureEnabled(FeatureMap, "sse"))
         return Size <= 128U;
       return false;
     case 'i':
@@ -1917,10 +1719,10 @@ bool X86TargetInfo::validateOperandSize(const llvm::StringMap<bool> &FeatureMap,
     break;
   case 'v':
   case 'x':
-    if (FeatureMap.lookup("avx512f"))
+    if (hasFeatureEnabled(FeatureMap, "avx512f"))
       // 512-bit zmm registers can be used if target supports AVX512F.
       return Size <= 512U;
-    else if (FeatureMap.lookup("avx"))
+    else if (hasFeatureEnabled(FeatureMap, "avx"))
       // 256-bit ymm registers can be used if target supports AVX.
       return Size <= 256U;
     return Size <= 128U;
@@ -1951,12 +1753,15 @@ std::string X86TargetInfo::convertConstraint(const char *&Constraint) const {
     return std::string("{si}");
   case 'D':
     return std::string("{di}");
-  case 'p': // address
-    return std::string("im");
+  case 'p': // Keep 'p' constraint (address).
+    return std::string("p");
   case 't': // top of floating point stack.
     return std::string("{st}");
   case 'u':                        // second from top of floating point stack.
     return std::string("{st(1)}"); // second from top of floating point stack.
+  case 'W':
+    assert(Constraint[1] == 's');
+    return '^' + std::string(Constraint++, 2);
   case 'Y':
     switch (Constraint[1]) {
     default:
@@ -1975,60 +1780,59 @@ std::string X86TargetInfo::convertConstraint(const char *&Constraint) const {
       // to the next constraint.
       return std::string("^") + std::string(Constraint++, 2);
     }
-    LLVM_FALLTHROUGH;
+    [[fallthrough]];
+  case 'j':
+    switch (Constraint[1]) {
+    default:
+      // Break from inner switch and fall through (copy single char),
+      // continue parsing after copying the current constraint into
+      // the return string.
+      break;
+    case 'r':
+    case 'R':
+      // "^" hints llvm that this is a 2 letter constraint.
+      // "Constraint++" is used to promote the string iterator
+      // to the next constraint.
+      return std::string("^") + std::string(Constraint++, 2);
+    }
+    [[fallthrough]];
   default:
     return std::string(1, *Constraint);
   }
 }
 
-bool X86TargetInfo::checkCPUKind(CPUKind Kind) const {
-  // Perform any per-CPU checks necessary to determine if this CPU is
-  // acceptable.
-  switch (Kind) {
-  case CK_Generic:
-    // No processor selected!
-    return false;
-#define PROC(ENUM, STRING, IS64BIT)                                            \
-  case CK_##ENUM:                                                              \
-    return IS64BIT || getTriple().getArch() == llvm::Triple::x86;
-#include "clang/Basic/X86Target.def"
-  }
-  llvm_unreachable("Unhandled CPU kind");
-}
-
 void X86TargetInfo::fillValidCPUList(SmallVectorImpl<StringRef> &Values) const {
-#define PROC(ENUM, STRING, IS64BIT)                                            \
-  if (IS64BIT || getTriple().getArch() == llvm::Triple::x86)                   \
-    Values.emplace_back(STRING);
-  // For aliases we need to lookup the CPUKind to check get the 64-bit ness.
-#define PROC_ALIAS(ENUM, ALIAS)                                                \
-  if (checkCPUKind(CK_##ENUM))                                                      \
-    Values.emplace_back(ALIAS);
-#include "clang/Basic/X86Target.def"
+  bool Only64Bit = getTriple().getArch() != llvm::Triple::x86;
+  llvm::X86::fillValidCPUArchList(Values, Only64Bit);
 }
 
-X86TargetInfo::CPUKind X86TargetInfo::getCPUKind(StringRef CPU) const {
-  return llvm::StringSwitch<CPUKind>(CPU)
-#define PROC(ENUM, STRING, IS64BIT) .Case(STRING, CK_##ENUM)
-#define PROC_ALIAS(ENUM, ALIAS) .Case(ALIAS, CK_##ENUM)
-#include "clang/Basic/X86Target.def"
-      .Default(CK_Generic);
+void X86TargetInfo::fillValidTuneCPUList(SmallVectorImpl<StringRef> &Values) const {
+  llvm::X86::fillValidTuneCPUList(Values);
 }
 
 ArrayRef<const char *> X86TargetInfo::getGCCRegNames() const {
-  return llvm::makeArrayRef(GCCRegNames);
+  return llvm::ArrayRef(GCCRegNames);
 }
 
 ArrayRef<TargetInfo::AddlRegName> X86TargetInfo::getGCCAddlRegNames() const {
-  return llvm::makeArrayRef(AddlRegNames);
+  return llvm::ArrayRef(AddlRegNames);
 }
 
-ArrayRef<Builtin::Info> X86_32TargetInfo::getTargetBuiltins() const {
-  return llvm::makeArrayRef(BuiltinInfoX86, clang::X86::LastX86CommonBuiltin -
-                                                Builtin::FirstTSBuiltin + 1);
+llvm::SmallVector<Builtin::InfosShard>
+X86_32TargetInfo::getTargetBuiltins() const {
+  return {
+      {&X86::BuiltinStrings, X86::BuiltinInfos},
+      {&X86::BuiltinStrings, X86::PrefixedBuiltinInfos, "__builtin_ia32_"},
+  };
 }
 
-ArrayRef<Builtin::Info> X86_64TargetInfo::getTargetBuiltins() const {
-  return llvm::makeArrayRef(BuiltinInfoX86,
-                            X86::LastTSBuiltin - Builtin::FirstTSBuiltin);
+llvm::SmallVector<Builtin::InfosShard>
+X86_64TargetInfo::getTargetBuiltins() const {
+  return {
+      {&X86::BuiltinStrings, X86::BuiltinInfos},
+      {&X86::BuiltinStrings, X86::PrefixedBuiltinInfos, "__builtin_ia32_"},
+      {&X86_64::BuiltinStrings, X86_64::BuiltinInfos},
+      {&X86_64::BuiltinStrings, X86_64::PrefixedBuiltinInfos,
+       "__builtin_ia32_"},
+  };
 }

@@ -25,7 +25,7 @@ class LayoutTest {
   bool Verified = false;
 
 public:
-  LayoutTest() {}
+  LayoutTest() = default;
   LayoutTest(const LayoutTest &) = delete;
   LayoutTest &operator=(const LayoutTest &) = delete;
   ~LayoutTest() { assert(Verified); }
@@ -129,4 +129,21 @@ TEST(OptimizedStructLayoutTest, GardenPath) {
     .flexible(2, 2, 42)
     .flexible(2, 2, 48)
     .verify(50, 4);
+}
+
+// PR 51131
+TEST(OptimizedStructLayoutTest, HighAlignment) {
+  // Handle the case where a flexible field has such a high alignment
+  // requirement that aligning LastEnd to it gives an offset past the
+  // end of the gap before the next fixed-alignment field.
+  LayoutTest()
+    .fixed(8, 8, 0)
+    .fixed(8, 8, 8)
+    .fixed(64, 64, 64)
+    .flexible(1, 1, 16)
+    .flexible(1, 1, 17)
+    .flexible(4, 128, 128)
+    .flexible(1, 1, 18)
+    .flexible(1, 1, 19)
+    .verify(132, 128);
 }

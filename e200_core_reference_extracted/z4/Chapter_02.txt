@@ -1,0 +1,2222 @@
+Chapter 2
+Register Model
+This section describes the registers implemented in the e200z4 core. It includes an overview of registers
+defined by the Power ISA embedded category architecture and highlights differences in how these
+registers are implemented in the e200z4 core. This section also provides a detailed description of
+e200-specific registers. Full descriptions of the architecture-defined register set are provided in the EREF.
+The architecture defines register-to-register operations for all computational instructions. Source data for
+these instructions are accessed from the on-chip registers or are provided as immediate values embedded
+in the opcode. The three-register instruction format allows specification of a target register distinct from
+the two source registers, thus preserving the original data for use by other instructions. Data is transferred
+between memory and registers with explicit load and store instructions only.
+The e200z446n3 extends the general-purpose registers to 64-bits for supporting SPE operations. Power
+ISA embedded category instructions operate on the lower 32 bits of the GPRs only, and the upper 32 bits
+are unaffected by these instructions. SPE vector instructions operate on the entire 64-bit register. The SPE
+defines load and store instructions for transferring 64-bit values to/from memory.
+The following figures show the complete e200 register set including the sets of the registers that are
+accessible while in supervisor mode, and the set of registers that are accessible while in user mode. The
+number to the right of the special-purpose registers (SPRs) is the decimal number used in the instruction
+syntax to access the register. For example, the integer exception register (XER) is SPR 1.
+                                                     NOTE
+                The e200z4 is a 32-bit implementation of the Power ISA embedded
+                category. In this document, register bits are sometimes numbered from bit 0
+                (most significant bit) to 31 (least significant bit), rather than the Book E
+                numbering scheme of 32–63; thus register bit numbers for some registers in
+                Book E are 32 higher.
+                Where appropriate, the Book E defined bit numbers are shown in
+                parentheses.
+Figure 2-1 shows the supervisor-mode special-purpose registers.
+
+
+
+
+                           e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+Freescale Semiconductor                                                                                    2-1
+                                                                                        Exception Handling/Control Registers
+            General Registers
+                                                                       SPR General                  Save and Restore              Interrupt Vector Prefix
+        Condition Register           General-Purpose Registers               SPRG0     SPR 272           SRR0         SPR 26           IVPR        SPR 63
+              CR                                  GPR0                       SPRG1     SPR 273           SRR1         SPR 27      Interrupt Vector Offset
+         Count Register                           GPR1                       SPRG2     SPR 274          CSRR0         SPR 58                       SPR 400
+                                                                                                                                      IVOR0
+              CTR         SPR 9                                              SPRG3     SPR 275          CSRR1         SPR 59          IVOR1        SPR 401
+
+        Link Register                                                        SPRG4     SPR 276         DSRR02        SPR 574
+                                               GPR31                         SPRG5     SPR 277         DSRR12        SPR 575
+              LR          SPR 8
+                                                                             SPRG6     SPR 278                   2
+                                         Accumulator                                                   MCSRR0        SPR 570          IVOR15       SPR 415
+        XER                                                                  SPRG7     SPR 279         MCSRR12       SPR 571                  2
+                                                ACC                                                                                  IVOR32        SPR 528
+              XER         SPR 1                                              SPRG8     SPR 604
+                                                                             SPRG9     SPR 605       Exception Syndrome
+         Processor Control Registers                                                                                                 IVOR342       SPR 530
+                                                                                                          ESR          SPR 62
+                                                                       User SPR
+      Machine State                 Hardware Implementation
+                                                                                                     Machine Check                 Machine Check
+          MSR                       Dependent1                            USPRG0       SPR 256       Syndrome Register             Address Register
+                                        HID0   SPR 1008
+      Processor Version                                                       Timers                      MCSR         SPR 572          MCAR        SPR 573
+           PVR                          HID1       SPR 1009
+                        SPR 287                                        Decrementer                   Data Exception Address
+      Processor ID
+                                    System Version2                           DEC       SPR 22            DEAR         SPR 61
+           PIR          SPR 286
+                                         SVR       SPR 1023                  DECAR      SPR 54                                   BTB Register
+                       Debug Registers2                                Time Base (write only)                                     BTB Control1
+        Debug Control               Instruction Address Compare               TBL       SPR 284                                       BUCSR        SPR 1013
+          DBCR0           SPR 308                   SPR 312                   TBU       SPR 285
+                                       IAC1
+          DBCR1           SPR 309                   SPR 313
+                                       IAC2                            Control and Status                                        SPE Register
+          DBCR2           SPR 310                   SPR 314                                                                       SPE Status and Control
+                                       IAC3                                   TCR      SPR 340
+                   1      SPR 561
+          DBCR3                        IAC4         SPR 315                   TSR      SPR 336                                      SPEFSCR        SPR 512
+          DBCR41          SPR 563
+                                       IAC5         SPR 565
+                                                                                             Memory Management Registers
+          DBCR51          SPR 564
+                                       IAC6         SPR 566
+          DBCR61          SPR 603                                      MMU Assist1                  Process ID                    Control & Configuration
+                                       IAC7         SPR 567
+         DBERC01          SPR 569
+                                       IAC8         SPR 568                  MAS0      SPR 624           PID0        SPR 48         MMUCSR0        SPR 1012
+         DEVENT1          SPR 975                                            MAS1      SPR 625                                      MMUCFG         SPR 1015
+          DDAM1           SPR 576                                            MAS2      SPR 626                                      TLB0CFG        SPR 688
+                                    Data Address Compare                     MAS3      SPR 627                                      TLB1CFG        SPR 689
+      Debug Status
+          DBSR         SPR 304         DAC1           SPR 316                MAS4      SPR 628                   Cache Registers
+                                       DAC2           SPR 317                MAS6      SPR 630      Cache Configuration
+      Debug Counter1                 Data Value Compare (64-bit)                                    (Read-only)                   Cache Control1
+         DBCNT         SPR 562             DVC1            SPR 318                                    L1CFG0         SPR 515         L1CSR1        SPR 1011
+                                           DVC2            SPR 319                                    L1CFG1         SPR 516         L1FINV1       SPR 959
+                    Device Control Registers (DCRs)1
+      Cache Access Registers                   PSU Registers
+         CDACNTL          DCR 351                     PSCR         DCR 272           PSCTR       DCR 276
+         CDADATA          DCR 350                     PSSR         DCR 273          PSUHR        DCR 277
+                                                      PSHR         DCR 274           PSULR       DCR 278
+                                                      PSLR         DCR 275
+           1 - These e200-specific registers may not be supported by other processors built on Power Architecture technology
+           2 - Optional registers defined by the Power ISA embedded architecture
+           3 - Read-only registers
+
+                             Figure 2-1. e200z446n3 Supervisor Mode Programmer’s Model SPRs
+
+
+                                        e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+2-2                                                                                                                              Freescale Semiconductor
+Figure 2-2 shows the user-mode special-purpose registers.
+
+                          General Registers                 Timers (Read only)           Cache Register
+                                                                                          (Read-only)
+          Condition Register                                  Time Base
+                                                                  TBL     SPR 268     Cache Configuration
+                 CR             General-Purpose Registers
+          Count Register                                          TBU     SPR 269
+                                          GPR0                                          L1CFG0     SPR 515
+             CTR      SPR 9               GPR1
+                                                                                        L1CFG1     SPR 516
+          Link                              •               Control Registers
+                                            •
+                 LR   SPR 8                 •               SPR General (Read-only)
+                                          GPR31                 SPRG4     SPR 260
+          XER
+                                                                SPRG5     SPR 261     Category Registers
+             XER      SPR 1
+                                                                SPRG6     SPR 262     SPE Status and
+                            Accumulator                         SPRG7     SPR 263     Control Register
+
+                                ACC                           User SPR                 SPEFSCR SPR 512
+
+                                                               USPRG0     SPR 256
+                               Debug
+
+                            DEVENT        SPR 975
+                               DDAM       SPR 576
+
+
+
+                           Figure 2-2. e200z446n3 User-Mode Programmer’s Model SPRs
+
+General-purpose registers (GPRs) are accessed through instruction operands. Access to other registers can
+be explicit—by using instructions for that purpose such as Move to Special Purpose Register (mtspr) and
+Move from Special Purpose Register (mfspr) instructions—or implicit, as part of the execution of an
+instruction. Some registers are accessed both explicitly and implicitly.
+
+2.1       Power ISA Embedded Category Registers
+The core supports most of the registers defined by Power ISA embedded category architecture. Notable
+exceptions are the floating-point registers FPR0–FPR31 and FPSCR. The e200z4 does not support the
+Power ISA floating-point architecture in hardware. The general-purpose registers have been extended to
+64-bits. e200-specific registers are described in Section 2.2, “e200-Specific Special Purpose Registers,”
+and the Power ISA embedded registers are described in the following sections. For complete descriptions,
+see the EREF.
+
+2.1.1        User-level Registers
+The user-level registers can be accessed by all software with either user- or supervisor-privileges. They
+include the following:
+    • General-purpose registers (GPRs).
+       — The thirty-two 64-bit GPRs (GPR0–GPR31) serve as data source or destination registers for
+           integer instructions and provide data for generating addresses. Power ISA embedded category
+
+
+                               e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+Freescale Semiconductor                                                                                      2-3
+             instructions affect only the lower 32 bits of the GPRs. SPE and EFP instructions are provided
+             that operate on the entire 64-bit register.
+      •   Condition register (CR).
+          — The 32-bit CR consists of eight 4-bit fields, CR0–CR7, that reflect results of certain arithmetic
+             operations and provide a mechanism for testing and branching. See “Condition Register (CR),”
+             in Chapter 3, “Branch and Condition Register Operations of the EREF.
+The remaining user-level registers are SPRs. Note that the Power ISA embedded category architecture
+provides the mtspr and mfspr instructions for accessing SPRs.
+   • Integer exception register (XER).
+       — The XER indicates overflow and carries for integer operations. See “XER Register (XER),” in
+           Chapter 4, “Integer Operations” of the EREF for more information.
+   • Link register (LR).
+       — The LR provides the branch target address for the branch [conditional] to link register
+           instructions (bclr, bclrl, se_blr, se_blrl). It holds the address of the instruction that follows a
+           branch and link instruction, typically used for linking to subroutines. See “Link Register (LR)”,
+           in Chapter 3, “Branch and Condition Register Operations” of the EREF.
+   • Count register (CTR).
+       — The CTR holds a loop count that can be decremented during execution of appropriately coded
+           branch instructions. The CTR also provides the branch target address for the branch
+           [conditional] to count register instructions (bcctr, bcctrl, se_bctr, se_bctrl). See “Count
+           Register (CTR)”, in Chapter 3, “Branch and Condition Register Operations” of the EREF.
+   • Time base upper (TBU) and time base lower (TBL)
+       — The time base facility (TB) consists of two 32-bit registers. These two registers are accessible
+           in a read-only fashion to user-level software. See “Time Base”, in Chapter 8, “Timer Facilities”
+           of the EREF.
+   • SPRG4—SPRG7
+       — The Power ISA embedded category architecture defines software-use special purpose registers
+           (SPRGs). SPRG4 through SPRG7 are accessible in a read-only fashion by user-level software.
+           e200 does not allow user mode access to the SPRG3 register (defined as implementation
+           dependent by Power ISA).
+   • USPRG0
+       — The Power ISA embedded category architecture defines user software-use special purpose
+           register USPRG0, which is accessible in a read-write fashion by user-level software.
+
+2.1.2         Supervisor-level Registers
+Supervisor-level software has access to additional control and status registers used for configuration,
+exception handling, and other operating system functions in addition to the registers accessible in
+user-mode. The Power ISA embedded category architecture defines the following supervisor-level
+registers:
+    • Processor Control registers
+
+
+                            e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+2-4                                                                                     Freescale Semiconductor
+        — Machine state register (MSR)
+            The MSR defines the state of the processor. The MSR can be modified by the move to machine
+            state register instruction (mtmsr), system call instructions (sc, se_sc), and return from
+            exception instructions (rfi, rfci, rfdi, rfmci, se_rfi, se_rfci, se_rfdi, se_rfmci). It can be read
+            by the move from machine state register instruction (mfmsr) . When an interrupt occurs, the
+            contents of the MSR are saved to one of the machine state save/restore registers: SRR1,
+            CSRR1, DSRR1, MCSRR1.
+        — Processor version register (PVR)
+            This register is a read-only register that identifies the version (model) and revision level of the
+            processor.
+        — Processor Identification Register (PIR)
+            This read/write register is provided to distinguish the processor from other processors in the
+            system.
+    •   Storage Control register
+        — Process ID Register (PID, also referred to as PID0).
+            This register is provided to indicate the current process or task identifier. It is used by the MMU
+            as an extension to the effective address, and by external Nexus 2/3 modules for ownership trace
+            message generation. The Power ISA allows multiple PIDs; the e200z4 implements only one.
+    •   Interrupt Registers
+        — Data exception address register (DEAR)
+            After most Data Storage Interrupts (DSI), or on an Alignment Interrupt or Data TLB Miss
+            Interrupt, the DEAR is set to the effective address (EA) generated by the faulting instruction.
+        — SPRG0–SPRG7, USPRG0
+            The SPRG0–SPRG7 and USPRG0 registers are provided for operating system use. The e200
+            does not allow user-mode access to the SPRG3 register (defined as implementation dependent
+            by Power ISA embedded category architecture).
+        — Exception syndrome register (ESR)
+            The ESR register provides a syndrome to differentiate between the different kinds of
+            exceptions which can generate the same interrupt.
+        — Interrupt vector prefix register (IVPR) and the interrupt vector offset registers
+            (IVOR0-IVOR15, IVOR32-IVOR34)
+            These registers together provide the address of the interrupt handler for different classes of
+            interrupts.
+        — Save/restore register 0 (SRR0)
+            The SRR0 register is used to save machine state on a non-critical interrupt. It contains the
+            address of the instruction at which execution resumes when an rfi or se_rfi instruction is
+            executed at the end of a non-critical class interrupt handler routine.
+        — Critical save/restore register 0 (CSRR0)
+            The CSRR0 register is used to save machine state on a critical interrupt. It contains the address
+            of the instruction at which execution resumes when an rfci or se_rfci instruction is executed at
+            the end of a critical class interrupt handler routine.
+
+                           e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+Freescale Semiconductor                                                                                     2-5
+          — Save/restore register 1 (SRR1)
+             The SRR1 register is used to save machine state from the MSR on non-critical interrupts and
+             to restore machine state when an rfi or se_rfi executes.
+          — Critical save/restore register 1 (CSRR1)
+             The CSRR1 register is used to save machine state from the MSR on critical interrupts and to
+             restore machine state when rfci or se_rfci executes.
+      •   Debug facility registers
+          — Debug control registers (DBCR0–DBCR2)
+             These registers provide control for enabling and configuring debug events.
+          — Debug status register (DBSR)
+             This register contains debug event status.
+          — Instruction address compare registers (IAC1–IAC4)
+             These registers contain addresses and/or masks which are used to specify instruction address
+             compare debug events.
+          — Data address compare registers (DAC1–2)
+             These registers contain addresses and/or masks which are used to specify data address compare
+             debug events.
+          — Data value compare registers (DVC1–2)
+             These registers contain data values which are used to specify data value compare debug events.
+      •   Timer Registers
+          — Time base (TB)
+             The TB is a 64-bit structure provided for maintaining the time of day and operating interval
+             timers. The TB consists of two 32-bit registers: TBU and TBL. The time base registers can be
+             written to only by supervisor-level software, but can be read by both user and supervisor-level
+             software.
+          — Decrementer register (DEC)
+             This register is a 32-bit decrementing counter that provides a mechanism for causing a
+             decrementer exception after a programmable delay.
+          — Decrementer auto-reload (DECAR)
+             This register is provided to support the auto-reload feature of the decrementer.
+          — Timer control register (TCR)
+             This register controls decrementer, fixed-interval timer, and watchdog timer options.
+          — Timer status register (TSR)
+             This register contains status on timer events and the most recent watchdog timer-initiated
+             processor reset.
+
+2.2         e200-Specific Special Purpose Registers
+The Power ISA embedded category architecture allows implementation-specific special purpose registers.
+Those incorporated in the e200 core are as explained in the following sections.
+
+                            e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+2-6                                                                                    Freescale Semiconductor
+2.2.1        User-Level Registers
+The user-level registers can be accessed by all software with either user or supervisor privileges. They
+include the following:
+    • Signal processing extension/embedded floating-point status and control register (SPEFSCR).
+       The SPEFSCR contains all fixed-point and floating-point exception signal bits, exception
+       summary bits, exception enable bits, and rounding control bits needed for compliance with the
+       IEEE Std. 754 standard. See “SPE Status and Control Register (SPEFSCR),” in Chapter 7, “Signal
+       Processing Extension Unit.”
+    • The L1 cache configuration registers (L1CFG0, L1CGF1)
+       These read-only registers allows software to query the configuration of the L1 cache structure.
+
+2.2.2        Supervisor-Level Registers
+In addition to the Power ISA embedded category registers described above, the following supervisor-level
+registers are defined in the e200:
+    • Configuration Registers
+        — Hardware implementation-dependent register 0 (HID0)
+            This register controls various processor and system functions.
+        — Hardware implementation-dependent register 1 (HID1)
+            This register controls various processor and system functions.
+    • Exception handling and control registers
+        — Machine check save/restore register 0 (MCSRR0)
+            The MCSRR0 register is used to save machine state on a machine check interrupt, and contains
+            the address of the instruction at which execution resumes when an rfmci or se_rfmci
+            instruction is executed.
+        — Machine Check save/restore register 1 (MCSRR1)
+            The MCSRR1 register is used to save machine state from the MSR on machine check
+            interrupts, and to restore machine state when an rfmci or se_rfmci instruction is executed.
+        — Machine check syndrome register (MCSR)
+            This register provides a syndrome to differentiate between the different kinds of conditions
+            which can generate a machine check.
+        — Machine check address register (MCAR)
+            This register provides an address associated with certain machine checks.
+        — Debug save/restore register 0 (DSRR0)
+            When enabled, the DSRR0 register is used to save the address of the instruction at which
+            execution continues when an rfdi or se_rfdi instruction executes at the end of a debug interrupt
+            handler routine.
+        — Debug save/restore register 1 (DSRR1)
+            When enabled, the DSRR1 register is used to save machine status on debug interrupts and to
+            restore machine status when an rfdi or se_rfdi instruction executes.
+
+                          e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+Freescale Semiconductor                                                                                  2-7
+          — SPRG8, SPRG9
+             The SPRG8 and SPRG9 registers are provided for operating system use for the machine check
+             and Debug APUs.
+      •   Debug Facility Registers
+          — Instruction address compare registers (IAC5–IAC8)
+             These registers contain addresses and/or masks which are used to specify instruction address
+             compare debug events.
+          — Debug control register 3–6 (DBCR3, DBCR4, DBCR5, DBCR6)
+             These registers provides control for debug functions not described in Power ISA embedded
+             category architecture.
+          — Debug external resource control register 0 (DBERC0)
+             This register provides control for debug functions not described in PowerPC Book E
+             architecture.
+          — Debug counter register (DBCNT)
+             This register provides counter capability for debug functions.
+          — Branch unit control and status register (BUCSR)
+             This register controls operation of the BTB
+      •   Cache Registers
+          — L1 cache configuration registers (L1CFG0, L1CFG1)
+             These are read-only registers that allow software to query the configuration of the L1 Cache.
+          — L1 cache control and status registers (L1CSR0, L1CSR1)
+             These registers control operations of the L1 Cache, such as cache enabling, cache invalidation,
+             and cache locking.
+          — L1 cache flush and invalidate register (L1FINV1)
+             This register controls software flushing and invalidation of the L1 Caches.
+      •   Memory management unit registers
+          — MMU configuration register (MMUCFG)
+             This is a read-only register that allows software to query the configuration of the MMU.
+          — MMU assist (MAS0-MAS4, MAS6) registers
+             These registers provide the interface to the e200 core from the Memory Management Unit.
+          — MMU control and status register (MMUCSR0)
+             This register controls invalidation of the MMU.
+          — TLB configuration registers (TLB0CFG, TLB1CFG)
+             These are read-only registers that allow software to query the configuration of the TLBs.
+          — System version register (SVR)
+             This register is a read-only register that identifies the version (model) and revision level of the
+             system that includes the e200 processor.
+
+
+
+                             e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+2-8                                                                                       Freescale Semiconductor
+Note that it is not guaranteed that the implementation of e200 core-specific registers is consistent among
+the Power ISA embedded category processors, although other processors may implement similar or
+identical registers.
+All e200 SPR definitions are compliant with the Freescale EIS definitions.
+
+2.3              e200-Specific Device Control Registers
+In addition to the SPRs described above, implementations may also choose to implement one or more
+device control registers (DCRs). The core implements a set of device control registers to perform a parallel
+signature capability in the parallel signature unit (PSU). These registers are described in Section 11.9,
+“Parallel Signature Unit.”
+
+2.4              Special Purpose Register Descriptions
+The following sections provide a register figure and accompanying field descriptions table for each of the
+SPRs in the core.
+
+2.4.1                Machine State Register (MSR)
+The machine state register defines the state of the processor. Chapter 5, “Interrupts and Exceptions,” of
+this document describes how interrupts affect the MSR, and the EREF contains a complete description.
+Figure 2-3 shows the e200 MSR.
+                              UCLE
+                                     SPE
+
+
+
+
+                 0                                  0                     0                             0              0             0        0
+                                                                                                  FE0
+
+
+
+                                                                                                                 FE1
+                                                                WE
+
+
+
+
+                                                                                             ME
+                                                                                   PR
+                                                                     CE
+
+
+
+
+                                                                                                            DE
+
+
+
+
+                                                                                                                                DS
+                                                                              EE
+
+
+                                                                                        FP
+
+
+
+
+                                                                                                                                         RI
+                                                                                                                           IS
+      0     1    2    3   4   5      6     7   8   9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31
+
+                                                              Read/ Write; Reset - 0x0
+
+                                                   Figure 2-3. Machine State Register (MSR)
+
+Table 2-1 defines the MSR bits.
+                                                        Table 2-1. MSR Field Descriptions
+
+      Bit(s)          Name                                                         Description
+
+        0–4               —       Reserved1
+      (32–36)
+
+           5          UCLE        User Cache Lock Enable
+          (37)                    0 Execution of the cache locking instructions in user mode (MSRPR=1) disabled; DSI exception
+                                    taken instead, and ILK or DLK set in ESR.
+                                  1 Execution of the cache lock instructions in user mode enabled.
+
+           6          SPE         SPE Available
+          (38)                    0 Execution of SPE APU vector instructions is disabled; SPE Unavailable exception taken
+                                    instead, and SPE bit is set in ESR.
+                                  1 Execution of SPE APU vector instructions is enabled.
+
+
+
+
+                                           e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+Freescale Semiconductor                                                                                                                           2-9
+                                  Table 2-1. MSR Field Descriptions (Continued)
+
+       Bit(s)    Name                                              Description
+
+        7–12      —     Reserved1
+       (39–44)
+
+         13      WE     Wait State (Power management) enable.
+        (45)            0 Power management is disabled.
+                        1 Power management is enabled. The processor can enter a power-saving mode when
+                          additional conditions are present. The mode chosen is determined by the DOZE, NAP, and
+                          SLEEP bits in the HID0 register, described in Section 2.4.11, “Hardware Implementation
+                          Dependent Register 0 (HID0).”
+
+         14      CE     Critical Interrupt Enable
+        (46)            0 Critical Input and Watchdog Timer interrupts are disabled.
+                        1 Critical Input and Watchdog Timer interrupts are enabled.
+
+         15       —     Preserved1
+        (47)
+
+         16       EE    External Interrupt Enable
+        (48)            0 External Input, Decrementer, and Fixed-Interval Timer interrupts are disabled.
+                        1 External Input, Decrementer, and Fixed-Interval Timer interrupts are enabled.
+
+         17      PR     Problem State
+        (49)            0 The processor is in supervisor mode, can execute any instruction, and can access any
+                          resource (e.g. GPRs, SPRs, MSR, etc.).
+                        1 The processor is in user mode, cannot execute any privileged instruction, and cannot access
+                          any privileged resource.
+
+         18       FP    Floating-Point Available
+        (50)            0 Floating point unit is unavailable. The processor cannot execute floating-point instructions,
+                           including floating-point loads, stores, and moves. (A FP Unavailable interrupt will be generated
+                           on attempted execution of floating point instructions).
+                        1 Floating Point unit is available. The processor can execute floating-point instructions.
+                        Note: For the e200, the floating point unit is not supported in hardware, and an unimplemented
+                               operation exception will be generated for attempted execution of Power ISA embedded
+                               category floating point instructions when FP is set.
+
+         19      ME     Machine Check Enable
+        (51)            0 Asynchronous Machine Check interrupts are disabled.
+                        1 Asynchronous Machine Check interrupts are enabled.
+
+         20      FE0    Floating-point exception mode 0 (not used by the e200)
+        (52)
+
+         21       —     Reserved1
+        (53)
+
+         22      DE     Debug Interrupt Enable
+        (54)            0 Debug interrupts are disabled.
+                        1 Debug interrupts are enabled.
+
+         23      FE1    Floating-point exception mode 1 (not used by the e200)
+        (55)
+
+         24       —     Reserved1
+        (56)
+
+         25       —     Preserved1
+        (57)
+
+
+                             e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+2-10                                                                                                  Freescale Semiconductor
+                                               Table 2-1. MSR Field Descriptions (Continued)
+
+        Bit(s)          Name                                                    Description
+
+             26             IS       Instruction Address Space
+            (58)                     0 The processor directs all instruction fetches to address space 0 (TS=0 in the relevant TLB
+                                        entry).
+                                     1 The processor directs all instruction fetches to address space 1 (TS=1 in the relevant TLB
+                                        entry).
+
+             27             DS       Data Address Space
+            (59)                     0 The processor directs all data storage accesses to address space 0 (TS=0 in the relevant TLB
+                                       entry).
+                                     1 The processor directs all data storage accesses to address space 1 (TS=1 in the relevant TLB
+                                       entry).
+
+     28–29                  —        Reserved1
+    (60–61)
+
+             30             RI       Recoverable Interrupt
+            (62)                     This bit is provided for software use to detect nested exception conditions. This bit is cleared by
+                                     hardware when a Machine Check interrupt is taken.
+
+             31             —        Preserved1
+            (63)
+    1
+            These bits are not implemented, will be read as zero, and writes are ignored.
+
+
+2.4.2                  Processor ID Register (PIR)
+The processor ID for the CPU core is contained in the processor ID register (PIR). The contents of the PIR
+register are a reflection of hardware input signals to the core following reset. This register may be written
+by software to modify the default reset value.
+
+
+                                                                          ID
+
+        0     1    2    3    4   5    6   7   8   9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31
+
+             SPR - 286; Read/Write; Reset: - bits 24:31 updated to reflect the values on p_cpuid[0–7], bits 0–23 reset to 0
+
+                                                   Figure 2-4. Processor ID Register (PIR)
+
+The PIR fields are defined in Table 2-2.
+                                                       Table 2-2. PIR Field Descriptions
+
+        Bits           Name                                                    Description
+
+        0–23            ID       These bits are reset to 0. These bits are writable by software.
+
+        24–31                    These bit are reset to the values provided on the p_cpuid[0–7] input signals. These bits are
+                                 writable by software.
+
+
+
+
+                                          e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+Freescale Semiconductor                                                                                                                    2-11
+2.4.3                 Processor Version Register (PVR)
+The processor version register (PVR) contains the processor version number for the CPU core.
+
+
+       1     0    0     0   0    0    0   1   0    1   0   1    Version        MBG           Minor Rev     Major Rev        MBG ID
+                                                                              Reserved
+
+       0     1    2     3   4    5    6   7   8    9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31
+
+                                                                SPR - 287; Read-only
+
+                                                  Figure 2-5. Processor Version Register (PVR)
+
+This register contains fields to specify a particular implementation of an e200 family member as well as
+allocating fields to be used by a particular business unit at their discretion. This register is read-only.
+Interface signals p_pvrin[16–31] provide the contents of a portion of this register.
+Table 2-3 shows the PVR field descriptions.
+                                                       Table 2-3. PVR Field Descriptions
+
+           Bits        Name                                                    Description
+
+           0–3        Manuf. ID These bits identify the Manufacturer ID. Freescale is 4`b1000.
+
+           4–5              —        These bits are reserved (00)
+
+       6–11             Type         These bits identify the processor type. e200z4 is 6`b010101.
+
+       12–15           Version       These bits identify the version of the processor and inclusion of optional elements. For the
+                                     e200z446n3, these are tied to 4`b0101.
+
+       16–19          MBG Use These bits are allocated for use by Freescale Business Groups to distinguish different system
+                              variants, and are provided by the p_pvrin[16–19] input signals.
+
+       20–23           Minor         These bits distinguish between implementations of the version, and are provided by the
+                       Rev           p_pvrin[20–23] input signals.
+
+       24–27           Major         These bits distinguish between implementations of the version, and are provided by the
+                       Rev           p_pvrin[24–27] input signals.
+
+       28–31          MBG ID         These bits identify the Freescale Business Group responsible for a particular mask set, and are
+                                     provided by the p_pvrin[28–31] input signals.
+                                     MBG value of 4`b0000 is reserved.
+
+
+2.4.4                 System Version Register (SVR)
+The system version register (SVR) contains system version information for an e200-based SoC.
+
+                                                                    System Version
+
+       0     1    2     3   4    5    6   7   8    9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31
+
+                                                               SPR - 1023; Read-only
+
+                                                   Figure 2-6. System Version Register (SVR)
+
+
+
+                                          e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+2-12                                                                                                              Freescale Semiconductor
+This register is used to specify a particular implementation of an e200-based system by a particular
+business unit at their discretion. This register is read-only.
+Table 2-4 shows the SVR field descriptions.
+                                                         Table 2-4. SVR Field Descriptions
+
+            Bits        Name                                                     Description
+
+        0–31            Version       These bits are allocated for use by Freescale Business Groups to distinguish different system
+                                      variants, and are provided by the p_sysvers[0–31] input signals
+
+
+2.4.5                  Integer Exception Register (XER)
+The EREF contains a complete description of the integer exception register (XER).
+The XER bit assignments are shown in Figure 2-7.
+
+
+
+
+                                                                                                             Bytecnt
+                                                                    0
+        SO
+              OV
+                   CA
+
+
+
+
+        0     1    2    3    4    5    6    7   8    9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31
+
+                                                            SPR - 1; Read/Write; Reset - 0x0
+
+                                                    Figure 2-7. Integer Exception Register (XER)
+
+The XER fields are defined in Table 2-5.
+                                                         Table 2-5. XER Field Descriptions
+
+            Bits            Name                                                 Description
+
+              0             SO
+                                           Summary Overflow (per the Power ISA embedded category)
+            (32)
+
+              1             OV
+                                           Overflow (per the Power ISA embedded category)
+            (33)
+
+              2             CA
+                                           Carry (per the Power ISA embedded category)
+            (34)
+
+          3–24               —
+                                           Reserved1
+        (35–56)
+
+         25–31          Bytecnt2
+                                           Preserved for lswi, lswx, stswi, stswx string instructions
+        (57–63)
+    1
+            These bits are not implemented, will be read as zero, and writes are ignored.
+    2
+            These bits are implemented to support emulation of the string instructions.
+
+
+
+
+                                            e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+Freescale Semiconductor                                                                                                               2-13
+2.4.6                    Exception Syndrome Register
+The exception syndrome register (ESR) provides a syndrome to differentiate between exceptions that can
+generate the same interrupt type. The EREF contains a complete description of the ESR. The e200 adds
+some implementation specific bits to this register, as seen in Figure 2-8.
+
+
+
+
+                                                                                                                     VLEMI
+                                                                                                           SPE
+                                                                               PUO
+                 0                                        0                                            0         0              0            0
+                                    PPR
+                                          PTR
+
+
+
+
+                                                              DLK
+
+
+
+
+                                                                                                                                       MIF
+                                                                                           PIE
+                                                                    ILK
+                              PIL
+
+
+
+
+                                                                                      BO
+                                                                          AP
+                                                FP
+                                                     ST
+       0     1       2    3   4     5     6     7    8    9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31
+
+                                                                    SPR - 62; Read/Write; Reset - 0x0
+
+                                                     Figure 2-8. Exception Syndrome Register (ESR)
+
+The ESR fields are defined in Table 2-6.
+                                                               Table 2-6. ESR Field Descriptions
+
+       Bit(s)                 Name                                              Description                 Associated Interrupt Type
+
+         0–3                   —                                                     Allocated1                                —
+       (32–35)
+
+             4                PIL                                     Illegal Instruction exception                          Program
+           (36)
+
+             5                PPR                                   Privileged Instruction exception                         Program
+           (37)
+
+             6                PTR                                              Trap exception                                Program
+           (38)
+
+             7                 FP                                         Floating-point operation                     Alignment
+           (39)                                                                                                       Data Storage
+                                                                                                                       Data TLB
+                                                                                                                       Program
+
+             8                 ST                                              Store operation                         Alignment
+           (40)                                                                                                       Data Storage
+                                                                                                                       Data TLB
+
+             9                 —                                                     Reserved2                                 —
+           (41)
+
+            10                DLK                                          Data Cache Locking3                        Data Storage
+           (42)
+
+            11                ILK                                     Instruction Cache Locking                       Data Storage
+           (43)
+
+            12                 AP                                    Auxiliary Processor operation                     Alignment
+           (44)                                                     (Currently unused in the e200)                    Data Storage
+                                                                                                                       Data TLB
+                                                                                                                       Program
+
+            13                PUO                              Unimplemented Operation exception                             Program
+           (45)
+
+
+
+
+                                                e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+2-14                                                                                                                 Freescale Semiconductor
+                              Table 2-6. ESR Field Descriptions (Continued)
+
+     Bit(s)      Name                           Description                      Associated Interrupt Type
+
+       14         BO                     Byte Ordering exception                        Data Storage
+      (46)                        Mismatched Instruction Storage exception           Instruction Storage
+
+       15         PIE                   Program Imprecise exception              Currently unused in the e200
+      (47)                                      (Reserved)
+
+
+
+
+                          e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+Freescale Semiconductor                                                                                    2-15
+                                   Table 2-6. ESR Field Descriptions (Continued)
+
+       Bit(s)     Name                                 Description                              Associated Interrupt Type
+
+        16–23       —                                   Reserved2                                          —
+       (48–55)
+
+         24        SPE                                SPE Operation                                SPE Unavailable
+        (56)                                                                                     SPE Floating-point Data
+                                                                                                       Exception
+                                                                                                SPE Floating-point Round
+                                                                                                       Exception
+                                                                                                       Alignment
+                                                                                                     Data Storage
+                                                                                                       Data TLB
+
+         25         —                                   Allocated1                                         —
+        (57)
+
+         26       VLEMI                           VLE Mode Instruction                              SPE Unavailable
+        (58)                                                                                     SPE Floating-point Data
+                                                                                                        Exception
+                                                                                                SPE Floating-point Round
+                                                                                                        Exception
+                                                                                                      Data Storage
+                                                                                                        Data TLB
+                                                                                                   Instruction Storage
+                                                                                                        Alignment
+                                                                                                         Program
+                                                                                                       System Call
+
+        27:29       —                                   Allocated1                                         —
+       (59–61)
+
+         30        MIF                         Misaligned Instruction Fetch                        Instruction Storage
+        (62)                                                                                         Instruction TLB
+
+         31         —                                   Allocated1                                         —
+        (63)
+  1 These bits are not implemented and should be written with zero for future compatibility.
+  2
+    These bits are not implemented, and should be written with zero for future compatibility.
+  3 This bit is implemented, but not set by hardware
+
+
+
+2.4.6.1          Power ISA VLE Mode Instruction Syndrome
+The ESR[VLEMI] bit is provided to indicate that an interrupt was caused by a Power ISA VLE instruction.
+This syndrome bit is set on an exception associated with execution or attempted execution of a Power ISA
+VLE instruction. This bit is updated for the interrupt types indicated in Table 2-6.
+
+2.4.6.2          Misaligned Instruction Fetch Syndrome
+The ESR[MIF] bit is provided to indicate that an Instruction Storage Interrupt was caused by an attempt
+to fetch an instruction from a Power ISA page that was not aligned on a word boundary. The fetch may
+have been caused by execution of a branch class instruction from a VLE page to a non-VLE page, a branch
+to LR instruction with LR[62] = 1, a branch to CTR instruction with CTR[62] = 1, execution of an rfi or
+
+
+                               e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+2-16                                                                                                 Freescale Semiconductor
+se_rfi instruction with SRR0[62] = 1, execution of an rfci or se_rfci instruction with CSRR0[62] = 1,
+execution of an rfdi or se_rfdi instruction with DSRR0[62] = 1, or execution of an rfmci or se_rfmci
+instruction with MCSRR0[62] = 1, where the destination address corresponds to an instruction page that
+is not marked as a Power ISA VLE page.
+The ESR[MIF] bit is also used to indicate that an instruction TLB interrupt was caused by a TLB miss on
+the second half of a misaligned 32-bit Power ISA VLE instruction. For this case, SRR0 points to the first
+half of the instruction, which resides on the previous page from the miss at page offset 0xFFE. The ITLB
+handler may need to realize that the miss corresponds to the next page, although MMU MAS2 contents
+will correctly reflect the page corresponding to the miss.
+
+2.4.7                     Machine Check Syndrome Register (MCSR)
+When the core complex takes a machine check interrupt, it updates the machine check syndrome register
+(MCSR) to differentiate between machine check conditions. The MCSR is shown in Figure 2-9.
+
+
+
+
+                                                                                                                                                                    BUS_WRERR
+                                                                                                                                                        BUS_DRERR
+                                                                                                                                            BUS_IRERR
+                          0                              0                  0                       0                      0                                                        0
+                                   EXCP_ERR
+           IC_DPERR
+
+
+
+
+                                              IC_TPERR
+
+
+                                                             IC_LKERR
+     MCP
+
+
+
+
+                                                                                              MEA
+                                                                                        MAV
+                                                                                  NMI
+
+
+
+
+                                                                                                             LD
+                                                                                                                  ST
+                                                                                                        IF
+
+
+
+                                                                                                                       G
+     0     1          2       3    4          5          6   7          8   9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31
+
+                                                                                 SPR - 572; Read/Clear; Reset - 0x0
+
+                                                             Figure 2-9. Machine Check Syndrome Register (MCSR)
+
+Table 2-7 describes MCSR fields. The MCSR indicates the source of a machine check condition. When an
+“Async Mchk” or “Error Report” syndrome bit in the MCSR is set, the core complex asserts p_mcp_out
+for system information. Note that the bits in the MCSR are implemented as “write 1 to clear.” Therefore,
+software must write ones into those bit positions it wishes to clear, typically by writing back what was
+originally read. See Section 5.7.2, “Machine Check Interrupt (IVOR1) for more details of the MCSR
+settings.
+                                                             Table 2-7. Machine Check Syndrome Register (MCSR)
+
+    Bit                           Name                                                        Description                  Exception Type1               Recoverable
+
+    0                             MCP                          Machine check input pin                                         Async Mchk                           Maybe
+   (32)
+
+    1                     IC_DPERR                             Instruction Cache data array parity error                       Async Mchk                           Precise
+   (33)
+
+    2–3                            —                           Reserved, should be cleared.                                        —                                            —
+  (34–35
+     )
+
+    4                     EXCP_ERR                             ISI, ITLB, or Bus Error on first instruction fetch for an       Async Mchk                           Precise
+   (36)                                                        exception handler
+
+    5                     IC_TPERR                             Instruction Cache Tag parity error                              Async Mchk                           Precise
+   (37)
+
+
+                                                             e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+Freescale Semiconductor                                                                                                                                                                 2-17
+                      Table 2-7. Machine Check Syndrome Register (MCSR) (Continued)
+
+       Bit     Name                               Description                            Exception Type1     Recoverable
+
+    6           —           Reserved, should be cleared.                                       —                  —
+   (38)
+
+    7        IC_LKERR       Instruction Cache Lock error                                     Status               —
+   (39)                     Indicates a cache control operation or invalidation
+                            operation invalidated one or more locked lines in the
+                            Icache
+
+   8–10         —           Reserved, should be cleared.                                       —                  —
+  (40–42
+     )
+
+    11          NMI         NMI input pin                                                      NMI                —
+   (43)
+
+    12         MAV          MCAR Address Valid                                               Status               —
+   (44)                     Indicates that the address contained in the MCAR was
+                            updated by hardware to correspond to the first detected
+                            Async Mchk error condition
+
+    13         MEA          MCAR holds Effective Address                                     Status               —
+   (45)                     If MAV=1,MEA=1 indicates that the MCAR contains an
+                            effective address and MEA=0 indicates that the MCAR
+                            contains a physical address
+
+    14          —           Reserved, should be cleared.                                       —                  —
+   (46)
+
+    15          IF          Instruction Fetch Error Report                                 Error Report         Precise
+   (47)                     An error occurred during the attempt to fetch an
+                            instruction. MCSRR0 contains the instruction address.
+
+    16          LD          Load type instruction Error Report                             Error Report         Precise
+   (48)                     An error occurred during the attempt to execute the load
+                            type instruction located at the address stored in
+                            MCSRR0.
+
+    17          ST          Store type instruction Error Report                            Error Report         Precise
+   (49)                     An error occurred during the attempt to execute the
+                            store type instruction located at the address stored in
+                            MCSRR0.
+
+    18          G           Guarded Load or Store instruction Error Report                 Error Report         Precise
+   (50)                     An error occurred during the attempt to execute the load
+                            or store type instruction located at the address stored in
+                            MCSRR0 and the guarded access encountered an
+                            error on the external bus.
+
+   19–26        —           Reserved, should be cleared.                                       —                  —
+  (51–58
+     )
+
+    27       BUS_IRERR      Read bus error on Instruction fetch or linefill                Async Mchk       Precise if data
+   (59)                                                                                                         used
+
+    28       BUS_DRERR      Read bus error on data load                                    Async Mchk           Precise
+   (60)
+
+
+
+
+                           e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+2-18                                                                                                  Freescale Semiconductor
+                                  Table 2-7. Machine Check Syndrome Register (MCSR) (Continued)
+
+      Bit                  Name                                             Description                 Exception Type1   Recoverable
+
+       29        BUS_WRERR                       Write bus error on store                                 Async Mchk        Unlikely
+      (61)
+
+      30–31                 —                Reserved, should be cleared.                                     —               —
+     (62–63
+        )
+ 1
+      The Exception Type indicates the exception type associated with a given syndrome bit
+      - “Error Report” indicates that this bit is only set for error report exceptions which cause machine check interrupts. These
+      bits are only updated when the machine check interrupt is actually taken. Error report exceptions are not gated by MSRME.
+      These are synchronous exceptions. These bits will remain set until cleared by software writing a “1” to the bit position(s) to
+      be cleared.
+      - “Status” indicates that this bit is provides additional status information regarding the logging of an asynchronous machine
+      check exception. These bits will remain set until cleared by software writing a “1” to the bit position(s) to be cleared.
+      - “NMI” indicates that this bit is only set for the non-maskable interrupt type exception which causes a machine check
+      interrupt. This bit is only updated when the machine check interrupt is actually taken. NMI exceptions are not gated by
+      MSR ME. This is an asynchronous exception. This bit will remain set until cleared by software writing a “1” to the bit position.
+      - “Async Mchk” indicates that this bit is set for an asynchronous machine check exception. These bits are set immediately
+      upon detection of the error. Once any “Async Mchk” bit is set in the MCSR, a machine check interrupt will occur if
+      MSR ME=1. If MSRME=0, the machine check exception will remain pending. These bits will remain set until cleared by
+      software writing a “1” to the bit position(s) to be cleared.
+
+
+2.4.8                Timer Control Register (TCR)
+The timer control register (TCR) provides control information for the CPU timer facilities. The EREF
+contains a complete description of the TCR. The TCR[WRC] field functions are defined to be
+implementation-dependent and are described below. In addition, the e200 core implements two fields not
+specified in the Power ISA, TCR[WPEXT] and TCR[FPEXT].
+The TCR is shown in Figure 2-10.
+                                                                    WPEXT
+
+
+
+
+                                                                                   FPEXT
+
+
+
+
+                                                               0                                               0
+                 WRC
+
+
+
+
+                                                         ARE
+                            WIE
+                                  DIE
+       WP
+
+
+
+
+                                                   FIE
+                                        FP
+
+
+
+
+       0     1   2     3    4     5     6    7     8     9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31
+
+                                                                   SPR - 340; Read/Write; Reset - 0x0
+
+                                                         Figure 2-10. Timer Control Register (TCR)
+
+
+
+
+                                             e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+Freescale Semiconductor                                                                                                                2-19
+The TCR fields are defined in Table 2-8.
+                                    Table 2-8. Timer Control Register Field Descriptions
+
+            Bits     Name                                               Description
+
+             0–1       WP     Watchdog Timer Period
+           (32–33)            When concatenated with WPEXT, specifies one of 64 bit locations of the time base used to signal
+                              a watchdog timer exception on a transition from 0 to 1.
+                              TCRwpext[0–3],TCRwp[0–1] == 6’b000000 selects TBU[0]
+                              TCRwpext[0–3],TCRwp[0–1] == 6’b111111 selects TBL[31]
+
+             2–3      WRC     Watchdog Timer Reset Control
+           (34–35)            00 No Watchdog Timer reset will occur
+                              01 Assert watchdog reset status output 1 (p_wrs[1]) on second time-out of Watchdog Timer
+                              10 Assert watchdog reset status output 0 (p_wrs[0]) on second time-out of Watchdog Timer
+                              11 Assert watchdog reset status outputs 0 and 1 (p_wrs[0], p_wrs[1]) on second time-out of
+                                  Watchdog Timer
+                              TCRWRC resets to 0b00. This field may be set by software, but cannot be cleared by software
+                              (except by a software-induced reset). Once written to a non-zero value, this field may no longer
+                              be altered by software.
+
+             4        WIE     Watchdog Timer Interrupt Enable
+            (36)
+
+             5         DIE    Decrementer Interrupt Enable
+            (37)
+
+             6–7       FP     Fixed-Interval Timer Period
+           (38–39)            When concatenated with FPEXT, specifies one of 64 bit locations of the time base used to signal
+                              a fixed-interval timer exception on a transition from 0 to 1.
+                              TCRfpext[0–3],TCRfp[0–1] == 6’b000000 selects TBU[0]
+                              TCRfpext[0–3],TCRfp[0–1] == 6’b111111 selects TBL[31]
+
+             8         FIE    Fixed-Interval Timer Interrupt Enable
+            (40)
+
+             9        ARE     Auto-Reload Enable
+            (41)
+
+             10        —      Reserved1
+            (42)
+
+            11–14    WPEXT Watchdog Timer Period Extension (see above description for WP)
+           (43–46)         These bits get prepended to the TCRWP bits to allow selection of the one of the 64 Time Base
+                           bits used to signal a Watchdog Timer exception.
+                           tb0:63 ← TBU0:31 || TBL0:31
+                           wp ← TCRWPEXT || TCRWP
+                           tb_wp_bit ← tbwp
+
+            15–18    FPEXT    Fixed-Interval Timer Period Extension (see above description for FP)
+           (47–50)            These bits get prepended to the TCRFP bits to allow selection of the one of the 64 Time Base bits
+                              used to signal a Fixed-Interval Timer exception.
+                              tb0:63 ← TBU0:31 || TBL0:31
+                              fp ← TCRFPEXT || TCR FP
+                              tb_fp_bit ← tbfp
+
+            19–31      —      Reserved1
+           (51–63)
+       1
+           These bits are not implemented and should be written with zero for future compatibility.
+
+
+
+                                   e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+2-20                                                                                                      Freescale Semiconductor
+2.4.9                   Timer Status Register (TSR)
+The timer status register (TSR) provides status information for the CPU timer facilities. A complete
+description of the TSR is in the EREF. TSR[WRS] is defined to be implementation-dependent and is
+described below.
+The TSR is shown in Figure 2-11.
+        ENW
+
+
+                    WRS
+              WIS
+
+
+
+                                DIS
+                                      FIS
+
+                                                                                          0
+
+        0     1     2     3     4     5      6   7    8   9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31
+
+                                                               SPR - 336; Read/Clear; Reset - 0x0
+
+                                                          Figure 2-11. Timer Status Register (TSR)
+
+The TSR fields are defined in Table 2-9.
+                                                     Table 2-9. Timer Status Register Field Descriptions
+
+            Bits          Name                                                      Description
+
+             0            ENW               Enable Next Watchdog
+            (32)
+
+             1                WIS           Watchdog timer interrupt status
+            (33)
+
+          2–3             WRS               Watchdog timer reset status
+        (34–35)                             00 No second time-out of Watchdog Timer has occurred
+                                            01 Assertion of watchdog reset status output 1 (p_wrs[1]) on second time-out of Watchdog
+                                               Timer has occurred
+                                            10 Assertion of watchdog reset status output 0 (p_wrs[0]) on second time-out of Watchdog
+                                               Timer has occurred
+                                            11 Assertion of watchdog reset status outputs 0 and 1 (p_wrs[0], p_wrs[1]) on second time-out
+                                               of Watchdog Timer has occurred
+
+             4                DIS           Decrementer interrupt status
+            (36)
+
+             5                FIS           Fixed-Interval Timer interrupt status
+            (37)
+
+         6–31                  —            Reserved1
+        (38–63)
+    1
+            These bits are not implemented and should be written with zero for future compatibility.
+
+                                                                  NOTE
+                              The timer status register can be read using mfspr RT,TSR. The Timer
+                              Status Register cannot be directly written to. Instead, bits in the timer status
+                              register corresponding to 1 bits in GPR[RS] can be cleared using mtspr
+                              TSR,RS.
+
+
+
+
+                                                 e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+Freescale Semiconductor                                                                                                                     2-21
+2.4.10            Debug Registers
+The debug facility registers are described in Chapter 11, “Debug Support.”
+
+2.4.11            Hardware Implementation Dependent Register 0 (HID0)
+The HID0 register is an e200 implementation-dependent register used for various configuration and
+control functions, as shown in Figure 2-12.
+
+
+
+
+                                                                                                SEL_TBCLK
+
+
+
+
+                                                                                                                                        MCCLRDE
+                           0                                      0                  0                                                                        0
+
+
+
+
+                                                                                                                              CICLRDE
+
+
+                                                                                                                                                  DAPUEN
+                                                                                                                     DCLRCE
+                                                                                                            DCLREE
+                                                          SLEEP
+
+
+
+
+                                                                                                                                                                           NOPTI
+       EMCP
+
+
+
+
+                                             DOZE
+
+
+
+
+                                                                                         TBEN
+                                                                               NHR
+                                                    NAP
+
+
+
+
+                                                                         ICR
+       0      1   2   3    4    5   6    7   8      9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31
+
+                                                              SPR - 1008; Read/Write; Reset - 0x0
+
+                               Figure 2-12. Hardware Implementation Dependent Register 0 (HID0)
+
+The HID0 fields are defined in Table 2-10.
+                                    Table 2-10. Hardware Implementation Dependent Register 0
+
+        Bits          Name                                                                Description
+
+             0        EMCP              Enable machine check pin (p_mcp_b)
+           [32]                         0 p_mcp_b pin is disabled.
+                                        1 p_mcp_b pin is enabled. Asserting p_mcp_b causes a machine check interrupt to be
+                                          reported.
+                                        The primary purpose of this bit is to mask out further machine check exceptions caused by
+                                        assertion of p_mcp_b.
+
+         1–7              —             Reserved1
+       [33–39]
+
+             8        DOZE              Configure for Doze power management mode
+           [40]                         0 Doze mode is disabled
+                                        1 Doze mode is enabled
+                                        Doze mode is invoked by setting MSRWE while this bit is set.
+
+             9            NAP           Configure for Nap power management mode
+           [41]                         0 Nap mode is disabled
+                                        1 Nap mode is enabled
+                                        Nap mode is invoked by setting MSRWE while this bit is set.
+
+            10        SLEEP             Configure for Sleep power management mode
+           [42]                         0 Sleep mode is disabled
+                                        1 Sleep mode is enabled
+                                        Sleep mode is invoked by setting MSRWE while this bit is set.
+                                        Only one of DOZE, NAP, or SLEEP should be set for proper operation.
+
+        11–13             —             Reserved1
+       [43–45]
+
+
+
+
+                                         e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+2-22                                                                                                                                                       Freescale Semiconductor
+                  Table 2-10. Hardware Implementation Dependent Register 0 (Continued)
+
+      Bits      Name                                                 Description
+
+       14        ICR       Interrupt Inputs Clear Reservation
+      [46]                 0 External Input, Critical Input, and Non-Maskable Interrupts do not affect reservation status
+                           1 External Input, Critical Input, and Non-Maskable Interrupts clear an outstanding
+                              reservation
+
+       15       NHR        Not hardware reset
+      [47]                 0 indicates to a reset exception handler that a reset occurred if software had previously set
+                             this bit
+                           1 indicates to a reset exception handler that no reset occurred if software had previously set
+                             this bit
+                           Provided for software use—set anytime by software, cleared by reset.
+
+       16         —        Reserved1
+      [48]
+
+       17       TBEN       TimeBase Enable
+      [49]                 0 TimeBase is disabled
+                           1 TimeBase is enabled
+
+       18    SEL_TBCLK Select TimeBase Clock
+      [50]             0 TimeBase is based on processor clock
+                       1 TimeBase is based on p_tbclk input
+                       This bit controls the clock source for the TimeBase. Altering this bit must be done while the
+                       time base is disabled to preclude glitching of the counter. Timer interrupts should be disabled
+                       prior to alteration, and the TBL and TBU registers re-initialized following a change of
+                       TimeBase clock source.
+
+       19      DCLREE      Debug Interrupt Clears MSREE
+      [51]                 0 MSREEunaffected by Debug Interrupt
+                           1 MSREE cleared by Debug Interrupt
+                           This bit controls whether Debug interrupts force External Input interrupts to be disabled, or
+                           whether they remain unaffected.
+
+       20     DCLRCE       Debug Interrupt Clears MSRCE
+      [52]                 0 MSRCE unaffected by Debug Interrupt
+                           1 MSRCE cleared by Debug Interrupt
+                           This bit controls whether Debug interrupts force Critical interrupts to be disabled, or whether
+                           they remain unaffected.
+
+       21     CICLRDE      Critical Interrupt Clears MSR DE
+      [53]                 0 MSRDE unaffected by Critical class interrupt
+                           1 MSRDE cleared by Critical class interrupt
+                           This bit controls whether certain Critical interrupts (Critical Input, Watchdog Timer) force
+                           Debug interrupts to be disabled, or whether they remain unaffected. Machine Check interrupts
+                           have a separate control bit.
+                           Note: If Critical Interrupt Debug events are enabled (DBCR0CIRPT set, which should only be
+                                  done when the Debug functionality is enabled), and MSRDE is set at the time of a
+                                  (Critical Input, Watchdog Timer) Critical interrupt, a debug event will be generated after
+                                  the Critical Interrupt Handler has been fetched, and the Debug handler will be executed
+                                  first. In this case, DSRR0DE will have been cleared, such that after returning from the
+                                  debug handler, the Critical interrupt handler will not be run with MSRDE enabled.
+
+
+
+
+                             e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+Freescale Semiconductor                                                                                                        2-23
+                                Table 2-10. Hardware Implementation Dependent Register 0 (Continued)
+
+           Bits                Name                                                        Description
+
+                22        MCCLRDE           Machine Check Interrupt Clears MSRDE
+               [54]                         0 MSRDE unaffected by Machine Check interrupt
+                                            1 MSRDE cleared by Machine Check interrupt
+                                            This bit controls whether machine check interrupts force debug interrupts to be disabled, or
+                                            whether they remain unaffected.
+
+                23         DAPUEN           Debug APU enable
+               [55]                         0 Debug APU disabled
+                                            1 Debug APU enabled
+                                            This bit controls whether the Debug APU is enabled. When enabled, Debug interrupts use the
+                                            DSRR0/DSRR1 registers for saving state, and the rfdi instruction is available for returning
+                                            from a debug interrupt.
+                                            When disabled, Debug Interrupts use the critical interrupt resources CSRR0/CSRR1 for
+                                            saving state, the rfci instruction is used for returning from a debug interrupt, and the rfdi
+                                            instruction is treated as an illegal instruction.
+                                            When disabled, the settings of the DCLREE, DCLRCE, CICLRDE, and MCCLRDE bits are
+                                            ignored and are assumed to be ‘1’s
+                                            Read and write access to DSRR0/DSRR1 by means of the mfspr and mtspr instructions is
+                                            not affected by this bit.
+
+                24              —           Reserved1
+               [56]
+
+        25–30                   —           Reserved1
+       [58–62]
+
+                31         NOPTI            No-op Touch Instructions
+               [63]                         0 icbt instruction operates normally
+                                            1 icbt instruction is no-oped
+                                            This bit only affects the icbt instruction.
+       1
+               These bits are not implemented and should be written with zero for future compatibility.
+
+
+2.4.12                    Hardware Implementation Dependent Register 1 (HID1)
+The HID1 register is used for bus configuration and system control. HID1 is shown in Figure 2-13.
+                                                                                  SYSCTL
+
+
+
+
+                                                 0                                                                          0
+                                                                                                             ATS
+
+
+
+
+           0     1    2    3    4   5   6    7       8   9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31
+
+                                                             SPR - 1009; Read/Write; Reset - 0x0
+
+                                    Figure 2-13. Hardware Implementation Dependent Register 1 (HID1)
+
+
+
+
+                                             e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+2-24                                                                                                                Freescale Semiconductor
+The HID1 fields are defined in Table 2-11.
+
+       Bits         Name                                                   Description
+
+     0–15               —        Reserved1
+   [32–47]
+
+    16–23          SYSCTL        System Control
+   [48–56]                       These bits are reflected on the outputs of the p_hid1_sysctl[0–7] output signals for use in
+                                 controlling the system. They may need external synchronization.
+
+        24          ATS          Atomic status (read-only)
+       [56]                      Indicates state of the reservation bit in the load/store unit. See Section 3.6, “Memory
+                                 Synchronization and Reservation Instructions for more detail.
+
+    25–31               —        Reserved1
+   [57–63]
+
+                                 Table 2-11. Hardware Implementation Dependent Register 1
+   1
+       These bits are not implemented and should be written with zero for future compatibility.
+
+
+2.4.13             Branch Unit Control and Status Register (BUCSR)
+The BUCSR register is used for general control and status of the branch target buffer (BTB), as shown in
+Figure 2-14.
+
+
+
+
+                                                                                                             BALLOC
+
+
+
+                                                                                                                           BPRED
+                                                  0                                                  0                0
+
+
+
+
+                                                                                                                                   BPEN
+                                                                                              BBFI
+       0   1   2    3   4   5    6   7   8   9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31
+
+                                                  SPR - 1013; Read/Write; Reset - 0x0
+
+                                Figure 2-14. Branch Unit Control and Status Register (BUCSR)
+
+
+
+
+                                     e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+Freescale Semiconductor                                                                                                                   2-25
+The BUCSR fields are defined in Table 2-12.
+
+           Bits     Name                                                  Description
+
+        0–21          —       Reserved1
+       [32–53]
+
+            22       BBFI     Branch target buffer flash invalidate.
+           [54]               When written to a ‘1’, BBFI flash clears the valid bit of all entries in the branch buffer; clearing
+                              occurs regardless of the value of the enable bit (BPEN). Note: BBFI is always read as 0.
+
+        23–25         —       Reserved1
+       [55–57]
+
+        26–27      BALLOC Branch Target Buffer Allocation Control
+       [58–59]            00 Branch Target Buffer allocation for all branches is enabled.
+                          01 Branch Target Buffer allocation is disabled for backward branches.
+                          10 Branch Target Buffer allocation is disabled for forward branches.
+                          11 Branch Target Buffer allocation is disabled for both branch directions.
+                          This field controls BTB allocation for branch acceleration when BPEN = 1. Note that BTB hits are
+                          not affected by the settings of this field. Note that for branches with “AA’ = ‘1’, the MSB of the
+                          displacement field is still used to indicate forward/backward, even though the branch is absolute.
+
+            28        —       Reserved1
+           [60]
+
+        29–30      BPRED      Branch Prediction Control (Static)
+       [61–62]                00 Branch predicted taken on BTB miss for all branches.
+                              01 Branch predicted taken on BTB miss only for forward branches.
+                              10 Branch predicted taken on BTB miss only for backward branches.
+                              11 Branch predicted not taken on BTB miss for both branch directions.
+                              This field controls operation of static prediction mechanism on a BTB miss. Unless disabled,
+                              fetching of the predicted target location will be performed for branch acceleration. BPRED
+                              operates independently of BPEN, and with a BPEN setting of 0, will be used to perform static
+                              prediction of all unresolved branches.
+                              Note that BTB hits are not affected by the settings of this field. Note that for certain applications,
+                              setting BPRED to a non-default value may result in improved performance.
+
+            31      BPEN      Branch target buffer prediction enable.
+           [63]               0 Branch target buffer prediction disabled
+                              1 Branch target buffer prediction enabled (enables BTB to predict branches)
+                              When the BPEN bit is cleared, no hits will be generated from the BTB, and no new entries will be
+                              allocated. Entries are not automatically invalidated when BPEN is cleared; the BBFI bit controls
+                              entry invalidation. BPEN operates independently of BPRED, and will be used even with a BPRED
+                              setting of 00.
+
+                                    Table 2-12. Branch Unit Control and Status Register
+       1   These bits are not implemented and should be written with zero for future compatibility.
+
+
+2.4.14            L1 Cache Control and Status Registers (L1CSR0, L1CSR1)
+The L1CSR0 and L1CSR1 registers are used for general control and status of the L1 cache. A description
+of the L1CSR0 and L1CSR1 registers can be found in Chapter 9, “L1 Cache.”
+
+
+
+
+                                   e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+2-26                                                                                                          Freescale Semiconductor
+2.4.15       L1 Cache Configuration Registers (L1CFG0, L1CFG1)
+The L1CFG0 and L1CGF1 registers provide configuration information for the L1 caches supplied with
+this version of the e200 CPU core. A description of the L1CFG0 and L1CGF1 registers can be found in
+Chapter 9, “L1 Cache.”
+
+2.4.16       L1 Cache Flush and Invalidate Register (L1FINV1)
+The L1FINV0 and L1FINV1 registers provide software-based flush and invalidation control for the L1
+instruction cache supplied with this version of the e200 CPU core. A description of the L1FINV1 register
+can be found in Chapter 9, “L1 Cache.”
+
+2.4.17       MMU Control and Status Register (MMUCSR0)
+The MMUCSR0 register is used for general control of the MMU. A description of the MMUCSR register
+can be found in Chapter 10, “Memory Management Unit.”
+
+2.4.18       MMU Configuration Register (MMUCFG)
+The MMUCFG register provides configuration information for the MMU supplied with this version of the
+e200 CPU core. A description of the MMUCFG register can be found in Chapter 10, “Memory
+Management Unit.”
+
+2.4.19       TLB Configuration Registers (TLB0CFG, TLB1CFG)
+The TLB0CFG and TLB1CFG registers provide configuration information for the MMU TLBs supplied
+with this version of the e200 CPU core. A description of these registers can be found in Chapter 10,
+“Memory Management Unit.”
+
+2.5       SPR Register Access
+SPRs are accessed with the mfspr and mtspr instructions. The following sections outline additional access
+requirements.”
+
+2.5.1        Invalid SPR References
+System behavior when an invalid SPR is referenced depends on the apparent privilege level of the register.
+The register privilege level is determined by bit 5 in the SPR address. If the invalid SPR is accessible in
+user mode, then an illegal exception is generated. If the invalid SPR is accessible only in supervisor mode
+and the CPU core is in supervisor mode (MSR[PR] = 0), then an illegal exception is generated. If the
+invalid SPR address is accessible only in supervisor mode and the CPU is not in supervisor mode
+(MSR[PR] = 1), then a privilege exception is generated.
+Note that writes to read-only SPRs and reads of write-only SPRs are treated as invalid SPR references.
+
+
+
+
+                          e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+Freescale Semiconductor                                                                                2-27
+Table 2-13 lists the system response to an invalid SPR.
+                            Table 2-13. System Response to Invalid SPR Reference
+
+                      SPR address bit 5          Mode         MSRPR                 Response
+
+                              0                     —            —          Illegal exception
+
+                              1              Supervisor          0          Illegal exception
+
+                              1                  User            1          Privilege exception
+
+
+2.5.2       Synchronization Requirements for SPRs
+With the exception of the following registers, there are no synchronization requirements for accessing
+SPRs beyond those stated in the Power ISA embedded category. The EREF contains a complete
+description of synchronization requirements.
+Software requirements for synchronization before or after accessing these registers are shown in
+Table 2-14. The notation CSI in the table refers to a Context Synchronizing instruction which include sc,
+isync, rfi, rfci, and rfdi.
+                        Table 2-14. Additional synchronization requirements for SPRs
+
+                                                                               Required         Required
+                     Context Altering Event or Instruction                                                    Notes
+                                                                                Before           After
+
+                                  mtmsr[UCLE]                                    none             CSI
+
+                                  mtmsr[SPE]                                     none             CSI
+
+                                     mfspr
+
+           DBCNT         Debug Counter register                                  msync            none           1
+
+            DBSR         Debug Status register                                   msync            none
+
+             HID0        Hardware implementation dependent reg 0                 none             none
+
+             HID1        Hardware implementation dependent reg 1                 msync            none
+
+           L1CSR0,       L1 cache control and status registers 0,1               msync            none
+           L1CSR1
+
+           L1FINV1       L1 cache flush and invalidate control register 1        msync            none
+
+          MMUCSR         MMU control and status register 0                        CSI             none
+
+                                     mtspr
+
+           BUCSR         Branch Unit Control and Status Register                 none             CSI
+
+           DBCNT         Debug Counter register                                  none             CSI            1
+
+           DBCR0         Debug Control Register 0                                none             CSI
+
+           DBCR1         Debug Control Register 1                                none             CSI
+
+           DBCR2         Debug Control Register 2                                none             CSI
+
+           DBCR3         Debug control register 3                                none             CSI
+
+           DBCR4         Debug control register 4                                none             CSI
+
+
+                            e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+2-28                                                                                                     Freescale Semiconductor
+                  Table 2-14. Additional synchronization requirements for SPRs (Continued)
+
+                                                                                 Required      Required
+                        Context Altering Event or Instruction                                                  Notes
+                                                                                  Before        After
+
+             DBCR5           Debug control register 5                             none           CSI
+
+             DBCR6           Debug control register 6                             none           CSI
+
+               DBSR          Debug Status Register                                msync         none
+
+               HID0          Hardware implementation dependent reg 0               CSI          isync
+
+               HID1          Hardware implementation dependent reg 1              msync,         CSI
+                                                                                   isync
+
+            L1CSR0           L1 cache control and status register 0               msync,         CSI
+                                                                                  isync
+
+            L1CSR1           L1 cache control and status registers 1              none           CSI
+
+            L1FINV1          L1 cache flush and invalidate control register 1     msync          CSI
+
+               MASx          MMU MAS registers                                    none           CSI
+
+           MMUCSR            MMU control and status register 0                     CSI           CSI
+
+               PID           PID0 register                                        none           CSI
+
+           SPEFSCR           SPEFSCR register                                     none           CSI2
+
+           Notes:
+           1. not required if counter is not currently enabled
+           2. not required for status bit clearing, required for altering exception enable or rounding mode bits
+
+
+2.5.3        Special Purpose Register Summary
+Power ISA embedded category and implementation-specific SPRs for the e200 core are listed in
+Table 2-15. All registers are 32-bits in size. Register bits are numbered from bit 0 to bit 31 (most significant
+to least significant). Shaded entries represent optional registers. An SPR register may be read or written
+with the mfspr and mtspr instructions. In the instruction syntax, compilers should recognize the
+mnemonic name given in the table below.
+                                          Table 2-15. Special Purpose Registers
+
+                                                                         SPR                                        e200
+      Mnemonic                            Name                                        Access      Privileged
+                                                                        Number                                     Specific
+
+        BUCSR         Branch Unit Control and Status Register             1013           R/W            Yes          Yes
+
+        CSRR0         Critical Save/Restore Register 0                     58            R/W            Yes          No
+
+        CSRR1         Critical Save/Restore Register 1                     59            R/W            Yes          No
+
+         CTR          Count Register                                       9             R/W            No           No
+
+        DAC1          Data Address Compare 1                              316            R/W            Yes          No
+
+        DAC2          Data Address Compare 2                              317            R/W            Yes          No
+
+        DBCNT         Debug Counter register                              562            R/W            Yes          Yes
+
+
+
+
+                                e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+Freescale Semiconductor                                                                                                       2-29
+                               Table 2-15. Special Purpose Registers (Continued)
+
+                                                                SPR                                  e200
+       Mnemonic                       Name                                Access       Privileged
+                                                               Number                               Specific
+
+        DBCR0     Debug Control Register 0                      308        R/W            Yes         No
+
+        DBCR1     Debug Control Register 1                      309        R/W            Yes         No
+
+        DBCR2     Debug Control Register 2                      310        R/W            Yes         No
+
+        DBCR3     Debug control register 3                      561        R/W            Yes         Yes
+
+        DBCR4     Debug control register 4                      563        R/W            Yes         Yes
+
+        DBCR5     Debug control register 5                      564        R/W            Yes         Yes
+
+        DBCR6     Debug control register 5                      603        R/W            Yes         Yes
+
+       DBERC0     Debug external resource control register 0    569      Read-only        Yes         Yes
+
+        DBSR      Debug Status Register                         304     Read/Clear1       Yes         No
+
+        DDAM      Debug Data Acquisition Messaging register     576        R/W            No          Yes
+
+        DEAR      Data Exception Address Register                61        R/W            Yes         No
+
+         DEC      Decrementer                                    22        R/W            Yes         No
+
+        DECAR     Decrementer Auto-Reload                        54        R/W            Yes         No
+
+       DEVENT     Debug Event register                          975        R/W            No          Yes
+
+        DSRR0     Debug save/restore register 0                 574        R/W            Yes         Yes
+
+        DSRR1     Debug save/restore register 1                 575        R/W            Yes         Yes
+
+        DVC1      Data Value Compare 1                          318        R/W            Yes         No
+
+        DVC2      Data Value Compare 2                          319        R/W            Yes         No
+
+         ESR      Exception Syndrome Register                    62        R/W            Yes         No
+
+         HID0     Hardware implementation dependent reg 0       1008       R/W            Yes         Yes
+
+         HID1     Hardware implementation dependent reg 1       1009       R/W            Yes         Yes
+
+         IAC1     Instruction Address Compare 1                 312        R/W            Yes         No
+
+         IAC2     Instruction Address Compare 2                 313        R/W            Yes         No
+
+         IAC3     Instruction Address Compare 3                 314        R/W            Yes         No
+
+         IAC4     Instruction Address Compare 4                 315        R/W            Yes         No
+
+         IAC5     Instruction Address Compare 5                 565        R/W            Yes         Yes
+
+         IAC6     Instruction Address Compare 6                 566        R/W            Yes         Yes
+
+         IAC7     Instruction Address Compare 7                 567        R/W            Yes         Yes
+
+         IAC8     Instruction Address Compare 8                 568        R/W            Yes         Yes
+
+        IVOR0     Interrupt Vector Offset Register 0            400        R/W            Yes         No
+
+        IVOR1     Interrupt Vector Offset Register 1            401        R/W            Yes         No
+
+        IVOR2     Interrupt Vector Offset Register 2            402        R/W            Yes         No
+
+
+
+                            e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+2-30                                                                                       Freescale Semiconductor
+                               Table 2-15. Special Purpose Registers (Continued)
+
+                                                                      SPR                               e200
+      Mnemonic                         Name                                    Access     Privileged
+                                                                     Number                            Specific
+
+        IVOR3     Interrupt Vector Offset Register 3                  403       R/W          Yes         No
+
+        IVOR4     Interrupt Vector Offset Register 4                  404       R/W          Yes         No
+
+        IVOR5     Interrupt Vector Offset Register 5                  405       R/W          Yes         No
+
+        IVOR6     Interrupt Vector Offset Register 6                  406       R/W          Yes         No
+
+        IVOR7     Interrupt Vector Offset Register 7                  407       R/W          Yes         No
+
+        IVOR8     Interrupt Vector Offset Register 8                  408       R/W          Yes         No
+
+        IVOR9     Interrupt Vector Offset Register 9                  409       R/W          Yes         No
+
+       IVOR10     Interrupt Vector Offset Register 10                 410       R/W          Yes         No
+
+       IVOR11     Interrupt Vector Offset Register 11                 411       R/W          Yes         No
+
+       IVOR12     Interrupt Vector Offset Register 12                 412       R/W          Yes         No
+
+       IVOR13     Interrupt Vector Offset Register 13                 413       R/W          Yes         No
+
+       IVOR14     Interrupt Vector Offset Register 14                 414       R/W          Yes         No
+
+       IVOR15     Interrupt Vector Offset Register 15                 415       R/W          Yes         No
+
+       IVOR32     Interrupt vector offset register 32                 528       R/W          Yes         Yes
+
+       IVOR33     Interrupt vector offset register 33                 529       R/W          Yes         Yes
+
+       IVOR34     Interrupt vector offset register 34                 530       R/W          Yes         Yes
+
+        IVPR      Interrupt Vector Prefix Register                     63       R/W          Yes         No
+
+          LR      Link Register                                        8        R/W          No          No
+
+       L1CFG0     L1 cache config register 0                          515     Read-only      No          Yes
+
+       L1CFG1     L1 cache config register 1                          516     Read-only      No          Yes
+
+       L1CSR0     L1 cache control and status register 0              1010      R/W          Yes         Yes
+
+       L1CSR1     L1 cache control and status register 1              1011      R/W          Yes         Yes
+
+       L1FINV1    L1 cache flush and invalidate control register 0    959       R/W          Yes         Yes
+
+        MAS0      MMU assist register 0                               624       R/W          Yes         Yes
+
+        MAS1      MMU assist register 1                               625       R/W          Yes         Yes
+
+        MAS2      MMU assist register 2                               626       R/W          Yes         Yes
+
+        MAS3      MMU assist register 3                               627       R/W          Yes         Yes
+
+        MAS4      MMU assist register 4                               628       R/W          Yes         Yes
+
+        MAS6      MMU assist register 6                               630       R/W          Yes         Yes
+
+        MCAR      Machine Check Address Register                      573       R/W          Yes         Yes
+
+        MCSR      Machine Check Syndrome Register                     572     R/Clear2       Yes         Yes
+
+       MCSRR0     Machine Check Save/Restore Register 0               570       R/W          Yes         Yes
+
+
+
+                             e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+Freescale Semiconductor                                                                                           2-31
+                              Table 2-15. Special Purpose Registers (Continued)
+
+                                                              SPR                                    e200
+       Mnemonic                      Name                                 Access       Privileged
+                                                             Number                                 Specific
+
+       MCSRR1     Machine Check Save/Restore Register 1        571         R/W            Yes         Yes
+
+       MMUCFG     MMU configuration register                   1015      Read-only        Yes         Yes
+
+       MMUCSR     MMU control and status register 0            1012        R/W            Yes         Yes
+
+         PID0     Process ID Register                           48         R/W            Yes         No
+
+         PIR      Processor ID Register                        286         R/W            Yes         No
+
+         PVR      Processor Version Register                   287       Read-only        Yes         No
+
+       SPEFSCR    SPE APU status and control register          512         R/W            No          No
+
+        SPRG0     SPR General 0                                272         R/W            Yes         No
+
+        SPRG1     SPR General 1                                273         R/W            Yes         No
+
+        SPRG2     SPR General 2                                274         R/W            Yes         No
+
+        SPRG3     SPR General 3                                275         R/W            Yes         No
+
+        SPRG4     SPR General 4                                260       Read-only        No          No
+
+                                                               276         R/W            Yes         No
+
+        SPRG5     SPR General 5                                261       Read-only        No          No
+
+                                                               277         R/W            Yes         No
+
+        SPRG6     SPR General 6                                262       Read-only        No          No
+
+                                                               278         R/W            Yes         No
+
+        SPRG7     SPR General 7                                263       Read-only        No          No
+
+                                                               279         R/W            Yes         No
+
+        SPRG8     SPR General 8                                604         R/W            Yes         Yes
+
+        SPRG9     SPR General 9                                605         R/W            Yes         Yes
+
+        SRR0      Save/Restore Register 0                       26         R/W            Yes         No
+
+        SRR1      Save/Restore Register 1                       27         R/W            Yes         No
+
+         SVR      System Version Register                      1023      Read-only        Yes         Yes
+
+         TBL      Time Base Lower                              268       Read-only        No          No
+
+                                                               284       Write-only       Yes         No
+
+         TBU      Time Base Upper                              269       Read-only        No          No
+
+                                                               285       Write-only       Yes         No
+
+         TCR      Timer Control Register                       340         R/W            Yes         No
+
+       TLB0CFG    TLB0 configuration register                  688       Read-only        Yes         Yes
+
+       TLB1CFG    TLB1 configuration register                  689       Read-only        Yes         Yes
+
+         TSR      Timer Status Register                        336      Read/Clear3       Yes         No
+
+
+
+                            e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+2-32                                                                                       Freescale Semiconductor
+                                  Table 2-15. Special Purpose Registers (Continued)
+
+                                                                       SPR                                     e200
+          Mnemonic                       Name                                       Access      Privileged
+                                                                      Number                                  Specific
+
+          USPRG0     User SPR General 0                                 256            R/W          No           No
+
+            XER      Integer Exception Register                          1             R/W          No           No
+
+      Notes:
+      1
+        The Debug Status Register can be read using mfspr RT,DBSR. The Debug Status Register cannot be directly
+        written to. Instead, bits in the Debug Status Register corresponding to ‘1’ bits in GPR(RS) can be cleared using
+        mtspr DBSR,RS.
+      2
+        The Machine Check Syndrome Register can be read using mfspr RT,MCSR. The Machine Check Syndrome
+        Register cannot be directly written to. Instead, bits in the Machine Check Syndrome Register corresponding to ‘1’
+        bits in GPR(RS) can be cleared using mtspr MCSR,RS.
+      3
+        The Timer Status Register can be read using mfspr RT,TSR. The Timer Status Register cannot be directly written
+        to. Instead, bits in the Timer Status Register corresponding to ‘1’ bits in GPR(RS) can be cleared using mtspr
+        TSR,RS.
+
+
+2.6          Reset Settings
+Table 2-16 shows the state of the Power ISA architected registers and other optional resources immediately
+following a system reset.
+                                    Table 2-16. Reset Settings for e200 Resources
+
+                                            Resource                         system reset setting
+
+                           Program Counter                               p_rstbase[0–29] || 2’b00
+
+                           GPRs                                          Unaffected1
+
+                           CR                                            Unaffected1
+
+                           BUCSR                                         0x0000_0000
+
+                           CSRR0                                         Unaffected1
+
+                           CSRR1                                         Unaffected1
+
+                           CTR                                           Unaffected1
+
+                           DAC1                                          0x0000_00002
+
+                           DAC2                                          0x0000_00002
+
+                           DBCNT                                         Unaffected1
+
+                           DBCR0                                         0x0000_00002
+
+                           DBCR1                                         0x0000_00002
+
+                           DBCR2                                         0x0000_00002
+
+                           DBCR3                                         0x0000_00002
+
+                           DBCR4                                         0x0000_00002
+
+                           DBCR5                                         0x0000_00002
+
+                           DBCR6                                         0x0000_00002
+
+
+                                e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+Freescale Semiconductor                                                                                                     2-33
+        Table 2-16. Reset Settings for e200 Resources (Continued)
+
+                     Resource                   system reset setting
+
+       DBSR                                   0x1000_00002
+
+       DDAM                                   0x0000_00002
+
+       DEAR                                   Unaffected1
+
+       DEC                                    Unaffected1
+
+       DECAR                                  Unaffected1
+
+       DEVENT                                 0x0000_0002
+
+       DSRR0                                  Unaffected1
+
+       DSRR1                                  Unaffected1
+
+       DVC1                                   Unaffected1
+
+       DVC2                                   Unaffected1
+
+       ESR                                    0x0000_0000
+
+       HID0                                   0x0000_0000
+
+       HID1                                   0x0000_0000
+
+       IAC1                                   0x0000_00002
+
+       IAC2                                   0x0000_00002
+
+       IAC3                                   0x0000_00002
+
+       IAC4                                   0x0000_00002
+
+       IAC5                                   0x0000_00002
+
+       IAC6                                   0x0000_00002
+
+       IAC7                                   0x0000_00002
+
+       IAC8                                   0x0000_00002
+
+       IVOR0                                  Unaffected1
+
+       IVOR1                                  Unaffected1
+
+       IVOR2                                  Unaffected1
+
+       IVOR3                                  Unaffected1
+
+       IVOR4                                  Unaffected1
+
+       IVOR5                                  Unaffected1
+
+       IVOR6                                  Unaffected1
+
+       IVOR7                                  Unaffected1
+
+       IVOR8                                  Unaffected1
+
+       IVOR9                                  Unaffected1
+
+       IVOR10                                 Unaffected1
+
+       IVOR11                                 Unaffected1
+
+
+          e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+2-34                                                                   Freescale Semiconductor
+                           Table 2-16. Reset Settings for e200 Resources (Continued)
+
+                                           Resource                     system reset setting
+
+                          IVOR12                                    Unaffected1
+
+                          IVOR13                                    Unaffected1
+
+                          IVOR14                                    Unaffected1
+
+                          IVOR15                                    Unaffected1
+
+                          IVPR                                      Unaffected1
+
+                          LR                                        Unaffected1
+
+                          L1CFG0, L1CFG13                           —
+
+                          L1CSR0, 1                                 0x0000_0000
+
+                          L1FINV1                                   0x0000_0000
+
+                          MAS0                                      Unaffected1
+
+                          MAS1                                      Unaffected1
+
+                          MAS2                                      Unaffected1
+
+                          MAS3                                      Unaffected1
+
+                          MAS4                                      Unaffected1
+
+                          MAS6                                      Unaffected1
+
+                          MCAR                                      Unaffected1
+
+                          MCSR                                      0x0000_0000
+
+                          MCSRR0                                    Unaffected1
+
+                          MCSRR1                                    Unaffected1
+
+                          MMUCFG3                                   —
+
+                          MSR                                       0x0000_0000
+
+                          PID0                                      0x0000_0000
+
+                          PIR                                       0x0000_00 || p_cpuid[0–7]
+
+                          PVR3                                      —
+
+                          SPEFSCR                                   0x0000_0000
+
+                          SPRG0                                     Unaffected1
+
+                          SPRG1                                     Unaffected1
+
+                          SPRG2                                     Unaffected1
+
+                          SPRG3                                     Unaffected1
+
+                          SPRG4                                     Unaffected1
+
+                          SPRG5                                     Unaffected1
+
+                          SPRG6                                     Unaffected1
+
+                          SPRG7                                     Unaffected1
+
+
+                                e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+Freescale Semiconductor                                                                         2-35
+           Table 2-16. Reset Settings for e200 Resources (Continued)
+
+                        Resource                      system reset setting
+
+       SPRG8                                      Unaffected1
+
+       SPRG9                                      Unaffected1
+
+       SRR0                                       Unaffected1
+
+       SRR1                                       Unaffected1
+
+       SVR3                                       —
+
+       TBL                                        Unaffected1
+
+       TBU                                        Unaffected1
+
+       TCR                                        0x0000_0000
+
+       TSR                                        0x0000_0000
+
+       TLB0CFG3                                   —
+
+       TLB1CFG3                                   —
+
+       USPRG0                                     Unaffected1
+
+       XER                                        0x0000_0000
+       1
+         Undefined on m_por assertion, unchanged on p_reset_b assertion
+       2
+          Reset by processor reset p_reset_b if DBCR0[EDM]=0, as well as
+         unconditionally by m_por.
+       3 Read-only registers
+
+
+
+
+             e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+2-36                                                                         Freescale Semiconductor

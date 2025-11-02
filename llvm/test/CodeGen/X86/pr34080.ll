@@ -26,7 +26,7 @@ define void @_Z1fe(x86_fp80 %z) local_unnamed_addr #0 {
 ; SSE2-NEXT:    movsd %xmm0, -64(%rbp)
 ; SSE2-NEXT:    movsd %xmm0, -32(%rbp)
 ; SSE2-NEXT:    fsubl -32(%rbp)
-; SSE2-NEXT:    flds {{.*}}(%rip)
+; SSE2-NEXT:    flds {{\.?LCPI[0-9]+_[0-9]+}}(%rip)
 ; SSE2-NEXT:    fmul %st, %st(1)
 ; SSE2-NEXT:    fnstcw -2(%rbp)
 ; SSE2-NEXT:    movzwl -2(%rbp), %eax
@@ -65,7 +65,7 @@ define void @_Z1fe(x86_fp80 %z) local_unnamed_addr #0 {
 ; SSE2-SCHEDULE-NEXT:    movsd %xmm0, -64(%rbp)
 ; SSE2-SCHEDULE-NEXT:    movsd %xmm0, -32(%rbp)
 ; SSE2-SCHEDULE-NEXT:    fsubl -32(%rbp)
-; SSE2-SCHEDULE-NEXT:    flds {{.*}}(%rip)
+; SSE2-SCHEDULE-NEXT:    flds {{\.?LCPI[0-9]+_[0-9]+}}(%rip)
 ; SSE2-SCHEDULE-NEXT:    fmul %st, %st(1)
 ; SSE2-SCHEDULE-NEXT:    fnstcw -2(%rbp)
 ; SSE2-SCHEDULE-NEXT:    movzwl -2(%rbp), %eax
@@ -99,7 +99,7 @@ define void @_Z1fe(x86_fp80 %z) local_unnamed_addr #0 {
 ; SSE3-NEXT:    movsd %xmm0, -48(%rbp)
 ; SSE3-NEXT:    movsd %xmm0, -24(%rbp)
 ; SSE3-NEXT:    fsubl -24(%rbp)
-; SSE3-NEXT:    flds {{.*}}(%rip)
+; SSE3-NEXT:    flds {{\.?LCPI[0-9]+_[0-9]+}}(%rip)
 ; SSE3-NEXT:    fmul %st, %st(1)
 ; SSE3-NEXT:    fld %st(1)
 ; SSE3-NEXT:    fisttpl -8(%rbp)
@@ -124,15 +124,15 @@ define void @_Z1fe(x86_fp80 %z) local_unnamed_addr #0 {
 ; AVX-NEXT:    fldt 16(%rbp)
 ; AVX-NEXT:    fld %st(0)
 ; AVX-NEXT:    fisttpl -4(%rbp)
-; AVX-NEXT:    vcvtsi2sdl -4(%rbp), %xmm0, %xmm0
+; AVX-NEXT:    vcvtsi2sdl -4(%rbp), %xmm15, %xmm0
 ; AVX-NEXT:    vmovsd %xmm0, -48(%rbp)
 ; AVX-NEXT:    vmovsd %xmm0, -24(%rbp)
 ; AVX-NEXT:    fsubl -24(%rbp)
-; AVX-NEXT:    flds {{.*}}(%rip)
+; AVX-NEXT:    flds {{\.?LCPI[0-9]+_[0-9]+}}(%rip)
 ; AVX-NEXT:    fmul %st, %st(1)
 ; AVX-NEXT:    fld %st(1)
 ; AVX-NEXT:    fisttpl -8(%rbp)
-; AVX-NEXT:    vcvtsi2sdl -8(%rbp), %xmm1, %xmm0
+; AVX-NEXT:    vcvtsi2sdl -8(%rbp), %xmm15, %xmm0
 ; AVX-NEXT:    vmovsd %xmm0, -40(%rbp)
 ; AVX-NEXT:    vmovsd %xmm0, -16(%rbp)
 ; AVX-NEXT:    fxch %st(1)
@@ -143,25 +143,23 @@ define void @_Z1fe(x86_fp80 %z) local_unnamed_addr #0 {
 ; AVX-NEXT:    retq
 entry:
   %tx = alloca [3 x double], align 16
-  %0 = bitcast [3 x double]* %tx to i8*
   %conv = fptosi x86_fp80 %z to i32
   %conv1 = sitofp i32 %conv to double
-  %arrayidx = getelementptr inbounds [3 x double], [3 x double]* %tx, i64 0, i64 0
-  store double %conv1, double* %arrayidx, align 16
+  store double %conv1, ptr %tx, align 16
   %conv4 = fpext double %conv1 to x86_fp80
   %sub = fsub x86_fp80 %z, %conv4
   %mul = fmul x86_fp80 %sub, 0xK40178000000000000000
   %conv.1 = fptosi x86_fp80 %mul to i32
   %conv1.1 = sitofp i32 %conv.1 to double
-  %arrayidx.1 = getelementptr inbounds [3 x double], [3 x double]* %tx, i64 0, i64 1
-  store double %conv1.1, double* %arrayidx.1, align 8
+  %arrayidx.1 = getelementptr inbounds [3 x double], ptr %tx, i64 0, i64 1
+  store double %conv1.1, ptr %arrayidx.1, align 8
   %conv4.1 = fpext double %conv1.1 to x86_fp80
   %sub.1 = fsub x86_fp80 %mul, %conv4.1
   %mul.1 = fmul x86_fp80 %sub.1, 0xK40178000000000000000
   %conv5 = fptrunc x86_fp80 %mul.1 to double
-  %arrayidx6 = getelementptr inbounds [3 x double], [3 x double]* %tx, i64 0, i64 2
-  store double %conv5, double* %arrayidx6, align 16
+  %arrayidx6 = getelementptr inbounds [3 x double], ptr %tx, i64 0, i64 2
+  store double %conv5, ptr %arrayidx6, align 16
   ret void
 }
 
-attributes #0 = { noinline uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "frame-pointer"="all" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "unsafe-fp-math"="false" "use-soft-float"="false" }
+attributes #0 = { noinline uwtable "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "frame-pointer"="all" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "use-soft-float"="false" }

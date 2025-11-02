@@ -6,6 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 ///
+/// \file
 /// This file provides an interface for laying out a sequence of fields
 /// as a struct in a way that attempts to minimizes the total space
 /// requirements of the struct while still satisfying the layout
@@ -22,7 +23,7 @@
 ///
 /// - First, it does not guarantee that the result is minimal in size.
 ///   There is no known efficient algoorithm to achieve minimality for
-///   unrestricted inputs.  Nonetheless, this algorithm 
+///   unrestricted inputs.  Nonetheless, this algorithm
 ///
 /// - Second, there are other ways that a struct layout could be optimized
 ///   besides space usage, such as locality.  This layout may have a mixed
@@ -34,8 +35,9 @@
 #ifndef LLVM_SUPPORT_OPTIMIZEDSTRUCTLAYOUT_H
 #define LLVM_SUPPORT_OPTIMIZEDSTRUCTLAYOUT_H
 
-#include "llvm/Support/Alignment.h"
 #include "llvm/ADT/ArrayRef.h"
+#include "llvm/Support/Alignment.h"
+#include "llvm/Support/Compiler.h"
 #include <utility>
 
 namespace llvm {
@@ -134,8 +136,8 @@ struct OptimizedStructLayoutField {
 /// The return value is the total size of the struct and its required
 /// alignment.  Note that the total size is not rounded up to a multiple
 /// of the required alignment; clients which require this can do so easily.
-std::pair<uint64_t, Align> performOptimizedStructLayout(
-                        MutableArrayRef<OptimizedStructLayoutField> Fields);
+LLVM_ABI std::pair<uint64_t, Align> performOptimizedStructLayout(
+    MutableArrayRef<OptimizedStructLayoutField> Fields);
 
 } // namespace llvm
 

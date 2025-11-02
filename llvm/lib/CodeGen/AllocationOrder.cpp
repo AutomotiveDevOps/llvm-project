@@ -26,29 +26,26 @@ using namespace llvm;
 #define DEBUG_TYPE "regalloc"
 
 // Compare VirtRegMap::getRegAllocPref().
-AllocationOrder::AllocationOrder(unsigned VirtReg,
-                                 const VirtRegMap &VRM,
-                                 const RegisterClassInfo &RegClassInfo,
-                                 const LiveRegMatrix *Matrix)
-  : Pos(0), HardHints(false) {
+AllocationOrder AllocationOrder::create(Register VirtReg, const VirtRegMap &VRM,
+                                        const RegisterClassInfo &RegClassInfo,
+                                        const LiveRegMatrix *Matrix) {
   const MachineFunction &MF = VRM.getMachineFunction();
   const TargetRegisterInfo *TRI = &VRM.getTargetRegInfo();
-  Order = RegClassInfo.getOrder(MF.getRegInfo().getRegClass(VirtReg));
-  if (TRI->getRegAllocationHints(VirtReg, Order, Hints, MF, &VRM, Matrix))
-    HardHints = true;
-  rewind();
+  auto Order = RegClassInfo.getOrder(MF.getRegInfo().getRegClass(VirtReg));
+  SmallVector<MCPhysReg, 16> Hints;
+  bool HardHints =
+      TRI->getRegAllocationHints(VirtReg, Order, Hints, MF, &VRM, Matrix);
 
   LLVM_DEBUG({
     if (!Hints.empty()) {
       dbgs() << "hints:";
-      for (unsigned I = 0, E = Hints.size(); I != E; ++I)
-        dbgs() << ' ' << printReg(Hints[I], TRI);
+      for (MCPhysReg Hint : Hints)
+        dbgs() << ' ' << printReg(Hint, TRI);
       dbgs() << '\n';
     }
   });
-#ifndef NDEBUG
-  for (unsigned I = 0, E = Hints.size(); I != E; ++I)
-    assert(is_contained(Order, Hints[I]) &&
-           "Target hint is outside allocation order.");
-#endif
+  assert(all_of(Hints,
+                [&](MCPhysReg Hint) { return is_contained(Order, Hint); }) &&
+         "Target hint is outside allocation order.");
+  return AllocationOrder(std::move(Hints), Order, HardHints);
 }

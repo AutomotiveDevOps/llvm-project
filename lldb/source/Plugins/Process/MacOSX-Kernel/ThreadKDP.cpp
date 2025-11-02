@@ -26,7 +26,6 @@
 #include "ProcessKDPLog.h"
 #include "RegisterContextKDP_arm.h"
 #include "RegisterContextKDP_arm64.h"
-#include "RegisterContextKDP_i386.h"
 #include "RegisterContextKDP_x86_64.h"
 
 #include <memory>
@@ -39,12 +38,12 @@ using namespace lldb_private;
 ThreadKDP::ThreadKDP(Process &process, lldb::tid_t tid)
     : Thread(process, tid), m_thread_name(), m_dispatch_queue_name(),
       m_thread_dispatch_qaddr(LLDB_INVALID_ADDRESS) {
-  Log *log = ProcessKDPLog::GetLogIfAllCategoriesSet(KDP_LOG_THREAD);
+  Log *log = GetLog(KDPLog::Thread);
   LLDB_LOG(log, "this = {0}, tid = {1:x}", this, GetID());
 }
 
 ThreadKDP::~ThreadKDP() {
-  Log *log = ProcessKDPLog::GetLogIfAllCategoriesSet(KDP_LOG_THREAD);
+  Log *log = GetLog(KDPLog::Thread);
   LLDB_LOG(log, "this = {0}, tid = {1:x}", this, GetID());
   DestroyThread();
 }
@@ -103,10 +102,6 @@ ThreadKDP::CreateRegisterContextForFrame(StackFrame *frame) {
         break;
       case llvm::MachO::CPU_TYPE_ARM64:
         reg_ctx_sp = std::make_shared<RegisterContextKDP_arm64>(
-            *this, concrete_frame_idx);
-        break;
-      case llvm::MachO::CPU_TYPE_I386:
-        reg_ctx_sp = std::make_shared<RegisterContextKDP_i386>(
             *this, concrete_frame_idx);
         break;
       case llvm::MachO::CPU_TYPE_X86_64:

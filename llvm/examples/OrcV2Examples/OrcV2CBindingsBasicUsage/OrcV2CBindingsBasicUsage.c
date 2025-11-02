@@ -1,4 +1,4 @@
-//===-------- BasicOrcV2CBindings.c - Basic OrcV2 C Bindings Demo ---------===//
+//===------ OrcV2CBindingsBasicUsage.c - Basic OrcV2 C Bindings Demo ------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -8,8 +8,7 @@
 
 #include "llvm-c/Core.h"
 #include "llvm-c/Error.h"
-#include "llvm-c/Initialization.h"
-#include "llvm-c/Orc.h"
+#include "llvm-c/LLJIT.h"
 #include "llvm-c/Support.h"
 #include "llvm-c/Target.h"
 
@@ -22,12 +21,9 @@ int handleError(LLVMErrorRef Err) {
   return 1;
 }
 
-LLVMOrcThreadSafeModuleRef createDemoModule() {
-  // Create a new ThreadSafeContext and underlying LLVMContext.
-  LLVMOrcThreadSafeContextRef TSCtx = LLVMOrcCreateNewThreadSafeContext();
-
-  // Get a reference to the underlying LLVMContext.
-  LLVMContextRef Ctx = LLVMOrcThreadSafeContextGetContext(TSCtx);
+LLVMOrcThreadSafeModuleRef createDemoModule(void) {
+  // Create an LLVMContext.
+  LLVMContextRef Ctx = LLVMContextCreate();
 
   // Create a new LLVM module.
   LLVMModuleRef M = LLVMModuleCreateWithNameInContext("demo", Ctx);
@@ -55,6 +51,13 @@ LLVMOrcThreadSafeModuleRef createDemoModule() {
   //  - Build the return instruction.
   LLVMBuildRet(Builder, Result);
 
+  //  - Free the builder.
+  LLVMDisposeBuilder(Builder);
+
+  // Create a new ThreadSafeContext to hold the context.
+  LLVMOrcThreadSafeContextRef TSCtx =
+      LLVMOrcCreateNewThreadSafeContextFromLLVMContext(Ctx);
+
   // Our demo module is now complete. Wrap it and our ThreadSafeContext in a
   // ThreadSafeModule.
   LLVMOrcThreadSafeModuleRef TSM = LLVMOrcCreateNewThreadSafeModule(M, TSCtx);
@@ -67,13 +70,12 @@ LLVMOrcThreadSafeModuleRef createDemoModule() {
   return TSM;
 }
 
-int main(int argc, char *argv[]) {
+int main(int argc, const char *argv[]) {
 
   int MainResult = 0;
 
   // Parse command line arguments and initialize LLVM Core.
-  LLVMParseCommandLineOptions(argc, (const char **)argv, "");
-  LLVMInitializeCore(LLVMGetGlobalPassRegistry());
+  LLVMParseCommandLineOptions(argc, argv, "");
 
   // Initialize native target codegen and asm printer.
   LLVMInitializeNativeTarget();

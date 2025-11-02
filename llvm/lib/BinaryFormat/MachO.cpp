@@ -7,8 +7,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/BinaryFormat/MachO.h"
-#include "llvm/ADT/Triple.h"
-#include "llvm/Support/ARMTargetParser.h"
+#include "llvm/TargetParser/ARMTargetParser.h"
+#include "llvm/TargetParser/Triple.h"
 
 using namespace llvm;
 
@@ -55,10 +55,10 @@ static MachO::CPUSubTypeARM getARMSubType(const Triple &T) {
 }
 
 static MachO::CPUSubTypeARM64 getARM64SubType(const Triple &T) {
-  assert(T.isAArch64() || T.getArch() == Triple::aarch64_32);
+  assert(T.isAArch64());
   if (T.isArch32Bit())
     return (MachO::CPUSubTypeARM64)MachO::CPU_SUBTYPE_ARM64_32_V8;
-  if (T.getArchName() == "arm64e")
+  if (T.isArm64e())
     return MachO::CPU_SUBTYPE_ARM64E;
 
   return MachO::CPU_SUBTYPE_ARM64_ALL;
@@ -84,9 +84,7 @@ Expected<uint32_t> MachO::getCPUType(const Triple &T) {
   if (T.isARM() || T.isThumb())
     return MachO::CPU_TYPE_ARM;
   if (T.isAArch64())
-    return MachO::CPU_TYPE_ARM64;
-  if (T.getArch() == Triple::aarch64_32)
-    return MachO::CPU_TYPE_ARM64_32;
+    return T.isArch32Bit() ? MachO::CPU_TYPE_ARM64_32 : MachO::CPU_TYPE_ARM64;
   if (T.getArch() == Triple::ppc)
     return MachO::CPU_TYPE_POWERPC;
   if (T.getArch() == Triple::ppc64)
@@ -106,4 +104,22 @@ Expected<uint32_t> MachO::getCPUSubType(const Triple &T) {
   if (T.getArch() == Triple::ppc || T.getArch() == Triple::ppc64)
     return getPowerPCSubType(T);
   return unsupported("subtype", T);
+}
+
+Expected<uint32_t> MachO::getCPUSubType(const Triple &T,
+                                        unsigned PtrAuthABIVersion,
+                                        bool PtrAuthKernelABIVersion) {
+  Expected<uint32_t> Result = MachO::getCPUSubType(T);
+  if (!Result)
+    return Result.takeError();
+  if (*Result != MachO::CPU_SUBTYPE_ARM64E)
+    return createStringError(
+        std::errc::invalid_argument,
+        "ptrauth ABI version is only supported on arm64e.");
+  if (PtrAuthABIVersion > 0xF)
+    return createStringError(
+        std::errc::invalid_argument,
+        "The ptrauth ABI version needs to fit within 4 bits.");
+  return CPU_SUBTYPE_ARM64E_WITH_PTRAUTH_VERSION(PtrAuthABIVersion,
+                                                 PtrAuthKernelABIVersion);
 }

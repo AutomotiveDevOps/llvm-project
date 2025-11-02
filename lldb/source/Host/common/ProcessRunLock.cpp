@@ -11,7 +11,7 @@
 
 namespace lldb_private {
 
-ProcessRunLock::ProcessRunLock() : m_running(false) {
+ProcessRunLock::ProcessRunLock() {
   int err = ::pthread_rwlock_init(&m_rwlock, nullptr);
   (void)err;
 }
@@ -24,6 +24,7 @@ ProcessRunLock::~ProcessRunLock() {
 bool ProcessRunLock::ReadTryLock() {
   ::pthread_rwlock_rdlock(&m_rwlock);
   if (!m_running) {
+    // coverity[missing_unlock]
     return true;
   }
   ::pthread_rwlock_unlock(&m_rwlock);
@@ -36,29 +37,20 @@ bool ProcessRunLock::ReadUnlock() {
 
 bool ProcessRunLock::SetRunning() {
   ::pthread_rwlock_wrlock(&m_rwlock);
+  bool was_stopped = !m_running;
   m_running = true;
   ::pthread_rwlock_unlock(&m_rwlock);
-  return true;
-}
-
-bool ProcessRunLock::TrySetRunning() {
-  bool r;
-
-  if (::pthread_rwlock_trywrlock(&m_rwlock) == 0) {
-    r = !m_running;
-    m_running = true;
-    ::pthread_rwlock_unlock(&m_rwlock);
-    return r;
-  }
-  return false;
+  return was_stopped;
 }
 
 bool ProcessRunLock::SetStopped() {
   ::pthread_rwlock_wrlock(&m_rwlock);
+  bool was_running = m_running;
   m_running = false;
   ::pthread_rwlock_unlock(&m_rwlock);
-  return true;
+  return was_running;
 }
-}
+
+} // namespace lldb_private
 
 #endif

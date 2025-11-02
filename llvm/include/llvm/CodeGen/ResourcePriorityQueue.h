@@ -75,6 +75,7 @@ namespace llvm {
 
   public:
     ResourcePriorityQueue(SelectionDAGISel *IS);
+    ~ResourcePriorityQueue() override;
 
     bool isBottomUp() const override { return false; }
 
@@ -107,7 +108,6 @@ namespace llvm {
     /// InitNumRegDefsLeft - Determine the # of regs defined by this node.
     ///
     void initNumRegDefsLeft(SUnit *SU);
-    void updateNumRegDefsLeft(SUnit *SU);
     int regPressureDelta(SUnit *SU, bool RawPressure = false);
     int rawRegPressureDelta (SUnit *SU, unsigned RCId);
 

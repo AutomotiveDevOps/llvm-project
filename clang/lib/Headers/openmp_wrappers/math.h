@@ -41,9 +41,21 @@
     device = {arch(nvptx, nvptx64)}, implementation = {extension(match_any)})
 
 #define __CUDA__
+#define __OPENMP_NVPTX__
 #include <__clang_cuda_math.h>
+#undef __OPENMP_NVPTX__
 #undef __CUDA__
 
 #pragma omp end declare variant
+
+#ifdef __AMDGCN__
+#pragma omp begin declare variant match(device = {arch(amdgcn)})
+
+#define __OPENMP_AMDGCN__
+#include <__clang_hip_math.h>
+#undef __OPENMP_AMDGCN__
+
+#pragma omp end declare variant
+#endif
 
 #endif

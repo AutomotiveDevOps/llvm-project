@@ -57,6 +57,15 @@ static cl::opt<bool>
                      cl::init(false), cl::sub(Convert));
 static cl::alias ConvertSymbolize2("y", cl::aliasopt(ConvertSymbolize),
                                    cl::desc("Alias for -symbolize"));
+static cl::opt<bool>
+    NoDemangle("no-demangle",
+               cl::desc("determines whether to demangle function name "
+                        "when symbolizing function ids from the input log"),
+               cl::init(false), cl::sub(Convert));
+
+static cl::opt<bool> Demangle("demangle",
+                              cl::desc("demangle symbols (default)"),
+                              cl::sub(Convert));
 
 static cl::opt<std::string>
     ConvertInstrMap("instr_map",
@@ -95,7 +104,7 @@ void TraceConverter::exportAsYAML(const Trace &Records, raw_ostream &OS) {
 void TraceConverter::exportAsRAWv1(const Trace &Records, raw_ostream &OS) {
   // First write out the file header, in the correct endian-appropriate format
   // (XRay assumes currently little endian).
-  support::endian::Writer Writer(OS, support::endianness::little);
+  support::endian::Writer Writer(OS, llvm::endianness::little);
   const auto &FH = Records.getFileHeader();
   Writer.write(FH.Version);
   Writer.write(FH.Type);
@@ -167,13 +176,14 @@ struct StackIdData {
   // unique ID.
   SmallVector<TrieNode<StackIdData> *, 4> siblings;
 };
+} // namespace
 
 using StackTrieNode = TrieNode<StackIdData>;
 
 // A helper function to find the sibling nodes for an encountered function in a
 // thread of execution. Relies on the invariant that each time a new node is
 // traversed in a thread, sibling bidirectional pointers are maintained.
-SmallVector<StackTrieNode *, 4>
+static SmallVector<StackTrieNode *, 4>
 findSiblings(StackTrieNode *parent, int32_t FnId, uint32_t TId,
              const DenseMap<uint32_t, SmallVector<StackTrieNode *, 4>>
                  &StackRootsByThreadId) {
@@ -181,7 +191,7 @@ findSiblings(StackTrieNode *parent, int32_t FnId, uint32_t TId,
   SmallVector<StackTrieNode *, 4> Siblings{};
 
   if (parent == nullptr) {
-    for (auto map_iter : StackRootsByThreadId) {
+    for (const auto &map_iter : StackRootsByThreadId) {
       // Only look for siblings in other threads.
       if (map_iter.first != TId)
         for (auto node_iter : map_iter.second) {
@@ -204,7 +214,7 @@ findSiblings(StackTrieNode *parent, int32_t FnId, uint32_t TId,
 // StackTrie representing the function call stack. If no node exists, creates
 // the node. Assigns unique IDs to stacks newly encountered among all threads
 // and keeps sibling links up to when creating new nodes.
-StackTrieNode *findOrCreateStackNode(
+static StackTrieNode *findOrCreateStackNode(
     StackTrieNode *Parent, int32_t FuncId, uint32_t TId,
     DenseMap<uint32_t, SmallVector<StackTrieNode *, 4>> &StackRootsByThreadId,
     DenseMap<unsigned, StackTrieNode *> &StacksByStackId, unsigned *id_counter,
@@ -235,12 +245,13 @@ StackTrieNode *findOrCreateStackNode(
   return CurrentStack;
 }
 
-void writeTraceViewerRecord(uint16_t Version, raw_ostream &OS, int32_t FuncId,
-                            uint32_t TId, uint32_t PId, bool Symbolize,
-                            const FuncIdConversionHelper &FuncIdHelper,
-                            double EventTimestampUs,
-                            const StackTrieNode &StackCursor,
-                            StringRef FunctionPhenotype) {
+static void writeTraceViewerRecord(uint16_t Version, raw_ostream &OS,
+                                   int32_t FuncId, uint32_t TId, uint32_t PId,
+                                   bool Symbolize,
+                                   const FuncIdConversionHelper &FuncIdHelper,
+                                   double EventTimestampUs,
+                                   const StackTrieNode &StackCursor,
+                                   StringRef FunctionPhenotype) {
   OS << "    ";
   if (Version >= 3) {
     OS << llvm::formatv(
@@ -260,8 +271,6 @@ void writeTraceViewerRecord(uint16_t Version, raw_ostream &OS, int32_t FuncId,
   }
 }
 
-} // namespace
-
 void TraceConverter::exportAsChromeTraceEventFormat(const Trace &Records,
                                                     raw_ostream &OS) {
   const auto &FH = Records.getFileHeader();
@@ -269,19 +278,14 @@ void TraceConverter::exportAsChromeTraceEventFormat(const Trace &Records,
   auto CycleFreq = FH.CycleFrequency;
 
   unsigned id_counter = 0;
+  int NumOutputRecords = 0;
 
-  OS << "{\n  \"traceEvents\": [";
+  OS << "{\n  \"traceEvents\": [\n";
   DenseMap<uint32_t, StackTrieNode *> StackCursorByThreadId{};
   DenseMap<uint32_t, SmallVector<StackTrieNode *, 4>> StackRootsByThreadId{};
   DenseMap<unsigned, StackTrieNode *> StacksByStackId{};
   std::forward_list<StackTrieNode> NodeStore{};
-  int loop_count = 0;
   for (const auto &R : Records) {
-    if (loop_count++ == 0)
-      OS << "\n";
-    else
-      OS << ",\n";
-
     // Chrome trace event format always wants data in micros.
     // CyclesPerMicro = CycleHertz / 10^6
     // TSC / CyclesPerMicro == TSC * 10^6 / CycleHertz == MicroTimestamp
@@ -306,6 +310,9 @@ void TraceConverter::exportAsChromeTraceEventFormat(const Trace &Records,
       // type of B for begin or E for end, thread id, process id,
       // timestamp in microseconds, and a stack frame id. The ids are logged
       // in an id dictionary after the events.
+      if (NumOutputRecords++ > 0) {
+        OS << ",\n";
+      }
       writeTraceViewerRecord(Version, OS, R.FuncId, R.TId, R.PId, Symbolize,
                              FuncIdHelper, EventTimestampUs, *StackCursor, "B");
       break;
@@ -318,7 +325,7 @@ void TraceConverter::exportAsChromeTraceEventFormat(const Trace &Records,
       // (And/Or in loop termination below)
       StackTrieNode *PreviousCursor = nullptr;
       do {
-        if (PreviousCursor != nullptr) {
+        if (NumOutputRecords++ > 0) {
           OS << ",\n";
         }
         writeTraceViewerRecord(Version, OS, StackCursor->FuncId, R.TId, R.PId,
@@ -357,9 +364,6 @@ void TraceConverter::exportAsChromeTraceEventFormat(const Trace &Records,
   OS << "}\n";     // Close the JSON entry.
 }
 
-namespace llvm {
-namespace xray {
-
 static CommandRegistration Unused(&Convert, []() -> Error {
   // FIXME: Support conversion to BINARY when upgrading XRay trace versions.
   InstrumentationMap Map;
@@ -375,15 +379,18 @@ static CommandRegistration Unused(&Convert, []() -> Error {
   }
 
   const auto &FunctionAddresses = Map.getFunctionAddresses();
-  symbolize::LLVMSymbolizer Symbolizer;
-  llvm::xray::FuncIdConversionHelper FuncIdHelper(ConvertInstrMap, Symbolizer,
-                                                  FunctionAddresses);
-  llvm::xray::TraceConverter TC(FuncIdHelper, ConvertSymbolize);
+  symbolize::LLVMSymbolizer::Options SymbolizerOpts;
+  if (Demangle.getPosition() < NoDemangle.getPosition())
+    SymbolizerOpts.Demangle = false;
+  symbolize::LLVMSymbolizer Symbolizer(SymbolizerOpts);
+  FuncIdConversionHelper FuncIdHelper(ConvertInstrMap, Symbolizer,
+                                      FunctionAddresses);
+  TraceConverter TC(FuncIdHelper, ConvertSymbolize);
   std::error_code EC;
   raw_fd_ostream OS(ConvertOutput, EC,
                     ConvertOutputFormat == ConvertFormats::BINARY
                         ? sys::fs::OpenFlags::OF_None
-                        : sys::fs::OpenFlags::OF_Text);
+                        : sys::fs::OpenFlags::OF_TextWithCRLF);
   if (EC)
     return make_error<StringError>(
         Twine("Cannot open file '") + ConvertOutput + "' for writing.", EC);
@@ -410,6 +417,3 @@ static CommandRegistration Unused(&Convert, []() -> Error {
   }
   return Error::success();
 });
-
-} // namespace xray
-} // namespace llvm

@@ -66,10 +66,11 @@ DataVisualization::GetSyntheticForType(lldb::TypeNameSpecifierImplSP type_sp) {
 }
 
 bool DataVisualization::AnyMatches(
-    ConstString type_name, TypeCategoryImpl::FormatCategoryItems items,
-    bool only_enabled, const char **matching_category,
+    const FormattersMatchCandidate &candidate_type,
+    TypeCategoryImpl::FormatCategoryItems items, bool only_enabled,
+    const char **matching_category,
     TypeCategoryImpl::FormatCategoryItems *matching_type) {
-  return GetFormatManager().AnyMatches(type_name, items, only_enabled,
+  return GetFormatManager().AnyMatches(candidate_type, items, only_enabled,
                                        matching_category, matching_type);
 }
 
@@ -102,8 +103,7 @@ void DataVisualization::Categories::Clear() {
 }
 
 void DataVisualization::Categories::Clear(ConstString category) {
-  GetFormatManager().GetCategory(category)->Clear(
-      eFormatCategoryItemSummary | eFormatCategoryItemRegexSummary);
+  GetFormatManager().GetCategory(category)->Clear(eFormatCategoryItemSummary);
 }
 
 void DataVisualization::Categories::Enable(ConstString category,
@@ -169,13 +169,12 @@ DataVisualization::Categories::GetCategoryAtIndex(size_t index) {
 
 bool DataVisualization::NamedSummaryFormats::GetSummaryFormat(
     ConstString type, lldb::TypeSummaryImplSP &entry) {
-  return GetFormatManager().GetNamedSummaryContainer().Get(type, entry);
+  return GetFormatManager().GetNamedSummaryContainer().GetExact(type, entry);
 }
 
 void DataVisualization::NamedSummaryFormats::Add(
     ConstString type, const lldb::TypeSummaryImplSP &entry) {
-  GetFormatManager().GetNamedSummaryContainer().Add(
-      FormatManager::GetValidTypeName(type), entry);
+  GetFormatManager().GetNamedSummaryContainer().Add(type, entry);
 }
 
 bool DataVisualization::NamedSummaryFormats::Delete(ConstString type) {
@@ -187,7 +186,7 @@ void DataVisualization::NamedSummaryFormats::Clear() {
 }
 
 void DataVisualization::NamedSummaryFormats::ForEach(
-    std::function<bool(ConstString, const lldb::TypeSummaryImplSP &)>
+    std::function<bool(const TypeMatcher &, const lldb::TypeSummaryImplSP &)>
         callback) {
   GetFormatManager().GetNamedSummaryContainer().ForEach(callback);
 }

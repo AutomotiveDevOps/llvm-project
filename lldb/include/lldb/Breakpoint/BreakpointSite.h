@@ -14,7 +14,8 @@
 
 
 #include "lldb/Breakpoint/BreakpointLocationCollection.h"
-#include "lldb/Breakpoint/StoppointLocation.h"
+#include "lldb/Breakpoint/StoppointSite.h"
+#include "lldb/Utility/LLDBAssert.h"
 #include "lldb/Utility/UserID.h"
 #include "lldb/lldb-forward.h"
 
@@ -32,7 +33,7 @@ namespace lldb_private {
 /// by the process.
 
 class BreakpointSite : public std::enable_shared_from_this<BreakpointSite>,
-                       public StoppointLocation {
+                       public StoppointSite {
 public:
   enum Type {
     eSoftware, // Breakpoint opcode has been written to memory and
@@ -43,6 +44,9 @@ public:
                // debug interface where memory reads transparently will not
                // display any breakpoint opcodes.
   };
+
+  typedef lldb::break_id_t SiteID;
+  typedef lldb::break_id_t ConstituentID;
 
   ~BreakpointSite() override;
 
@@ -60,8 +64,6 @@ public:
   /// Sets the trap opcode
   bool SetTrapOpcode(const uint8_t *trap_opcode, uint32_t trap_opcode_size);
 
-  void SetHardwareIndex(uint32_t index) override;
-
   /// Gets the original instruction bytes that were overwritten by the trap
   uint8_t *GetSavedOpcodeBytes();
 
@@ -78,8 +80,8 @@ public:
   /// Tells whether the current breakpoint site is enabled or not
   ///
   /// This is a low-level enable bit for the breakpoint sites.  If a
-  /// breakpoint site has no enabled owners, it should just get removed.  This
-  /// enable/disable is for the low-level target code to enable and disable
+  /// breakpoint site has no enabled constituents, it should just get removed.
+  /// This enable/disable is for the low-level target code to enable and disable
   /// breakpoint sites when single stepping, etc.
   bool IsEnabled() const;
 
@@ -97,49 +99,52 @@ public:
   ///
   /// \return
   ///    \b true if we should stop, \b false otherwise.
-  bool ShouldStop(StoppointCallbackContext *context) override;
+  bool ShouldStop(StoppointCallbackContext *context,
+                  BreakpointLocationCollection &stopping_bp_loc) override;
 
   /// Standard Dump method
   void Dump(Stream *s) const override;
 
-  /// The "Owners" are the breakpoint locations that share this breakpoint
-  /// site. The method adds the \a owner to this breakpoint site's owner list.
+  /// The "Constituents" are the breakpoint locations that share this breakpoint
+  /// site. The method adds the \a constituent to this breakpoint site's
+  /// constituent list.
   ///
-  /// \param[in] owner
-  ///    \a owner is the Breakpoint Location to add.
-  void AddOwner(const lldb::BreakpointLocationSP &owner);
+  /// \param[in] constituent
+  ///    \a constituent is the Breakpoint Location to add.
+  void AddConstituent(const lldb::BreakpointLocationSP &constituent);
 
   /// This method returns the number of breakpoint locations currently located
   /// at this breakpoint site.
   ///
   /// \return
-  ///    The number of owners.
-  size_t GetNumberOfOwners();
+  ///    The number of constituents.
+  size_t GetNumberOfConstituents();
 
   /// This method returns the breakpoint location at index \a index located at
-  /// this breakpoint site.  The owners are listed ordinally from 0 to
-  /// GetNumberOfOwners() - 1 so you can use this method to iterate over the
-  /// owners
+  /// this breakpoint site.  The constituents are listed ordinally from 0 to
+  /// GetNumberOfConstituents() - 1 so you can use this method to iterate over
+  /// the constituents
   ///
   /// \param[in] idx
-  ///     The index in the list of owners for which you wish the owner location.
+  ///     The index in the list of constituents for which you wish the
+  ///     constituent location.
   ///
   /// \return
   ///    A shared pointer to the breakpoint location at that index.
-  lldb::BreakpointLocationSP GetOwnerAtIndex(size_t idx);
+  lldb::BreakpointLocationSP GetConstituentAtIndex(size_t idx);
 
-  /// This method copies the breakpoint site's owners into a new collection.
-  /// It does this while the owners mutex is locked.
+  /// This method copies the breakpoint site's constituents into a new
+  /// collection. It does this while the constituents mutex is locked.
   ///
   /// \param[out] out_collection
-  ///    The BreakpointLocationCollection into which to put the owners
+  ///    The BreakpointLocationCollection into which to put the constituents
   ///    of this breakpoint site.
   ///
   /// \return
   ///    The number of elements copied into out_collection.
-  size_t CopyOwnersList(BreakpointLocationCollection &out_collection);
+  size_t CopyConstituentsList(BreakpointLocationCollection &out_collection);
 
-  /// Check whether the owners of this breakpoint site have any thread
+  /// Check whether the constituents of this breakpoint site have any thread
   /// specifiers, and if yes, is \a thread contained in any of these
   /// specifiers.
   ///
@@ -149,10 +154,10 @@ public:
   /// return
   ///     \b true if the collection contains at least one location that
   ///     would be valid for this thread, false otherwise.
-  bool ValidForThisThread(Thread *thread);
+  bool ValidForThisThread(Thread &thread);
 
   /// Print a description of this breakpoint site to the stream \a s.
-  /// GetDescription tells you about the breakpoint site's owners. Use
+  /// GetDescription tells you about the breakpoint site's constituents. Use
   /// BreakpointSite::Dump(Stream *) to get information about the breakpoint
   /// site itself.
   ///
@@ -165,6 +170,11 @@ public:
   ///
   /// \see lldb::DescriptionLevel
   void GetDescription(Stream *s, lldb::DescriptionLevel level);
+
+  // This runs through all the breakpoint locations owning this site and returns
+  // the greatest of their suggested stack frame indexes.  This only handles
+  // inlined stack changes.
+  std::optional<uint32_t> GetSuggestedStackFrameIndex();
 
   /// Tell whether a breakpoint has a location at this site.
   ///
@@ -184,6 +194,12 @@ public:
   ///     \b false otherwise.
   bool IsInternal() const;
 
+  bool IsHardware() const override {
+    lldbassert(BreakpointSite::Type::eHardware == GetType() ||
+               !HardwareRequired());
+    return BreakpointSite::Type::eHardware == GetType();
+  }
+
   BreakpointSite::Type GetType() const { return m_type; }
 
   void SetType(BreakpointSite::Type type) { m_type = type; }
@@ -198,9 +214,10 @@ private:
 
   void BumpHitCounts();
 
-  /// The method removes the owner at \a break_loc_id from this breakpoint
+  /// The method removes the constituent at \a break_loc_id from this breakpoint
   /// list.
-  size_t RemoveOwner(lldb::break_id_t break_id, lldb::break_id_t break_loc_id);
+  size_t RemoveConstituent(lldb::break_id_t break_id,
+                           lldb::break_id_t break_loc_id);
 
   BreakpointSite::Type m_type; ///< The type of this breakpoint site.
   uint8_t m_saved_opcode[8]; ///< The saved opcode bytes if this breakpoint site
@@ -210,22 +227,23 @@ private:
   bool
       m_enabled; ///< Boolean indicating if this breakpoint site enabled or not.
 
-  // Consider adding an optimization where if there is only one owner, we don't
-  // store a list.  The usual case will be only one owner...
-  BreakpointLocationCollection m_owners; ///< This has the BreakpointLocations
-                                         ///that share this breakpoint site.
-  std::recursive_mutex
-      m_owners_mutex; ///< This mutex protects the owners collection.
+  // Consider adding an optimization where if there is only one constituent, we
+  // don't store a list.  The usual case will be only one constituent...
+  BreakpointLocationCollection
+      m_constituents; ///< This has the BreakpointLocations
+                      /// that share this breakpoint site.
+  std::recursive_mutex m_constituents_mutex; ///< This mutex protects the
+                                             ///< constituents collection.
 
   static lldb::break_id_t GetNextID();
 
   // Only the Process can create breakpoint sites in
   // Process::CreateBreakpointSite (lldb::BreakpointLocationSP &, bool).
-  BreakpointSite(BreakpointSiteList *list,
-                 const lldb::BreakpointLocationSP &owner, lldb::addr_t m_addr,
-                 bool use_hardware);
+  BreakpointSite(const lldb::BreakpointLocationSP &constituent,
+                 lldb::addr_t m_addr, bool use_hardware);
 
-  DISALLOW_COPY_AND_ASSIGN(BreakpointSite);
+  BreakpointSite(const BreakpointSite &) = delete;
+  const BreakpointSite &operator=(const BreakpointSite &) = delete;
 };
 
 } // namespace lldb_private

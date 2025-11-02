@@ -12,6 +12,7 @@
 #include <memory>
 #include <string>
 
+#include "lldb/Breakpoint/StopCondition.h"
 #include "lldb/Utility/Baton.h"
 #include "lldb/Utility/Flags.h"
 #include "lldb/Utility/StringList.h"
@@ -43,15 +44,12 @@ public:
                      | eCondition | eAutoContinue)
   };
   struct CommandData {
-    CommandData()
-        : user_source(), script_source(),
-          interpreter(lldb::eScriptLanguageNone), stop_on_error(true) {}
+    CommandData() = default;
 
     CommandData(const StringList &user_source, lldb::ScriptLanguage interp)
-        : user_source(user_source), script_source(), interpreter(interp),
-          stop_on_error(true) {}
+        : user_source(user_source), interpreter(interp), stop_on_error(true) {}
 
-    ~CommandData() = default;
+    virtual ~CommandData() = default;
 
     static const char *GetSerializationKey() { return "BKPTCMDData"; }
 
@@ -63,9 +61,10 @@ public:
 
     StringList user_source;
     std::string script_source;
-    enum lldb::ScriptLanguage
-        interpreter; // eScriptLanguageNone means command interpreter.
-    bool stop_on_error;
+    enum lldb::ScriptLanguage interpreter =
+        lldb::eScriptLanguageNone; // eScriptLanguageNone means command
+                                   // interpreter.
+    bool stop_on_error = true;
 
   private:
     enum class OptionNames : uint32_t {
@@ -196,8 +195,8 @@ public:
   ///    The commands will be appended to this list.
   ///
   /// \return
-  ///    \btrue if the command callback is a command-line callback,
-  ///    \bfalse otherwise.
+  ///    \b true if the command callback is a command-line callback,
+  ///    \b false otherwise.
   bool GetCommandLineCallbacks(StringList &command_list);
 
   /// Remove the callback from this option set.
@@ -247,18 +246,15 @@ public:
   const Baton *GetBaton() const;
 
   // Condition
-  /// Set the breakpoint option's condition.
+  /// Set the breakpoint stop condition.
   ///
   /// \param[in] condition
-  ///    The condition expression to evaluate when the breakpoint is hit.
-  void SetCondition(const char *condition);
+  ///    The condition to evaluate when the breakpoint is hit.
+  void SetCondition(StopCondition condition);
 
-  /// Return a pointer to the text of the condition expression.
-  ///
-  /// \return
-  ///    A pointer to the condition expression text, or nullptr if no
-  //     condition has been set.
-  const char *GetConditionText(size_t *hash = nullptr) const;
+  /// Return the breakpoint condition.
+  const StopCondition &GetCondition() const;
+  StopCondition &GetCondition();
 
   // Enabled/Ignore Count
 
@@ -392,9 +388,7 @@ private:
   /// Thread for which this breakpoint will stop.
   std::unique_ptr<ThreadSpec> m_thread_spec_up;
   /// The condition to test.
-  std::string m_condition_text;
-  /// Its hash, so that locations know when the condition is updated.
-  size_t m_condition_text_hash;
+  StopCondition m_condition;
   /// If set, inject breakpoint condition into process.
   bool m_inject_condition;
   /// If set, auto-continue from breakpoint.

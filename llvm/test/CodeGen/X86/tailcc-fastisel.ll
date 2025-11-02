@@ -1,12 +1,14 @@
-; RUN: llc < %s -mtriple=x86_64-apple-darwin -fast-isel -fast-isel-abort=1 | FileCheck %s
+; RUN: llc < %s -mtriple=x86_64-apple-darwin -fast-isel -fast-isel-abort=1 | FileCheck %s  -check-prefix=DARWIN64
+; RUN: llc < %s -mtriple=x86_64-uefi -fast-isel -fast-isel-abort=1 | FileCheck %s -check-prefix=UEFI64
 
-%0 = type { i64, i32, i8* }
+%0 = type { i64, i32, ptr }
 
-define tailcc i8* @"visit_array_aux<`Reference>"(%0 %arg, i32 %arg1) nounwind {
+define tailcc ptr @"visit_array_aux<`Reference>"(%0 %arg, i32 %arg1) nounwind {
 fail:                                             ; preds = %entry
-  %tmp20 = tail call tailcc i8* @"visit_array_aux<`Reference>"(%0 %arg, i32 undef) ; <i8*> [#uses=1]
-; CHECK: jmp "_visit_array_aux<`Reference>" ## TAILCALL
-  ret i8* %tmp20
+  %tmp20 = tail call tailcc ptr @"visit_array_aux<`Reference>"(%0 %arg, i32 undef) ; <ptr> [#uses=1]
+; DARWIN64: jmp "_visit_array_aux<`Reference>" ## TAILCALL
+; UEFI64:   jmp	"visit_array_aux<`Reference>"  # TAILCALL
+  ret ptr %tmp20
 }
 
 define i32 @foo() nounwind {

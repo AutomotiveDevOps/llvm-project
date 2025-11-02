@@ -51,6 +51,11 @@ class CCIfPreallocated<CCAction A> : CCIf<"ArgFlags.isPreallocated()", A> {
 class CCIfSwiftSelf<CCAction A> : CCIf<"ArgFlags.isSwiftSelf()", A> {
 }
 
+/// CCIfSwiftAsync - If the current argument has swiftasync parameter attribute,
+/// apply Action A.
+class CCIfSwiftAsync<CCAction A> : CCIf<"ArgFlags.isSwiftAsync()", A> {
+}
+
 /// CCIfSwiftError - If the current argument has swifterror parameter attribute,
 /// apply Action A.
 class CCIfSwiftError<CCAction A> : CCIf<"ArgFlags.isSwiftError()", A> {
@@ -92,6 +97,12 @@ class CCIfVarArg<CCAction A> : CCIf<"State.isVarArg()", A> {}
 /// CCIfNotVarArg - If the current function is not vararg - apply the action
 class CCIfNotVarArg<CCAction A> : CCIf<"!State.isVarArg()", A> {}
 
+/// Apply the action if argument is fixed (not vararg).
+class CCIfArgFixed<CCAction A> : CCIf<"!ArgFlags.isVarArg()", A>;
+
+/// Apply the action if argument is vararg (not fixed).
+class CCIfArgVarArg<CCAction A> : CCIf<"ArgFlags.isVarArg()", A>;
+
 /// CCIfPtrAddrSpace - If the top-level parent of the current argument has
 /// pointer type in the specified address-space.
 class CCIfPtrAddrSpace<int AS, CCAction A>
@@ -106,6 +117,13 @@ class CCIfPtr<CCAction A> : CCIf<"ArgFlags.isPointer()", A> {}
 /// available register and succeeds.
 class CCAssignToReg<list<Register> regList> : CCAction {
   list<Register> RegList = regList;
+}
+
+/// CCAssignToRegTuple - Same as CCAssignToReg, but with a list of registers as
+/// strings. This is needed because records synthesized during tuple expansion
+/// are not visible outside of the register info emitter.
+class CCAssignToRegTuple<list<string> regList> : CCAction {
+  list<string> RegList = regList;
 }
 
 /// CCAssignToRegWithShadow - Same as CCAssignToReg, but with list of registers
@@ -134,6 +152,15 @@ class CCAssignToStackWithShadow<int size,
   int Size = size;
   int Align = align;
   list<Register> ShadowRegList = shadowList;
+}
+
+/// CCAssignToRegAndStack - Same as CCAssignToReg, but also allocates a stack
+/// slot, when some register is used. Basically, it works like:
+/// CCIf<CCAssignToReg<regList>, CCAssignToStack<size, align>>.
+class CCAssignToRegAndStack<list<Register> regList, int size, int align>
+    : CCAssignToReg<regList> {
+  int Size = size;
+  int Align = align;
 }
 
 /// CCPassByVal - This action always matches: it assigns the value to a stack
@@ -187,15 +214,15 @@ class CallingConv<list<CCAction> actions> {
 
   /// If true, this calling convention will be emitted as externally visible in
   /// the llvm namespaces instead of as a static function.
-  bit Entry = 0;
+  bit Entry = false;
 
-  bit Custom = 0;
+  bit Custom = false;
 }
 
 /// CustomCallingConv - An instance of this is used to declare calling
 /// conventions that are implemented using a custom function of the same name.
 class CustomCallingConv : CallingConv<[]> {
-  let Custom = 1;
+  let Custom = true;
 }
 
 /// CalleeSavedRegs - A list of callee saved registers for a given calling

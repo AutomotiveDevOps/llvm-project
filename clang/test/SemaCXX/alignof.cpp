@@ -1,7 +1,5 @@
 // RUN: %clang_cc1 -std=c++11 -fsyntax-only -verify %s
 
-// rdar://13784901
-
 struct S0 {
   int x;
   static const int test0 = __alignof__(x); // expected-error {{invalid application of 'alignof' to a field of a class still being defined}}
@@ -102,3 +100,8 @@ typedef int __attribute__((aligned(16))) aligned_int;
 template <typename>
 using template_alias = aligned_int;
 static_assert(alignof(template_alias<void>) == 16, "Expected alignment of 16" );
+
+struct PR47138 {
+  invalid_type a; // expected-error {{unknown type}}
+};
+static_assert(__alignof__(PR47138) == 1, ""); // Don't crash.

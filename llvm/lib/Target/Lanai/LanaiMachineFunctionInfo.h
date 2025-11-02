@@ -24,8 +24,6 @@ namespace llvm {
 class LanaiMachineFunctionInfo : public MachineFunctionInfo {
   virtual void anchor();
 
-  MachineFunction &MF;
-
   // SRetReturnReg - Lanai ABI require that sret lowering includes
   // returning the value of the returned struct in a register. This field
   // holds the virtual register into which the sret argument is passed.
@@ -40,13 +38,15 @@ class LanaiMachineFunctionInfo : public MachineFunctionInfo {
   int VarArgsFrameIndex;
 
 public:
-  explicit LanaiMachineFunctionInfo(MachineFunction &MF)
-      : MF(MF), VarArgsFrameIndex(0) {}
+  LanaiMachineFunctionInfo(const Function &F, const TargetSubtargetInfo *STI)
+      : VarArgsFrameIndex(0) {}
+  MachineFunctionInfo *
+  clone(BumpPtrAllocator &Allocator, MachineFunction &DestMF,
+        const DenseMap<MachineBasicBlock *, MachineBasicBlock *> &Src2DstMBB)
+      const override;
 
   Register getSRetReturnReg() const { return SRetReturnReg; }
   void setSRetReturnReg(Register Reg) { SRetReturnReg = Reg; }
-
-  Register getGlobalBaseReg();
 
   int getVarArgsFrameIndex() const { return VarArgsFrameIndex; }
   void setVarArgsFrameIndex(int Index) { VarArgsFrameIndex = Index; }

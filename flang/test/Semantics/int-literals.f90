@@ -1,4 +1,4 @@
-! RUN: %S/test_errors.sh %s %t %f18
+! RUN: %python %S/test_errors.py %s %flang_fc1 -pedantic
 ! Fortran syntax considers signed int literals in complex literals
 ! to be a distinct production, not an application of unary +/- to
 ! an unsigned int literal, so they're used here to test overflow
@@ -30,9 +30,9 @@ complex, parameter :: okj4a = 2147483648_8
 complex, parameter :: okz4a = (+2147483648_8, 0)
 
 complex, parameter :: okj4d = 2147483647, okz4d = (+2147483647, -2147483648)
-!WARNING: Integer literal is too large for default INTEGER(KIND=4); assuming INTEGER(KIND=8)
+!WARNING: Integer literal is too large for default INTEGER(KIND=4); assuming INTEGER(KIND=8) [-Wbig-int-literals]
 complex, parameter :: badj4dext = 2147483648
-!WARNING: Integer literal is too large for default INTEGER(KIND=4); assuming INTEGER(KIND=8)
+!WARNING: Integer literal is too large for default INTEGER(KIND=4); assuming INTEGER(KIND=8) [-Wbig-int-literals]
 complex, parameter :: badz4dext = (+2147483648, 0)
 
 complex, parameter :: okj8 = 9223372036854775807_8, okz8 = (+9223372036854775807_8, -9223372036854775808_8)

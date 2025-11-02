@@ -1,55 +1,65 @@
 ; RUN: opt -disable-output -debug-pass-manager \
 ; RUN:     -passes=no-op-module,no-op-module %s 2>&1 \
 ; RUN:     | FileCheck %s --check-prefix=CHECK-TWO-NOOP-MP
-; CHECK-TWO-NOOP-MP: Starting llvm::Module pass manager run
 ; CHECK-TWO-NOOP-MP: Running pass: NoOpModulePass
 ; CHECK-TWO-NOOP-MP: Running pass: NoOpModulePass
-; CHECK-TWO-NOOP-MP: Finished llvm::Module pass manager run
 
 ; RUN: opt -disable-output -debug-pass-manager \
 ; RUN:     -passes='module(no-op-module,no-op-module)' %s 2>&1 \
 ; RUN:     | FileCheck %s --check-prefix=CHECK-NESTED-TWO-NOOP-MP
-; CHECK-NESTED-TWO-NOOP-MP: Starting llvm::Module pass manager run
-; CHECK-NESTED-TWO-NOOP-MP: Starting llvm::Module pass manager run
 ; CHECK-NESTED-TWO-NOOP-MP: Running pass: NoOpModulePass
 ; CHECK-NESTED-TWO-NOOP-MP: Running pass: NoOpModulePass
-; CHECK-NESTED-TWO-NOOP-MP: Finished llvm::Module pass manager run
-; CHECK-NESTED-TWO-NOOP-MP: Finished llvm::Module pass manager run
 
 ; RUN: opt -disable-output -debug-pass-manager \
 ; RUN:     -passes=no-op-function,no-op-function %s 2>&1 \
 ; RUN:     | FileCheck %s --check-prefix=CHECK-TWO-NOOP-FP
-; CHECK-TWO-NOOP-FP: Starting llvm::Module pass manager run
-; CHECK-TWO-NOOP-FP: Running pass: ModuleToFunctionPassAdaptor
-; CHECK-TWO-NOOP-FP: Starting llvm::Function pass manager run
 ; CHECK-TWO-NOOP-FP: Running pass: NoOpFunctionPass
 ; CHECK-TWO-NOOP-FP: Running pass: NoOpFunctionPass
-; CHECK-TWO-NOOP-FP: Finished llvm::Function pass manager run
-; CHECK-TWO-NOOP-FP: Finished llvm::Module pass manager run
 
 ; RUN: opt -disable-output -debug-pass-manager \
 ; RUN:     -passes='function(no-op-function,no-op-function)' %s 2>&1 \
 ; RUN:     | FileCheck %s --check-prefix=CHECK-NESTED-TWO-NOOP-FP
-; CHECK-NESTED-TWO-NOOP-FP: Starting llvm::Module pass manager run
-; CHECK-NESTED-TWO-NOOP-FP: Running pass: ModuleToFunctionPassAdaptor
-; CHECK-NESTED-TWO-NOOP-FP: Starting llvm::Function pass manager run
 ; CHECK-NESTED-TWO-NOOP-FP: Running pass: NoOpFunctionPass
 ; CHECK-NESTED-TWO-NOOP-FP: Running pass: NoOpFunctionPass
-; CHECK-NESTED-TWO-NOOP-FP: Finished llvm::Function pass manager run
-; CHECK-NESTED-TWO-NOOP-FP: Finished llvm::Module pass manager run
 
 ; RUN: opt -disable-output -debug-pass-manager \
 ; RUN:     -passes='no-op-module,function(no-op-function,no-op-function),no-op-module' %s 2>&1 \
 ; RUN:     | FileCheck %s --check-prefix=CHECK-MIXED-FP-AND-MP
-; CHECK-MIXED-FP-AND-MP: Starting llvm::Module pass manager run
 ; CHECK-MIXED-FP-AND-MP: Running pass: NoOpModulePass
-; CHECK-MIXED-FP-AND-MP: Running pass: ModuleToFunctionPassAdaptor
-; CHECK-MIXED-FP-AND-MP: Starting llvm::Function pass manager run
 ; CHECK-MIXED-FP-AND-MP: Running pass: NoOpFunctionPass
 ; CHECK-MIXED-FP-AND-MP: Running pass: NoOpFunctionPass
-; CHECK-MIXED-FP-AND-MP: Finished llvm::Function pass manager run
 ; CHECK-MIXED-FP-AND-MP: Running pass: NoOpModulePass
-; CHECK-MIXED-FP-AND-MP: Finished llvm::Module pass manager run
+
+; RUN: opt -disable-output -debug-pass-manager \
+; RUN:     -aa-pipeline= -passes='require<aa>' %s 2>&1 \
+; RUN:     | FileCheck %s --check-prefix=CHECK-EMPTY-AA
+; CHECK-EMPTY-AA: Running analysis: AAManager
+; CHECK-EMPTY-AA-NOT: Running analysis: BasicAA
+
+; RUN: opt -disable-output -debug-pass-manager \
+; RUN:     -aa-pipeline=basic-aa -passes='require<aa>' %s 2>&1 \
+; RUN:     | FileCheck %s --check-prefix=CHECK-BASIC-AA
+; CHECK-BASIC-AA: Running analysis: AAManager
+; CHECK-BASIC-AA: Running analysis: BasicAA
+; CHECK-BASIC-AA-NOT: Running analysis: TypeBasedAA
+
+; RUN: opt -disable-output -debug-pass-manager \
+; RUN:     -aa-pipeline=basic-aa,tbaa -passes='require<aa>' %s 2>&1 \
+; RUN:     | FileCheck %s --check-prefix=CHECK-TWO-AA
+; CHECK-TWO-AA: Running analysis: AAManager
+; CHECK-TWO-AA: Running analysis: BasicAA
+; CHECK-TWO-AA: Running analysis: TypeBasedAA
+
+; RUN: opt -disable-output -debug-pass-manager \
+; RUN:     -aa-pipeline=default -passes='require<aa>' %s 2>&1 \
+; RUN:     | FileCheck %s --check-prefix=CHECK-DEFAULT-AA
+; CHECK-DEFAULT-AA: Running analysis: AAManager
+; CHECK-DEFAULT-AA-DAG: Running analysis: BasicAA
+; CHECK-DEFAULT-AA-DAG: Running analysis: TypeBasedAA
+
+; RUN: not opt -passes='function<no-rerun>(no-op-function)' %s 2>&1 \
+; RUN:     | FileCheck %s --check-prefix=CHECK-RERUN-BAD
+; CHECK-RERUN-BAD: cannot have a no-rerun module to function adaptor
 
 ; RUN: not opt -disable-output -debug-pass-manager \
 ; RUN:     -passes='no-op-module)' %s 2>&1 \
@@ -104,52 +114,23 @@
 ; RUN: opt -disable-output -debug-pass-manager \
 ; RUN:     -passes=no-op-cgscc,no-op-cgscc %s 2>&1 \
 ; RUN:     | FileCheck %s --check-prefix=CHECK-TWO-NOOP-CG
-; CHECK-TWO-NOOP-CG: Starting llvm::Module pass manager run
-; CHECK-TWO-NOOP-CG: Running pass: ModuleToPostOrderCGSCCPassAdaptor
-; CHECK-TWO-NOOP-CG: Starting CGSCC pass manager run
 ; CHECK-TWO-NOOP-CG: Running pass: NoOpCGSCCPass
 ; CHECK-TWO-NOOP-CG: Running pass: NoOpCGSCCPass
-; CHECK-TWO-NOOP-CG: Finished CGSCC pass manager run
-; CHECK-TWO-NOOP-CG: Finished llvm::Module pass manager run
 
 ; RUN: opt -disable-output -debug-pass-manager \
 ; RUN:     -passes='module(function(no-op-function),cgscc(no-op-cgscc,function(no-op-function),no-op-cgscc),function(no-op-function))' %s 2>&1 \
 ; RUN:     | FileCheck %s --check-prefix=CHECK-NESTED-MP-CG-FP
-; CHECK-NESTED-MP-CG-FP: Starting llvm::Module pass manager run
-; CHECK-NESTED-MP-CG-FP: Starting llvm::Module pass manager run
-; CHECK-NESTED-MP-CG-FP: Running pass: ModuleToFunctionPassAdaptor
-; CHECK-NESTED-MP-CG-FP: Starting llvm::Function pass manager run
 ; CHECK-NESTED-MP-CG-FP: Running pass: NoOpFunctionPass
-; CHECK-NESTED-MP-CG-FP: Finished llvm::Function pass manager run
-; CHECK-NESTED-MP-CG-FP: Running pass: ModuleToPostOrderCGSCCPassAdaptor
-; CHECK-NESTED-MP-CG-FP: Starting CGSCC pass manager run
 ; CHECK-NESTED-MP-CG-FP: Running pass: NoOpCGSCCPass
-; CHECK-NESTED-MP-CG-FP: Running pass: CGSCCToFunctionPassAdaptor
-; CHECK-NESTED-MP-CG-FP: Starting llvm::Function pass manager run
 ; CHECK-NESTED-MP-CG-FP: Running pass: NoOpFunctionPass
-; CHECK-NESTED-MP-CG-FP: Finished llvm::Function pass manager run
 ; CHECK-NESTED-MP-CG-FP: Running pass: NoOpCGSCCPass
-; CHECK-NESTED-MP-CG-FP: Finished CGSCC pass manager run
-; CHECK-NESTED-MP-CG-FP: Running pass: ModuleToFunctionPassAdaptor
-; CHECK-NESTED-MP-CG-FP: Starting llvm::Function pass manager run
 ; CHECK-NESTED-MP-CG-FP: Running pass: NoOpFunctionPass
-; CHECK-NESTED-MP-CG-FP: Finished llvm::Function pass manager run
-; CHECK-NESTED-MP-CG-FP: Finished llvm::Module pass manager run
-; CHECK-NESTED-MP-CG-FP: Finished llvm::Module pass manager run
 
 ; RUN: opt -disable-output -debug-pass-manager \
 ; RUN:     -passes='no-op-loop,no-op-loop' %s 2>&1 \
 ; RUN:     | FileCheck %s --check-prefix=CHECK-TWO-NOOP-LOOP
-; CHECK-TWO-NOOP-LOOP: Starting llvm::Module pass manager run
-; CHECK-TWO-NOOP-LOOP: Running pass: ModuleToFunctionPassAdaptor
-; CHECK-TWO-NOOP-LOOP: Starting llvm::Function pass manager run
-; CHECK-TWO-NOOP-LOOP: Running pass: FunctionToLoopPassAdaptor
-; CHECK-TWO-NOOP-LOOP: Starting Loop pass manager run
 ; CHECK-TWO-NOOP-LOOP: Running pass: NoOpLoopPass
 ; CHECK-TWO-NOOP-LOOP: Running pass: NoOpLoopPass
-; CHECK-TWO-NOOP-LOOP: Finished Loop pass manager run
-; CHECK-TWO-NOOP-LOOP: Finished llvm::Function pass manager run
-; CHECK-TWO-NOOP-LOOP: Finished llvm::Module pass manager run
 
 ; RUN: opt -disable-output -debug-pass-manager \
 ; RUN:     -passes='module(function(loop(no-op-loop)))' %s 2>&1 \
@@ -163,15 +144,45 @@
 ; RUN: opt -disable-output -debug-pass-manager \
 ; RUN:     -passes='no-op-loop' %s 2>&1 \
 ; RUN:     | FileCheck %s --check-prefix=CHECK-NESTED-FP-LP
-; CHECK-NESTED-FP-LP: Starting llvm::Module pass manager run
-; CHECK-NESTED-FP-LP: Running pass: ModuleToFunctionPassAdaptor
-; CHECK-NESTED-FP-LP: Starting llvm::Function pass manager run
-; CHECK-NESTED-FP-LP: Running pass: FunctionToLoopPassAdaptor
-; CHECK-NESTED-FP-LP: Starting Loop pass manager run
 ; CHECK-NESTED-FP-LP: Running pass: NoOpLoopPass
-; CHECK-NESTED-FP-LP: Finished Loop pass manager run
-; CHECK-NESTED-FP-LP: Finished llvm::Function pass manager run
-; CHECK-NESTED-FP-LP: Finished llvm::Module pass manager run
+
+; RUN: opt -disable-output -debug-pass-manager=verbose \
+; RUN:     -passes='module(no-op-function,no-op-loop,no-op-cgscc,cgscc(no-op-function,no-op-loop),function(no-op-loop))' %s 2>&1 \
+; RUN:     | FileCheck %s --check-prefix=CHECK-ADAPTORS
+; CHECK-ADAPTORS: Running pass: ModuleToFunctionPassAdaptor
+; CHECK-ADAPTORS: Running pass: NoOpFunctionPass
+; CHECK-ADAPTORS: Running pass: ModuleToFunctionPassAdaptor
+; CHECK-ADAPTORS: Running pass: FunctionToLoopPassAdaptor
+; CHECK-ADAPTORS: Running pass: NoOpLoopPass on loop
+; CHECK-ADAPTORS: Running pass: ModuleToPostOrderCGSCCPassAdaptor
+; CHECK-ADAPTORS: Running pass: NoOpCGSCCPass
+; CHECK-ADAPTORS: Running pass: ModuleToPostOrderCGSCCPassAdaptor
+; CHECK-ADAPTORS: Running pass: PassManager{{.*}}SCC
+; CHECK-ADAPTORS: Running pass: CGSCCToFunctionPassAdaptor
+; CHECK-ADAPTORS: Running pass: NoOpFunctionPass
+; CHECK-ADAPTORS: Running pass: CGSCCToFunctionPassAdaptor
+; CHECK-ADAPTORS: Running pass: FunctionToLoopPassAdaptor
+; CHECK-ADAPTORS: Running pass: NoOpLoopPass on loop
+; CHECK-ADAPTORS: Running pass: ModuleToFunctionPassAdaptor
+; CHECK-ADAPTORS: Running pass: PassManager{{.*}}Function
+; CHECK-ADAPTORS: Running pass: FunctionToLoopPassAdaptor
+; CHECK-ADAPTORS: Running pass: NoOpLoopPass on loop
+
+; RUN: opt -disable-output -debug-pass-manager \
+; RUN:     -passes='module(function(no-op-function,loop(no-op-loop,no-op-loop)))' %s 2>&1 \
+; RUN:     | FileCheck %s --check-prefix=CHECK-MANAGERS-NO-VERBOSE
+; RUN: opt -disable-output -debug-pass-manager=verbose \
+; RUN:     -passes='module(function(no-op-function,loop(no-op-loop,no-op-loop)))' %s 2>&1 \
+; RUN:     | FileCheck %s --check-prefix=CHECK-MANAGERS
+; CHECK-MANAGERS: Running pass: PassManager{{.*}}Function
+; CHECK-MANAGERS: Running pass: PassManager{{.*}}Loop
+; CHECK-MANAGERS-NO-VERBOSE-NOT: PassManager
+
+; RUN: opt -disable-output -debug-pass-manager \
+; RUN:     -passes='cgscc(print)' %s 2>&1 \
+; RUN:     | FileCheck %s --check-prefix=CHECK-PRINT-IN-CGSCC
+; CHECK-PRINT-IN-CGSCC: Running pass: PrintFunctionPass
+; CHECK-PRINT-IN-CGSCC: Running pass: VerifierPass
 
 ; RUN: not opt -disable-output -debug-pass-manager \
 ; RUN:     -passes='function(no-op-function)function(no-op-function)' %s 2>&1 \
@@ -253,9 +264,15 @@
 ; RUN: opt -passes-ep-vectorizer-start=bad -passes=no-op-function \
 ; RUN:       /dev/null -disable-output 2>&1 | FileCheck %s -check-prefix=PASSES-EP-VECTORIZERSTART-ERR
 ; PASSES-EP-VECTORIZERSTART-ERR: Could not parse -passes-ep-vectorizer-start pipeline: unknown function pass 'bad'
+; RUN: opt -passes-ep-vectorizer-end=bad -passes=no-op-function \
+; RUN:       /dev/null -disable-output 2>&1 | FileCheck %s -check-prefix=PASSES-EP-VECTORIZEREND-ERR
+; PASSES-EP-VECTORIZEREND-ERR: Could not parse -passes-ep-vectorizer-end pipeline: unknown function pass 'bad'
 ; RUN: opt -passes-ep-pipeline-start=bad -passes=no-op-function \
 ; RUN:       /dev/null -disable-output 2>&1 | FileCheck %s -check-prefix=PASSES-EP-PIPELINESTART-ERR
 ; PASSES-EP-PIPELINESTART-ERR: Could not parse -passes-ep-pipeline-start pipeline: unknown pass name 'bad'
+; RUN: opt -passes-ep-pipeline-early-simplification=bad -passes=no-op-function \
+; RUN:       /dev/null -disable-output 2>&1 | FileCheck %s -check-prefix=PASSES-EP-PIPELINEEARLYSIMPLIFICATION-ERR
+; PASSES-EP-PIPELINEEARLYSIMPLIFICATION-ERR: Could not parse -passes-ep-pipeline-early-simplification pipeline: unknown pass name 'bad'
 
 define void @f() {
 entry:

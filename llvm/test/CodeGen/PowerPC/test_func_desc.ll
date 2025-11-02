@@ -13,7 +13,7 @@ entry:
 define i32 @main() {
 entry:
   %0 = call i32 @foo()
-  %1 = call i32 bitcast (i32 (...)* @extern_foo to i32 ()*)()
+  %1 = call i32 @extern_foo()
   %2 = call i32 @static_foo()
   %3 = add nsw i32 %0, %1
   %4 = add nsw i32 %3, %2
@@ -30,42 +30,43 @@ entry:
 ; CHECK: .globl foo[DS]
 ; CHECK: .globl .foo
 ; 32BIT: .csect foo[DS],2
-; 32BIT-NEXT: .long .foo
-; 32BIT-NEXT: .long TOC[TC0]
-; 32BIT-NEXT: .long 0
+; 32BIT-NEXT: .vbyte	4, .foo
+; 32BIT-NEXT: .vbyte	4, TOC[TC0]
+; 32BIT-NEXT: .vbyte	4, 0
 ; 64BIT: .csect foo[DS],3
-; 64BIT-NEXT: .llong .foo
-; 64BIT-NEXT: .llong TOC[TC0]
-; 64BIT-NEXT: .llong 0
-; CHECK-NEXT: .csect .text[PR],2
+; 64BIT-NEXT: .vbyte	8, .foo
+; 64BIT-NEXT: .vbyte	8, TOC[TC0]
+; 64BIT-NEXT: .vbyte	8, 0
+; CHECK-NEXT: .csect ..text..[PR],5
 ; CHECK-LABEL: .foo:
 
 ; CHECK: .globl main[DS]
 ; CHECK: .globl .main
 ; 32BIT: .csect main[DS],2
-; 32BIT-NEXT: .long .main
-; 32BIT-NEXT: .long TOC[TC0]
-; 32BIT-NEXT: .long 0
+; 32BIT-NEXT: .vbyte	4, .main
+; 32BIT-NEXT: .vbyte	4, TOC[TC0]
+; 32BIT-NEXT: .vbyte	4, 0
 ; 64BIT: .csect main[DS],3
-; 64BIT-NEXT: .llong .main
-; 64BIT-NEXT: .llong TOC[TC0]
-; 64BIT-NEXT: .llong 0
-; CHECK-NEXT: .csect .text[PR],2
+; 64BIT-NEXT: .vbyte	8, .main
+; 64BIT-NEXT: .vbyte	8, TOC[TC0]
+; 64BIT-NEXT: .vbyte	8, 0
+; CHECK-NEXT: .csect ..text..[PR],5
 ; CHECK-LABEL: .main:
 ; CHECK: bl .foo
 ; CHECK: bl .extern_foo
 ; CHECK: bl .static_foo
 
+; CHECK: .lglobl static_foo[DS]
 ; CHECK: .lglobl .static_foo
 ; 32BIT: .csect static_foo[DS],2
-; 32BIT-NEXT: .long .static_foo
-; 32BIT-NEXT: .long TOC[TC0]
-; 32BIT-NEXT: .long 0
+; 32BIT-NEXT: .vbyte	4, .static_foo
+; 32BIT-NEXT: .vbyte	4, TOC[TC0]
+; 32BIT-NEXT: .vbyte	4, 0
 ; 64BIT: .csect static_foo[DS],3
-; 64BIT-NEXT: .llong .static_foo
-; 64BIT-NEXT: .llong TOC[TC0]
-; 64BIT-NEXT: .llong 0
-; CHECK-NEXT: .csect .text[PR],2
+; 64BIT-NEXT: .vbyte	8, .static_foo
+; 64BIT-NEXT: .vbyte	8, TOC[TC0]
+; 64BIT-NEXT: .vbyte	8, 0
+; CHECK-NEXT: .csect ..text..[PR],5
 ; CHECK-LABEL: .static_foo:
 
 ; CHECK-NOT: .csect extern_foo

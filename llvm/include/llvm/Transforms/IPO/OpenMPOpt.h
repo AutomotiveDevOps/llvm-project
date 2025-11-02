@@ -6,8 +6,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_TRANSFORMS_IPO_OPENMP_OPT_H
-#define LLVM_TRANSFORMS_IPO_OPENMP_OPT_H
+#ifndef LLVM_TRANSFORMS_IPO_OPENMPOPT_H
+#define LLVM_TRANSFORMS_IPO_OPENMPOPT_H
 
 #include "llvm/Analysis/CGSCCPassManager.h"
 #include "llvm/Analysis/LazyCallGraph.h"
@@ -17,38 +17,51 @@ namespace llvm {
 
 namespace omp {
 
-/// Helper to remember if the module contains OpenMP (runtime calls), to be used
-/// foremost with containsOpenMP.
-struct OpenMPInModule {
-  OpenMPInModule &operator=(bool Found) {
-    if (Found)
-      Value = OpenMPInModule::OpenMP::FOUND;
-    else
-      Value = OpenMPInModule::OpenMP::NOT_FOUND;
-    return *this;
-  }
-  bool isKnown() { return Value != OpenMP::UNKNOWN; }
-  operator bool() { return Value != OpenMP::NOT_FOUND; }
+/// Summary of a kernel (=entry point for target offloading).
+using Kernel = Function *;
 
-private:
-  enum class OpenMP { FOUND, NOT_FOUND, UNKNOWN } Value = OpenMP::UNKNOWN;
-};
+/// Set of kernels in the module
+using KernelSet = SetVector<Kernel>;
 
-/// Helper to determine if \p M contains OpenMP (runtime calls).
-bool containsOpenMP(Module &M, OpenMPInModule &OMPInModule);
+/// Helper to determine if \p M contains OpenMP.
+bool containsOpenMP(Module &M);
+
+/// Helper to determine if \p M is a OpenMP target offloading device module.
+bool isOpenMPDevice(Module &M);
+
+/// Return true iff \p Fn is an OpenMP GPU kernel; \p Fn has the "kernel"
+/// attribute.
+bool isOpenMPKernel(Function &Fn);
+
+/// Get OpenMP device kernels in \p M.
+KernelSet getDeviceKernels(Module &M);
 
 } // namespace omp
 
 /// OpenMP optimizations pass.
 class OpenMPOptPass : public PassInfoMixin<OpenMPOptPass> {
-  /// Helper to remember if the module contains OpenMP (runtime calls).
-  omp::OpenMPInModule OMPInModule;
-
 public:
+  OpenMPOptPass() = default;
+  OpenMPOptPass(ThinOrFullLTOPhase LTOPhase) : LTOPhase(LTOPhase) {}
+
+  PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
+
+private:
+  const ThinOrFullLTOPhase LTOPhase = ThinOrFullLTOPhase::None;
+};
+
+class OpenMPOptCGSCCPass : public PassInfoMixin<OpenMPOptCGSCCPass> {
+public:
+  OpenMPOptCGSCCPass() = default;
+  OpenMPOptCGSCCPass(ThinOrFullLTOPhase LTOPhase) : LTOPhase(LTOPhase) {}
+
   PreservedAnalyses run(LazyCallGraph::SCC &C, CGSCCAnalysisManager &AM,
                         LazyCallGraph &CG, CGSCCUpdateResult &UR);
+
+private:
+  const ThinOrFullLTOPhase LTOPhase = ThinOrFullLTOPhase::None;
 };
 
 } // end namespace llvm
 
-#endif // LLVM_TRANSFORMS_IPO_OPENMP_OPT_H
+#endif // LLVM_TRANSFORMS_IPO_OPENMPOPT_H

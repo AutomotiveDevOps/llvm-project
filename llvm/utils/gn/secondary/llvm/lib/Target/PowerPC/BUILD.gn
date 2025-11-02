@@ -18,37 +18,59 @@ tablegen("PPCGenFastISel") {
   td_file = "PPC.td"
 }
 
+tablegen("PPCGenGlobalISel") {
+  visibility = [ ":LLVMPowerPCCodeGen" ]
+  args = [ "-gen-global-isel" ]
+  td_file = "PPC.td"
+}
+
+tablegen("PPCGenRegisterBank") {
+  visibility = [ ":LLVMPowerPCCodeGen" ]
+  args = [ "-gen-register-bank" ]
+  td_file = "PPC.td"
+}
+
 static_library("LLVMPowerPCCodeGen") {
   deps = [
     ":PPCGenCallingConv",
     ":PPCGenDAGISel",
     ":PPCGenFastISel",
+    ":PPCGenGlobalISel",
+    ":PPCGenRegisterBank",
+    "AsmParser:PPCGenAsmMatcher",
     "MCTargetDesc",
     "TargetInfo",
     "//llvm/include/llvm/Config:llvm-config",
     "//llvm/lib/Analysis",
     "//llvm/lib/CodeGen",
     "//llvm/lib/CodeGen/AsmPrinter",
+    "//llvm/lib/CodeGen/GlobalISel",
     "//llvm/lib/CodeGen/SelectionDAG",
     "//llvm/lib/IR",
     "//llvm/lib/MC",
     "//llvm/lib/Support",
     "//llvm/lib/Target",
+    "//llvm/lib/TargetParser",
     "//llvm/lib/Transforms/Utils",
   ]
   include_dirs = [ "." ]
   sources = [
+    "GISel/PPCCallLowering.cpp",
+    "GISel/PPCInstructionSelector.cpp",
+    "GISel/PPCLegalizerInfo.cpp",
+    "GISel/PPCRegisterBankInfo.cpp",
     "PPCAsmPrinter.cpp",
     "PPCBoolRetToInt.cpp",
     "PPCBranchCoalescing.cpp",
     "PPCBranchSelector.cpp",
-    "PPCCCState.cpp",
     "PPCCTRLoops.cpp",
+    "PPCCTRLoopsVerify.cpp",
     "PPCCallingConv.cpp",
     "PPCEarlyReturn.cpp",
-    "PPCExpandISEL.cpp",
+    "PPCExpandAtomicPseudoInsts.cpp",
     "PPCFastISel.cpp",
     "PPCFrameLowering.cpp",
+    "PPCGenScalarMASSEntries.cpp",
     "PPCHazardRecognizers.cpp",
     "PPCISelDAGToDAG.cpp",
     "PPCISelLowering.cpp",
@@ -61,18 +83,18 @@ static_library("LLVMPowerPCCodeGen") {
     "PPCMachineScheduler.cpp",
     "PPCMacroFusion.cpp",
     "PPCPreEmitPeephole.cpp",
-    "PPCQPXLoadSplat.cpp",
     "PPCReduceCRLogicals.cpp",
     "PPCRegisterInfo.cpp",
+    "PPCSelectionDAGInfo.cpp",
     "PPCSubtarget.cpp",
     "PPCTLSDynamicCall.cpp",
     "PPCTOCRegDeps.cpp",
     "PPCTargetMachine.cpp",
     "PPCTargetObjectFile.cpp",
     "PPCTargetTransformInfo.cpp",
-    "PPCVSXCopy.cpp",
     "PPCVSXFMAMutate.cpp",
     "PPCVSXSwapRemoval.cpp",
+    "PPCVSXWACCCopy.cpp",
   ]
 }
 

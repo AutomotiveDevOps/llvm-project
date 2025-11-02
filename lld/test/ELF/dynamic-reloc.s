@@ -13,12 +13,13 @@
 // CHECK-NEXT: Type: SHT_RELA
 // CHECK-NEXT: Flags [
 // CHECK-NEXT:   SHF_ALLOC
+// CHECK-NEXT:   SHF_INFO_LINK
 // CHECK-NEXT: ]
 // CHECK-NEXT: Address: [[RELAADDR:.*]]
 // CHECK-NEXT: Offset:
 // CHECK-NEXT: Size: [[RELASIZE:.*]]
 // CHECK-NEXT: Link: 1
-// CHECK-NEXT: Info: 9
+// CHECK-NEXT: Info:
 // CHECK-NEXT: AddressAlignment: 8
 // CHECK-NEXT: EntrySize: 24
 

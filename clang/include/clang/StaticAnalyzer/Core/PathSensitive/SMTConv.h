@@ -6,7 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 //
-//  This file defines a set of functions to create SMT expressions
+//  This file defines a set of functions to create SMT expressions.
 //
 //===----------------------------------------------------------------------===//
 
@@ -17,6 +17,8 @@
 #include "clang/StaticAnalyzer/Core/PathSensitive/APSIntType.h"
 #include "clang/StaticAnalyzer/Core/PathSensitive/SymbolManager.h"
 #include "llvm/Support/SMTAPI.h"
+
+#include <algorithm>
 
 namespace clang {
 namespace ento {
@@ -319,11 +321,16 @@ public:
   }
 
   /// Construct an SMTSolverRef from a SymbolData.
-  static inline llvm::SMTExprRef fromData(llvm::SMTSolverRef &Solver,
-                                          const SymbolID ID, const QualType &Ty,
-                                          uint64_t BitWidth) {
-    llvm::Twine Name = "$" + llvm::Twine(ID);
-    return Solver->mkSymbol(Name.str().c_str(), mkSort(Solver, Ty, BitWidth));
+  static inline llvm::SMTExprRef
+  fromData(llvm::SMTSolverRef &Solver, ASTContext &Ctx, const SymbolData *Sym) {
+    const SymbolID ID = Sym->getSymbolID();
+    const QualType Ty = Sym->getType();
+    const uint64_t BitWidth = Ctx.getTypeSize(Ty);
+
+    llvm::SmallString<16> Str;
+    llvm::raw_svector_ostream OS(Str);
+    OS << Sym->getKindStr() << ID;
+    return Solver->mkSymbol(Str.c_str(), mkSort(Solver, Ty, BitWidth));
   }
 
   // Wrapper to generate SMTSolverRef from SymbolCast data.
@@ -422,8 +429,7 @@ public:
       if (RetTy)
         *RetTy = Sym->getType();
 
-      return fromData(Solver, SD->getSymbolID(), Sym->getType(),
-                      Ctx.getTypeSize(Sym->getType()));
+      return fromData(Solver, Ctx, SD);
     }
 
     if (const SymbolCast *SC = dyn_cast<SymbolCast>(Sym)) {
@@ -440,6 +446,44 @@ public:
       if (hasComparison)
         *hasComparison = false;
       return getCastExpr(Solver, Ctx, Exp, FromTy, Sym->getType());
+    }
+
+    if (const UnarySymExpr *USE = dyn_cast<UnarySymExpr>(Sym)) {
+      if (RetTy)
+        *RetTy = Sym->getType();
+
+      QualType OperandTy;
+      llvm::SMTExprRef OperandExp =
+          getSymExpr(Solver, Ctx, USE->getOperand(), &OperandTy, hasComparison);
+
+      if (const BinarySymExpr *BSE =
+              dyn_cast<BinarySymExpr>(USE->getOperand())) {
+        if (USE->getOpcode() == UO_Minus &&
+            BinaryOperator::isComparisonOp(BSE->getOpcode()))
+          // The comparison operator yields a boolean value in the Z3
+          // language and applying the unary minus operator on a boolean
+          // crashes Z3. However, the unary minus does nothing in this
+          // context (a number is truthy if and only if its negative is
+          // truthy), so let's just ignore the unary minus.
+          // TODO: Replace this with a more general solution.
+          return OperandExp;
+      }
+
+      llvm::SMTExprRef UnaryExp =
+          OperandTy->isRealFloatingType()
+              ? fromFloatUnOp(Solver, USE->getOpcode(), OperandExp)
+              : fromUnOp(Solver, USE->getOpcode(), OperandExp);
+
+      // Currently, without the `support-symbolic-integer-casts=true` option,
+      // we do not emit `SymbolCast`s for implicit casts.
+      // One such implicit cast is missing if the operand of the unary operator
+      // has a different type than the unary itself.
+      if (Ctx.getTypeSize(OperandTy) != Ctx.getTypeSize(Sym->getType())) {
+        if (hasComparison)
+          *hasComparison = false;
+        return getCastExpr(Solver, Ctx, UnaryExp, OperandTy, Sym->getType());
+      }
+      return UnaryExp;
     }
 
     if (const BinarySymExpr *BSE = dyn_cast<BinarySymExpr>(Sym)) {
@@ -542,23 +586,38 @@ public:
   // TODO: Refactor to put elsewhere
   static inline QualType getAPSIntType(ASTContext &Ctx,
                                        const llvm::APSInt &Int) {
-    return Ctx.getIntTypeForBitwidth(Int.getBitWidth(), Int.isSigned());
+    const QualType Ty =
+        Ctx.getIntTypeForBitwidth(Int.getBitWidth(), Int.isSigned());
+    if (!Ty.isNull())
+      return Ty;
+    // If Ty is Null, could be because the original type was a _BitInt.
+    // Get the size of the _BitInt type (expressed in bits) and round it up to
+    // the next power of 2 that is at least the bit size of 'char' (usually 8).
+    unsigned CharTypeSize = Ctx.getTypeSize(Ctx.CharTy);
+    unsigned Pow2DestWidth =
+        std::max(llvm::bit_ceil(Int.getBitWidth()), CharTypeSize);
+    return Ctx.getIntTypeForBitwidth(Pow2DestWidth, Int.isSigned());
   }
 
   // Get the QualTy for the input APSInt, and fix it if it has a bitwidth of 1.
   static inline std::pair<llvm::APSInt, QualType>
   fixAPSInt(ASTContext &Ctx, const llvm::APSInt &Int) {
     llvm::APSInt NewInt;
+    unsigned APSIntBitwidth = Int.getBitWidth();
+    QualType Ty = getAPSIntType(Ctx, Int);
 
     // FIXME: This should be a cast from a 1-bit integer type to a boolean type,
     // but the former is not available in Clang. Instead, extend the APSInt
     // directly.
-    if (Int.getBitWidth() == 1 && getAPSIntType(Ctx, Int).isNull()) {
-      NewInt = Int.extend(Ctx.getTypeSize(Ctx.BoolTy));
-    } else
-      NewInt = Int;
-
-    return std::make_pair(NewInt, getAPSIntType(Ctx, NewInt));
+    if (APSIntBitwidth == 1 && Ty.isNull())
+      return {Int.extend(Ctx.getTypeSize(Ctx.BoolTy)),
+              getAPSIntType(Ctx, NewInt)};
+    else if (APSIntBitwidth == 1 && !Ty.isNull())
+      return {Int.extend(Ctx.getTypeSize(getAPSIntType(Ctx, Int))),
+              getAPSIntType(Ctx, NewInt)};
+    if (llvm::isPowerOf2_32(APSIntBitwidth) || Ty.isNull())
+      return {Int, Ty};
+    return {Int.extend(Ctx.getTypeSize(Ty)), Ty};
   }
 
   // Perform implicit type conversion on binary symbolic expressions.
@@ -650,14 +709,14 @@ public:
     assert(!LTy.isNull() && !RTy.isNull() && "Input type is null!");
     // Always perform integer promotion before checking type equality.
     // Otherwise, e.g. (bool) a + (bool) b could trigger a backend assertion
-    if (LTy->isPromotableIntegerType()) {
+    if (Ctx.isPromotableIntegerType(LTy)) {
       QualType NewTy = Ctx.getPromotedIntegerType(LTy);
       uint64_t NewBitWidth = Ctx.getTypeSize(NewTy);
       LHS = (*doCast)(Solver, LHS, NewTy, NewBitWidth, LTy, LBitWidth);
       LTy = NewTy;
       LBitWidth = NewBitWidth;
     }
-    if (RTy->isPromotableIntegerType()) {
+    if (Ctx.isPromotableIntegerType(RTy)) {
       QualType NewTy = Ctx.getPromotedIntegerType(RTy);
       uint64_t NewBitWidth = Ctx.getTypeSize(NewTy);
       RHS = (*doCast)(Solver, RHS, NewTy, NewBitWidth, RTy, RBitWidth);

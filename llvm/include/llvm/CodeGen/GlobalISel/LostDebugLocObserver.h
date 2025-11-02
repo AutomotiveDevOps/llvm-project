@@ -5,18 +5,19 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
-//
+/// \file
 /// Tracks DebugLocs between checkpoints and verifies that they are transferred.
-//
+///
 //===----------------------------------------------------------------------===//
 #ifndef LLVM_CODEGEN_GLOBALISEL_LOSTDEBUGLOCOBSERVER_H
 #define LLVM_CODEGEN_GLOBALISEL_LOSTDEBUGLOCOBSERVER_H
 
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/CodeGen/GlobalISel/GISelChangeObserver.h"
+#include "llvm/Support/Compiler.h"
 
 namespace llvm {
-class LostDebugLocObserver : public GISelChangeObserver {
+class LLVM_ABI LostDebugLocObserver : public GISelChangeObserver {
   StringRef DebugType;
   SmallSet<DebugLoc, 4> LostDebugLocs;
   SmallPtrSet<MachineInstr *, 4> PotentialMIsForDebugLocs;
@@ -47,4 +48,4 @@ private:
 };
 
 } // namespace llvm
-#endif // ifndef LLVM_CODEGEN_GLOBALISEL_LOSTDEBUGLOCOBSERVER_H
+#endif // LLVM_CODEGEN_GLOBALISEL_LOSTDEBUGLOCOBSERVER_H

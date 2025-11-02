@@ -10,12 +10,15 @@
 #define LLDB_SYMBOL_FUNCTION_H
 
 #include "lldb/Core/AddressRange.h"
+#include "lldb/Core/Declaration.h"
 #include "lldb/Core/Mangled.h"
-#include "lldb/Expression/DWARFExpression.h"
+#include "lldb/Expression/DWARFExpressionList.h"
 #include "lldb/Symbol/Block.h"
-#include "lldb/Symbol/Declaration.h"
 #include "lldb/Utility/UserID.h"
+#include "lldb/lldb-forward.h"
 #include "llvm/ADT/ArrayRef.h"
+
+#include <mutex>
 
 namespace lldb_private {
 
@@ -108,15 +111,14 @@ public:
   ///     The number of bytes that this object occupies in memory.
   ///     The returned value does not include the bytes for any
   ///     shared string values.
-  ///
-  /// \see ConstString::StaticMemorySize ()
   virtual size_t MemorySize() const;
 
 protected:
-  // Member variables.
-  ConstString m_name;        ///< Function method name (not a mangled name).
-  Declaration m_declaration; ///< Information describing where this function
-                             ///information was defined.
+  /// Function method name (not a mangled name).
+  ConstString m_name;
+
+  /// Information describing where this function information was defined.
+  Declaration m_declaration;
 };
 
 /// \class InlineFunctionInfo Function.h "lldb/Symbol/Function.h"
@@ -235,14 +237,13 @@ public:
   ///     The number of bytes that this object occupies in memory.
   ///     The returned value does not include the bytes for any
   ///     shared string values.
-  ///
-  /// \see ConstString::StaticMemorySize ()
   size_t MemorySize() const override;
 
 private:
-  // Member variables.
-  Mangled m_mangled; ///< Mangled inlined function name (can be empty if there
-                     ///is no mangled information).
+  /// Mangled inlined function name (can be empty if there is no mangled
+  /// information).
+  Mangled m_mangled;
+
   Declaration m_call_decl;
 };
 
@@ -253,8 +254,8 @@ class Function;
 /// Represent the locations of a parameter at a call site, both in the caller
 /// and in the callee.
 struct CallSiteParameter {
-  DWARFExpression LocationInCallee;
-  DWARFExpression LocationInCaller;
+  DWARFExpressionList LocationInCallee;
+  DWARFExpressionList LocationInCaller;
 };
 
 /// A vector of \c CallSiteParameter.
@@ -266,7 +267,8 @@ using CallSiteParameterArray = llvm::SmallVector<CallSiteParameter, 0>;
 /// in the call graph between two functions, or to evaluate DW_OP_entry_value.
 class CallEdge {
 public:
-  virtual ~CallEdge() {}
+  enum class AddrType : uint8_t { Call, AfterCall };
+  virtual ~CallEdge();
 
   /// Get the callee's definition.
   ///
@@ -281,35 +283,47 @@ public:
   /// made the call.
   lldb::addr_t GetReturnPCAddress(Function &caller, Target &target) const;
 
-  /// Like \ref GetReturnPCAddress, but returns an unresolved file address.
-  lldb::addr_t GetUnresolvedReturnPCAddress() const { return return_pc; }
+  /// Return an address in the caller. This can either be the address of the
+  /// call instruction, or the address of the instruction after the call.
+  std::pair<AddrType, lldb::addr_t> GetCallerAddress(Function &caller,
+                                                     Target &target) const {
+    return {caller_address_type,
+            GetLoadAddress(caller_address, caller, target)};
+  }
 
-  /// Get the load PC address of the call instruction (or LLDB_INVALID_ADDRESS).
-  lldb::addr_t GetCallInstPC(Function &caller, Target &target) const;
+  bool IsTailCall() const { return is_tail_call; }
 
   /// Get the call site parameters available at this call edge.
   llvm::ArrayRef<CallSiteParameter> GetCallSiteParameters() const {
     return parameters;
   }
 
+  /// Non-tail-calls go first, sorted by the return address. They are followed
+  /// by tail calls, which have no specific order.
+  std::pair<bool, lldb::addr_t> GetSortKey() const {
+    return {is_tail_call, GetUnresolvedReturnPCAddress()};
+  }
+
 protected:
-  CallEdge(lldb::addr_t return_pc, lldb::addr_t call_inst_pc,
-           CallSiteParameterArray &&parameters)
-      : return_pc(return_pc), call_inst_pc(call_inst_pc),
-        parameters(std::move(parameters)) {}
+  CallEdge(AddrType caller_address_type, lldb::addr_t caller_address,
+           bool is_tail_call, CallSiteParameterArray &&parameters);
 
   /// Helper that finds the load address of \p unresolved_pc, a file address
   /// which refers to an instruction within \p caller.
   static lldb::addr_t GetLoadAddress(lldb::addr_t unresolved_pc,
                                      Function &caller, Target &target);
 
-  /// An invalid address if this is a tail call. Otherwise, the return PC for
-  /// the call. Note that this is a file address which must be resolved.
-  lldb::addr_t return_pc;
+  /// Like \ref GetReturnPCAddress, but returns an unresolved file address.
+  lldb::addr_t GetUnresolvedReturnPCAddress() const {
+    return caller_address_type == AddrType::AfterCall && !is_tail_call
+               ? caller_address
+               : LLDB_INVALID_ADDRESS;
+  }
 
-  /// The address of the call instruction. Usually an invalid address, unless
-  /// this is a tail call.
-  lldb::addr_t call_inst_pc;
+private:
+  lldb::addr_t caller_address;
+  AddrType caller_address_type;
+  bool is_tail_call;
 
   CallSiteParameterArray parameters;
 };
@@ -321,11 +335,9 @@ class DirectCallEdge : public CallEdge {
 public:
   /// Construct a call edge using a symbol name to identify the callee, and a
   /// return PC within the calling function to identify a specific call site.
-  DirectCallEdge(const char *symbol_name, lldb::addr_t return_pc,
-                 lldb::addr_t call_inst_pc, CallSiteParameterArray &&parameters)
-      : CallEdge(return_pc, call_inst_pc, std::move(parameters)) {
-    lazy_callee.symbol_name = symbol_name;
-  }
+  DirectCallEdge(const char *symbol_name, AddrType caller_address_type,
+                 lldb::addr_t caller_address, bool is_tail_call,
+                 CallSiteParameterArray &&parameters);
 
   Function *GetCallee(ModuleList &images, ExecutionContext &exe_ctx) override;
 
@@ -352,11 +364,9 @@ class IndirectCallEdge : public CallEdge {
 public:
   /// Construct a call edge using a DWARFExpression to identify the callee, and
   /// a return PC within the calling function to identify a specific call site.
-  IndirectCallEdge(DWARFExpression call_target, lldb::addr_t return_pc,
-                   lldb::addr_t call_inst_pc,
-                   CallSiteParameterArray &&parameters)
-      : CallEdge(return_pc, call_inst_pc, std::move(parameters)),
-        call_target(std::move(call_target)) {}
+  IndirectCallEdge(DWARFExpressionList call_target,
+                   AddrType caller_address_type, lldb::addr_t caller_address,
+                   bool is_tail_call, CallSiteParameterArray &&parameters);
 
   Function *GetCallee(ModuleList &images, ExecutionContext &exe_ctx) override;
 
@@ -364,7 +374,7 @@ private:
   // Used to describe an indirect call.
   //
   // Specifies the location of the callee address in the calling frame.
-  DWARFExpression call_target;
+  DWARFExpressionList call_target;
 };
 
 /// \class Function Function.h "lldb/Symbol/Function.h"
@@ -419,7 +429,7 @@ public:
   ///     The section offset based address for this function.
   Function(CompileUnit *comp_unit, lldb::user_id_t func_uid,
            lldb::user_id_t func_type_uid, const Mangled &mangled,
-           Type *func_type, const AddressRange &range);
+           Type *func_type, Address address, AddressRanges ranges);
 
   /// Destructor.
   ~Function() override;
@@ -435,9 +445,20 @@ public:
 
   Function *CalculateSymbolContextFunction() override;
 
-  const AddressRange &GetAddressRange() { return m_range; }
+  AddressRanges GetAddressRanges() { return m_block.GetRanges(); }
+
+  /// Return the address of the function (its entry point). This address is also
+  /// used as a base address for relocation of function-scope entities (blocks
+  /// and variables).
+  const Address &GetAddress() const { return m_address; }
+
+  bool GetRangeContainingLoadAddress(lldb::addr_t load_addr, Target &target,
+                                     AddressRange &range) {
+    return m_block.GetRangeContainingLoadAddress(load_addr, target, range);
+  }
 
   lldb::LanguageType GetLanguage() const;
+
   /// Find the file and line number of the source location of the start of the
   /// function.  This will use the declaration if present and fall back on the
   /// line table if that fails.  So there may NOT be a line table entry for
@@ -448,25 +469,19 @@ public:
   ///
   /// \param[out] line_no
   ///     The line number.
-  void GetStartLineSourceInfo(FileSpec &source_file, uint32_t &line_no);
+  void GetStartLineSourceInfo(lldb::SupportFileSP &source_file_sp,
+                              uint32_t &line_no);
 
-  /// Find the file and line number of the source location of the end of the
-  /// function.
-  ///
-  ///
-  /// \param[out] source_file
-  ///     The source file.
-  ///
-  /// \param[out] line_no
-  ///     The line number.
-  void GetEndLineSourceInfo(FileSpec &source_file, uint32_t &line_no);
+  using SourceRange = Range<uint32_t, uint32_t>;
+  /// Find the file and line number range of the function.
+  llvm::Expected<std::pair<lldb::SupportFileSP, SourceRange>> GetSourceInfo();
 
   /// Get the outgoing call edges from this function, sorted by their return
   /// PC addresses (in increasing order).
   llvm::ArrayRef<std::unique_ptr<CallEdge>> GetCallEdges();
 
   /// Get the outgoing tail-calling edges from this function. If none exist,
-  /// return None.
+  /// return std::nullopt.
   llvm::ArrayRef<std::unique_ptr<CallEdge>> GetTailCallingEdges();
 
   /// Get the outgoing call edge from this function which has the given return
@@ -502,13 +517,13 @@ public:
   /// \return
   ///     A location expression that describes the function frame
   ///     base.
-  DWARFExpression &GetFrameBaseExpression() { return m_frame_base; }
+  DWARFExpressionList &GetFrameBaseExpression() { return m_frame_base; }
 
   /// Get const accessor for the frame base location.
   ///
   /// \return
   ///     A const compile unit object pointer.
-  const DWARFExpression &GetFrameBaseExpression() const { return m_frame_base; }
+  const DWARFExpressionList &GetFrameBaseExpression() const { return m_frame_base; }
 
   ConstString GetName() const;
 
@@ -523,6 +538,12 @@ public:
   /// \return
   ///     The DeclContext, or NULL if none exists.
   CompilerDeclContext GetDeclContext();
+
+  /// Get the CompilerContext for this function, if available.
+  ///
+  /// \return
+  ///     The CompilerContext, or an empty vector if none is available.
+  std::vector<CompilerContext> GetCompilerContext();
 
   /// Get accessor for the type that describes the function return value type,
   /// and parameter types.
@@ -572,8 +593,6 @@ public:
   ///     The number of bytes that this object occupies in memory.
   ///     The returned value does not include the bytes for any
   ///     shared string values.
-  ///
-  /// \see ConstString::StaticMemorySize ()
   size_t MemorySize() const;
 
   /// Get whether compiler optimizations were enabled for this function
@@ -608,39 +627,59 @@ public:
 
   lldb::DisassemblerSP GetInstructions(const ExecutionContext &exe_ctx,
                                        const char *flavor,
-                                       bool prefer_file_cache);
+                                       bool force_live_memory = false);
 
   bool GetDisassembly(const ExecutionContext &exe_ctx, const char *flavor,
-                      bool prefer_file_cache, Stream &strm);
+                      Stream &strm, bool force_live_memory = false);
 
 protected:
   enum {
-    flagsCalculatedPrologueSize =
-        (1 << 0) ///< Have we already tried to calculate the prologue size?
+    /// Whether we already tried to calculate the prologue size.
+    flagsCalculatedPrologueSize = (1 << 0)
   };
 
-  // Member variables.
-  CompileUnit *m_comp_unit; ///< The compile unit that owns this function.
-  lldb::user_id_t
-      m_type_uid; ///< The user ID of for the prototype Type for this function.
-  Type *m_type; ///< The function prototype type for this function that include
-                ///the function info (FunctionInfo), return type and parameters.
-  Mangled m_mangled; ///< The mangled function name if any, if empty, there is
-                     ///no mangled information.
-  Block m_block;     ///< All lexical blocks contained in this function.
-  AddressRange m_range; ///< The function address range that covers the widest
-                        ///range needed to contain all blocks
-  DWARFExpression m_frame_base; ///< The frame base expression for variables
-                                ///that are relative to the frame pointer.
-  Flags m_flags;
-  uint32_t
-      m_prologue_byte_size; ///< Compute the prologue size once and cache it
+  /// The compile unit that owns this function.
+  CompileUnit *m_comp_unit;
 
-  bool m_call_edges_resolved = false; ///< Whether call site info has been
-                                      ///  parsed.
-  std::vector<std::unique_ptr<CallEdge>> m_call_edges; ///< Outgoing call edges.
+  /// The user ID of for the prototype Type for this function.
+  lldb::user_id_t m_type_uid;
+
+  /// The function prototype type for this function that includes the function
+  /// info (FunctionInfo), return type and parameters.
+  Type *m_type;
+
+  /// The mangled function name if any. If empty, there is no mangled
+  /// information.
+  Mangled m_mangled;
+
+  /// All lexical blocks contained in this function.
+  Block m_block;
+
+  /// The address (entry point) of the function.
+  Address m_address;
+
+  /// The frame base expression for variables that are relative to the frame
+  /// pointer.
+  DWARFExpressionList m_frame_base;
+
+  Flags m_flags;
+
+  /// Compute the prologue size once and cache it.
+  uint32_t m_prologue_byte_size;
+
+  /// Exclusive lock that controls read/write access to m_call_edges and
+  /// m_call_edges_resolved.
+  std::mutex m_call_edges_lock;
+
+  /// Whether call site info has been parsed.
+  bool m_call_edges_resolved = false;
+
+  /// Outgoing call edges.
+  std::vector<std::unique_ptr<CallEdge>> m_call_edges;
+
 private:
-  DISALLOW_COPY_AND_ASSIGN(Function);
+  Function(const Function &) = delete;
+  const Function &operator=(const Function &) = delete;
 };
 
 } // namespace lldb_private

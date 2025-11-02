@@ -11,63 +11,103 @@
 //===----------------------------------------------------------------------===//
 
 #include "mlir/TableGen/Dialect.h"
+#include "llvm/TableGen/Error.h"
 #include "llvm/TableGen/Record.h"
 
-namespace mlir {
-namespace tblgen {
-
-StringRef tblgen::Dialect::getName() const {
-  return def->getValueAsString("name");
+using namespace mlir;
+using namespace mlir::tblgen;
+Dialect::Dialect(const llvm::Record *def) : def(def) {
+  if (def == nullptr)
+    return;
+  for (StringRef dialect : def->getValueAsListOfStrings("dependentDialects"))
+    dependentDialects.push_back(dialect);
 }
 
-StringRef tblgen::Dialect::getCppNamespace() const {
+StringRef Dialect::getName() const { return def->getValueAsString("name"); }
+
+StringRef Dialect::getCppNamespace() const {
   return def->getValueAsString("cppNamespace");
 }
 
-std::string tblgen::Dialect::getCppClassName() const {
+std::string Dialect::getCppClassName() const {
   // Simply use the name and remove any '_' tokens.
   std::string cppName = def->getName().str();
-  llvm::erase_if(cppName, [](char c) { return c == '_'; });
+  llvm::erase(cppName, '_');
   return cppName;
 }
 
 static StringRef getAsStringOrEmpty(const llvm::Record &record,
                                     StringRef fieldName) {
-  if (auto valueInit = record.getValueInit(fieldName)) {
-    if (llvm::isa<llvm::CodeInit>(valueInit) ||
-        llvm::isa<llvm::StringInit>(valueInit))
+  if (auto *valueInit = record.getValueInit(fieldName)) {
+    if (llvm::isa<llvm::StringInit>(valueInit))
       return record.getValueAsString(fieldName);
   }
   return "";
 }
 
-StringRef tblgen::Dialect::getSummary() const {
+StringRef Dialect::getSummary() const {
   return getAsStringOrEmpty(*def, "summary");
 }
 
-StringRef tblgen::Dialect::getDescription() const {
+StringRef Dialect::getDescription() const {
   return getAsStringOrEmpty(*def, "description");
 }
 
-llvm::Optional<StringRef> tblgen::Dialect::getExtraClassDeclaration() const {
-  auto value = def->getValueAsString("extraClassDeclaration");
-  return value.empty() ? llvm::Optional<StringRef>() : value;
+ArrayRef<StringRef> Dialect::getDependentDialects() const {
+  return dependentDialects;
 }
 
-bool tblgen::Dialect::hasConstantMaterializer() const {
+std::optional<StringRef> Dialect::getExtraClassDeclaration() const {
+  auto value = def->getValueAsString("extraClassDeclaration");
+  return value.empty() ? std::optional<StringRef>() : value;
+}
+
+bool Dialect::hasCanonicalizer() const {
+  return def->getValueAsBit("hasCanonicalizer");
+}
+
+bool Dialect::hasConstantMaterializer() const {
   return def->getValueAsBit("hasConstantMaterializer");
 }
 
-bool tblgen::Dialect::hasOperationAttrVerify() const {
+bool Dialect::hasNonDefaultDestructor() const {
+  return def->getValueAsBit("hasNonDefaultDestructor");
+}
+
+bool Dialect::hasOperationAttrVerify() const {
   return def->getValueAsBit("hasOperationAttrVerify");
 }
 
-bool tblgen::Dialect::hasRegionArgAttrVerify() const {
+bool Dialect::hasRegionArgAttrVerify() const {
   return def->getValueAsBit("hasRegionArgAttrVerify");
 }
 
-bool tblgen::Dialect::hasRegionResultAttrVerify() const {
+bool Dialect::hasRegionResultAttrVerify() const {
   return def->getValueAsBit("hasRegionResultAttrVerify");
+}
+
+bool Dialect::hasOperationInterfaceFallback() const {
+  return def->getValueAsBit("hasOperationInterfaceFallback");
+}
+
+bool Dialect::useDefaultAttributePrinterParser() const {
+  return def->getValueAsBit("useDefaultAttributePrinterParser");
+}
+
+bool Dialect::useDefaultTypePrinterParser() const {
+  return def->getValueAsBit("useDefaultTypePrinterParser");
+}
+
+bool Dialect::isExtensible() const {
+  return def->getValueAsBit("isExtensible");
+}
+
+bool Dialect::usePropertiesForAttributes() const {
+  return def->getValueAsBit("usePropertiesForAttributes");
+}
+
+const llvm::DagInit *Dialect::getDiscardableAttributes() const {
+  return def->getValueAsDag("discardableAttrs");
 }
 
 bool Dialect::operator==(const Dialect &other) const {
@@ -77,6 +117,3 @@ bool Dialect::operator==(const Dialect &other) const {
 bool Dialect::operator<(const Dialect &other) const {
   return getName() < other.getName();
 }
-
-} // end namespace tblgen
-} // end namespace mlir

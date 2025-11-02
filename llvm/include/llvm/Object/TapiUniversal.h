@@ -10,20 +10,23 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVM_OBJECT_TAPI_UNIVERSAL_H
-#define LLVM_OBJECT_TAPI_UNIVERSAL_H
+#ifndef LLVM_OBJECT_TAPIUNIVERSAL_H
+#define LLVM_OBJECT_TAPIUNIVERSAL_H
 
+#include "llvm/ADT/StringRef.h"
 #include "llvm/Object/Binary.h"
-#include "llvm/Object/TapiFile.h"
+#include "llvm/Support/Compiler.h"
 #include "llvm/Support/Error.h"
-#include "llvm/Support/MemoryBuffer.h"
-#include "llvm/TextAPI/MachO/Architecture.h"
-#include "llvm/TextAPI/MachO/InterfaceFile.h"
+#include "llvm/Support/MemoryBufferRef.h"
+#include "llvm/TextAPI/Architecture.h"
+#include "llvm/TextAPI/InterfaceFile.h"
 
 namespace llvm {
 namespace object {
 
-class TapiUniversal : public Binary {
+class TapiFile;
+
+class LLVM_ABI TapiUniversal : public Binary {
 public:
   class ObjectForArch {
     const TapiUniversal *Parent;
@@ -41,21 +44,29 @@ public:
 
     uint32_t getCPUType() const {
       auto Result =
-          MachO::getCPUTypeFromArchitecture(Parent->Architectures[Index]);
+          MachO::getCPUTypeFromArchitecture(Parent->Libraries[Index].Arch);
       return Result.first;
     }
 
     uint32_t getCPUSubType() const {
       auto Result =
-          MachO::getCPUTypeFromArchitecture(Parent->Architectures[Index]);
+          MachO::getCPUTypeFromArchitecture(Parent->Libraries[Index].Arch);
       return Result.second;
     }
 
     StringRef getArchFlagName() const {
-      return MachO::getArchitectureName(Parent->Architectures[Index]);
+      return MachO::getArchitectureName(Parent->Libraries[Index].Arch);
     }
 
-    Expected<std::unique_ptr<TapiFile>> getAsObjectFile() const;
+    std::string getInstallName() const {
+      return std::string(Parent->Libraries[Index].InstallName);
+    }
+
+    bool isTopLevelLib() const {
+      return Parent->ParsedFile->getInstallName() == getInstallName();
+    }
+
+    LLVM_ABI Expected<std::unique_ptr<TapiFile>> getAsObjectFile() const;
   };
 
   class object_iterator {
@@ -86,24 +97,32 @@ public:
 
   object_iterator begin_objects() const { return ObjectForArch(this, 0); }
   object_iterator end_objects() const {
-    return ObjectForArch(this, Architectures.size());
+    return ObjectForArch(this, Libraries.size());
   }
 
   iterator_range<object_iterator> objects() const {
     return make_range(begin_objects(), end_objects());
   }
 
-  uint32_t getNumberOfObjects() const { return Architectures.size(); }
+  const MachO::InterfaceFile &getInterfaceFile() { return *ParsedFile; }
 
-  // Cast methods.
+  uint32_t getNumberOfObjects() const { return Libraries.size(); }
+
   static bool classof(const Binary *v) { return v->isTapiUniversal(); }
 
 private:
+  /// Attributes of a library that is inlined into a single TBD file.
+  struct Library {
+    const StringRef InstallName;
+    const MachO::Architecture Arch;
+    const std::optional<size_t> DocumentIdx;
+  };
+
   std::unique_ptr<MachO::InterfaceFile> ParsedFile;
-  std::vector<MachO::Architecture> Architectures;
+  std::vector<Library> Libraries;
 };
 
 } // end namespace object.
 } // end namespace llvm.
 
-#endif // LLVM_OBJECT_TAPI_UNIVERSAL_H
+#endif // LLVM_OBJECT_TAPIUNIVERSAL_H

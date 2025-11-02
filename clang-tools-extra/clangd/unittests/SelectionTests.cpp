@@ -10,6 +10,7 @@
 #include "SourceCode.h"
 #include "TestTU.h"
 #include "support/TestTracer.h"
+#include "clang/AST/ASTConcept.h"
 #include "clang/AST/Decl.h"
 #include "llvm/Support/Casting.h"
 #include "gmock/gmock.h"
@@ -18,6 +19,7 @@
 namespace clang {
 namespace clangd {
 namespace {
+using ::testing::ElementsAreArray;
 using ::testing::UnorderedElementsAreArray;
 
 // Create a selection tree corresponding to a point or pair of points.
@@ -102,9 +104,9 @@ TEST(SelectionTest, CommonAncestor) {
       {
           R"cpp(
             template <typename T>
-            int x = [[T::^U::]]ccc();
+            int x = T::[[^U]]::ccc();
           )cpp",
-          "NestedNameSpecifierLoc",
+          "DependentNameTypeLoc",
       },
       {
           R"cpp(
@@ -177,17 +179,45 @@ TEST(SelectionTest, CommonAncestor) {
       {
           R"cpp(
             void foo();
-            #define CALL_FUNCTION(X) X^()^
+            #^define CALL_FUNCTION(X) X(^)
             void bar() { CALL_FUNCTION(foo); }
           )cpp",
           nullptr,
       },
       {
           R"cpp(
-            struct S { S(const char*); };
-            S [[s ^= "foo"]];
+            void foo();
+            #define CALL_FUNCTION(X) X()
+            void bar() { CALL_FUNCTION(foo^)^; }
           )cpp",
-          "CXXConstructExpr",
+          nullptr,
+      },
+      {
+          R"cpp(
+            namespace ns {
+            #if 0
+            void fo^o() {}
+            #endif
+            }
+          )cpp",
+          nullptr,
+      },
+      {
+          R"cpp(
+            #define TARGET void foo()
+            [[TAR^GET{ return; }]]
+          )cpp",
+          "FunctionDecl",
+      },
+      {
+          R"cpp(
+            struct S { S(const char*); };
+            [[S s ^= "foo"]];
+          )cpp",
+          // The AST says a CXXConstructExpr covers the = sign in C++14.
+          // But we consider CXXConstructExpr to only own brackets.
+          // (It's not the interesting constructor anyway, just S(&&)).
+          "VarDecl",
       },
       {
           R"cpp(
@@ -212,7 +242,7 @@ TEST(SelectionTest, CommonAncestor) {
           R"cpp(
             [[void (^*S)(int)]] = nullptr;
           )cpp",
-          "FunctionProtoTypeLoc",
+          "PointerTypeLoc",
       },
       {
           R"cpp(
@@ -224,7 +254,7 @@ TEST(SelectionTest, CommonAncestor) {
           R"cpp(
             [[void ^(*S)(int)]] = nullptr;
           )cpp",
-          "FunctionProtoTypeLoc",
+          "ParenTypeLoc",
       },
       {
           R"cpp(
@@ -241,6 +271,27 @@ TEST(SelectionTest, CommonAncestor) {
             int x = lambda([["y^"]]);
           )cpp",
           "StringLiteral", // Not DeclRefExpr to operator()!
+      },
+      {
+          R"cpp(
+            struct Foo {};
+            struct Bar : [[v^ir^tual private Foo]] {};
+          )cpp",
+          "CXXBaseSpecifier",
+      },
+      {
+          R"cpp(
+            struct Foo {};
+            struct Bar : private [[Fo^o]] {};
+          )cpp",
+          "RecordTypeLoc",
+      },
+      {
+          R"cpp(
+            struct Foo {};
+            struct Bar : [[Fo^o]] {};
+          )cpp",
+          "RecordTypeLoc",
       },
 
       // Point selections.
@@ -278,9 +329,27 @@ TEST(SelectionTest, CommonAncestor) {
       {"[[st^ruct {int x;}]] y;", "CXXRecordDecl"},
       {"[[struct {int x;} ^y]];", "VarDecl"},
       {"struct {[[int ^x]];} y;", "FieldDecl"},
+
+      // Tricky case: nested ArrayTypeLocs have the same token range.
+      {"const int x = 1, y = 2; int array[^[[x]]][10][y];", "DeclRefExpr"},
+      {"const int x = 1, y = 2; int array[x][10][^[[y]]];", "DeclRefExpr"},
+      {"const int x = 1, y = 2; int array[x][^[[10]]][y];", "IntegerLiteral"},
+      {"const int x = 1, y = 2; [[i^nt]] array[x][10][y];", "BuiltinTypeLoc"},
+      {"void func(int x) { int v_array[^[[x]]][10]; }", "DeclRefExpr"},
+
+      {"int (*getFunc([[do^uble]]))(int);", "BuiltinTypeLoc"},
+
+      // Member pointers and pack expansion use declarator syntax, but are
+      // restricted so they don't need special casing.
+      {"class X{}; [[int X::^*]]y[10];", "MemberPointerTypeLoc"},
+      {"template<typename ...T> void foo([[T*^...]]x);",
+       "PackExpansionTypeLoc"},
+      {"template<typename ...T> void foo([[^T]]*...x);",
+       "TemplateTypeParmTypeLoc"},
+
       // FIXME: the AST has no location info for qualifiers.
       {"const [[a^uto]] x = 42;", "AutoTypeLoc"},
-      {"[[co^nst auto x = 42]];", "VarDecl"},
+      {"co^nst auto x = 42;", nullptr},
 
       {"^", nullptr},
       {"void foo() { [[foo^^]] (); }", "DeclRefExpr"},
@@ -337,6 +406,25 @@ TEST(SelectionTest, CommonAncestor) {
         decltype([[^a]] + a) b;
         )cpp",
           "DeclRefExpr"},
+      {"[[decltype^(1)]] b;", "DecltypeTypeLoc"}, // Not the VarDecl.
+      // decltype(auto) is an AutoTypeLoc!
+      {"[[de^cltype(a^uto)]] a = 1;", "AutoTypeLoc"},
+
+      // Objective-C nullability attributes.
+      {
+          R"cpp(
+            @interface I{}
+            @property(nullable) [[^I]] *x;
+            @end
+          )cpp",
+          "ObjCInterfaceTypeLoc"},
+      {
+          R"cpp(
+            @interface I{}
+            - (void)doSomething:(nonnull [[i^d]])argument;
+            @end
+          )cpp",
+          "TypedefTypeLoc"},
 
       // Objective-C OpaqueValueExpr/PseudoObjectExpr has weird ASTs.
       // Need to traverse the contents of the OpaqueValueExpr to the POE,
@@ -379,7 +467,10 @@ TEST(SelectionTest, CommonAncestor) {
       {"struct foo { [[int has^h<:32:>]]; };", "FieldDecl"},
       {"struct foo { [[op^erator int()]]; };", "CXXConversionDecl"},
       {"struct foo { [[^~foo()]]; };", "CXXDestructorDecl"},
-      // FIXME: The following to should be class itself instead.
+      {"struct foo { [[~^foo()]]; };", "CXXDestructorDecl"},
+      {"template <class T> struct foo { ~foo<[[^T]]>(){} };",
+       "TemplateTypeParmTypeLoc"},
+      {"struct foo {}; void bar(foo *f) { [[f->~^foo]](); }", "MemberExpr"},
       {"struct foo { [[fo^o(){}]] };", "CXXConstructorDecl"},
 
       {R"cpp(
@@ -388,8 +479,124 @@ TEST(SelectionTest, CommonAncestor) {
         void test(S2 s2) {
           s2[[-^>]]f();
         }
-      )cpp", "DeclRefExpr"} // DeclRefExpr to the "operator->" method.
+      )cpp",
+       "DeclRefExpr"}, // DeclRefExpr to the "operator->" method.
+
+      // Template template argument.
+      {R"cpp(
+        template <typename> class Vector {};
+        template <template <typename> class Container> class A {};
+        A<[[V^ector]]> a;
+      )cpp",
+       "TemplateArgumentLoc"},
+
+      // Attributes
+      {R"cpp(
+        void f(int * __attribute__(([[no^nnull]])) );
+      )cpp",
+       "NonNullAttr"},
+
+      {R"cpp(
+        // Digraph syntax for attributes to avoid accidental annotations.
+        class <:[gsl::Owner([[in^t]])]:> X{};
+      )cpp",
+       "BuiltinTypeLoc"},
+
+      // This case used to crash - AST has a null Attr
+      {R"cpp(
+        @interface I
+        [[@property(retain, nonnull) <:[My^Object2]:> *x]]; // error-ok
+        @end
+      )cpp",
+       "ObjCPropertyDecl"},
+
+      {R"cpp(
+        typedef int Foo;
+        enum Bar : [[Fo^o]] {};
+      )cpp",
+       "TypedefTypeLoc"},
+      {R"cpp(
+        typedef int Foo;
+        enum Bar : [[Fo^o]];
+      )cpp",
+       "TypedefTypeLoc"},
+
+      // lambda captured var-decl
+      {R"cpp(
+        void test(int bar) {
+          auto l = [^[[foo = bar]]] { };
+        })cpp",
+       "VarDecl"},
+      {R"cpp(
+        /*error-ok*/
+        void func() [[{^]])cpp",
+       "CompoundStmt"},
+      {R"cpp(
+        void func() { [[__^func__]]; }
+        )cpp",
+       "PredefinedExpr"},
+
+      // using enum
+      {R"cpp(
+        namespace ns { enum class A {}; };
+        using enum ns::[[^A]];
+        )cpp",
+       "EnumTypeLoc"},
+      {R"cpp(
+        namespace ns { enum class A {}; using B = A; };
+        using enum ns::[[^B]];
+        )cpp",
+       "TypedefTypeLoc"},
+      {R"cpp(
+        namespace ns { enum class A {}; };
+        using enum [[^ns::]]A;
+        )cpp",
+       "NestedNameSpecifierLoc"},
+      {R"cpp(
+        namespace ns { enum class A {}; };
+        [[using ^enum ns::A]];
+        )cpp",
+       "UsingEnumDecl"},
+      {R"cpp(
+        namespace ns { enum class A {}; };
+        [[^using enum ns::A]];
+        )cpp",
+       "UsingEnumDecl"},
+
+      // concepts
+      {R"cpp(
+        template <class> concept C = true;
+        auto x = [[^C<int>]];
+      )cpp",
+       "ConceptReference"},
+      {R"cpp(
+        template <class> concept C = true;
+        [[^C]] auto x = 0;
+      )cpp",
+       "ConceptReference"},
+      {R"cpp(
+        template <class> concept C = true;
+        void foo([[^C]] auto x) {}
+      )cpp",
+       "ConceptReference"},
+      {R"cpp(
+        template <class> concept C = true;
+        template <[[^C]] x> int i = 0;
+      )cpp",
+       "ConceptReference"},
+      {R"cpp(
+        namespace ns { template <class> concept C = true; }
+        auto x = [[ns::^C<int>]];
+      )cpp",
+       "ConceptReference"},
+      {R"cpp(
+        template <typename T, typename K>
+        concept D = true;
+        template <typename T> void g(D<[[^T]]> auto abc) {}
+      )cpp",
+       "TemplateTypeParmTypeLoc"},
   };
+
   for (const Case &C : Cases) {
     trace::TestTracer Tracer;
     Annotations Test(C.Code);
@@ -397,10 +604,8 @@ TEST(SelectionTest, CommonAncestor) {
     TestTU TU;
     TU.Code = std::string(Test.code());
 
-    // FIXME: Auto-completion in a template requires disabling delayed template
-    // parsing.
-    TU.ExtraArgs.push_back("-fno-delayed-template-parsing");
     TU.ExtraArgs.push_back("-xobjective-c++");
+    TU.ExtraArgs.push_back("-std=c++20");
 
     auto AST = TU.build();
     auto T = makeSelectionTree(C.Code, AST);
@@ -409,7 +614,8 @@ TEST(SelectionTest, CommonAncestor) {
     if (Test.ranges().empty()) {
       // If no [[range]] is marked in the example, there should be no selection.
       EXPECT_FALSE(T.commonAncestor()) << C.Code << "\n" << T;
-      EXPECT_THAT(Tracer.takeMetric("selection_recovery"), testing::IsEmpty());
+      EXPECT_THAT(Tracer.takeMetric("selection_recovery", "C++"),
+                  testing::IsEmpty());
     } else {
       // If there is an expected selection, common ancestor should exist
       // with the appropriate node type.
@@ -425,8 +631,8 @@ TEST(SelectionTest, CommonAncestor) {
       // and no nodes outside it are selected.
       EXPECT_TRUE(verifyCommonAncestor(T.root(), T.commonAncestor(), C.Code))
           << C.Code;
-      EXPECT_THAT(Tracer.takeMetric("selection_recovery"),
-                  testing::ElementsAreArray({0}));
+      EXPECT_THAT(Tracer.takeMetric("selection_recovery", "C++"),
+                  ElementsAreArray({0}));
     }
   }
 }
@@ -451,8 +657,10 @@ TEST(SelectionTree, Metrics) {
   auto AST = TestTU::withCode(Annotations(Code).code()).build();
   trace::TestTracer Tracer;
   auto T = makeSelectionTree(Code, AST);
-  EXPECT_THAT(Tracer.takeMetric("selection_recovery"),
-              testing::ElementsAreArray({1}));
+  EXPECT_THAT(Tracer.takeMetric("selection_recovery", "C++"),
+              ElementsAreArray({1}));
+  EXPECT_THAT(Tracer.takeMetric("selection_recovery_type", "C++"),
+              ElementsAreArray({1}));
 }
 
 // FIXME: Doesn't select the binary operator node in
@@ -536,7 +744,7 @@ TEST(SelectionTest, IncludedFile) {
   auto AST = TU.build();
   auto T = makeSelectionTree(Case, AST);
 
-  EXPECT_EQ("WhileStmt", T.commonAncestor()->kind());
+  EXPECT_EQ(nullptr, T.commonAncestor());
 }
 
 TEST(SelectionTest, MacroArgExpansion) {
@@ -563,8 +771,24 @@ TEST(SelectionTest, MacroArgExpansion) {
   Test = Annotations(Case);
   AST = TestTU::withCode(Test.code()).build();
   T = makeSelectionTree(Case, AST);
-
   EXPECT_EQ("IntegerLiteral", T.commonAncestor()->kind());
+
+  // Reduced from private bug involving RETURN_IF_ERROR.
+  // Due to >>-splitting and a bug in isBeforeInTranslationUnit, the inner
+  // S<int> would claim way too many tokens.
+  Case = R"cpp(
+    #define ID(x) x
+    template <typename T> class S {};
+    ID(
+      ID(S<S<int>> x);
+      int ^y;
+    )
+  )cpp";
+  Test = Annotations(Case);
+  AST = TestTU::withCode(Test.code()).build();
+  T = makeSelectionTree(Case, AST);
+  // not TemplateSpecializationTypeLoc!
+  EXPECT_EQ("VarDecl", T.commonAncestor()->kind());
 }
 
 TEST(SelectionTest, Implicit) {
@@ -573,17 +797,23 @@ TEST(SelectionTest, Implicit) {
     int f(S);
     int x = f("^");
   )cpp";
-  auto AST = TestTU::withCode(Annotations(Test).code()).build();
+  auto TU = TestTU::withCode(Annotations(Test).code());
+  // C++14 AST contains some temporaries that C++17 elides.
+  TU.ExtraArgs.push_back("-std=c++17");
+  auto AST = TU.build();
   auto T = makeSelectionTree(Test, AST);
 
   const SelectionTree::Node *Str = T.commonAncestor();
   EXPECT_EQ("StringLiteral", nodeKind(Str)) << "Implicit selected?";
   EXPECT_EQ("ImplicitCastExpr", nodeKind(Str->Parent));
   EXPECT_EQ("CXXConstructExpr", nodeKind(Str->Parent->Parent));
-  EXPECT_EQ(Str, &Str->Parent->Parent->ignoreImplicit())
-      << "Didn't unwrap " << nodeKind(&Str->Parent->Parent->ignoreImplicit());
+  const SelectionTree::Node *ICE = Str->Parent->Parent->Parent;
+  EXPECT_EQ("ImplicitCastExpr", nodeKind(ICE));
+  EXPECT_EQ("CallExpr", nodeKind(ICE->Parent));
+  EXPECT_EQ(Str, &ICE->ignoreImplicit())
+      << "Didn't unwrap " << nodeKind(&ICE->ignoreImplicit());
 
-  EXPECT_EQ("CXXConstructExpr", nodeKind(&Str->outerImplicit()));
+  EXPECT_EQ(ICE, &Str->outerImplicit());
 }
 
 TEST(SelectionTest, CreateAll) {
@@ -594,10 +824,11 @@ TEST(SelectionTest, CreateAll) {
       AST.getASTContext(), AST.getTokens(), Test.point("ambiguous"),
       Test.point("ambiguous"), [&](SelectionTree T) {
         // Expect to see the right-biased tree first.
-        if (Seen == 0)
+        if (Seen == 0) {
           EXPECT_EQ("BinaryOperator", nodeKind(T.commonAncestor()));
-        else if (Seen == 1)
+        } else if (Seen == 1) {
           EXPECT_EQ("IntegerLiteral", nodeKind(T.commonAncestor()));
+        }
         ++Seen;
         return false;
       });
@@ -639,6 +870,61 @@ TEST(SelectionTest, CreateAll) {
                               return false;
                             });
   EXPECT_EQ(1u, Seen) << "one tree for nontrivial selection";
+}
+
+TEST(SelectionTest, DeclContextIsLexical) {
+  llvm::Annotations Test("namespace a { void $1^foo(); } void a::$2^foo();");
+  auto AST = TestTU::withCode(Test.code()).build();
+  {
+    auto ST = SelectionTree::createRight(AST.getASTContext(), AST.getTokens(),
+                                         Test.point("1"), Test.point("1"));
+    EXPECT_FALSE(ST.commonAncestor()->getDeclContext().isTranslationUnit());
+  }
+  {
+    auto ST = SelectionTree::createRight(AST.getASTContext(), AST.getTokens(),
+                                         Test.point("2"), Test.point("2"));
+    EXPECT_TRUE(ST.commonAncestor()->getDeclContext().isTranslationUnit());
+  }
+}
+
+TEST(SelectionTest, DeclContextLambda) {
+  llvm::Annotations Test(R"cpp(
+    void foo();
+    auto lambda = [] {
+      return $1^foo();
+    };
+  )cpp");
+  auto AST = TestTU::withCode(Test.code()).build();
+  auto ST = SelectionTree::createRight(AST.getASTContext(), AST.getTokens(),
+                                       Test.point("1"), Test.point("1"));
+  EXPECT_TRUE(ST.commonAncestor()->getDeclContext().isFunctionOrMethod());
+}
+
+TEST(SelectionTest, UsingConcepts) {
+  llvm::Annotations Test(R"cpp(
+namespace ns {
+template <typename T>
+concept Foo = true;
+}
+
+using ns::Foo;
+
+template <Fo^o... T, Fo^o auto U>
+auto Func(Fo^o auto V) -> Fo^o decltype(auto) {
+  Fo^o auto W = V;
+  return W;
+}
+)cpp");
+  auto TU = TestTU::withCode(Test.code());
+  TU.ExtraArgs.emplace_back("-std=c++2c");
+  auto AST = TU.build();
+  for (auto Point : Test.points()) {
+    auto ST = SelectionTree::createRight(AST.getASTContext(), AST.getTokens(),
+                                         Point, Point);
+    auto *C = ST.commonAncestor()->ASTNode.get<ConceptReference>();
+    EXPECT_TRUE(C && C->getFoundDecl() &&
+                C->getFoundDecl()->getKind() == Decl::UsingShadow);
+  }
 }
 
 } // namespace

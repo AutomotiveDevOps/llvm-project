@@ -12,14 +12,11 @@
 #ifndef LLVM_LIB_TARGET_SPARC_LEON_PASSES_H
 #define LLVM_LIB_TARGET_SPARC_LEON_PASSES_H
 
-#include "llvm/CodeGen/MachineBasicBlock.h"
 #include "llvm/CodeGen/MachineFunctionPass.h"
-#include "llvm/CodeGen/Passes.h"
-
-#include "Sparc.h"
-#include "SparcSubtarget.h"
 
 namespace llvm {
+class SparcSubtarget;
+
 class LLVM_LIBRARY_VISIBILITY LEONMachineFunctionPass
     : public MachineFunctionPass {
 protected:
@@ -33,13 +30,38 @@ protected:
 protected:
   LEONMachineFunctionPass(char &ID);
 
-  int GetRegIndexForOperand(MachineInstr &MI, int OperandIndex);
   void clearUsedRegisterList() { UsedRegisters.clear(); }
 
   void markRegisterUsed(int registerIndex) {
     UsedRegisters.push_back(registerIndex);
   }
-  int getUnusedFPRegister(MachineRegisterInfo &MRI);
+};
+
+class LLVM_LIBRARY_VISIBILITY ErrataWorkaround : public MachineFunctionPass {
+protected:
+  const SparcSubtarget *ST;
+  const TargetInstrInfo *TII;
+  const TargetRegisterInfo *TRI;
+
+  bool checkSeqTN0009A(MachineBasicBlock::iterator I);
+  bool checkSeqTN0009B(MachineBasicBlock::iterator I);
+  bool checkSeqTN0010First(MachineBasicBlock &MBB);
+  bool checkSeqTN0010(MachineBasicBlock::iterator I);
+  bool checkSeqTN0012(MachineBasicBlock::iterator I);
+  bool checkSeqTN0013(MachineBasicBlock::iterator I);
+
+  bool moveNext(MachineBasicBlock::iterator &I);
+  bool isFloat(MachineBasicBlock::iterator I);
+  bool isDivSqrt(MachineBasicBlock::iterator I);
+  void insertNop(MachineBasicBlock::iterator I);
+
+public:
+  static char ID;
+
+  ErrataWorkaround();
+  bool runOnMachineFunction(MachineFunction &MF) override;
+
+  StringRef getPassName() const override { return "Errata workaround pass"; };
 };
 
 class LLVM_LIBRARY_VISIBILITY InsertNOPLoad : public LEONMachineFunctionPass {

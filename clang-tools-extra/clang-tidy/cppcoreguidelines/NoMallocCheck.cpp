@@ -1,4 +1,4 @@
-//===--- NoMallocCheck.cpp - clang-tidy------------------------------------===//
+//===----------------------------------------------------------------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -7,28 +7,13 @@
 //===----------------------------------------------------------------------===//
 
 #include "NoMallocCheck.h"
-#include "../utils/Matchers.h"
 #include "../utils/OptionsUtils.h"
-#include "clang/AST/ASTContext.h"
 #include "clang/ASTMatchers/ASTMatchFinder.h"
-#include <algorithm>
-#include <string>
-#include <vector>
 
 using namespace clang::ast_matchers;
 using namespace clang::ast_matchers::internal;
 
-namespace clang {
-namespace tidy {
-namespace cppcoreguidelines {
-
-namespace {
-Matcher<FunctionDecl> hasAnyListedName(const std::string &FunctionNames) {
-  const std::vector<std::string> NameList =
-      utils::options::parseStringList(FunctionNames);
-  return hasAnyName(std::vector<StringRef>(NameList.begin(), NameList.end()));
-}
-} // namespace
+namespace clang::tidy::cppcoreguidelines {
 
 void NoMallocCheck::storeOptions(ClangTidyOptions::OptionMap &Opts) {
   Options.store(Opts, "Allocations", AllocList);
@@ -38,19 +23,22 @@ void NoMallocCheck::storeOptions(ClangTidyOptions::OptionMap &Opts) {
 
 void NoMallocCheck::registerMatchers(MatchFinder *Finder) {
   // Registering malloc, will suggest RAII.
-  Finder->addMatcher(callExpr(callee(functionDecl(hasAnyListedName(AllocList))))
+  Finder->addMatcher(callExpr(callee(functionDecl(hasAnyName(
+                                  utils::options::parseStringList(AllocList)))))
                          .bind("allocation"),
                      this);
 
   // Registering realloc calls, suggest std::vector or std::string.
   Finder->addMatcher(
-      callExpr(callee(functionDecl(hasAnyListedName(ReallocList))))
+      callExpr(callee(functionDecl(
+                   hasAnyName(utils::options::parseStringList((ReallocList))))))
           .bind("realloc"),
       this);
 
   // Registering free calls, will suggest RAII instead.
   Finder->addMatcher(
-      callExpr(callee(functionDecl(hasAnyListedName(DeallocList))))
+      callExpr(callee(functionDecl(
+                   hasAnyName(utils::options::parseStringList((DeallocList))))))
           .bind("free"),
       this);
 }
@@ -72,6 +60,4 @@ void NoMallocCheck::check(const MatchFinder::MatchResult &Result) {
       << Recommendation << SourceRange(Call->getBeginLoc(), Call->getEndLoc());
 }
 
-} // namespace cppcoreguidelines
-} // namespace tidy
-} // namespace clang
+} // namespace clang::tidy::cppcoreguidelines

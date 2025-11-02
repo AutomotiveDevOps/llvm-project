@@ -12,16 +12,16 @@ auto with_float_2 = [&f(f)] { // ok, refers to outer f
   using T = double&;
 };
 
-// Within the lambda-expression's compound-statement,
-// the identifier in the init-capture hides any declaration
-// of the same name in scopes enclosing the lambda-expression.
+// Within the lambda-expression the identifier in the init-capture
+// hides any declaration of the same name in scopes enclosing
+// the lambda-expression.
 void hiding() {
   char c;
   (void) [c("foo")] {
     static_assert(sizeof(c) == sizeof(const char*), "");
   };
-  (void) [c("bar")] () -> decltype(c) { // outer c, not init-capture
-    return "baz"; // expected-error {{cannot initialize}}
+  (void)[c("bar")]()->decltype(c) { // inner c
+    return "baz";
   };
 }
 
@@ -54,9 +54,11 @@ auto bad_init_7 = [a{{1}}] {}; // expected-error {{cannot deduce type for lambda
 template<typename...T> void pack_1(T...t) { (void)[a(t...)] {}; } // expected-error {{initializer missing for lambda capture 'a'}}
 template void pack_1<>(); // expected-note {{instantiation of}}
 
-// FIXME: Might need lifetime extension for the temporary here.
-// See DR1695.
-auto a = [a(4), b = 5, &c = static_cast<const int&&>(0)] {
+// No lifetime-extension of the temporary here.
+auto a_copy = [&c = static_cast<const int&&>(0)] {}; // expected-warning {{temporary whose address is used as value of local variable 'a_copy' will be destroyed at the end of the full-expression}} expected-note {{via initialization of lambda capture 'c'}}
+
+// But there is lifetime extension here.
+auto &&a = [a(4), b = 5, &c = static_cast<const int&&>(0)] {
   static_assert(sizeof(a) == sizeof(int), "");
   static_assert(sizeof(b) == sizeof(int), "");
   using T = decltype(c);
@@ -72,6 +74,7 @@ auto s = [s(move(S()))] {};
 
 template<typename T> T instantiate_test(T t) {
   [x(&t)]() { *x = 1; } (); // expected-error {{assigning to 'const char *'}}
+                            // expected-note@-1 {{while substituting into a lambda expression here}}
   return t;
 }
 int instantiate_test_1 = instantiate_test(0);

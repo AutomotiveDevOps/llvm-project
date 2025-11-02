@@ -1,4 +1,4 @@
-//===---------------------- backtrace_test.cpp ----------------------------===//
+//===----------------------------------------------------------------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -7,6 +7,9 @@
 //===----------------------------------------------------------------------===//
 
 // UNSUPPORTED: no-exceptions
+
+// VE only supports SjLj and doesn't provide _Unwind_Backtrace.
+// UNSUPPORTED: target={{ve-.*}}
 
 #include <assert.h>
 #include <stddef.h>
@@ -48,7 +51,7 @@ void call1(size_t* ntraced, bool do_throw) {
   call2(ntraced, do_throw);
 }
 
-int main() {
+int main(int, char**) {
   size_t throw_ntraced = 0;
   size_t nothrow_ntraced = 0;
 

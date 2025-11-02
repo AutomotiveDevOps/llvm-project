@@ -9,9 +9,9 @@
 
 #include "MCTargetDesc/PPCFixupKinds.h"
 #include "MCTargetDesc/PPCMCTargetDesc.h"
+#include "PPCMCAsmInfo.h"
 #include "llvm/BinaryFormat/XCOFF.h"
 #include "llvm/MC/MCFixup.h"
-#include "llvm/MC/MCFixupKindInfo.h"
 #include "llvm/MC/MCValue.h"
 #include "llvm/MC/MCXCOFFObjectWriter.h"
 
@@ -40,9 +40,7 @@ llvm::createPPCXCOFFObjectWriter(bool Is64Bit) {
 
 std::pair<uint8_t, uint8_t> PPCXCOFFObjectWriter::getRelocTypeAndSignSize(
     const MCValue &Target, const MCFixup &Fixup, bool IsPCRel) const {
-  const MCSymbolRefExpr::VariantKind Modifier =
-      Target.isAbsolute() ? MCSymbolRefExpr::VK_None
-                          : Target.getSymA()->getKind();
+  const auto Specifier = Target.getSpecifier();
   // People from AIX OS team says AIX link editor does not care about
   // the sign bit in the relocation entry "most" of the time.
   // The system assembler seems to set the sign bit on relocation entry
@@ -58,19 +56,70 @@ std::pair<uint8_t, uint8_t> PPCXCOFFObjectWriter::getRelocTypeAndSignSize(
   switch ((unsigned)Fixup.getKind()) {
   default:
     report_fatal_error("Unimplemented fixup kind.");
-  case PPC::fixup_ppc_half16:
-    switch (Modifier) {
+  case XCOFF::RelocationType::R_REF:
+    return {XCOFF::RelocationType::R_REF, 0};
+  case PPC::fixup_ppc_half16: {
+    const uint8_t SignAndSizeForHalf16 = EncodedSignednessIndicator | 15;
+    switch (Specifier) {
     default:
       report_fatal_error("Unsupported modifier for half16 fixup.");
-    case MCSymbolRefExpr::VK_None:
-      return {XCOFF::RelocationType::R_TOC, EncodedSignednessIndicator | 15};
+    case PPC::S_None:
+      return {XCOFF::RelocationType::R_TOC, SignAndSizeForHalf16};
+    case PPC::S_U:
+      return {XCOFF::RelocationType::R_TOCU, SignAndSizeForHalf16};
+    case PPC::S_L:
+      return {XCOFF::RelocationType::R_TOCL, SignAndSizeForHalf16};
+    case PPC::S_AIX_TLSLE:
+      return {XCOFF::RelocationType::R_TLS_LE, SignAndSizeForHalf16};
+    case PPC::S_AIX_TLSLD:
+      return {XCOFF::RelocationType::R_TLS_LD, SignAndSizeForHalf16};
     }
-    break;
+  } break;
+  case PPC::fixup_ppc_half16ds:
+  case PPC::fixup_ppc_half16dq: {
+    if (IsPCRel)
+      report_fatal_error("Invalid PC-relative relocation.");
+    switch (Specifier) {
+    default:
+      llvm_unreachable("Unsupported Modifier");
+    case PPC::S_None:
+      return {XCOFF::RelocationType::R_TOC, 15};
+    case PPC::S_L:
+      return {XCOFF::RelocationType::R_TOCL, 15};
+    case PPC::S_AIX_TLSLE:
+      return {XCOFF::RelocationType::R_TLS_LE, 15};
+    case PPC::S_AIX_TLSLD:
+      return {XCOFF::RelocationType::R_TLS_LD, 15};
+    }
+  } break;
   case PPC::fixup_ppc_br24:
     // Branches are 4 byte aligned, so the 24 bits we encode in
     // the instruction actually represents a 26 bit offset.
     return {XCOFF::RelocationType::R_RBR, EncodedSignednessIndicator | 25};
+  case PPC::fixup_ppc_br24abs:
+    return {XCOFF::RelocationType::R_RBA, EncodedSignednessIndicator | 25};
   case FK_Data_4:
-    return {XCOFF::RelocationType::R_POS, EncodedSignednessIndicator | 31};
+  case FK_Data_8:
+    const uint8_t SignAndSizeForFKData =
+        EncodedSignednessIndicator |
+        ((unsigned)Fixup.getKind() == FK_Data_4 ? 31 : 63);
+    switch (Specifier) {
+    default:
+      report_fatal_error("Unsupported modifier");
+    case PPC::S_AIX_TLSGD:
+      return {XCOFF::RelocationType::R_TLS, SignAndSizeForFKData};
+    case PPC::S_AIX_TLSGDM:
+      return {XCOFF::RelocationType::R_TLSM, SignAndSizeForFKData};
+    case PPC::S_AIX_TLSIE:
+      return {XCOFF::RelocationType::R_TLS_IE, SignAndSizeForFKData};
+    case PPC::S_AIX_TLSLE:
+      return {XCOFF::RelocationType::R_TLS_LE, SignAndSizeForFKData};
+    case PPC::S_AIX_TLSLD:
+      return {XCOFF::RelocationType::R_TLS_LD, SignAndSizeForFKData};
+    case PPC::S_AIX_TLSML:
+      return {XCOFF::RelocationType::R_TLSML, SignAndSizeForFKData};
+    case PPC::S_None:
+      return {XCOFF::RelocationType::R_POS, SignAndSizeForFKData};
+    }
   }
 }

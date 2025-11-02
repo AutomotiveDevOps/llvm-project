@@ -6,6 +6,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+// ADDITIONAL_COMPILE_FLAGS: -D_LIBCPP_DISABLE_DEPRECATION_WARNINGS
+
 // <functional>
 
 // template <class T>
@@ -25,13 +27,25 @@
 
 #include "test_macros.h"
 
+#if TEST_STD_VER >= 11
+#  include "poisoned_hash_helper.h"
+#endif
+
 template <class T>
 void
 test()
 {
+#if TEST_STD_VER >= 11
+    test_hash_disabled<const T>();
+    test_hash_disabled<volatile T>();
+    test_hash_disabled<const volatile T>();
+#endif
+
     typedef std::hash<T> H;
-    static_assert((std::is_same<typename H::argument_type, T>::value), "" );
-    static_assert((std::is_same<typename H::result_type, std::size_t>::value), "" );
+#if TEST_STD_VER <= 17
+    static_assert((std::is_same<typename H::argument_type, T>::value), "");
+    static_assert((std::is_same<typename H::result_type, std::size_t>::value), "");
+#endif
     ASSERT_NOEXCEPT(H()(T()));
     H h;
 

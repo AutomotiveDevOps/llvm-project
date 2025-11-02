@@ -12,9 +12,10 @@
 
 // template <class charT> T10 put_time(const struct tm* tmb, const charT* fmt);
 
+#include <cassert>
+#include <ctime>
 #include <iomanip>
 #include <ostream>
-#include <cassert>
 
 #include "test_macros.h"
 #include "platform_support.h" // locale name macros
@@ -69,6 +70,7 @@ int main(int, char**)
         os << std::put_time(&t, "%a %b %d %H:%M:%S %Y");
         assert(sb.str() == "Sat Dec 31 23:55:59 2061");
     }
+#ifndef TEST_HAS_NO_WIDE_CHARACTERS
     {
         testbuf<wchar_t> sb;
         std::wostream os(&sb);
@@ -84,6 +86,7 @@ int main(int, char**)
         os << std::put_time(&t, L"%a %b %d %H:%M:%S %Y");
         assert(sb.str() == L"Sat Dec 31 23:55:59 2061");
     }
+#endif
 
   return 0;
 }

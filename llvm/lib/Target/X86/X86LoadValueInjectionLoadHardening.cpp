@@ -41,7 +41,7 @@
 #include "X86Subtarget.h"
 #include "X86TargetMachine.h"
 #include "llvm/ADT/DenseMap.h"
-#include "llvm/ADT/DenseSet.h"
+#include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/ADT/StringRef.h"
@@ -53,7 +53,6 @@
 #include "llvm/CodeGen/MachineInstr.h"
 #include "llvm/CodeGen/MachineInstrBuilder.h"
 #include "llvm/CodeGen/MachineLoopInfo.h"
-#include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/CodeGen/RDFGraph.h"
 #include "llvm/CodeGen/RDFLiveness.h"
 #include "llvm/InitializePasses.h"
@@ -104,9 +103,9 @@ static cl::opt<bool> EmitDotVerify(
     cl::init(false), cl::Hidden);
 
 static llvm::sys::DynamicLibrary OptimizeDL;
-typedef int (*OptimizeCutT)(unsigned int *nodes, unsigned int nodes_size,
-                            unsigned int *edges, int *edge_values,
-                            int *cut_edges /* out */, unsigned int edges_size);
+typedef int (*OptimizeCutT)(unsigned int *Nodes, unsigned int NodesSize,
+                            unsigned int *Edges, int *EdgeValues,
+                            int *CutEdges /* out */, unsigned int EdgesSize);
 static OptimizeCutT OptimizeCut = nullptr;
 
 namespace {
@@ -116,9 +115,9 @@ struct MachineGadgetGraph : ImmutableGraph<MachineInstr *, int> {
   static constexpr MachineInstr *const ArgNodeSentinel = nullptr;
 
   using GraphT = ImmutableGraph<MachineInstr *, int>;
-  using Node = typename GraphT::Node;
-  using Edge = typename GraphT::Edge;
-  using size_type = typename GraphT::size_type;
+  using Node = GraphT::Node;
+  using Edge = GraphT::Edge;
+  using size_type = GraphT::size_type;
   MachineGadgetGraph(std::unique_ptr<Node[]> Nodes,
                      std::unique_ptr<Edge[]> Edges, size_type NodesSize,
                      size_type EdgesSize, int NumFences = 0, int NumGadgets = 0)
@@ -148,13 +147,14 @@ public:
 
 private:
   using GraphBuilder = ImmutableGraphBuilder<MachineGadgetGraph>;
+  using Edge = MachineGadgetGraph::Edge;
+  using Node = MachineGadgetGraph::Node;
   using EdgeSet = MachineGadgetGraph::EdgeSet;
   using NodeSet = MachineGadgetGraph::NodeSet;
-  using Gadget = std::pair<MachineInstr *, MachineInstr *>;
 
-  const X86Subtarget *STI;
-  const TargetInstrInfo *TII;
-  const TargetRegisterInfo *TRI;
+  const X86Subtarget *STI = nullptr;
+  const TargetInstrInfo *TII = nullptr;
+  const TargetRegisterInfo *TRI = nullptr;
 
   std::unique_ptr<MachineGadgetGraph>
   getGadgetGraph(MachineFunction &MF, const MachineLoopInfo &MLI,
@@ -162,19 +162,17 @@ private:
                  const MachineDominanceFrontier &MDF) const;
   int hardenLoadsWithPlugin(MachineFunction &MF,
                             std::unique_ptr<MachineGadgetGraph> Graph) const;
-  int hardenLoadsWithGreedyHeuristic(
-      MachineFunction &MF, std::unique_ptr<MachineGadgetGraph> Graph) const;
+  int hardenLoadsWithHeuristic(MachineFunction &MF,
+                               std::unique_ptr<MachineGadgetGraph> Graph) const;
   int elimMitigatedEdgesAndNodes(MachineGadgetGraph &G,
                                  EdgeSet &ElimEdges /* in, out */,
                                  NodeSet &ElimNodes /* in, out */) const;
   std::unique_ptr<MachineGadgetGraph>
   trimMitigatedEdges(std::unique_ptr<MachineGadgetGraph> Graph) const;
-  void findAndCutEdges(MachineGadgetGraph &G,
-                       EdgeSet &CutEdges /* out */) const;
   int insertFences(MachineFunction &MF, MachineGadgetGraph &G,
                    EdgeSet &CutEdges /* in, out */) const;
-  bool instrUsesRegToAccessMemory(const MachineInstr &I, unsigned Reg) const;
-  bool instrUsesRegToBranch(const MachineInstr &I, unsigned Reg) const;
+  bool instrUsesRegToAccessMemory(const MachineInstr &I, Register Reg) const;
+  bool instrUsesRegToBranch(const MachineInstr &I, Register Reg) const;
   inline bool isFence(const MachineInstr *MI) const {
     return MI && (MI->getOpcode() == X86::LFENCE ||
                   (STI->useLVIControlFlowIntegrity() && MI->isCall()));
@@ -193,12 +191,12 @@ template <>
 struct DOTGraphTraits<MachineGadgetGraph *> : DefaultDOTGraphTraits {
   using GraphType = MachineGadgetGraph;
   using Traits = llvm::GraphTraits<GraphType *>;
-  using NodeRef = typename Traits::NodeRef;
-  using EdgeRef = typename Traits::EdgeRef;
-  using ChildIteratorType = typename Traits::ChildIteratorType;
-  using ChildEdgeIteratorType = typename Traits::ChildEdgeIteratorType;
+  using NodeRef = Traits::NodeRef;
+  using EdgeRef = Traits::EdgeRef;
+  using ChildIteratorType = Traits::ChildIteratorType;
+  using ChildEdgeIteratorType = Traits::ChildEdgeIteratorType;
 
-  DOTGraphTraits(bool isSimple = false) : DefaultDOTGraphTraits(isSimple) {}
+  DOTGraphTraits(bool IsSimple = false) : DefaultDOTGraphTraits(IsSimple) {}
 
   std::string getNodeLabel(NodeRef Node, GraphType *) {
     if (Node->getValue() == MachineGadgetGraph::ArgNodeSentinel)
@@ -237,13 +235,13 @@ char X86LoadValueInjectionLoadHardeningPass::ID = 0;
 void X86LoadValueInjectionLoadHardeningPass::getAnalysisUsage(
     AnalysisUsage &AU) const {
   MachineFunctionPass::getAnalysisUsage(AU);
-  AU.addRequired<MachineLoopInfo>();
-  AU.addRequired<MachineDominatorTree>();
+  AU.addRequired<MachineLoopInfoWrapperPass>();
+  AU.addRequired<MachineDominatorTreeWrapperPass>();
   AU.addRequired<MachineDominanceFrontier>();
   AU.setPreservesCFG();
 }
 
-static void WriteGadgetGraph(raw_ostream &OS, MachineFunction &MF,
+static void writeGadgetGraph(raw_ostream &OS, MachineFunction &MF,
                              MachineGadgetGraph *G) {
   WriteGraph(OS, G, /*ShortNames*/ false,
              "Speculative gadgets for \"" + MF.getName() + "\" function");
@@ -270,8 +268,8 @@ bool X86LoadValueInjectionLoadHardeningPass::runOnMachineFunction(
   TII = STI->getInstrInfo();
   TRI = STI->getRegisterInfo();
   LLVM_DEBUG(dbgs() << "Building gadget graph...\n");
-  const auto &MLI = getAnalysis<MachineLoopInfo>();
-  const auto &MDT = getAnalysis<MachineDominatorTree>();
+  const auto &MLI = getAnalysis<MachineLoopInfoWrapperPass>().getLI();
+  const auto &MDT = getAnalysis<MachineDominatorTreeWrapperPass>().getDomTree();
   const auto &MDF = getAnalysis<MachineDominanceFrontier>();
   std::unique_ptr<MachineGadgetGraph> Graph = getGadgetGraph(MF, MLI, MDT, MDF);
   LLVM_DEBUG(dbgs() << "Building gadget graph... Done\n");
@@ -279,7 +277,7 @@ bool X86LoadValueInjectionLoadHardeningPass::runOnMachineFunction(
     return false; // didn't find any gadgets
 
   if (EmitDotVerify) {
-    WriteGadgetGraph(outs(), MF, Graph.get());
+    writeGadgetGraph(outs(), MF, Graph.get());
     return false;
   }
 
@@ -292,7 +290,7 @@ bool X86LoadValueInjectionLoadHardeningPass::runOnMachineFunction(
     raw_fd_ostream FileOut(FileName, FileError);
     if (FileError)
       errs() << FileError.message();
-    WriteGadgetGraph(FileOut, MF, Graph.get());
+    writeGadgetGraph(FileOut, MF, Graph.get());
     FileOut.close();
     LLVM_DEBUG(dbgs() << "Emitting gadget graph... Done\n");
     if (EmitDotOnly)
@@ -306,14 +304,15 @@ bool X86LoadValueInjectionLoadHardeningPass::runOnMachineFunction(
       OptimizeDL = llvm::sys::DynamicLibrary::getPermanentLibrary(
           OptimizePluginPath.c_str(), &ErrorMsg);
       if (!ErrorMsg.empty())
-        report_fatal_error("Failed to load opt plugin: \"" + ErrorMsg + '\"');
+        report_fatal_error(Twine("Failed to load opt plugin: \"") + ErrorMsg +
+                           "\"");
       OptimizeCut = (OptimizeCutT)OptimizeDL.getAddressOfSymbol("optimize_cut");
       if (!OptimizeCut)
         report_fatal_error("Invalid optimization plugin");
     }
     FencesInserted = hardenLoadsWithPlugin(MF, std::move(Graph));
   } else { // Use the default greedy heuristic
-    FencesInserted = hardenLoadsWithGreedyHeuristic(MF, std::move(Graph));
+    FencesInserted = hardenLoadsWithHeuristic(MF, std::move(Graph));
   }
 
   if (FencesInserted > 0)
@@ -330,21 +329,20 @@ X86LoadValueInjectionLoadHardeningPass::getGadgetGraph(
   using namespace rdf;
 
   // Build the Register Dataflow Graph using the RDF framework
-  TargetOperandInfo TOI{*TII};
-  DataFlowGraph DFG{MF, *TII, *TRI, MDT, MDF, TOI};
+  DataFlowGraph DFG{MF, *TII, *TRI, MDT, MDF};
   DFG.build();
   Liveness L{MF.getRegInfo(), DFG};
   L.computePhiInfo();
 
   GraphBuilder Builder;
-  using GraphIter = typename GraphBuilder::BuilderNodeRef;
+  using GraphIter = GraphBuilder::BuilderNodeRef;
   DenseMap<MachineInstr *, GraphIter> NodeMap;
   int FenceCount = 0, GadgetCount = 0;
   auto MaybeAddNode = [&NodeMap, &Builder](MachineInstr *MI) {
-    auto Ref = NodeMap.find(MI);
-    if (Ref == NodeMap.end()) {
+    auto [Ref, Inserted] = NodeMap.try_emplace(MI);
+    if (Inserted) {
       auto I = Builder.addVertex(MI);
-      NodeMap[MI] = I;
+      Ref->second = I;
       return std::pair<GraphIter, bool>{I, true};
     }
     return std::pair<GraphIter, bool>{Ref->getSecond(), false};
@@ -362,19 +360,19 @@ X86LoadValueInjectionLoadHardeningPass::getGadgetGraph(
     SmallSet<NodeId, 8> UsesVisited, DefsVisited;
     std::function<void(NodeAddr<DefNode *>)> AnalyzeDefUseChain =
         [&](NodeAddr<DefNode *> Def) {
-          if (Transmitters.find(Def.Id) != Transmitters.end())
+          if (Transmitters.contains(Def.Id))
             return; // Already analyzed `Def`
 
           // Use RDF to find all the uses of `Def`
           rdf::NodeSet Uses;
-          RegisterRef DefReg = DFG.getPRI().normalize(Def.Addr->getRegRef(DFG));
+          RegisterRef DefReg = Def.Addr->getRegRef(DFG);
           for (auto UseID : L.getAllReachedUses(DefReg, Def)) {
             auto Use = DFG.addr<UseNode *>(UseID);
             if (Use.Addr->getFlags() & NodeAttrs::PhiRef) { // phi node
               NodeAddr<PhiNode *> Phi = Use.Addr->getOwner(DFG);
-              for (auto I : L.getRealUses(Phi.Id)) {
+              for (const auto& I : L.getRealUses(Phi.Id)) {
                 if (DFG.getPRI().alias(RegisterRef(I.first), DefReg)) {
-                  for (auto UA : I.second)
+                  for (const auto &UA : I.second)
                     Uses.emplace(UA.first);
                 }
               }
@@ -416,8 +414,7 @@ X86LoadValueInjectionLoadHardeningPass::getGadgetGraph(
 
             // Check whether the use propagates to more defs.
             NodeAddr<InstrNode *> Owner{Use.Addr->getOwner(DFG)};
-            rdf::NodeList AnalyzedChildDefs;
-            for (auto &ChildDef :
+            for (const auto &ChildDef :
                  Owner.Addr->members_if(DataFlowGraph::IsDef, DFG)) {
               if (!DefsVisited.insert(ChildDef.Id).second)
                 continue; // Already visited this def
@@ -440,9 +437,8 @@ X86LoadValueInjectionLoadHardeningPass::getGadgetGraph(
 
           // Remove duplicate transmitters
           llvm::sort(DefTransmitters);
-          DefTransmitters.erase(
-              std::unique(DefTransmitters.begin(), DefTransmitters.end()),
-              DefTransmitters.end());
+          DefTransmitters.erase(llvm::unique(DefTransmitters),
+                                DefTransmitters.end());
         };
 
     // Find all of the transmitters
@@ -495,7 +491,7 @@ X86LoadValueInjectionLoadHardeningPass::getGadgetGraph(
   NumGadgets += GadgetCount;
 
   // Traverse CFG to build the rest of the graph
-  SmallSet<MachineBasicBlock *, 8> BlocksVisited;
+  SmallPtrSet<MachineBasicBlock *, 8> BlocksVisited;
   std::function<void(MachineBasicBlock *, GraphIter, unsigned)> TraverseCFG =
       [&](MachineBasicBlock *MBB, GraphIter GI, unsigned ParentDepth) {
         unsigned LoopDepth = MLI.getLoopDepth(MBB);
@@ -540,53 +536,51 @@ X86LoadValueInjectionLoadHardeningPass::getGadgetGraph(
 
 // Returns the number of remaining gadget edges that could not be eliminated
 int X86LoadValueInjectionLoadHardeningPass::elimMitigatedEdgesAndNodes(
-    MachineGadgetGraph &G, MachineGadgetGraph::EdgeSet &ElimEdges /* in, out */,
-    MachineGadgetGraph::NodeSet &ElimNodes /* in, out */) const {
+    MachineGadgetGraph &G, EdgeSet &ElimEdges /* in, out */,
+    NodeSet &ElimNodes /* in, out */) const {
   if (G.NumFences > 0) {
     // Eliminate fences and CFG edges that ingress and egress the fence, as
     // they are trivially mitigated.
-    for (const auto &E : G.edges()) {
-      const MachineGadgetGraph::Node *Dest = E.getDest();
+    for (const Edge &E : G.edges()) {
+      const Node *Dest = E.getDest();
       if (isFence(Dest->getValue())) {
         ElimNodes.insert(*Dest);
         ElimEdges.insert(E);
-        for (const auto &DE : Dest->edges())
+        for (const Edge &DE : Dest->edges())
           ElimEdges.insert(DE);
       }
     }
   }
 
   // Find and eliminate gadget edges that have been mitigated.
-  int MitigatedGadgets = 0, RemainingGadgets = 0;
-  MachineGadgetGraph::NodeSet ReachableNodes{G};
-  for (const auto &RootN : G.nodes()) {
+  int RemainingGadgets = 0;
+  NodeSet ReachableNodes{G};
+  for (const Node &RootN : G.nodes()) {
     if (llvm::none_of(RootN.edges(), MachineGadgetGraph::isGadgetEdge))
       continue; // skip this node if it isn't a gadget source
 
     // Find all of the nodes that are CFG-reachable from RootN using DFS
     ReachableNodes.clear();
-    std::function<void(const MachineGadgetGraph::Node *, bool)>
-        FindReachableNodes =
-            [&](const MachineGadgetGraph::Node *N, bool FirstNode) {
-              if (!FirstNode)
-                ReachableNodes.insert(*N);
-              for (const auto &E : N->edges()) {
-                const MachineGadgetGraph::Node *Dest = E.getDest();
-                if (MachineGadgetGraph::isCFGEdge(E) &&
-                    !ElimEdges.contains(E) && !ReachableNodes.contains(*Dest))
-                  FindReachableNodes(Dest, false);
-              }
-            };
+    std::function<void(const Node *, bool)> FindReachableNodes =
+        [&](const Node *N, bool FirstNode) {
+          if (!FirstNode)
+            ReachableNodes.insert(*N);
+          for (const Edge &E : N->edges()) {
+            const Node *Dest = E.getDest();
+            if (MachineGadgetGraph::isCFGEdge(E) && !ElimEdges.contains(E) &&
+                !ReachableNodes.contains(*Dest))
+              FindReachableNodes(Dest, false);
+          }
+        };
     FindReachableNodes(&RootN, true);
 
     // Any gadget whose sink is unreachable has been mitigated
-    for (const auto &E : RootN.edges()) {
+    for (const Edge &E : RootN.edges()) {
       if (MachineGadgetGraph::isGadgetEdge(E)) {
         if (ReachableNodes.contains(*E.getDest())) {
           // This gadget's sink is reachable
           ++RemainingGadgets;
         } else { // This gadget's sink is unreachable, and therefore mitigated
-          ++MitigatedGadgets;
           ElimEdges.insert(E);
         }
       }
@@ -598,8 +592,8 @@ int X86LoadValueInjectionLoadHardeningPass::elimMitigatedEdgesAndNodes(
 std::unique_ptr<MachineGadgetGraph>
 X86LoadValueInjectionLoadHardeningPass::trimMitigatedEdges(
     std::unique_ptr<MachineGadgetGraph> Graph) const {
-  MachineGadgetGraph::NodeSet ElimNodes{*Graph};
-  MachineGadgetGraph::EdgeSet ElimEdges{*Graph};
+  NodeSet ElimNodes{*Graph};
+  EdgeSet ElimEdges{*Graph};
   int RemainingGadgets =
       elimMitigatedEdgesAndNodes(*Graph, ElimEdges, ElimNodes);
   if (ElimEdges.empty() && ElimNodes.empty()) {
@@ -630,11 +624,11 @@ int X86LoadValueInjectionLoadHardeningPass::hardenLoadsWithPlugin(
     auto Edges = std::make_unique<unsigned int[]>(Graph->edges_size());
     auto EdgeCuts = std::make_unique<int[]>(Graph->edges_size());
     auto EdgeValues = std::make_unique<int[]>(Graph->edges_size());
-    for (const auto &N : Graph->nodes()) {
+    for (const Node &N : Graph->nodes()) {
       Nodes[Graph->getNodeIndex(N)] = Graph->getEdgeIndex(*N.edges_begin());
     }
     Nodes[Graph->nodes_size()] = Graph->edges_size(); // terminator node
-    for (const auto &E : Graph->edges()) {
+    for (const Edge &E : Graph->edges()) {
       Edges[Graph->getEdgeIndex(E)] = Graph->getNodeIndex(*E.getDest());
       EdgeValues[Graph->getEdgeIndex(E)] = E.getValue();
     }
@@ -651,74 +645,67 @@ int X86LoadValueInjectionLoadHardeningPass::hardenLoadsWithPlugin(
     LLVM_DEBUG(dbgs() << "Inserting LFENCEs... Done\n");
     LLVM_DEBUG(dbgs() << "Inserted " << FencesInserted << " fences\n");
 
-    Graph = GraphBuilder::trim(*Graph, MachineGadgetGraph::NodeSet{*Graph},
-                               CutEdges);
+    Graph = GraphBuilder::trim(*Graph, NodeSet{*Graph}, CutEdges);
   } while (true);
 
   return FencesInserted;
 }
 
-int X86LoadValueInjectionLoadHardeningPass::hardenLoadsWithGreedyHeuristic(
+int X86LoadValueInjectionLoadHardeningPass::hardenLoadsWithHeuristic(
     MachineFunction &MF, std::unique_ptr<MachineGadgetGraph> Graph) const {
-  LLVM_DEBUG(dbgs() << "Eliminating mitigated paths...\n");
-  Graph = trimMitigatedEdges(std::move(Graph));
-  LLVM_DEBUG(dbgs() << "Eliminating mitigated paths... Done\n");
+  // If `MF` does not have any fences, then no gadgets would have been
+  // mitigated at this point.
+  if (Graph->NumFences > 0) {
+    LLVM_DEBUG(dbgs() << "Eliminating mitigated paths...\n");
+    Graph = trimMitigatedEdges(std::move(Graph));
+    LLVM_DEBUG(dbgs() << "Eliminating mitigated paths... Done\n");
+  }
+
   if (Graph->NumGadgets == 0)
     return 0;
 
   LLVM_DEBUG(dbgs() << "Cutting edges...\n");
-  MachineGadgetGraph::NodeSet ElimNodes{*Graph}, GadgetSinks{*Graph};
-  MachineGadgetGraph::EdgeSet ElimEdges{*Graph}, CutEdges{*Graph};
-  auto IsCFGEdge = [&ElimEdges, &CutEdges](const MachineGadgetGraph::Edge &E) {
-    return !ElimEdges.contains(E) && !CutEdges.contains(E) &&
-           MachineGadgetGraph::isCFGEdge(E);
-  };
-  auto IsGadgetEdge = [&ElimEdges,
-                       &CutEdges](const MachineGadgetGraph::Edge &E) {
-    return !ElimEdges.contains(E) && !CutEdges.contains(E) &&
-           MachineGadgetGraph::isGadgetEdge(E);
-  };
+  EdgeSet CutEdges{*Graph};
 
-  // FIXME: this is O(E^2), we could probably do better.
-  do {
-    // Find the cheapest CFG edge that will eliminate a gadget (by being
-    // egress from a SOURCE node or ingress to a SINK node), and cut it.
-    const MachineGadgetGraph::Edge *CheapestSoFar = nullptr;
+  // Begin by collecting all ingress CFG edges for each node
+  DenseMap<const Node *, SmallVector<const Edge *, 2>> IngressEdgeMap;
+  for (const Edge &E : Graph->edges())
+    if (MachineGadgetGraph::isCFGEdge(E))
+      IngressEdgeMap[E.getDest()].push_back(&E);
 
-    // First, collect all gadget source and sink nodes.
-    MachineGadgetGraph::NodeSet GadgetSources{*Graph}, GadgetSinks{*Graph};
-    for (const auto &N : Graph->nodes()) {
-      if (ElimNodes.contains(N))
+  // For each gadget edge, make cuts that guarantee the gadget will be
+  // mitigated. A computationally efficient way to achieve this is to either:
+  // (a) cut all egress CFG edges from the gadget source, or
+  // (b) cut all ingress CFG edges to the gadget sink.
+  //
+  // Moreover, the algorithm tries not to make a cut into a loop by preferring
+  // to make a (b)-type cut if the gadget source resides at a greater loop depth
+  // than the gadget sink, or an (a)-type cut otherwise.
+  for (const Node &N : Graph->nodes()) {
+    for (const Edge &E : N.edges()) {
+      if (!MachineGadgetGraph::isGadgetEdge(E))
         continue;
-      for (const auto &E : N.edges()) {
-        if (IsGadgetEdge(E)) {
-          GadgetSources.insert(N);
-          GadgetSinks.insert(*E.getDest());
-        }
-      }
-    }
 
-    // Next, look for the cheapest CFG edge which, when cut, is guaranteed to
-    // mitigate at least one gadget by either:
-    // (a) being egress from a gadget source, or
-    // (b) being ingress to a gadget sink.
-    for (const auto &N : Graph->nodes()) {
-      if (ElimNodes.contains(N))
-        continue;
-      for (const auto &E : N.edges()) {
-        if (IsCFGEdge(E)) {
-          if (GadgetSources.contains(N) || GadgetSinks.contains(*E.getDest())) {
-            if (!CheapestSoFar || E.getValue() < CheapestSoFar->getValue())
-              CheapestSoFar = &E;
-          }
-        }
-      }
-    }
+      SmallVector<const Edge *, 2> EgressEdges;
+      SmallVector<const Edge *, 2> &IngressEdges = IngressEdgeMap[E.getDest()];
+      for (const Edge &EgressEdge : N.edges())
+        if (MachineGadgetGraph::isCFGEdge(EgressEdge))
+          EgressEdges.push_back(&EgressEdge);
 
-    assert(CheapestSoFar && "Failed to cut an edge");
-    CutEdges.insert(*CheapestSoFar);
-    ElimEdges.insert(*CheapestSoFar);
-  } while (elimMitigatedEdgesAndNodes(*Graph, ElimEdges, ElimNodes));
+      int EgressCutCost = 0, IngressCutCost = 0;
+      for (const Edge *EgressEdge : EgressEdges)
+        if (!CutEdges.contains(*EgressEdge))
+          EgressCutCost += EgressEdge->getValue();
+      for (const Edge *IngressEdge : IngressEdges)
+        if (!CutEdges.contains(*IngressEdge))
+          IngressCutCost += IngressEdge->getValue();
+
+      auto &EdgesToCut =
+          IngressCutCost < EgressCutCost ? IngressEdges : EgressEdges;
+      for (const Edge *E : EdgesToCut)
+        CutEdges.insert(*E);
+    }
+  }
   LLVM_DEBUG(dbgs() << "Cutting edges... Done\n");
   LLVM_DEBUG(dbgs() << "Cut " << CutEdges.count() << " edges\n");
 
@@ -734,8 +721,8 @@ int X86LoadValueInjectionLoadHardeningPass::insertFences(
     MachineFunction &MF, MachineGadgetGraph &G,
     EdgeSet &CutEdges /* in, out */) const {
   int FencesInserted = 0;
-  for (const auto &N : G.nodes()) {
-    for (const auto &E : N.edges()) {
+  for (const Node &N : G.nodes()) {
+    for (const Edge &E : N.edges()) {
       if (CutEdges.contains(E)) {
         MachineInstr *MI = N.getValue(), *Prev;
         MachineBasicBlock *MBB;                  // Insert an LFENCE in this MBB
@@ -751,7 +738,7 @@ int X86LoadValueInjectionLoadHardeningPass::insertFences(
           Prev = MI->getPrevNode();
           // Remove all egress CFG edges from this branch because the inserted
           // LFENCE prevents gadgets from crossing the branch.
-          for (const auto &E : N.edges()) {
+          for (const Edge &E : N.edges()) {
             if (MachineGadgetGraph::isCFGEdge(E))
               CutEdges.insert(E);
           }
@@ -775,34 +762,31 @@ int X86LoadValueInjectionLoadHardeningPass::insertFences(
 }
 
 bool X86LoadValueInjectionLoadHardeningPass::instrUsesRegToAccessMemory(
-    const MachineInstr &MI, unsigned Reg) const {
+    const MachineInstr &MI, Register Reg) const {
   if (!MI.mayLoadOrStore() || MI.getOpcode() == X86::MFENCE ||
       MI.getOpcode() == X86::SFENCE || MI.getOpcode() == X86::LFENCE)
     return false;
 
-  // FIXME: This does not handle pseudo loading instruction like TCRETURN*
-  const MCInstrDesc &Desc = MI.getDesc();
-  int MemRefBeginIdx = X86II::getMemoryOperandNo(Desc.TSFlags);
+  const int MemRefBeginIdx = X86::getFirstAddrOperandIdx(MI);
   if (MemRefBeginIdx < 0) {
     LLVM_DEBUG(dbgs() << "Warning: unable to obtain memory operand for loading "
                          "instruction:\n";
                MI.print(dbgs()); dbgs() << '\n';);
     return false;
   }
-  MemRefBeginIdx += X86II::getOperandBias(Desc);
 
   const MachineOperand &BaseMO =
       MI.getOperand(MemRefBeginIdx + X86::AddrBaseReg);
   const MachineOperand &IndexMO =
       MI.getOperand(MemRefBeginIdx + X86::AddrIndexReg);
-  return (BaseMO.isReg() && BaseMO.getReg() != X86::NoRegister &&
+  return (BaseMO.isReg() && BaseMO.getReg().isValid() &&
           TRI->regsOverlap(BaseMO.getReg(), Reg)) ||
-         (IndexMO.isReg() && IndexMO.getReg() != X86::NoRegister &&
+         (IndexMO.isReg() && IndexMO.getReg().isValid() &&
           TRI->regsOverlap(IndexMO.getReg(), Reg));
 }
 
 bool X86LoadValueInjectionLoadHardeningPass::instrUsesRegToBranch(
-    const MachineInstr &MI, unsigned Reg) const {
+    const MachineInstr &MI, Register Reg) const {
   if (!MI.isConditionalBranch())
     return false;
   for (const MachineOperand &Use : MI.uses())
@@ -813,8 +797,8 @@ bool X86LoadValueInjectionLoadHardeningPass::instrUsesRegToBranch(
 
 INITIALIZE_PASS_BEGIN(X86LoadValueInjectionLoadHardeningPass, PASS_KEY,
                       "X86 LVI load hardening", false, false)
-INITIALIZE_PASS_DEPENDENCY(MachineLoopInfo)
-INITIALIZE_PASS_DEPENDENCY(MachineDominatorTree)
+INITIALIZE_PASS_DEPENDENCY(MachineLoopInfoWrapperPass)
+INITIALIZE_PASS_DEPENDENCY(MachineDominatorTreeWrapperPass)
 INITIALIZE_PASS_DEPENDENCY(MachineDominanceFrontier)
 INITIALIZE_PASS_END(X86LoadValueInjectionLoadHardeningPass, PASS_KEY,
                     "X86 LVI load hardening", false, false)

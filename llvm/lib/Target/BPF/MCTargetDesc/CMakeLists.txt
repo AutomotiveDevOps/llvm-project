@@ -4,4 +4,13 @@ add_llvm_component_library(LLVMBPFDesc
   BPFInstPrinter.cpp
   BPFMCCodeEmitter.cpp
   BPFELFObjectWriter.cpp
+
+  LINK_COMPONENTS
+  MC
+  BPFInfo
+  Support
+  TargetParser
+
+  ADD_TO_COMPONENT
+  BPF
   )

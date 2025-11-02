@@ -1,0 +1,8 @@
+Power ISA 2.07 Book III-E - Complete Instruction List
+======================================================================
+
+ehpriv                    XL           E.HV                                Embedded Hypervisor Privilege
+mfdcr                     XFX          P, E.DC                             Move From Device Control Register
+mfpmr                     XFX          O, E.PM                             Move From Performance Monitor Register
+mtdcr                     XFX          P, E.DC                             Move To Device Control Register
+mtpmr                     XFX          O, E.PM                             Move To Performance Monitor Register

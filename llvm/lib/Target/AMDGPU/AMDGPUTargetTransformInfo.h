@@ -7,7 +7,7 @@
 //===----------------------------------------------------------------------===//
 //
 /// \file
-/// This file a TargetTransformInfo::Concept conforming object specific to the
+/// This file a TargetTransformInfoImplBase conforming object specific to the
 /// AMDGPU target machine. It uses the target's detailed information to
 /// provide more precise answers to certain TTI queries, while letting the
 /// target independent and default TTI implementations handle the rest.
@@ -18,23 +18,18 @@
 #define LLVM_LIB_TARGET_AMDGPU_AMDGPUTARGETTRANSFORMINFO_H
 
 #include "AMDGPU.h"
-#include "AMDGPUSubtarget.h"
-#include "AMDGPUTargetMachine.h"
-#include "MCTargetDesc/AMDGPUMCTargetDesc.h"
-#include "Utils/AMDGPUBaseInfo.h"
-#include "llvm/ADT/ArrayRef.h"
-#include "llvm/Analysis/TargetTransformInfo.h"
 #include "llvm/CodeGen/BasicTTIImpl.h"
-#include "llvm/IR/Function.h"
-#include "llvm/MC/SubtargetFeature.h"
-#include "llvm/Support/MathExtras.h"
-#include <cassert>
+#include "llvm/Support/AMDGPUAddrSpace.h"
+#include <optional>
 
 namespace llvm {
 
-class AMDGPUTargetLowering;
+class AMDGPUTargetMachine;
+class GCNSubtarget;
+class InstCombiner;
 class Loop;
 class ScalarEvolution;
+class SITargetLowering;
 class Type;
 class Value;
 
@@ -46,21 +41,23 @@ class AMDGPUTTIImpl final : public BasicTTIImplBase<AMDGPUTTIImpl> {
 
   Triple TargetTriple;
 
-  const GCNSubtarget *ST;
+  const TargetSubtargetInfo *ST;
   const TargetLoweringBase *TLI;
 
   const TargetSubtargetInfo *getST() const { return ST; }
   const TargetLoweringBase *getTLI() const { return TLI; }
 
 public:
-  explicit AMDGPUTTIImpl(const AMDGPUTargetMachine *TM, const Function &F)
-      : BaseT(TM, F.getParent()->getDataLayout()),
-        TargetTriple(TM->getTargetTriple()),
-        ST(static_cast<const GCNSubtarget *>(TM->getSubtargetImpl(F))),
-        TLI(ST->getTargetLowering()) {}
+  explicit AMDGPUTTIImpl(const AMDGPUTargetMachine *TM, const Function &F);
 
   void getUnrollingPreferences(Loop *L, ScalarEvolution &SE,
-                               TTI::UnrollingPreferences &UP);
+                               TTI::UnrollingPreferences &UP,
+                               OptimizationRemarkEmitter *ORE) const override;
+
+  void getPeelingPreferences(Loop *L, ScalarEvolution &SE,
+                             TTI::PeelingPreferences &PP) const override;
+
+  uint64_t getMaxMemIntrinsicInlineSizeThreshold() const override;
 };
 
 class GCNTTIImpl final : public BasicTTIImplBase<GCNTTIImpl> {
@@ -72,214 +69,239 @@ class GCNTTIImpl final : public BasicTTIImplBase<GCNTTIImpl> {
   const GCNSubtarget *ST;
   const SITargetLowering *TLI;
   AMDGPUTTIImpl CommonTTI;
-  bool IsGraphicsShader;
+  bool IsGraphics;
   bool HasFP32Denormals;
+  bool HasFP64FP16Denormals;
+  static constexpr bool InlinerVectorBonusPercent = 0;
 
-  const FeatureBitset InlineFeatureIgnoreList = {
-    // Codegen control options which don't matter.
-    AMDGPU::FeatureEnableLoadStoreOpt,
-    AMDGPU::FeatureEnableSIScheduler,
-    AMDGPU::FeatureEnableUnsafeDSOffsetFolding,
-    AMDGPU::FeatureFlatForGlobal,
-    AMDGPU::FeaturePromoteAlloca,
-    AMDGPU::FeatureUnalignedBufferAccess,
-    AMDGPU::FeatureUnalignedScratchAccess,
-
-    AMDGPU::FeatureAutoWaitcntBeforeBarrier,
-
-    // Property of the kernel/environment which can't actually differ.
-    AMDGPU::FeatureSGPRInitBug,
-    AMDGPU::FeatureXNACK,
-    AMDGPU::FeatureTrapHandler,
-    AMDGPU::FeatureCodeObjectV3,
-
-    // The default assumption needs to be ecc is enabled, but no directly
-    // exposed operations depend on it, so it can be safely inlined.
-    AMDGPU::FeatureSRAMECC,
-
-    // Perf-tuning features
-    AMDGPU::FeatureFastFMAF32,
-    AMDGPU::HalfRate64Ops
-  };
+  static const FeatureBitset InlineFeatureIgnoreList;
 
   const GCNSubtarget *getST() const { return ST; }
-  const AMDGPUTargetLowering *getTLI() const { return TLI; }
+  const SITargetLowering *getTLI() const { return TLI; }
 
   static inline int getFullRateInstrCost() {
     return TargetTransformInfo::TCC_Basic;
   }
 
-  static inline int getHalfRateInstrCost() {
-    return 2 * TargetTransformInfo::TCC_Basic;
+  static inline int getHalfRateInstrCost(TTI::TargetCostKind CostKind) {
+    return CostKind == TTI::TCK_CodeSize ? 2
+                                         : 2 * TargetTransformInfo::TCC_Basic;
   }
 
   // TODO: The size is usually 8 bytes, but takes 4x as many cycles. Maybe
   // should be 2 or 4.
-  static inline int getQuarterRateInstrCost() {
-    return 3 * TargetTransformInfo::TCC_Basic;
+  static inline int getQuarterRateInstrCost(TTI::TargetCostKind CostKind) {
+    return CostKind == TTI::TCK_CodeSize ? 2
+                                         : 4 * TargetTransformInfo::TCC_Basic;
   }
 
-   // On some parts, normal fp64 operations are half rate, and others
-   // quarter. This also applies to some integer operations.
-  inline int get64BitInstrCost() const {
-    return ST->hasHalfRate64Ops() ?
-      getHalfRateInstrCost() : getQuarterRateInstrCost();
-  }
+  // On some parts, normal fp64 operations are half rate, and others
+  // quarter. This also applies to some integer operations.
+  int get64BitInstrCost(TTI::TargetCostKind CostKind) const;
+
+  std::pair<InstructionCost, MVT> getTypeLegalizationCost(Type *Ty) const;
 
 public:
-  explicit GCNTTIImpl(const AMDGPUTargetMachine *TM, const Function &F)
-    : BaseT(TM, F.getParent()->getDataLayout()),
-      ST(static_cast<const GCNSubtarget*>(TM->getSubtargetImpl(F))),
-      TLI(ST->getTargetLowering()),
-      CommonTTI(TM, F),
-      IsGraphicsShader(AMDGPU::isShader(F.getCallingConv())),
-      HasFP32Denormals(AMDGPU::SIModeRegisterDefaults(F).allFP32Denormals()) {}
+  explicit GCNTTIImpl(const AMDGPUTargetMachine *TM, const Function &F);
 
-  bool hasBranchDivergence() { return true; }
-  bool useGPUDivergenceAnalysis() const;
+  bool hasBranchDivergence(const Function *F = nullptr) const override;
 
   void getUnrollingPreferences(Loop *L, ScalarEvolution &SE,
-                               TTI::UnrollingPreferences &UP);
+                               TTI::UnrollingPreferences &UP,
+                               OptimizationRemarkEmitter *ORE) const override;
 
-  TTI::PopcntSupportKind getPopcntSupport(unsigned TyWidth) {
+  void getPeelingPreferences(Loop *L, ScalarEvolution &SE,
+                             TTI::PeelingPreferences &PP) const override;
+
+  TTI::PopcntSupportKind getPopcntSupport(unsigned TyWidth) const override {
     assert(isPowerOf2_32(TyWidth) && "Ty width must be power of 2");
     return TTI::PSK_FastHardware;
   }
 
-  unsigned getHardwareNumberOfRegisters(bool Vector) const;
-  unsigned getNumberOfRegisters(bool Vector) const;
-  unsigned getRegisterBitWidth(bool Vector) const;
-  unsigned getMinVectorRegisterBitWidth() const;
+  unsigned getNumberOfRegisters(unsigned RCID) const override;
+  TypeSize
+  getRegisterBitWidth(TargetTransformInfo::RegisterKind Vector) const override;
+  unsigned getMinVectorRegisterBitWidth() const override;
+  unsigned getMaximumVF(unsigned ElemWidth, unsigned Opcode) const override;
   unsigned getLoadVectorFactor(unsigned VF, unsigned LoadSize,
                                unsigned ChainSizeInBytes,
-                               VectorType *VecTy) const;
+                               VectorType *VecTy) const override;
   unsigned getStoreVectorFactor(unsigned VF, unsigned StoreSize,
                                 unsigned ChainSizeInBytes,
-                                VectorType *VecTy) const;
-  unsigned getLoadStoreVecRegBitWidth(unsigned AddrSpace) const;
+                                VectorType *VecTy) const override;
+  unsigned getLoadStoreVecRegBitWidth(unsigned AddrSpace) const override;
 
-  bool isLegalToVectorizeMemChain(unsigned ChainSizeInBytes,
-                                  unsigned Alignment,
+  bool isLegalToVectorizeMemChain(unsigned ChainSizeInBytes, Align Alignment,
                                   unsigned AddrSpace) const;
-  bool isLegalToVectorizeLoadChain(unsigned ChainSizeInBytes,
-                                   unsigned Alignment,
-                                   unsigned AddrSpace) const;
-  bool isLegalToVectorizeStoreChain(unsigned ChainSizeInBytes,
-                                    unsigned Alignment,
-                                    unsigned AddrSpace) const;
-  Type *getMemcpyLoopLoweringType(LLVMContext &Context, Value *Length,
-                                  unsigned SrcAddrSpace, unsigned DestAddrSpace,
-                                  unsigned SrcAlign, unsigned DestAlign) const;
+  bool isLegalToVectorizeLoadChain(unsigned ChainSizeInBytes, Align Alignment,
+                                   unsigned AddrSpace) const override;
+  bool isLegalToVectorizeStoreChain(unsigned ChainSizeInBytes, Align Alignment,
+                                    unsigned AddrSpace) const override;
 
-  void getMemcpyLoopResidualLoweringType(SmallVectorImpl<Type *> &OpsOut,
-                                         LLVMContext &Context,
-                                         unsigned RemainingBytes,
-                                         unsigned SrcAddrSpace,
-                                         unsigned DestAddrSpace,
-                                         unsigned SrcAlign,
-                                         unsigned DestAlign) const;
-  unsigned getMaxInterleaveFactor(unsigned VF);
+  uint64_t getMaxMemIntrinsicInlineSizeThreshold() const override;
+  Type *getMemcpyLoopLoweringType(
+      LLVMContext &Context, Value *Length, unsigned SrcAddrSpace,
+      unsigned DestAddrSpace, Align SrcAlign, Align DestAlign,
+      std::optional<uint32_t> AtomicElementSize) const override;
 
-  bool getTgtMemIntrinsic(IntrinsicInst *Inst, MemIntrinsicInfo &Info) const;
+  void getMemcpyLoopResidualLoweringType(
+      SmallVectorImpl<Type *> &OpsOut, LLVMContext &Context,
+      unsigned RemainingBytes, unsigned SrcAddrSpace, unsigned DestAddrSpace,
+      Align SrcAlign, Align DestAlign,
+      std::optional<uint32_t> AtomicCpySize) const override;
+  unsigned getMaxInterleaveFactor(ElementCount VF) const override;
 
-  int getArithmeticInstrCost(
-      unsigned Opcode, Type *Ty,
-      TTI::TargetCostKind CostKind = TTI::TCK_RecipThroughput,
-      TTI::OperandValueKind Opd1Info = TTI::OK_AnyValue,
-      TTI::OperandValueKind Opd2Info = TTI::OK_AnyValue,
-      TTI::OperandValueProperties Opd1PropInfo = TTI::OP_None,
-      TTI::OperandValueProperties Opd2PropInfo = TTI::OP_None,
-      ArrayRef<const Value *> Args = ArrayRef<const Value *>(),
-      const Instruction *CxtI = nullptr);
+  bool getTgtMemIntrinsic(IntrinsicInst *Inst,
+                          MemIntrinsicInfo &Info) const override;
 
-  unsigned getCFInstrCost(unsigned Opcode, TTI::TargetCostKind CostKind);
+  InstructionCost getArithmeticInstrCost(
+      unsigned Opcode, Type *Ty, TTI::TargetCostKind CostKind,
+      TTI::OperandValueInfo Op1Info = {TTI::OK_AnyValue, TTI::OP_None},
+      TTI::OperandValueInfo Op2Info = {TTI::OK_AnyValue, TTI::OP_None},
+      ArrayRef<const Value *> Args = {},
+      const Instruction *CxtI = nullptr) const override;
+
+  InstructionCost getCFInstrCost(unsigned Opcode, TTI::TargetCostKind CostKind,
+                                 const Instruction *I = nullptr) const override;
 
   bool isInlineAsmSourceOfDivergence(const CallInst *CI,
                                      ArrayRef<unsigned> Indices = {}) const;
 
-  int getVectorInstrCost(unsigned Opcode, Type *ValTy, unsigned Index);
-  bool isSourceOfDivergence(const Value *V) const;
-  bool isAlwaysUniform(const Value *V) const;
+  using BaseT::getVectorInstrCost;
+  InstructionCost getVectorInstrCost(unsigned Opcode, Type *ValTy,
+                                     TTI::TargetCostKind CostKind,
+                                     unsigned Index, const Value *Op0,
+                                     const Value *Op1) const override;
 
-  unsigned getFlatAddressSpace() const {
+  bool isReadRegisterSourceOfDivergence(const IntrinsicInst *ReadReg) const;
+  bool isSourceOfDivergence(const Value *V) const override;
+  bool isAlwaysUniform(const Value *V) const override;
+
+  bool isValidAddrSpaceCast(unsigned FromAS, unsigned ToAS) const override {
+    // Address space casts must cast between different address spaces.
+    if (FromAS == ToAS)
+      return false;
+
+    // Casts between any aliasing address spaces are valid.
+    return AMDGPU::addrspacesMayAlias(FromAS, ToAS);
+  }
+
+  bool addrspacesMayAlias(unsigned AS0, unsigned AS1) const override {
+    return AMDGPU::addrspacesMayAlias(AS0, AS1);
+  }
+
+  unsigned getFlatAddressSpace() const override {
     // Don't bother running InferAddressSpaces pass on graphics shaders which
     // don't use flat addressing.
-    if (IsGraphicsShader)
+    if (IsGraphics)
       return -1;
     return AMDGPUAS::FLAT_ADDRESS;
   }
 
   bool collectFlatAddressOperands(SmallVectorImpl<int> &OpIndexes,
-                                  Intrinsic::ID IID) const;
+                                  Intrinsic::ID IID) const override;
+
+  bool
+  canHaveNonUndefGlobalInitializerInAddressSpace(unsigned AS) const override {
+    return AS != AMDGPUAS::LOCAL_ADDRESS && AS != AMDGPUAS::REGION_ADDRESS &&
+           AS != AMDGPUAS::PRIVATE_ADDRESS;
+  }
+
   Value *rewriteIntrinsicWithAddressSpace(IntrinsicInst *II, Value *OldV,
-                                          Value *NewV) const;
+                                          Value *NewV) const override;
 
-  unsigned getVectorSplitCost() { return 0; }
+  bool canSimplifyLegacyMulToMul(const Instruction &I, const Value *Op0,
+                                 const Value *Op1, InstCombiner &IC) const;
 
-  unsigned getShuffleCost(TTI::ShuffleKind Kind, VectorType *Tp, int Index,
-                          VectorType *SubTp);
+  bool simplifyDemandedLaneMaskArg(InstCombiner &IC, IntrinsicInst &II,
+                                   unsigned LaneAgIdx) const;
+
+  std::optional<Instruction *>
+  instCombineIntrinsic(InstCombiner &IC, IntrinsicInst &II) const override;
+
+  Value *simplifyAMDGCNLaneIntrinsicDemanded(InstCombiner &IC,
+                                             IntrinsicInst &II,
+                                             const APInt &DemandedElts,
+                                             APInt &UndefElts) const;
+
+  Instruction *hoistLaneIntrinsicThroughOperand(InstCombiner &IC,
+                                                IntrinsicInst &II) const;
+
+  std::optional<Value *> simplifyDemandedVectorEltsIntrinsic(
+      InstCombiner &IC, IntrinsicInst &II, APInt DemandedElts, APInt &UndefElts,
+      APInt &UndefElts2, APInt &UndefElts3,
+      std::function<void(Instruction *, unsigned, APInt, APInt &)>
+          SimplifyAndSetOp) const override;
+
+  InstructionCost getVectorSplitCost() const { return 0; }
+
+  InstructionCost
+  getShuffleCost(TTI::ShuffleKind Kind, VectorType *DstTy, VectorType *SrcTy,
+                 ArrayRef<int> Mask, TTI::TargetCostKind CostKind, int Index,
+                 VectorType *SubTp, ArrayRef<const Value *> Args = {},
+                 const Instruction *CxtI = nullptr) const override;
+
+  bool isProfitableToSinkOperands(Instruction *I,
+                                  SmallVectorImpl<Use *> &Ops) const override;
 
   bool areInlineCompatible(const Function *Caller,
-                           const Function *Callee) const;
+                           const Function *Callee) const override;
 
-  unsigned getInliningThresholdMultiplier() { return 11; }
+  int getInliningLastCallToStaticBonus() const override;
+  unsigned getInliningThresholdMultiplier() const override { return 11; }
+  unsigned adjustInliningThreshold(const CallBase *CB) const override;
+  unsigned getCallerAllocaCost(const CallBase *CB,
+                               const AllocaInst *AI) const override;
 
-  int getInlinerVectorBonusPercent() { return 0; }
+  int getInlinerVectorBonusPercent() const override {
+    return InlinerVectorBonusPercent;
+  }
 
-  int getArithmeticReductionCost(
-      unsigned Opcode,
-      VectorType *Ty,
-      bool IsPairwise,
-      TTI::TargetCostKind CostKind = TTI::TCK_RecipThroughput);
+  InstructionCost
+  getArithmeticReductionCost(unsigned Opcode, VectorType *Ty,
+                             std::optional<FastMathFlags> FMF,
+                             TTI::TargetCostKind CostKind) const override;
 
-  int getIntrinsicInstrCost(const IntrinsicCostAttributes &ICA,
-                            TTI::TargetCostKind CostKind);
-  int getMinMaxReductionCost(
-    VectorType *Ty, VectorType *CondTy, bool IsPairwiseForm, bool IsUnsigned,
-    TTI::TargetCostKind CostKind = TTI::TCK_RecipThroughput);
+  InstructionCost
+  getIntrinsicInstrCost(const IntrinsicCostAttributes &ICA,
+                        TTI::TargetCostKind CostKind) const override;
+  InstructionCost
+  getMinMaxReductionCost(Intrinsic::ID IID, VectorType *Ty, FastMathFlags FMF,
+                         TTI::TargetCostKind CostKind) const override;
 
-  unsigned getUserCost(const User *U, ArrayRef<const Value *> Operands,
-                       TTI::TargetCostKind CostKind);
-};
+  /// Data cache line size for LoopDataPrefetch pass. Has no use before GFX12.
+  unsigned getCacheLineSize() const override { return 128; }
 
-class R600TTIImpl final : public BasicTTIImplBase<R600TTIImpl> {
-  using BaseT = BasicTTIImplBase<R600TTIImpl>;
-  using TTI = TargetTransformInfo;
+  /// How much before a load we should place the prefetch instruction.
+  /// This is currently measured in number of IR instructions.
+  unsigned getPrefetchDistance() const override;
 
-  friend BaseT;
+  /// \return if target want to issue a prefetch in address space \p AS.
+  bool shouldPrefetchAddressSpace(unsigned AS) const override;
+  void collectKernelLaunchBounds(
+      const Function &F,
+      SmallVectorImpl<std::pair<StringRef, int64_t>> &LB) const override;
 
-  const R600Subtarget *ST;
-  const AMDGPUTargetLowering *TLI;
-  AMDGPUTTIImpl CommonTTI;
+  enum class KnownIEEEMode { Unknown, On, Off };
 
-public:
-  explicit R600TTIImpl(const AMDGPUTargetMachine *TM, const Function &F)
-    : BaseT(TM, F.getParent()->getDataLayout()),
-      ST(static_cast<const R600Subtarget*>(TM->getSubtargetImpl(F))),
-      TLI(ST->getTargetLowering()),
-      CommonTTI(TM, F)	{}
+  /// Return KnownIEEEMode::On if we know if the use context can assume
+  /// "amdgpu-ieee"="true" and KnownIEEEMode::Off if we can assume
+  /// "amdgpu-ieee"="false".
+  KnownIEEEMode fpenvIEEEMode(const Instruction &I) const;
 
-  const R600Subtarget *getST() const { return ST; }
-  const AMDGPUTargetLowering *getTLI() const { return TLI; }
+  /// Account for loads of i8 vector types to have reduced cost. For
+  /// example the cost of load 4 i8s values is one is the cost of loading
+  /// a single i32 value.
+  InstructionCost getMemoryOpCost(
+      unsigned Opcode, Type *Src, Align Alignment, unsigned AddressSpace,
+      TTI::TargetCostKind CostKind,
+      TTI::OperandValueInfo OpInfo = {TTI::OK_AnyValue, TTI::OP_None},
+      const Instruction *I = nullptr) const override;
 
-  void getUnrollingPreferences(Loop *L, ScalarEvolution &SE,
-                               TTI::UnrollingPreferences &UP);
-  unsigned getHardwareNumberOfRegisters(bool Vec) const;
-  unsigned getNumberOfRegisters(bool Vec) const;
-  unsigned getRegisterBitWidth(bool Vector) const;
-  unsigned getMinVectorRegisterBitWidth() const;
-  unsigned getLoadStoreVecRegBitWidth(unsigned AddrSpace) const;
-  bool isLegalToVectorizeMemChain(unsigned ChainSizeInBytes, unsigned Alignment,
-                                  unsigned AddrSpace) const;
-  bool isLegalToVectorizeLoadChain(unsigned ChainSizeInBytes,
-		                   unsigned Alignment,
-                                   unsigned AddrSpace) const;
-  bool isLegalToVectorizeStoreChain(unsigned ChainSizeInBytes,
-                                    unsigned Alignment,
-                                    unsigned AddrSpace) const;
-  unsigned getMaxInterleaveFactor(unsigned VF);
-  unsigned getCFInstrCost(unsigned Opcode, TTI::TargetCostKind CostKind);
-  int getVectorInstrCost(unsigned Opcode, Type *ValTy, unsigned Index);
+  /// When counting parts on AMD GPUs, account for i8s being grouped
+  /// together under a single i32 value. Otherwise fall back to base
+  /// implementation.
+  unsigned getNumberOfParts(Type *Tp) const override;
 };
 
 } // end namespace llvm

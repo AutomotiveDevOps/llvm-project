@@ -1,5 +1,4 @@
-// RUN: %clang_cc1 -fsyntax-only -fobjc-weak -fobjc-runtime-has-weak -verify -std=c++11 %s
-// expected-no-diagnostics
+// RUN: %clang_cc1 -fsyntax-only -fobjc-weak -fobjc-runtime-has-weak -verify -std=c++11 %s -Wno-deprecated-builtins
 
 // Check the results of the various type-trait query functions on
 // lifetime-qualified types in ObjC Weak.
@@ -8,7 +7,7 @@
 #define TRAIT_IS_FALSE(Trait, Type) static_assert(!Trait(Type), "")
 #define TRAIT_IS_TRUE_2(Trait, Type1, Type2) static_assert(Trait(Type1, Type2), "")
 #define TRAIT_IS_FALSE_2(Trait, Type1, Type2) static_assert(!Trait(Type1, Type2), "")
-  
+
 struct HasStrong { id obj; };
 struct HasWeak { __weak id obj; };
 struct HasUnsafeUnretained { __unsafe_unretained id obj; };
@@ -208,3 +207,18 @@ TRAIT_IS_FALSE_2(__is_trivially_constructible, HasWeak, HasWeak);
 TRAIT_IS_FALSE_2(__is_trivially_constructible, HasWeak, HasWeak&&);
 TRAIT_IS_TRUE_2(__is_trivially_constructible, HasUnsafeUnretained, HasUnsafeUnretained);
 TRAIT_IS_TRUE_2(__is_trivially_constructible, HasUnsafeUnretained, HasUnsafeUnretained&&);
+
+// __is_trivially_relocatable
+TRAIT_IS_TRUE(__is_trivially_relocatable, __strong id);
+TRAIT_IS_FALSE(__is_trivially_relocatable, __weak id);
+TRAIT_IS_TRUE(__is_trivially_relocatable, __autoreleasing id);
+TRAIT_IS_TRUE(__is_trivially_relocatable, __unsafe_unretained id);
+TRAIT_IS_TRUE(__is_trivially_relocatable, HasStrong);
+TRAIT_IS_FALSE(__is_trivially_relocatable, HasWeak);
+TRAIT_IS_TRUE(__is_trivially_relocatable, HasUnsafeUnretained);
+
+
+static_assert(__builtin_is_cpp_trivially_relocatable(__weak id), "");
+//expected-error@-1 {{static assertion failed due to requirement '__builtin_is_cpp_trivially_relocatable(__weak id)'}}\
+//expected-note@-1 {{'__weak id' is not trivially relocatable}}\
+//expected-note@-1 {{because it has an ARC lifetime qualifier}}

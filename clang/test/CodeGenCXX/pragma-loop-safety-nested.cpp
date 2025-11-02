@@ -12,16 +12,16 @@ void vectorize_nested_test(int *List, int Length) {
 }
 
 
-// CHECK: load i32, i32* %Length.addr, align 4, !llvm.access.group ![[ACCESS_GROUP_2:[0-9]+]]
+// CHECK: load i32, ptr %Length.addr, align 4, !llvm.access.group ![[ACCESS_GROUP_2:[0-9]+]]
 // CHECK: %[[MUL:.+]] = mul
-// CHECK: store i32 %[[MUL]], i32* %{{.+}}, !llvm.access.group ![[ACCESS_GROUP_LIST_3:[0-9]+]]
+// CHECK: store i32 %[[MUL]], ptr %{{.+}}, !llvm.access.group ![[ACCESS_GROUP_LIST_3:[0-9]+]]
 // CHECK: br label %{{.+}}, !llvm.loop ![[INNER_LOOPID:[0-9]+]]
 // CHECK: br label %{{.+}}, !llvm.loop ![[OUTER_LOOPID:[0-9]+]]
 
 // CHECK: ![[ACCESS_GROUP_2]] = distinct !{}
 // CHECK: ![[ACCESS_GROUP_LIST_3]] = !{![[ACCESS_GROUP_2]], ![[ACCESS_GROUP_4:[0-9]+]]}
 // CHECK: ![[ACCESS_GROUP_4]] = distinct !{}
-// CHECK: ![[INNER_LOOPID]] = distinct !{![[INNER_LOOPID]], ![[PARALLEL_ACCESSES_8:[0-9]+]]
+// CHECK: ![[INNER_LOOPID]] = distinct !{![[INNER_LOOPID]], [[MP:![0-9]+]], ![[PARALLEL_ACCESSES_8:[0-9]+]]
 // CHECK: ![[PARALLEL_ACCESSES_8]] = !{!"llvm.loop.parallel_accesses", ![[ACCESS_GROUP_4]]}
-// CHECK: ![[OUTER_LOOPID]] = distinct !{![[OUTER_LOOPID]], ![[PARALLEL_ACCESSES_10:[0-9]+]]
+// CHECK: ![[OUTER_LOOPID]] = distinct !{![[OUTER_LOOPID]], [[MP]], ![[PARALLEL_ACCESSES_10:[0-9]+]]
 // CHECK: ![[PARALLEL_ACCESSES_10]] = !{!"llvm.loop.parallel_accesses", ![[ACCESS_GROUP_2]]}

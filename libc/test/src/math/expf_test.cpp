@@ -6,141 +6,121 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "include/errno.h"
-#include "include/math.h"
-#include "src/errno/llvmlibc_errno.h"
+#include "hdr/math_macros.h"
+#include "hdr/stdint_proxy.h"
+#include "src/__support/FPUtil/FPBits.h"
+#include "src/__support/libc_errno.h"
+#include "src/__support/macros/optimization.h"
 #include "src/math/expf.h"
-#include "utils/FPUtil/BitPatterns.h"
-#include "utils/FPUtil/FloatOperations.h"
-#include "utils/FPUtil/FloatProperties.h"
+#include "test/UnitTest/FPMatcher.h"
+#include "test/UnitTest/Test.h"
 #include "utils/MPFRWrapper/MPFRUtils.h"
-#include "utils/UnitTest/Test.h"
 
-#include <stdint.h>
+#ifdef LIBC_MATH_HAS_SKIP_ACCURATE_PASS
+#define TOLERANCE 1
+#else
+#define TOLERANCE 0
+#endif // LIBC_MATH_HAS_SKIP_ACCURATE_PASS
 
-using __llvm_libc::fputil::isNegativeQuietNaN;
-using __llvm_libc::fputil::isQuietNaN;
-using __llvm_libc::fputil::valueAsBits;
-using __llvm_libc::fputil::valueFromBits;
+using LlvmLibcExpfTest = LIBC_NAMESPACE::testing::FPTest<float>;
 
-using BitPatterns = __llvm_libc::fputil::BitPatterns<float>;
+namespace mpfr = LIBC_NAMESPACE::testing::mpfr;
 
-namespace mpfr = __llvm_libc::testing::mpfr;
+TEST_F(LlvmLibcExpfTest, SpecialNumbers) {
+  EXPECT_FP_EQ(aNaN, LIBC_NAMESPACE::expf(aNaN));
+  EXPECT_MATH_ERRNO(0);
 
-// 12 additional bits of precision over the base precision of a |float|
-// value.
-static constexpr mpfr::Tolerance tolerance{mpfr::Tolerance::floatPrecision, 12,
-                                           0xFFF};
+  EXPECT_FP_EQ(inf, LIBC_NAMESPACE::expf(inf));
+  EXPECT_MATH_ERRNO(0);
 
-TEST(ExpfTest, SpecialNumbers) {
-  llvmlibc_errno = 0;
+  EXPECT_FP_EQ(0.0f, LIBC_NAMESPACE::expf(neg_inf));
+  EXPECT_MATH_ERRNO(0);
 
-  EXPECT_TRUE(
-      isQuietNaN(__llvm_libc::expf(valueFromBits(BitPatterns::aQuietNaN))));
-  EXPECT_EQ(llvmlibc_errno, 0);
+  EXPECT_FP_EQ(1.0f, LIBC_NAMESPACE::expf(0.0f));
+  EXPECT_MATH_ERRNO(0);
 
-  EXPECT_TRUE(isNegativeQuietNaN(
-      __llvm_libc::expf(valueFromBits(BitPatterns::aNegativeQuietNaN))));
-  EXPECT_EQ(llvmlibc_errno, 0);
-
-  EXPECT_TRUE(isQuietNaN(
-      __llvm_libc::expf(valueFromBits(BitPatterns::aSignallingNaN))));
-  EXPECT_EQ(llvmlibc_errno, 0);
-
-  EXPECT_TRUE(isNegativeQuietNaN(
-      __llvm_libc::expf(valueFromBits(BitPatterns::aNegativeSignallingNaN))));
-  EXPECT_EQ(llvmlibc_errno, 0);
-
-  EXPECT_EQ(BitPatterns::inf,
-            valueAsBits(__llvm_libc::expf(valueFromBits(BitPatterns::inf))));
-  EXPECT_EQ(llvmlibc_errno, 0);
-
-  EXPECT_EQ(BitPatterns::zero,
-            valueAsBits(__llvm_libc::expf(valueFromBits(BitPatterns::negInf))));
-  EXPECT_EQ(llvmlibc_errno, 0);
-
-  EXPECT_EQ(BitPatterns::one,
-            valueAsBits(__llvm_libc::expf(valueFromBits(BitPatterns::zero))));
-  EXPECT_EQ(llvmlibc_errno, 0);
-
-  EXPECT_EQ(BitPatterns::one, valueAsBits(__llvm_libc::expf(
-                                  valueFromBits(BitPatterns::negZero))));
-  EXPECT_EQ(llvmlibc_errno, 0);
+  EXPECT_FP_EQ(1.0f, LIBC_NAMESPACE::expf(-0.0f));
+  EXPECT_MATH_ERRNO(0);
 }
 
-TEST(ExpfTest, Overflow) {
-  llvmlibc_errno = 0;
-  EXPECT_EQ(BitPatterns::inf,
-            valueAsBits(__llvm_libc::expf(valueFromBits(0x7f7fffffU))));
-  EXPECT_EQ(llvmlibc_errno, ERANGE);
+TEST_F(LlvmLibcExpfTest, Overflow) {
+  EXPECT_FP_EQ_WITH_EXCEPTION(
+      inf, LIBC_NAMESPACE::expf(FPBits(0x7f7fffffU).get_val()), FE_OVERFLOW);
+  EXPECT_MATH_ERRNO(ERANGE);
 
-  llvmlibc_errno = 0;
-  EXPECT_EQ(BitPatterns::inf,
-            valueAsBits(__llvm_libc::expf(valueFromBits(0x42cffff8U))));
-  EXPECT_EQ(llvmlibc_errno, ERANGE);
+  EXPECT_FP_EQ_WITH_EXCEPTION(
+      inf, LIBC_NAMESPACE::expf(FPBits(0x42cffff8U).get_val()), FE_OVERFLOW);
+  EXPECT_MATH_ERRNO(ERANGE);
 
-  llvmlibc_errno = 0;
-  EXPECT_EQ(BitPatterns::inf,
-            valueAsBits(__llvm_libc::expf(valueFromBits(0x42d00008U))));
-  EXPECT_EQ(llvmlibc_errno, ERANGE);
+  EXPECT_FP_EQ_WITH_EXCEPTION(
+      inf, LIBC_NAMESPACE::expf(FPBits(0x42d00008U).get_val()), FE_OVERFLOW);
+  EXPECT_MATH_ERRNO(ERANGE);
 }
 
-TEST(ExpfTest, Underflow) {
-  llvmlibc_errno = 0;
-  EXPECT_EQ(BitPatterns::zero,
-            valueAsBits(__llvm_libc::expf(valueFromBits(0xff7fffffU))));
-  EXPECT_EQ(llvmlibc_errno, ERANGE);
+TEST_F(LlvmLibcExpfTest, Underflow) {
+  EXPECT_FP_EQ_WITH_EXCEPTION(
+      0.0f, LIBC_NAMESPACE::expf(FPBits(0xff7fffffU).get_val()), FE_UNDERFLOW);
+  EXPECT_MATH_ERRNO(ERANGE);
 
-  llvmlibc_errno = 0;
-  EXPECT_EQ(BitPatterns::zero,
-            valueAsBits(__llvm_libc::expf(valueFromBits(0xc2cffff8U))));
-  EXPECT_EQ(llvmlibc_errno, ERANGE);
+  float x = FPBits(0xc2cffff8U).get_val();
+  EXPECT_MPFR_MATCH_ALL_ROUNDING(mpfr::Operation::Exp, x,
+                                 LIBC_NAMESPACE::expf(x), 0.5);
+  EXPECT_MATH_ERRNO(ERANGE);
 
-  llvmlibc_errno = 0;
-  EXPECT_EQ(BitPatterns::zero,
-            valueAsBits(__llvm_libc::expf(valueFromBits(0xc2d00008U))));
-  EXPECT_EQ(llvmlibc_errno, ERANGE);
+  x = FPBits(0xc2d00008U).get_val();
+  EXPECT_MPFR_MATCH_ALL_ROUNDING(mpfr::Operation::Exp, x,
+                                 LIBC_NAMESPACE::expf(x), 0.5);
+  EXPECT_MATH_ERRNO(ERANGE);
 }
 
 // Test with inputs which are the borders of underflow/overflow but still
 // produce valid results without setting errno.
-TEST(ExpfTest, Borderline) {
+TEST_F(LlvmLibcExpfTest, Borderline) {
   float x;
 
-  llvmlibc_errno = 0;
-  x = valueFromBits(0x42affff8U);
-  ASSERT_MPFR_MATCH(mpfr::Operation::Exp, x, __llvm_libc::expf(x), tolerance);
-  EXPECT_EQ(llvmlibc_errno, 0);
+  x = FPBits(0x42affff8U).get_val();
+  ASSERT_MPFR_MATCH_ALL_ROUNDING(mpfr::Operation::Exp, x,
+                                 LIBC_NAMESPACE::expf(x), 0.5);
+  EXPECT_MATH_ERRNO(0);
 
-  x = valueFromBits(0x42b00008U);
-  ASSERT_MPFR_MATCH(mpfr::Operation::Exp, x, __llvm_libc::expf(x), tolerance);
-  EXPECT_EQ(llvmlibc_errno, 0);
+  x = FPBits(0x42b00008U).get_val();
+  ASSERT_MPFR_MATCH_ALL_ROUNDING(mpfr::Operation::Exp, x,
+                                 LIBC_NAMESPACE::expf(x), 0.5);
+  EXPECT_MATH_ERRNO(0);
 
-  x = valueFromBits(0xc2affff8U);
-  ASSERT_MPFR_MATCH(mpfr::Operation::Exp, x, __llvm_libc::expf(x), tolerance);
-  EXPECT_EQ(llvmlibc_errno, 0);
+  x = FPBits(0xc2affff8U).get_val();
+  ASSERT_MPFR_MATCH_ALL_ROUNDING(mpfr::Operation::Exp, x,
+                                 LIBC_NAMESPACE::expf(x), 0.5);
+  EXPECT_MATH_ERRNO(0);
 
-  x = valueFromBits(0xc2b00008U);
-  ASSERT_MPFR_MATCH(mpfr::Operation::Exp, x, __llvm_libc::expf(x), tolerance);
-  EXPECT_EQ(llvmlibc_errno, 0);
+  x = FPBits(0xc2b00008U).get_val();
+  ASSERT_MPFR_MATCH_ALL_ROUNDING(mpfr::Operation::Exp, x,
+                                 LIBC_NAMESPACE::expf(x), 0.5);
+  EXPECT_MATH_ERRNO(0);
+
+  x = FPBits(0xc236bd8cU).get_val();
+  EXPECT_MPFR_MATCH_ALL_ROUNDING(mpfr::Operation::Exp, x,
+                                 LIBC_NAMESPACE::expf(x), TOLERANCE + 0.5);
+  EXPECT_MATH_ERRNO(0);
 }
 
-TEST(ExpfTest, InFloatRange) {
-  constexpr uint32_t count = 1000000;
-  constexpr uint32_t step = UINT32_MAX / count;
-  for (uint32_t i = 0, v = 0; i <= count; ++i, v += step) {
-    float x = valueFromBits(v);
-    if (isnan(x) || isinf(x))
+TEST_F(LlvmLibcExpfTest, InFloatRange) {
+  constexpr uint32_t COUNT = 100'000;
+  constexpr uint32_t STEP = UINT32_MAX / COUNT;
+  for (uint32_t i = 0, v = 0; i <= COUNT; ++i, v += STEP) {
+    float x = FPBits(v).get_val();
+    if (FPBits(v).is_nan() || FPBits(v).is_inf())
       continue;
-    llvmlibc_errno = 0;
-    float result = __llvm_libc::expf(x);
+    libc_errno = 0;
+    float result = LIBC_NAMESPACE::expf(x);
 
     // If the computation resulted in an error or did not produce valid result
     // in the single-precision floating point range, then ignore comparing with
     // MPFR result as MPFR can still produce valid results because of its
     // wider precision.
-    if (isnan(result) || isinf(result) || llvmlibc_errno != 0)
+    if (FPBits(result).is_nan() || FPBits(result).is_inf() || libc_errno != 0)
       continue;
-    ASSERT_MPFR_MATCH(mpfr::Operation::Exp, x, __llvm_libc::expf(x), tolerance);
+    EXPECT_MPFR_MATCH_ALL_ROUNDING(mpfr::Operation::Exp, x,
+                                   LIBC_NAMESPACE::expf(x), 0.5);
   }
 }

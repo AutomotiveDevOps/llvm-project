@@ -1,19 +1,8 @@
-# Set CLANG_TOOLS_DIR to buildtree/bin, or buildtree/%(build_mode)s/bin if the
-# location is dynamic. The latter must be interpolated by lit configs.
-# FIXME: this is duplicated in many places.
-if (CMAKE_CFG_INTDIR STREQUAL ".")
-  set(LLVM_BUILD_MODE ".")
-else ()
-  set(LLVM_BUILD_MODE "%(build_mode)s")
-endif ()
-string(REPLACE ${CMAKE_CFG_INTDIR} ${LLVM_BUILD_MODE} CLANG_TOOLS_DIR ${LLVM_RUNTIME_OUTPUT_INTDIR})
-
 set(CLANGD_TEST_DEPS
   clangd
   ClangdTests
-  # No tests for these, but we should still make sure they build.
   clangd-indexer
-  dexp
+  split-file
   )
 
 if(CLANGD_BUILD_XPC)
@@ -21,7 +10,16 @@ if(CLANGD_BUILD_XPC)
   list(APPEND CLANGD_TEST_DEPS ClangdXpcUnitTests)
 endif()
 
-foreach(dep FileCheck count not)
+if(CLANGD_BUILD_DEXP)
+  # No tests for it, but we should still make sure they build.
+  list(APPEND CLANGD_TEST_DEPS dexp)
+endif()
+
+if(CLANGD_ENABLE_REMOTE)
+  list(APPEND CLANGD_TEST_DEPS clangd-index-server clangd-index-server-monitor)
+endif()
+
+foreach(dep FileCheck count not llvm-config)
   if(TARGET ${dep})
     list(APPEND CLANGD_TEST_DEPS ${dep})
   endif()
@@ -33,6 +31,13 @@ configure_lit_site_cfg(
   MAIN_CONFIG
   ${CMAKE_CURRENT_SOURCE_DIR}/lit.cfg.py
   )
+
+# Copy an empty compile_flags.txt to make sure tests don't pick up arbitrary
+# commands from parents.
+file(
+  TOUCH
+  ${CMAKE_CURRENT_BINARY_DIR}/compile_flags.txt
+)
 
 add_lit_testsuite(check-clangd "Running the Clangd regression tests"
   # clangd doesn't put unittest configs in test/unit like every other project.

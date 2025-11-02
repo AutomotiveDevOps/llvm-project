@@ -33,16 +33,15 @@ public:
   virtual ~OutputSection() = default;
 
   StringRef getSectionName() const;
-  void setOffset(size_t newOffset) {
-    log("setOffset: " + toString(*this) + ": " + Twine(newOffset));
-    offset = newOffset;
-  }
+  void setOffset(size_t newOffset) { offset = newOffset; }
   void createHeader(size_t bodySize);
   virtual bool isNeeded() const { return true; }
   virtual size_t getSize() const = 0;
+  virtual size_t getOffset() { return offset; }
   virtual void writeTo(uint8_t *buf) = 0;
   virtual void finalizeContents() = 0;
   virtual uint32_t getNumRelocations() const { return 0; }
+  virtual uint32_t getNumLiveRelocations() const { return getNumRelocations(); }
   virtual void writeRelocations(raw_ostream &os) const {}
 
   std::string header;
@@ -60,6 +59,10 @@ public:
   explicit CodeSection(ArrayRef<InputFunction *> functions)
       : OutputSection(llvm::wasm::WASM_SEC_CODE), functions(functions) {}
 
+  static bool classof(const OutputSection *sec) {
+    return sec->type == llvm::wasm::WASM_SEC_CODE;
+  }
+
   size_t getSize() const override { return header.size() + bodySize; }
   void writeTo(uint8_t *buf) override;
   uint32_t getNumRelocations() const override;
@@ -67,8 +70,9 @@ public:
   bool isNeeded() const override { return functions.size() > 0; }
   void finalizeContents() override;
 
-protected:
   ArrayRef<InputFunction *> functions;
+
+protected:
   std::string codeSectionHeader;
   size_t bodySize = 0;
 };
@@ -78,6 +82,10 @@ public:
   explicit DataSection(ArrayRef<OutputSegment *> segments)
       : OutputSection(llvm::wasm::WASM_SEC_DATA), segments(segments) {}
 
+  static bool classof(const OutputSection *sec) {
+    return sec->type == llvm::wasm::WASM_SEC_DATA;
+  }
+
   size_t getSize() const override { return header.size() + bodySize; }
   void writeTo(uint8_t *buf) override;
   uint32_t getNumRelocations() const override;
@@ -85,8 +93,9 @@ public:
   bool isNeeded() const override;
   void finalizeContents() override;
 
-protected:
   ArrayRef<OutputSegment *> segments;
+
+protected:
   std::string dataSectionHeader;
   size_t bodySize = 0;
 };
@@ -100,9 +109,14 @@ protected:
 // separately and are instead synthesized by the linker.
 class CustomSection : public OutputSection {
 public:
-  CustomSection(std::string name, ArrayRef<InputSection *> inputSections)
+  CustomSection(std::string name, ArrayRef<InputChunk *> inputSections)
       : OutputSection(llvm::wasm::WASM_SEC_CUSTOM, name),
         inputSections(inputSections) {}
+
+  static bool classof(const OutputSection *sec) {
+    return sec->type == llvm::wasm::WASM_SEC_CUSTOM;
+  }
+
   size_t getSize() const override {
     return header.size() + nameData.size() + payloadSize;
   }
@@ -112,8 +126,9 @@ public:
   void finalizeContents() override;
 
 protected:
+  void finalizeInputSections();
   size_t payloadSize = 0;
-  ArrayRef<InputSection *> inputSections;
+  std::vector<InputChunk *> inputSections;
   std::string nameData;
 };
 

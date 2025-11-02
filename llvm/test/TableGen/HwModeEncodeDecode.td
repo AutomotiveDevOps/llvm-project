@@ -13,8 +13,11 @@ def  Myi32  : Operand<i32> {
   let DecoderMethod = "DecodeMyi32";
 }
 
-def ModeA : HwMode<"+a">;
-def ModeB : HwMode<"+b">;
+def HasA : Predicate<"Subtarget->hasA()">;
+def HasB : Predicate<"Subtarget->hasB()">;
+
+def ModeA : HwMode<[HasA]>;
+def ModeB : HwMode<[HasB]>;
 
 
 def fooTypeEncA : InstructionEncoding {
@@ -22,9 +25,9 @@ def fooTypeEncA : InstructionEncoding {
   field bits<32> SoftFail = 0;
   bits<32> Inst;
   bits<8> factor;
-  let Inst{7-0} = factor;
-  let Inst{3-2} = 0b11;
-  let Inst{1-0} = 0b00;
+  let Inst{7...0} = factor;
+  let Inst{3...2} = 0b11;
+  let Inst{1...0} = 0b00;
 }
 
 def fooTypeEncB : InstructionEncoding {
@@ -32,8 +35,8 @@ def fooTypeEncB : InstructionEncoding {
   field bits<32> SoftFail = 0;
   bits<32> Inst;
   bits<8> factor;
-  let Inst{15-8} = factor;
-  let Inst{1-0} = 0b11;
+  let Inst{15...8} = factor;
+  let Inst{1...0} = 0b11;
 }
 
 let OutOperandList = (outs) in {
@@ -52,8 +55,8 @@ def bar: Instruction {
   bits<32> Inst;
   bits<32> SoftFail;
   bits<8> factor;
-  let Inst{31-24} = factor;
-  let Inst{1-0} = 0b10;
+  let Inst{31...24} = factor;
+  let Inst{1...0} = 0b10;
   let AsmString = "bar  $factor";
 }
 
@@ -67,14 +70,13 @@ def baz : Instruction {
 }
 }
 
-// DECODER-LABEL: DecoderTable_ModeA32[] =
-// DECODER-DAG: Opcode: fooTypeEncA:foo
-// DECODER-DAG: Opcode: bar
-// DECODER-LABEL: DecoderTable_ModeB32[] =
-// Note that the comment says fooTypeEncA but this is actually fooTypeEncB; plumbing
-// the correct comment text through the decoder is nontrivial.
-// DECODER-DAG: Opcode: fooTypeEncA:foo
-// DECODER-DAG: Opcode: bar
+// DECODER-LABEL: DecoderTable_ModeA32
+// DECODER-DAG: decode to fooTypeEncA:foo
+// DECODER-DAG: decode to bar
+// DECODER-LABEL: DecoderTable_ModeB32
+// DECODER-DAG: decode to fooTypeEncA:baz
+// DECODER-DAG: decode to bar
+// DECODER-DAG: decode to fooTypeEncB:foo
 
 // ENCODER-LABEL:   static const uint64_t InstBits_ModeA[] = {
 // ENCODER:         UINT64_C(2),        // bar

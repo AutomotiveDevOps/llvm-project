@@ -31,21 +31,21 @@ public:
     eDataBackup
   };
 
-  RegisterCheckpoint(Reason reason)
-      : UserID(0), m_data_sp(), m_reason(reason) {}
+  RegisterCheckpoint(Reason reason) : UserID(0), m_reason(reason) {}
 
-  ~RegisterCheckpoint() {}
+  ~RegisterCheckpoint() = default;
 
-  lldb::DataBufferSP &GetData() { return m_data_sp; }
+  lldb::WritableDataBufferSP &GetData() { return m_data_sp; }
 
-  const lldb::DataBufferSP &GetData() const { return m_data_sp; }
+  const lldb::WritableDataBufferSP &GetData() const { return m_data_sp; }
 
 protected:
-  lldb::DataBufferSP m_data_sp;
+  lldb::WritableDataBufferSP m_data_sp;
   Reason m_reason;
 
   // Make RegisterCheckpointSP if you wish to share the data in this class.
-  DISALLOW_COPY_AND_ASSIGN(RegisterCheckpoint);
+  RegisterCheckpoint(const RegisterCheckpoint &) = delete;
+  const RegisterCheckpoint &operator=(const RegisterCheckpoint &) = delete;
 };
 
 } // namespace lldb_private

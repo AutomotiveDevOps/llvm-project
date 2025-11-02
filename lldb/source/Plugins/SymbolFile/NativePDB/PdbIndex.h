@@ -11,7 +11,6 @@
 
 #include "lldb/lldb-types.h"
 #include "llvm/ADT/IntervalMap.h"
-#include "llvm/ADT/Optional.h"
 #include "llvm/DebugInfo/PDB/Native/PDBFile.h"
 #include "llvm/DebugInfo/PDB/PDBTypes.h"
 
@@ -20,11 +19,11 @@
 
 #include <map>
 #include <memory>
+#include <optional>
 
 namespace llvm {
 namespace pdb {
 class DbiStream;
-class TpiStream;
 class TpiStream;
 class InfoStream;
 class PublicsStream;
@@ -48,7 +47,7 @@ struct SegmentOffset;
 class PdbIndex {
 
   /// The underlying PDB file.
-  std::unique_ptr<llvm::pdb::PDBFile> m_file;
+  llvm::pdb::PDBFile *m_file = nullptr;
 
   /// The DBI stream.  This contains general high level information about the
   /// features present in the PDB file, compile units (such as the information
@@ -110,8 +109,7 @@ class PdbIndex {
   void BuildAddrToSymbolMap(CompilandIndexItem &cci);
 
 public:
-  static llvm::Expected<std::unique_ptr<PdbIndex>>
-      create(std::unique_ptr<llvm::pdb::PDBFile>);
+  static llvm::Expected<std::unique_ptr<PdbIndex>> create(llvm::pdb::PDBFile *);
 
   void SetLoadAddress(lldb::addr_t addr) { m_load_address = addr; }
   lldb::addr_t GetLoadAddress() const { return m_load_address; }
@@ -145,16 +143,15 @@ public:
   const CompileUnitIndex &compilands() const { return m_cus; }
 
   lldb::addr_t MakeVirtualAddress(uint16_t segment, uint32_t offset) const;
-  lldb::addr_t MakeVirtualAddress(const SegmentOffset &so) const;
 
   std::vector<SymbolAndUid> FindSymbolsByVa(lldb::addr_t va);
 
   llvm::codeview::CVSymbol ReadSymbolRecord(PdbCompilandSymId cu_sym) const;
   llvm::codeview::CVSymbol ReadSymbolRecord(PdbGlobalSymId global) const;
 
-  llvm::Optional<uint16_t> GetModuleIndexForAddr(uint16_t segment,
-                                                 uint32_t offset) const;
-  llvm::Optional<uint16_t> GetModuleIndexForVa(lldb::addr_t va) const;
+  std::optional<uint16_t> GetModuleIndexForAddr(uint16_t segment,
+                                                uint32_t offset) const;
+  std::optional<uint16_t> GetModuleIndexForVa(lldb::addr_t va) const;
 };
 } // namespace npdb
 } // namespace lldb_private

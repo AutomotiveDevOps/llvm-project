@@ -1,18 +1,15 @@
-=============================
-Release Notes 11.0 (upcoming)
-=============================
+===========================================
+Release Notes |release| |ReleaseNotesTitle|
+===========================================
 
-In Polly 11 the following important changes have been incorporated.
+In Polly |version| the following important changes have been incorporated.
 
-.. warning::
+.. only:: PreRelease
 
-  These releaes notes are for the next release of Polly and describe
-  the new features that have recently been committed to our development
-  branch.
+  .. warning::
+    These release notes are for the next release of Polly and describe
+    the new features that have recently been committed to our development
+    branch.
 
-- Change ...
+ * ScopInliner has been updated for the New Pass Manager.
 
- * The LLVM option -polly-isl-arg was added to pass options to ISL's
-   command line option parser. For instance,
-   -polly-isl-arg=--schedule-algorithm=feautrier switches to the
-   Feautrier scheduling algorithm.

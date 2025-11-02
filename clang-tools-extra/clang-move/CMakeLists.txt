@@ -3,11 +3,17 @@ set(LLVM_LINK_COMPONENTS
   FrontendOpenMP
   )
 
-add_clang_library(clangMove
+add_clang_library(clangMove STATIC
   Move.cpp
   HelperDeclRefGraph.cpp
 
-  LINK_LIBS
+  DEPENDS
+  omp_gen
+  ClangDriverOptions
+  )
+
+clang_target_link_libraries(clangMove
+  PRIVATE
   clangAnalysis
   clangAST
   clangASTMatchers

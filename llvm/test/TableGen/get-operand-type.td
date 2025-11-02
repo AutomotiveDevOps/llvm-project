@@ -1,12 +1,12 @@
 // RUN: llvm-tblgen -gen-instr-info -I %p/../../include %s | FileCheck %s
 
-// Check that getOperandType has the expected info in it
+// Check that getOperandType has the expected info in it.
 
 include "llvm/Target/Target.td"
 
 def archInstrInfo : InstrInfo { }
 
-def arch : Target {
+def X86 : Target {
   let InstructionSet = archInstrInfo;
 }
 
@@ -24,7 +24,7 @@ def InstA : Instruction {
   let InOperandList = (ins OpB:$b, i32imm:$c);
   field bits<8> Inst;
   field bits<8> SoftFail = 0;
-  let Namespace = "MyNamespace";
+  let Namespace = "X86";
 }
 
 def InstB : Instruction {
@@ -33,7 +33,7 @@ def InstB : Instruction {
   let InOperandList = (ins unknown:$x);
   field bits<8> Inst;
   field bits<8> SoftFail = 0;
-  let Namespace = "MyNamespace";
+  let Namespace = "X86";
 }
 
 def InstC : Instruction {
@@ -42,11 +42,16 @@ def InstC : Instruction {
   let InOperandList = (ins RegOp:$x);
   field bits<8> Inst;
   field bits<8> SoftFail = 0;
-  let Namespace = "MyNamespace";
+  let Namespace = "X86";
 }
 
 // CHECK: #ifdef GET_INSTRINFO_OPERAND_TYPE
-// CHECK:        OpTypes::OpA, OpTypes::OpB, OpTypes::i32imm,
-// CHECK-NEXT:   OpTypes::i32imm, -1,
-// CHECK-NEXT:   OpTypes::RegClass, OpTypes::RegOp,
+// CHECK: static constexpr uint{{.*}}_t Offsets[] = {
+// CHECK: static constexpr {{.*}} OpcodeOperandTypes[] = {
+// CHECK:        /* InstA */
+// CHECK-NEXT:   OpA, OpB, i32imm,
+// CHECK-NEXT:   /* InstB */
+// CHECK-NEXT:   i32imm, -1,
+// CHECK-NEXT:   /* InstC */
+// CHECK-NEXT:   RegClass, RegOp,
 // CHECK: #endif // GET_INSTRINFO_OPERAND_TYPE

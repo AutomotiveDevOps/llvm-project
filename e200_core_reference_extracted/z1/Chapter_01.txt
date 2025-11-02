@@ -1,0 +1,243 @@
+Chapter 1
+e200z1 Overview
+1.1       Overview of the e200z1 Cores
+The e200 processor family is a set of CPU cores that implement low-cost versions of the Power
+Architecture™ Book E architecture. e200 processors are designed for deeply embedded control
+applications, which require low cost solutions rather than maximum performance.
+The processors integrate an integer execution unit, branch control unit, instruction fetch and load/store
+units, and a multi-ported register file capable of sustaining three read and two write operations per clock.
+Most integer instructions execute in a single clock cycle. Branch target prefetching is performed by the
+branch unit to allow single-cycle branches in some cases.
+The e200z1 core is a single-issue, 32-bit Power Architecture Book E compliant design with 32-bit general
+purpose registers (GPRs). Power Architecture Book E floating-point instructions are not supported by
+e200 in hardware, but are trapped and may be emulated by software.All arithmetic instructions that
+execute in the core operate on data in the general purpose registers (GPRs).
+In addition to the base Power Architecture Book E instruction set support, the core also implements the
+VLE (variable-length encoding) APU, providing improved code density. The VLE APU is further
+documented in the PowerPC™ VLE APU Definition, Version 1.01, a separate document.
+In the remainder of this document, the e200z1 core is also referred to as the “e200z1 core” or “e200 core”
+when referring to the whole e200 family.
+
+1.1.1        Features
+The following is a list of some of the key features of the e200z1 core:
+   • 32-bit Power Architecture Book E programmer’s model
+   • Single issue, 32-bit CPU
+   • Implements the VLE APU for reduced code footprint
+   • In-order execution and retirement
+   • Precise exception handling
+   • Branch processing unit
+       — Dedicated branch address calculation adder
+       — Branch acceleration using Branch Target Buffer
+   • Supports independent instruction and data accesses to different memory subsystems, such as
+       SRAM and Flash memory via independent Instruction and Data bus interface units (BIUs).
+   • Load/store unit
+
+                           e200z1 Power Architecture Core Reference Manual, Rev. 0
+Freescale Semiconductor                                                                                  1-1
+e200z1 Overview
+
+
+          — 1 cycle load latency
+          — Fully pipelined
+          — Big- and Little-endian support
+          — Misaligned access support
+          — Zero load-to-use pipeline bubbles for aligned transfers
+      •   Power management
+          — Low power design
+          — Power saving modes: doze, nap, sleep, and wait
+          — Dynamic power management of execution units
+      •   Testability
+          — Synthesizeable, full MuxD scan design
+          — ABIST/MBIST for optional memory arrays
+
+1.1.2         Microarchitecture Summary
+The e200 processor utilizes a four stage pipeline for instruction execution. The Instruction Fetch (stage 1),
+Instruction Decode/Register file Read/Effective Address Calculation (stage 2), Execute/Memory Access
+(stage 3), and Register Writeback (stage 4) stages operate in an overlapped fashion, allowing single clock
+instruction execution for most instructions.
+The integer execution unit consists of a 32-bit Arithmetic Unit (AU), a Logic Unit (LU), a 32-bit Barrel
+shifter (Shifter), a Mask-Insertion Unit (MIU), a Condition Register manipulation Unit (CRU), a
+Count-Leading-Zeros unit (CLZ), a 32x32 Hardware Multiplier array, result feed-forward hardware, and
+a hardware divider.
+Arithmetic and logical operations are executed in a single cycle with the exception of the divide
+instructions. A Count-Leading-Zeros unit operates in a single clock cycle.
+The Instruction Unit contains a PC incrementer and a dedicated Branch Address adder to minimize delays
+during change of flow operations. Sequential prefetching is performed to ensure a supply of instructions
+into the execution pipeline. Branch target prefetching from the BTB is performed to accelerate certain
+taken branches in the e200z31. Prefetched instructions are placed into an instruction buffer with 6 entries
+in e200z1, each capable of holding a single 32-bit instruction or a pair of 16-bit instructions.
+Conditional branches which are not taken execute in a single clock. Branches with successful target
+prefetching have an effective execution time of 1 clock. All other taken branches have an execution time
+of two clocks.
+Memory load and store operations are provided for byte, halfword, and word (32-bit) data with automatic
+zero or sign extension of byte and halfword load data as well as optional byte reversal of data. These
+instructions can be pipelined to allow effective single cycle throughput. Load and store multiple word
+instructions allow low overhead context save and restore operations. The load/store unit contains a
+dedicated effective address adder to allow effective address generation to be optimized. Also, a load-to-use
+dependency does not incur any pipeline bubbles for most cases.
+
+
+
+                            e200z1 Power Architecture Core Reference Manual, Rev. 0
+1-2                                                                                    Freescale Semiconductor
+                                                                                              e200z1 Overview
+
+
+The Condition Register unit supports the condition register (CR) and condition register operations defined
+by the PowerPC™ architecture. The condition register consists of eight 4-bit fields that reflect the results
+of certain operations, such as move, integer and floating-point compare, arithmetic, and logical
+instructions, and provide a mechanism for testing and branching.
+Vectored and autovectored interrupts are supported by the CPU. Vectored interrupt support is provided to
+allow multiple interrupt sources to have unique interrupt handlers invoked with no software overhead.
+
+
+
+
+                           e200z1 Power Architecture Core Reference Manual, Rev. 0
+Freescale Semiconductor                                                                                  1-3
+e200z1 Overview
+
+
+  .
+
+
+
+
+                             OnCE/NEXUS
+                                                                                      CPU
+                        CONTROL LOGIC
+                                                                                CONTROL LOGIC
+
+
+
+
+                               MEMORY
+                             MANAGEMENT                                               LR                        INTEGER
+                                UNIT                                           SPR    CR         GPR           EXECUTION
+                                                                                      CTR                         UNIT
+                                                                                      XER
+                   ADDRESS
+
+
+
+
+                                                                                                                MULTIPLY
+                                    INSTRUCTION BUS INTERFACE UNIT
+
+
+
+
+                                                                               INSTRUCTION UNIT                   UNIT
+                                                                           INSTRUCTION BUFFER
+                                                                                                                            CONTROL
+                             32
+                   DATA
+
+
+
+
+                                                                                                              EXTERNAL
+                                                                                                                SPR
+                                                                                                             INTERFACE       DATA
+                             32
+
+
+
+
+                                                                                                            (MTSPR/MFSPR)
+                   CONTROL
+
+
+
+
+                                                                                     PC     BRANCH
+                                                                                    UNIT     UNIT
+
+                                                                                     LOAD/
+                             N
+
+
+
+
+                                                                                     STORE
+                                                                                      UNIT
+
+
+
+
+                                                                         DATA BUS INTERFACE UNIT
+
+
+
+                                                                               32           32         N
+                                                                     ADDRESS        DATA         CONTROL
+
+
+
+                                                                         Figure 1-1. e200z1 Block Diagram
+
+1.1.2.1           Instruction Unit Features
+The features of the e200 Instruction unit are:
+   • 32-bit instruction fetch path supports fetching of one 32-bit instruction per clock, or up to two
+       16-bit VLE instructions per clock.
+
+                                   e200z1 Power Architecture Core Reference Manual, Rev. 0
+1-4                                                                                                                      Freescale Semiconductor
+                                                                                              e200z1 Overview
+
+
+    •   Instruction buffer with 4 entries in e200z1, each holding a single 32-bit instruction, or a pair of
+        16-bit instructions
+    •   Dedicated PC incrementer supporting instruction prefetches
+    •   Branch unit with dedicated branch address adder and small branch target buffer logic supporting
+        single cycle of execution of certain branches, two cycles for all others
+
+1.1.2.2       Integer Unit Features
+The e200 integer unit supports single cycle execution of most integer instructions:
+   • 32-bit AU for arithmetic and comparison operations
+   • 32-bit LU for logical operations
+   • 32-bit priority encoder for count leading zero’s function
+   • 32-bit single cycle barrel shifter for shifts and rotates
+   • 32-bit mask unit for data masking and insertion
+   • Divider logic for signed and unsigned divide in 6-16 clocks with minimized execution timing
+   • 32x32 hardware multiplier array supports single-cycle 32x32->32 multiply
+
+1.1.2.3       Load/Store Unit Features
+The e200 load/store unit supports load, store, and the load multiple / store multiple instructions:
+   • 32-bit effective address adder for data memory address calculations
+   • Pipelined operation supports throughput of one load or store operation per cycle
+   • 32-bit interface to memory dedicated memory interface on e200z1)
+
+1.1.2.4       e200z1 System Bus Features
+The features of the e200z1 System Bus interface are as follows:
+   • Independent Instruction and Data Buses
+   • AMBA AHB Lite Rev 2.0 Specification with support for ARM v6 AMBA Extensions
+       — Exclusive Access Monitor
+       — Byte Lane Strobes
+       — Cache Allocate Support
+   • 32-bit address bus plus attributes and control on each bus
+   • 32-bit read data bus for Instruction Interface
+   • Separate uni-directional 32-bit read data bus and 32-bit write data bus for Data Interface
+   • Overlapped, in-order accesses
+
+1.1.2.5       MMU Features
+The features of the MMU are as follows:
+   • Virtual Memory support
+
+
+                           e200z1 Power Architecture Core Reference Manual, Rev. 0
+Freescale Semiconductor                                                                                  1-5
+e200z1 Overview
+
+
+      •   32-bit Virtual and Physical Addresses
+      •   8-bit Process Identifier
+      •   8-entry Fully-associative TLB
+      •   Support for multiple page sizes from 4-Kbyte to 4-Gbyte
+      •   Entry Flush Protection
+
+
+
+
+                            e200z1 Power Architecture Core Reference Manual, Rev. 0
+1-6                                                                                   Freescale Semiconductor

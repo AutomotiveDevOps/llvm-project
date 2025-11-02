@@ -1,16 +1,5 @@
 // RUN: %clang_builtins %s %librt -o %t && %run %t
 // REQUIRES: librt_has_multf3
-//===--------------- multf3_test.c - Test __multf3 ------------------------===//
-//
-// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
-// See https://llvm.org/LICENSE.txt for license information.
-// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-//
-//===----------------------------------------------------------------------===//
-//
-// This file tests __multf3 for the compiler_rt library.
-//
-//===----------------------------------------------------------------------===//
 
 #include <stdio.h>
 
@@ -26,7 +15,7 @@ int test__multf3(long double a, long double b,
                  uint64_t expectedHi, uint64_t expectedLo)
 {
     long double x = __multf3(a, b);
-    int ret = compareResultLD(x, expectedHi, expectedLo);
+    int ret = compareResultF128(x, expectedHi, expectedLo);
 
     if (ret){
         printf("error in test__multf3(%.20Lf, %.20Lf) = %.20Lf, "
@@ -88,6 +77,12 @@ int main()
                      UINT64_C(0x0),
                      UINT64_C(0x0)))
         return 1;
+    // test carry between lo and hi in widening multiply
+    if (test__multf3(0x0.7fffffffffffffffffffffffffffp-16382L,
+                     0x1.7fffffffffffffffffffffffffffp+1L,
+                     UINT64_C(0x00017fffffffffff),
+                     UINT64_C(0xfffffffffffffffc)))
+      return 1;
 
 #else
     printf("skipped\n");

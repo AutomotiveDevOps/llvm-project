@@ -1,4 +1,4 @@
-//===--- CloexecCheck.cpp - clang-tidy-------------------------------------===//
+//===----------------------------------------------------------------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -14,16 +14,15 @@
 
 using namespace clang::ast_matchers;
 
-namespace clang {
-namespace tidy {
-namespace android {
+namespace clang::tidy::android {
 
-namespace {
 // Helper function to form the correct string mode for Type3.
 // Build the replace text. If it's string constant, add <Mode> directly in the
 // end of the string. Else, add <Mode>.
-std::string buildFixMsgForStringFlag(const Expr *Arg, const SourceManager &SM,
-                                     const LangOptions &LangOpts, char Mode) {
+static std::string buildFixMsgForStringFlag(const Expr *Arg,
+                                            const SourceManager &SM,
+                                            const LangOptions &LangOpts,
+                                            char Mode) {
   if (Arg->getBeginLoc().isMacroID())
     return (Lexer::getSourceText(
                 CharSourceRange::getTokenRange(Arg->getSourceRange()), SM,
@@ -34,11 +33,6 @@ std::string buildFixMsgForStringFlag(const Expr *Arg, const SourceManager &SM,
   StringRef SR = cast<StringLiteral>(Arg->IgnoreParenCasts())->getString();
   return ("\"" + SR + Twine(Mode) + "\"").str();
 }
-} // namespace
-
-const char *CloexecCheck::FuncDeclBindingStr = "funcDecl";
-
-const char *CloexecCheck::FuncBindingStr ="func";
 
 void CloexecCheck::registerMatchersImpl(
     MatchFinder *Finder, internal::Matcher<FunctionDecl> Function) {
@@ -87,7 +81,7 @@ void CloexecCheck::insertStringFlag(
 
   // Check if the <Mode> may be in the mode string.
   const auto *ModeStr = dyn_cast<StringLiteral>(ModeArg->IgnoreParenCasts());
-  if (!ModeStr || (ModeStr->getString().find(Mode) != StringRef::npos))
+  if (!ModeStr || ModeStr->getString().contains(Mode))
     return;
 
   std::string ReplacementText = buildFixMsgForStringFlag(
@@ -108,6 +102,4 @@ StringRef CloexecCheck::getSpellingArg(const MatchFinder::MatchResult &Result,
       SM, Result.Context->getLangOpts());
 }
 
-} // namespace android
-} // namespace tidy
-} // namespace clang
+} // namespace clang::tidy::android

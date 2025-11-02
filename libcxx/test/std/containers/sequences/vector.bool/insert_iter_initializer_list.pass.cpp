@@ -6,7 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-// UNSUPPORTED: c++98, c++03
+// UNSUPPORTED: c++03
 
 // <vector>
 
@@ -18,9 +18,8 @@
 #include "test_macros.h"
 #include "min_allocator.h"
 
-int main(int, char**)
-{
-    {
+TEST_CONSTEXPR_CXX20 bool tests() {
+  {
     std::vector<bool> d(10, true);
     std::vector<bool>::iterator i = d.insert(d.cbegin() + 2, {false, true, true, false});
     assert(d.size() == 14);
@@ -39,8 +38,8 @@ int main(int, char**)
     assert(d[11] == true);
     assert(d[12] == true);
     assert(d[13] == true);
-    }
-    {
+  }
+  {
     std::vector<bool, min_allocator<bool>> d(10, true);
     std::vector<bool, min_allocator<bool>>::iterator i = d.insert(d.cbegin() + 2, {false, true, true, false});
     assert(d.size() == 14);
@@ -59,7 +58,15 @@ int main(int, char**)
     assert(d[11] == true);
     assert(d[12] == true);
     assert(d[13] == true);
-    }
+  }
 
+  return true;
+}
+
+int main(int, char**) {
+  tests();
+#if TEST_STD_VER > 17
+  static_assert(tests());
+#endif
   return 0;
 }

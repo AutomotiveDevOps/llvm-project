@@ -15,12 +15,16 @@
 #ifndef LLVM_CLANG_TOOLS_EXTRA_CLANGD_COMPILER_H
 #define LLVM_CLANG_TOOLS_EXTRA_CLANGD_COMPILER_H
 
-#include "../clang-tidy/ClangTidyOptions.h"
-#include "GlobalCompilationDatabase.h"
+#include "FeatureModule.h"
+#include "ModulesBuilder.h"
+#include "TidyProvider.h"
 #include "index/Index.h"
+#include "support/ThreadsafeFS.h"
 #include "clang/Frontend/CompilerInstance.h"
 #include "clang/Frontend/PrecompiledPreamble.h"
 #include "clang/Tooling/CompilationDatabase.h"
+#include <memory>
+#include <vector>
 
 namespace clang {
 namespace clangd {
@@ -36,16 +40,15 @@ public:
 
 // Options to run clang e.g. when parsing AST.
 struct ParseOptions {
-  tidy::ClangTidyOptions ClangTidyOpts;
-  bool SuggestMissingIncludes = false;
-  bool BuildRecoveryAST = false;
-  bool PreserveRecoveryASTType = false;
+  bool PreambleParseForwardingFunctions = true;
+
+  bool ImportInsertions = false;
 };
 
 /// Information required to run clang, e.g. to parse AST or do code completion.
 struct ParseInputs {
   tooling::CompileCommand CompileCommand;
-  IntrusiveRefCntPtr<llvm::vfs::FileSystem> FS;
+  const ThreadsafeFS *TFS;
   std::string Contents;
   // Version identifier for Contents, provided by the client and opaque to us.
   std::string Version = "null";
@@ -54,8 +57,19 @@ struct ParseInputs {
   bool ForceRebuild = false;
   // Used to recover from diagnostics (e.g. find missing includes for symbol).
   const SymbolIndex *Index = nullptr;
-  ParseOptions Opts;
+  ParseOptions Opts = ParseOptions();
+  TidyProviderRef ClangTidyProvider = {};
+  // Used to acquire ASTListeners when parsing files.
+  FeatureModuleSet *FeatureModules = nullptr;
+  // Used to build and manage (C++) modules.
+  ModulesBuilder *ModulesManager = nullptr;
 };
+
+/// Clears \p CI from options that are not supported by clangd, like codegen or
+/// plugins. This should be combined with CommandMangler::adjust, which provides
+/// similar functionality for options that needs to be stripped from compile
+/// flags.
+void disableUnsupportedOptions(CompilerInvocation &CI);
 
 /// Builds compiler invocation that could be used to build AST or preamble.
 std::unique_ptr<CompilerInvocation>
@@ -76,6 +90,10 @@ std::unique_ptr<CompilerInstance> prepareCompilerInstance(
     std::unique_ptr<clang::CompilerInvocation>, const PrecompiledPreamble *,
     std::unique_ptr<llvm::MemoryBuffer> MainFile,
     IntrusiveRefCntPtr<llvm::vfs::FileSystem>, DiagnosticConsumer &);
+
+/// Respect `#pragma clang __debug crash` etc, which are usually disabled.
+/// This may only be called before threads are spawned.
+void allowCrashPragmasForTest();
 
 } // namespace clangd
 } // namespace clang

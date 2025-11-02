@@ -1,0 +1,321 @@
+Chapter 3
+Instruction Model
+This chapter provides additional information about the Power Architecture Book E as it relates specifically
+to e200.
+The e200z0 and e200z0h cores are a 32-bit implementation of the Power Architecture Book E as defined
+in Power Architecture Book E Specification v 2.0. This architecture specification includes a recognition
+that different processor implementations may require clarifications, extensions or deviations from the
+architectural descriptions. e200z0 and e200z0h are unique in that they support only the VLE instruction
+set encodings. The VLE APU is described in PowerPC VLE, version 1.01.
+
+3.1        Unsupported Instructions and Instruction Forms
+The e200 core does not support the instructions listed in Table 3-1. An unimplemented instruction
+exception is generated if the processor attempts to execute one of these instructions.
+                                       Table 3-1. List of Unsupported Instructions
+
+                                 Type/Name                                      Mnemonics
+
+                 String Instructions                            lswi, lswx, stswi, stswx
+
+                 Device control register and Move from APID mfapidi, mfdcrx, mtdcrx
+
+
+3.2        Optionally Supported Instructions and Instruction Forms
+e200 cores optionally supports the instructions listed in Table 3-2 if a cache and/or TLB is present. An
+instruction exception may be generated if the processor attempts to execute one of these instructions and
+the related functional block is not present, or the specific instruction may be treated as a no-op.
+                                Table 3-2. List of Optionally Supported Instructions
+
+              Type/Name                                   Mnemonics                                      Unit
+
+  Cache Management Instructions1        dcba, dcbf, dcbi, dcbt, dcbtst, dcbst, dcbz,       Data Cache/ Unified Cache
+                                        icbi, icbt                                         Instruction Cache/Unified Cache
+
+  Cache Locking Instructions2           dcbtls, dcbtstls, dcblc,                           Data Cache/ Unified Cache
+                                        icbtls, icblc                                      Instruction Cache/Unified Cache
+
+  TLB Management Instructions3          tlbivax, tlbre, tlbsx, tlbsync, tlbwe              TLB
+
+  DCR Management3                       mfdcr, mtdcr                                       DCR
+  1 These instructions are not supported and are treated as no-ops, with the exception of dcbz which results in an
+    Alignment Interrupt, and dcbi, which is treated as a privileged no-op.
+  2 These instructions are not supported and are treated as no-ops.
+  3
+    These instructions are not supported and are treated as unimplemented.
+
+
+                                e200z0 Power Architecture Core Reference Manual, Rev. 0
+Freescale Semiconductor                                                                                                      3-1
+Instruction Model
+
+
+3.3        Memory Access Alignment Support
+The e200 core provides hardware support for unaligned memory accesses; however, there is a performance
+degradation for accesses that cross a 32-bit (4-byte) boundary. For these cases, the throughput of the
+load/store unit is degraded to 1 misaligned load every 2 cycles. Stores that are misaligned across a 32-bit
+(4-byte) boundary can be translated at a rate of 2 cycles per store. Frequent use of unaligned memory
+accesses result in an impact on performance.
+                                                      NOTE
+                    Accesses that cross a 32-bit boundary may be restarted.
+
+3.4        Memory Synchronization and Reservation Instructions
+The msync instruction provides a synchronization function and a memory barrier function. This instruction
+waits for all preceding instructions and data memory accesses to complete before the msync instruction
+completes. Subsequent instructions in the instruction stream are not initiated until after the msync
+instruction ensures these functions have been performed.
+On the e200 core, the mbar instruction behaves identically to the msync instruction. The mbar instruction
+MO field is ignored by the e200 core.
+The e200 core implements the lwarx and stwcx. instructions as described in Book E. If the EA is not a
+multiple of 4 for either instruction, an alignment interrupt is invoked.
+As allowed by Power Architecture Book E, the e200 core does not require that for a stwcx. instruction to
+succeed, the EA of the stwcx. instruction must be to the same reservation granule as the EA of a preceding
+lwarx instruction. Reservation granularity is implementation-dependent. The e200 core does not define a
+reservation granule explicitly; reservation granularity is defined by external logic. When no external logic
+is provided, the e200 core performs no address comparison checking, thus the effective implementation
+granularity is “null”.
+The e200 core implements an internal reservation status flag (HID1[ATS]) representing reservation status.
+This flag is set when a lwarx instruction is executed and completes without error, and remains set until it
+is cleared by one of the following mechanisms:
+    • Execution of a stwcx. instruction is completed without error, or
+    • The e200 core p_rsrv_clr input signal is asserted, or
+    • The reservation is invalidated when an external input, critical input (on e200z0), or non-maskable
+        interrupt (on e200z0h) is signaled and the HID0[ICR] bit is set.
+When the e200 core decodes a stwcx. instruction, it checks the value of the local reservation flag
+(HID1[ATS]). If the status indicates that no reservation is active, then the stwcx. instruction is treated as
+a nop. No exceptions are taken, and no access is performed, thus no data breakpoint occurs, regardless of
+matching the data breakpoint attributes.
+ The e200 core provides the input signal p_hresp[2:0], which is sampled at termination of a stwcx. store
+transfer to allow an external agent or mechanism to indicate that the stwcx. instruction has failed to update
+memory, even though a reservation existed for the store at the time it was issued. This is not considered an
+
+
+
+                               e200z0 Power Architecture Core Reference Manual, Rev. 0
+3-2                                                                                      Freescale Semiconductor
+                                                                                                 Instruction Model
+
+
+error, and causes the condition codes for the stwcx. instruction to be written as if a reservation did not exist
+for the stwcx. instruction. In addition, any outstanding reservation is cleared.
+The p_rsrv_clr input signal is not intended for normal use in managing reservations. It is provided for
+specialized system applications. The normal bus protocol is used to manage reservations using external
+reservation logic in systems with multiple coherent bus masters, using the transfer type and transfer
+response signals. In single coherent master systems, no external logic is required, and the internal
+reservation flag is sufficient to support multi-tasking applications.
+
+3.5       Branch Prediction
+In the e200z0h, the instruction fetching mechanism uses a branch target buffer to detect branch instructions
+early. This branch instruction lookahead scheme allows branch targets to be fetched early, thereby hiding
+some taken branch bubbles.
+
+3.6       Interruption of Instructions by Interrupt Requests
+In general, the e200 core samples pending non-maskable interrupts, external input, and critical input
+interrupt requests at instruction boundaries. However, in order to reduce interrupt latency, long running
+instructions may be interrupted prior to completion. Instructions in this class include divides (divw[uo][.]),
+load multiple word and store multiple word. When interrupted prior to completion, the value saved in
+SRR0/CSRR0 is the address of the interrupted instruction. The instruction is restarted from the beginning
+after returning from the interrupt handler.
+
+3.7       New e200 Instructions
+The e200 core implements the Freescale EIS isel APU as described below which extends the Power
+Architecture Book E instruction set. The e200 wait instruction implements a wait for interrupt function
+and is described below. The e200 se_rfdi instruction returns from a Debug interrupt and is also described
+below.
+
+3.7.1        ISEL APU
+The ISEL APU defines the isel instruction which provides a means to select one of two registers and place
+the result in a destination register under the control of a predicate value supplied by a bit in the condition
+register. This instruction can be used to eliminate branches in software and in many cases improve
+performance. This instruction can also increase program execution time determinism by eliminating the
+need to predict the target and direction of the branches replaced by the integer select function. The
+instruction form and definition is as follows.
+
+
+
+
+                            e200z0 Power Architecture Core Reference Manual, Rev. 0
+Freescale Semiconductor                                                                                       3-3
+Instruction Model
+
+
+
+isel                                                                                                                      isel
+Integer Select
+
+isel                    RT, RA, RB, crb
+
+               31                 RT                           RA                    RB                    crb           01111      0
+
+       0                5   6                10       11                15 16                 20 21              25 26           30 31
+
+
+           if RA=0 then a ← 320 else a ← GPR(RA)
+           c = CRcrb
+           if c then GPR(RT) ← a
+           else GPR(RT) ← GPR(RB)
+For isel, if the bit of the CR specified by (crb) is set, the contents of RA|0 are copied into RT. If the bit of
+the CR specified by (crb) is clear, the contents of RB are copied into RT.
+Other registers altered:
+    • None
+
+3.7.2          Debug APU
+e200 implements the EIS Debug APU, as documented in the EREF: A Programmer’s Reference Manual
+for Freescale Book E Processors, to support the capability to handle the Debug interrupt as an additional
+interrupt level. To support this interrupt level, a new “return from debug interrupt” (se_rfdi) instruction is
+defined as part of the Debug APU, along with a new pair of save/restore registers, DSRR0, and DSRR1.
+When the Debug APU is enabled (HID0[DAPUEN] = 1), the se_rfdi instruction provides a means to
+return from a debug interrupt. See Section 2.3.9, “Hardware Implementation Dependent Register 0
+(HID0),” for more information about enabling the Debug APU.
+The instruction forms and definition are as follows.
+
+
+se_rfdi                                                                                                          se_rfdi
+Return From Debug Interrupt
+
+se_rfdi
+
+                                 0   0   0        0    0   0    0   0    0   0   0    0   0    1   0   1    0
+
+                                 0                                                                          15
+
+
+           MSR ←DSRR1
+           PC ←DSRR032:62 || 0b0
+
+
+
+
+                                e200z0 Power Architecture Core Reference Manual, Rev. 0
+3-4                                                                                                                 Freescale Semiconductor
+                                                                                                               Instruction Model
+
+
+The se_rfdi instruction is used to return from a Debug interrupt, or as a means of simultaneously
+establishing a new context and synchronizing on that new context.
+The contents of Debug Save/Restore Register 1 are place into the Machine State Register. If the new
+Machine State Register value does not enable any pending exceptions, then the next instruction is fetched,
+under control of the new Machine State Register value from the address DSRR0 32:62|| 0b0. If the new
+Machine State Register value enables one or more pending exceptions, the interrupt associated with the
+highest priority pending exception is generated; in this case the value placed into Save/Restore Register 0
+or Critical Save/Restore Register 0 by the interrupt processing mechanism is the address of the instruction
+that would have been executed next had the interrupt not occurred (such as the address in Debug
+Save/Restore Register 0 at the time of the execution of the se_rfdi).
+Execution of this instruction is privileged and context synchronizing.
+Special Registers Altered:
+   • MSR
+When the Debug APU is disabled (HID0[DAPUEN]=0), this instruction is treated as an illegal instruction.
+
+3.7.3          WAIT APU
+The wait instruction allows software to cease all synchronous activity, waiting for an asynchronous
+interrupt to occur. The instruction can be used to cease processor activity in both user and supervisor
+modes. Asynchronous interrupts which cause the waiting state to be exited if enabled are critical input,
+external input, machine check pin (p_mcp_b). Nonmaskable interrupts (p_nmi_b) also cause the waiting
+state to be exited.
+
+
+wait                                                                                                       wait
+Wait for Interrupt
+wait
+       0                   5   6            10 11          15 16           20 21                                        31
+
+       0   1   1   1   1   1                         ///                       0   0   0   0   1   1   1   1    1   0   /
+
+
+The wait instruction provides an ordering function for the effects of all instructions executed by the
+processor executing the wait instruction and stops synchronous processor activity. Executing a wait
+instruction ensures that all instructions have completed before the wait instruction completes, causes
+processor instruction fetching to cease, and ensures that no subsequent instructions are initiated until an
+asynchronous interrupt or a debug interrupt occurs.
+Once the wait instruction has completed, the program counter points to the next sequential instruction. The
+saved value in xSRR0 when the processor re-initiates activity points to the instruction following the wait
+instruction.
+Execution of a wait instruction places the CPU in the “waiting” state and is indicated by assertion of the
+p_waiting output signal. The signal is negated after leaving the “waiting” state.
+
+
+
+                                   e200z0 Power Architecture Core Reference Manual, Rev. 0
+Freescale Semiconductor                                                                                                      3-5
+Instruction Model
+
+
+Software must ensure that interrupts responsible for exiting the waiting state are enabled before executing
+a wait instruction.
+
+3.8        Unimplemented SPRs and Read-Only SPRs
+e200 fully decodes the SPR field of the mfspr and mtspr instructions. If the SPR specified is undefined
+and not privileged, an illegal instruction exception is generated. If the SPR specified is undefined and
+privileged and the CPU is in user mode (MSR[PR=1]), a privileged instruction exception is generated. If
+the SPR specified is undefined and privileged and the core is in supervisor mode (MSR[PR=0]), an illegal
+instruction exception is generated.
+For the mtspr instruction, if the SPR specified is read-only and not privileged, an illegal instruction
+exception is generated. If the SPR specified is read-only and privileged and the core is in user mode
+(MSR[PR=1]), a privileged instruction exception is generated. If the SPR specified is read-only and
+privileged and the core is in supervisor mode (MSR[PR=0]), an illegal instruction exception is generated.
+For e200z0 and e200z0h, the following SPRs are not implemented and attempted access via a mtspr or
+mfspr instruction results in an unimplemented instruction exception, unless the register is privileged and
+the access attempt is made in user mode, in which case a privileged instruction exception occurs.
+
+                                           Table 3-3. List of Unimplemented SPRs
+
+                                        Type                                         Name
+
+                    TImebase                                     DEC, DECAR, TCR, TSR, TBU, TBL
+                    Software-Use Special Purpose Registers       USPRG0, SPRG2-7
+                    Interrupt Vector Offset Registers            IVOR0-151
+                1
+                     These SPRs are hardwired to specific values, and are readable, but a mtspr results in
+                     an unimplemented or privileged exception.
+
+
+
+3.9        Invalid Forms of Instructions
+
+3.9.1         Load and Store with Update Instructions
+Power Architecture Book E defines the case when a load with update instruction specifies the same register
+in the RT and RA field of the instruction as an invalid format. For this invalid case, the e200 core performs
+the instruction and update the register with the load data. In addition, if RA=0 for any load or store with
+update instruction, the e200 core updates RA (GPR0).
+
+3.9.2         Load Multiple Word (e_lmw) Instruction
+Power Architecture Book E defines as invalid any form of the e_lmw instruction in which RA is in the
+range of registers to be loaded, including the case in which RA=0. On e200, invalid forms of the e_lmw
+instruction is executed as follows:
+    • Case 1: RA is in the range of RT, RA!=0. In this case, address generation for individual loads to
+        register targets in is done using the architectural value of RA which existed when beginning
+
+                                   e200z0 Power Architecture Core Reference Manual, Rev. 0
+3-6                                                                                                   Freescale Semiconductor
+                                                                                               Instruction Model
+
+
+        execution of this e_lmw instruction. RA is overwritten with a value fetched from memory as if it
+        had not been the base register. Note that if the instruction is interrupted and restarted, the base
+        address may be different if RA has been overwritten.
+    •   Case 2: RA=0 and RT=0. In this case, address generation for all loads to register targets RT=0 to
+        RT=31 is done substituting the value of 0 for the RA operand.
+
+3.9.3        Instructions with Reserved Fields Non-Zero
+Power Architecture Book E defines certain bit fields in various instructions as reserved and specifies that
+these fields be set to zero. Per the Book E recommendation, e200 ignores the value of the reserved field
+(bit 31) in X-form integer load and store instructions. For all other instructions, e200 generates an illegal
+instruction exception if a reserved field is non-zero.
+
+3.10      Optionally Supported APU Instructions
+e200 cores optionally support several APUs. If a core does not implement a particular APU, it may treat
+these instructions as illegal, or may treat them as unimplemented. e200z0 and e200z0h treat the Embedded
+Floating-Point APU instructions (efsxxx, brinc) as unimplemented instructions because other cores of the
+e200 family implement this APU. All other non-supported APUs are treated as illegal instructions.
+
+
+
+
+                           e200z0 Power Architecture Core Reference Manual, Rev. 0
+Freescale Semiconductor                                                                                     3-7
+Instruction Model
+
+
+
+
+                    e200z0 Power Architecture Core Reference Manual, Rev. 0
+3-8                                                                           Freescale Semiconductor

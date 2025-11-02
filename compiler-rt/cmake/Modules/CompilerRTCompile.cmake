@@ -46,7 +46,7 @@ function(sanitizer_test_compile obj_list source arch)
   # Write out architecture-specific flags into TARGET_CFLAGS variable.
   get_target_flags_for_arch(${arch} TARGET_CFLAGS)
   set(COMPILE_DEPS ${TEST_COMPILE_DEPS})
-  if(NOT COMPILER_RT_STANDALONE_BUILD)
+  if(NOT COMPILER_RT_STANDALONE_BUILD OR COMPILER_RT_TEST_STANDALONE_BUILD_LIBS)
     list(APPEND COMPILE_DEPS ${TEST_DEPS})
   endif()
   clang_compile(${output_obj} ${source}
@@ -65,41 +65,55 @@ function(clang_compile object_file source)
   cmake_parse_arguments(SOURCE "" "" "CFLAGS;DEPS" ${ARGN})
   get_filename_component(source_rpath ${source} REALPATH)
   if(NOT COMPILER_RT_STANDALONE_BUILD)
-    list(APPEND SOURCE_DEPS clang compiler-rt-headers)
+    list(APPEND SOURCE_DEPS clang)
   endif()
+  list(APPEND SOURCE_DEPS compiler-rt-headers)
   if (TARGET CompilerRTUnitTestCheckCxx)
     list(APPEND SOURCE_DEPS CompilerRTUnitTestCheckCxx)
   endif()
   string(REGEX MATCH "[.](cc|cpp)$" is_cxx ${source_rpath})
-  string(REGEX MATCH "[.](m|mm)$" is_objc ${source_rpath})
-  if(is_cxx)
-    string(REPLACE " " ";" global_flags "${CMAKE_CXX_FLAGS}")
+  if (is_cxx)
+    set(compiler ${COMPILER_RT_TEST_CXX_COMPILER})
   else()
-    string(REPLACE " " ";" global_flags "${CMAKE_C_FLAGS}")
+    set(compiler ${COMPILER_RT_TEST_COMPILER})
+  endif()
+  if(COMPILER_RT_STANDALONE_BUILD)
+    # Only add global flags in standalone build.
+    if(is_cxx)
+      string(REPLACE " " ";" global_flags "${CMAKE_CXX_FLAGS}")
+    else()
+      string(REPLACE " " ";" global_flags "${CMAKE_C_FLAGS}")
+    endif()
+
+    if (MSVC)
+      translate_msvc_cflags(global_flags "${global_flags}")
+    endif()
+
+    if (APPLE)
+      set(global_flags ${OSX_SYSROOT_FLAG} ${global_flags})
+    endif()
+
+    # Ignore unknown warnings. CMAKE_CXX_FLAGS may contain GCC-specific options
+    # which are not supported by Clang.
+    list(APPEND global_flags -Wno-unknown-warning-option)
+    set(compile_flags ${global_flags} ${SOURCE_CFLAGS})
+  else()
+    set(compile_flags ${SOURCE_CFLAGS})
   endif()
 
-  if (MSVC)
-    translate_msvc_cflags(global_flags "${global_flags}")
-  endif()
-
-  if (APPLE)
-    set(global_flags ${OSX_SYSROOT_FLAG} ${global_flags})
-  endif()
+  string(REGEX MATCH "[.](m|mm)$" is_objc ${source_rpath})
   if (is_objc)
-    list(APPEND global_flags -ObjC)
+    list(APPEND compile_flags "-ObjC")
   endif()
 
-  # Ignore unknown warnings. CMAKE_CXX_FLAGS may contain GCC-specific options
-  # which are not supported by Clang.
-  list(APPEND global_flags -Wno-unknown-warning-option)
-  set(compile_flags ${global_flags} ${SOURCE_CFLAGS})
   add_custom_command(
     OUTPUT ${object_file}
-    COMMAND ${COMPILER_RT_TEST_COMPILER} ${compile_flags} -c
+    COMMAND ${compiler} ${compile_flags} -c
             -o "${object_file}"
             ${source_rpath}
     MAIN_DEPENDENCY ${source}
-    DEPENDS ${SOURCE_DEPS})
+    DEPENDS ${SOURCE_DEPS}
+    COMMAND_EXPAND_LISTS)
 endfunction()
 
 # On Darwin, there are no system-wide C++ headers and the just-built clang is
@@ -136,7 +150,7 @@ macro(clang_compiler_add_cxx_check)
       COMMAND bash -c "${CMD}"
       COMMENT "Checking that just-built clang can find C++ headers..."
       VERBATIM)
-    if (NOT COMPILER_RT_STANDALONE_BUILD AND NOT RUNTIMES_BUILD)
+    if (NOT COMPILER_RT_STANDALONE_BUILD AND NOT LLVM_RUNTIMES_BUILD)
       ADD_DEPENDENCIES(CompilerRTUnitTestCheckCxx clang)
     endif()
   endif()

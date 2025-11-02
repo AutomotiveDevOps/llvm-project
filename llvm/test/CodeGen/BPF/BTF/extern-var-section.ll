@@ -1,5 +1,5 @@
-; RUN: llc -march=bpfel -filetype=asm -o - %s | FileCheck -check-prefixes=CHECK %s
-; RUN: llc -march=bpfeb -filetype=asm -o - %s | FileCheck -check-prefixes=CHECK %s
+; RUN: llc -mtriple=bpfel -filetype=asm -o - %s | FileCheck -check-prefixes=CHECK %s
+; RUN: llc -mtriple=bpfeb -filetype=asm -o - %s | FileCheck -check-prefixes=CHECK %s
 ;
 ; Source code:
 ;   extern int global_func(char c) __attribute__((section("abc")));
@@ -13,10 +13,10 @@
 @ch = external dso_local local_unnamed_addr global i8, section "abc", align 1, !dbg !0
 
 ; Function Attrs: nounwind
-define dso_local i32 @test() local_unnamed_addr #0 !dbg !16 {
+define dso_local i32 @test() local_unnamed_addr !dbg !16 {
 entry:
-  %call = tail call i32 @global_func(i8 signext 0) #2, !dbg !19
-  %0 = load i8, i8* @ch, align 1, !dbg !20, !tbaa !21
+  %call = tail call i32 @global_func(i8 signext 0), !dbg !19
+  %0 = load i8, ptr @ch, align 1, !dbg !20, !tbaa !21
   %conv = sext i8 %0 to i32, !dbg !20
   %add = add nsw i32 %call, %conv, !dbg !24
   ret i32 %add, !dbg !25
@@ -28,8 +28,8 @@ entry:
 ; CHECK-NEXT:        .byte   0
 ; CHECK-NEXT:        .long   24
 ; CHECK-NEXT:        .long   0
-; CHECK-NEXT:        .long   128
-; CHECK-NEXT:        .long   128
+; CHECK-NEXT:        .long   140
+; CHECK-NEXT:        .long   140
 ; CHECK-NEXT:        .long   79
 ; CHECK-NEXT:        .long   0                       # BTF_KIND_FUNC_PROTO(id = 1)
 ; CHECK-NEXT:        .long   218103808               # 0xd000000
@@ -58,7 +58,10 @@ entry:
 ; CHECK-NEXT:        .long   5
 ; CHECK-NEXT:        .long   2
 ; CHECK-NEXT:        .long   75                      # BTF_KIND_DATASEC(id = 8)
-; CHECK-NEXT:        .long   251658241               # 0xf000001
+; CHECK-NEXT:        .long   251658242               # 0xf000002
+; CHECK-NEXT:        .long   0
+; CHECK-NEXT:        .long   6
+; CHECK-NEXT:        .long   global_func
 ; CHECK-NEXT:        .long   0
 ; CHECK-NEXT:        .long   7
 ; CHECK-NEXT:        .long   ch
@@ -81,11 +84,7 @@ entry:
 ; CHECK-NEXT:        .ascii  "abc"                   # string offset=75
 ; CHECK-NEXT:        .byte   0
 
-declare !dbg !6 dso_local i32 @global_func(i8 signext) local_unnamed_addr #1 section "abc"
-
-attributes #0 = { nounwind "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "frame-pointer"="all" "less-precise-fpmad"="false" "min-legal-vector-width"="0" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "unsafe-fp-math"="false" "use-soft-float"="false" }
-attributes #1 = { "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "frame-pointer"="all" "less-precise-fpmad"="false" "no-infs-fp-math"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "unsafe-fp-math"="false" "use-soft-float"="false" }
-attributes #2 = { nounwind }
+declare !dbg !6 dso_local i32 @global_func(i8 signext) local_unnamed_addr section "abc"
 
 !llvm.dbg.cu = !{!2}
 !llvm.module.flags = !{!12, !13, !14}

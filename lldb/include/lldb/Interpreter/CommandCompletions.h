@@ -11,9 +11,10 @@
 
 #include <set>
 
-#include "lldb/Core/FileSpecList.h"
 #include "lldb/Core/SearchFilter.h"
+#include "lldb/Interpreter/Options.h"
 #include "lldb/Utility/CompletionRequest.h"
+#include "lldb/Utility/FileSpecList.h"
 #include "lldb/Utility/RegularExpression.h"
 #include "lldb/lldb-private.h"
 
@@ -23,26 +24,6 @@ namespace lldb_private {
 class TildeExpressionResolver;
 class CommandCompletions {
 public:
-  enum CommonCompletionTypes {
-    eNoCompletion = 0u,
-    eSourceFileCompletion = (1u << 0),
-    eDiskFileCompletion = (1u << 1),
-    eDiskDirectoryCompletion = (1u << 2),
-    eSymbolCompletion = (1u << 3),
-    eModuleCompletion = (1u << 4),
-    eSettingsNameCompletion = (1u << 5),
-    ePlatformPluginCompletion = (1u << 6),
-    eArchitectureCompletion = (1u << 7),
-    eVariablePathCompletion = (1u << 8),
-    eRegisterCompletion = (1u << 9),
-    eBreakpointCompletion = (1u << 10),
-    eProcessPluginCompletion = (1u << 11),
-    // This item serves two purposes.  It is the last element in the enum, so
-    // you can add custom enums starting from here in your Option class. Also
-    // if you & in this bit the base code will not process the option.
-    eCustomCompletion = (1u << 12)
-  };
-
   static bool InvokeCommonCompletionCallbacks(
       CommandInterpreter &interpreter, uint32_t completion_mask,
       lldb_private::CompletionRequest &request, SearchFilter *searcher);
@@ -62,11 +43,22 @@ public:
                               StringList &matches,
                               TildeExpressionResolver &Resolver);
 
+  static void RemoteDiskFiles(CommandInterpreter &interpreter,
+                              CompletionRequest &request,
+                              SearchFilter *searcher);
+
+  static void RemoteDiskDirectories(CommandInterpreter &interpreter,
+                                    CompletionRequest &request,
+                                    SearchFilter *searcher);
+
   static void SourceFiles(CommandInterpreter &interpreter,
                           CompletionRequest &request, SearchFilter *searcher);
 
   static void Modules(CommandInterpreter &interpreter,
                       CompletionRequest &request, SearchFilter *searcher);
+
+  static void ModuleUUIDs(CommandInterpreter &interpreter,
+                          CompletionRequest &request, SearchFilter *searcher);
 
   static void Symbols(CommandInterpreter &interpreter,
                       CompletionRequest &request, SearchFilter *searcher);
@@ -91,9 +83,58 @@ public:
   static void Breakpoints(CommandInterpreter &interpreter,
                           CompletionRequest &request, SearchFilter *searcher);
 
+  static void BreakpointNames(CommandInterpreter &interpreter,
+                              CompletionRequest &request,
+                              SearchFilter *searcher);
+
   static void ProcessPluginNames(CommandInterpreter &interpreter,
                                  CompletionRequest &request,
                                  SearchFilter *searcher);
+
+  static void ProcessIDs(CommandInterpreter &interpreter,
+                         CompletionRequest &request, SearchFilter *searcher);
+
+  static void ProcessNames(CommandInterpreter &interpreter,
+                           CompletionRequest &request, SearchFilter *searcher);
+
+  static void DisassemblyFlavors(CommandInterpreter &interpreter,
+                                 CompletionRequest &request,
+                                 SearchFilter *searcher);
+
+  static void TypeLanguages(CommandInterpreter &interpreter,
+                            CompletionRequest &request, SearchFilter *searcher);
+
+  static void FrameIndexes(CommandInterpreter &interpreter,
+                           CompletionRequest &request, SearchFilter *searcher);
+
+  static void StopHookIDs(CommandInterpreter &interpreter,
+                          CompletionRequest &request, SearchFilter *searcher);
+
+  static void ThreadIndexes(CommandInterpreter &interpreter,
+                            CompletionRequest &request, SearchFilter *searcher);
+
+  static void WatchPointIDs(CommandInterpreter &interpreter,
+                            CompletionRequest &request, SearchFilter *searcher);
+
+  static void TypeCategoryNames(CommandInterpreter &interpreter,
+                                CompletionRequest &request,
+                                SearchFilter *searcher);
+
+  static void ThreadIDs(CommandInterpreter &interpreter,
+                        CompletionRequest &request, SearchFilter *searcher);
+
+  static void ManagedPlugins(CommandInterpreter &interpreter,
+                             CompletionRequest &request,
+                             SearchFilter *searcher);
+
+  /// This completer works for commands whose only arguments are a command path.
+  /// It isn't tied to an argument type because it completes not on a single
+  /// argument but on the sequence of arguments, so you have to invoke it by
+  /// hand.
+  static void
+  CompleteModifiableCmdPathArgs(CommandInterpreter &interpreter,
+                                CompletionRequest &request,
+                                OptionElementVector &opt_element_vector);
 };
 
 } // namespace lldb_private

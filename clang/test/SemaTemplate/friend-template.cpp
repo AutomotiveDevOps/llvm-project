@@ -30,7 +30,7 @@ namespace test2 {
   template<typename T> struct X0 {
     template<typename U> friend struct X0;
   };
-  
+
   template<typename T> struct X0<T*> {
     template<typename U> friend struct X0;
   };
@@ -116,13 +116,13 @@ namespace PR6022 {
   template <class T1, class T2 , class T3  > class A;
 
   namespace inner {
-    template<class T1, class T2, class T3, class T> 
+    template<class T1, class T2, class T3, class T>
     A<T1, T2, T3>& f0(A<T1, T2, T3>&, T);
-  } 
+  }
 
   template<class T1, class T2, class T3>
   class A {
-    template<class U1, class U2, class U3, class T>  
+    template<class U1, class U2, class U3, class T>
     friend A<U1, U2, U3>& inner::f0(A<U1, U2, U3>&, T);
   };
 }
@@ -235,7 +235,7 @@ namespace rdar11147355 {
   template <class T>
   struct A {
     template <class U> class B;
-    template <class S> template <class U> friend class A<S>::B; // expected-warning {{dependent nested name specifier 'A<S>::' for friend template declaration is not supported; ignoring this friend declaration}}
+    template <class S> template <class U> friend class A<S>::B; // expected-warning {{dependent nested name specifier 'A<S>' for friend template declaration is not supported; ignoring this friend declaration}}
   private:
     int n; // expected-note {{here}}
   };
@@ -328,4 +328,13 @@ namespace rdar12350696 {
     A<int> b;
     foo(b); // expected-note {{in instantiation}}
   }
+}
+
+namespace StackUseAfterScope {
+template <typename T> class Bar {};
+class Foo {
+  // Make sure this doesn't crash.
+  template <> friend class Bar<int>; // expected-error {{template specialization declaration cannot be a friend}}
+  bool aux;
+};
 }

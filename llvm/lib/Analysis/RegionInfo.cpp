@@ -10,18 +10,17 @@
 
 #include "llvm/Analysis/RegionInfo.h"
 #include "llvm/ADT/Statistic.h"
+#include "llvm/Analysis/DominanceFrontier.h"
 #include "llvm/InitializePasses.h"
 #ifndef NDEBUG
 #include "llvm/Analysis/RegionPrinter.h"
 #endif
+#include "llvm/Analysis/Passes.h"
 #include "llvm/Analysis/RegionInfoImpl.h"
 #include "llvm/Config/llvm-config.h"
 #include "llvm/IR/Function.h"
-#include "llvm/IR/PassManager.h"
-#include "llvm/Pass.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Compiler.h"
-#include "llvm/Support/raw_ostream.h"
 
 using namespace llvm;
 
@@ -117,9 +116,7 @@ void RegionInfo::viewOnly() { viewRegionOnly(this); }
 // RegionInfoPass implementation
 //
 
-RegionInfoPass::RegionInfoPass() : FunctionPass(ID) {
-  initializeRegionInfoPassPass(*PassRegistry::getPassRegistry());
-}
+RegionInfoPass::RegionInfoPass() : FunctionPass(ID) {}
 
 RegionInfoPass::~RegionInfoPass() = default;
 

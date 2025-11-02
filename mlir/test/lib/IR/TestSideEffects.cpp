@@ -6,7 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "TestDialect.h"
+#include "TestOps.h"
 #include "mlir/Pass/Pass.h"
 
 using namespace mlir;
@@ -14,6 +14,12 @@ using namespace mlir;
 namespace {
 struct SideEffectsPass
     : public PassWrapper<SideEffectsPass, OperationPass<ModuleOp>> {
+  MLIR_DEFINE_EXPLICIT_INTERNAL_INLINE_TYPE_ID(SideEffectsPass)
+
+  StringRef getArgument() const final { return "test-side-effects"; }
+  StringRef getDescription() const final {
+    return "Test side effects interfaces";
+  }
   void runOnOperation() override {
     auto module = getOperation();
 
@@ -22,6 +28,10 @@ struct SideEffectsPass
     module.walk([&](MemoryEffectOpInterface op) {
       effects.clear();
       op.getEffects(effects);
+
+      if (op->hasTrait<OpTrait::IsTerminator>()) {
+        return;
+      }
 
       // Check to see if this operation has any memory effects.
       if (effects.empty()) {
@@ -41,19 +51,37 @@ struct SideEffectsPass
         else if (isa<MemoryEffects::Write>(instance.getEffect()))
           diag << "'write'";
 
-        if (instance.getValue())
-          diag << " on a value,";
+        if (instance.getValue()) {
+          if (auto *opOpd = instance.getEffectValue<OpOperand *>())
+            diag << " on op operand " << opOpd->getOperandNumber() << ",";
+          else if (auto opRes = instance.getEffectValue<OpResult>())
+            diag << " on op result " << opRes.getResultNumber() << ",";
+          else if (auto opBlk = instance.getEffectValue<BlockArgument>())
+            diag << " on block argument " << opBlk.getArgNumber() << ",";
+        } else if (SymbolRefAttr symbolRef = instance.getSymbolRef())
+          diag << " on a symbol '" << symbolRef << "',";
 
         diag << " on resource '" << instance.getResource()->getName() << "'";
       }
     });
+
+    SmallVector<TestEffects::EffectInstance, 1> testEffects;
+    module.walk([&](TestEffectOpInterface op) {
+      testEffects.clear();
+      op.getEffects(testEffects);
+
+      if (testEffects.empty())
+        return;
+
+      for (const TestEffects::EffectInstance &instance : testEffects) {
+        op.emitRemark() << "found a parametric effect with "
+                        << instance.getParameters();
+      }
+    });
   }
 };
-} // end anonymous namespace
+} // namespace
 
 namespace mlir {
-void registerSideEffectTestPasses() {
-  PassRegistration<SideEffectsPass>("test-side-effects",
-                                    "Test side effects interfaces");
-}
+void registerSideEffectTestPasses() { PassRegistration<SideEffectsPass>(); }
 } // namespace mlir

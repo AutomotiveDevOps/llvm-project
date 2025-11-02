@@ -57,21 +57,16 @@ public:
   /// The target is the base class.
   enum BaseNonce { Base };
 
-  AccessedEntity(PartialDiagnostic::StorageAllocator &Allocator,
-                 MemberNonce _,
-                 CXXRecordDecl *NamingClass,
-                 DeclAccessPair FoundDecl,
-                 QualType BaseObjectType)
+  AccessedEntity(PartialDiagnostic::DiagStorageAllocator &Allocator,
+                 MemberNonce _, CXXRecordDecl *NamingClass,
+                 DeclAccessPair FoundDecl, QualType BaseObjectType)
       : Access(FoundDecl.getAccess()), IsMember(true),
         Target(FoundDecl.getDecl()), NamingClass(NamingClass),
-        BaseObjectType(BaseObjectType), Diag(0, Allocator) {
-  }
+        BaseObjectType(BaseObjectType), Diag(0, Allocator) {}
 
-  AccessedEntity(PartialDiagnostic::StorageAllocator &Allocator,
-                 BaseNonce _,
-                 CXXRecordDecl *BaseClass,
-                 CXXRecordDecl *DerivedClass,
-                 AccessSpecifier Access)
+  AccessedEntity(PartialDiagnostic::DiagStorageAllocator &Allocator,
+                 BaseNonce _, CXXRecordDecl *BaseClass,
+                 CXXRecordDecl *DerivedClass, AccessSpecifier Access)
       : Access(Access), IsMember(false), Target(BaseClass),
         NamingClass(DerivedClass), Diag(0, Allocator) {}
 
@@ -116,7 +111,9 @@ public:
   }
 
 private:
+  LLVM_PREFERRED_TYPE(AccessSpecifier)
   unsigned Access : 2;
+  LLVM_PREFERRED_TYPE(bool)
   unsigned IsMember : 1;
   NamedDecl *Target;
   CXXRecordDecl *NamingClass;
@@ -195,8 +192,8 @@ public:
 
   ArrayRef<SourceLocation> getAvailabilitySelectorLocs() const {
     assert(Kind == Availability && "Not an availability diagnostic.");
-    return llvm::makeArrayRef(AvailabilityData.SelectorLocs,
-                              AvailabilityData.NumSelectorLocs);
+    return llvm::ArrayRef(AvailabilityData.SelectorLocs,
+                          AvailabilityData.NumSelectorLocs);
   }
 
   AvailabilityResult getAvailabilityResult() const {

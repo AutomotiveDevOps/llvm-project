@@ -1,6 +1,5 @@
 // REQUIRES: arm
 // RUN: llvm-mc --triple=armv7a-none-eabi --arm-add-build-attributes -filetype=obj -o %t.o %s
-// RUN: llvm-objdump -d -r --triple=armv7a-none-eabi %t.o
 // RUN: echo "SECTIONS { \
 // RUN:                 .rodata.low 0x8012  : { *(.rodata.low) } \
 // RUN:                 .text.low   0x8f00  : { *(.text.low) } \
@@ -11,7 +10,7 @@
 // RUN:               } " > %t.script
 // RUN: ld.lld -n --script %t.script %t.o -o %t
 // RUN: llvm-readobj --symbols %t | FileCheck %s --check-prefix=SYMS
-// RUN: llvm-objdump -d --no-show-raw-insn --triple=armv7a-none-eabi %t | FileCheck %s
+// RUN: llvm-objdump --no-print-imm-hex -d --no-show-raw-insn --triple=armv7a-none-eabi %t | FileCheck %s
 
 /// Test the various legal cases for the R_ARM_LDR_PC_G0 relocation
 /// Range is +- 4095 bytes

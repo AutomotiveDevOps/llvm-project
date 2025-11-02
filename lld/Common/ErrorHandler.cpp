@@ -8,31 +8,19 @@
 
 #include "lld/Common/ErrorHandler.h"
 
-#include "llvm/Support/Parallel.h"
-
+#include "lld/Common/CommonLinkerContext.h"
 #include "llvm/ADT/Twine.h"
 #include "llvm/IR/DiagnosticInfo.h"
 #include "llvm/IR/DiagnosticPrinter.h"
+#include "llvm/Support/CrashRecoveryContext.h"
 #include "llvm/Support/ManagedStatic.h"
+#include "llvm/Support/Process.h"
+#include "llvm/Support/Program.h"
 #include "llvm/Support/raw_ostream.h"
-#include <mutex>
 #include <regex>
-
-#if !defined(_MSC_VER) && !defined(__MINGW32__)
-#include <unistd.h>
-#endif
 
 using namespace llvm;
 using namespace lld;
-
-// The functions defined in this file can be called from multiple threads,
-// but lld::outs() or lld::errs() are not thread-safe. We protect them using a
-// mutex.
-static std::mutex mu;
-
-// We want to separate multi-line messages with a newline. `sep` is "\n"
-// if the last messages was multi-line. Otherwise "".
-static StringRef sep;
 
 static StringRef getSeparator(const Twine &msg) {
   if (StringRef(msg.str()).contains('\n'))
@@ -40,40 +28,97 @@ static StringRef getSeparator(const Twine &msg) {
   return "";
 }
 
-raw_ostream *lld::stdoutOS;
-raw_ostream *lld::stderrOS;
+ErrorHandler::~ErrorHandler() {
+  if (cleanupCallback)
+    cleanupCallback();
+}
 
-raw_ostream &lld::outs() { return stdoutOS ? *stdoutOS : llvm::outs(); }
-raw_ostream &lld::errs() { return stderrOS ? *stderrOS : llvm::errs(); }
+void ErrorHandler::initialize(llvm::raw_ostream &stdoutOS,
+                              llvm::raw_ostream &stderrOS, bool exitEarly,
+                              bool disableOutput) {
+  this->stdoutOS = &stdoutOS;
+  this->stderrOS = &stderrOS;
+  stderrOS.enable_colors(stderrOS.has_colors());
+  this->exitEarly = exitEarly;
+  this->disableOutput = disableOutput;
+}
 
-ErrorHandler &lld::errorHandler() {
-  static ErrorHandler handler;
-  return handler;
+void ErrorHandler::flushStreams() {
+  std::lock_guard<std::mutex> lock(mu);
+  outs().flush();
+  errs().flush();
+}
+
+ErrorHandler &lld::errorHandler() { return context().e; }
+
+void lld::error(const Twine &msg) { errorHandler().error(msg); }
+void lld::error(const Twine &msg, ErrorTag tag, ArrayRef<StringRef> args) {
+  errorHandler().error(msg, tag, args);
+}
+void lld::fatal(const Twine &msg) { errorHandler().fatal(msg); }
+void lld::log(const Twine &msg) { errorHandler().log(msg); }
+void lld::message(const Twine &msg, llvm::raw_ostream &s) {
+  errorHandler().message(msg, s);
+}
+void lld::warn(const Twine &msg) { errorHandler().warn(msg); }
+uint64_t lld::errorCount() { return errorHandler().errorCount; }
+
+raw_ostream &lld::outs() {
+  ErrorHandler &e = errorHandler();
+  return e.outs();
+}
+
+raw_ostream &ErrorHandler::outs() {
+  if (disableOutput)
+    return llvm::nulls();
+  return stdoutOS ? *stdoutOS : llvm::outs();
+}
+
+raw_ostream &ErrorHandler::errs() {
+  if (disableOutput)
+    return llvm::nulls();
+  return stderrOS ? *stderrOS : llvm::errs();
 }
 
 void lld::exitLld(int val) {
-  // Delete any temporary file, while keeping the memory mapping open.
-  if (errorHandler().outputBuffer)
-    errorHandler().outputBuffer->discard();
+  if (hasContext()) {
+    ErrorHandler &e = errorHandler();
+    // Delete any temporary file, while keeping the memory mapping open.
+    if (e.outputBuffer)
+      e.outputBuffer->discard();
+  }
+
+  // Re-throw a possible signal or exception once/if it was caught by
+  // safeLldMain().
+  CrashRecoveryContext::throwIfCrash(val);
 
   // Dealloc/destroy ManagedStatic variables before calling _exit().
   // In an LTO build, allows us to get the output of -time-passes.
   // Ensures that the thread pool for the parallel algorithms is stopped to
   // avoid intermittent crashes on Windows when exiting.
-  llvm_shutdown();
+  if (!CrashRecoveryContext::GetCurrent())
+    llvm_shutdown();
 
-  {
-    std::lock_guard<std::mutex> lock(mu);
-    lld::outs().flush();
-    lld::errs().flush();
-  }
-  _exit(val);
+  if (hasContext())
+    lld::errorHandler().flushStreams();
+
+  // When running inside safeLldMain(), restore the control flow back to the
+  // CrashRecoveryContext. Otherwise simply use _exit(), meanning no cleanup,
+  // since we want to avoid further crashes on shutdown.
+  llvm::sys::Process::Exit(val, /*NoCleanup=*/true);
 }
 
 void lld::diagnosticHandler(const DiagnosticInfo &di) {
   SmallString<128> s;
   raw_svector_ostream os(s);
   DiagnosticPrinterRawOStream dp(os);
+
+  // For an inline asm diagnostic, prepend the module name to get something like
+  // "$module <inline asm>:1:5: ".
+  if (auto *dism = dyn_cast<DiagnosticInfoSrcMgr>(&di))
+    if (dism->isInlineAsmDiag())
+      os << dism->getModuleName() << ' ';
+
   di.print(dp);
   switch (di.getSeverity()) {
   case DS_Error:
@@ -92,6 +137,11 @@ void lld::diagnosticHandler(const DiagnosticInfo &di) {
 void lld::checkError(Error e) {
   handleAllErrors(std::move(e),
                   [&](ErrorInfoBase &eib) { error(eib.message()); });
+}
+
+void lld::checkError(ErrorHandler &eh, Error e) {
+  handleAllErrors(std::move(e),
+                  [&](ErrorInfoBase &eib) { eh.error(eib.message()); });
 }
 
 // This is for --vs-diagnostics.
@@ -152,17 +202,39 @@ std::string ErrorHandler::getLocation(const Twine &msg) {
   return std::string(logName);
 }
 
-void ErrorHandler::log(const Twine &msg) {
-  if (!verbose)
-    return;
-  std::lock_guard<std::mutex> lock(mu);
-  lld::errs() << logName << ": " << msg << "\n";
+void ErrorHandler::reportDiagnostic(StringRef location, Colors c,
+                                    StringRef diagKind, const Twine &msg) {
+  SmallString<256> buf;
+  raw_svector_ostream os(buf);
+  os << sep << location << ": ";
+  if (!diagKind.empty()) {
+    if (errs().colors_enabled()) {
+      os.enable_colors(true);
+      os << c << diagKind << ": " << Colors::RESET;
+    } else {
+      os << diagKind << ": ";
+    }
+  }
+  os << msg << '\n';
+  errs() << buf;
+  // If msg contains a newline, ensure that the next diagnostic is preceded by
+  // a blank line separator.
+  sep = getSeparator(msg);
 }
 
-void ErrorHandler::message(const Twine &msg) {
+void ErrorHandler::log(const Twine &msg) {
+  if (!verbose || disableOutput)
+    return;
   std::lock_guard<std::mutex> lock(mu);
-  lld::outs() << msg << "\n";
-  lld::outs().flush();
+  reportDiagnostic(logName, Colors::RESET, "", msg);
+}
+
+void ErrorHandler::message(const Twine &msg, llvm::raw_ostream &s) {
+  if (disableOutput)
+    return;
+  std::lock_guard<std::mutex> lock(mu);
+  s << msg << "\n";
+  s.flush();
 }
 
 void ErrorHandler::warn(const Twine &msg) {
@@ -171,10 +243,11 @@ void ErrorHandler::warn(const Twine &msg) {
     return;
   }
 
+  if (suppressWarnings)
+    return;
+
   std::lock_guard<std::mutex> lock(mu);
-  lld::errs() << sep << getLocation(msg) << ": " << Colors::MAGENTA
-              << "warning: " << Colors::RESET << msg << "\n";
-  sep = getSeparator(msg);
+  reportDiagnostic(getLocation(msg), Colors::MAGENTA, "warning", msg);
 }
 
 void ErrorHandler::error(const Twine &msg) {
@@ -199,16 +272,12 @@ void ErrorHandler::error(const Twine &msg) {
     std::lock_guard<std::mutex> lock(mu);
 
     if (errorLimit == 0 || errorCount < errorLimit) {
-      lld::errs() << sep << getLocation(msg) << ": " << Colors::RED
-                  << "error: " << Colors::RESET << msg << "\n";
+      reportDiagnostic(getLocation(msg), Colors::RED, "error", msg);
     } else if (errorCount == errorLimit) {
-      lld::errs() << sep << getLocation(msg) << ": " << Colors::RED
-                  << "error: " << Colors::RESET << errorLimitExceededMsg
-                  << "\n";
+      reportDiagnostic(logName, Colors::RED, "error", errorLimitExceededMsg);
       exit = exitEarly;
     }
 
-    sep = getSeparator(msg);
     ++errorCount;
   }
 
@@ -216,7 +285,74 @@ void ErrorHandler::error(const Twine &msg) {
     exitLld(1);
 }
 
+void ErrorHandler::error(const Twine &msg, ErrorTag tag,
+                         ArrayRef<StringRef> args) {
+  if (errorHandlingScript.empty() || disableOutput) {
+    error(msg);
+    return;
+  }
+  SmallVector<StringRef, 4> scriptArgs;
+  scriptArgs.push_back(errorHandlingScript);
+  switch (tag) {
+  case ErrorTag::LibNotFound:
+    scriptArgs.push_back("missing-lib");
+    break;
+  case ErrorTag::SymbolNotFound:
+    scriptArgs.push_back("undefined-symbol");
+    break;
+  }
+  scriptArgs.insert(scriptArgs.end(), args.begin(), args.end());
+  int res = llvm::sys::ExecuteAndWait(errorHandlingScript, scriptArgs);
+  if (res == 0) {
+    return error(msg);
+  } else {
+    // Temporarily disable error limit to make sure the two calls to error(...)
+    // only count as one.
+    uint64_t currentErrorLimit = errorLimit;
+    errorLimit = 0;
+    error(msg);
+    errorLimit = currentErrorLimit;
+    --errorCount;
+
+    switch (res) {
+    case -1:
+      error("error handling script '" + errorHandlingScript +
+            "' failed to execute");
+      break;
+    case -2:
+      error("error handling script '" + errorHandlingScript +
+            "' crashed or timeout");
+      break;
+    default:
+      error("error handling script '" + errorHandlingScript +
+            "' exited with code " + Twine(res));
+    }
+  }
+}
+
 void ErrorHandler::fatal(const Twine &msg) {
   error(msg);
   exitLld(1);
+}
+
+SyncStream::~SyncStream() {
+  switch (level) {
+  case DiagLevel::None:
+    break;
+  case DiagLevel::Log:
+    e.log(buf);
+    break;
+  case DiagLevel::Msg:
+    e.message(buf, e.outs());
+    break;
+  case DiagLevel::Warn:
+    e.warn(buf);
+    break;
+  case DiagLevel::Err:
+    e.error(buf);
+    break;
+  case DiagLevel::Fatal:
+    e.fatal(buf);
+    break;
+  }
 }

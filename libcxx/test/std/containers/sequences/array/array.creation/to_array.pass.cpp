@@ -7,7 +7,7 @@
 //===----------------------------------------------------------------------===//
 
 // <array>
-// UNSUPPORTED: c++98, c++03, c++11, c++14, c++17
+// UNSUPPORTED: c++03, c++11, c++14, c++17
 
 // template <typename T, size_t Size>
 // constexpr auto to_array(T (&arr)[Size])
@@ -23,8 +23,7 @@
 #include "test_macros.h"
 #include "MoveOnly.h"
 
-constexpr bool tests()
-{
+constexpr bool tests() {
   //  Test deduced type.
   {
     auto arr = std::to_array({1, 2, 3});
@@ -36,7 +35,7 @@ constexpr bool tests()
 
   {
     const long l1 = 42;
-    auto arr = std::to_array({1L, 4L, 9L, l1});
+    auto arr      = std::to_array({1L, 4L, 9L, l1});
     ASSERT_SAME_TYPE(decltype(arr)::value_type, long);
     static_assert(arr.size() == 4, "");
     assert(arr[0] == 1);
@@ -57,7 +56,7 @@ constexpr bool tests()
 
   {
     double source[3] = {4.0, 5.0, 6.0};
-    auto arr = std::to_array(source);
+    auto arr         = std::to_array(source);
     ASSERT_SAME_TYPE(decltype(arr), std::array<double, 3>);
     assert(arr[0] == 4.0);
     assert(arr[1] == 5.0);
@@ -66,7 +65,7 @@ constexpr bool tests()
 
   {
     double source[3] = {4.0, 5.0, 6.0};
-    auto arr = std::to_array(std::move(source));
+    auto arr         = std::to_array(std::move(source));
     ASSERT_SAME_TYPE(decltype(arr), std::array<double, 3>);
     assert(arr[0] == 4.0);
     assert(arr[1] == 5.0);
@@ -82,6 +81,7 @@ constexpr bool tests()
       assert(arr[i].get() == i && source[i].get() == 0);
   }
 
+#ifndef _MSVC_STL_VERSION
   // Test C99 compound literal.
   {
     auto arr = std::to_array((int[]){3, 4});
@@ -89,6 +89,7 @@ constexpr bool tests()
     assert(arr[0] == 3);
     assert(arr[1] == 4);
   }
+#endif // ! _MSVC_STL_VERSION
 
   //  Test explicit type.
   {
@@ -114,8 +115,7 @@ constexpr bool tests()
   return true;
 }
 
-int main(int, char**)
-{
+int main(int, char**) {
   tests();
   static_assert(tests(), "");
   return 0;

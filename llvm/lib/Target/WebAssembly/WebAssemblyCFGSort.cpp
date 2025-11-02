@@ -16,10 +16,9 @@
 ///
 ////===----------------------------------------------------------------------===//
 
-#include "MCTargetDesc/WebAssemblyMCTargetDesc.h"
 #include "WebAssembly.h"
 #include "WebAssemblyExceptionInfo.h"
-#include "WebAssemblySubtarget.h"
+#include "WebAssemblySortRegion.h"
 #include "WebAssemblyUtilities.h"
 #include "llvm/ADT/PriorityQueue.h"
 #include "llvm/ADT/SetVector.h"
@@ -28,9 +27,12 @@
 #include "llvm/CodeGen/MachineLoopInfo.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/CodeGen/Passes.h"
+#include "llvm/CodeGen/WasmEHFuncInfo.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 using namespace llvm;
+using WebAssembly::SortRegion;
+using WebAssembly::SortRegionInfo;
 
 #define DEBUG_TYPE "wasm-cfg-sort"
 
@@ -44,87 +46,15 @@ static cl::opt<bool> WasmDisableEHPadSort(
 
 namespace {
 
-// Wrapper for loops and exceptions
-class Region {
-public:
-  virtual ~Region() = default;
-  virtual MachineBasicBlock *getHeader() const = 0;
-  virtual bool contains(const MachineBasicBlock *MBB) const = 0;
-  virtual unsigned getNumBlocks() const = 0;
-  using block_iterator = typename ArrayRef<MachineBasicBlock *>::const_iterator;
-  virtual iterator_range<block_iterator> blocks() const = 0;
-  virtual bool isLoop() const = 0;
-};
-
-template <typename T> class ConcreteRegion : public Region {
-  const T *Region;
-
-public:
-  ConcreteRegion(const T *Region) : Region(Region) {}
-  MachineBasicBlock *getHeader() const override { return Region->getHeader(); }
-  bool contains(const MachineBasicBlock *MBB) const override {
-    return Region->contains(MBB);
-  }
-  unsigned getNumBlocks() const override { return Region->getNumBlocks(); }
-  iterator_range<block_iterator> blocks() const override {
-    return Region->blocks();
-  }
-  bool isLoop() const override { return false; }
-};
-
-template <> bool ConcreteRegion<MachineLoop>::isLoop() const { return true; }
-
-// This class has information of nested Regions; this is analogous to what
-// LoopInfo is for loops.
-class RegionInfo {
-  const MachineLoopInfo &MLI;
-  const WebAssemblyExceptionInfo &WEI;
-  DenseMap<const MachineLoop *, std::unique_ptr<Region>> LoopMap;
-  DenseMap<const WebAssemblyException *, std::unique_ptr<Region>> ExceptionMap;
-
-public:
-  RegionInfo(const MachineLoopInfo &MLI, const WebAssemblyExceptionInfo &WEI)
-      : MLI(MLI), WEI(WEI) {}
-
-  // Returns a smallest loop or exception that contains MBB
-  const Region *getRegionFor(const MachineBasicBlock *MBB) {
-    const auto *ML = MLI.getLoopFor(MBB);
-    const auto *WE = WEI.getExceptionFor(MBB);
-    if (!ML && !WE)
-      return nullptr;
-    // We determine subregion relationship by domination of their headers, i.e.,
-    // if region A's header dominates region B's header, B is a subregion of A.
-    // WebAssemblyException contains BBs in all its subregions (loops or
-    // exceptions), but MachineLoop may not, because MachineLoop does not contain
-    // BBs that don't have a path to its header even if they are dominated by
-    // its header. So here we should use WE->contains(ML->getHeader()), but not
-    // ML->contains(WE->getHeader()).
-    if ((ML && !WE) || (ML && WE && WE->contains(ML->getHeader()))) {
-      // If the smallest region containing MBB is a loop
-      if (LoopMap.count(ML))
-        return LoopMap[ML].get();
-      LoopMap[ML] = std::make_unique<ConcreteRegion<MachineLoop>>(ML);
-      return LoopMap[ML].get();
-    } else {
-      // If the smallest region containing MBB is an exception
-      if (ExceptionMap.count(WE))
-        return ExceptionMap[WE].get();
-      ExceptionMap[WE] =
-          std::make_unique<ConcreteRegion<WebAssemblyException>>(WE);
-      return ExceptionMap[WE].get();
-    }
-  }
-};
-
 class WebAssemblyCFGSort final : public MachineFunctionPass {
   StringRef getPassName() const override { return "WebAssembly CFG Sort"; }
 
   void getAnalysisUsage(AnalysisUsage &AU) const override {
     AU.setPreservesCFG();
-    AU.addRequired<MachineDominatorTree>();
-    AU.addPreserved<MachineDominatorTree>();
-    AU.addRequired<MachineLoopInfo>();
-    AU.addPreserved<MachineLoopInfo>();
+    AU.addRequired<MachineDominatorTreeWrapperPass>();
+    AU.addPreserved<MachineDominatorTreeWrapperPass>();
+    AU.addRequired<MachineLoopInfoWrapperPass>();
+    AU.addPreserved<MachineLoopInfoWrapperPass>();
     AU.addRequired<WebAssemblyExceptionInfo>();
     AU.addPreserved<WebAssemblyExceptionInfo>();
     MachineFunctionPass::getAnalysisUsage(AU);
@@ -159,8 +89,16 @@ static void maybeUpdateTerminator(MachineBasicBlock *MBB) {
   }
   assert((AnyBarrier || AllAnalyzable) &&
          "analyzeBranch needs to analyze any block with a fallthrough");
+
+  // Find the layout successor from the original block order.
+  MachineFunction *MF = MBB->getParent();
+  MachineBasicBlock *OriginalSuccessor =
+      unsigned(MBB->getNumber() + 1) < MF->getNumBlockIDs()
+          ? MF->getBlockNumbered(MBB->getNumber() + 1)
+          : nullptr;
+
   if (AllAnalyzable)
-    MBB->updateTerminator();
+    MBB->updateTerminator(OriginalSuccessor);
 }
 
 namespace {
@@ -228,14 +166,14 @@ struct CompareBlockNumbersBackwards {
 /// Bookkeeping for a region to help ensure that we don't mix blocks not
 /// dominated by the its header among its blocks.
 struct Entry {
-  const Region *TheRegion;
+  const SortRegion *TheRegion;
   unsigned NumBlocksLeft;
 
   /// List of blocks not dominated by Loop's header that are deferred until
   /// after all of Loop's blocks have been seen.
   std::vector<MachineBasicBlock *> Deferred;
 
-  explicit Entry(const class Region *R)
+  explicit Entry(const SortRegion *R)
       : TheRegion(R), NumBlocksLeft(R->getNumBlocks()) {}
 };
 } // end anonymous namespace
@@ -246,10 +184,14 @@ struct Entry {
 /// Explore them.
 static void sortBlocks(MachineFunction &MF, const MachineLoopInfo &MLI,
                        const WebAssemblyExceptionInfo &WEI,
-                       const MachineDominatorTree &MDT) {
+                       MachineDominatorTree &MDT) {
+  // Remember original layout ordering, so we can update terminators after
+  // reordering to point to the original layout successor.
+  MF.RenumberBlocks();
+  MDT.updateBlockNumbers();
+
   // Prepare for a topological sort: Record the number of predecessors each
   // block has, ignoring loop backedges.
-  MF.RenumberBlocks();
   SmallVector<unsigned, 16> NumPredsLeft(MF.getNumBlockIDs(), 0);
   for (MachineBasicBlock &MBB : MF) {
     unsigned N = MBB.pred_size();
@@ -276,10 +218,11 @@ static void sortBlocks(MachineFunction &MF, const MachineLoopInfo &MLI,
                 CompareBlockNumbersBackwards>
       Ready;
 
-  RegionInfo RI(MLI, WEI);
+  const auto *EHInfo = MF.getWasmEHFuncInfo();
+  SortRegionInfo SRI(MLI, WEI);
   SmallVector<Entry, 4> Entries;
   for (MachineBasicBlock *MBB = &MF.front();;) {
-    const Region *R = RI.getRegionFor(MBB);
+    const SortRegion *R = SRI.getRegionFor(MBB);
     if (R) {
       // If MBB is a region header, add it to the active region list. We can't
       // put any blocks that it doesn't dominate until we see the end of the
@@ -291,7 +234,7 @@ static void sortBlocks(MachineFunction &MF, const MachineLoopInfo &MLI,
       // any blocks deferred because the header didn't dominate them.
       for (Entry &E : Entries)
         if (E.TheRegion->contains(MBB) && --E.NumBlocksLeft == 0)
-          for (auto DeferredBlock : E.Deferred)
+          for (auto *DeferredBlock : E.Deferred)
             Ready.push(DeferredBlock);
       while (!Entries.empty() && Entries.back().NumBlocksLeft == 0)
         Entries.pop_back();
@@ -303,8 +246,34 @@ static void sortBlocks(MachineFunction &MF, const MachineLoopInfo &MLI,
         if (SuccL->getHeader() == Succ && SuccL->contains(MBB))
           continue;
       // Decrement the predecessor count. If it's now zero, it's ready.
-      if (--NumPredsLeft[Succ->getNumber()] == 0)
+      if (--NumPredsLeft[Succ->getNumber()] == 0) {
+        // When we are in a SortRegion, we allow sorting of not only BBs that
+        // belong to the current (innermost) region but also BBs that are
+        // dominated by the current region header. But we should not do this for
+        // exceptions because there can be cases in which, for example:
+        // EHPad A's unwind destination (where the exception lands when it is
+        // not caught by EHPad A) is EHPad B, so EHPad B does not belong to the
+        // exception dominated by EHPad A. But EHPad B is dominated by EHPad A,
+        // so EHPad B can be sorted within EHPad A's exception. This is
+        // incorrect because we may end up delegating/rethrowing to an inner
+        // scope in CFGStackify. So here we make sure those unwind destinations
+        // are deferred until their unwind source's exception is sorted.
+        if (EHInfo && EHInfo->hasUnwindSrcs(Succ)) {
+          SmallPtrSet<MachineBasicBlock *, 4> UnwindSrcs =
+              EHInfo->getUnwindSrcs(Succ);
+          bool IsDeferred = false;
+          for (Entry &E : Entries) {
+            if (UnwindSrcs.count(E.TheRegion->getHeader())) {
+              E.Deferred.push_back(Succ);
+              IsDeferred = true;
+              break;
+            }
+          }
+          if (IsDeferred)
+            continue;
+        }
         Preferred.push(Succ);
+      }
     }
     // Determine the block to follow MBB. First try to find a preferred block,
     // to preserve the original block order when possible.
@@ -360,9 +329,10 @@ static void sortBlocks(MachineFunction &MF, const MachineLoopInfo &MLI,
   }
   assert(Entries.empty() && "Active sort region list not finished");
   MF.RenumberBlocks();
+  MDT.updateBlockNumbers();
 
 #ifndef NDEBUG
-  SmallSetVector<const Region *, 8> OnStack;
+  SmallSetVector<const SortRegion *, 8> OnStack;
 
   // Insert a sentinel representing the degenerate loop that starts at the
   // function entry block and includes the entire function as a "loop" that
@@ -371,21 +341,21 @@ static void sortBlocks(MachineFunction &MF, const MachineLoopInfo &MLI,
 
   for (auto &MBB : MF) {
     assert(MBB.getNumber() >= 0 && "Renumbered blocks should be non-negative.");
-    const Region *Region = RI.getRegionFor(&MBB);
+    const SortRegion *Region = SRI.getRegionFor(&MBB);
 
     if (Region && &MBB == Region->getHeader()) {
       // Region header.
       if (Region->isLoop()) {
         // Loop header. The loop predecessor should be sorted above, and the
         // other predecessors should be backedges below.
-        for (auto Pred : MBB.predecessors())
+        for (auto *Pred : MBB.predecessors())
           assert(
               (Pred->getNumber() < MBB.getNumber() || Region->contains(Pred)) &&
               "Loop header predecessors must be loop predecessors or "
               "backedges");
       } else {
         // Exception header. All predecessors should be sorted above.
-        for (auto Pred : MBB.predecessors())
+        for (auto *Pred : MBB.predecessors())
           assert(Pred->getNumber() < MBB.getNumber() &&
                  "Non-loop-header predecessors should be topologically sorted");
       }
@@ -394,13 +364,13 @@ static void sortBlocks(MachineFunction &MF, const MachineLoopInfo &MLI,
 
     } else {
       // Not a region header. All predecessors should be sorted above.
-      for (auto Pred : MBB.predecessors())
+      for (auto *Pred : MBB.predecessors())
         assert(Pred->getNumber() < MBB.getNumber() &&
                "Non-loop-header predecessors should be topologically sorted");
-      assert(OnStack.count(RI.getRegionFor(&MBB)) &&
+      assert(OnStack.count(SRI.getRegionFor(&MBB)) &&
              "Blocks must be nested in their regions");
     }
-    while (OnStack.size() > 1 && &MBB == WebAssembly::getBottom(OnStack.back()))
+    while (OnStack.size() > 1 && &MBB == SRI.getBottom(OnStack.back()))
       OnStack.pop_back();
   }
   assert(OnStack.pop_back_val() == nullptr &&
@@ -415,9 +385,9 @@ bool WebAssemblyCFGSort::runOnMachineFunction(MachineFunction &MF) {
                        "********** Function: "
                     << MF.getName() << '\n');
 
-  const auto &MLI = getAnalysis<MachineLoopInfo>();
+  const auto &MLI = getAnalysis<MachineLoopInfoWrapperPass>().getLI();
   const auto &WEI = getAnalysis<WebAssemblyExceptionInfo>();
-  auto &MDT = getAnalysis<MachineDominatorTree>();
+  auto &MDT = getAnalysis<MachineDominatorTreeWrapperPass>().getDomTree();
   // Liveness is not tracked for VALUE_STACK physreg.
   MF.getRegInfo().invalidateLiveness();
 

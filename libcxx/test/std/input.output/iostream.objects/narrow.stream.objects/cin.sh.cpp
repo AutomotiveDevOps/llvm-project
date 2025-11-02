@@ -6,33 +6,29 @@
 //
 //===----------------------------------------------------------------------===//
 
-// XFAIL: libcpp-has-no-stdin
+// QEMU does not detect EOF, when reading from stdin
+// "echo -n" suppresses any characters after the output and so the test hangs.
+// https://gitlab.com/qemu-project/qemu/-/issues/1963
+// UNSUPPORTED: LIBCXX-PICOLIBC-FIXME
+
+// This test hangs on Android devices that lack shell_v2, which was added in
+// Android N (API 24).
+// UNSUPPORTED: LIBCXX-ANDROID-FIXME && android-device-api={{2[1-3]}}
 
 // <iostream>
 
 // istream cin;
 
-// FILE_DEPENDENCIES: %t.exe
 // RUN: %{build}
-// RUN: %{exec} echo "123" \| %t.exe > %t.out
-// RUN: grep -e 'The number is 123!' %t.out
+// RUN: echo -n 1234 > %t.input
+// RUN: %{exec} %t.exe < %t.input
 
 #include <iostream>
 #include <cassert>
 
-#include "test_macros.h"
-
-int main(int, char**)
-{
+int main(int, char**) {
     int i;
     std::cin >> i;
-    std::cout << "The number is " << i << "!";
-
-#ifdef _LIBCPP_HAS_NO_STDOUT
-    assert(std::cin.tie() == NULL);
-#else
-    assert(std::cin.tie() == &std::cout);
-#endif
-
-  return 0;
+    assert(i == 1234);
+    return 0;
 }

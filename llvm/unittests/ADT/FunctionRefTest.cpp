@@ -48,4 +48,25 @@ TEST(FunctionRefTest, BadCopy) {
   ASSERT_EQ(1, X());
 }
 
+// Test that overloads on function_refs are resolved as expected.
+std::string returns(StringRef) { return "not a function"; }
+std::string returns(function_ref<double()> F) { return "number"; }
+std::string returns(function_ref<StringRef()> F) { return "string"; }
+
+TEST(FunctionRefTest, SFINAE) {
+  EXPECT_EQ("not a function", returns("boo!"));
+  EXPECT_EQ("number", returns([] { return 42; }));
+  EXPECT_EQ("string", returns([] { return "hello"; }));
+}
+
+TEST(FunctionRefTest, Equality) {
+  const auto Lambda = []() { return 0; };
+  function_ref<int()> X = Lambda;
+  function_ref<int()> Y = X;
+  EXPECT_EQ(X, Y);
+
+  function_ref<int()> A(Lambda), B(Lambda);
+  EXPECT_EQ(A, B);
+}
+
 } // namespace

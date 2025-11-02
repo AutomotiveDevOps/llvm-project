@@ -1,4 +1,4 @@
-//===------------------------- catch_ptr_02.cpp ---------------------------===//
+//===----------------------------------------------------------------------===//
 //
 // Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
 // See https://llvm.org/LICENSE.txt for license information.
@@ -8,14 +8,13 @@
 
 // UNSUPPORTED: no-exceptions
 
-#include <cassert>
+// Compilers emit warnings about exceptions of type 'Child' being caught by
+// an earlier handler of type 'Base'. Congrats, you've just diagnosed the
+// behavior under test.
+// ADDITIONAL_COMPILE_FLAGS: -Wno-exceptions
 
-// Clang emits  warnings about exceptions of type 'Child' being caught by
-// an earlier handler of type 'Base'. Congrats clang, you've just
-// diagnosed the behavior under test.
-#if defined(__clang__)
-#pragma clang diagnostic ignored "-Wexceptions"
-#endif
+#include <cassert>
+#include <stdint.h>
 
 #if __cplusplus < 201103L
 #define DISABLE_NULLPTR_TESTS
@@ -135,7 +134,7 @@ void test7 ()
         assert(false);
     }
     catch (base2 *p) {
-        assert ((unsigned long)p == 12+sizeof(base1));
+        assert ((uintptr_t)p == 12+sizeof(base1));
     }
     catch (...)
     {
@@ -198,7 +197,7 @@ void test10 ()
     }
 }
 
-int main()
+int main(int, char**)
 {
     test1();
     test2();
@@ -210,4 +209,6 @@ int main()
     test8();
     test9();
     test10();
+
+    return 0;
 }

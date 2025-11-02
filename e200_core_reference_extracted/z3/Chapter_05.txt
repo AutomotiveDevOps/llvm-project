@@ -1,0 +1,791 @@
+Chapter 5
+Memory Management Unit
+This chapter describes the implementation details of the e200z3 core complex MMU relative to the Book E
+architecture and the Freescale Book E standards.
+
+5.1       Overview
+The e200z3 memory management unit is a 32-bit PowerPC Book E–compliant implementation.
+
+5.1.1        MMU Features
+The MMU of the e200z3 core has the following feature set:
+   • Freescale Book E implementation standard (EIS) MMU architecture compliant
+   • 32-bit effective address translated to 32-bit real address (using a 41-bit interim virtual address)
+   • 16-entry, fully associative, translation lookaside buffer (TLB1) that supports the nine page sizes
+     (4 Kbytes, 16 Kbytes, 64 Kbytes, 256 Kbytes, 1 Mbyte, 4 Mbytes, 16 Mbytes, 64 Mbytes,
+     256 Mbytes), shown in Table 5-2
+   • One 32-bit PID register (PID0) for supporting up to 255 translation IDs at any time in the TLB
+   • No page table format defined; software is free to use its own page table format
+   • Hardware assist for TLB miss exceptions
+   • TLB1 managed by tlbre, tlbwe, tlbsx, tlbsync, and tlbivax instructions and six MMU assist
+     (MAS) registers
+   • IPROT bit implemented in TLB1 prevents invalidations, protecting critical entries (so designated
+     by having the IPROT bit set) from being invalidated.
+
+5.1.2        TLB Entry Maintenance Features Summary
+The TLB entries of the e200z3 core complex must be loaded and maintained by the system software; this
+includes performing any required table search operations in memory. The e200z3 provides support for
+maintaining TLB entries in software with the resources shown in Table 5-1. Note that many of these
+features are defined at the Freescale Book E level.
+
+
+
+
+                          e200z3 Power Architecture Core Reference Manual, Rev. 2
+Freescale Semiconductor                                                                              5-1
+Memory Management Unit
+
+
+                                  Table 5-1. TLB Maintenance Programming Model
+
+                 Features                                                Description                         Section/Page
+
+    TLB      tlbre                         TLB Read Entry instruction                                          5.4/5-10
+Instructions
+             tlbwe                         TLB Write Entry instruction                                         5.4/5-10
+
+             tlbsx rA, rB                  TLB Search for Entry instruction                                    5.4/5-10
+
+             tlbivax rA, rB                TLB Invalidate Entries instruction                                  5.4/5-10
+
+             tlbsync                       TLB Synchronize Invalidations with other masters’ instruction       5.4/5-10
+                                           (privileged no-op on the e200z3)
+
+ Registers   PID0                          Process ID register                                                 2.4.2/2-9
+
+             MMUCSR0                       MMU control and status register                                    2.16.1/2-62
+
+             MMUCFG                        MMU configuration register                                         2.16.2/2-62
+
+             TLB0CFG–TLB1CFG               TLB configuration registers                                        2.16.3/2-63
+
+             MAS0–MAS4, MAS6               MMU assist registers. Note: e200z3 does not implement MAS5.        2.16.4/2-65
+
+             DEAR                          Data exception address register                                   2.8.1.5/2-21
+
+ Interrupts Instruction TLB miss exception Causes instruction TLB error interrupt                             4.6.15/4-21
+
+             Data TLB miss exception       Causes data TLB error interrupt                                    4.6.14/4-21
+
+             Instruction permission        Causes ISI interrupt                                               4.6.4/4-14
+             violation exception
+
+             Data permission violation     Causes DSI interrupt                                               4.6.3/4-13
+             exception
+
+Other hardware assistance features for maintenance of the TLB on the e200z3 are described in
+Section 5.6.5.2, “MAS Register Updates.”
+
+5.2          Effective-to-Real Address Translation
+This section describes the general principles that guide the PowerPC Book E definition for memory
+management and further describes the structure for MMUs defined by the Freescale Book E
+implementation standard (EIS) and the e200z3 MMU.
+Figure 5-1 shows the high-level translation flow, showing that because the smallest page size supported
+by the e200z3 core complex is 4 Kbytes, the 12 lsbs always index within the page and are untranslated.
+
+
+
+
+                                e200z3 Power Architecture Core Reference Manual, Rev. 2
+5-2                                                                                                Freescale Semiconductor
+                                                                                                               Memory Management Unit
+
+
+
+                                   MSR[DS] for Data Access
+                                   MSR[IS] for Instruction Fetch
+                                                               32-Bit Effective Address
+
+
+
+                             AS    PID                 Effective Page Address                    Offset
+                                          0                                               n–1n            31
+                                                       Virtual Address
+
+                                                                  TLB
+                                                             Multiple-Entry
+
+                                                     RPN field of matching entry
+
+
+                                                         Real Page Number                        Offset
+                                          0                                               n–1n            31
+
+
+                                                                32-Bit Real Address
+                             NOTE: n = 32–log2 (page size)
+                             n> = 20
+                             n = 20 for 4-Kbyte page size.
+
+
+                    •••        IS DS •••       MSR
+
+
+        Instruction Access
+
+                                          Data Access
+                                                                                    32-bit Effective Address (EA)
+
+                                                      8 Bits          15–20 Bits*                                   >12 Bits*
+                                          AS          PID0                Effective Page Number                Byte Address
+
+                                                                       Three 41-Bit Virtual Addresses (VAs)
+
+
+
+
+                                       MAS Registers                              MMU (Unified)
+                                                                    32-Entry Fully-Assoc. VSP Array (TLB1)
+
+
+
+                                                                      15–20 Bits*                                    >12 Bits*
+                                              32-Bit Real Address             Real Page Number                 Byte Address
+         * Number of bits depends on page size
+           (4 Kbytes–128 Mbytes)
+                               Figure 5-1. Effective-to-Real Address Translation Flow
+
+
+
+
+                                  e200z3 Power Architecture Core Reference Manual, Rev. 2
+Freescale Semiconductor                                                                                                           5-3
+Memory Management Unit
+
+
+5.2.1       Effective Addresses
+Instruction accesses are generated by sequential instruction fetches or due to a change in program flow
+(branches and interrupts). Data accesses are generated by load, store, and cache management instructions.
+The e200z3 instruction fetch, branch, and load/store units generate 32-bit effective addresses. The MMU
+translates these effective addresses to 32-bit physical (real) addresses that are then used for memory
+accesses.
+The PowerPC Book E architecture divides the effective (virtual) and real (physical) address space into
+pages. The page represents the granularity of effective address translation, permission control, and
+memory/cache attributes. The e200z3 MMU supports nine page sizes (4 Kbytes to 256 Mbytes, as defined
+in Table 5-2). In order for an effective-to-real address translation to exist, a valid entry for the page
+containing the effective address must be in a TLB. Accesses to addresses for which no TLB entry exists
+(a TLB miss) cause instruction or data TLB errors.
+
+5.2.2       Address Spaces
+The PowerPC Book E architecture defines two effective address spaces for instruction accesses and two
+effective address spaces for data accesses. The current effective address space for instruction or data
+accesses is determined by the value of MSR[IS] (instruction address space bit) and MSR[DS] (data address
+space bit), respectively. The address space indicator (the corresponding value of either MSR[IS] or
+MSR[DS]) is used in addition to the effective address generated by the processor for translation into a
+physical address by the TLB mechanism. Because MSR[IS] and MSR[DS] are both cleared when an
+interrupt occurs, an address space value of 0 can be used to denote interrupt-related address spaces (or
+possibly all system software address spaces). An address space value of 1 can be used to denote
+non–interrupt-related address spaces or possibly all user address spaces.
+The address space associated with an instruction or data access is included as part of the virtual address in
+the translation process (AS).
+
+5.2.3       Virtual Addresses and Process ID
+The PowerPC Book E architecture requires a process ID (PID) value to be associated with each effective
+address (instruction or data) generated by the processor to construct a virtual address for each access. At
+the Book E level, a single PID register is defined as a 32-bit register, and it maintains the value of the PID
+for the current process. This PID value is included as part of the virtual address in the translation process
+(PID0).
+For the e200z3 MMU, the PID is 8 bits in length. The most significant 24 bits are unimplemented and read
+as 0. The p_pid0[0:7] interface signals indicate the current process ID.
+The core complex implements a single process ID (PID) register, PID0, as an SPR shown in
+Section 2.16.5, “Process ID Register (PID0).” The current value in the PID register is used in the TLB
+look-up process and compared with the TID field in all the TLB entries. If the PID value in PID0 matches
+with a TLB entry in which all the other match criteria are met, that entry is used for translation.
+
+
+
+
+                            e200z3 Power Architecture Core Reference Manual, Rev. 2
+5-4                                                                                     Freescale Semiconductor
+                                                                                                Memory Management Unit
+
+
+Note that when a TID value in a TLB entry is all zeros, it always causes a match in the PID compare
+(effectively ignoring the values of the PID register). Thus, the operating system can set the values of all
+the TIDs to zero, effectively eliminating the PID value from all translation comparisons.
+
+5.2.4        Translation Flow
+The effective address, concatenated with the address space value of the corresponding MSR bit (MSR[IS]
+or MSR[DS]), is compared to the appropriate number of bits of the EPN field (depending on the page size)
+and the TS field of TLB entries. If the contents of the effective address plus the address space bit matches
+the EPN field and TS bit of the TLB entry, that TLB entry is a candidate for a possible translation match.
+In addition to a match in the EPN field and TS, a matching TLB entry must match with the current process
+ID of the access (in PID0), or have a TID value of 0, indicating that the entry is globally shared among all
+processes.
+Figure 5-2 shows the translation match logic for the effective address plus its attributes, collectively called
+the virtual address, and how it is compared with the corresponding fields in the TLB entries.
+
+                              TLB_entry[V]
+                                                                                             TLB Entry Hit
+                             TLB_entry[TS]
+                                                    =?
+             AS (from MSR[IS] or MSR[DS])
+
+
+                                Process ID                 Private Page
+                                                    =?
+
+
+                             TLB_entry[TID]                Shared Page
+                                                    =0?
+
+
+                         TLB_entry[EPN]
+                                                    =?
+                     EA Page Number Bits
+
+                          Figure 5-2. Virtual Address and TLB-Entry Compare Process
+
+The page size defined for a TLB entry determines how many bits of the effective address are compared
+with the corresponding EPN field in the TLB entry as shown in Table 5-2. On a TLB hit, the corresponding
+bits of the real page number (RPN) field are used to form the real address.
+                      Table 5-2. Page Size (for e200z3 Core) and EPN Field Comparison
+
+                                                Page Size          EA to EPN Comparison
+                             SIZE Field
+                                              (4SIZE Kbytes)        (Bits 32–53; 2 × SIZE)
+
+                              0b0001            4 Kbytes           EA[32–51] = EPN[32–51]?
+
+                              0b0010            16 Kbytes          EA[32–49] = EPN[0–49]?
+
+                              0b0011            64 Kbytes          EA[32–47] = EPN[32–47]?
+
+                              0b0100           256 Kbytes          EA[32–45] = EPN[32–45]?
+
+                              0b0101             1 Mbyte           EA[32–43] = EPN[32–43]?
+
+                              0b0110            4 Mbytes           EA[32–41] = EPN[32–41]?
+
+
+
+                              e200z3 Power Architecture Core Reference Manual, Rev. 2
+Freescale Semiconductor                                                                                            5-5
+Memory Management Unit
+
+
+               Table 5-2. Page Size (for e200z3 Core) and EPN Field Comparison (continued)
+
+                                          Page Size        EA to EPN Comparison
+                          SIZE Field
+                                        (4SIZE Kbytes)      (Bits 32–53; 2 × SIZE)
+
+                            0b0111        16 Mbytes       EA[32–39] = EPN[32–39]?
+
+                            0b1000        64 Mbytes       EA[32–37] = EPN[32–37]?
+
+                            0b1001        256 Mbytes      EA[32–35] = EPN[32–35]?
+
+
+On a TLB hit, the generation of the physical address occurs as shown in Figure 5-1.
+
+5.2.5       Permissions
+An operating system may restrict access to virtual pages by selectively granting permissions for user-mode
+read, write, and execute, and supervisor-mode read, write, and execute on a per-page basis. These
+permissions can be set up for a particular system (for example, program code may be execute only, and
+data structures may be mapped as read/write/no-execute) and be changed by the operating system based
+on application requests and operating system policies.
+The UX, SX, UW, SW, UR, and SR access control bits are provided to support selective permissions
+(access control):
+    • SR—Supervisor read permission. Allows loads and load-type cache management instructions to
+       access the page while in supervisor mode (MSR[PR = 0]).
+    • SW—Supervisor write permission. Allows stores and store-type cache management instructions to
+       access the page while in supervisor mode (MSR[PR = 0]).
+    • SX—Supervisor execute permission. Allows instruction fetches to access the page and instructions
+       to be executed from the page while in supervisor mode (MSR[PR = 0]).
+    • UR—User read permission. Allows loads and load-type cache management instructions to access
+       the page while in user mode (MSR[PR = 1]).
+    • UW—User write permission. Allows stores and store-type cache management instructions to
+       access the page while in user mode (MSR[PR = 1]).
+    • UX—User execute permission. Allows instruction fetches to access the page and instructions to be
+       executed from the page while in user mode (MSR[PR = 1]).
+If the translation match was successful, the permission bits are checked as shown in Figure 5-3. If the
+access is not allowed by the access permission mechanism, the processor generates an instruction or data
+storage interrupt (ISI or DSI).
+
+
+
+
+                           e200z3 Power Architecture Core Reference Manual, Rev. 2
+5-6                                                                                   Freescale Semiconductor
+                                                                                          Memory Management Unit
+
+
+
+            TLB Match (see Figure 5-2)
+                                                                                       Access Granted
+                                            MSR[PR]
+                                   Instruction Fetch
+                                     TLB_entry[UX]
+
+                                     TLB_entry[SX]
+                            Load-Class Data Access
+                                     TLB_entry[UR]
+
+                                     TLB_entry[SR]
+                           Store-Class Data Access
+                                    TLB_entry[UW]
+
+                                     TLB_entry[SW]
+
+                                  Figure 5-3. Granting of Access Permission
+
+
+5.3       Translation Lookaside Buffer
+The EIS architecture defines support for zero or more TLBs in an implementation, each with its own
+characteristics, and provides configuration information for software to query the existence and structure
+of TLBs through a set of SPRs—MMUCFG, TLB0CFG, TLB1CFG, and so on. By convention, TLB0 is
+used for a set-associative TLB with fixed page sizes, TLB1 is used for a fully-associative TLB with
+variable page sizes, and TLB2 is arbitrarily defined by an implementation. The e200z3 MMU supports a
+single TLB that is fully associative and supports variable page sizes; thus it corresponds to TLB1 in the
+programming model. For the rest of this document, TLB, TLBCAM, and TLB1 are used interchangeably.
+The TLB on the e200z3 MMU (TLB1) consists of a 16-entry, fully-associative content-addressable
+memory (CAM) array with support for nine page sizes. To perform a lookup, the TLB is searched in
+parallel for a matching TLB entry. The contents of a matching TLB entry are then concatenated with the
+page offset of the original effective address. The result constitutes the real (physical) address of the access.
+A hit to multiple TLB entries is considered to be a programming error. If this occurs, the TLB generates
+an invalid address and TLB entries may be corrupted (an exception will not be reported).
+
+
+
+
+                             e200z3 Power Architecture Core Reference Manual, Rev. 2
+Freescale Semiconductor                                                                                      5-7
+Memory Management Unit
+
+
+The structure of TLB1 is shown in Figure 5-4.
+                                                                   Virtual Address
+                                   TLB1
+               0
+                                                                         Compare
+
+
+
+
+             15                                                          Compare
+
+                                                       RPN                     Hit
+
+
+                                                                                  Real Address
+                                                                   (translated bits, depending on page size)
+
+                                    Figure 5-4. e200z3 TLB1 Organization
+
+
+5.3.1       IPROT Invalidation Protection in TLB1
+The IPROT bit in TLB1 is used to protect TLB entries from invalidation. TLB1 entries with IPROT set
+are not invalidated by a tlbivax instruction executed by this processor (even when the INV_ALL
+command is indicated), or by a flash invalidate initiated by writing to MMUCSR0[TLB1_FI]. The IPROT
+bit can be used to protect critical code and data such as interrupt vectors/handlers in order to guarantee that
+the instruction fetch of those vectors never takes a TLB miss exception. Entries with IPROT set can only
+be invalidated by writing a 0 to the valid bit of the entry (by using the MAS registers and executing the
+tlbwe instruction).
+Invalidation operations generated by execution of the tlbivax instruction are guaranteed to invalidate the
+entry that translates the address specified in the operand of the tlbivax instruction. Additional entries may
+also be invalidated by this operation if they are not protected with IPROT. A precise invalidation can be
+performed by writing a 0 to the valid bit of a TLB entry.
+
+5.3.2       Replacement Algorithm for TLB1
+The replacement algorithm for TLB1 must be implemented completely by system software. Thus, when
+an entry in TLB1 is to be replaced, the software can select which entry to replace and write the entry
+number to the MAS0[ESEL] field before executing a tlbwe instruction.
+Alternately, the software can load the entry number of the next desired victim into MAS0[NV]. The
+e200z3 then automatically loads MAS0[ESEL] from MAS0[NV] on a TLB error condition as shown in
+Figure 5-5.
+
+
+
+
+                            e200z3 Power Architecture Core Reference Manual, Rev. 2
+5-8                                                                                         Freescale Semiconductor
+                                                                                                  Memory Management Unit
+
+
+See Table 5-6 for a complete description of MAS register updates on various exception conditions.
+
+                                                  MAS0
+                                                                         On tlbwe, SelectsEntry
+                                                   ESEL
+
+                                                    NV
+                                                                         Written by Software
+
+
+
+
+                                  TLB Miss (TLB Error Interrupt
+                                               Figure 5-5. Victim Selection
+
+
+5.3.3          The G Bit (of WIMGE)
+The G bit provides protection from bus accesses that could be canceled due to an exception on a prior
+uncompleted instruction.
+If G = 1 (guarded), these types of accesses must stall until the exception status of any instructions in
+progress is known. If G = 0 (unguarded), these accesses may be issued to the bus regardless of the
+completion status of other instructions. Because the core does not make requests for load or store
+instructions until it is known that prior instructions will complete without exceptions, the G bit is
+essentially ignored. Proper operation always occurs to guarded storage.
+
+5.3.4          TLB Entry Field Summary
+Table 5-3 summarizes the fields of e200z3 TLB entries. Note that all of these fields are defined at the
+Freescale Book E level.
+                                         Table 5-3. TLB Entry Bit Fields for e200z3
+
+         Field                                                    Description
+
+           V       Valid bit for entry
+
+          TS       Translation address space (compared with AS bit of the current access)
+
+        TID[0–7]   Translation ID (compared with PID0 or TIDZ (all zeros))
+
+      EPN[0–19]    Effective page number (compared with effective address)
+
+      RPN[0–19]    Real page number (translated address)
+
+
+
+
+                                e200z3 Power Architecture Core Reference Manual, Rev. 2
+Freescale Semiconductor                                                                                              5-9
+Memory Management Unit
+
+
+                               Table 5-3. TLB Entry Bit Fields for e200z3 (continued)
+
+          Field                                                 Description
+
+        SIZE[0–3]   Encoded page size
+                    0000 Reserved
+                    0001 4 Kbytes
+                    0010 16 Kbytes
+                    0011 64 Kbytes
+                    0100 256 Kbytes
+                    0101 1 Mbyte
+                    0110 4 Mbytes
+                    0111 16 Mbytes
+                    1000 64 Mbytes
+                    1001 256 Mbytes
+                    All others—reserved
+
+       SX, SW, SR Supervisor execute, write, and read permission bits
+
+       UX, UW, UR User execute, write, and read permission bits
+
+         WIMGE      Memory/cache attributes (write-through, cache-inhibit, memory coherence required, guarded, endian)
+
+         U0–U3      User attribute bits—used only by software
+
+         IPROT      Invalidation protection
+
+          VLE       VLE page indicator
+
+
+5.4         Software Interface and TLB Instructions
+TLB1 is accessed indirectly through several MMU assist (MAS) registers, which software can write and
+read with mtspr and mfspr instructions. MAS registers contain information related to reading and writing
+a given entry within TLB1. Data is read from the TLB into the MAS registers with a tlbre (TLB Read
+Entry) instruction and is written to the TLB from the MAS registers with a tlbwe (TLB Write Entry)
+instruction.
+Certain fields of the MAS registers are also written by hardware when an instruction TLB error, data TLB
+error, DSI, or ISI interrupt occurs.
+On a TLB error interrupt, the MAS registers are written by hardware with the proper EA, default attributes
+(TID, WIMGE, permissions, and so on), TLB selection information, and an entry in the TLB to replace.
+Software manages this entry selection information by updating a replacement entry value during TLB miss
+handling. Software must provide the correct RPN and permission information in one of the MAS registers
+before executing a tlbwe instruction.
+On taking a DSI or ISI interrupt, hardware updates only the search PID (SPID) and search address space
+(SAS) fields in the MAS registers, using the contents of PID0 and the corresponding MSR[IS] or
+MSR[DS] value used when the data or instruction storage interrupt was recognized. During the interrupt
+handler, software can issue a TLB Search Instruction (tlbsx), which uses the SPID field along with the
+SAS field, to determine the entry related to the data or instruction storage interrupt. Note that it is possible
+that the entry that caused the data or instruction storage interrupt no longer exists in the TLB by the time
+the search occurs if a TLB invalidate or replacement removes the entry between the time the exception is
+recognized and when the tlbsx is executed.
+
+
+                                e200z3 Power Architecture Core Reference Manual, Rev. 2
+5-10                                                                                              Freescale Semiconductor
+                                                                                                              Memory Management Unit
+
+
+The supervisor instructions tlbre, tlbwe, tlbsx, tlbivax, and tlbsync are fully described in the EREF.
+   • TLB Read Entry (tlbre)—Causes contents of the TLB entry specified by MAS0[TLBSEL,ESEL])
+       to be placed into MAS1–MAS3. Table 5-6 describes how MAS fields are updated.
+   • TLB Write Entry (tlbwe)—Causes the contents of certain fields within the MAS1, MAS2, and
+       MAS3 to be written into the TLB entry specified by MAS0[TLBSEL,ESEL]. Table 5-6 describes
+       how MAS fields are updated.
+   • TLB Search Indexed (tlbsx)—Updates the MAS registers conditionally based on success or failure
+       of a TLB lookup. The lookup is controlled by an effective address provided by rB as specified in
+       the instruction encoding, and by MAS6[SAS,SPID]. The values placed into MAS0–MAS3 differ
+       depending on the success of the search. Table 5-6 describes how MAS fields are updated.
+   • TLB Invalidate (tlbivax)—Invalidates TLB entries that correspond to the virtual address
+       calculated by this instruction. The address is detailed in Table 5-4. No other information except for
+       that shown in Table 5-4 is used for the invalidation (AS and TID values are ignored).
+       Additional information about the targeted TLB entries is encoded in two of the lower bits of the
+       effective address calculated by the tlbivax.
+       EA[0–19] are used to perform the tlbivax invalidation of TLB1.
+    t
+
+
+                                                Table 5-4. tlbivax EA Bit Definitions
+
+    Bits                                                               Field
+
+    0–19      EA[0–19]
+
+20–27 Reserved1
+
+        28    TLBSEL (1 = TLB1). Should be set, for future compatibility and to ensure that TLB1 is targeted by the invalidate.
+
+        29    INV_ALL. If set, indicates that the invalidate operation needs to completely invalidate all TLB1 entries that are not
+              marked as invalidation protected (IPROT = 1)
+
+30–31 Reserved 1
+1       These bits should be zero for future compatibility. They are ignored.
+
+         •    TLB Synchronize (tlbsync)—Treated as a privileged no-op by the e200z3.
+
+5.5              TLB Operations
+This section describes how the software (with some hardware assistance) maintains TLB1.
+
+5.5.1               Translation Reload
+The TLB reload function is performed in software with some hardware assistance. This hardware
+assistance consists of the following:
+    • Five 32-bit MMU assist registers (MAS0–MAS4, MAS6) for support of the tlbre, tlbwe, and tlbsx
+        TLB management instructions.
+    • Loading of MAS0–MAS2 based upon defaults in MAS4 for TLB miss exceptions. This
+        automatically generates most of the TLB entry.
+
+
+
+                                      e200z3 Power Architecture Core Reference Manual, Rev. 2
+Freescale Semiconductor                                                                                                               5-11
+Memory Management Unit
+
+
+       •   Loading of the data exception address register (DEAR) with the EA of the load, store, or cache
+           management instruction that caused an alignment, data TLB miss, or data storage interrupt.
+       •   The tlbwe instruction. When tlbwe is executed, the new TLB entry contained in MAS0–MAS2 is
+           written into the TLB.
+
+5.5.2          Reading the TLB
+The TLB array can be read by first writing the necessary information into MAS0 using mtspr and then
+executing the tlbre instruction. To read an entry from TLB1, MAS0[TLBSEL] must be set to 01 and
+MAS0[ESEL] must be set to point to the desired entry. After tlbre executes, MAS1–MAS3 are updated
+with the data from the selected TLB entry. See Section 5.4, “Software Interface and TLB Instructions.”
+
+5.5.3          Writing the TLB
+The TLB1 array can be written by first writing the necessary information into MAS0–MAS3 using mtspr
+and then executing the tlbwe instruction. To write an entry into TLB1, the TLBSEL field in MAS0 must
+be set to 01, and the ESEL bits in MAS0 must be set to point to the desired entry. When the tlbwe
+instruction is executed, the TLB entry information stored in MAS1–MAS3 is written into the selected TLB
+entry. See Section 5.4, “Software Interface and TLB Instructions.”
+
+5.5.4          Searching the TLB
+TLB1 can be searched using a tlbsx by first writing the necessary information into MAS6. The tlbsx
+instruction searches using EPN[0–19] from the GPR selected by the instruction, SAS (search AS bit) in
+MAS6, and SPID in MAS6. If the search is successful, the given TLB entry information is loaded into
+MAS0–MAS3. The valid bit in MAS1 is used as the success flag. If the search is successful, the valid bit
+in MAS1 is set; if unsuccessful, it is cleared. The tlbsx instruction is useful for finding the TLB entry that
+caused a data or instruction storage interrupt. See Section 5.4, “Software Interface and TLB Instructions.”
+
+5.5.5          TLB Coherency Control
+The e200z3 core provides the ability to invalidate a TLB entry as described in the Book E PowerPC
+architecture. The tlbivax instruction invalidates local TLB entries only. No broadcast is performed, as no
+hardware-based coherency support is provided.
+The tlbivax instruction invalidates by effective address only. This means that only the TLB entry’s EPN
+bits are used to determine if the TLB entry should be invalidated. Therefore, a single tlbivax can invalidate
+multiple TLB entries, because the AS and TID fields of the entries are ignored.
+
+5.5.6          TLB Miss Exception Update
+When a TLB miss exception occurs, MAS0–MAS3 are updated with the defaults specified in MAS4 and
+the AS and EPN[0–19] of the access that caused the exception. In addition, the ESEL bits are updated with
+the replacement entry value. This sets up all the TLB entry data necessary for a TLB write except for the
+RPN[0–19], the U0–U3 user bits, and the UX/SX/UW/SW/UR/SR permission bits, all of which are stored
+in MAS3. Thus, if the defaults stored in MAS4 are applicable to the TLB entry to be loaded, the TLB miss
+
+                             e200z3 Power Architecture Core Reference Manual, Rev. 2
+5-12                                                                                    Freescale Semiconductor
+                                                                                                 Memory Management Unit
+
+
+exception handler only has to update MAS3 through mtspr before executing tlbwe. If the defaults are not
+applicable to the TLB entry being loaded, the TLB miss handler must update MAS0–MAS2 before
+performing the TLB write.
+See Table 5-6 for more details on the automatic updates to the MAS registers on exceptions.
+
+5.5.7         TLB Load on Reset
+During reset, all TLB entries except entry 0 are automatically invalidated by the hardware. TLB entry 0 is
+also loaded with the default values in Table 5-5.
+                                      Table 5-5. TLB Entry 0 Values after Reset
+
+   Field          Reset Value                                              Comments
+
+  VALID                1            Entry is valid.
+
+    TS                 0            Address space 0
+
+ TID[0–7]            0x00           TID value for shared (global) page
+
+EPN[0–19] p_rstbase[0:19] value Page address present on p_rstbase[0:19]. See Chapter 7, “External Core Complex
+                                Interfaces.”
+
+RPN[0–19] p_rstbase[0:19] value Page address present on p_rstbase[0:19]. See Chapter 7, “External Core Complex
+                                Interfaces.”
+
+ SIZE[0–3]           0001           4KB page size
+
+SX/SW/SR              111           Full supervisor mode access allowed
+
+UX/UW/UR              111           Full user mode access allowed
+
+  WIMG               0100           Cache-inhibited, non-coherent
+
+      E       p_rst_endmode value Value present on p_rst_endmode. See Chapter 7, “External Core Complex Interfaces.”
+  U0–U3              0000           User bits
+
+  IPROT                1            Page is protected from invalidation.
+
+   VLE        p_rst_vlemode value Value present on p_rst_vlemode signal. See Table 7-3 for more information.
+
+
+5.6          MMU Configuration and Control Registers
+Information about the configuration for a given MMU implementation is available to system software by
+reading the contents of the MMU configuration SPRs. These SPRs describe the architectural version of
+the MMU, the number of TLB arrays, and the characteristics of each TLB array. Additionally, there are a
+number of MMU control and assist registers summarized in Section 2.16.4, “MMU Assist Registers
+(MAS0–MAS4, MAS6).”
+
+5.6.1         MMU Configuration Register (MMUCFG)
+MMUCFG provides configuration information for the MMU supplied with this version of the e200z3 CPU
+core. See Section 2.16.2, “MMU Configuration Register (MMUCFG).”
+
+
+
+                                e200z3 Power Architecture Core Reference Manual, Rev. 2
+Freescale Semiconductor                                                                                            5-13
+Memory Management Unit
+
+
+5.6.2        TLB0 and TLB1 Configuration Registers
+TLB0CFG and TLB1CFG provide configuration information for the MMU TLBs supplied with this
+version of the e200z3 CPU core. See Section 2.16.3, “TLB Configuration Registers (TLBnCFG).”
+
+5.6.3        Data Exception Address Register (DEAR)
+DEAR, described in Section 2.8.1.5, “Data Exception Address Register (DEAR),” is loaded with the
+effective address of the data access that results in an alignment, data TLB miss, or data storage interrupt.
+
+5.6.4        MMU Control and Status Register 0 (MMUCSR0)
+MMUCSR0, shown in Section 2.16.1, “MMU Control and Status Register 0 (MMUCSR0),”controls the
+state of the MMU.
+
+5.6.5        MMU Assist Registers (MAS)
+The e200z3 uses MAS0–MAS4 and MAS6 SPRs to facilitate reading, writing, and searching the TLBs.
+The e200z3 does not implement MAS5, because the tlbsx instruction only searches based on a single SPID
+value.
+MAS registers are described in Section 2.16.4, “MMU Assist Registers (MAS0–MAS4, MAS6).”
+
+5.6.5.1          MAS Registers Summary
+The fields of the MAS registers are summarized in Figure 5-6.
+
+        32       33   34   35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57     58   59       60   61   62   63
+
+MAS0         —        TLBSEL            —                 ESEL                       —                                 NV
+
+MAS1 VALID IPROT               —                    TID            —       TS       TSIZ                      —
+
+MAS2                                        EPN                                            —       VLE   W        I    M    G    E
+
+MAS3                                        RPN                                 —    U0 U1 U2 U3   UX    SX UW SW UR SR
+
+MAS4         —        TBSELD        —             TIDSELD              —        TSIZED         —   VLED WD ID MD GD ED
+
+MAS6                   —                           SPID                                        —                                 SAS
+
+
+                                        Figure 5-6. MMU Assist Registers Summary
+
+
+5.6.5.2          MAS Register Updates
+Table 5-6 details the updates to each MAS register field for each update type.
+
+
+
+
+                                   e200z3 Power Architecture Core Reference Manual, Rev. 2
+5-14                                                                                                Freescale Semiconductor
+                                                                                                 Memory Management Unit
+
+
+                                     Table 5-6. MMU Assist Register Field Updates
+
+                           MAS
+       Bit/Field                       ITLB/DTLB Error        tlbsx hit     tlbsx miss         tlbre       tlbwe ISI/DSI
+                          Affected
+
+       TLBSEL                0             TLBSELD              ‘01’        TLBSELD            NC1          NC     NC
+
+         ESEL                0                NV           Matched entry       NV              NC           NC     NC
+
+          NV                 0                NC                NC             NC              NC           NC     NC
+
+        VALID                1                 1                 1              0            V(array)       NC     NC
+
+        IPROT                1                 0           Matched IPROT        0          IPROT(array)     NC     NC
+
+       TID[0–7]              1       TIDSELD (PID0,TIDZ)     TID(array)       SPID          TID(array)      NC     NC
+
+          TS                 1           MSR(IS/DS)             SAS            SAS           TS(array)      NC     NC
+
+      TSIZE[0–3]             1              TSIZED          TSIZE(array)     TSIZED        TSIZE(array)     NC     NC
+
+      EPN[0–19]              2             I/D EPN          EPN(array)      tlbsx EPN       EPN(array)      NC     NC
+
+        WIMGE                2           Default values    WIMGE(array)    Default values WIMGE(array)      NC     NC
+
+      RPN[0–19]              3              Zeroed          RPN(Array)        Zeroed        RPN(array)      NC     NC
+
+     ACCESS                  3              Zeroed         Access(Array)      Zeroed       Access(array)    NC     NC
+ (PERMISS + U0–U3)
+
+       TLBSELD               4                NC                NC             NC              NC           NC     NC
+
+     TIDSELD[0–1]            4                NC                NC             NC              NC           NC     NC
+
+      TSIZED[0–3]            4                NC                NC             NC              NC           NC     NC
+
+    Default WIMGE            4                NC                NC             NC              NC           NC     NC
+
+         SPID                6               PID0               NC             NC              NC           NC     NC
+
+         SAS                 6           MSR(IS/DS)             NC             NC              NC           NC     NC
+1
+    NC—no change
+
+
+5.7        Effect of Hardware Debug on MMU Operation
+Hardware debug facilities use normal CPU instructions to access register and memory contents during a
+debug session. If desired during a debug session, the debug firmware may disable the translation process
+and may substitute default values for the access protection (UX, UR, UW, SX, SR, SW) bits and values
+obtained from the OnCE control register for page attribute (W, I, M, G, E) bits normally provided by a
+matching TLB entry. In addition, no address translation is performed; instead, a 1:1 mapping of
+effective-to-real addresses is performed. When disabled during the debug session, no TLB miss or TLB
+access protection-related DSI conditions occur. If there is a need for the debugger to use the normal
+translation process, the MMU may be left enabled in the OnCE OCR, and normal translation (including
+the possibility of a TLB miss or DSI) remains in effect. Refer to Section 9.5.5.3, “OnCE Control Register
+(OCR),” for details on controlling MMU operation during debug sessions.
+
+
+
+
+                                 e200z3 Power Architecture Core Reference Manual, Rev. 2
+Freescale Semiconductor                                                                                              5-15
+Memory Management Unit
+
+
+
+
+                         e200z3 Power Architecture Core Reference Manual, Rev. 2
+5-16                                                                               Freescale Semiconductor

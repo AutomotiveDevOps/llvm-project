@@ -10,19 +10,21 @@
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/ScopeExit.h"
 #include "llvm/ADT/SmallVector.h"
-#include "llvm/ADT/Triple.h"
 #include "llvm/BinaryFormat/Magic.h"
-#include "llvm/Config/llvm-config.h"
+#include "llvm/Config/llvm-config.h" // for LLVM_ON_UNIX
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/ConvertUTF.h"
+#include "llvm/Support/Duration.h"
 #include "llvm/Support/Errc.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/FileUtilities.h"
-#include "llvm/Support/Host.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/TargetParser/Host.h"
+#include "llvm/TargetParser/Triple.h"
 #include "llvm/Testing/Support/Error.h"
+#include "llvm/Testing/Support/SupportHelpers.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 
@@ -63,11 +65,38 @@ using namespace llvm::sys;
 
 namespace {
 
+void checkSeparators(StringRef Path) {
+#ifdef _WIN32
+  char UndesiredSeparator = sys::path::get_separator()[0] == '/' ? '\\' : '/';
+  ASSERT_EQ(Path.find(UndesiredSeparator), StringRef::npos);
+#endif
+}
+
 struct FileDescriptorCloser {
   explicit FileDescriptorCloser(int FD) : FD(FD) {}
   ~FileDescriptorCloser() { ::close(FD); }
   int FD;
 };
+
+TEST(is_style_Style, Works) {
+  using namespace llvm::sys::path;
+  // Check platform-independent results.
+  EXPECT_TRUE(is_style_posix(Style::posix));
+  EXPECT_TRUE(is_style_windows(Style::windows));
+  EXPECT_TRUE(is_style_windows(Style::windows_slash));
+  EXPECT_FALSE(is_style_posix(Style::windows));
+  EXPECT_FALSE(is_style_posix(Style::windows_slash));
+  EXPECT_FALSE(is_style_windows(Style::posix));
+
+  // Check platform-dependent results.
+#if defined(_WIN32)
+  EXPECT_FALSE(is_style_posix(Style::native));
+  EXPECT_TRUE(is_style_windows(Style::native));
+#else
+  EXPECT_TRUE(is_style_posix(Style::native));
+  EXPECT_FALSE(is_style_windows(Style::native));
+#endif
+}
 
 TEST(is_separator, Works) {
   EXPECT_TRUE(path::is_separator('/'));
@@ -76,13 +105,46 @@ TEST(is_separator, Works) {
   EXPECT_FALSE(path::is_separator(' '));
 
   EXPECT_TRUE(path::is_separator('\\', path::Style::windows));
+  EXPECT_TRUE(path::is_separator('\\', path::Style::windows_slash));
   EXPECT_FALSE(path::is_separator('\\', path::Style::posix));
 
-#ifdef _WIN32
-  EXPECT_TRUE(path::is_separator('\\'));
-#else
-  EXPECT_FALSE(path::is_separator('\\'));
-#endif
+  EXPECT_EQ(path::is_style_windows(path::Style::native),
+            path::is_separator('\\'));
+}
+
+TEST(get_separator, Works) {
+  EXPECT_EQ(path::get_separator(path::Style::posix), "/");
+  EXPECT_EQ(path::get_separator(path::Style::windows_backslash), "\\");
+  EXPECT_EQ(path::get_separator(path::Style::windows_slash), "/");
+}
+
+TEST(is_absolute_gnu, Works) {
+  // Test tuple <Path, ExpectedPosixValue, ExpectedWindowsValue>.
+  const std::tuple<StringRef, bool, bool> Paths[] = {
+      std::make_tuple("", false, false),
+      std::make_tuple("/", true, true),
+      std::make_tuple("/foo", true, true),
+      std::make_tuple("\\", false, true),
+      std::make_tuple("\\foo", false, true),
+      std::make_tuple("foo", false, false),
+      std::make_tuple("c", false, false),
+      std::make_tuple("c:", false, true),
+      std::make_tuple("c:\\", false, true),
+      std::make_tuple("!:", false, true),
+      std::make_tuple("xx:", false, false),
+      std::make_tuple("c:abc\\", false, true),
+      std::make_tuple(":", false, false)};
+
+  for (const auto &Path : Paths) {
+    EXPECT_EQ(path::is_absolute_gnu(std::get<0>(Path), path::Style::posix),
+              std::get<1>(Path));
+    EXPECT_EQ(path::is_absolute_gnu(std::get<0>(Path), path::Style::windows),
+              std::get<2>(Path));
+
+    constexpr int Native = is_style_posix(path::Style::native) ? 1 : 2;
+    EXPECT_EQ(path::is_absolute_gnu(std::get<0>(Path), path::Style::native),
+              std::get<Native>(Path));
+  }
 }
 
 TEST(Support, Path) {
@@ -128,6 +190,7 @@ TEST(Support, Path) {
   paths.push_back("c:\\foo\\");
   paths.push_back("c:\\foo/");
   paths.push_back("c:/foo\\bar");
+  paths.push_back(":");
 
   for (SmallVector<StringRef, 40>::const_iterator i = paths.begin(),
                                                   e = paths.end();
@@ -171,6 +234,7 @@ TEST(Support, Path) {
     (void)path::has_extension(*i);
     (void)path::extension(*i);
     (void)path::is_absolute(*i);
+    (void)path::is_absolute_gnu(*i);
     (void)path::is_relative(*i);
 
     SmallString<128> temp_store;
@@ -191,16 +255,81 @@ TEST(Support, Path) {
 
   {
     SmallString<32> Relative("foo.cpp");
-    sys::fs::make_absolute("/root", Relative);
+    path::make_absolute("/root", Relative);
     Relative[5] = '/'; // Fix up windows paths.
     ASSERT_EQ("/root/foo.cpp", Relative);
   }
 
   {
     SmallString<32> Relative("foo.cpp");
-    sys::fs::make_absolute("//root", Relative);
+    path::make_absolute("//root", Relative);
     Relative[6] = '/'; // Fix up windows paths.
     ASSERT_EQ("//root/foo.cpp", Relative);
+  }
+}
+
+TEST(Support, PathRoot) {
+  ASSERT_EQ(path::root_name("//net/hello", path::Style::posix).str(), "//net");
+  ASSERT_EQ(path::root_name("c:/hello", path::Style::posix).str(), "");
+  ASSERT_EQ(path::root_name("c:/hello", path::Style::windows).str(), "c:");
+  ASSERT_EQ(path::root_name("/hello", path::Style::posix).str(), "");
+
+  ASSERT_EQ(path::root_directory("/goo/hello", path::Style::posix).str(), "/");
+  ASSERT_EQ(path::root_directory("c:/hello", path::Style::windows).str(), "/");
+  ASSERT_EQ(path::root_directory("d/file.txt", path::Style::posix).str(), "");
+  ASSERT_EQ(path::root_directory("d/file.txt", path::Style::windows).str(), "");
+
+  SmallVector<StringRef, 40> paths;
+  paths.push_back("");
+  paths.push_back(".");
+  paths.push_back("..");
+  paths.push_back("foo");
+  paths.push_back("/");
+  paths.push_back("/foo");
+  paths.push_back("foo/");
+  paths.push_back("/foo/");
+  paths.push_back("foo/bar");
+  paths.push_back("/foo/bar");
+  paths.push_back("//net");
+  paths.push_back("//net/");
+  paths.push_back("//net/foo");
+  paths.push_back("///foo///");
+  paths.push_back("///foo///bar");
+  paths.push_back("/.");
+  paths.push_back("./");
+  paths.push_back("/..");
+  paths.push_back("../");
+  paths.push_back("foo/.");
+  paths.push_back("foo/..");
+  paths.push_back("foo/./");
+  paths.push_back("foo/./bar");
+  paths.push_back("foo/..");
+  paths.push_back("foo/../");
+  paths.push_back("foo/../bar");
+  paths.push_back("c:");
+  paths.push_back("c:/");
+  paths.push_back("c:foo");
+  paths.push_back("c:/foo");
+  paths.push_back("c:foo/");
+  paths.push_back("c:/foo/");
+  paths.push_back("c:/foo/bar");
+  paths.push_back("prn:");
+  paths.push_back("c:\\");
+  paths.push_back("c:foo");
+  paths.push_back("c:\\foo");
+  paths.push_back("c:foo\\");
+  paths.push_back("c:\\foo\\");
+  paths.push_back("c:\\foo/");
+  paths.push_back("c:/foo\\bar");
+
+  for (StringRef p : paths) {
+    ASSERT_EQ(
+      path::root_name(p, path::Style::posix).str() + path::root_directory(p, path::Style::posix).str(),
+      path::root_path(p, path::Style::posix).str());
+
+    ASSERT_EQ(
+      path::root_name(p, path::Style::windows).str() + path::root_directory(p, path::Style::windows).str(),
+      path::root_path(p, path::Style::windows).str());
   }
 }
 
@@ -272,6 +401,8 @@ TEST(Support, PathIterator) {
               testing::ElementsAre("/", ".c", ".d", "..", "."));
   EXPECT_THAT(GetComponents("c:\\c\\e\\foo.txt", path::Style::windows),
               testing::ElementsAre("c:", "\\", "c", "e", "foo.txt"));
+  EXPECT_THAT(GetComponents("c:\\c\\e\\foo.txt", path::Style::windows_slash),
+              testing::ElementsAre("c:", "\\", "c", "e", "foo.txt"));
   EXPECT_THAT(GetComponents("//net/"), testing::ElementsAre("//net", "/"));
   EXPECT_THAT(GetComponents("//net/c/foo.txt"),
               testing::ElementsAre("//net", "/", "c", "foo.txt"));
@@ -314,6 +445,9 @@ std::string getEnvWin(const wchar_t *Var) {
     ArrayRef<char> ref{reinterpret_cast<char const *>(path),
                        pathLen * sizeof(wchar_t)};
     convertUTF16ToUTF8String(ref, expected);
+    SmallString<32> Buf(expected);
+    path::make_preferred(Buf);
+    expected.assign(Buf.begin(), Buf.end());
   }
   return expected;
 }
@@ -321,7 +455,7 @@ std::string getEnvWin(const wchar_t *Var) {
 // RAII helper to set and restore an environment variable.
 class WithEnv {
   const char *Var;
-  llvm::Optional<std::string> OriginalValue;
+  std::optional<std::string> OriginalValue;
 
 public:
   WithEnv(const char *Var, const char *Value) : Var(Var) {
@@ -351,26 +485,48 @@ TEST(Support, HomeDirectory) {
 #endif
   // Do not try to test it if we don't know what to expect.
   // On Windows we use something better than env vars.
-  if (!expected.empty()) {
-    SmallString<128> HomeDir;
-    auto status = path::home_directory(HomeDir);
-    EXPECT_TRUE(status);
-    EXPECT_EQ(expected, HomeDir);
-  }
+  if (expected.empty())
+    GTEST_SKIP();
+  SmallString<128> HomeDir;
+  auto status = path::home_directory(HomeDir);
+  EXPECT_TRUE(status);
+  EXPECT_EQ(expected, HomeDir);
 }
 
-#ifdef LLVM_ON_UNIX
+// Apple has their own solution for this.
+#if defined(LLVM_ON_UNIX) && !defined(__APPLE__)
 TEST(Support, HomeDirectoryWithNoEnv) {
   WithEnv Env("HOME", nullptr);
 
   // Don't run the test if we have nothing to compare against.
   struct passwd *pw = getpwuid(getuid());
-  if (!pw || !pw->pw_dir) return;
+  if (!pw || !pw->pw_dir)
+    GTEST_SKIP();
   std::string PwDir = pw->pw_dir;
 
   SmallString<128> HomeDir;
   EXPECT_TRUE(path::home_directory(HomeDir));
   EXPECT_EQ(PwDir, HomeDir);
+}
+
+TEST(Support, ConfigDirectoryWithEnv) {
+  WithEnv Env("XDG_CONFIG_HOME", "/xdg/config");
+
+  SmallString<128> ConfigDir;
+  EXPECT_TRUE(path::user_config_directory(ConfigDir));
+  EXPECT_EQ("/xdg/config", ConfigDir);
+}
+
+TEST(Support, ConfigDirectoryNoEnv) {
+  WithEnv Env("XDG_CONFIG_HOME", nullptr);
+
+  SmallString<128> Fallback;
+  ASSERT_TRUE(path::home_directory(Fallback));
+  path::append(Fallback, ".config");
+
+  SmallString<128> CacheDir;
+  EXPECT_TRUE(path::user_config_directory(CacheDir));
+  EXPECT_EQ(Fallback, CacheDir);
 }
 
 TEST(Support, CacheDirectoryWithEnv) {
@@ -394,15 +550,37 @@ TEST(Support, CacheDirectoryNoEnv) {
 }
 #endif
 
+#ifdef __APPLE__
+TEST(Support, ConfigDirectory) {
+  SmallString<128> Fallback;
+  ASSERT_TRUE(path::home_directory(Fallback));
+  path::append(Fallback, "Library/Preferences");
+
+  SmallString<128> ConfigDir;
+  EXPECT_TRUE(path::user_config_directory(ConfigDir));
+  EXPECT_EQ(Fallback, ConfigDir);
+}
+#endif
+
 #ifdef _WIN32
+TEST(Support, ConfigDirectory) {
+  std::string Expected = getEnvWin(L"LOCALAPPDATA");
+  // Do not try to test it if we don't know what to expect.
+  if (Expected.empty())
+    GTEST_SKIP();
+  SmallString<128> CacheDir;
+  EXPECT_TRUE(path::user_config_directory(CacheDir));
+  EXPECT_EQ(Expected, CacheDir);
+}
+
 TEST(Support, CacheDirectory) {
   std::string Expected = getEnvWin(L"LOCALAPPDATA");
   // Do not try to test it if we don't know what to expect.
-  if (!Expected.empty()) {
-    SmallString<128> CacheDir;
-    EXPECT_TRUE(path::cache_directory(CacheDir));
-    EXPECT_EQ(Expected, CacheDir);
-  }
+  if (Expected.empty())
+    GTEST_SKIP();
+  SmallString<128> CacheDir;
+  EXPECT_TRUE(path::cache_directory(CacheDir));
+  EXPECT_EQ(Expected, CacheDir);
 }
 #endif
 
@@ -418,9 +596,15 @@ TEST(Support, TempDirectory) {
 #ifdef _WIN32
 static std::string path2regex(std::string Path) {
   size_t Pos = 0;
+  bool Forward = path::get_separator()[0] == '/';
   while ((Pos = Path.find('\\', Pos)) != std::string::npos) {
-    Path.replace(Pos, 1, "\\\\");
-    Pos += 2;
+    if (Forward) {
+      Path.replace(Pos, 1, "/");
+      Pos += 1;
+    } else {
+      Path.replace(Pos, 1, "\\\\");
+      Pos += 2;
+    }
   }
   return Path;
 }
@@ -442,8 +626,8 @@ TEST(SupportDeathTest, TempDirectoryOnWindows) {
   // different values of specific env vars. To prevent corrupting env vars of
   // the current process all checks are done in separated processes.
   EXPECT_TEMP_DIR(_wputenv_s(L"TMP", L"C:\\OtherFolder"), "C:\\OtherFolder");
-  EXPECT_TEMP_DIR(_wputenv_s(L"TMP", L"C:/Unix/Path/Seperators"),
-                  "C:\\Unix\\Path\\Seperators");
+  EXPECT_TEMP_DIR(_wputenv_s(L"TMP", L"C:/Unix/Path/Separators"),
+                  "C:\\Unix\\Path\\Separators");
   EXPECT_TEMP_DIR(_wputenv_s(L"TMP", L"Local Path"), ".+\\Local Path$");
   EXPECT_TEMP_DIR(_wputenv_s(L"TMP", L"F:\\TrailingSep\\"), "F:\\TrailingSep");
   EXPECT_TEMP_DIR(
@@ -525,12 +709,16 @@ TEST_F(FileSystemTest, Unique) {
 
   ASSERT_NO_ERROR(fs::remove(Twine(TempPath2)));
 
+#ifndef _WIN32
   // Two paths representing the same file on disk should still provide the
   // same unique id.  We can test this by making a hard link.
+  // FIXME: Our implementation of getUniqueID on Windows doesn't consider hard
+  // links to be the same file.
   ASSERT_NO_ERROR(fs::create_link(Twine(TempPath), Twine(TempPath2)));
   fs::UniqueID D2;
   ASSERT_NO_ERROR(fs::getUniqueID(Twine(TempPath2), D2));
   ASSERT_EQ(D2, F1);
+#endif
 
   ::close(FileDescriptor);
 
@@ -567,10 +755,12 @@ TEST_F(FileSystemTest, RealPath) {
   // how we specified it.  Make sure to compare against the real_path of the
   // TestDirectory, and not just the value of TestDirectory.
   ASSERT_NO_ERROR(fs::real_path(TestDirectory, RealBase));
+  checkSeparators(RealBase);
   path::native(Twine(RealBase) + "/test1/test2", Expected);
 
   ASSERT_NO_ERROR(fs::real_path(
       Twine(TestDirectory) + "/././test1/../test1/test2/./test3/..", Actual));
+  checkSeparators(Actual);
 
   EXPECT_EQ(Expected, Actual);
 
@@ -579,7 +769,9 @@ TEST_F(FileSystemTest, RealPath) {
   // This can fail if $HOME is not set and getpwuid fails.
   bool Result = llvm::sys::path::home_directory(HomeDir);
   if (Result) {
+    checkSeparators(HomeDir);
     ASSERT_NO_ERROR(fs::real_path(HomeDir, Expected));
+    checkSeparators(Expected);
     ASSERT_NO_ERROR(fs::real_path("~", Actual, true));
     EXPECT_EQ(Expected, Actual);
     ASSERT_NO_ERROR(fs::real_path("~/", Actual, true));
@@ -630,6 +822,25 @@ TEST_F(FileSystemTest, RealPathNoReadPerm) {
 
   ASSERT_NO_ERROR(fs::remove_directories(Twine(TestDirectory) + "/noreadperm"));
 }
+TEST_F(FileSystemTest, RemoveDirectoriesNoExePerm) {
+  ASSERT_NO_ERROR(
+      fs::create_directories(Twine(TestDirectory) + "/noexeperm/foo"));
+  ASSERT_TRUE(fs::exists(Twine(TestDirectory) + "/noexeperm/foo"));
+
+  fs::setPermissions(Twine(TestDirectory) + "/noexeperm",
+                     fs::all_read | fs::all_write);
+
+  ASSERT_NO_ERROR(fs::remove_directories(Twine(TestDirectory) + "/noexeperm",
+                                         /*IgnoreErrors=*/true));
+
+  // It's expected that the directory exists, but some environments appear to
+  // allow the removal despite missing the 'x' permission, so be flexible.
+  if (fs::exists(Twine(TestDirectory) + "/noexeperm")) {
+    fs::setPermissions(Twine(TestDirectory) + "/noexeperm", fs::all_perms);
+    ASSERT_NO_ERROR(fs::remove_directories(Twine(TestDirectory) + "/noexeperm",
+                                           /*IgnoreErrors=*/false));
+  }
+}
 #endif
 
 
@@ -670,7 +881,7 @@ TEST_F(FileSystemTest, TempFiles) {
   int FD2;
   SmallString<64> TempPath2;
   ASSERT_NO_ERROR(fs::createTemporaryFile("prefix", "temp", FD2, TempPath2));
-  ASSERT_TRUE(TempPath2.endswith(".temp"));
+  ASSERT_TRUE(TempPath2.ends_with(".temp"));
   ASSERT_NE(TempPath.str(), TempPath2.str());
 
   fs::file_status A, B;
@@ -696,17 +907,21 @@ TEST_F(FileSystemTest, TempFiles) {
 
   SmallString<64> TempPath3;
   ASSERT_NO_ERROR(fs::createTemporaryFile("prefix", "", TempPath3));
-  ASSERT_FALSE(TempPath3.endswith("."));
+  ASSERT_FALSE(TempPath3.ends_with("."));
   FileRemover Cleanup3(TempPath3);
 
   // Create a hard link to Temp1.
   ASSERT_NO_ERROR(fs::create_link(Twine(TempPath), Twine(TempPath2)));
+#ifndef _WIN32
+  // FIXME: Our implementation of equivalent() on Windows doesn't consider hard
+  // links to be the same file.
   bool equal;
   ASSERT_NO_ERROR(fs::equivalent(Twine(TempPath), Twine(TempPath2), equal));
   EXPECT_TRUE(equal);
   ASSERT_NO_ERROR(fs::status(Twine(TempPath), A));
   ASSERT_NO_ERROR(fs::status(Twine(TempPath2), B));
   EXPECT_TRUE(fs::equivalent(A, B));
+#endif
 
   // Remove Temp1.
   ::close(FileDescriptor);
@@ -747,7 +962,6 @@ TEST_F(FileSystemTest, TempFileCollisions) {
   FileRemover Cleanup(TestDirectory);
   SmallString<128> Model = TestDirectory;
   path::append(Model, "%.tmp");
-  SmallString<128> Path;
   std::vector<fs::TempFile> TempFiles;
 
   auto TryCreateTempFile = [&]() {
@@ -837,9 +1051,7 @@ TEST_F(FileSystemTest, CreateDir) {
   do {
     LongPathWithUnixSeparators.append("/DirNameWith19Charss");
   } while (LongPathWithUnixSeparators.size() < 260);
-  std::replace(LongPathWithUnixSeparators.begin(),
-               LongPathWithUnixSeparators.end(),
-               '\\', '/');
+  llvm::replace(LongPathWithUnixSeparators, '\\', '/');
   ASSERT_NO_ERROR(fs::create_directories(Twine(LongPathWithUnixSeparators)));
   // cleanup
   ASSERT_NO_ERROR(fs::remove_directories(Twine(TestDirectory) +
@@ -954,6 +1166,11 @@ TEST_F(FileSystemTest, DirectoryIteration) {
   ASSERT_NO_ERROR(fs::remove(Twine(TestDirectory) + "/reclevel"));
 }
 
+TEST_F(FileSystemTest, DirectoryNotExecutable) {
+  ASSERT_EQ(fs::access(TestDirectory, sys::fs::AccessMode::Execute),
+            errc::permission_denied);
+}
+
 #ifdef LLVM_ON_UNIX
 TEST_F(FileSystemTest, BrokenSymlinkDirectoryIteration) {
   // Create a known hierarchy to recurse over.
@@ -1041,6 +1258,39 @@ TEST_F(FileSystemTest, BrokenSymlinkDirectoryIteration) {
 }
 #endif
 
+#ifdef _WIN32
+TEST_F(FileSystemTest, UTF8ToUTF16DirectoryIteration) {
+  // The Windows filesystem support uses UTF-16 and converts paths from the
+  // input UTF-8. The UTF-16 equivalent of the input path can be shorter in
+  // length.
+
+  // This test relies on TestDirectory not being so long such that MAX_PATH
+  // would be exceeded (see widenPath). If that were the case, the UTF-16
+  // path is likely to be longer than the input.
+  const char *Pi = "\xcf\x80"; // UTF-8 lower case pi.
+  std::string RootDir = (TestDirectory + "/" + Pi).str();
+
+  // Create test directories.
+  ASSERT_NO_ERROR(fs::create_directories(Twine(RootDir) + "/a"));
+  ASSERT_NO_ERROR(fs::create_directories(Twine(RootDir) + "/b"));
+
+  std::error_code EC;
+  unsigned Count = 0;
+  for (fs::directory_iterator I(Twine(RootDir), EC), E; I != E;
+       I.increment(EC)) {
+    ASSERT_NO_ERROR(EC);
+    StringRef DirName = path::filename(I->path());
+    EXPECT_TRUE(DirName == "a" || DirName == "b");
+    ++Count;
+  }
+  EXPECT_EQ(Count, 2U);
+
+  ASSERT_NO_ERROR(fs::remove(Twine(RootDir) + "/a"));
+  ASSERT_NO_ERROR(fs::remove(Twine(RootDir) + "/b"));
+  ASSERT_NO_ERROR(fs::remove(Twine(RootDir)));
+}
+#endif
+
 TEST_F(FileSystemTest, Remove) {
   SmallString<64> BaseDir;
   SmallString<64> Paths[4];
@@ -1070,6 +1320,9 @@ TEST_F(FileSystemTest, Remove) {
 
   ASSERT_NO_ERROR(fs::remove_directories("D:/footest"));
 
+  ASSERT_NO_ERROR(fs::remove_directories(Twine(BaseDir) + "/foo/bar/baz"));
+  ASSERT_FALSE(fs::exists(Twine(BaseDir) + "/foo/bar/baz"));
+
   ASSERT_NO_ERROR(fs::remove_directories(BaseDir));
   ASSERT_FALSE(fs::exists(BaseDir));
 }
@@ -1081,7 +1334,7 @@ TEST_F(FileSystemTest, CarriageReturn) {
   path::append(FilePathname, "test");
 
   {
-    raw_fd_ostream File(FilePathname, EC, sys::fs::OF_Text);
+    raw_fd_ostream File(FilePathname, EC, sys::fs::OF_TextWithCRLF);
     ASSERT_NO_ERROR(EC);
     File << '\n';
   }
@@ -1117,6 +1370,31 @@ TEST_F(FileSystemTest, Resize) {
   ASSERT_NO_ERROR(fs::remove(TempPath));
 }
 
+TEST_F(FileSystemTest, ResizeBeforeMapping) {
+  // Create a temp file.
+  int FD;
+  SmallString<64> TempPath;
+  ASSERT_NO_ERROR(fs::createTemporaryFile("prefix", "temp", FD, TempPath));
+  ASSERT_NO_ERROR(fs::resize_file_before_mapping_readwrite(FD, 123));
+
+  // Map in temp file. On Windows, fs::resize_file_before_mapping_readwrite is
+  // a no-op and the mapping itself will resize the file.
+  std::error_code EC;
+  {
+    fs::mapped_file_region mfr(fs::convertFDToNativeFile(FD),
+                               fs::mapped_file_region::readwrite, 123, 0, EC);
+    ASSERT_NO_ERROR(EC);
+    // Unmap temp file
+  }
+
+  // Check the size.
+  fs::file_status Status;
+  ASSERT_NO_ERROR(fs::status(FD, Status));
+  ASSERT_EQ(Status.getSize(), 123U);
+  ::close(FD);
+  ASSERT_NO_ERROR(fs::remove(TempPath));
+}
+
 TEST_F(FileSystemTest, MD5) {
   int FD;
   SmallString<64> TempPath;
@@ -1138,11 +1416,14 @@ TEST_F(FileSystemTest, FileMapping) {
   ASSERT_NO_ERROR(
       fs::createTemporaryFile("prefix", "temp", FileDescriptor, TempPath));
   unsigned Size = 4096;
-  ASSERT_NO_ERROR(fs::resize_file(FileDescriptor, Size));
+  ASSERT_NO_ERROR(
+      fs::resize_file_before_mapping_readwrite(FileDescriptor, Size));
 
   // Map in temp file and add some content
   std::error_code EC;
   StringRef Val("hello there");
+  fs::mapped_file_region MaybeMFR;
+  EXPECT_FALSE(MaybeMFR);
   {
     fs::mapped_file_region mfr(fs::convertFDToNativeFile(FileDescriptor),
                                fs::mapped_file_region::readwrite, Size, 0, EC);
@@ -1150,8 +1431,23 @@ TEST_F(FileSystemTest, FileMapping) {
     std::copy(Val.begin(), Val.end(), mfr.data());
     // Explicitly add a 0.
     mfr.data()[Val.size()] = 0;
-    // Unmap temp file
+
+    // Move it out of the scope and confirm mfr is reset.
+    MaybeMFR = std::move(mfr);
+    EXPECT_FALSE(mfr);
+#if !defined(NDEBUG) && GTEST_HAS_DEATH_TEST
+    EXPECT_DEATH(mfr.data(), "Mapping failed but used anyway!");
+    EXPECT_DEATH(mfr.size(), "Mapping failed but used anyway!");
+#endif
   }
+
+  // Check that the moved-to region is still valid.
+  EXPECT_EQ(Val, StringRef(MaybeMFR.data()));
+  EXPECT_EQ(Size, MaybeMFR.size());
+
+  // Unmap temp file.
+  MaybeMFR.unmap();
+
   ASSERT_EQ(close(FileDescriptor), 0);
 
   // Map it back in read-only
@@ -1175,6 +1471,43 @@ TEST_F(FileSystemTest, FileMapping) {
   ASSERT_NO_ERROR(fs::remove(TempPath));
 }
 
+TEST_F(FileSystemTest, FileMappingSync) {
+  // Create a temp file.
+  SmallString<0> TempPath(TestDirectory);
+  sys::path::append(TempPath, "test-%%%%");
+  auto TempFileOrError = fs::TempFile::create(TempPath);
+  ASSERT_TRUE((bool)TempFileOrError);
+  fs::TempFile File = std::move(*TempFileOrError);
+  StringRef Content("hello there");
+  std::string FileName = File.TmpName;
+  ASSERT_NO_ERROR(
+      fs::resize_file_before_mapping_readwrite(File.FD, Content.size()));
+  {
+    // Map in the file and write some content.
+    std::error_code EC;
+    fs::mapped_file_region MFR(fs::convertFDToNativeFile(File.FD),
+                               fs::mapped_file_region::readwrite,
+                               Content.size(), 0, EC);
+
+    // Keep the file so it can be read.
+    ASSERT_FALSE((bool)File.keep());
+
+    // Write content through mapped memory.
+    ASSERT_NO_ERROR(EC);
+    std::copy(Content.begin(), Content.end(), MFR.data());
+
+    // Synchronize to file system.
+    ASSERT_FALSE((bool)MFR.sync());
+
+    // Check the file content using file IO APIs.
+    auto Buffer = MemoryBuffer::getFile(FileName);
+    ASSERT_TRUE((bool)Buffer);
+    ASSERT_EQ(Content, Buffer->get()->getBuffer());
+  }
+  // Manually remove the test file.
+  ASSERT_FALSE((bool)fs::remove(FileName));
+}
+
 TEST(Support, NormalizePath) {
   //                           Input,        Expected Win, Expected Posix
   using TestTuple = std::tuple<const char *, const char *, const char *>;
@@ -1190,10 +1523,25 @@ TEST(Support, NormalizePath) {
   for (auto &T : Tests) {
     SmallString<64> Win(std::get<0>(T));
     SmallString<64> Posix(Win);
+    SmallString<64> WinSlash(Win);
     path::native(Win, path::Style::windows);
     path::native(Posix, path::Style::posix);
+    path::native(WinSlash, path::Style::windows_slash);
     EXPECT_EQ(std::get<1>(T), Win);
     EXPECT_EQ(std::get<2>(T), Posix);
+    EXPECT_EQ(std::get<2>(T), WinSlash);
+  }
+
+  for (auto &T : Tests) {
+    SmallString<64> WinBackslash(std::get<0>(T));
+    SmallString<64> Posix(WinBackslash);
+    SmallString<64> WinSlash(WinBackslash);
+    path::make_preferred(WinBackslash, path::Style::windows_backslash);
+    path::make_preferred(Posix, path::Style::posix);
+    path::make_preferred(WinSlash, path::Style::windows_slash);
+    EXPECT_EQ(std::get<1>(T), WinBackslash);
+    EXPECT_EQ(std::get<0>(T), Posix); // Posix remains unchanged here
+    EXPECT_EQ(std::get<2>(T), WinSlash);
   }
 
 #if defined(_WIN32)
@@ -1202,9 +1550,14 @@ TEST(Support, NormalizePath) {
 
   const char *Path7a = "~/aaa";
   SmallString<64> Path7(Path7a);
-  path::native(Path7);
-  EXPECT_TRUE(Path7.endswith("\\aaa"));
-  EXPECT_TRUE(Path7.startswith(PathHome));
+  path::native(Path7, path::Style::windows_backslash);
+  EXPECT_TRUE(Path7.ends_with("\\aaa"));
+  EXPECT_TRUE(Path7.starts_with(PathHome));
+  EXPECT_EQ(Path7.size(), PathHome.size() + strlen(Path7a + 1));
+  Path7 = Path7a;
+  path::native(Path7, path::Style::windows_slash);
+  EXPECT_TRUE(Path7.ends_with("/aaa"));
+  EXPECT_TRUE(Path7.starts_with(PathHome));
   EXPECT_EQ(Path7.size(), PathHome.size() + strlen(Path7a + 1));
 
   const char *Path8a = "~";
@@ -1219,7 +1572,7 @@ TEST(Support, NormalizePath) {
 
   const char *Path10a = "aaa/~/b";
   SmallString<64> Path10(Path10a);
-  path::native(Path10);
+  path::native(Path10, path::Style::windows_backslash);
   EXPECT_EQ(Path10, "aaa\\~\\b");
 #endif
 }
@@ -1257,16 +1610,14 @@ TEST(Support, RemoveDots) {
   EXPECT_EQ("C:\\a\\c", remove_dots("C:\\foo\\bar//..\\..\\a\\c", true,
                                     path::Style::windows));
 
-  // FIXME: These leading forward slashes are emergent behavior. VFS depends on
-  // this behavior now.
-  EXPECT_EQ("C:/bar",
+  EXPECT_EQ("C:\\bar",
             remove_dots("C:/foo/../bar", true, path::Style::windows));
-  EXPECT_EQ("C:/foo\\bar",
+  EXPECT_EQ("C:\\foo\\bar",
             remove_dots("C:/foo/bar", true, path::Style::windows));
-  EXPECT_EQ("C:/foo\\bar",
+  EXPECT_EQ("C:\\foo\\bar",
             remove_dots("C:/foo\\bar", true, path::Style::windows));
-  EXPECT_EQ("/", remove_dots("/", true, path::Style::windows));
-  EXPECT_EQ("C:/", remove_dots("C:/", true, path::Style::windows));
+  EXPECT_EQ("\\", remove_dots("/", true, path::Style::windows));
+  EXPECT_EQ("C:\\", remove_dots("C:/", true, path::Style::windows));
 
   // Some clients of remove_dots expect it to remove trailing slashes. Again,
   // this is emergent behavior that VFS relies on, and not inherently part of
@@ -1277,7 +1628,8 @@ TEST(Support, RemoveDots) {
             remove_dots("/foo/bar/", true, path::Style::posix));
 
   // A double separator is rewritten.
-  EXPECT_EQ("C:/foo\\bar", remove_dots("C:/foo//bar", true, path::Style::windows));
+  EXPECT_EQ("C:\\foo\\bar",
+            remove_dots("C:/foo//bar", true, path::Style::windows));
 
   SmallString<64> Path1(".\\.\\c");
   EXPECT_TRUE(path::remove_dots(Path1, true, path::Style::windows));
@@ -1440,6 +1792,28 @@ TEST_F(FileSystemTest, OpenFileForRead) {
 #endif
 }
 
+TEST_F(FileSystemTest, OpenDirectoryAsFileForRead) {
+  std::string Buf(5, '?');
+  Expected<fs::file_t> FD = fs::openNativeFileForRead(TestDirectory);
+#ifdef _WIN32
+  EXPECT_EQ(errorToErrorCode(FD.takeError()), errc::is_a_directory);
+#else
+  ASSERT_THAT_EXPECTED(FD, Succeeded());
+  auto Close = make_scope_exit([&] { fs::closeFile(*FD); });
+  Expected<size_t> BytesRead =
+      fs::readNativeFile(*FD, MutableArrayRef(&*Buf.begin(), Buf.size()));
+  EXPECT_EQ(errorToErrorCode(BytesRead.takeError()), errc::is_a_directory);
+#endif
+}
+
+TEST_F(FileSystemTest, OpenDirectoryAsFileForWrite) {
+  int FD;
+  std::error_code EC = fs::openFileForWrite(Twine(TestDirectory), FD);
+  if (!EC)
+    ::close(FD);
+  EXPECT_EQ(EC, errc::is_a_directory);
+}
+
 static void createFileWithData(const Twine &Path, bool ShouldExistBefore,
                                fs::CreationDisposition Disp, StringRef Data) {
   int FD;
@@ -1460,7 +1834,7 @@ static void verifyFileContents(const Twine &Path, StringRef Contents) {
 
 TEST_F(FileSystemTest, CreateNew) {
   int FD;
-  Optional<FileDescriptorCloser> Closer;
+  std::optional<FileDescriptorCloser> Closer;
 
   // Succeeds if the file does not exist.
   ASSERT_FALSE(fs::exists(NonExistantFile));
@@ -1484,7 +1858,7 @@ TEST_F(FileSystemTest, CreateNew) {
 
 TEST_F(FileSystemTest, CreateAlways) {
   int FD;
-  Optional<FileDescriptorCloser> Closer;
+  std::optional<FileDescriptorCloser> Closer;
 
   // Succeeds if the file does not exist.
   ASSERT_FALSE(fs::exists(NonExistantFile));
@@ -1562,7 +1936,7 @@ TEST_F(FileSystemTest, AppendSetsCorrectFileOffset) {
   // the specified disposition.
   for (fs::CreationDisposition Disp : Disps) {
     int FD;
-    Optional<FileDescriptorCloser> Closer;
+    std::optional<FileDescriptorCloser> Closer;
 
     createFileWithData(NonExistantFile, false, fs::CD_CreateNew, "Fizz");
 
@@ -1653,7 +2027,7 @@ TEST_F(FileSystemTest, readNativeFile) {
       return FD.takeError();
     auto Close = make_scope_exit([&] { fs::closeFile(*FD); });
     if (Expected<size_t> BytesRead = fs::readNativeFile(
-            *FD, makeMutableArrayRef(&*Buf.begin(), Buf.size())))
+            *FD, MutableArrayRef(&*Buf.begin(), Buf.size())))
       return Buf.substr(0, *BytesRead);
     else
       return BytesRead.takeError();
@@ -1661,6 +2035,53 @@ TEST_F(FileSystemTest, readNativeFile) {
   EXPECT_THAT_EXPECTED(Read(5), HasValue("01234"));
   EXPECT_THAT_EXPECTED(Read(3), HasValue("012"));
   EXPECT_THAT_EXPECTED(Read(6), HasValue("01234"));
+}
+
+TEST_F(FileSystemTest, readNativeFileToEOF) {
+  constexpr StringLiteral Content = "0123456789";
+  createFileWithData(NonExistantFile, false, fs::CD_CreateNew, Content);
+  FileRemover Cleanup(NonExistantFile);
+  const auto &Read = [&](SmallVectorImpl<char> &V,
+                         std::optional<ssize_t> ChunkSize) {
+    Expected<fs::file_t> FD = fs::openNativeFileForRead(NonExistantFile);
+    if (!FD)
+      return FD.takeError();
+    auto Close = make_scope_exit([&] { fs::closeFile(*FD); });
+    if (ChunkSize)
+      return fs::readNativeFileToEOF(*FD, V, *ChunkSize);
+    return fs::readNativeFileToEOF(*FD, V);
+  };
+
+  // Check basic operation.
+  {
+    SmallString<0> NoSmall;
+    SmallString<fs::DefaultReadChunkSize + Content.size()> StaysSmall;
+    SmallVectorImpl<char> *Vectors[] = {
+        static_cast<SmallVectorImpl<char> *>(&NoSmall),
+        static_cast<SmallVectorImpl<char> *>(&StaysSmall),
+    };
+    for (SmallVectorImpl<char> *V : Vectors) {
+      ASSERT_THAT_ERROR(Read(*V, std::nullopt), Succeeded());
+      ASSERT_EQ(Content, StringRef(V->begin(), V->size()));
+    }
+    ASSERT_EQ(fs::DefaultReadChunkSize + Content.size(), StaysSmall.capacity());
+
+    // Check appending.
+    {
+      constexpr StringLiteral Prefix = "prefix-";
+      for (SmallVectorImpl<char> *V : Vectors) {
+        V->assign(Prefix.begin(), Prefix.end());
+        ASSERT_THAT_ERROR(Read(*V, std::nullopt), Succeeded());
+        ASSERT_EQ((Prefix + Content).str(), StringRef(V->begin(), V->size()));
+      }
+    }
+  }
+
+  // Check that the chunk size (if specified) is respected.
+  SmallString<Content.size() + 5> SmallChunks;
+  ASSERT_THAT_ERROR(Read(SmallChunks, 5), Succeeded());
+  ASSERT_EQ(SmallChunks, Content);
+  ASSERT_EQ(Content.size() + 5, SmallChunks.capacity());
 }
 
 TEST_F(FileSystemTest, readNativeFileSlice) {
@@ -1673,7 +2094,7 @@ TEST_F(FileSystemTest, readNativeFileSlice) {
                          size_t ToRead) -> Expected<std::string> {
     std::string Buf(ToRead, '?');
     if (Expected<size_t> BytesRead = fs::readNativeFileSlice(
-            *FD, makeMutableArrayRef(&*Buf.begin(), Buf.size()), Offset))
+            *FD, MutableArrayRef(&*Buf.begin(), Buf.size()), Offset))
       return Buf.substr(0, *BytesRead);
     else
       return BytesRead.takeError();
@@ -1718,7 +2139,8 @@ TEST_F(FileSystemTest, getUmask) {
   unsigned CurrentMask = fs::getUmask();
   EXPECT_EQ(CurrentMask, 0022U)
       << "getUmask() didn't return previously set umask()";
-  EXPECT_EQ(::umask(OldMask), 0022U) << "getUmask() may have changed umask()";
+  EXPECT_EQ(::umask(OldMask), mode_t(0022U))
+      << "getUmask() may have changed umask()";
 #endif
 }
 
@@ -1981,7 +2403,7 @@ TEST_F(FileSystemTest, widenPath) {
   for (size_t i = 0; i < NumChars; ++i)
     Input += Pi;
   // Check that UTF-8 length already exceeds MAX_PATH.
-  EXPECT_TRUE(Input.size() > MAX_PATH);
+  EXPECT_GT(Input.size(), (size_t)MAX_PATH);
   SmallVector<wchar_t, MAX_PATH + 16> Result;
   ASSERT_NO_ERROR(windows::widenPath(Input, Result));
   // Result should not start with the long path prefix.
@@ -1998,6 +2420,30 @@ TEST_F(FileSystemTest, widenPath) {
                   LongPathPrefix.end());
 
   ASSERT_NO_ERROR(windows::widenPath(Input, Result));
+  EXPECT_EQ(Result, Expected);
+  // Pass a path with forward slashes, check that it ends up with
+  // backslashes when widened with the long path prefix.
+  SmallString<MAX_PATH + 16> InputForward(Input);
+  path::make_preferred(InputForward, path::Style::windows_slash);
+  ASSERT_NO_ERROR(windows::widenPath(InputForward, Result));
+  EXPECT_EQ(Result, Expected);
+
+  // Pass a path which has the long path prefix prepended originally, but
+  // which is short enough to not require the long path prefix. If such a
+  // path is passed with forward slashes, make sure it gets normalized to
+  // backslashes.
+  SmallString<MAX_PATH + 16> PrefixedPath("\\\\?\\C:\\foldername");
+  ASSERT_NO_ERROR(windows::UTF8ToUTF16(PrefixedPath, Expected));
+  // Mangle the input to forward slashes.
+  path::make_preferred(PrefixedPath, path::Style::windows_slash);
+  ASSERT_NO_ERROR(windows::widenPath(PrefixedPath, Result));
+  EXPECT_EQ(Result, Expected);
+
+  // A short path with an inconsistent prefix is passed through as-is; this
+  // is a degenerate case that we currently don't care about handling.
+  PrefixedPath.assign("/\\?/C:/foldername");
+  ASSERT_NO_ERROR(windows::UTF8ToUTF16(PrefixedPath, Expected));
+  ASSERT_NO_ERROR(windows::widenPath(PrefixedPath, Result));
   EXPECT_EQ(Result, Expected);
 
   // Test that UNC paths are handled correctly.
@@ -2027,7 +2473,7 @@ TEST_F(FileSystemTest, widenPath) {
   EXPECT_EQ(Result, Expected);
 
   // Check that Unix separators are handled correctly.
-  std::replace(Input.begin(), Input.end(), '\\', '/');
+  llvm::replace(Input, '\\', '/');
   ASSERT_NO_ERROR(windows::widenPath(Input, Result));
   EXPECT_EQ(Result, Expected);
 
@@ -2037,5 +2483,109 @@ TEST_F(FileSystemTest, widenPath) {
   EXPECT_EQ(Result, Expected);
 }
 #endif
+
+#ifdef _WIN32
+// Windows refuses lock request if file region is already locked by the same
+// process. POSIX system in this case updates the existing lock.
+TEST_F(FileSystemTest, FileLocker) {
+  using namespace std::chrono;
+  int FD;
+  std::error_code EC;
+  SmallString<64> TempPath;
+  EC = fs::createTemporaryFile("test", "temp", FD, TempPath);
+  ASSERT_NO_ERROR(EC);
+  FileRemover Cleanup(TempPath);
+  raw_fd_ostream Stream(TempPath, EC);
+
+  EC = fs::tryLockFile(FD);
+  ASSERT_NO_ERROR(EC);
+  EC = fs::unlockFile(FD);
+  ASSERT_NO_ERROR(EC);
+
+  if (auto L = Stream.lock()) {
+    ASSERT_ERROR(fs::tryLockFile(FD));
+    ASSERT_NO_ERROR(L->unlock());
+    ASSERT_NO_ERROR(fs::tryLockFile(FD));
+    ASSERT_NO_ERROR(fs::unlockFile(FD));
+  } else {
+    ADD_FAILURE();
+    handleAllErrors(L.takeError(), [&](ErrorInfoBase &EIB) {});
+  }
+
+  ASSERT_NO_ERROR(fs::tryLockFile(FD));
+  ASSERT_NO_ERROR(fs::unlockFile(FD));
+
+  {
+    Expected<fs::FileLocker> L1 = Stream.lock();
+    ASSERT_THAT_EXPECTED(L1, Succeeded());
+    raw_fd_ostream Stream2(FD, false);
+    Expected<fs::FileLocker> L2 = Stream2.tryLockFor(250ms);
+    ASSERT_THAT_EXPECTED(L2, Failed());
+    ASSERT_NO_ERROR(L1->unlock());
+    Expected<fs::FileLocker> L3 = Stream.tryLockFor(0ms);
+    ASSERT_THAT_EXPECTED(L3, Succeeded());
+  }
+
+  ASSERT_NO_ERROR(fs::tryLockFile(FD));
+  ASSERT_NO_ERROR(fs::unlockFile(FD));
+}
+#endif
+
+TEST_F(FileSystemTest, CopyFile) {
+  unittest::TempDir RootTestDirectory("CopyFileTest", /*Unique=*/true);
+
+  SmallVector<std::string> Data;
+  SmallVector<SmallString<128>> Sources;
+  for (int I = 0, E = 3; I != E; ++I) {
+    Data.push_back(Twine(I).str());
+    Sources.emplace_back(RootTestDirectory.path());
+    path::append(Sources.back(), "source" + Data.back() + ".txt");
+    createFileWithData(Sources.back(), /*ShouldExistBefore=*/false,
+                       fs::CD_CreateNew, Data.back());
+  }
+
+  // Copy the first file to a non-existing file.
+  SmallString<128> Destination(RootTestDirectory.path());
+  path::append(Destination, "destination");
+  ASSERT_FALSE(fs::exists(Destination));
+  fs::copy_file(Sources[0], Destination);
+  verifyFileContents(Destination, Data[0]);
+
+  // Copy the second file to an existing file.
+  fs::copy_file(Sources[1], Destination);
+  verifyFileContents(Destination, Data[1]);
+
+  // Note: The remaining logic is targeted at a potential failure case related
+  // to file cloning and symlinks on Darwin. On Windows, fs::create_link() does
+  // not return success here so the test is skipped.
+#if !defined(_WIN32)
+  // Set up a symlink to the third file.
+  SmallString<128> Symlink(RootTestDirectory.path());
+  path::append(Symlink, "symlink");
+  ASSERT_NO_ERROR(fs::create_link(path::filename(Sources[2]), Symlink));
+  verifyFileContents(Symlink, Data[2]);
+
+  // fs::getUniqueID() should follow symlinks. Otherwise, this isn't good test
+  // coverage.
+  fs::UniqueID SymlinkID;
+  fs::UniqueID Data2ID;
+  ASSERT_NO_ERROR(fs::getUniqueID(Symlink, SymlinkID));
+  ASSERT_NO_ERROR(fs::getUniqueID(Sources[2], Data2ID));
+  ASSERT_EQ(SymlinkID, Data2ID);
+
+  // Copy the third file through the symlink.
+  fs::copy_file(Symlink, Destination);
+  verifyFileContents(Destination, Data[2]);
+
+  // Confirm the destination is not a link to the original file, and not a
+  // symlink.
+  bool IsDestinationSymlink;
+  ASSERT_NO_ERROR(fs::is_symlink_file(Destination, IsDestinationSymlink));
+  ASSERT_FALSE(IsDestinationSymlink);
+  fs::UniqueID DestinationID;
+  ASSERT_NO_ERROR(fs::getUniqueID(Destination, DestinationID));
+  ASSERT_NE(SymlinkID, DestinationID);
+#endif
+}
 
 } // anonymous namespace

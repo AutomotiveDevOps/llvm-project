@@ -6,7 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-// UNSUPPORTED: c++98, c++03
+// UNSUPPORTED: c++03
 
 // <functional>
 
@@ -19,9 +19,10 @@
 // only SFINAE away when too few arguments are provided. Otherwise they should
 // be well formed and should ignore any additional arguments.
 
+#include <cassert>
 #include <functional>
 #include <type_traits>
-#include <cassert>
+#include <utility>
 
 #include "test_macros.h"
 

@@ -8,6 +8,7 @@
 
 #include "llvm/ADT/BitVector.h"
 #include "llvm/ADT/DenseSet.h"
+#include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallBitVector.h"
 #include "gtest/gtest.h"
 
@@ -21,7 +22,7 @@ class BitVectorTest : public ::testing::Test { };
 
 // Test both BitVector and SmallBitVector with the same suite of tests.
 typedef ::testing::Types<BitVector, SmallBitVector> BitVectorTestTypes;
-TYPED_TEST_CASE(BitVectorTest, BitVectorTestTypes);
+TYPED_TEST_SUITE(BitVectorTest, BitVectorTestTypes, );
 
 TYPED_TEST(BitVectorTest, TrivialOperation) {
   TypeParam Vec;
@@ -779,6 +780,7 @@ TYPED_TEST(BitVectorTest, ProxyIndex) {
   EXPECT_TRUE(Vec.none());
 }
 
+
 TYPED_TEST(BitVectorTest, PortableBitMask) {
   TypeParam A;
   const uint32_t Mask1[] = { 0x80000000, 6, 5 };
@@ -1133,7 +1135,18 @@ TYPED_TEST(BitVectorTest, EmptyVector) {
   testEmpty(E);
 }
 
+/// Make sure calling getData() is legal even on an empty BitVector
+TYPED_TEST(BitVectorTest, EmptyVectorGetData) {
+  BitVector A;
+  testEmpty(A);
+  auto B = A.getData();
+  EXPECT_TRUE(B.empty());
+}
+
 TYPED_TEST(BitVectorTest, Iterators) {
+  TypeParam Singleton(1, true);
+  EXPECT_EQ(std::next(Singleton.set_bits_begin()), Singleton.set_bits_end());
+
   TypeParam Filled(10, true);
   EXPECT_NE(Filled.set_bits_begin(), Filled.set_bits_end());
   unsigned Counter = 0;
@@ -1142,10 +1155,12 @@ TYPED_TEST(BitVectorTest, Iterators) {
 
   TypeParam Empty;
   EXPECT_EQ(Empty.set_bits_begin(), Empty.set_bits_end());
+  int BitCount = 0;
   for (unsigned Bit : Empty.set_bits()) {
     (void)Bit;
-    EXPECT_TRUE(false);
+    BitCount++;
   }
+  ASSERT_EQ(BitCount, 0);
 
   TypeParam ToFill(100, false);
   ToFill.set(0);
@@ -1163,26 +1178,122 @@ TYPED_TEST(BitVectorTest, Iterators) {
     EXPECT_EQ(List[i++], Bit);
 }
 
+TYPED_TEST(BitVectorTest, BidirectionalIterator) {
+  // Test decrement operators.
+  TypeParam Vec(100, false);
+  Vec.set(10);
+  Vec.set(20);
+  Vec.set(30);
+  Vec.set(40);
+
+  // Test that we can decrement from end().
+  auto EndIt = Vec.set_bits_end();
+  auto LastIt = EndIt;
+  --LastIt;
+  EXPECT_EQ(*LastIt, 40U);
+
+  // Test post-decrement.
+  auto It = Vec.set_bits_end();
+  auto PrevIt = It--;
+  EXPECT_EQ(PrevIt, Vec.set_bits_end());
+  EXPECT_EQ(*It, 40U);
+
+  // Test pre-decrement.
+  --It;
+  EXPECT_EQ(*It, 30U);
+
+  // Test full backward iteration.
+  std::vector<unsigned> BackwardBits;
+  for (auto RIt = Vec.set_bits_end(); RIt != Vec.set_bits_begin();) {
+    --RIt;
+    BackwardBits.push_back(*RIt);
+  }
+  EXPECT_EQ(BackwardBits.size(), 4U);
+  EXPECT_EQ(BackwardBits[0], 40U);
+  EXPECT_EQ(BackwardBits[1], 30U);
+  EXPECT_EQ(BackwardBits[2], 20U);
+  EXPECT_EQ(BackwardBits[3], 10U);
+}
+
+TYPED_TEST(BitVectorTest, ReverseIteration) {
+  // Test using llvm::reverse.
+  TypeParam Vec(100, false);
+  Vec.set(5);
+  Vec.set(15);
+  Vec.set(25);
+  Vec.set(35);
+  Vec.set(45);
+
+  std::vector<unsigned> ReversedBits;
+  for (unsigned Bit : llvm::reverse(Vec.set_bits())) {
+    ReversedBits.push_back(Bit);
+  }
+
+  EXPECT_EQ(ReversedBits.size(), 5U);
+  EXPECT_EQ(ReversedBits[0], 45U);
+  EXPECT_EQ(ReversedBits[1], 35U);
+  EXPECT_EQ(ReversedBits[2], 25U);
+  EXPECT_EQ(ReversedBits[3], 15U);
+  EXPECT_EQ(ReversedBits[4], 5U);
+}
+
+TYPED_TEST(BitVectorTest, BidirectionalIteratorEdgeCases) {
+  // Test empty BitVector.
+  TypeParam Empty;
+  EXPECT_EQ(Empty.set_bits_begin(), Empty.set_bits_end());
+
+  // Decrementing end() on empty should give -1 (no bits set).
+  auto EmptyEndIt = Empty.set_bits_end();
+  --EmptyEndIt;
+  // After decrement on empty, iterator should still be at "no bit" position.
+  EXPECT_EQ(*EmptyEndIt, static_cast<unsigned>(-1));
+
+  // Test single bit.
+  TypeParam Single(10, false);
+  Single.set(5);
+
+  auto SingleIt = Single.set_bits_end();
+  --SingleIt;
+  EXPECT_EQ(*SingleIt, 5U);
+  // After decrementing past the first element, the iterator is in an
+  // undefined state (before begin), so we don't test this case.
+
+  // Test all bits set.
+  TypeParam AllSet(10, true);
+  std::vector<unsigned> AllBitsReverse;
+  for (unsigned Bit : llvm::reverse(AllSet.set_bits())) {
+    AllBitsReverse.push_back(Bit);
+  }
+  EXPECT_EQ(AllBitsReverse.size(), 10U);
+  for (unsigned i = 0; i < 10; ++i) {
+    EXPECT_EQ(AllBitsReverse[i], 9 - i);
+  }
+}
+
 TYPED_TEST(BitVectorTest, PushBack) {
   TypeParam Vec(10, false);
   EXPECT_EQ(-1, Vec.find_first());
   EXPECT_EQ(10U, Vec.size());
   EXPECT_EQ(0U, Vec.count());
+  EXPECT_EQ(false, Vec.back());
 
   Vec.push_back(true);
   EXPECT_EQ(10, Vec.find_first());
   EXPECT_EQ(11U, Vec.size());
   EXPECT_EQ(1U, Vec.count());
+  EXPECT_EQ(true, Vec.back());
 
   Vec.push_back(false);
   EXPECT_EQ(10, Vec.find_first());
   EXPECT_EQ(12U, Vec.size());
   EXPECT_EQ(1U, Vec.count());
+  EXPECT_EQ(false, Vec.back());
 
   Vec.push_back(true);
   EXPECT_EQ(10, Vec.find_first());
   EXPECT_EQ(13U, Vec.size());
   EXPECT_EQ(2U, Vec.count());
+  EXPECT_EQ(true, Vec.back());
 
   // Add a lot of values to cause reallocation.
   for (int i = 0; i != 100; ++i) {
@@ -1192,6 +1303,28 @@ TYPED_TEST(BitVectorTest, PushBack) {
   EXPECT_EQ(10, Vec.find_first());
   EXPECT_EQ(213U, Vec.size());
   EXPECT_EQ(102U, Vec.count());
+}
+
+TYPED_TEST(BitVectorTest, PopBack) {
+  TypeParam Vec(10, true);
+  EXPECT_EQ(10U, Vec.size());
+  EXPECT_EQ(10U, Vec.count());
+  EXPECT_EQ(true, Vec.back());
+
+  Vec.pop_back();
+  EXPECT_EQ(9U, Vec.size());
+  EXPECT_EQ(9U, Vec.count());
+  EXPECT_EQ(true, Vec.back());
+
+  Vec.push_back(false);
+  EXPECT_EQ(10U, Vec.size());
+  EXPECT_EQ(9U, Vec.count());
+  EXPECT_EQ(false, Vec.back());
+
+  Vec.pop_back();
+  EXPECT_EQ(9U, Vec.size());
+  EXPECT_EQ(9U, Vec.count());
+  EXPECT_EQ(true, Vec.back());
 }
 
 TYPED_TEST(BitVectorTest, DenseSet) {
@@ -1258,5 +1391,41 @@ TYPED_TEST(BitVectorTest, DenseMapHashing) {
     EXPECT_EQ(DMI::getHashValue(A), DMI::getHashValue(B));
   }
 }
+
+TEST(BitVectoryTest, Apply) {
+  for (int i = 0; i < 2; ++i) {
+    int j = i * 100 + 3;
+
+    const BitVector x =
+        createBitVector<BitVector>(j + 5, {{i, i + 1}, {j - 1, j}});
+    const BitVector y = createBitVector<BitVector>(j + 5, {{i, j}});
+    const BitVector z =
+        createBitVector<BitVector>(j + 5, {{i + 1, i + 2}, {j, j + 1}});
+
+    auto op0 = [](auto x) { return ~x; };
+    BitVector expected0 = x;
+    expected0.flip();
+    BitVector out0(j - 2);
+    BitVector::apply(op0, out0, x);
+    EXPECT_EQ(out0, expected0);
+
+    auto op1 = [](auto x, auto y) { return x & ~y; };
+    BitVector expected1 = x;
+    expected1.reset(y);
+    BitVector out1;
+    BitVector::apply(op1, out1, x, y);
+    EXPECT_EQ(out1, expected1);
+
+    auto op2 = [](auto x, auto y, auto z) { return (x ^ ~y) | z; };
+    BitVector expected2 = y;
+    expected2.flip();
+    expected2 ^= x;
+    expected2 |= z;
+    BitVector out2(j + 5);
+    BitVector::apply(op2, out2, x, y, z);
+    EXPECT_EQ(out2, expected2);
+  }
+}
+
 
 } // namespace

@@ -6,9 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-// UNSUPPORTED: c++98, c++03, c++11, c++14
-
-// XFAIL: dylib-has-no-bad_any_cast && !no-exceptions
+// UNSUPPORTED: c++03, c++11, c++14
 
 // <any>
 
@@ -22,17 +20,10 @@
 
 int main(int, char**)
 {
-    using std::any;
-    using std::any_cast;
     // empty
     {
-        any a;
-
-        // noexcept check
-        static_assert(
-            noexcept(a.reset())
-          , "any.reset() must be noexcept"
-          );
+        std::any a;
+        ASSERT_NOEXCEPT(a.reset());
 
         assertEmpty(a);
 
@@ -42,7 +33,7 @@ int main(int, char**)
     }
     // small object
     {
-        any a((small(1)));
+        std::any a = small(1);
         assert(small::count == 1);
         assertContains<small>(a, 1);
 
@@ -53,7 +44,7 @@ int main(int, char**)
     }
     // large object
     {
-        any a(large(1));
+        std::any a = large(1);
         assert(large::count == 1);
         assertContains<large>(a, 1);
 

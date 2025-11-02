@@ -6,7 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-// UNSUPPORTED: c++98, c++03
+// UNSUPPORTED: c++03
 
 // <vector>
 
@@ -19,12 +19,14 @@
 #include "test_macros.h"
 #include "min_allocator.h"
 
+void test() {
+  test_hash_enabled<std::vector<bool> >();
+  test_hash_enabled<std::vector<bool, min_allocator<bool>>>();
+}
+
 int main(int, char**) {
   test_library_hash_specializations_available();
-  {
-    test_hash_enabled_for_type<std::vector<bool> >();
-    test_hash_enabled_for_type<std::vector<bool, min_allocator<bool>>>();
-  }
+  test();
 
   return 0;
 }

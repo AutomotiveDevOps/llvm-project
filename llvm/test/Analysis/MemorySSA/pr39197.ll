@@ -1,4 +1,4 @@
-; RUN: opt -mtriple=s390x-linux-gnu -mcpu=z13 -enable-mssa-loop-dependency -verify-memoryssa -sroa -globalopt -functionattrs -simplifycfg -licm -loop-unswitch %s -S | FileCheck %s
+; RUN: opt -mtriple=s390x-linux-gnu -mcpu=z13 -verify-memoryssa -passes='function(sroa),globalopt,function-attrs,function(simplifycfg,loop-mssa(licm),loop(simple-loop-unswitch))' %s -S | FileCheck %s
 ; REQUIRES: asserts
 
 target datalayout = "E-m:e-i1:8:16-i8:8:16-i64:64-f128:64-v128:64-a:8:16-n32:64"
@@ -8,48 +8,47 @@ target triple = "s390x-ibm-linux"
 @1 = internal global i64 9, align 8
 @g_1042 = external dso_local global [5 x i16], align 2
 
+declare void @dummy()
+
 ; CHECK-LABEL: @main()
 ; Function Attrs: nounwind
-define dso_local void @main() #0 {
+define dso_local void @main() {
   call void @func_1()
   unreachable
 }
 
-; Function Attrs: argmemonly nounwind
-declare void @llvm.lifetime.end.p0i8(i64, i8* nocapture) #1
-
 ; Function Attrs: nounwind
-define dso_local void @func_1() #0 {
-  %1 = alloca i32*, align 8
+define dso_local void @func_1() {
+  %1 = alloca ptr, align 8
   %2 = call signext i32 @func_2()
   %3 = icmp ne i32 %2, 0
   br i1 %3, label %4, label %9
 
 ; <label>:4:                                      ; preds = %0
-  %5 = load i16, i16* getelementptr inbounds ([5 x i16], [5 x i16]* @g_1042, i64 0, i64 0), align 2, !tbaa !1
+  %5 = load i16, ptr @g_1042, align 2, !tbaa !1
   %6 = zext i16 %5 to i64
-  %7 = load i64, i64* @1, align 8, !tbaa !5
+  %7 = load i64, ptr @1, align 8, !tbaa !5
   %8 = and i64 %7, %6
-  store i64 %8, i64* @1, align 8, !tbaa !5
-  call void @llvm.lifetime.end.p0i8(i64 4, i8* undef) #2
+  store i64 %8, ptr @1, align 8, !tbaa !5
+  call void @dummy()
   unreachable
 
 ; <label>:9:                                      ; preds = %0
-  store i32* @0, i32** %1, align 8, !tbaa !7
+  store ptr @0, ptr %1, align 8, !tbaa !7
   br label %10
 
 ; <label>:10:                                     ; preds = %23, %9
-  %11 = load i64, i64* @1, align 8, !tbaa !5
+  %11 = load i64, ptr @1, align 8, !tbaa !5
   %12 = icmp eq i64 %11, 65535
   br i1 %12, label %13, label %14
 
 ; <label>:13:                                     ; preds = %10
-  store i32* null, i32** %1, align 8, !tbaa !7
+  store ptr null, ptr %1, align 8, !tbaa !7
   br label %14
 
 ; <label>:14:                                     ; preds = %13, %10
-  %15 = load i32*, i32** %1, align 8, !tbaa !7
-  %16 = load i32, i32* %15, align 4, !tbaa !9
+  %15 = load ptr, ptr %1, align 8, !tbaa !7
+  %16 = load i32, ptr %15, align 4, !tbaa !9
   %17 = trunc i32 %16 to i16
   %18 = call signext i16 @safe_sub_func_int16_t_s_s(i16 signext %17)
   %19 = sext i16 %18 to i32
@@ -57,7 +56,7 @@ define dso_local void @func_1() #0 {
   br i1 %20, label %23, label %21
 
 ; <label>:21:                                     ; preds = %14
-  %22 = load volatile i8, i8* null, align 1, !tbaa !11
+  %22 = load volatile i8, ptr null, align 1, !tbaa !11
   br label %23
 
 ; <label>:23:                                     ; preds = %21, %14
@@ -65,48 +64,48 @@ define dso_local void @func_1() #0 {
 }
 
 ; Function Attrs: nounwind
-declare dso_local signext i32 @func_2() #0
+declare dso_local signext i32 @func_2()
 
 ; Function Attrs: nounwind
-define dso_local void @safe_sub_func_uint8_t_u_u() #0 {
+define dso_local void @safe_sub_func_uint8_t_u_u() {
   ret void
 }
 
 ; Function Attrs: nounwind
-define dso_local void @safe_add_func_int64_t_s_s() #0 {
+define dso_local void @safe_add_func_int64_t_s_s() {
   ret void
 }
 
 ; Function Attrs: nounwind
-define dso_local void @safe_rshift_func_int16_t_s_u() #0 {
+define dso_local void @safe_rshift_func_int16_t_s_u() {
   ret void
 }
 
 ; Function Attrs: nounwind
-define dso_local void @safe_div_func_uint8_t_u_u() #0 {
+define dso_local void @safe_div_func_uint8_t_u_u() {
   ret void
 }
 
 ; Function Attrs: nounwind
-define dso_local void @safe_mul_func_uint16_t_u_u() #0 {
+define dso_local void @safe_mul_func_uint16_t_u_u() {
   ret void
 }
 
 ; Function Attrs: nounwind
-define dso_local void @safe_mul_func_int16_t_s_s() #0 {
+define dso_local void @safe_mul_func_int16_t_s_s() {
   ret void
 }
 
 ; Function Attrs: nounwind
-define dso_local void @safe_div_func_int32_t_s_s() #0 {
+define dso_local void @safe_div_func_int32_t_s_s() {
   ret void
 }
 
 ; Function Attrs: nounwind
-define dso_local signext i16 @safe_sub_func_int16_t_s_s(i16 signext) #0 {
+define dso_local signext i16 @safe_sub_func_int16_t_s_s(i16 signext) {
   %2 = alloca i16, align 2
-  store i16 %0, i16* %2, align 2, !tbaa !1
-  %3 = load i16, i16* %2, align 2, !tbaa !1
+  store i16 %0, ptr %2, align 2, !tbaa !1
+  %3 = load i16, ptr %2, align 2, !tbaa !1
   %4 = sext i16 %3 to i32
   %5 = sub nsw i32 %4, 0
   %6 = trunc i32 %5 to i16
@@ -114,28 +113,24 @@ define dso_local signext i16 @safe_sub_func_int16_t_s_s(i16 signext) #0 {
 }
 
 ; Function Attrs: nounwind
-define dso_local void @safe_add_func_uint16_t_u_u() #0 {
+define dso_local void @safe_add_func_uint16_t_u_u() {
   ret void
 }
 
 ; Function Attrs: nounwind
-define dso_local void @safe_div_func_int8_t_s_s() #0 {
+define dso_local void @safe_div_func_int8_t_s_s() {
   ret void
 }
 
 ; Function Attrs: nounwind
-define dso_local void @safe_add_func_int16_t_s_s() #0 {
+define dso_local void @safe_add_func_int16_t_s_s() {
   ret void
 }
 
 ; Function Attrs: nounwind
-define dso_local void @safe_add_func_uint8_t_u_u() #0 {
+define dso_local void @safe_add_func_uint8_t_u_u() {
   ret void
 }
-
-attributes #0 = { nounwind "correctly-rounded-divide-sqrt-fp-math"="false" "disable-tail-calls"="false" "less-precise-fpmad"="false" "frame-pointer"="none" "no-infs-fp-math"="false" "no-jump-tables"="false" "no-nans-fp-math"="false" "no-signed-zeros-fp-math"="false" "no-trapping-math"="false" "stack-protector-buffer-size"="8" "target-cpu"="z13" "target-features"="+transactional-execution,+vector" "unsafe-fp-math"="false" "use-soft-float"="false" }
-attributes #1 = { argmemonly nounwind }
-attributes #2 = { nounwind }
 
 !llvm.ident = !{!0}
 

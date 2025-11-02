@@ -6,69 +6,55 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "mlir/Dialect/Quant/UniformSupport.h"
-#include "mlir/IR/StandardTypes.h"
+#include "mlir/Dialect/Quant/Utils/UniformSupport.h"
+#include "mlir/IR/BuiltinTypes.h"
+#include "llvm/ADT/STLExtras.h"
 #include <numeric>
 
 using namespace mlir;
 using namespace mlir::quant;
 
 static bool isQuantizablePrimitiveType(Type inputType) {
-  return inputType.isa<FloatType>();
+  return isa<FloatType>(inputType);
 }
 
-const ExpressedToQuantizedConverter
+ExpressedToQuantizedConverter
 ExpressedToQuantizedConverter::forInputType(Type inputType) {
-  switch (inputType.getKind()) {
-  default:
-    if (isQuantizablePrimitiveType(inputType)) {
-      // Supported primitive type (which just is the expressed type).
-      return ExpressedToQuantizedConverter{inputType, inputType};
-    }
-    // Unsupported.
-    return ExpressedToQuantizedConverter{inputType, nullptr};
-  case StandardTypes::RankedTensor:
-  case StandardTypes::UnrankedTensor:
-  case StandardTypes::Vector: {
-    Type elementType = inputType.cast<ShapedType>().getElementType();
-    if (!isQuantizablePrimitiveType(elementType)) {
-      // Unsupported.
+  if (isa<TensorType, VectorType>(inputType)) {
+    Type elementType = cast<ShapedType>(inputType).getElementType();
+    if (!isQuantizablePrimitiveType(elementType))
       return ExpressedToQuantizedConverter{inputType, nullptr};
-    }
-    return ExpressedToQuantizedConverter{
-        inputType, inputType.cast<ShapedType>().getElementType()};
+    return ExpressedToQuantizedConverter{inputType, elementType};
   }
-  }
+  // Supported primitive type (which just is the expressed type).
+  if (isQuantizablePrimitiveType(inputType))
+    return ExpressedToQuantizedConverter{inputType, inputType};
+  // Unsupported.
+  return ExpressedToQuantizedConverter{inputType, nullptr};
 }
 
 Type ExpressedToQuantizedConverter::convert(QuantizedType elementalType) const {
   assert(expressedType && "convert() on unsupported conversion");
-
-  switch (inputType.getKind()) {
-  default:
-    if (elementalType.getExpressedType() == expressedType) {
-      // If the expressed types match, just use the new elemental type.
-      return elementalType;
-    }
-    // Unsupported.
-    return nullptr;
-  case StandardTypes::RankedTensor:
-    return RankedTensorType::get(inputType.cast<RankedTensorType>().getShape(),
-                                 elementalType);
-  case StandardTypes::UnrankedTensor:
+  if (auto tensorType = dyn_cast<RankedTensorType>(inputType))
+    return RankedTensorType::get(tensorType.getShape(), elementalType);
+  if (isa<UnrankedTensorType>(inputType))
     return UnrankedTensorType::get(elementalType);
-  case StandardTypes::Vector:
-    return VectorType::get(inputType.cast<VectorType>().getShape(),
-                           elementalType);
-  }
+  if (auto vectorType = dyn_cast<VectorType>(inputType))
+    return VectorType::get(vectorType.getShape(), elementalType);
+
+  // If the expressed types match, just use the new elemental type.
+  if (elementalType.getExpressedType() == expressedType)
+    return elementalType;
+  // Unsupported.
+  return nullptr;
 }
 
 ElementsAttr
 UniformQuantizedPerAxisValueConverter::convert(Attribute realValue) {
-  if (auto attr = realValue.dyn_cast<DenseFPElementsAttr>()) {
+  if (auto attr = dyn_cast<DenseFPElementsAttr>(realValue)) {
     return convert(attr);
   }
-  // TODO(fengliuai): handles sparse elements attribute
+  // TODO: handles sparse elements attribute
   return nullptr;
 }
 
@@ -91,10 +77,8 @@ UniformQuantizedPerAxisValueConverter::convert(DenseFPElementsAttr attr) {
   // using the right quantization parameters.
   int64_t flattenIndex = 0;
   auto shape = type.getShape();
-  int64_t chunkSize =
-      std::accumulate(std::next(shape.begin(), quantizationDim + 1),
-                      shape.end(), 1, std::multiplies<int64_t>());
-  Type newElementType = IntegerType::get(storageBitWidth, attr.getContext());
+  int64_t chunkSize = llvm::product_of(shape.drop_front(quantizationDim + 1));
+  Type newElementType = IntegerType::get(attr.getContext(), storageBitWidth);
   return attr.mapValues(newElementType, [&](const APFloat &old) {
     int chunkIndex = (flattenIndex++) / chunkSize;
     return converters[chunkIndex % dimSize].quantizeFloatToInt(old);

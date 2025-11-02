@@ -12,7 +12,7 @@ define void @F1() {
   ret void
 }
 
-; WIN32-SECTIONS: .section        .text,"xr",one_only,_F1
+; WIN32-SECTIONS: .section        .text,"xr",one_only,_F1,unique,0
 ; WIN32-SECTIONS: .globl _F1
 
 define void @F2(i32 %y) {
@@ -49,9 +49,9 @@ bb5:
 ; LINUX-FUNC-SECTIONS-NEXT: .cfi_endproc
 ; LINUX-FUNC-SECTIONS-NEXT: .section        .rodata.F2,"a",@progbits
 
-; WIN32-FUNC-SECTIONS: .section        .text,"xr",one_only,_F2
+; WIN32-FUNC-SECTIONS: .section        .text,"xr",one_only,_F2,unique,1
 ; WIN32-FUNC-SECTIONS-NOT: .section
-; WIN32-FUNC-SECTIONS: .section        .rdata,"dr",associative,_F2
+; WIN32-FUNC-SECTIONS: .section        .rdata,"dr",associative,_F2,unique,2
 
 
 ; LINUX-SECTIONS-PIC: .section        .text.F2,"ax",@progbits
@@ -61,13 +61,13 @@ bb5:
 
 declare void @G()
 
-define void @F3(i32 %y) personality i8* bitcast (void ()* @G to i8*) {
+define void @F3(i32 %y) personality ptr @G {
 bb0:
   invoke void @G()
           to label %bb2 unwind label %bb1
 bb1:
-  landingpad { i8*, i32 }
-          catch i8* null
+  landingpad { ptr, i32 }
+          catch ptr null
   br label %bb2
 bb2:
 
@@ -125,7 +125,7 @@ bb7:
 
 
 ; int * const G3 = &G1;
-@G3 = unnamed_addr constant i32* @G1
+@G3 = unnamed_addr constant ptr @G1
 
 ; DARWIN: .section        __DATA,__const
 ; DARWIN: .globl _G3
@@ -138,7 +138,7 @@ bb7:
 ; LINUX-SECTIONS: .section        .rodata.G3,"a",@progbits
 ; LINUX-SECTIONS: .globl  G3
 
-; WIN32-SECTIONS: .section        .rdata,"dr",one_only,_G3
+; WIN32-SECTIONS: .section        .rdata,"dr",one_only,_G3,unique,6
 ; WIN32-SECTIONS: .globl  _G3
 
 
@@ -213,7 +213,7 @@ bb7:
 ; LINUX-SECTIONS: .section        .rodata.str1.1,"aMS",@progbits,1
 ; LINUX-SECTIONS:       .globl G7
 
-; WIN32-SECTIONS: .section        .rdata,"dr",one_only,_G7
+; WIN32-SECTIONS: .section        .rdata,"dr",one_only,_G7,unique,11
 ; WIN32-SECTIONS:       .globl _G7
 
 
@@ -237,7 +237,7 @@ bb7:
 ; LINUX:G9
 
 
-@G10 = weak global [100 x i32] zeroinitializer, align 32 ; <[100 x i32]*> [#uses=0]
+@G10 = weak global [100 x i32] zeroinitializer, align 32 ; <ptr> [#uses=0]
 
 
 ; DARWIN:       .section        __DATA,__data{{$}}
@@ -276,7 +276,7 @@ bb7:
 ; LINUX-SECTIONS:        .asciz  "foo"
 ; LINUX-SECTIONS:        .size   .LG14, 4
 
-; WIN32-SECTIONS:        .section        .rdata,"dr",one_only,_G14
+; WIN32-SECTIONS:        .section        .rdata,"dr",one_only,_G14,unique,18
 ; WIN32-SECTIONS: _G14:
 ; WIN32-SECTIONS:        .asciz  "foo"
 
@@ -298,7 +298,7 @@ bb7:
 ; LINUX-SECTIONS: .section      .rodata.cst8,"aM",@progbits,8
 ; LINUX-SECTIONS: G15:
 
-; WIN32-SECTIONS: .section      .rdata,"dr",one_only,_G15
+; WIN32-SECTIONS: .section      .rdata,"dr",one_only,_G15,unique,19
 ; WIN32-SECTIONS: _G15:
 
 @G16 = unnamed_addr constant i256 0
@@ -309,7 +309,7 @@ bb7:
 ; LINUX-SECTIONS: .section      .rodata.cst32,"aM",@progbits,32
 ; LINUX-SECTIONS: G16:
 
-; WIN32-SECTIONS: .section      .rdata,"dr",one_only,_G16
+; WIN32-SECTIONS: .section      .rdata,"dr",one_only,_G16,unique,20
 ; WIN32-SECTIONS: _G16:
 
 ; PR26570
@@ -326,11 +326,11 @@ bb7:
 ; LINUX-SECTIONS: .byte	0
 ; LINUX-SECTIONS: .size	G17, 1
 
-; WIN32-SECTIONS: .section	.bss,"bw",one_only,_G17
+; WIN32-SECTIONS: .section	.bss,"bw",one_only,_G17,unique,21
 ; WIN32-SECTIONS: _G17:
 ; WIN32-SECTIONS:.byte	0
 
 ; check weak ReadOnlyWithRel globals.
-@G18 = linkonce_odr unnamed_addr constant i64* @G15
+@G18 = linkonce_odr unnamed_addr constant ptr @G15
 ; DARWIN64: .section      __DATA,__const
 ; DARWIN64: _G18:

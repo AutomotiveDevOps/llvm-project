@@ -1,8 +1,9 @@
-// RUN: %clang_analyze_cc1 -analyzer-checker=core,unix.Malloc,debug.ExprInspection -analyzer-store region -std=c++11 -verify -analyzer-config eagerly-assume=false %s
-// RUN: %clang_analyze_cc1 -analyzer-checker=core,unix.Malloc,debug.ExprInspection -analyzer-store region -std=c++11 -DTEST_INLINABLE_ALLOCATORS -verify -analyzer-config eagerly-assume=false %s
+// RUN: %clang_analyze_cc1 -analyzer-checker=core,unix.Malloc,debug.ExprInspection -std=c++11 -verify -analyzer-config eagerly-assume=false %s
+// RUN: %clang_analyze_cc1 -analyzer-checker=core,unix.Malloc,debug.ExprInspection -std=c++11 -DTEST_INLINABLE_ALLOCATORS -verify -analyzer-config eagerly-assume=false %s
 #include "Inputs/system-header-simulator-cxx.h"
 
 void clang_analyzer_eval(bool);
+void clang_analyzer_warnIfReached();
 
 typedef __typeof__(sizeof(int)) size_t;
 extern "C" void *malloc(size_t);
@@ -111,7 +112,7 @@ void testCacheOut(PtrWrapper w) {
 void testUseAfter(int *p) {
   SomeClass *c = new SomeClass;
   free(p);
-  c->f(p); // expected-warning{{Use of memory after it is freed}}
+  c->f(p); // expected-warning{{Use of memory after it is released}}
   delete c;
 }
 
@@ -139,25 +140,25 @@ void testDeleteMallocked() {
 void testDeleteOpAfterFree() {
   int *p = (int *)malloc(sizeof(int));
   free(p);
-  operator delete(p); // expected-warning{{Use of memory after it is freed}}
+  operator delete(p); // expected-warning{{Use of memory after it is released}}
 }
 
 void testDeleteAfterFree() {
   int *p = (int *)malloc(sizeof(int));
   free(p);
-  delete p; // expected-warning{{Use of memory after it is freed}}
+  delete p; // expected-warning{{Use of memory after it is released}}
 }
 
 void testStandardPlacementNewAfterFree() {
   int *p = (int *)malloc(sizeof(int));
   free(p);
-  p = new(p) int; // expected-warning{{Use of memory after it is freed}}
+  p = new(p) int; // expected-warning{{Use of memory after it is released}}
 }
 
 void testCustomPlacementNewAfterFree() {
   int *p = (int *)malloc(sizeof(int));
   free(p);
-  p = new(0, p) int; // expected-warning{{Use of memory after it is freed}}
+  p = new(0, p) int; // expected-warning{{Use of memory after it is released}}
 }
 
 void testUsingThisAfterDelete() {
@@ -176,21 +177,20 @@ void testAggregateNew() {
   clang_analyzer_eval(p.y == 2); // expected-warning{{TRUE}}
 }
 
-//--------------------------------
-// Incorrectly-modelled behavior
-//--------------------------------
-
 int testNoInitialization() {
   int *n = new int;
 
-  // Should warn that *n is uninitialized.
-  if (*n) { // no-warning
+  if (*n) { // expected-warning{{Branch condition evaluates to a garbage value [core.uninitialized.Branch]}}
     delete n;
     return 0;
   }
   delete n;
   return 1;
 }
+
+//===----------------------------------------------------------------------===//
+// Incorrectly-modelled behavior.
+//===----------------------------------------------------------------------===//
 
 int testNoInitializationPlacement() {
   int n;
@@ -323,44 +323,6 @@ void testArrayNull() {
 
 void testArrayDestr() {
   NoReturnDtor *p = new NoReturnDtor[2];
-  delete[] p; // Calls the base destructor which aborts, checked below
-   //TODO: clang_analyzer_eval should not be called
-  clang_analyzer_eval(true); // expected-warning{{TRUE}}
-}
-
-// Invalidate Region even in case of default destructor
-class InvalidateDestTest {
-public:
-  int x;
-  int *y;
-  ~InvalidateDestTest();
-};
-
-int test_member_invalidation() {
-
-  //test invalidation of member variable
-  InvalidateDestTest *test = new InvalidateDestTest();
-  test->x = 5;
-  int *k = &(test->x);
-  clang_analyzer_eval(*k == 5); // expected-warning{{TRUE}}
-  delete test;
-  clang_analyzer_eval(*k == 5); // expected-warning{{UNKNOWN}}
-
-  //test invalidation of member pointer
-  int localVar = 5;
-  test = new InvalidateDestTest();
-  test->y = &localVar;
-  delete test;
-  clang_analyzer_eval(localVar == 5); // expected-warning{{UNKNOWN}}
-
-  // Test aray elements are invalidated.
-  int Var1 = 5;
-  int Var2 = 5;
-  InvalidateDestTest *a = new InvalidateDestTest[2];
-  a[0].y = &Var1;
-  a[1].y = &Var2;
-  delete[] a;
-  clang_analyzer_eval(Var1 == 5); // expected-warning{{UNKNOWN}}
-  clang_analyzer_eval(Var2 == 5); // expected-warning{{UNKNOWN}}
-  return 0;
+  delete[] p;
+  clang_analyzer_warnIfReached(); // no-warning
 }

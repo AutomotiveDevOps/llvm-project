@@ -8,57 +8,45 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This file declares the SanitizerCoverage class which is a port of the legacy
-// SanitizerCoverage pass to use the new PassManager infrastructure.
+// SanitizerCoverage is a simple code coverage implementation.
 //
 //===----------------------------------------------------------------------===//
 
 #ifndef LLVM_TRANSFORMS_INSTRUMENTATION_SANITIZERCOVERAGE_H
 #define LLVM_TRANSFORMS_INSTRUMENTATION_SANITIZERCOVERAGE_H
 
-#include "llvm/IR/Module.h"
+#include "llvm/ADT/IntrusiveRefCntPtr.h"
 #include "llvm/IR/PassManager.h"
+#include "llvm/Support/Compiler.h"
 #include "llvm/Support/SpecialCaseList.h"
-#include "llvm/Transforms/Instrumentation.h"
+#include "llvm/Transforms/Utils/Instrumentation.h"
 
 namespace llvm {
+class Module;
+namespace vfs {
+class FileSystem;
+} // namespace vfs
 
 /// This is the ModuleSanitizerCoverage pass used in the new pass manager. The
 /// pass instruments functions for coverage, adds initialization calls to the
 /// module for trace PC guards and 8bit counters if they are requested, and
 /// appends globals to llvm.compiler.used.
-class ModuleSanitizerCoveragePass
-    : public PassInfoMixin<ModuleSanitizerCoveragePass> {
+class SanitizerCoveragePass : public PassInfoMixin<SanitizerCoveragePass> {
 public:
-  explicit ModuleSanitizerCoveragePass(
+  LLVM_ABI explicit SanitizerCoveragePass(
       SanitizerCoverageOptions Options = SanitizerCoverageOptions(),
-      const std::vector<std::string> &WhitelistFiles =
-          std::vector<std::string>(),
-      const std::vector<std::string> &BlacklistFiles =
-          std::vector<std::string>())
-      : Options(Options) {
-    if (WhitelistFiles.size() > 0)
-      Whitelist = SpecialCaseList::createOrDie(WhitelistFiles,
-                                               *vfs::getRealFileSystem());
-    if (BlacklistFiles.size() > 0)
-      Blacklist = SpecialCaseList::createOrDie(BlacklistFiles,
-                                               *vfs::getRealFileSystem());
-  }
-  PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
+      IntrusiveRefCntPtr<vfs::FileSystem> VFS = nullptr,
+      const std::vector<std::string> &AllowlistFiles = {},
+      const std::vector<std::string> &BlocklistFiles = {});
+  LLVM_ABI PreservedAnalyses run(Module &M, ModuleAnalysisManager &AM);
+  static bool isRequired() { return true; }
 
 private:
   SanitizerCoverageOptions Options;
-
-  std::unique_ptr<SpecialCaseList> Whitelist;
-  std::unique_ptr<SpecialCaseList> Blacklist;
+  IntrusiveRefCntPtr<vfs::FileSystem> VFS;
+  std::unique_ptr<SpecialCaseList> Allowlist;
+  std::unique_ptr<SpecialCaseList> Blocklist;
 };
-
-// Insert SanitizerCoverage instrumentation.
-ModulePass *createModuleSanitizerCoverageLegacyPassPass(
-    const SanitizerCoverageOptions &Options = SanitizerCoverageOptions(),
-    const std::vector<std::string> &WhitelistFiles = std::vector<std::string>(),
-    const std::vector<std::string> &BlacklistFiles =
-        std::vector<std::string>());
 
 } // namespace llvm
 

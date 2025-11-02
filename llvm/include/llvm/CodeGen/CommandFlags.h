@@ -12,138 +12,205 @@
 //
 //===----------------------------------------------------------------------===//
 
+#ifndef LLVM_CODEGEN_COMMANDFLAGS_H
+#define LLVM_CODEGEN_COMMANDFLAGS_H
+
 #include "llvm/ADT/FloatingPointMode.h"
-#include "llvm/ADT/StringExtras.h"
-#include "llvm/IR/Instructions.h"
-#include "llvm/IR/Intrinsics.h"
-#include "llvm/MC/MCTargetOptionsCommandFlags.h"
 #include "llvm/Support/CodeGen.h"
+#include "llvm/Support/Compiler.h"
 #include "llvm/Target/TargetOptions.h"
+#include <optional>
 #include <string>
 #include <vector>
 
 namespace llvm {
 
 class Module;
+class AttrBuilder;
+class Function;
+class Triple;
+class TargetMachine;
 
 namespace codegen {
 
-std::string getMArch();
+LLVM_ABI std::string getMArch();
 
-std::string getMCPU();
+LLVM_ABI std::string getMCPU();
 
-std::vector<std::string> getMAttrs();
+LLVM_ABI std::vector<std::string> getMAttrs();
+
+<<<<<<< HEAD
+bool getMVLE();
 
 Reloc::Model getRelocModel();
 Optional<Reloc::Model> getExplicitRelocModel();
+=======
+LLVM_ABI Reloc::Model getRelocModel();
+LLVM_ABI std::optional<Reloc::Model> getExplicitRelocModel();
+>>>>>>> upstream/main
 
-ThreadModel::Model getThreadModel();
+LLVM_ABI ThreadModel::Model getThreadModel();
 
-CodeModel::Model getCodeModel();
-Optional<CodeModel::Model> getExplicitCodeModel();
+LLVM_ABI CodeModel::Model getCodeModel();
+LLVM_ABI std::optional<CodeModel::Model> getExplicitCodeModel();
 
-llvm::ExceptionHandling getExceptionModel();
+LLVM_ABI uint64_t getLargeDataThreshold();
+LLVM_ABI std::optional<uint64_t> getExplicitLargeDataThreshold();
 
-CodeGenFileType getFileType();
-Optional<CodeGenFileType> getExplicitFileType();
+LLVM_ABI llvm::ExceptionHandling getExceptionModel();
 
-CodeGenFileType getFileType();
+LLVM_ABI std::optional<CodeGenFileType> getExplicitFileType();
 
-llvm::FramePointer::FP getFramePointerUsage();
+LLVM_ABI CodeGenFileType getFileType();
 
-bool getEnableUnsafeFPMath();
+LLVM_ABI FramePointerKind getFramePointerUsage();
 
-bool getEnableNoInfsFPMath();
+LLVM_ABI bool getEnableNoInfsFPMath();
 
-bool getEnableNoNaNsFPMath();
+LLVM_ABI bool getEnableNoNaNsFPMath();
 
-bool getEnableNoSignedZerosFPMath();
+LLVM_ABI bool getEnableNoSignedZerosFPMath();
 
-bool getEnableNoTrappingFPMath();
+LLVM_ABI bool getEnableNoTrappingFPMath();
 
-DenormalMode::DenormalModeKind getDenormalFPMath();
-DenormalMode::DenormalModeKind getDenormalFP32Math();
+LLVM_ABI DenormalMode::DenormalModeKind getDenormalFPMath();
+LLVM_ABI DenormalMode::DenormalModeKind getDenormalFP32Math();
 
-bool getEnableHonorSignDependentRoundingFPMath();
+LLVM_ABI bool getEnableHonorSignDependentRoundingFPMath();
 
-llvm::FloatABI::ABIType getFloatABIForCalls();
+LLVM_ABI llvm::FloatABI::ABIType getFloatABIForCalls();
 
-llvm::FPOpFusion::FPOpFusionMode getFuseFPOps();
+LLVM_ABI llvm::FPOpFusion::FPOpFusionMode getFuseFPOps();
 
-bool getDontPlaceZerosInBSS();
+LLVM_ABI SwiftAsyncFramePointerMode getSwiftAsyncFramePointer();
 
-bool getEnableGuaranteedTailCallOpt();
+LLVM_ABI bool getDontPlaceZerosInBSS();
 
-bool getDisableTailCalls();
+LLVM_ABI bool getEnableGuaranteedTailCallOpt();
 
-bool getStackSymbolOrdering();
+LLVM_ABI bool getEnableAIXExtendedAltivecABI();
 
-unsigned getOverrideStackAlignment();
+LLVM_ABI bool getDisableTailCalls();
 
-bool getStackRealign();
+LLVM_ABI bool getStackSymbolOrdering();
 
-std::string getTrapFuncName();
+LLVM_ABI bool getStackRealign();
 
-bool getUseCtors();
+LLVM_ABI std::string getTrapFuncName();
 
-bool getRelaxELFRelocations();
+LLVM_ABI bool getUseCtors();
 
-bool getDataSections();
-Optional<bool> getExplicitDataSections();
+LLVM_ABI bool getDisableIntegratedAS();
 
-bool getFunctionSections();
-Optional<bool> getExplicitFunctionSections();
+LLVM_ABI bool getDataSections();
+LLVM_ABI std::optional<bool> getExplicitDataSections();
 
-std::string getBBSections();
+LLVM_ABI bool getFunctionSections();
+LLVM_ABI std::optional<bool> getExplicitFunctionSections();
 
-unsigned getTLSSize();
+LLVM_ABI bool getIgnoreXCOFFVisibility();
 
-bool getEmulatedTLS();
+LLVM_ABI bool getXCOFFTracebackTable();
 
-bool getUniqueSectionNames();
+LLVM_ABI std::string getBBSections();
 
-bool getUniqueBBSectionNames();
+LLVM_ABI unsigned getTLSSize();
 
-llvm::EABI getEABIVersion();
+LLVM_ABI bool getEmulatedTLS();
+LLVM_ABI std::optional<bool> getExplicitEmulatedTLS();
 
-llvm::DebuggerKind getDebuggerTuningOpt();
+LLVM_ABI bool getEnableTLSDESC();
+LLVM_ABI std::optional<bool> getExplicitEnableTLSDESC();
 
-bool getEnableStackSizeSection();
+LLVM_ABI bool getUniqueSectionNames();
 
-bool getEnableAddrsig();
+LLVM_ABI bool getUniqueBasicBlockSectionNames();
 
-bool getEmitCallSiteInfo();
+LLVM_ABI bool getSeparateNamedSections();
 
-bool getEnableDebugEntryValues();
+LLVM_ABI llvm::EABI getEABIVersion();
 
-bool getForceDwarfFrameSection();
+LLVM_ABI llvm::DebuggerKind getDebuggerTuningOpt();
+
+LLVM_ABI bool getEnableStackSizeSection();
+
+LLVM_ABI bool getEnableAddrsig();
+
+LLVM_ABI bool getEnableCallGraphSection();
+
+LLVM_ABI bool getEmitCallSiteInfo();
+
+LLVM_ABI bool getEnableMachineFunctionSplitter();
+
+LLVM_ABI bool getEnableStaticDataPartitioning();
+
+LLVM_ABI bool getEnableDebugEntryValues();
+
+LLVM_ABI bool getValueTrackingVariableLocations();
+LLVM_ABI std::optional<bool> getExplicitValueTrackingVariableLocations();
+
+LLVM_ABI bool getForceDwarfFrameSection();
+
+LLVM_ABI bool getXRayFunctionIndex();
+
+LLVM_ABI bool getDebugStrictDwarf();
+
+LLVM_ABI unsigned getAlignLoops();
+
+LLVM_ABI bool getJMCInstrument();
+
+LLVM_ABI bool getXCOFFReadOnlyPointers();
 
 /// Create this object with static storage to register codegen-related command
 /// line options.
 struct RegisterCodeGenFlags {
-  RegisterCodeGenFlags();
+  LLVM_ABI RegisterCodeGenFlags();
 };
 
-llvm::BasicBlockSection getBBSectionsMode(llvm::TargetOptions &Options);
+LLVM_ABI bool getEnableBBAddrMap();
 
-// Common utility function tightly tied to the options listed here. Initializes
-// a TargetOptions object with CodeGen flags and returns it.
-TargetOptions InitTargetOptionsFromCodeGenFlags();
+LLVM_ABI llvm::BasicBlockSection
+getBBSectionsMode(llvm::TargetOptions &Options);
 
-std::string getCPUStr();
+/// Common utility function tightly tied to the options listed here. Initializes
+/// a TargetOptions object with CodeGen flags and returns it.
+/// \p TheTriple is used to determine the default value for options if
+///    options are not explicitly specified. If those triple dependant options
+///    value do not have effect for your component, a default Triple() could be
+///    passed in.
+LLVM_ABI TargetOptions
+InitTargetOptionsFromCodeGenFlags(const llvm::Triple &TheTriple);
 
-std::string getFeaturesStr();
+LLVM_ABI std::string getCPUStr();
 
-std::vector<std::string> getFeatureList();
+LLVM_ABI std::string getFeaturesStr();
 
-void renderBoolStringAttr(AttrBuilder &B, StringRef Name, bool Val);
+LLVM_ABI std::vector<std::string> getFeatureList();
+
+LLVM_ABI void renderBoolStringAttr(AttrBuilder &B, StringRef Name, bool Val);
 
 /// Set function attributes of function \p F based on CPU, Features, and command
 /// line flags.
-void setFunctionAttributes(StringRef CPU, StringRef Features, Function &F);
+LLVM_ABI void setFunctionAttributes(StringRef CPU, StringRef Features,
+                                    Function &F);
 
 /// Set function attributes of functions in Module M based on CPU,
 /// Features, and command line flags.
-void setFunctionAttributes(StringRef CPU, StringRef Features, Module &M);
+LLVM_ABI void setFunctionAttributes(StringRef CPU, StringRef Features,
+                                    Module &M);
+
+/// Should value-tracking variable locations / instruction referencing be
+/// enabled by default for this triple?
+LLVM_ABI bool getDefaultValueTrackingVariableLocations(const llvm::Triple &T);
+
+/// Creates a TargetMachine instance with the options defined on the command
+/// line. This can be used for tools that do not need further customization of
+/// the TargetOptions.
+LLVM_ABI Expected<std::unique_ptr<TargetMachine>> createTargetMachineForTriple(
+    StringRef TargetTriple,
+    CodeGenOptLevel OptLevel = CodeGenOptLevel::Default);
+
 } // namespace codegen
 } // namespace llvm
+
+#endif // LLVM_CODEGEN_COMMANDFLAGS_H

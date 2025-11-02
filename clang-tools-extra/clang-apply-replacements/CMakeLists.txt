@@ -2,10 +2,15 @@ set(LLVM_LINK_COMPONENTS
   Support
   )
 
-add_clang_library(clangApplyReplacements
+add_clang_library(clangApplyReplacements STATIC
   lib/Tooling/ApplyReplacements.cpp
 
-  LINK_LIBS
+  DEPENDS
+  ClangDriverOptions
+)
+
+clang_target_link_libraries(clangApplyReplacements
+  PRIVATE
   clangAST
   clangBasic
   clangRewrite

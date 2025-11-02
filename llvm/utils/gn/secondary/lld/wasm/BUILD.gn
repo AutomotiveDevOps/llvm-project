@@ -16,14 +16,17 @@ static_library("wasm") {
     "//llvm/lib/IR",
     "//llvm/lib/Object",
     "//llvm/lib/Option",
+    "//llvm/lib/TargetParser",
   ]
   sources = [
     "Driver.cpp",
     "InputChunks.cpp",
     "InputFiles.cpp",
     "LTO.cpp",
+    "MapFile.cpp",
     "MarkLive.cpp",
     "OutputSections.cpp",
+    "OutputSegment.cpp",
     "Relocations.cpp",
     "SymbolTable.cpp",
     "Symbols.cpp",

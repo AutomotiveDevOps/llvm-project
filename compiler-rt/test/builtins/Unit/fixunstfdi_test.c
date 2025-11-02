@@ -1,34 +1,25 @@
 // RUN: %clang_builtins %s %librt -o %t && %run %t
 // REQUIRES: librt_has_fixunstfdi
-//===-- fixunstfdi_test.c - Test __fixunstfdi -----------------------------===//
-//
-// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
-// See https://llvm.org/LICENSE.txt for license information.
-// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
-//
-//===----------------------------------------------------------------------===//
-//
-// This file tests __fixunstfdi for the compiler_rt library.
-//
-//===----------------------------------------------------------------------===//
 
 #include <stdio.h>
-
-#if _ARCH_PPC || __aarch64__
-
 #include "int_lib.h"
+
+#if defined(CRT_HAS_TF_MODE)
+
+#define QUAD_PRECISION
+#include "fp_lib.h"
 
 // Returns: convert a to a unsigned long long, rounding toward zero.
 //          Negative values all become zero.
 
-// Assumption: long double is a 128 bit floating point type
+// Assumption: fp_t is a 128 bit floating point type
 //             du_int is a 64 bit integral type
-//             value in long double is representable in du_int or is negative 
+//             value in fp_t is representable in du_int or is negative 
 //                 (no range checking performed)
 
-COMPILER_RT_ABI du_int __fixunstfdi(long double a);
+COMPILER_RT_ABI du_int __fixunstfdi(fp_t a);
 
-int test__fixunstfdi(long double a, du_int expected)
+int test__fixunstfdi(fp_t a, du_int expected)
 {
     du_int x = __fixunstfdi(a);
     if (x != expected)
@@ -39,13 +30,13 @@ int test__fixunstfdi(long double a, du_int expected)
 
 char assumption_1[sizeof(du_int) == 2*sizeof(su_int)] = {0};
 char assumption_2[sizeof(du_int)*CHAR_BIT == 64] = {0};
-char assumption_3[sizeof(long double)*CHAR_BIT == 128] = {0};
+char assumption_3[sizeof(fp_t)*CHAR_BIT == 128] = {0};
 
 #endif
 
 int main()
 {
-#if _ARCH_PPC || __aarch64__
+#if defined(CRT_HAS_TF_MODE)
     if (test__fixunstfdi(0.0, 0))
         return 1;
 

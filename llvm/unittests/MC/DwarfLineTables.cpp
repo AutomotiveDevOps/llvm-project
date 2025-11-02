@@ -7,13 +7,14 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/ADT/STLExtras.h"
+#include "llvm/ADT/StringExtras.h"
 #include "llvm/BinaryFormat/Dwarf.h"
 #include "llvm/MC/MCAsmInfo.h"
 #include "llvm/MC/MCContext.h"
 #include "llvm/MC/MCDwarf.h"
 #include "llvm/MC/MCRegisterInfo.h"
 #include "llvm/MC/MCTargetOptions.h"
-#include "llvm/Support/TargetRegistry.h"
+#include "llvm/MC/TargetRegistry.h"
 #include "llvm/Support/TargetSelect.h"
 #include "gtest/gtest.h"
 
@@ -21,26 +22,28 @@ using namespace llvm;
 
 namespace {
 struct Context {
-  const char *Triple = "x86_64-pc-linux";
+  static constexpr char TripleName[] = "x86_64-pc-linux";
+  Triple TT;
   std::unique_ptr<MCRegisterInfo> MRI;
   std::unique_ptr<MCAsmInfo> MAI;
   std::unique_ptr<MCContext> Ctx;
 
-  Context() {
+  Context() : TT(TripleName) {
     llvm::InitializeAllTargetInfos();
     llvm::InitializeAllTargetMCs();
     llvm::InitializeAllDisassemblers();
 
     // If we didn't build x86, do not run the test.
     std::string Error;
-    const Target *TheTarget = TargetRegistry::lookupTarget(Triple, Error);
+    const Target *TheTarget = TargetRegistry::lookupTarget(TT, Error);
     if (!TheTarget)
       return;
 
-    MRI.reset(TheTarget->createMCRegInfo(Triple));
+    MRI.reset(TheTarget->createMCRegInfo(TT));
     MCTargetOptions MCOptions;
-    MAI.reset(TheTarget->createMCAsmInfo(*MRI, Triple, MCOptions));
-    Ctx = std::make_unique<MCContext>(MAI.get(), MRI.get(), nullptr);
+    MAI.reset(TheTarget->createMCAsmInfo(*MRI, TT, MCOptions));
+    Ctx = std::make_unique<MCContext>(TT, MAI.get(), MRI.get(),
+                                      /*MSTI=*/nullptr);
   }
 
   operator bool() { return Ctx.get(); }
@@ -56,15 +59,14 @@ Context &getContext() {
 void verifyEncoding(MCDwarfLineTableParams Params, int LineDelta, int AddrDelta,
                     ArrayRef<uint8_t> ExpectedEncoding) {
   SmallString<16> Buffer;
-  raw_svector_ostream EncodingOS(Buffer);
-  MCDwarfLineAddr::Encode(getContext(), Params, LineDelta, AddrDelta,
-                          EncodingOS);
+  MCDwarfLineAddr::encode(getContext(), Params, LineDelta, AddrDelta,
+                          Buffer);
   EXPECT_EQ(ExpectedEncoding, arrayRefFromStringRef(Buffer));
 }
 
 TEST(DwarfLineTables, TestDefaultParams) {
   if (!getContext())
-    return;
+    GTEST_SKIP();
 
   MCDwarfLineTableParams Params;
 
@@ -114,7 +116,7 @@ TEST(DwarfLineTables, TestDefaultParams) {
 
 TEST(DwarfLineTables, TestCustomParams) {
   if (!getContext())
-    return;
+    GTEST_SKIP();
 
   // Some tests against the example values given in the standard.
   MCDwarfLineTableParams Params;
@@ -168,7 +170,7 @@ TEST(DwarfLineTables, TestCustomParams) {
 
 TEST(DwarfLineTables, TestCustomParams2) {
   if (!getContext())
-    return;
+    GTEST_SKIP();
 
   // Corner case param values.
   MCDwarfLineTableParams Params;

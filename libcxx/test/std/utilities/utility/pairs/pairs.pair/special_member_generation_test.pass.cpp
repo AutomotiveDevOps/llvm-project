@@ -6,7 +6,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-// UNSUPPORTED: c++98, c++03
+// UNSUPPORTED: c++03
 
 // <utility>
 
@@ -23,6 +23,7 @@
 #include <cassert>
 #include <string>
 #include <tuple>
+#include <utility>
 
 #include "archetypes.h"
 

@@ -5,21 +5,21 @@
 define float @f1(float %x, i32 %y) {
 ; CHECK-LABEL: f1:
 ; CHECK: brasl %r14, __powisf2@PLT
-  %tmp = call float @llvm.powi.f32(float %x, i32 %y)
+  %tmp = call float @llvm.powi.f32.i32(float %x, i32 %y)
   ret float %tmp
 }
 
 define double @f2(double %x, i32 %y) {
 ; CHECK-LABEL: f2:
 ; CHECK: brasl %r14, __powidf2@PLT
-  %tmp = call double @llvm.powi.f64(double %x, i32 %y)
+  %tmp = call double @llvm.powi.f64.i32(double %x, i32 %y)
   ret double %tmp
 }
 
 define fp128 @f3(fp128 %x, i32 %y) {
 ; CHECK-LABEL: f3:
 ; CHECK: brasl %r14, __powitf2@PLT
-  %tmp = call fp128 @llvm.powi.f128(fp128 %x, i32 %y)
+  %tmp = call fp128 @llvm.powi.f128.i32(fp128 %x, i32 %y)
   ret fp128 %tmp
 }
 
@@ -212,6 +212,16 @@ define fp128 @f30(fp128 %x, fp128 %y) {
   ret fp128 %tmp
 }
 
+define half @f31_half(half %x, half %y) {
+; CHECK-LABEL: f31_half:
+; CHECK: brasl %r14, __extendhfsf2@PLT
+; CHECK: brasl %r14, __extendhfsf2@PLT
+; CHECK: brasl %r14, fmaxf@PLT
+; CHECK: brasl %r14, __truncsfhf2@PLT
+  %tmp = call half @llvm.maxnum.f16(half %x, half %y)
+  ret half %tmp
+}
+
 define float @f31(float %x, float %y) {
 ; CHECK-LABEL: f31:
 ; CHECK: brasl %r14, fmaxf@PLT
@@ -295,9 +305,9 @@ define fp128 @f39(fp128 %x, fp128 %y) {
   ret fp128 %tmp
 }
 
-declare float @llvm.powi.f32(float, i32)
-declare double @llvm.powi.f64(double, i32)
-declare fp128 @llvm.powi.f128(fp128, i32)
+declare float @llvm.powi.f32.i32(float, i32)
+declare double @llvm.powi.f64.i32(double, i32)
+declare fp128 @llvm.powi.f128.i32(fp128, i32)
 declare float @llvm.pow.f32(float, float)
 declare double @llvm.pow.f64(double, double)
 declare fp128 @llvm.pow.f128(fp128, fp128)

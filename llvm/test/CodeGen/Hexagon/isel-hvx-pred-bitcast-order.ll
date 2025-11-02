@@ -1,10 +1,10 @@
-; RUN: llc -march=hexagon < %s | FileCheck %s
+; RUN: llc -mtriple=hexagon < %s | FileCheck %s
 ;
 ; Check that the resulting register pair has the registers in the right order.
 
 ; CHECK: vdeal
 ; CHECK: vdeal
-; CHECK: v[[V1:[0-9]+]]:[[V0:[0-9]+]] = vdeal
+; CHECK: v[[V1:[0-9]+]]:[[V0:[0-9]+]] = vshuff
 ; CHECK-NEXT: }
 ; CHECK-NEXT: {
 ; CHECK-NEXT: vmem(r[[RA:[0-9]+]]+#0) = v[[V0]]

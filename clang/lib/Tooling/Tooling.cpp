@@ -36,21 +36,19 @@
 #include "clang/Tooling/CompilationDatabase.h"
 #include "llvm/ADT/ArrayRef.h"
 #include "llvm/ADT/IntrusiveRefCntPtr.h"
-#include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/ADT/Twine.h"
 #include "llvm/Option/ArgList.h"
 #include "llvm/Option/OptTable.h"
 #include "llvm/Option/Option.h"
-#include "llvm/Support/Casting.h"
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/ErrorHandling.h"
-#include "llvm/Support/FileSystem.h"
-#include "llvm/Support/Host.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/VirtualFileSystem.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/TargetParser/Host.h"
 #include <cassert>
 #include <cstring>
 #include <memory>
@@ -78,23 +76,27 @@ newDriver(DiagnosticsEngine *Diagnostics, const char *BinaryName,
           IntrusiveRefCntPtr<llvm::vfs::FileSystem> VFS) {
   driver::Driver *CompilerDriver =
       new driver::Driver(BinaryName, llvm::sys::getDefaultTargetTriple(),
-                         *Diagnostics, std::move(VFS));
+                         *Diagnostics, "clang LLVM compiler", std::move(VFS));
   CompilerDriver->setTitle("clang_based_tool");
   return CompilerDriver;
 }
 
-/// Retrieves the clang CC1 specific flags out of the compilation's jobs.
-///
-/// Returns nullptr on error.
-static const llvm::opt::ArgStringList *getCC1Arguments(
-    DiagnosticsEngine *Diagnostics, driver::Compilation *Compilation) {
-  // We expect to get back exactly one Command job, if we didn't something
-  // failed. Extract that job from the Compilation.
+/// Decide whether extra compiler frontend commands can be ignored.
+static bool ignoreExtraCC1Commands(const driver::Compilation *Compilation) {
   const driver::JobList &Jobs = Compilation->getJobs();
   const driver::ActionList &Actions = Compilation->getActions();
+
   bool OffloadCompilation = false;
+
+  // Jobs and Actions look very different depending on whether the Clang tool
+  // injected -fsyntax-only or not. Try to handle both cases here.
+
+  for (const auto &Job : Jobs)
+    if (StringRef(Job.getExecutable()) == "clang-offload-bundler")
+      OffloadCompilation = true;
+
   if (Jobs.size() > 1) {
-    for (auto A : Actions){
+    for (auto *A : Actions){
       // On MacOSX real actions may end up being wrapped in BindArchAction
       if (isa<driver::BindArchAction>(A))
         A = *A->input_begin();
@@ -117,8 +119,40 @@ static const llvm::opt::ArgStringList *getCC1Arguments(
       }
     }
   }
-  if (Jobs.size() == 0 || !isa<driver::Command>(*Jobs.begin()) ||
-      (Jobs.size() > 1 && !OffloadCompilation)) {
+
+  return OffloadCompilation;
+}
+
+namespace clang {
+namespace tooling {
+
+const llvm::opt::ArgStringList *
+getCC1Arguments(DiagnosticsEngine *Diagnostics,
+                driver::Compilation *Compilation) {
+  const driver::JobList &Jobs = Compilation->getJobs();
+
+  auto IsCC1Command = [](const driver::Command &Cmd) {
+    return StringRef(Cmd.getCreator().getName()) == "clang";
+  };
+
+  auto IsSrcFile = [](const driver::InputInfo &II) {
+    return isSrcFile(II.getType());
+  };
+
+  llvm::SmallVector<const driver::Command *, 1> CC1Jobs;
+  for (const driver::Command &Job : Jobs)
+    if (IsCC1Command(Job) && llvm::all_of(Job.getInputInfos(), IsSrcFile))
+      CC1Jobs.push_back(&Job);
+
+  // If there are no jobs for source files, try checking again for a single job
+  // with any file type. This accepts a preprocessed file as input.
+  if (CC1Jobs.empty())
+    for (const driver::Command &Job : Jobs)
+      if (IsCC1Command(Job))
+        CC1Jobs.push_back(&Job);
+
+  if (CC1Jobs.empty() ||
+      (CC1Jobs.size() > 1 && !ignoreExtraCC1Commands(Compilation))) {
     SmallString<256> error_msg;
     llvm::raw_svector_ostream error_stream(error_msg);
     Jobs.Print(error_stream, "; ", true);
@@ -127,25 +161,17 @@ static const llvm::opt::ArgStringList *getCC1Arguments(
     return nullptr;
   }
 
-  // The one job we find should be to invoke clang again.
-  const auto &Cmd = cast<driver::Command>(*Jobs.begin());
-  if (StringRef(Cmd.getCreator().getName()) != "clang") {
-    Diagnostics->Report(diag::err_fe_expected_clang_command);
-    return nullptr;
-  }
-
-  return &Cmd.getArguments();
+  return &CC1Jobs[0]->getArguments();
 }
 
-namespace clang {
-namespace tooling {
-
 /// Returns a clang build invocation initialized from the CC1 flags.
-CompilerInvocation *newInvocation(
-    DiagnosticsEngine *Diagnostics, const llvm::opt::ArgStringList &CC1Args) {
+CompilerInvocation *newInvocation(DiagnosticsEngine *Diagnostics,
+                                  ArrayRef<const char *> CC1Args,
+                                  const char *const BinaryName) {
   assert(!CC1Args.empty() && "Must at least contain the program name!");
   CompilerInvocation *Invocation = new CompilerInvocation;
-  CompilerInvocation::CreateFromArgs(*Invocation, CC1Args, *Diagnostics);
+  CompilerInvocation::CreateFromArgs(*Invocation, CC1Args, *Diagnostics,
+                                     BinaryName);
   Invocation->getFrontendOpts().DisableFree = false;
   Invocation->getCodeGenOpts().DisableFree = false;
   return Invocation;
@@ -169,7 +195,7 @@ getSyntaxOnlyToolArgs(const Twine &ToolName,
   std::vector<std::string> Args;
   Args.push_back(ToolName.str());
   Args.push_back("-fsyntax-only");
-  Args.insert(Args.end(), ExtraArgs.begin(), ExtraArgs.end());
+  llvm::append_range(Args, ExtraArgs);
   Args.push_back(FileName.str());
   return Args;
 }
@@ -186,8 +212,8 @@ bool runToolOnCodeWithArgs(
   SmallString<16> FileNameStorage;
   StringRef FileNameRef = FileName.toNullTerminatedStringRef(FileNameStorage);
 
-  llvm::IntrusiveRefCntPtr<FileManager> Files(
-      new FileManager(FileSystemOptions(), VFS));
+  llvm::IntrusiveRefCntPtr<FileManager> Files =
+      llvm::makeIntrusiveRefCnt<FileManager>(FileSystemOptions(), VFS);
   ArgumentsAdjuster Adjuster = getClangStripDependencyFileAdjuster();
   ToolInvocation Invocation(
       getSyntaxOnlyToolArgs(ToolName, Adjuster(Args, FileNameRef), FileNameRef),
@@ -201,10 +227,11 @@ bool runToolOnCodeWithArgs(
     const Twine &ToolName,
     std::shared_ptr<PCHContainerOperations> PCHContainerOps,
     const FileContentMappings &VirtualMappedFiles) {
-  llvm::IntrusiveRefCntPtr<llvm::vfs::OverlayFileSystem> OverlayFileSystem(
-      new llvm::vfs::OverlayFileSystem(llvm::vfs::getRealFileSystem()));
-  llvm::IntrusiveRefCntPtr<llvm::vfs::InMemoryFileSystem> InMemoryFileSystem(
-      new llvm::vfs::InMemoryFileSystem);
+  auto OverlayFileSystem =
+      llvm::makeIntrusiveRefCnt<llvm::vfs::OverlayFileSystem>(
+          llvm::vfs::getRealFileSystem());
+  auto InMemoryFileSystem =
+      llvm::makeIntrusiveRefCnt<llvm::vfs::InMemoryFileSystem>();
   OverlayFileSystem->pushOverlay(InMemoryFileSystem);
 
   SmallString<1024> CodeStorage;
@@ -226,15 +253,13 @@ llvm::Expected<std::string> getAbsolutePath(llvm::vfs::FileSystem &FS,
                                             StringRef File) {
   StringRef RelativePath(File);
   // FIXME: Should '.\\' be accepted on Win32?
-  if (RelativePath.startswith("./")) {
-    RelativePath = RelativePath.substr(strlen("./"));
-  }
+  RelativePath.consume_front("./");
 
   SmallString<1024> AbsolutePath = RelativePath;
   if (auto EC = FS.makeAbsolute(AbsolutePath))
     return llvm::errorCodeToError(EC);
   llvm::sys::path::native(AbsolutePath);
-  return std::string(AbsolutePath.str());
+  return std::string(AbsolutePath);
 }
 
 std::string getAbsolutePath(StringRef File) {
@@ -243,28 +268,64 @@ std::string getAbsolutePath(StringRef File) {
 
 void addTargetAndModeForProgramName(std::vector<std::string> &CommandLine,
                                     StringRef InvokedAs) {
-  if (!CommandLine.empty() && !InvokedAs.empty()) {
-    bool AlreadyHasTarget = false;
-    bool AlreadyHasMode = false;
-    // Skip CommandLine[0].
-    for (auto Token = ++CommandLine.begin(); Token != CommandLine.end();
-         ++Token) {
-      StringRef TokenRef(*Token);
-      AlreadyHasTarget |=
-          (TokenRef == "-target" || TokenRef.startswith("-target="));
-      AlreadyHasMode |= (TokenRef == "--driver-mode" ||
-                         TokenRef.startswith("--driver-mode="));
-    }
-    auto TargetMode =
-        driver::ToolChain::getTargetAndModeFromProgramName(InvokedAs);
-    if (!AlreadyHasMode && TargetMode.DriverMode) {
-      CommandLine.insert(++CommandLine.begin(), TargetMode.DriverMode);
-    }
-    if (!AlreadyHasTarget && TargetMode.TargetIsValid) {
-      CommandLine.insert(++CommandLine.begin(), {"-target",
-                                                 TargetMode.TargetPrefix});
-    }
+  if (CommandLine.empty() || InvokedAs.empty())
+    return;
+  const auto &Table = driver::getDriverOptTable();
+  // --target=X
+  StringRef TargetOPT =
+      Table.getOption(driver::options::OPT_target).getPrefixedName();
+  // -target X
+  StringRef TargetOPTLegacy =
+      Table.getOption(driver::options::OPT_target_legacy_spelling)
+          .getPrefixedName();
+  // --driver-mode=X
+  StringRef DriverModeOPT =
+      Table.getOption(driver::options::OPT_driver_mode).getPrefixedName();
+  auto TargetMode =
+      driver::ToolChain::getTargetAndModeFromProgramName(InvokedAs);
+  // No need to search for target args if we don't have a target/mode to insert.
+  bool ShouldAddTarget = TargetMode.TargetIsValid;
+  bool ShouldAddMode = TargetMode.DriverMode != nullptr;
+  // Skip CommandLine[0].
+  for (auto Token = ++CommandLine.begin(); Token != CommandLine.end();
+       ++Token) {
+    StringRef TokenRef(*Token);
+    ShouldAddTarget = ShouldAddTarget && !TokenRef.starts_with(TargetOPT) &&
+                      TokenRef != TargetOPTLegacy;
+    ShouldAddMode = ShouldAddMode && !TokenRef.starts_with(DriverModeOPT);
   }
+  if (ShouldAddMode) {
+    CommandLine.insert(++CommandLine.begin(), TargetMode.DriverMode);
+  }
+  if (ShouldAddTarget) {
+    CommandLine.insert(++CommandLine.begin(),
+                       (TargetOPT + TargetMode.TargetPrefix).str());
+  }
+}
+
+void addExpandedResponseFiles(std::vector<std::string> &CommandLine,
+                              llvm::StringRef WorkingDir,
+                              llvm::cl::TokenizerCallback Tokenizer,
+                              llvm::vfs::FileSystem &FS) {
+  bool SeenRSPFile = false;
+  llvm::SmallVector<const char *, 20> Argv;
+  Argv.reserve(CommandLine.size());
+  for (auto &Arg : CommandLine) {
+    Argv.push_back(Arg.c_str());
+    if (!Arg.empty())
+      SeenRSPFile |= Arg.front() == '@';
+  }
+  if (!SeenRSPFile)
+    return;
+  llvm::BumpPtrAllocator Alloc;
+  llvm::cl::ExpansionContext ECtx(Alloc, Tokenizer);
+  llvm::Error Err =
+      ECtx.setVFS(&FS).setCurrentDir(WorkingDir).expandResponseFiles(Argv);
+  if (Err)
+    llvm::errs() << Err;
+  // Don't assign directly, Argv aliases CommandLine.
+  std::vector<std::string> ExpandedArgv(Argv.begin(), Argv.end());
+  CommandLine = std::move(ExpandedArgv);
 }
 
 } // namespace tooling
@@ -306,30 +367,44 @@ ToolInvocation::~ToolInvocation() {
     delete Action;
 }
 
-void ToolInvocation::mapVirtualFile(StringRef FilePath, StringRef Content) {
-  SmallString<1024> PathStorage;
-  llvm::sys::path::native(FilePath, PathStorage);
-  MappedFileContents[PathStorage] = Content;
-}
-
 bool ToolInvocation::run() {
-  std::vector<const char*> Argv;
+  llvm::opt::ArgStringList Argv;
   for (const std::string &Str : CommandLine)
     Argv.push_back(Str.c_str());
   const char *const BinaryName = Argv[0];
-  IntrusiveRefCntPtr<DiagnosticOptions> DiagOpts = new DiagnosticOptions();
-  unsigned MissingArgIndex, MissingArgCount;
-  llvm::opt::InputArgList ParsedArgs = driver::getDriverOptTable().ParseArgs(
-      ArrayRef<const char *>(Argv).slice(1), MissingArgIndex, MissingArgCount);
-  ParseDiagnosticArgs(*DiagOpts, ParsedArgs);
-  TextDiagnosticPrinter DiagnosticPrinter(
-      llvm::errs(), &*DiagOpts);
-  DiagnosticsEngine Diagnostics(
-      IntrusiveRefCntPtr<DiagnosticIDs>(new DiagnosticIDs()), &*DiagOpts,
-      DiagConsumer ? DiagConsumer : &DiagnosticPrinter, false);
+
+  // Parse diagnostic options from the driver command-line only if none were
+  // explicitly set.
+  std::unique_ptr<DiagnosticOptions> ParsedDiagOpts;
+  DiagnosticOptions *DiagOpts = this->DiagOpts;
+  if (!DiagOpts) {
+    ParsedDiagOpts = CreateAndPopulateDiagOpts(Argv);
+    DiagOpts = &*ParsedDiagOpts;
+  }
+
+  TextDiagnosticPrinter DiagnosticPrinter(llvm::errs(), *DiagOpts);
+  IntrusiveRefCntPtr<DiagnosticsEngine> Diagnostics =
+      CompilerInstance::createDiagnostics(
+          Files->getVirtualFileSystem(), *DiagOpts,
+          DiagConsumer ? DiagConsumer : &DiagnosticPrinter, false);
+  // Although `Diagnostics` are used only for command-line parsing, the custom
+  // `DiagConsumer` might expect a `SourceManager` to be present.
+  SourceManager SrcMgr(*Diagnostics, *Files);
+  Diagnostics->setSourceManager(&SrcMgr);
+
+  // We already have a cc1, just create an invocation.
+  if (CommandLine.size() >= 2 && CommandLine[1] == "-cc1") {
+    ArrayRef<const char *> CC1Args = ArrayRef(Argv).drop_front();
+    std::unique_ptr<CompilerInvocation> Invocation(
+        newInvocation(&*Diagnostics, CC1Args, BinaryName));
+    if (Diagnostics->hasErrorOccurred())
+      return false;
+    return Action->runInvocation(std::move(Invocation), Files,
+                                 std::move(PCHContainerOps), DiagConsumer);
+  }
 
   const std::unique_ptr<driver::Driver> Driver(
-      newDriver(&Diagnostics, BinaryName, &Files->getVirtualFileSystem()));
+      newDriver(&*Diagnostics, BinaryName, Files->getVirtualFileSystemPtr()));
   // The "input file not found" diagnostics from the driver are useful.
   // The driver is only aware of the VFS working directory, but some clients
   // change this at the FileManager level instead.
@@ -337,23 +412,15 @@ bool ToolInvocation::run() {
   if (!Files->getFileSystemOpts().WorkingDir.empty())
     Driver->setCheckInputsExist(false);
   const std::unique_ptr<driver::Compilation> Compilation(
-      Driver->BuildCompilation(llvm::makeArrayRef(Argv)));
+      Driver->BuildCompilation(llvm::ArrayRef(Argv)));
   if (!Compilation)
     return false;
   const llvm::opt::ArgStringList *const CC1Args = getCC1Arguments(
-      &Diagnostics, Compilation.get());
+      &*Diagnostics, Compilation.get());
   if (!CC1Args)
     return false;
   std::unique_ptr<CompilerInvocation> Invocation(
-      newInvocation(&Diagnostics, *CC1Args));
-  // FIXME: remove this when all users have migrated!
-  for (const auto &It : MappedFileContents) {
-    // Inject the code as the given file name into the preprocessor options.
-    std::unique_ptr<llvm::MemoryBuffer> Input =
-        llvm::MemoryBuffer::getMemBuffer(It.getValue());
-    Invocation->getPreprocessorOpts().addRemappedFile(It.getKey(),
-                                                      Input.release());
-  }
+      newInvocation(&*Diagnostics, *CC1Args, BinaryName));
   return runInvocation(BinaryName, Compilation.get(), std::move(Invocation),
                        std::move(PCHContainerOps));
 }
@@ -378,8 +445,8 @@ bool FrontendActionFactory::runInvocation(
     std::shared_ptr<PCHContainerOperations> PCHContainerOps,
     DiagnosticConsumer *DiagConsumer) {
   // Create a compiler instance to handle the actual work.
-  CompilerInstance Compiler(std::move(PCHContainerOps));
-  Compiler.setInvocation(std::move(Invocation));
+  CompilerInstance Compiler(std::move(Invocation), std::move(PCHContainerOps));
+  Compiler.setVirtualFileSystem(Files->getVirtualFileSystemPtr());
   Compiler.setFileManager(Files);
 
   // The FrontendAction can have lifetime requirements for Compiler or its
@@ -392,7 +459,7 @@ bool FrontendActionFactory::runInvocation(
   if (!Compiler.hasDiagnostics())
     return false;
 
-  Compiler.createSourceManager(*Files);
+  Compiler.createSourceManager();
 
   const bool Success = Compiler.ExecuteAction(*ScopedToolAction);
 
@@ -407,10 +474,13 @@ ClangTool::ClangTool(const CompilationDatabase &Compilations,
                      IntrusiveRefCntPtr<FileManager> Files)
     : Compilations(Compilations), SourcePaths(SourcePaths),
       PCHContainerOps(std::move(PCHContainerOps)),
-      OverlayFileSystem(new llvm::vfs::OverlayFileSystem(std::move(BaseFS))),
-      InMemoryFileSystem(new llvm::vfs::InMemoryFileSystem),
+      OverlayFileSystem(llvm::makeIntrusiveRefCnt<llvm::vfs::OverlayFileSystem>(
+          std::move(BaseFS))),
+      InMemoryFileSystem(
+          llvm::makeIntrusiveRefCnt<llvm::vfs::InMemoryFileSystem>()),
       Files(Files ? Files
-                  : new FileManager(FileSystemOptions(), OverlayFileSystem)) {
+                  : llvm::makeIntrusiveRefCnt<FileManager>(FileSystemOptions(),
+                                                           OverlayFileSystem)) {
   OverlayFileSystem->pushOverlay(InMemoryFileSystem);
   appendArgumentsAdjuster(getClangStripOutputAdjuster());
   appendArgumentsAdjuster(getClangSyntaxOnlyAdjuster());
@@ -437,12 +507,13 @@ static void injectResourceDir(CommandLineArguments &Args, const char *Argv0,
                               void *MainAddr) {
   // Allow users to override the resource dir.
   for (StringRef Arg : Args)
-    if (Arg.startswith("-resource-dir"))
+    if (Arg.starts_with("-resource-dir"))
       return;
 
   // If there's no override in place add our resource dir.
-  Args.push_back("-resource-dir=" +
-                 CompilerInvocation::GetResourcesPath(Argv0, MainAddr));
+  Args = getInsertArgumentAdjuster(
+      ("-resource-dir=" + CompilerInvocation::GetResourcesPath(Argv0, MainAddr))
+          .c_str())(Args, "");
 }
 
 int ClangTool::run(ToolAction *Action) {
@@ -478,15 +549,15 @@ int ClangTool::run(ToolAction *Action) {
 
   // Remember the working directory in case we need to restore it.
   std::string InitialWorkingDir;
-  if (RestoreCWD) {
-    if (auto CWD = OverlayFileSystem->getCurrentWorkingDirectory()) {
-      InitialWorkingDir = std::move(*CWD);
-    } else {
-      llvm::errs() << "Could not get working directory: "
-                   << CWD.getError().message() << "\n";
-    }
+  if (auto CWD = OverlayFileSystem->getCurrentWorkingDirectory()) {
+    InitialWorkingDir = std::move(*CWD);
+  } else {
+    llvm::errs() << "Could not get working directory: "
+                 << CWD.getError().message() << "\n";
   }
 
+  size_t NumOfTotalFiles = AbsolutePaths.size();
+  unsigned ProcessedFileCounter = 0;
   for (llvm::StringRef File : AbsolutePaths) {
     // Currently implementations of CompilationDatabase::getCompileCommands can
     // change the state of the file system (e.g.  prepare generated headers), so
@@ -503,6 +574,15 @@ int ClangTool::run(ToolAction *Action) {
       continue;
     }
     for (CompileCommand &CompileCommand : CompileCommandsForFile) {
+      // If the 'directory' field of the compilation database is empty, display
+      // an error and use the working directory instead.
+      StringRef Directory = CompileCommand.Directory;
+      if (Directory.empty()) {
+        llvm::errs() << "'directory' field of compilation database is empty; "
+                        "using the current working directory instead.\n";
+        Directory = InitialWorkingDir;
+      }
+
       // FIXME: chdir is thread hostile; on the other hand, creating the same
       // behavior as chdir is complex: chdir resolves the path once, thus
       // guaranteeing that all subsequent relative path operations work
@@ -510,15 +590,14 @@ int ClangTool::run(ToolAction *Action) {
       // difference for example on network filesystems, where symlinks might be
       // switched during runtime of the tool. Fixing this depends on having a
       // file system abstraction that allows openat() style interactions.
-      if (OverlayFileSystem->setCurrentWorkingDirectory(
-              CompileCommand.Directory))
-        llvm::report_fatal_error("Cannot chdir into \"" +
-                                 Twine(CompileCommand.Directory) + "\"!");
+      if (OverlayFileSystem->setCurrentWorkingDirectory(Directory))
+        llvm::report_fatal_error("Cannot chdir into \"" + Twine(Directory) +
+                                 "\"!");
 
       // Now fill the in-memory VFS with the relative file mappings so it will
       // have the correct relative paths. We never remove mappings but that
       // should be fine.
-      if (SeenWorkingDirectories.insert(CompileCommand.Directory).second)
+      if (SeenWorkingDirectories.insert(Directory).second)
         for (const auto &MappedFile : MappedFileContents)
           if (!llvm::sys::path::is_absolute(MappedFile.first))
             InMemoryFileSystem->addFile(
@@ -542,7 +621,11 @@ int ClangTool::run(ToolAction *Action) {
 
       // FIXME: We need a callback mechanism for the tool writer to output a
       // customized message for each file.
-      LLVM_DEBUG({ llvm::dbgs() << "Processing: " << File << ".\n"; });
+      if (NumOfTotalFiles > 1)
+        llvm::errs() << "[" + std::to_string(++ProcessedFileCounter) + "/" +
+                            std::to_string(NumOfTotalFiles) +
+                            "] Processing file " + File
+                     << ".\n";
       ToolInvocation Invocation(std::move(CommandLine), Action, Files.get(),
                                 PCHContainerOps);
       Invocation.setDiagnosticConsumer(DiagConsumer);
@@ -569,20 +652,25 @@ namespace {
 
 class ASTBuilderAction : public ToolAction {
   std::vector<std::unique_ptr<ASTUnit>> &ASTs;
+  CaptureDiagsKind CaptureKind;
 
 public:
-  ASTBuilderAction(std::vector<std::unique_ptr<ASTUnit>> &ASTs) : ASTs(ASTs) {}
+  ASTBuilderAction(
+      std::vector<std::unique_ptr<ASTUnit>> &ASTs,
+      CaptureDiagsKind CaptureDiagnosticsKind = CaptureDiagsKind::None)
+      : ASTs(ASTs), CaptureKind(CaptureDiagnosticsKind) {}
 
   bool runInvocation(std::shared_ptr<CompilerInvocation> Invocation,
                      FileManager *Files,
                      std::shared_ptr<PCHContainerOperations> PCHContainerOps,
                      DiagnosticConsumer *DiagConsumer) override {
     std::unique_ptr<ASTUnit> AST = ASTUnit::LoadFromCompilerInvocation(
-        Invocation, std::move(PCHContainerOps),
-        CompilerInstance::createDiagnostics(&Invocation->getDiagnosticOpts(),
+        Invocation, std::move(PCHContainerOps), nullptr,
+        CompilerInstance::createDiagnostics(Files->getVirtualFileSystem(),
+                                            Invocation->getDiagnosticOpts(),
                                             DiagConsumer,
                                             /*ShouldOwnClient=*/false),
-        Files);
+        Files, false, CaptureKind);
     if (!AST)
       return false;
 
@@ -596,10 +684,6 @@ public:
 int ClangTool::buildASTs(std::vector<std::unique_ptr<ASTUnit>> &ASTs) {
   ASTBuilderAction Action(ASTs);
   return run(&Action);
-}
-
-void ClangTool::setRestoreWorkingDir(bool RestoreCWD) {
-  this->RestoreCWD = RestoreCWD;
 }
 
 void ClangTool::setPrintErrorMessage(bool PrintErrorMessage) {
@@ -620,16 +704,22 @@ std::unique_ptr<ASTUnit> buildASTFromCodeWithArgs(
     StringRef Code, const std::vector<std::string> &Args, StringRef FileName,
     StringRef ToolName, std::shared_ptr<PCHContainerOperations> PCHContainerOps,
     ArgumentsAdjuster Adjuster, const FileContentMappings &VirtualMappedFiles,
-    DiagnosticConsumer *DiagConsumer) {
+    DiagnosticConsumer *DiagConsumer,
+    IntrusiveRefCntPtr<llvm::vfs::FileSystem> BaseFS,
+    CaptureDiagsKind CaptureKind) {
   std::vector<std::unique_ptr<ASTUnit>> ASTs;
-  ASTBuilderAction Action(ASTs);
-  llvm::IntrusiveRefCntPtr<llvm::vfs::OverlayFileSystem> OverlayFileSystem(
-      new llvm::vfs::OverlayFileSystem(llvm::vfs::getRealFileSystem()));
-  llvm::IntrusiveRefCntPtr<llvm::vfs::InMemoryFileSystem> InMemoryFileSystem(
-      new llvm::vfs::InMemoryFileSystem);
+
+  ASTBuilderAction Action(ASTs, CaptureKind);
+
+  auto OverlayFileSystem =
+      llvm::makeIntrusiveRefCnt<llvm::vfs::OverlayFileSystem>(
+          std::move(BaseFS));
+  auto InMemoryFileSystem =
+      llvm::makeIntrusiveRefCnt<llvm::vfs::InMemoryFileSystem>();
   OverlayFileSystem->pushOverlay(InMemoryFileSystem);
-  llvm::IntrusiveRefCntPtr<FileManager> Files(
-      new FileManager(FileSystemOptions(), OverlayFileSystem));
+  llvm::IntrusiveRefCntPtr<FileManager> Files =
+      llvm::makeIntrusiveRefCnt<FileManager>(FileSystemOptions(),
+                                             OverlayFileSystem);
 
   ToolInvocation Invocation(
       getSyntaxOnlyToolArgs(ToolName, Adjuster(Args, FileName), FileName),

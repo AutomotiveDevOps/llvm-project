@@ -1,5 +1,4 @@
 // REQUIRES: x86-registered-target
-// REQUIRES: shell
 
 // NOTE: -fno-integrated-cc1 has been added to work around an ASAN failure
 //       caused by in-process cc1 invocation. Clang InterfaceStubs is not the
@@ -12,7 +11,7 @@
 // RUN: %clang -target x86_64-unknown-linux-gnu -x c -S \
 // RUN:   -fno-integrated-cc1 \
 // RUN: -emit-interface-stubs %s %S/object.c %S/weak.cpp && \
-// RUN: llvm-nm %t/a.out.ifso 2>&1 | FileCheck --check-prefix=CHECK-IFS %s
+// RUN: llvm-nm -D %t/a.out.ifso 2>&1 | FileCheck --check-prefix=CHECK-IFS %s
 
 // CHECK-IFS-DAG: data
 // CHECK-IFS-DAG: foo

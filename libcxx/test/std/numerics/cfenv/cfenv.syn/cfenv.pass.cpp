@@ -5,8 +5,10 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
 //===----------------------------------------------------------------------===//
-//
-// UNSUPPORTED: newlib
+
+// Picolibc does not define some of the floating point environment macros for
+// arm platforms without hardware floating point support.
+// UNSUPPORTED: LIBCXX-PICOLIBC-FIXME
 
 // <cfenv>
 

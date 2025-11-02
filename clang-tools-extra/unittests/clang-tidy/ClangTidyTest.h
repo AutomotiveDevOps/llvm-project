@@ -10,6 +10,7 @@
 #define LLVM_CLANG_TOOLS_EXTRA_UNITTESTS_CLANG_TIDY_CLANGTIDYTEST_H
 
 #include "ClangTidy.h"
+#include "ClangTidyCheck.h"
 #include "ClangTidyDiagnosticConsumer.h"
 #include "clang/ASTMatchers/ASTMatchFinder.h"
 #include "clang/Frontend/CompilerInstance.h"
@@ -18,7 +19,6 @@
 #include "clang/Tooling/Core/Replacement.h"
 #include "clang/Tooling/Refactoring.h"
 #include "clang/Tooling/Tooling.h"
-#include "llvm/ADT/Optional.h"
 #include "llvm/Support/Path.h"
 #include <map>
 #include <memory>
@@ -66,7 +66,9 @@ private:
     // that check constructors can access the context (for example, through
     // `getLangOpts()`).
     CheckFactory<CheckTypes...>::createChecks(&Context, Checks);
+    assert(!Checks.empty() && "No checks created");
     for (auto &Check : Checks) {
+      assert(Check.get() && "Checks can't be null");
       if (!Check->isLanguageVersionSupported(Context.getLangOpts()))
         continue;
       Check->registerMatchers(&Finder);
@@ -84,18 +86,21 @@ template <typename... CheckTypes>
 std::string
 runCheckOnCode(StringRef Code, std::vector<ClangTidyError> *Errors = nullptr,
                const Twine &Filename = "input.cc",
-               ArrayRef<std::string> ExtraArgs = None,
+               ArrayRef<std::string> ExtraArgs = {},
                const ClangTidyOptions &ExtraOptions = ClangTidyOptions(),
                std::map<StringRef, StringRef> PathsToContent =
                    std::map<StringRef, StringRef>()) {
+  static_assert(sizeof...(CheckTypes) > 0, "No checks specified");
   ClangTidyOptions Options = ExtraOptions;
   Options.Checks = "*";
   ClangTidyContext Context(std::make_unique<DefaultOptionsProvider>(
-      ClangTidyGlobalOptions(), Options));
+                               ClangTidyGlobalOptions(), Options),
+                           false, false, false);
   ClangTidyDiagnosticConsumer DiagConsumer(Context);
-  DiagnosticsEngine DE(new DiagnosticIDs(), new DiagnosticOptions,
-                       &DiagConsumer, false);
-  Context.setDiagnosticsEngine(&DE);
+  auto DiagOpts = std::make_unique<DiagnosticOptions>();
+  DiagnosticsEngine DE(DiagnosticIDs::create(), *DiagOpts, &DiagConsumer,
+                       false);
+  Context.setDiagnosticsEngine(std::move(DiagOpts), &DE);
 
   std::vector<std::string> Args(1, "clang-tidy");
   Args.push_back("-fsyntax-only");
@@ -107,7 +112,7 @@ runCheckOnCode(StringRef Code, std::vector<ClangTidyError> *Errors = nullptr,
     Args.push_back("-fobjc-arc");
   }
   if (extension == ".cc" || extension == ".cpp" || extension == ".mm") {
-    Args.push_back("-std=c++11");
+    Args.push_back("-std=c++20");
   }
   Args.push_back("-Iinclude");
   Args.insert(Args.end(), ExtraArgs.begin(), ExtraArgs.end());
@@ -119,7 +124,7 @@ runCheckOnCode(StringRef Code, std::vector<ClangTidyError> *Errors = nullptr,
   llvm::IntrusiveRefCntPtr<FileManager> Files(
       new FileManager(FileSystemOptions(), InMemoryFileSystem));
 
-  SmallVector<std::unique_ptr<ClangTidyCheck>, 1> Checks;
+  SmallVector<std::unique_ptr<ClangTidyCheck>, sizeof...(CheckTypes)> Checks;
   tooling::ToolInvocation Invocation(
       Args,
       std::make_unique<TestClangTidyAction<CheckTypes...>>(Checks, Finder,
@@ -138,7 +143,7 @@ runCheckOnCode(StringRef Code, std::vector<ClangTidyError> *Errors = nullptr,
     for (const auto &Error : DiagConsumer.take()) {
       ErrorText += Error.Message.Message + "\n";
     }
-    llvm::report_fatal_error(ErrorText);
+    llvm::report_fatal_error(llvm::Twine(ErrorText));
   }
 
   tooling::Replacements Fixes;

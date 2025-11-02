@@ -10,15 +10,20 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "toy/AST.h"
 #include "toy/Dialect.h"
+#include "toy/Lexer.h"
 #include "toy/MLIRGen.h"
 #include "toy/Parser.h"
 #include <memory>
+#include <string>
+#include <system_error>
+#include <utility>
 
+#include "mlir/IR/AsmState.h"
+#include "mlir/IR/BuiltinOps.h"
 #include "mlir/IR/MLIRContext.h"
-#include "mlir/IR/Module.h"
-#include "mlir/IR/Verifier.h"
-#include "mlir/Parser.h"
+#include "mlir/Parser/Parser.h"
 
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/CommandLine.h"
@@ -37,7 +42,7 @@ static cl::opt<std::string> inputFilename(cl::Positional,
 
 namespace {
 enum InputType { Toy, MLIR };
-}
+} // namespace
 static cl::opt<enum InputType> inputType(
     "x", cl::init(Toy), cl::desc("Decided the kind of output desired"),
     cl::values(clEnumValN(Toy, "toy", "load the input file as a Toy source.")),
@@ -46,14 +51,15 @@ static cl::opt<enum InputType> inputType(
 
 namespace {
 enum Action { None, DumpAST, DumpMLIR };
-}
+} // namespace
 static cl::opt<enum Action> emitAction(
     "emit", cl::desc("Select the kind of output desired"),
     cl::values(clEnumValN(DumpAST, "ast", "output the AST dump")),
     cl::values(clEnumValN(DumpMLIR, "mlir", "output the MLIR dump")));
 
 /// Returns a Toy AST resulting from parsing the file or a nullptr on error.
-std::unique_ptr<toy::ModuleAST> parseInputFile(llvm::StringRef filename) {
+static std::unique_ptr<toy::ModuleAST>
+parseInputFile(llvm::StringRef filename) {
   llvm::ErrorOr<std::unique_ptr<llvm::MemoryBuffer>> fileOrErr =
       llvm::MemoryBuffer::getFileOrSTDIN(filename);
   if (std::error_code ec = fileOrErr.getError()) {
@@ -66,19 +72,18 @@ std::unique_ptr<toy::ModuleAST> parseInputFile(llvm::StringRef filename) {
   return parser.parseModule();
 }
 
-int dumpMLIR() {
-  // Register our Dialect with MLIR.
-  mlir::registerDialect<mlir::toy::ToyDialect>();
-
+static int dumpMLIR() {
   mlir::MLIRContext context;
+  // Load our Dialect in this MLIR Context.
+  context.getOrLoadDialect<mlir::toy::ToyDialect>();
 
   // Handle '.toy' input to the compiler.
   if (inputType != InputType::MLIR &&
-      !llvm::StringRef(inputFilename).endswith(".mlir")) {
+      !llvm::StringRef(inputFilename).ends_with(".mlir")) {
     auto moduleAST = parseInputFile(inputFilename);
     if (!moduleAST)
       return 6;
-    mlir::OwningModuleRef module = mlirGen(context, *moduleAST);
+    mlir::OwningOpRef<mlir::ModuleOp> module = mlirGen(context, *moduleAST);
     if (!module)
       return 1;
 
@@ -89,15 +94,16 @@ int dumpMLIR() {
   // Otherwise, the input is '.mlir'.
   llvm::ErrorOr<std::unique_ptr<llvm::MemoryBuffer>> fileOrErr =
       llvm::MemoryBuffer::getFileOrSTDIN(inputFilename);
-  if (std::error_code EC = fileOrErr.getError()) {
-    llvm::errs() << "Could not open input file: " << EC.message() << "\n";
+  if (std::error_code ec = fileOrErr.getError()) {
+    llvm::errs() << "Could not open input file: " << ec.message() << "\n";
     return -1;
   }
 
   // Parse the input mlir.
   llvm::SourceMgr sourceMgr;
   sourceMgr.AddNewSourceBuffer(std::move(*fileOrErr), llvm::SMLoc());
-  mlir::OwningModuleRef module = mlir::parseSourceFile(sourceMgr, &context);
+  mlir::OwningOpRef<mlir::ModuleOp> module =
+      mlir::parseSourceFile<mlir::ModuleOp>(sourceMgr, &context);
   if (!module) {
     llvm::errs() << "Error can't load file " << inputFilename << "\n";
     return 3;
@@ -107,7 +113,7 @@ int dumpMLIR() {
   return 0;
 }
 
-int dumpAST() {
+static int dumpAST() {
   if (inputType == InputType::MLIR) {
     llvm::errs() << "Can't dump a Toy AST when the input is MLIR\n";
     return 5;
@@ -122,6 +128,9 @@ int dumpAST() {
 }
 
 int main(int argc, char **argv) {
+  // Register any command line options.
+  mlir::registerAsmPrinterCLOptions();
+  mlir::registerMLIRContextCLOptions();
   cl::ParseCommandLineOptions(argc, argv, "toy compiler\n");
 
   switch (emitAction) {

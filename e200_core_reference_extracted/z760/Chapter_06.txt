@@ -1,0 +1,2325 @@
+Chapter 6
+Signal Processing Extension (SPE)
+
+This chapter provides an overview of the signal processing engine, version 2.1, which is designed to
+accelerate signal processing applications normally suited to DSP operation. This is accomplished using
+short vectors (two, four, or eight elements) within 64-bit GPRs and using single instruction multiple data
+(SIMD) operations to perform the requisite computations. SPE2.1 also architects an accumulator register
+to allow for certain back to back operations without loop unrolling. SPE2.1 is fully backward compatible
+with the original SPE. The remainder of this document uses the term SPE to refer to version 2.1 unless
+otherwise noted.
+
+6.1       Nomenclature and Conventions
+Several conventions regarding nomenclature are used in this chapter:
+   • Due to historical precedent, the terms SPE and SIMD are sometimes used interchangeably.
+   • The signal processing engine is abbreviated as SPE.
+   • All register bit numbering is 64-bit with bit 0 being the most significant bit. Registers that are only
+       32-bit define bit 32 as the most significant bit. For both 32-bit and 64-bit registers, bit 63 is the least
+       significant bit.
+   • Bits 0–31 of a 64-bit register are referenced as word 0, upper word, even word, or high word
+       element of the register. Bits 32–63 are referred to as word 1, lower word, odd word, or low word
+       element of the register. Each word is an element of a 64-bit GPR.
+   • Bits 0–15 of a 64-bit register are referenced as half word 0. Bits 16–31 are referred to as
+       half word 1. Bits 32–47 are referenced as half word 2. Bits 48–63 are referred to as half word 3.
+       Each half word is an element of a 64-bit GPR.
+   • Bits 0–7 of a 64-bit register are referenced as byte 0. Bits 8–15 are referred to as byte 1. Bits 16–23
+       are referenced as byte 2. Bits 24–31 are referred to as byte 3. Bits 32–39 are referred to as byte 4.
+       Bits 40–47 are referenced as byte 5. Bits 48–55 are referred to as byte 6. Bits 56–63 are referenced
+       as byte 7. Each byte is an element of a 64-bit GPR.
+   • Bits 0–15 and bits 32–47 are referenced as even half words. Bits 16–31 and bits 48–63 are
+       referenced as odd half words. Bits 0–15 and bits 16–31 are referenced as upper half words. Bits
+       32–47 and bits 48–63 are referenced as lower half words.
+   • Mnemonics for SPE instructions generally begin with the letters ‘ev’ (embedded vector).
+
+
+
+
+                             e200z7 Power Architecture Core Reference Manual, Rev. 2
+Freescale Semiconductor                                                                                        6-1
+Signal Processing Extension (SPE)
+
+
+Table 6-1 shows RTL conventions that are used in this chapter.
+                                                  Table 6-1. RTL Notation
+
+        Notation                                                           Meaning
+
+           sf           Signed fractional multiplication.
+
+                         Result of multiplying 2 quantities having bit lengths x and y taking the least significant x + y – 1 bits of
+                         the product and concatenating a 0 to the least significant bit forming a signed fractional result of x + y
+                         bits.
+           si           Signed integer multiplication
+
+        su, sui        Signed by Unsigned multiplication (same for int and frac)
+
+           ui           Unsigned integer multiplication
+
+           <<            Logical shift left. x << y shifts value x left by y bits, leaving zeros in the vacated bits.
+
+           >>            Logical shift right. x >> y shifts value x right by y bits, leaving zeros in the vacated bits.
+
+
+6.2        SPE Programming Model
+The e200z760n3 core provides a register file with thirty-two 64-bit registers. The embedded category in
+the Power ISA instructions operate on the lower (least significant) 32 bits of the 64-bit register. SPE
+instructions generally take elements from each source register and operate on them with the corresponding
+elements of a second source register (and/or the accumulator) to produce results. Results are placed in the
+destination register and/or the accumulator. Vector instructions (i.e. produce results of more than one
+element) provide results for each element that are independent of the computation of the other elements.
+These instructions can also be used to perform scalar DSP operations by ignoring the results of the upper
+32-bit half of the register file.
+SPE compare instructions and set instructions with record store the comparison result into the condition
+register (CR). The meaning of the CR bits are now overloaded for SPE operations. SPE compare
+instructions specify a CR field, two source registers, and the type of compare: greater than, less than, or
+equal. Two bits of the CR field are written with the result of the vector compare: one for each of the high
+and low 32-bits of the result. The remaining two bits reflect the ANDing and ORing of the vector compare
+results. An additional set of compare instructions (evsetxx[.]) return a set of Boolean values into a
+destination register, allowing for subsequent predicated computational operations, such as a select
+operation to be performed.
+A partially visible accumulator register is architected for the SPE integer and fractional multiply
+accumulate forms of instructions. Its usage is described in Section 6.2.2, “Accumulator Register.”
+
+6.2.1            GPR Registers
+The SPE requires a GPR register file with thirty-two 64-bit registers. For 32-bit implementations, the
+embedded category of the Power ISA instructions that normally operate on a 32-bit register, access and
+change only the least significant 32-bits of the GPRs. They leave the most significant 32-bits unchanged.
+SPE instructions view the 64-bit register as being composed of a vector of elements, each of which is 32
+bits, 16 bits, or 8 bits wide.
+
+
+                                e200z7 Power Architecture Core Reference Manual, Rev. 2
+6-2                                                                                                         Freescale Semiconductor
+                                                                                                        Signal Processing Extension (SPE)
+
+
+Nomenclature is as follows:
+  • The most significant 32 bits are called word 0 (W0), the upper word, high word or even word.
+  • The least significant 32 bits are called word 1 (W1), the lower word, low word or odd word.
+  • Half word elements are called half word 0, 1, 2, or 3, from most significant to least significant.
+  • Byte elements are called byte 0, 1, 2, 3, 4, 5, 6, or 7, from most significant to least significant.
+Unless otherwise specified, SPE instructions write all 64 bits of the destination register.
+Figure 6-1 shows vector storage in GPRs.
+
+      0            7 8            15 16            23 24             31 32            39 40            47 48               55 56             63
+
+GPR                                                                 Double word
+
+GPR                       Upper word (word 0)                                                   Lower word (word 1)
+
+GPR           half word 0                      half word 1                        half word 2                        half word 3
+
+GPR       byte 0         byte 1           byte 2           byte 3            byte 4           byte 5           byte 6              byte 7
+
+                                             Figure 6-1. Vector Storage in GPRs
+
+6.2.2        Accumulator Register
+The accumulator is a 64-bit register that allows the back-to-back execution of dependent MAC and dot
+product instructions, something that is found in the inner loops of DSP code such as FIR and FFT filters.
+The accumulator is partially visible to the programmer in that its results do not have to be explicitly read
+to use them. Instead, they are always copied into a 64-bit destination GPR that is specified as part of the
+instruction. However, the accumulator has to be explicitly initialized when starting a new accumulation
+loop.
+The accumulator is for used the following kinds of instructions:
+   • Certain integer/fractional accumulation
+   • Multiply accumulate (MAC)
+   • Dot product
+   • Summation forms
+Based upon the type of instruction, the accumulator can hold either a single 64-bit value or a vector of two
+32-bit elements, a vector of four 16-bit elements, or vector of eight 8-bit elements. In addition, for certain
+instructions, the accumulator can be updated along with the destination register.
+Figure 6-2 shows accumulator storage.
+
+      0                             15 16                              31 32                              47 48                              63
+
+ACC                                                                 Double word
+
+ACC                               Upper word                                                           Lower word
+
+ACC            half word 0                         half word 1                        half word 2                       half word 3
+
+ACC       byte 0          byte 1            byte 2           byte 3            byte 4            byte 5           byte 6           byte 7
+
+                                               Figure 6-2. Accumulator Storage
+
+                                   e200z7 Power Architecture Core Reference Manual, Rev. 2
+Freescale Semiconductor                                                                                                                     6-3
+Signal Processing Extension (SPE)
+
+
+An example of a MAC instruction is evmhossfaaw rD,rA,rB. In this instruction, the least significant 16
+bits of rA and rB are multiplied for both elements of the vector; the result is shifted left one bit and added
+to the accumulator; and the result is possibly saturated to 32 bits in case of overflow. The final result is
+placed both in the accumulator and also in rD. Therefore, the result of this instruction can be used by
+accessing rD.
+To read the accumulator contents into a register, the evmar instruction is used. To initialize the
+accumulator, the evmra instruction or another instruction targeting the accumulator such as evsplatixxa is
+used.
+
+6.2.3              SPE Status and Control Register (SPEFSCR)
+The e200 z760n3 core implements the SPEFSCR register for status reporting and control of SPE
+instructions. This register is also used by the embedded floating-point units. Status and control bits
+are shared for floating-point operations and SPE operations. The SPEFSCR register is implemented
+as special purpose register (SPR) number 512 and is read and written by the mfspr and mtspr instructions
+in both user and supervisor mode. SPE instructions affect both the high element (bits 0–1) and low element
+status flags (bits 16–17).
+Figure 6-3 shows the SPEFSCR.
+  SPR 512                                                                                                          Access: Read/Write
+              0     1      2      3      4        5       6        7       8       9     10    11       12       13      14       15
+       R
+           SOVH OVH FGH FXH FINVH FDBZH FUNFH FOVFH —                           RM      FINXS FINVS FDBZS FUNFS FOVFS MODE
+      W
+Reset                                                                  All zeros
+
+             16     17     18    19     20       21      22       23      24       25    26    27       28       29      30       31
+       R
+             SOV    OV     FG    FX    FINV     FDBZ   FUNF     FOVF — FINXE FINVE FDBZE FUNFE FOVFE                       FRMC
+      W
+Reset                                                                  All zeros
+                                Figure 6-3. SPE/EFPU Status and Control Register (SPEFSCR)
+
+Table 6-2 describes the SPEFSCR bits.
+                                             Table 6-2. SPE Status and Control Register
+
+      Bits          Name                                                       Description
+
+        0          SOVH         Summary Integer Overflow High
+      (32)                      The SOVH bit is set to 1 whenever an instruction sets OVH. The SOVH bit remains set until it is
+                                cleared by a mtspr instruction specifying the SPEFSCR register.
+
+        1           OVH         Integer Overflow High
+      (33)                      The OVH bit is set to 1 whenever an integer or fractional SPE instruction signals an overflow in the
+                                upper half of the result.
+
+        2           FGH         Embedded Floating-Point Guard bit High
+      (34)                      Defined by Embedded Floating-Point APUs.
+
+        3           FXH         Embedded Floating-Point Inexact bit High
+      (35)                      Defined by Embedded Floating-Point APUs.
+
+
+                                      e200z7 Power Architecture Core Reference Manual, Rev. 2
+6-4                                                                                                          Freescale Semiconductor
+                                                                                               Signal Processing Extension (SPE)
+
+
+                             Table 6-2. SPE Status and Control Register (continued)
+
+   Bits        Name                                                    Description
+
+     4         FINVH      Embedded Floating-Point Invalid Operation/Input error High
+   (36)                   Defined by Embedded Floating-Point APUs.
+
+     5         FDBZH      Embedded Floating-Point Divide by Zero High
+   (37)                   Defined by Embedded Floating-Point APUs.
+
+     6         FUNFH      Embedded Floating-Point Underflow High
+   (38)                   Defined by Embedded Floating-Point APUs.
+
+     7         FOVFH      Embedded Floating-Point Overflow High
+   (39)                   Defined by Embedded Floating-Point APUs.
+
+     8     —              Reserved
+   (40)
+
+     9          RM        Rounding Mode - Fixed Point
+   (41)                   0 Normal Rounding (Biased-rounding), rounding performed by adding 1/2 lsb
+                          1 Round to Nearest Even Rounding (convergent rounding), round to nearest even value
+
+    10         FINXS      Embedded Floating-Point Inexact Sticky Flag
+   (42)                   Defined by Embedded Floating-Point APUs.
+
+    11         FINVS      Embedded Floating-Point Invalid Operation Sticky Flag
+   (43)                   Defined by Embedded Floating-Point APUs.
+
+    12         FDBZS      Embedded Floating-Point Divide by Zero Sticky Flag
+   (44)                   Defined by Embedded Floating-Point APUs.
+
+    13         FUNFS      Embedded Floating-Point Underflow Sticky Flag
+   (45)                   Defined by Embedded Floating-Point APUs.
+
+    14         FOVFS      Embedded Floating-Point Overflow Sticky Flag
+   (46)                   Defined by Embedded Floating-Point APUs.
+
+    15         MODE       Embedded Floating-Point Operating Mode
+   (47)                   Defined by Embedded Floating-Point APUs.
+
+    16         SOV        Summary Integer Overflow
+   (48)                   The SOV bit is set to 1 whenever an instruction sets OV. The SOV bit remains set until it is cleared by
+                          an mtspr instruction specifying the SPEFSCR register.
+
+    17          OV        Integer Overflow
+   (49)                   The OV bit is set to 1 whenever an integer or fractional SPE instruction signals an overflow in the low
+                          element result.
+
+    18          FG        Embedded Floating-Point Guard bit (low/scalar)
+   (50)                   Defined by Embedded Floating-Point APUs.
+
+    19          FX        Embedded Floating-Point Inexact bit (low/scalar)
+   (51)                   Defined by Embedded Floating-Point APUs.
+
+    20         FINV       Embedded Floating-Point Invalid Operation / Input error (low/scalar)
+   (52)                   Defined by Embedded Floating-Point APUs.
+
+    21         FDBZ       Embedded Floating-Point Divide by Zero (low/scalar)
+   (53)                   Defined by Embedded Floating-Point APUs.
+
+    22         FUNF       Embedded Floating-Point Underflow (low/scalar)
+   (54)                   Defined by Embedded Floating-Point APUs.
+
+
+
+                               e200z7 Power Architecture Core Reference Manual, Rev. 2
+Freescale Semiconductor                                                                                                       6-5
+Signal Processing Extension (SPE)
+
+
+                              Table 6-2. SPE Status and Control Register (continued)
+
+      Bits      Name                                                Description
+
+       23       FOVF      Embedded Floating-Point Overflow (low/scalar)
+      (55)                Defined by Embedded Floating-Point APUs.
+
+       24         —       Reserved
+      (56)
+
+       25      FINXE      Embedded Floating-Point Round (Inexact) Exception Enable
+      (57)                Defined by Embedded Floating-Point APUs.
+
+       26      FINVE      Embedded Floating-Point Invalid Operation / Input Error Exception Enable
+      (58)                Defined by Embedded Floating-Point APUs.
+
+       27      FDBZE      Embedded Floating-Point Divide by Zero Exception Enable
+      (59)                Defined by Embedded Floating-Point APUs.
+
+       28      FUNFE      Embedded Floating-Point Underflow Exception Enable
+      (60)                Defined by Embedded Floating-Point APUs.
+
+       29      FOVFE      Embedded Floating-Point Overflow Exception Enable
+      (61)                Defined by Embedded Floating-Point APUs.
+
+   30–31       FRMC       Embedded Floating-Point Rounding Mode Control
+  (62–63)                 Defined by Embedded Floating-Point APUs.
+
+
+6.2.3.1         Context Switch
+When a context switch occurs, the OS process must explicitly save the accumulator as part of the context
+of the swapped-out task and then explicitly load the accumulator from the context of the new task that is
+being swapped in. When the old task is restarted, its accumulator must be restored before restarting the
+task.
+
+6.2.4         GPRs and Power ISA Instructions
+The e200 z760n3 core implements the 32-bit forms of the embedded category instructions in the Power
+ISA. All 32-bit Power ISA instructions operate upon the lower half of the 64-bit GPR. These instructions
+do not affect the upper half of a GPR.
+
+6.2.5         SPE Available Bit in MSR
+MSR[SPE] is defined as the SPE available bit. If this bit is clear and software attempts to execute any of
+the SPE instructions other than the brinc instruction (which does not affect the upper 32-bits of a GPR),
+the SPE unavailable exception is taken. If this bit is set, software can execute any of the SPE instructions.
+
+6.2.6         SPE Exception Bit in ESR
+ESR[SPE] is defined as the SPE exception bit. This bit is set whenever the processor takes an exception
+related to the execution of the SPE instructions.
+
+
+
+
+                               e200z7 Power Architecture Core Reference Manual, Rev. 2
+6-6                                                                                                  Freescale Semiconductor
+                                                                                  Signal Processing Extension (SPE)
+
+
+6.2.7        Data Formats
+The SPE provides two different data formats, integer and fractional. Integer data formats can be treated as
+signed or unsigned quantities. Fractional data formats are usually treated as signed quantities
+
+6.2.7.1       Integer Format
+Integer data format is the same as what is conventionally used in computing.
+Unsigned integers consist of 8, 16, 32, or 64-bit binary integer values. The largest representable value is
+2n – 1 where n represents the number of bits in the value. The smallest representable value is 0. Certain
+computations that produce values larger than 2n – 1 or smaller than 0 set OV or OVH in the SPEFSCR.
+Signed integers consist of 8, 16, 32, or 64-bit binary values in twos-complement form. The largest
+representable value is 2n-1 – 1 where n represents the number of bits in the value. The smallest
+representable value is –2n-1. Certain computations that produce values larger than 2n-1 – 1 or smaller than
+–2n-1 set OV or OVH in the SPEFSCR.
+
+6.2.7.2       Fractional Format
+Fractional data format is the same that is conventionally used for DSP fractional arithmetic. Fractional data
+is useful for representing data converted from analog devices.
+Unsigned fractions consist of 16, 32, or 64-bit binary fractional values that range from 0 to less than 1.
+Unsigned fractions place the decimal point immediately to the left of the most significant bit. The most
+significant bit of the value represents the value 2-1, the next most significant bit represents the value 2-2
+and so on. The largest representable value is 1 – 2-n where n represents the number of bits in the value. The
+smallest representable value is 0. Certain computations that produce values larger than 1 – 2-n or smaller
+than 0 set OV or OVH in the SPEFSCR. SPE does not contain explicit instructions that manipulate
+unsigned fractional data. Unsigned integer forms produce the same bit exact results as unsigned fractional
+values would, therefore unsigned fractional instruction forms are not defined for SPE.
+Signed fractions consist of 16, 32, or 64-bit binary fractional values in twos complement form that range
+from –1 to less than 1. Signed fractions in 1.31 or 1.63 format place the decimal point immediately to the
+right of the most significant bit. The largest representable value is 1 – 2-(n-1) where n represents the number
+of bits in the value. The smallest representable value is –1. Certain computations that produce values larger
+than 1 – 2-(n-1)or smaller than –1 set OV or OVH in the SPEFSCR. Multiplication of two signed fractional
+values causes the result to be shifted left one bit to remove the resultant redundant sign bit in the product.
+In this case, a 0 bit is concatenated as the least significant bit of the shifted result.
+Guarded fractional representations are also available in 33.31 format and in 17.47 format for a subset of
+operations, providing for significant guarding capabilities.
+
+6.2.8        Computational Operations
+SPE supports several different computational capabilities. Both modulo and saturation results can be
+performed. Modulo results produce truncation of the overflow bits in a calculation. Saturation provides a
+maximum or minimum representable value (for the data type) for overflow or underflow respectively.
+
+
+                            e200z7 Power Architecture Core Reference Manual, Rev. 2
+Freescale Semiconductor                                                                                        6-7
+Signal Processing Extension (SPE)
+
+
+Instructions are provided for a wide range of computational capability. The operation types can be divided
+into several basic categories:
+    • Simple vector instructions. These instructions use the corresponding elements of the operands to
+        produce a vector result that is placed in the destination register, the accumulator, or both.
+                         0                            31    32                              63
+
+                                                                                                 rA
+
+
+                                                                                                 rB
+
+
+                                     operation                         operation
+
+                                                                                                 rD
+
+          — arithmetic, logical, shift, and rotate of vector elements
+          — Averaging, summation, rounding, min, max, sum of absolute differences, absolute differences,
+              saturation, operations
+          — vector permutation, packing, unpacking, merge, swap, extraction, interleave, de-interleave
+              operations
+      •   Multiply and accumulate instructions. These instructions perform multiply operations, optionally
+          add the result to the accumulator and place the result into the destination register and optionally
+          into the accumulator. These instructions are composed of different multiply forms, data formats
+          and data accumulate options.
+      •   Dot product instructions. These instructions perform multiple multiply operations, optionally add
+          the results to the accumulator, and place the result into the destination register and optionally into
+          the Accumulator. These instructions are composed of different forms, data formats and data
+          accumulate options.
+      •   Load and store instructions. These instructions provide load and store capabilities for moving data
+          to and from memory. A variety of forms are provided that position data for efficient computation.
+      •   Compare instructions and set instructions.
+      •   Miscellaneous instructions. These instructions perform miscellaneous functions such as field
+          manipulation, bit-reversed and circular incrementing, count leading, and more.
+
+6.2.8.1         Simple Vector Arithmetic Instructions
+Simple vector arithmetic instructions are outlined in Table 6-3.
+                                    Table 6-3. Simple Vector Arithmetic Instructions
+
+    Basic
+                                    Variants                                     Description                      ACC?
+   Operation
+
+                 evabsb, evabsh, evabs, evabsd             absolute value byte, half word, word, double word        —
+Absolute Value                                             elements
+
+                 evabsbs, evabshs, evabss, evabsds         abs b, h, w, d with saturation                           —
+
+
+
+
+                               e200z7 Power Architecture Core Reference Manual, Rev. 2
+6-8                                                                                                Freescale Semiconductor
+                                                                                        Signal Processing Extension (SPE)
+
+
+                                Table 6-3. Simple Vector Arithmetic Instructions
+
+   Basic
+                               Variants                                     Description                          ACC?
+  Operation
+
+  Absolute      evabsdifsb, evabsdifsh, evabsdifsw,    absolute difference signed/unsigned byte, half word,        —
+  Difference    evabsdifub, evabsdifuh, evabsdifuw     word elements
+
+                evaddb, evaddh, evaddw, evaddd         add byte, half word, word, double word elements             —
+
+                evaddbss, evaddhss, evaddwss,          add byte, half word, word, double word elements with        —
+                evadddss                               signed or unsigned saturation
+                evaddbus, evaddhus, evaddwus,
+                evadddus
+
+                evaddhx, evaddhxss, evaddhxus          add exchanged half word elements with optional signed       —
+                                                       or unsigned saturation. The even and odd half word
+                                                       elements of operand rA are pairwise exchanged before
+                                                       adding
+     Add        evaddwx, evaddwxss, evaddwxus          add exchanged word elements with optional signed or         —
+                                                       unsigned saturation. The high and low word elements of
+                                                       operand rA are exchanged before adding
+
+                evaddib, evaddih, evaddiw              add unsigned imm value UIMM to all elements                 —
+
+                evaddsmiaaw, evaddssiaaw,              add word elements from rA and Accumulator using             Y
+                evaddumiaaw, evaddusiaaw               signed/unsigned modulo/saturation operations, results
+                                                       into rD and Accumulator
+
+                evaddsmiaa, evaddssiaa, evaddusiaa     add 64-bit value in rA and Accumulator with optional        Y
+                                                       signed/unsigned saturation, result into rD and
+                                                       Accumulator
+
+                evadd2subf2h, evadd2subf2hss           add for upper 2 half word elements, subf for lower 2        —
+                                                       elements, with optional signed saturation.
+
+                evaddsubfh, evaddsubfhss               add for even half word elements, subf for odd elements,     —
+                                                       with optional signed saturation.
+
+                evaddsubfhx, evaddsubfhxss             The even and odd half word elements of operand rA are       —
+                                                       pairwise exchanged and then the resulting even
+                                                       elements are added and the odd elements are
+                                                       subtracted to/from elements in rB, with optional signed
+   AddSubf
+                                                       saturation.
+
+                evaddsubfw, evaddsubfwss               The high word element of rA is added and the low word       —
+                                                       element of rA is subtracted to/from the corresponding
+                                                       element of rB, with optional signed saturation.
+
+                evaddsubfwx, evaddsubfwxss             The word elements of rA are exchanged and then the          —
+                                                       resulting high word element is added and low word
+                                                       elements is subtracted to/from word elements of rB,
+                                                       with optional signed saturation.
+
+                evavgbs, evavghs, evavgws, evavgds,    compute the average of corresponding elements in rA         —
+                evavgbsr, evavghsr, evavgwsr, evavgdsr and rB, signed/unsigned with optional rounding
+   Average
+                evavgbu, evavghu, evavgwu, evavgdu
+                evavgbur, evavghur, evavgwur, evavgdur
+                evcntlsh, evcntlzh                     count leading sign/zero bits in each half word              —
+Count Leading
+                evcntlsw, evcntlzw                     count leading sign/zero bits in each word
+
+
+                              e200z7 Power Architecture Core Reference Manual, Rev. 2
+Freescale Semiconductor                                                                                                6-9
+Signal Processing Extension (SPE)
+
+
+                                    Table 6-3. Simple Vector Arithmetic Instructions
+
+    Basic
+                                    Variants                                  Description                          ACC?
+   Operation
+
+                 evdivws, evdivwu,                       32 / 32  32 signed, unsigned integer                       —
+       Divide    evdivwsf, evdivwuf                      32 / 32  32 signed, unsigned fractional
+                 evdivs, evdivu                          64 / 64  64, signed, unsigned
+
+                 evextsb, evextzb                        the low byte of each word element in rA is sign/zero        —
+                                                         extended to a word and placed into rD
+
+                 evextsbh                                the odd bytes of rA are sign extended to half words and     —
+                                                         placed into rD
+       Extend
+                 evextsh, evextzh (use evclrh)           the odd half word elements in rA are sign/zero extended     —
+                                                         to a word and placed into rD
+
+                 evextsw                                 the low word element in rA is sign extended to 64-bits      —
+                                                         and placed into rD
+
+                 evmaxbs, evmaxhs, evmaxws, evmaxds maximum of elements in rA signed; b, h, w, d                     —
+                 evmaxbu, evmaxhu, evmaxwu, evmaxdu maximum of elements in rA unsigned; b, h, w, d
+
+                 evmaxbpsh, evmaxbpuh                    pairwise maximum of bytes in rA extended to half word,      —
+                                                         signed/unsigned
+   Maximum
+                 evmaxhpsw, evmaxhpuw                    pairwise maximum of half words in rA extended to word,      —
+                                                         signed/unsigned
+
+                 evmaxwpsd, evmaxwpud                    pairwise maximum of words in rA extended to double          —
+                                                         word, signed/unsigned
+
+  Maximum        evmaxmagws                              pairwise maximum of magnitude values of signed words        —
+  Magnitude                                              in rA
+
+                 evminbs, evminhs, evminws, evminds      minimum of elements in rA signed; b, h, w, d                —
+                 evminbu, evminhu, evminwu, evmindu      minimum of elements in rA unsigned; b, h, w, d
+
+                 evminbpsh, evminbpuh                    pairwise minimum of bytes in rA extended to half word,      —
+                                                         signed/unsigned
+   Minimum
+                 evminhpsw, evminhpuw                    pairwise minimum of half words in rA extended to word,      —
+                                                         signed/unsigned
+                 evminwpsd, evminwpud                    pairwise minimum of words in rA extended to double          —
+                                                         word, signed/unsigned
+
+                 evnegb, evnegh, evneg, evnegd           negate signed elements in rA; b,h,w,d                       —
+
+                 evnegbs, evneghs, evnegs, evnegds       negate signed elements in rA with saturation; b,h,w,d       —
+       Negate
+                 evnegbo, evnegho, evnegwo               negate signed odd elements in rA; b,h,w                     —
+
+                 evnegbos, evneghos, evnegwos            negate signed odd elements in rA with saturation; b,h,w     —
+
+
+
+
+                               e200z7 Power Architecture Core Reference Manual, Rev. 2
+6-10                                                                                                Freescale Semiconductor
+                                                                                        Signal Processing Extension (SPE)
+
+
+                               Table 6-3. Simple Vector Arithmetic Instructions
+
+   Basic
+                              Variants                                      Description                           ACC?
+  Operation
+
+                evrndhb, evrndhbss, evrndhbus         The four half word elements of rA are rounded into           —
+                                                      8-bits and placed into the even bytes of rD with optional
+                                                      signed or unsigned saturation
+
+                evrndhnb, evrndhnbss, evrndhnbus      The four half word elements of rA are rounded into           —
+                                                      8-bits using round to nearest even rounding and placed
+                                                      into the even bytes of rD with optional signed or
+                                                      unsigned saturation
+
+                evrndwh, evrndwhss, evrndwhus         The two word elements of rA are rounded into 16-bits         —
+                                                      and placed into the even half words of rD with optional
+                                                      signed or unsigned saturation
+    Round       evrndwnh, evrndwnhss, evrndwnhus      The two word elements of rA are rounded into 16-bits         —
+                                                      using round to nearest even rounding and placed into
+                                                      the even half words of rD with optional signed or
+                                                      unsigned saturation
+
+                evrnddw, evrnddwss, evrnddwus         The double word element of rA is rounded into 32-bits        —
+                                                      and placed into the high word of rD with optional signed
+                                                      or unsigned saturation. The low word is cleared.
+
+                evrndndw, evrndndwss, evrndndwus      The double word element of rA is rounded into 32-bits        —
+                                                      using round to nearest even rounding and placed into
+                                                      the high word of rD with optional signed or unsigned
+                                                      saturation. The low word is cleared.
+                evsad2sh, evsad2sha, evsad2shaaw      Sums of pairs of absolute differences of 2 signed half      opt.
+                                                      words, optionally loading the Accumulator, or
+                                                      accumulating with the Accumulator values
+
+                evsad2uh, evsad2uha, evsad2uhaaw      Sums of pairs of absolute differences of 2 unsigned half    opt.
+                                                      words, optionally loading the Accumulator, or
+                                                      accumulating with the Accumulator values
+
+                evsad4sb, evsad4sba, evsad4sbaaw      Sums of four absolute differences of 2 signed bytes,        opt.
+                                                      optionally loading the Accumulator, or accumulating
+    Sum of                                            with the Accumulator values
+   Absolute
+  Differences   evsad4ub, evsad4uba, evsad4ubaaw      Sums of four absolute differences of 2 unsigned bytes,      opt.
+                                                      optionally loading the Accumulator, or accumulating
+                                                      with the Accumulator values
+
+                evsadsw, evsadswa, evsadswaa          Sum of pair of absolute differences of 2 signed words,      opt.
+                                                      optionally loading the Accumulator, or accumulating
+                                                      with the Accumulator value
+
+                evsaduw, evsaduwa, evsaduwaa          Sum of pair of absolute differences of 2 unsigned           opt.
+                                                      words, optionally loading the Accumulator, or
+                                                      accumulating with the Accumulator value
+
+
+
+
+                             e200z7 Power Architecture Core Reference Manual, Rev. 2
+Freescale Semiconductor                                                                                             6-11
+Signal Processing Extension (SPE)
+
+
+                                    Table 6-3. Simple Vector Arithmetic Instructions
+
+    Basic
+                                    Variants                                  Description                          ACC?
+   Operation
+
+                 evsatsbub                               Saturate signed byte to unsigned byte range
+
+                 evsatubsb                               Saturate unsigned byte to signed byte range                —
+
+                 evsatsdsw, evsatsduw                    Saturate signed double word to signed or unsigned          —
+                                                         word range
+
+                 evsatuduw                               Saturate unsigned double word to unsigned word range       —
+
+                 evsatshsb, evsatshub                    Saturate signed half word to signed or unsigned byte       —
+                                                         range
+
+                 evsatshuh                               Saturate signed half word to unsigned half word range      —
+   Saturate      evsatuhub                               Saturate unsigned half word to unsigned byte range         —
+
+                 evsatuhsh                               Saturate unsigned half word to signed half word range      —
+
+                 evsatswgsdf                             Saturate signed word guarded (17.47) to signed double      —
+                                                         word fractional (1.63) range
+
+                 evsatswsh, evsatswuh                    Saturate signed word to signed or unsigned half word       —
+                                                         range
+
+                 evsatswuw                               Saturate signed word to unsigned word range                —
+
+                 evsatuwuh                               Saturate unsigned word to unsigned half word range         —
+
+                 evsatuwsw                               Saturate unsigned word to signed word range                —
+
+                 evsubfb, evsubfh, evsubfw, evsubfd      subtract byte, half word, word, double word elements       —
+
+                 evsubfbss, evsubfhss, evsubfwss,        subtract byte, half word, word, double word elements       —
+                 evsubfdss                               with signed or unsigned saturation
+                 evsubfbus, evsubfhus, evsubfwus,
+                 evsubfdus
+
+                 evsubfhx, evsubfhxss, evsubfhxus        subtract exchanged half word elements with optional        —
+                                                         signed or unsigned saturation. The even and odd half
+                                                         word elements of operand rA are pairwise exchanged
+                                                         before subtracting
+       Subf      evsubfwx, evsubfwxss, evsubfwxus        subtract exchanged word elements with optional signed      —
+                                                         or unsigned saturation. The high and low word elements
+                                                         of operand rA are exchanged before subtracting
+
+                 evsubifb, evsubifh, evsubifw            subtract unsigned imm value UIMM from all elements         —
+
+                 evsubfsmiaaw, evsubfssiaaw,             subtract word elements in rA from Accumulator using        Y
+                 evsubfumiaaw, evsubfusiaaw              signed/unsigned modulo/saturation operations, results
+                                                         into rD and Accumulator
+
+                 evsubfsmiaa, evsubfssiaa, evsubfusiaa   subtract 64-bit value in rA from Accumulator with          Y
+                                                         optional signed/unsigned saturation, result into rD and
+                                                         Accumulator
+
+
+
+
+                               e200z7 Power Architecture Core Reference Manual, Rev. 2
+6-12                                                                                              Freescale Semiconductor
+                                                                                      Signal Processing Extension (SPE)
+
+
+                               Table 6-3. Simple Vector Arithmetic Instructions
+
+   Basic
+                              Variants                                    Description                           ACC?
+  Operation
+
+                evsubf2add2h, evsubf2add2hss         subtract for upper 2 half word elements, add for lower 2    —
+                                                     elements, with optional signed saturation.
+
+                evsubfaddh, evsubfaddhss             subtract for even half word elements, add for odd           —
+                                                     elements, with optional signed saturation.
+
+                evsubfaddhx, evsubfaddhxss           The even and odd half word elements of operand rA are       —
+                                                     pairwise exchanged and then the resulting even
+                                                     elements are subtracted and the odd elements are
+                                                     added from/to elements in rB, with optional signed
+   SubfAdd
+                                                     saturation.
+
+                evsubfaddw, evsubfaddwss             The low word element of rA is added and the high word       —
+                                                     element of rA is subtracted to/from the corresponding
+                                                     element of rB, with optional signed saturation.
+
+                evsubfaddwx, evsubfaddwxss           The word elements of rA are exchanged and then the          —
+                                                     resulting high word element is subtracted and low word
+                                                     element is added from/to word elements of rB, with
+                                                     optional signed saturation.
+
+
+
+
+                            e200z7 Power Architecture Core Reference Manual, Rev. 2
+Freescale Semiconductor                                                                                           6-13
+Signal Processing Extension (SPE)
+
+
+                                    Table 6-3. Simple Vector Arithmetic Instructions
+
+    Basic
+                                    Variants                                   Description                           ACC?
+   Operation
+
+                 evsumws, evsumwu, evsumwsa,              The signed or unsigned word elements of rA are             opt
+                 evsumwua                                 summed together into 64 bits and placed into rD and
+                                                          optionally into the Accumulator
+
+                 evsumwsaa, evsumwuaa                     The signed or unsigned word elements of rA are              Y
+                                                          summed together along with the contents of the
+                                                          Accumulator and placed into rD and the Accumulator
+
+                 evsum2hs, evsum2hu, evsum2hsa,           Signed or unsigned pairs of half word elements of rA are   opt
+                 evsum2hua                                summed together into words and placed into rD and
+                                                          optionally into the Accumulator
+
+                 evsum2hsaaw, evsum2huaaw                 Signed or unsigned pairs of half word elements of rA are    Y
+                                                          summed together along with the contents of the
+                                                          corresponding word element of the accumulator, into
+                                                          words, and placed into rD and the Accumulator
+
+                 evsum4bs, evsum4bu, evsum4bsa,           Signed or unsigned quads of byte elements of rA are        opt
+                 evsum4bua                                summed together into words and placed into rD and
+                                                          optionally into the Accumulator
+
+ Summation/      evsum4bsaaw, evsum4buaaw                 Signed or unsigned quads of byte elements of rA are         Y
+    Diff                                                  summed together along with the contents of the
+                                                          corresponding word element of the accumulator, into
+                                                          words, and placed into rD and the Accumulator
+
+                 evsum2his, evsum2hisa                    Signed pairs of interleaved half word elements of rA are   opt
+                                                          summed together into words and placed into rD and
+                                                          optionally into the Accumulator
+
+                 evsum2hisaaw                             Signed pairs of interleaved half word elements of rA are    Y
+                                                          summed together along with the contents of the
+                                                          corresponding word element of the accumulator, into
+                                                          words, and placed into rD and the Accumulator
+
+                 evdiff2his, evdiff2hisa                  Signed pairs of interleaved half word elements of rA are   opt
+                                                          subtracted to produce a pair of word differences and
+                                                          placed into rD and optionally into the Accumulator
+
+                 evdiff2hisaaw                            Signed pairs of interleaved half word elements of rA are    Y
+                                                          subtracted to produce a pair of word differences and the
+                                                          differences are added together with the contents of the
+                                                          corresponding word element of the accumulator, into
+                                                          words, and placed into rD and the Accumulator
+
+
+
+
+                                 e200z7 Power Architecture Core Reference Manual, Rev. 2
+6-14                                                                                               Freescale Semiconductor
+                                                                                               Signal Processing Extension (SPE)
+
+
+6.2.8.2        Vector Logical Instructions
+Vector logical instructions are outlined in Table 6-4.
+                                         Table 6-4. Simple Vector Logical Instructions
+
+   Basic
+                                        Variants                                           Description
+  Operation
+
+     AND       evand                                            AND word elements of rA and rB
+
+    ANDC       evandc                                           AND word elements of rA with complemented elements of rB
+
+               evclrbe, evclrbo                                 Clear (zero) even bytes of source value in rA using immediate
+                                                                mask (mask). Clear (zero) odd bytes of source value in rA
+    Clear                                                       using immediate mask (mask).
+
+               evclrh                                           Clear (zero) half word elements of source value in rA using
+                                                                immediate mask (mask).
+
+    NAND       evnand                                           NAND word elements of rA and rB
+
+    NOR        evnor                                            NOR word elements of rA and rB
+
+     OR        evor                                             OR word elements of rA and rB
+
+    ORC        evorc                                            OR word elements of rA with complemented elements of rB
+
+    XNOR       eveqv                                            XNOR word elements of rA and rB
+
+     XOR       evxor                                            XOR word elements of rA and rB
+
+
+6.2.8.3        Vector Shift/Rotate Instructions
+Vector shift and rotate instructions are outlined in Table 6-5.
+                                   Table 6-5. Simple Vector Shift/Rotate Instructions
+
+   Basic
+                                    Variants                                              Description
+  Operation
+
+               evslb, evslh, evslw, evsl                       Logical shift left of the 8,16, 32 or 64-bit element(s) in rA by the
+  Shift Left   evslbi, evslhi, evslwi, evsli                   amount(s) in rB or by the immediate value UIMM
+
+               evsloi                                          Logical shift left of the value in rA by 0 to 7 bytes
+
+              evsrbu, evsrhu, evsrwu, evsru                    Logical shift right of the 8,16, 32 or 64-bit element(s) in rA by the
+Logical Shift evsrbiu, evsrhiu, evsrwiu, evsriu                amount(s) in rB or by the immediate value UIMM
+   Right
+              evsroiu                                          Logical shift right of the value in rA by 0 to 7 bytes
+
+               evsrbs, evsrhs, evsrws, evsrs                   Arithmetic shift right of the 8,16, 32 or 64-bit element(s) in rA by
+ Arithmetic    evsrbis, evsrhis, evsrwis, evsris               the amount(s) in rB or by the immediate value UIMM
+ Shift Right
+               evsrois                                         Arithmetic shift right of the value in rA by 0 to 7 bytes
+
+               evrlb, evrlh, evrlw                             Rotate left of the 8,16, or 32-bit elements in rA by the amount(s)
+ Rotate Left
+               evrlbi, evrlhi, evrlwi                          in rB or by the immediate value UIMM
+
+
+
+                                 e200z7 Power Architecture Core Reference Manual, Rev. 2
+Freescale Semiconductor                                                                                                        6-15
+Signal Processing Extension (SPE)
+
+
+6.2.8.4         Vector Compare and Vector Set Instructions
+Vector compare and set instructions are outlined in Table 6-6 and Table 6-7. The compare operations
+update the condition register with the results of the comparison.
+                                              Table 6-6. Vector Compare Instructions
+
+  Basic
+Comparison                      Variants                                                 Description
+ Operation
+
+        =       evcmpeq, evcmpeqd                         Compare word or double word elements for equal
+
+                evcmpgts, evcmpgtu, evcmpgtds,            Compare word or double word elements for greater than
+        >
+                evcmpgtdu                                 signed/unsigned
+
+                evcmplts, evcmpltu, evcmpltds,            Compare word or double word elements for less than signed/unsigned
+        <
+                evcmpltdu
+
+                                                Table 6-7. Vector Set Instructions
+
+   Basic
+ Comparison                     Variants                                                 Description
+  Operation
+
+                evseteqb[.], evseteqh[.], evseteqw[.]     Compare byte, half word or word elements in rA and rB for equal. For
+         =                                                each byte, half word or word, set destination byte half word or word to all
+                                                          ‘1’s if condition met. Optionally set CR0 with comparison results.
+
+                evsetgtbs[.], evsetgtbu[.], evsetgths[.], Compare byte, half word or word elements in rA and rB for greater than
+                evsetgthu[.], evsetgtws[.],               signed or unsigned. For each byte, half word or word, set destination
+         >
+                evsetgtwu[.]                              byte half word or word to all ‘1’s if condition met. Optionally set CR0 with
+                                                          comparison results.
+
+                evsetltbs[.], evsetltbu[.],               Compare byte, half word or word elements in rA and rB for greater than
+                evsetlths[.], evsetlthu[.],               signed or unsigned. For each byte, half word or word, set destination
+         <
+                evsetltws[.], evsetltwu[.]                byte half word or word to all ‘1’s if condition met. Optionally set CR0 with
+                                                          comparison results.
+
+
+6.2.8.5         Vector Select Instructions
+Vector select instructions are outlined in Table 6-8.
+                                               Table 6-8. Vector Select Instructions
+
+  Operation                     Variants                                                 Description
+
+       Select   evsel                                     Select word elements from rA or rB based on crS condition register field
+
+                evselbit                                  Select bit elements from rA or rB based on select bit vector in rD, place
+                                                          results into rD
+
+                evselbitm0                                Insert bit elements from rB into rD based on select bit mask in rA of 0,
+  Select Bits
+                                                          place results into rD
+
+                evselbitm1                                Insert bit elements from rB into rD based on select bit mask in rA of 1,
+                                                          place results into rD
+
+
+
+
+                                  e200z7 Power Architecture Core Reference Manual, Rev. 2
+6-16                                                                                                       Freescale Semiconductor
+                                                                                      Signal Processing Extension (SPE)
+
+
+6.2.8.6         Vector Data Arrangement Instructions
+Vector data arrangement instructions are outlined in Table 6-9. These instructions are used to rearrange
+fields of elements from one or more source vector registers.
+                              Table 6-9. Vector Data Arrangement Instructions
+
+   Basic
+                           Variants                                          Description
+  Operation
+
+                evdlveb                         de-interleave even bytes; the vector of even byte elements in rA and
+                                                even byte elements in rB are concatenated and placed into rD
+
+                evdlveob                        de-interleave even/odd bytes; the vector of even byte elements in rA and
+                                                odd byte elements in rB are concatenated and placed into rD
+
+                evdlvob                         de-interleave odd bytes; the vector of odd byte elements in rA and odd
+                                                byte elements in rB are concatenated and placed into rD
+
+                evdlvoeb                        de-interleave odd/even bytes; the vector of odd byte elements in rA and
+                                                even byte elements in rB are concatenated and placed into rD
+De-interleave
+                evdlveh                         de-interleave even half words; the even half word elements in rA and
+                                                even half word elements in rB are concatenated and placed into rD
+
+                evdlveoh                        de-interleave even/odd half words; the even half word elements in rA
+                                                and odd half word elements in rB are concatenated and placed into rD
+
+                evdlvoh                         de-interleave odd half word; the odd half word elements in rA and odd
+                                                half word elements in rB are concatenated and placed into rD
+
+                evdlvoeh                        de-interleave odd/even half words; the odd half word elements in rA and
+                                                even half word elements in rB are concatenated and placed into rD
+
+
+
+
+                            e200z7 Power Architecture Core Reference Manual, Rev. 2
+Freescale Semiconductor                                                                                             6-17
+Signal Processing Extension (SPE)
+
+
+                             Table 6-9. Vector Data Arrangement Instructions (continued)
+
+   Basic
+                               Variants                                           Description
+  Operation
+
+                evilveh                             interleave even half words; the even half words from rA are placed into
+                                                    the even half words of rD and the even half words of rB are placed into
+                                                    the odd half words of rD
+
+                evilveoh                            interleave even/odd half words; the even half words from rA are placed
+                                                    into the even half words of rD and the odd half words of rB are placed
+                                                    into the odd half words of rD
+
+                evilvhih                            interleave high half words; the high half words from rA are placed into
+                                                    the even half words of rD and the high half words of rB are placed into
+                                                    the odd half words of rD
+
+                evilvhiloh                          interleave high/low half words; the high half words from rA are placed
+                                                    into the even half words of rD and the low half words of rB are placed
+                                                    into the odd half words of rD
+  Interleave
+                evilvloh                            interleave low half words; the low half words from rA are placed into the
+                                                    even half words of rD and the low half words of rB are placed into the
+                                                    odd half words of rD
+
+                evilvlohih                          interleave low/high half words; the low half words from rA are placed into
+                                                    the even half words of rD and the high half words of rB are placed into
+                                                    the odd half words of rD
+
+                evilvoeh                            interleave odd/even half words; the odd half words from rA are placed
+                                                    into the even half words of rD and the even half words of rB are placed
+                                                    into the odd half words of rD
+
+                evilvoh                             interleave odd half words; the odd half words from rA are placed into the
+                                                    even half words of rD and the odd half words of rB are placed into the
+                                                    odd half words of rD
+
+                evmergehi                           merge high words; the high word from rA is placed into the high word of
+                                                    rD and the high word of rB is placed into the low word of rD
+
+                evmergehilo                         merge high/low words; the high word from rA is placed into the high
+                                                    word of rD and the low word of rB is placed into the low word of rD
+       Merge
+                evmergelo                           merge low words; the low word from rA is placed into the high word of
+                                                    rD and the low word of rB is placed into the low word of rD
+
+                evmergelohi                         merge low/high words; the low word from rA is placed into the high word
+                                                    of rD and the high word of rB is placed into the low word of rD
+
+                evperm                              Permute the byte elements in rB according to the permute vector in rA
+                                                    and place the results in rD
+
+                evperm2                             Permute the vector of concatenated byte elements from rA and rB
+   Permute
+                                                    according to the permute vector in rD and place the results in rD
+
+                evperm3                             Permute the vector of concatenated byte elements from rD and rB
+                                                    according to the permute vector in rA and place the results in rD
+
+
+
+
+                                e200z7 Power Architecture Core Reference Manual, Rev. 2
+6-18                                                                                                Freescale Semiconductor
+                                                                                           Signal Processing Extension (SPE)
+
+
+                          Table 6-9. Vector Data Arrangement Instructions (continued)
+
+   Basic
+                              Variants                                            Description
+  Operation
+
+               evpksdsws, evpkuduws                 Pack the signed or unsigned double word elements from rA and rB into
+                                                    a pair of signed or unsigned word elements in rD, saturating if necessary
+
+               evpksdswfrs                          Pack the signed double word fractional elements from rA and rB into a
+                                                    pair of signed word elements in rD using the current rounding mode in
+                                                    SPEFSCR, saturating if necessary
+
+               evpksdshefrs                         Pack the signed 33.31 guarded fractional elements from rA and rB into
+                                                    a pair of signed half word even elements in rD using the current
+                                                    rounding mode in SPEFSCR, saturating if necessary
+
+               evpkshsbs, evpkshubs, evpkuhubs      Pack the 8 signed or unsigned half word elements from rA and rB into 8
+                                                    signed or unsigned byte elements in rD, saturating if necessary
+
+               evpkswgshefrs                        Pack the signed 17.47 guarded fractional elements from rA and rB into
+                                                    a pair of signed half word even elements in rD using the current
+                                                    rounding mode in SPEFSCR, saturating if necessary
+    Pack
+               evpkswgswfrs                         Pack the signed 17.47 guarded fractional elements from rA and rB into
+                                                    a pair of signed word elements in rD using the current rounding mode in
+                                                    SPEFSCR, saturating if necessary
+
+               evpkswshs, evpkswuhs, evpkuwuhs      Pack the 4 signed or unsigned word elements from rA and rB into 4
+                                                    signed or unsigned half word elements in rD, saturating if necessary
+
+               evpkswshilvs                         Pack the 4 signed word elements from rA and rB into 4 signed half word
+                                                    elements in rD with interleaving, saturating if necessary
+
+               evpkswshfrs                          Pack the 4 signed fractional word elements from rA and rB into 4 signed
+                                                    or fractional half word elements in rD using the current rounding mode
+                                                    in SPEFSCR, saturating if necessary
+
+               evpkswshilvfrs                       Pack the 4 signed fractional word elements from rA and rB into 4 signed
+                                                    or fractional half word elements in rD with interleaving using the current
+                                                    rounding mode in SPEFSCR, saturating if necessary
+
+
+
+
+                                e200z7 Power Architecture Core Reference Manual, Rev. 2
+Freescale Semiconductor                                                                                                   6-19
+Signal Processing Extension (SPE)
+
+
+                              Table 6-9. Vector Data Arrangement Instructions (continued)
+
+   Basic
+                                Variants                                              Description
+  Operation
+
+                evsplatb                               splat (replicate) the byte from rA selected by the immediate field into all
+                                                       byte elements of rD
+
+                evsplath                               splat (replicate) the half word from rA selected by the immediate field
+                                                       into all half word elements of rD
+
+                evsplatfib, splatfih, splatfi          Splat the 5-bit SIMM field as a signed fraction into all byte, half word, or
+                                                       word elements of rD
+
+                evsplatfiba, splatfiha, splatfia       Splat the 5-bit SIMM field as a signed fraction into all byte, half word, or
+                                                       word elements of rD and the accumulator
+
+                evsplatfid                             Splat the 5-bit SIMM field as a signed fraction into rD
+
+                evsplatfida                            Splat the 5-bit SIMM field as a signed fraction into rD and the
+                                                       accumulator
+
+                evsplatfibo, splatfiho, splatfio       Splat the 5-bit SIMM field as a signed fraction into the odd byte, half
+       Splat
+                                                       word, or word elements of rD
+
+                evsplatfiboa, splatfihoa, splatfioa    Splat the 5-bit SIMM field as a signed fraction into the odd byte, half
+                                                       word, or word elements of rD and the accumulator
+
+                evsplatib, evsplatih, evsplati         Splat the 5-bit SIMM field as a signed integer into all byte, half word, or
+                                                       word elements of rD
+
+                evsplatiba, evsplatiha, evsplatia      Splat the 5-bit SIMM field as a signed integer into all byte, half word, or
+                                                       word elements of rD and the accumulator
+
+                evsplatid                              Splat the 5-bit SIMM field as a signed integer into rD
+
+                evsplatida                             Splat the 5-bit SIMM field as a signed integer into rD and the
+                                                       accumulator
+
+                evsplatibe, evsplatihe, evsplatie      Splat the 5-bit SIMM field as a signed integer into the even byte, half
+                                                       word, or word elements of rD
+
+                evsplatibea, evsplatihea, evsplatiea   Splat the 5-bit SIMM field as a signed integer into the even byte, half
+                                                       word, or word elements of rD and the accumulator
+
+
+
+
+                                  e200z7 Power Architecture Core Reference Manual, Rev. 2
+6-20                                                                                                    Freescale Semiconductor
+                                                                                           Signal Processing Extension (SPE)
+
+
+                           Table 6-9. Vector Data Arrangement Instructions (continued)
+
+   Basic
+                             Variants                                            Description
+  Operation
+
+               evswapbhilo                        bytes within the upper 2 byte pairs in rA are swapped, and concatenated
+                                                  with swapped bytes in the lower 2 byte pairs of rB.
+
+               evswapblohi                        bytes within the lower 2 byte pairs in rA are swapped, and concatenated
+                                                  with swapped bytes in the upper 2 byte pairs of rB.
+
+               evswaphe                           The even half words in rA are swapped, and merged with the odd half
+                                                  words of rB.
+
+               evswaphhi                          The upper 2 half words in rA are swapped, and concatenated with the
+                                                  lower 2 half words of rB.
+    Swap
+               evswaphhilo                        The upper 2 half words in rA are swapped, and concatenated with
+                                                  swapped lower 2 half words of rB.
+
+               evswaphlo                          The lower 2 half words in rA are swapped, and concatenated after the
+                                                  upper 2 half words of rB.
+
+               evswaphlohi                        The lower 2 half words in rA are swapped, and concatenated with
+                                                  swapped upper 2 half words of rB.
+
+               evswapho                           The odd half words in rA are swapped, and then merged with even half
+                                                  words of rB.
+
+               evunpkhibsi, evunpkhibui,          Unpack the high or low 4 bytes of rA into signed or unsigned integer half
+               evunpklobsi, evunpklobui           words
+
+               evunpkhihf, evunpkhihsi,           Unpack the high or low 2 half words of rA into signed fractional, signed
+   Unpack      evunkpkhihui, evunpklohf,          integer, or unsigned integer words
+               evunpklohsi, evunkpklohui
+
+               evunpkhiwgsf, evunpklowgsf         Unpack the high or low word of rA into guarded signed fractional (17.47)
+                                                  format
+
+               evxtrb                             A specified byte in rA is placed into a specified byte of rD, zeroing all
+                                                  other bytes of rD
+
+               evxtrd                             a double word is extracted from the concatenated byte elements of rA
+   Extract
+                                                  and rB and placed into rD
+
+               evxtrh                             A specified half word in rA is placed into a specified half word of rD,
+                                                  zeroing all other half words of rD
+
+               evinsb                             A specified byte in rA is placed into a specified byte of rD; all other bytes
+                                                  of rD are unchanged.
+    Insert
+               evinsh                             A specified half word in rA is placed into a specified half word of rD; all
+                                                  other half words of rD are unchanged.
+
+
+6.2.8.7       Multiply and accumulate instructions
+These instructions perform multiply operations, optionally add the result to the accumulator and place the
+result into the destination register and optionally into the accumulator. These instructions are composed of
+
+
+
+
+                              e200z7 Power Architecture Core Reference Manual, Rev. 2
+Freescale Semiconductor                                                                                                    6-21
+Signal Processing Extension (SPE)
+
+
+different multiply forms, data formats and data accumulate options. The mnemonics for these instructions
+indicate their various characteristics. These are shown in Table 6-10.
+                      Table 6-10. Mnemonic Extensions for Multiply Accumulate Instructions
+
+ Extension                      Meaning                                            Comments
+
+                                                     Multiply Form
+
+       he      half word even                           16 × 16  32
+
+       heg     half word even guarded                   16 × 16  32, 64-bit final accumulate result
+
+       ho      half word odd                            16 × 16  32
+
+       hog     half word odd guarded                    16 × 16  32, 64-bit final accumulate result
+
+        w      word                                     32 × 32  64
+
+    wehg       word even high guarded                   32 × 32  64 in 17.47 format
+
+       wh      word high                                32 × 32  32 (high order 32 bits of product)
+
+        wl     word low                                 32 × 32  32 (low order 32 bits of product)
+
+    wohg       word odd high guarded                    32 × 32  64 in 17.47 format
+
+                                                     Data Format
+
+       smf     signed modulo fractional                 modulo, no saturation or overflow
+
+               signed modulo fractional round           modulo, no saturation or overflow, rounding based on current
+       smfr
+                                                        rounding mode
+
+       smi     signed modulo integer                    modulo, no saturation or overflow
+
+       ssf     signed saturate fractional               saturation on product and accumulate
+
+               signed saturate fractional round         saturation on product and accumulate, rounding based on current
+       ssfr
+                                                        rounding mode
+
+       ssi     signed saturate integer                  saturation on accumulate
+
+       umi     unsigned modulo integer                  modulo, no saturation or overflow
+
+       usi     unsigned saturate integer                saturation on accumulate
+
+                                                  Accumulate Option
+
+        a      place in Accumulator                     result  rD, Accumulator
+
+       aa      add to Accumulator                       Accumulator + result  rD, Accumulator
+
+               add to Accumulator as word elements      Accumulator[0:31] + result[0:31]  rD[0:31], Accumulator[0:31]
+       aaw                                              Accumulator[32:63] + result[32:63]  rD[32:63],
+                                                        Accumulator[32:63]
+
+
+
+
+                                e200z7 Power Architecture Core Reference Manual, Rev. 2
+6-22                                                                                             Freescale Semiconductor
+                                                                                          Signal Processing Extension (SPE)
+
+
+             Table 6-10. Mnemonic Extensions for Multiply Accumulate Instructions (continued)
+
+ Extension                      Meaning                                             Comments
+
+              add to rD as word elements                 rD[0:31] + result[0:31]  rD[0:31], Accumulator[0:31]
+   aaw3
+                                                         rD[32:63] + result[32:63]  rD[32:63], Accumulator[32:63]
+
+     an       add negated to Accumulator                 Accumulator – result  rD, Accumulator
+
+              add negated to Accumulator as word         Accumulator[0:31] – result[0:31]  rD[0:31], Accumulator[0:31]
+    anw       elements                                   Accumulator[32:63] – result[32:63]  rD[32:63],
+                                                         Accumulator[32:63]
+
+              add negated to rD as word elements         rD[0:31] – result[0:31]  rD[0:31], Accumulator[0:31]
+   anw3
+                                                         rD[32:63] – result[32:63]  rD[32:63], Accumulator[32:63]
+
+
+6.2.8.8       Dot product instructions
+These instructions perform multiple multiply operations, optionally add the results to the accumulator, and
+place the result into the destination register and optionally into the accumulator. These instructions are
+composed of different forms, data formats and data accumulate options. The mnemonics for these
+instructions indicate their various characteristics. These are shown in Table 6-11.
+                          Table 6-11. Mnemonic Extensions for Dot Product Instructions
+
+ Extension                      Meaning                                             Comments
+
+                                                      Multiply Form
+
+      b       byte                                       8 × 8 + 8 × 8 + 8 × 8 + 8 × 8  32, high and low
+
+     4h       four half words                            16 × 16 + 16 × 16 + 16 × 16 + 16 × 16  32
+
+    4hg       four half words guarded                    16 × 16 + 16 × 16 + 16 × 16 + 16 × 16  64
+
+      h       half word                                  16 × 16 op 16 × 16  32, high and low
+
+     hih      high half words                            16 × 16 op 16 × 16  32, high half words, used for complex mul
+
+     loh      low half words                             16 × 16 op 16 × 16  32, low half words, used for complex mul
+
+              four half words exchanged guarded add      (16 × 16 + 16 × 16) + (16 × 16 + 16 × 16)  64, even and odd rA
+   4hxga
+                                                         half words changed
+
+              four half words exchanged guarded subtract (16 × 16 - 16 × 16) + (16 × 16 - 16 × 16)  64, even and odd rA
+   4hxgs
+                                                         half words changed
+
+     w        word                                       32 × 32 op 32 × 32  64
+
+     wg       word guarded                               32 × 32 op 32 × 32  64 in 17.47 fractional format
+
+              word exchanged guarded add                 32 × 32 + 32 × 32  64 in 17.47 fractional format, words in rA are
+    wxga
+                                                         changed
+              word exchanged guarded subtract            32 × 32 - 32 × 32  64 in 17.47 fractional format, words in rA are
+    wxgs
+                                                         changed
+
+
+
+
+                                e200z7 Power Architecture Core Reference Manual, Rev. 2
+Freescale Semiconductor                                                                                                6-23
+Signal Processing Extension (SPE)
+
+
+                    Table 6-11. Mnemonic Extensions for Dot Product Instructions (continued)
+
+ Extension                         Meaning                                                 Comments
+
+                                                            Operation
+
+        a      add                                            addition of intermediate products
+
+        s      subtract                                       subtraction of intermediate products
+
+        c      complex                                        complex format arithmetic
+
+                                                           Data Format
+
+       smf     add signed modulo fractional                   modulo, no saturation or overflow
+
+       smi      signed modulo integer                         modulo, no saturation or overflow
+
+       ssf      signed saturate fractional                    saturation on product and accumulate
+
+                signed saturate fractional round              saturation on product and accumulate, rounding based on current
+       ssfr
+                                                              rounding mode
+
+       ssi      signed saturate integer                       saturation on product and accumulate
+
+       umi      unsigned modulo integer                       modulo, no saturation or overflow
+
+       usi      unsigned saturate integer                     saturation on product and accumulate
+
+                                                        Accumulate Option
+
+        a      place in Accumulator                           result  rD, Accumulator
+
+        aa     add to Accumulator                             Accumulator + result  rD, Accumulator
+
+       aa3     add to Accumulator, 3op                        rD + result  rD, Accumulator
+
+               add to Accumulator as word elements            Accumulator[0:31] + result[0:31]  rD[0:31], Accumulator[0:31]
+       aaw                                                    Accumulator[32:63] + result[32:63]  rD[32:63],
+                                                              Accumulator[32:63]
+
+               add to Accumulator as word elements, 3 op rD[0:31] + result[0:31]  rD[0:31], Accumulator[0:31]
+       aaw3
+                                                         rD[32:63] + result[32:63]  rD[32:63], Accumulator[32:63]
+
+
+6.2.8.9         Miscellaneous Vector Instructions
+Miscellaneous vector instructions are outlined in Table 6-4.
+                                             Table 6-12. Misc. Vector Instructions
+
+        Operation                            Variants                                           Description
+
+                          evlvsl                                        load vector for shift left; place a vector of constant values
+                                                                        for a vector permute for left shift
+ load vector for shift
+                          evlvsr                                        load vector for shift right; place a vector of constant values
+                                                                        for a vector permute for right shift
+
+
+
+
+                                   e200z7 Power Architecture Core Reference Manual, Rev. 2
+6-24                                                                                                      Freescale Semiconductor
+                                                                                           Signal Processing Extension (SPE)
+
+
+                                            Table 6-12. Misc. Vector Instructions
+
+      Operation                             Variants                                      Description
+
+  store Accumulator       evmar                                     move Accumulator to register rA
+
+  load Accumulator        evmra                                     move register rA to Accumulator
+
+     Bit reversed         brinc                                     Compute a bit-reversed increment for a memory offset for
+      increment                                                     bit-reversed addressing
+
+                          circinc                                   Computes a modulo increment for supporting circular
+  Circular Increment
+                                                                    buffer index pointer modification
+
+
+6.2.9        Load and Store Instructions
+SPE provides a number of load and store instructions. These instructions provide load and store
+capabilities for moving data elements between the GPRs and memory. Data elements of 8, 16, 32, and 64
+bits are supported. A variety of forms are provided that position data for efficient computation.
+
+6.2.9.1       Addressing Modes—Non-Update forms
+Base + index and base + scaled immediate addressing modes are provided. Base registers hold 64-bit
+pointer values (32-bit pointers in a 32-bit implementation of the architecture), while registers used as index
+values provide 32-bit index values. Scaled immediate values are unsigned and are scaled by the size of the
+access.
+
+6.2.9.1.1         Base + Scaled Immediate Addressing—Non-Update Form
+In the base + scaled immediate addressing mode, register rA holds a 32-bit pointer value or a value of zero
+(if rA = 0), and an immediate field in the instruction word provides a 5-bit unsigned immediate value
+which is zero-extended and scaled (shifted left) by 1, 2, or 3, depending on the size (half word, word, or
+double word) of the access. The sum of the value in rA and the zero-extended scaled immediate form the
+effective address:
+   if (rA = 0) then b  0
+   else b  (rA32:63)
+   SCL  {1,2,3} // half word, word, or double word
+   EA  b + EXTZ(UIMM*SCL)
+
+6.2.9.1.2         Base + Index Addressing
+In the Base + Index addressing mode, register rA holds a 32-bit pointer value or a value of zero (if rA = 0),
+while register rB provides a 32-bit index. The sum forms the effective address:
+   if (rA = 0) then b  0
+   else b  (rA32:63)
+   EA  b + (rB)
+
+
+
+
+                                    e200z7 Power Architecture Core Reference Manual, Rev. 2
+Freescale Semiconductor                                                                                                 6-25
+Signal Processing Extension (SPE)
+
+
+6.2.9.2         Addressing Modes—Update forms
+The base + scaled immediate addressing mode is also provided with an update form. As in the non-update
+form, base register rA holds 32-bit pointer values. For the update form of the base + scaled immediate
+addressing mode, the same effective address calculation is used as defined in Section 6.2.9.1.1, “Base +
+Scaled Immediate Addressing—Non-Update Form,” and the calculated effective address is placed into rA
+by the instruction.
+For the base + scaled immediate with update addressing mode, scaled immediate values of 0 are reserved
+for future definition and are treated as illegal. Instruction encodings with rA = 0 are also reserved for future
+definition and treated as illegal instructions.
+
+6.2.9.3         Addressing Modes—Modify forms
+The base + index addressing mode is also provided with a set of modify forms. In the modify forms,
+register rB holds 32-bit pointer values, while register rA is used to provide an index value as well as to
+provide specialized control information for performing a post-modification to the lower 32 bits of rA.
+Modify forms are provided to allow for parallel address computations to occur, which are useful for
+sequential accessing of arrays, lists, circular buffers, and other complex data structures. Modify forms of
+load and store instructions cause a calculated update value to be placed in the lower portion of register rA.
+Support for specialized addressing modes are available when using base + index modify forms.
+For the base + index modify forms, the modify calculation mode selection is based on a mode field in
+register rA (rA[0:3]). Modify forms modify the original value in rA based on an addressing calculation
+performed in parallel with the load or store instruction, which may or may not be the value of the effective
+address of the load or store instruction, depending on the actual calculation mode. This is in contrast to
+normal update forms of the Power Arch load and store instructions since the new value placed into rA need
+not correspond to the effective address of the load or store.
+The following three modify calculation modes are currently defined and selected by the value in rA[0:3]:
+   • Linear addressing: mode = 0000
+   • Circular addressing: mode = 1000
+   • Bit-reversed addressing: mode = 1010
+All other mode encodings are reserved, and either result in an unimplemented instruction exception, or a
+boundedly undefined result depending on the implementation.
+Instruction encodings with rA = 0 are reserved for future definition and are treated as illegal instructions.
+
+6.2.9.3.1        Linear Addressing Update Mode
+Linear addressing update calculation mode causes the sum of rA[32:63] and rB[32:63] to be placed into
+rA[32:63]:
+    if(mode=0000) then
+       rA32:63  rA32:63 + rB32:63
+
+
+
+
+                               e200z7 Power Architecture Core Reference Manual, Rev. 2
+6-26                                                                                     Freescale Semiconductor
+                                                                                                 Signal Processing Extension (SPE)
+
+
+6.2.9.3.2                Circular Addressing Modify Mode
+Circular addressing modify mode is provided to support addressing of circular buffers. Circular addressing
+mode causes a circular increment to be performed on a portion of rA[32:63] (the circular buffer index
+portion of rA) after the EA calculation, using the offset and length specifiers in rA and the result is placed
+into rA[32–63]. rA[0–31] is left unchanged. rA[32–63] must be  si 0 and  ui Length, and the magnitude
+of Offset must be  Length + 1, or the resulting value is boundedly undefined. rB must point to a
+double-word boundary in memory, and Length + 1 must be a multiple of eight bytes or an alignment error
+will be generated.
+Figure 6-4 shows how rA is used in forming the update value for mode 1000 (circinc).
+
+    0....3   4       5     6....13   14 15 16         ....       31 32                     ...                         63
+
+    Mode         -         Offset      -            Length                                Index                             rA
+   (1000)                 (signed)                (unsigned)             (must always be positive and <=ui Length)
+
+   Offset0:7  rA8:15; // signed byte offset, must be <= Length+1
+   Length0:15  rA16:31; // unsigned buffer length-1 in bytes. Length is byte index of
+                   // last byte in buffer.
+                   // buffer must be aligned on a doubleword boundary, and be a
+                   // multiple of 8 bytes, i.e. Length13:15 =3‘b111.
+   Index0:31  rA32:63; // index into buffer, must be <=ui Length0:15, (so always >=si 0).
+
+   if ((Offset0 = 0) & ((EXTS32(Offset0:7) + Index0:31) >ui EXTZ32(Length0:15))) then
+      rA32:63  Index0:31 + EXTS32(Offset0:7) - EXTZ32(Length0:15) - 1; // wrap at end
+
+   elseif (Offset0 = 1) & ((EXTS32(Offset0:7) + Index0:31) <si 0)) then
+      rA32:63  Index0:31 + EXTS32(Offset0:7) + EXTZ32(Length0:15) + 1; // wrap at start
+
+   else rA32:63  Index0:31 + EXTS32(Offset0:7);
+                                     Figure 6-4. rA Used to Form Update Value for Mode 1000
+
+Note that misalignment may cause the operand fetched to span the virtual boundary between the last byte
+of the buffer at byte Buffer[Length] and the first byte of the Buffer at byte Buffer[0].
+
+6.2.9.3.3                Bit-Reversed Addressing Modify Mode
+Bit-reversed addressing modify calculation mode is provided to support addressing of buffers and arrays
+used in FFT calculations.
+When using bit-reversed addressing modify mode, a bit-reversed increment is performed on rA[32:63]
+after the EA calculation, using a mask specifier in rA. The mask specifier is also used to indicate the bits
+of rA[32:63] which are updated.
+Figure 6-5 shows how rA is used in forming the update value for bit-reversed addressing update mode.
+Note that the computation is similar to the brinc instruction computation, but the mask is applied to
+
+
+
+
+                                       e200z7 Power Architecture Core Reference Manual, Rev. 2
+Freescale Semiconductor                                                                                                          6-27
+Signal Processing Extension (SPE)
+
+
+updating only those bits of rA indicated by a ‘1’ in the mask value, unlike in the brinc instruction, in which
+all low order bits of rD corresponding to the maximum mask size are updated.
+
+       0      3    4                15 16         ....         31 32                       ...                         63
+
+         Mode           0....0                   Mask                                     Index                             rA
+        (1010)
+
+    Mask  rA16:31
+    // mask value is log2(#points)1, zero extended, then left shifted log2(element size
+    // in bytes). e.g., a 16 point FFT on half words has a mask of 16‘b0000000000011110
+
+
+    a  rA48:63 // up to 64KB in a single FFT
+    d  bitreverse(1 + bitreverse(a | ~Mask)))
+    rA32:63  rA32:47 || ((rA48:63 & ~Mask) |(d & Mask)) // different than brinc. allows main
+    pointer sharing to multiple buffers less than 64KB in size.
+                 Figure 6-5. rA Used to Form Update Value for Bit-Reversed Addressing Update Mode
+
+
+6.2.9.4            Vector Load and Store Instruction Summary
+Vector load and store instructions are provided to load and store various size vectors of byte, half-word,
+word or double-word size. These instructions allow for endian-neutral code to be written. In addition,
+update forms of the non-indexed instructions are provided to allow for base register updates. Variations of
+the load instructions provide splat (replication) capability for placing a smaller vector element into
+multiple element positions in a vector register.
+Vector load and store instructions are outlined in Table 6-13.
+                                     Table 6-13. Vector Load and Store Instructions
+
+           Operation                         Variants                                            Description
+
+                            evlbbsplatb, evlbbsplatbu, evlbbsplatbx,      load byte and splat byte into 8 byte element positions
+           Load Byte
+                            evlbbsplatbmx
+
+                            evldb, evldbu, evldbx, evldbmx                load double word as byte elements
+
+                            evldd, evlddu, evlddx, evlddmx                load double word as double word
+   Load Double Word
+                            evldh, evldhu, evldhx, evldhmx                load double word as half word elements
+
+                            evldw, evldwu, evldwx, evldwmx                load double word as word elements
+
+                            evlhhesplat, evlhhesplatu, evlhhesplatx,      load half word into even half word elements, zeroing
+                            evlhhesplatmx                                 the odd half word s elements
+
+                            evlhhossplat, evlhhossplatu, evlhhossplatx,   load half word into odd half word elements,
+                            evlhhossplatmx                                sign-extending to word elements
+       Load Half Word
+                            evlhhousplat, evlhhousplatu, evlhhousplatx, load half word into odd half word elements,
+                            evlhhousplatmx                              zero-extending to word elements
+
+                            evlhhsplath, evlhhsplathu, evlhhsplathx,      load half word into all half word elements
+                            evlhhsplathmx
+
+
+
+
+                                 e200z7 Power Architecture Core Reference Manual, Rev. 2
+6-28                                                                                                    Freescale Semiconductor
+                                                                                          Signal Processing Extension (SPE)
+
+
+                           Table 6-13. Vector Load and Store Instructions (continued)
+
+      Operation                            Variants                                       Description
+
+                          evlwbe, evlwbeu, evlwbex, evlwbemx         load word as four byte elements into the four even byte
+                                                                     elements, zeroing the odd byte elements
+
+                          evlwbos, evlwbosu, evlwbosx, evlwbosmx     load word as four byte elements into the four odd byte
+                                                                     elements, sign-extending to half word elements
+
+                          evlwbou, evlwbouu, evlwboux, evlwboumx     load word as four byte elements into the four odd byte
+                                                                     elements, zero-extending to half word elements
+
+                          evlwbsplatw, evlwbsplatwu, evlwbsplatwx,   load word as four byte elements into both word
+                          evlwbsplatwmx                              elements
+
+                          evlwhe, evlwheu, evlwhex, evlwhemx         load word as two half word elements into the two even
+                                                                     half word elements, zeroing the odd half word
+                                                                     elements
+      Load Word
+                          evlwhos, evlwhosu, evlwhosx, evlwhosmx     load word as two half word elements into the two odd
+                                                                     half word elements, sign-extending to word elements
+
+                          evlwhou, evlwhouu, evlwhoux, evlwhoumx     load word into the two odd half word elements,
+                                                                     zero-extending to word elements
+
+                          evlwhsplat, evlwhsplatu, evlwhsplatx,      load word as two half word elements, placing the first
+                          evlwhsplatmx                               half word into both upper half word elements, second
+                                                                     half word into both lower half word elements
+
+                          evlwhsplatw, evlwhsplatwu, evlwhsplatwx,   load word as two half word elements, into both word
+                          evlwhsplatwmx                              elements
+
+                          evlwwsplat, evlwhsplatu, evlwhsplatx,      load word as word element, into both word elements
+                          evlwhsplatmx
+
+                          evstdb, evstdbu, evstdbx, evstdbmx         store double word as byte elements
+
+                          evstdd, evstddu, evstddx, evstddmx         store double word as double word
+  Store Double Word
+                          evstdh, evstdhu, evstdhx, evstdhmx         store double word as half word elements
+
+                          evstdw, evstdwu, evstdwx, evstdwmx         store double word as word elements
+
+    Store Half Word       evsthb, evsthbu, evsthbx, evsthbmx         store half word as byte elements
+
+                          evstwb, evstwbu, evstwbx, evstwbmx         store word as four byte elements
+
+                          evstwbe, evstwbeu, evstwbex, evstwbemx     store word from four even byte elements
+
+                          evstwbo, evstwbou, evstwbox, evstwbomx     store word from four odd byte elements
+
+      Store Word          evstwhe, evstwheu, evstwhex, evstwhemx     store word from two even half word elements
+
+                          evstwho, evstwhou, evstwhox, evstwhomx     store word from two odd half word elements
+
+                          evstwwe, evstwweu, evstwwex, evstwwemx store word from even word element
+
+                          evstwwo, evstwwou, evstwwox, evstwwomx store word from odd word element
+
+
+
+
+                               e200z7 Power Architecture Core Reference Manual, Rev. 2
+Freescale Semiconductor                                                                                                 6-29
+Signal Processing Extension (SPE)
+
+
+6.2.10        SPE Exceptions
+The architecture defines the following SPE exceptions:
+   • SPE unavailable exception
+   • SPE vector alignment exception
+Interrupt vector offset registers (IVOR) IVOR32 (SPE/embedded floating point unavailable interrupt) and
+IVOR5 (alignment interrupt), are used by the interrupt model. The SPR number for IVOR32 is 528,
+IVOR5 is defined by Power ISA. These registers are privileged.
+
+6.2.10.1        SPE/Embedded Floating-point Unavailable Exception
+The SPE/embedded floating-point unavailable exception is taken if MSR[SPE] is cleared and execution
+of a SPE instruction other than the brinc instruction is attempted. When the SPE/embedded floating-point
+unavailable exception occurs, the processor suppresses execution of the instruction causing the exception.
+The SRR0, SRR1, MSR, and ESR registers are modified as follows:
+    • SRR0 is set to the effective address of the instruction causing the exception.
+    • SRR1 is set to the contents of the MSR at the time of the exception.
+    • MSR[CE, ME, DE] are unchanged. All other bits are cleared.
+    • ESR[SPE] is set. All other ESR bits are cleared.
+Instruction execution resumes at address IVPR[0–15]||IVOR32[16–27]||0b0000.
+
+6.2.10.2        SPE Vector Alignment Exception
+For e200z760n3, the SPE vector alignment exception is taken if the effective address of any of the
+following instructions is not aligned to a 32-bit boundary: evldd[u], evlddx, evldw[u], evldwx, evldh[u],
+evldhx, evstdd[u], evstddx, evstdw[u], evstdwx, evstdh[u], and evstdhx. When an SPE vector alignment
+exception occurs, the processor suppresses the execution of the instruction causing the alignment
+exception and takes an alignment interrupt.
+SRR0, SRR1, MSR, ESR, and DEAR are modified as follows:
+  • SRR0 is set to the effective address of the instruction causing the alignment exception.
+  • SRR1 is set to the contents of the MSR at the time of the exception.
+  • MSR[CE, ME, DE] are unchanged. All other bits are cleared.
+  • ESR[SPE] (bit 24) is set. ESR[ST] is set only if the instruction causing the exception is a store and
+      is cleared for a load. All other bits are cleared.
+  • DEAR is updated with the effective address of a byte of the load or store.
+Instruction execution resumes at address IVPR[0–15]||IVOR5[16–27]||0b0000.
+
+
+
+
+                               e200z7 Power Architecture Core Reference Manual, Rev. 2
+6-30                                                                                     Freescale Semiconductor
+                                                                                      Signal Processing Extension (SPE)
+
+
+6.2.11       Exception Priorities
+The following list shows the priority order in which exceptions are taken:
+   1. SPE Unavailable exception
+   2. SPE Vector Alignment exception
+An SPE vector alignment exception is taken if an SPE double-word vector load or store access is attempted
+with an address which is not 32-bit aligned.
+
+6.3       SPE Instruction Timing
+Instruction timing in number of processor clock cycles for SPE instructions are shown in the following
+tables. Pipelined instructions are shown with cycles of total latency and throughput cycles. Divide
+instructions are not pipelined and block other instructions from executing during divide execution.
+
+6.3.1        SPE Simple Vector Arithmetic Instructions Timing
+Table 6-14 shows instruction timing for SPE integer simple instructions. The table is sorted by opcode.
+These instructions are issued as a pair of operations.
+                              Table 6-14. Simple Vector Arithmetic Instruction Timing
+
+   Basic Operation                               Instruction                       Latency           Throughput
+
+                          evabsb, evabsh, evabs, evabsd                               1                    1
+   Absolute Value
+                          evabsbs, evabshs, evabss, evabsds                           1                    1
+
+                          evabsdifsb, evabsdifsh, evabsdifsw, evabsdifub,             1                    1
+ Absolute Difference
+                          evabsdifuh, evabsdifuw
+
+                          evaddb, evaddh, evaddw, evaddd                              1                    1
+
+                          evaddbss, evaddhss, evaddwss, evadddss                      1                    1
+                          evaddbus, evaddhus, evaddwus, evadddus
+
+                          evaddhx, evaddhxss, evaddhxus                               1                    1
+         Add
+                          evaddwx, evaddwxss, evaddwxus                               1                    1
+
+                          evaddib, evaddih, evaddiw                                   1                    1
+
+                          evaddsmiaaw, evaddssiaaw, evaddumiaaw, evaddusiaaw          1                    1
+
+                          evaddsmiaa, evaddssiaa, evaddusiaa                          1                    1
+
+                          evadd2subf2h, evadd2subf2hss                                1                    1
+
+                          evaddsubfh, evaddsubfhss                                    1                    1
+
+      AddSubf             evaddsubfhx, evaddsubfhxss                                  1                    1
+
+                          evaddsubfw, evaddsubfwss                                    1                    1
+
+                          evaddsubfwx, evaddsubfwxss                                  1                    1
+
+
+
+
+                                e200z7 Power Architecture Core Reference Manual, Rev. 2
+Freescale Semiconductor                                                                                           6-31
+Signal Processing Extension (SPE)
+
+
+                      Table 6-14. Simple Vector Arithmetic Instruction Timing (continued)
+
+   Basic Operation                              Instruction                       Latency          Throughput
+
+                         evavgbs, evavghs, evavgws, evavgds,                         1                  1
+                         evavgbsr, evavghsr, evavgwsr, evavgdsr
+       Average
+                         evavgbu, evavghu, evavgwu, evavgdu
+                         evavgbur, evavghur, evavgwur, evavgdur
+
+                         evcntlsh, evcntlzh                                          1                  1
+    Count Leading
+                         evcntlsw, evcntlzw
+
+                         evextsb, evextzb                                            1                  1
+
+                         evextsbh                                                    1                  1
+        Extend
+                         evextsh, evextzh (use evclrh)                               1                  1
+
+                         evextsw                                                     1                  1
+
+                         evmaxbs, evmaxhs, evmaxws, evmaxds                          1                  1
+                         evmaxbu, evmaxhu, evmaxwu, evmaxdu
+
+       Maximum           evmaxbpsh, evmaxbpuh                                        1                  1
+
+                         evmaxhpsw, evmaxhpuw                                        1                  1
+
+                         evmaxwpsd, evmaxwpud                                        1                  1
+
+ Maximum Magnitude       evmaxmagws                                                  1                  1
+
+                         evminbs, evminhs, evminws, evminds                          1                  1
+                         evminbu, evminhu, evminwu, evmindu
+
+       Minimum           evminbpsh, evminbpuh                                        1                  1
+
+                         evminhpsw, evminhpuw                                        1                  1
+
+                         evminwpsd, evminwpud                                        1                  1
+
+                         evnegb, evnegh, evneg, evnegd                               1                  1
+
+                         evnegbs, evneghs, evnegs, evnegds                           1                  1
+        Negate
+                         evnegbo, evnegho, evnegwo                                   1                  1
+
+                         evnegbos, evneghos, evnegwos                                1                  1
+
+                         evrndhb, evrndhbss, evrndhbus                               1                  1
+
+                         evrndhnb, evrndhnbss, evrndhnbus                            1                  1
+
+                         evrndwh, evrndwhss, evrndwhus                               1                  1
+        Round
+                         evrndwnh, evrndwnhss, evrndwnhus                            1                  1
+
+                         evrnddw, evrnddwss, evrnddwus                               1                  1
+
+                         evrndndw, evrndndwss, evrndndwus                            1                  1
+
+
+
+
+                               e200z7 Power Architecture Core Reference Manual, Rev. 2
+6-32                                                                                        Freescale Semiconductor
+                                                                                      Signal Processing Extension (SPE)
+
+
+                     Table 6-14. Simple Vector Arithmetic Instruction Timing (continued)
+
+   Basic Operation                               Instruction                       Latency           Throughput
+
+                          evsad2sh, evsad2sha, evsad2shaaw                            1                    1
+
+                          evsad2uh, evsad2uha, evsad2uhaaw                            1                    1
+
+   Sum of Absolute        evsad4sb, evsad4sba, evsad4sbaaw                            1                    1
+     Differences          evsad4ub, evsad4uba, evsad4ubaaw                            1                    1
+
+                          evsadsw, evsadswa, evsadswaa                                1                    1
+
+                          evsaduw, evsaduwa, evsaduwaa                                1                    1
+
+                          evsatsbub                                                   1                    1
+
+                          evsatubsb                                                   1                    1
+
+                          evsatsdsw, evsatsduw                                        1                    1
+
+                          evsatuduw                                                   1                    1
+
+                          evsatshsb, evsatshub                                        1                    1
+
+                          evsatshuh                                                   1                    1
+
+       Saturate           evsatuhub                                                   1                    1
+
+                          evsatuhsh                                                   1                    1
+
+                          evsatswgsdf                                                 1                    1
+
+                          evsatswsh, evsatswuh                                        1                    1
+
+                          evsatswuw                                                   1                    1
+
+                          evsatuwuh                                                   1                    1
+
+                          evsatuwsw                                                   1                    1
+
+                          evsubfb, evsubfh, evsubfw, evsubfd                          1                    1
+
+                          evsubfbss, evsubfhss, evsubfwss, evsubfdss                  1                    1
+                          evsubfbus, evsubfhus, evsubfwus, evsubfdus
+
+                          evsubfhx, evsubfhxss, evsubfhxus                            1                    1
+
+        Subf              evsubfwx, evsubfwxss, evsubfwxus                            1                    1
+
+                          evsubifb, evsubifh, evsubifw                                1                    1
+
+                          evsubfsmiaaw, evsubfssiaaw, evsubfumiaaw,                   1                    1
+                          evsubfusiaaw
+
+                          evsubfsmiaa, evsubfssiaa, evsubfusiaa                       1                    1
+
+                          evsubf2add2h, evsubf2add2hss                                1                    1
+
+                          evsubfaddh, evsubfaddhss                                    1                    1
+
+      SubfAdd             evsubfaddhx, evsubfaddhxss                                  1                    1
+
+                          evsubfaddw, evsubfaddwss                                    1                    1
+
+                          evsubfaddwx, evsubfaddwxss                                  1                    1
+
+
+
+
+                                e200z7 Power Architecture Core Reference Manual, Rev. 2
+Freescale Semiconductor                                                                                           6-33
+Signal Processing Extension (SPE)
+
+
+                          Table 6-14. Simple Vector Arithmetic Instruction Timing (continued)
+
+     Basic Operation                                  Instruction                     Latency          Throughput
+
+                            evsumws, evsumwu, evsumwsa, evsumwua                         1                  1
+
+                            evsumwsaa, evsumwuaa                                         1                  1
+
+                            evsum2hs, evsum2hu, evsum2hsa, evsum2hua                     1                  1
+
+                            evsum2hsaaw, evsum2huaaw                                     1                  1
+
+       Summation/           evsum4bs, evsum4bu, evsum4bsa, evsum4bua                     1                  1
+          Diff              evsum4bsaaw, evsum4buaaw                                     1                  1
+
+                            evsum2his, evsum2hisa                                        1                  1
+
+                            evsum2hisaaw                                                 1                  1
+
+                            evdiff2his, evdiff2hisa                                      1                  1
+
+                            evdiff2hisaaw                                                1                  1
+
+
+6.3.2          SPE Complex Integer Instruction Timing
+Table 6-15 shows instruction timing for SPE complex integer instructions. For the divide instructions, the
+number of stall cycles is (latency) for following instructions.
+                                   Table 6-15. SPE Complex Integer Instruction Timing
+
+               Operation                                  Instruction            Latency             Throughput
+
+                                            evdivws, evdivwu,                       12-321              12-321
+                 Divide                     evdivwsf, evdivwuf
+                                            evdivs, evdivu
+1
+    Timing is data dependent
+
+
+6.3.3          SPE Vector Logical Instruction Timing
+Table 6-16 shows instruction timing for SPE simple vector logical instructions.
+                                    Table 6-16. SPE Vector Logical Instruction Timing
+
+        Basic Operation                         Instruction               Latency                 Throughput
+
+              AND                 evand                                      1                         1
+
+             ANDC                 evandc                                     1                         1
+
+                                  evclrbe, evclrbo                           1                         1
+             Clear
+                                  evclrh                                     1                         1
+
+             NAND                 evnand                                     1                         1
+
+              NOR                 evnor                                      1                         1
+
+               OR                 evor                                       1                         1
+
+
+
+                                  e200z7 Power Architecture Core Reference Manual, Rev. 2
+6-34                                                                                            Freescale Semiconductor
+                                                                                      Signal Processing Extension (SPE)
+
+
+                          Table 6-16. SPE Vector Logical Instruction Timing (continued)
+
+      Basic Operation                         Instruction               Latency                     Throughput
+
+              ORC              evorc                                       1                            1
+
+           XNOR                eveqv                                       1                            1
+
+              XOR              evxor                                       1                            1
+
+
+
+6.3.4         SPE Vector Shift/Rotate Instruction Timing
+Instruction timing for SPE vector shift/rotate instructions is shown in Table 6-17.
+                               Table 6-17. SPE Vector Shift/Rotate Instruction Timing
+
+ Basic Operation                                     Instruction                    Latency            Throughput
+
+                     evslb, evslh, evslw, evsl                                            1                 1
+     Shift Left      evslbi, evslhi, evslwi, evsli
+
+                     evsloi                                                               1                 1
+
+                    evsrbu, evsrhu, evsrwu, evsru                                         1                 1
+Logical Shift Right evsrbiu, evsrhiu, evsrwiu, evsriu
+                     evsroiu                                                              1                 1
+
+                     evsrbs, evsrhs, evsrws, evsrs                                        1                 1
+  Arithmetic Shift   evsrbis, evsrhis, evsrwis, evsris
+       Right
+                     evsrois                                                              1                 1
+
+                     evrlb, evrlh, evrlw                                                  1                 1
+    Rotate Left
+                     evrlbi, evrlhi, evrlwi
+
+
+6.3.5         SPE Vector Compare and Vector Set Instruction Timing
+Instruction timing for SPE vector compare and set instructions is shown in Table 6-18 and Table 6-19.
+Table 6-18 shows the SPE vector compare instruction timing.
+                                Table 6-18. SPE Vector Compare Instruction Timing
+
+      Basic
+    Comparison                                         Instruction                        Latency       Throughput
+     Operation
+
+          =             evcmpeq, evcmpeqd                                                     1              1
+
+          >             evcmpgts, evcmpgtu, evcmpgtds, evcmpgtdu                              1              1
+
+          <             evcmplts, evcmpltu, evcmpltds, evcmpltdu                              1              1
+
+
+
+
+                                e200z7 Power Architecture Core Reference Manual, Rev. 2
+Freescale Semiconductor                                                                                             6-35
+Signal Processing Extension (SPE)
+
+
+Table 6-19 shows the SPE vector set instruction timing.
+                                     Table 6-19. SPE Vector Set Instruction Timing
+
+       Comparison
+                                                       Instruction                        Latency          Throughput
+        Operation
+
+           =             evseteqb[.], evseteqh[.], evseteqw[.]                               1                    1
+
+                         evsetgtbs[.], evsetgtbu[.], evsetgths[.], evsetgthu[.],             1                    1
+           >
+                         evsetgtws[.], evsetgtwu[.]
+
+                         evsetltbs[.], evsetltbu[.],                                         1                    1
+           <             evsetlths[.], evsetlthu[.],
+                         evsetltws[.], evsetltwu[.]
+
+
+6.3.6          SPE Vector Select Instruction Timing
+Table 6-20 shows instruction timing for SPE vector select instructions.
+                                    Table 6-20. SPE Vector Select Instruction Timing
+
+         Operation                                     Instruction                 Latency               Throughput
+
+           Select            evsel                                                   1                        1
+
+                             evselbit                                                1                        1
+
+         Select Bits         evselbitm0                                              1                        1
+
+                             evselbitm1                                              1                        1
+
+
+6.3.7          SPE Vector Data Arrangement Instruction Timing
+Table 6-21 shows the instruction timing for SPE vector data arrangement instructions.
+                          Table 6-21. SPE Vector Data Arrangement Instruction Timing
+
+          Operation                                    Instruction                 Latency               Throughput
+
+                              evdlveb                                                 1                       1
+
+                              evdlveob                                                1                       1
+
+                              evdlvob                                                 1                       1
+
+                              evdlvoeb                                                1                       1
+        De-interleave
+                              evdlveh                                                 1                       1
+
+                              evdlveoh                                                1                       1
+
+                              evdlvoh                                                 1                       1
+
+                              evdlvoeh                                                1                       1
+
+
+
+
+                                e200z7 Power Architecture Core Reference Manual, Rev. 2
+6-36                                                                                                Freescale Semiconductor
+                                                                                    Signal Processing Extension (SPE)
+
+
+                   Table 6-21. SPE Vector Data Arrangement Instruction Timing (continued)
+
+         Operation                          Instruction                     Latency               Throughput
+
+                           evilveh                                              1                      1
+
+                           evilveoh                                             1                      1
+
+                           evilvhih                                             1                      1
+
+                           evilvhiloh                                           1                      1
+        Interleave
+                           evilvloh                                             1                      1
+
+                           evilvlohih                                           1                      1
+
+                           evilvoeh                                             1                      1
+
+                           evilvoh                                              1                      1
+
+                           evmergehi                                            1                      1
+
+                           evmergehilo                                          1                      1
+          Merge
+                           evmergelo                                            1                      1
+
+                           evmergelohi                                          1                      1
+
+                           evperm                                               1                      1
+
+         Permute           evperm2                                              1                      1
+
+                           evperm3                                              1                      1
+
+                           evpksdsws, evpkuduws                                 1                      1
+
+                           evpksdswfrs                                          1                      1
+
+                           evpksdshefrs                                         1                      1
+
+                           evpkshsbs, evpkshubs, evpkuhubs                      1                      1
+
+                           evpkswgshefrs                                        1                      1
+           Pack
+                           evpkswgswfrs                                         1                      1
+
+                           evpkswshs, evpkswuhs, evpkuwuhs                      1                      1
+
+                           evpkswshilvs                                         1                      1
+
+                           evpkswshfrs                                          1                      1
+
+                           evpkswshilvfrs                                       1                      1
+
+
+
+
+                            e200z7 Power Architecture Core Reference Manual, Rev. 2
+Freescale Semiconductor                                                                                         6-37
+Signal Processing Extension (SPE)
+
+
+                     Table 6-21. SPE Vector Data Arrangement Instruction Timing (continued)
+
+         Operation                                  Instruction                    Latency        Throughput
+
+                              evsplatb                                               1                 1
+
+                              evsplath                                               1                 1
+
+                              evsplatfib, splatfih, splatfi                          1                 1
+
+                              evsplatfiba, splatfiha, splatfia                       1                 1
+
+                              evsplatfid                                             1                 1
+
+                              evsplatfida                                            1                 1
+
+                              evsplatfibo, splatfiho, splatfio                       1                 1
+            Splat
+                              evsplatfiboa, splatfihoa, splatfioa                    1                 1
+
+                              evsplatib, evsplatih, evsplati                         1                 1
+
+                              evsplatiba, evsplatiha, evsplatia                      1                 1
+
+                              evsplatid                                              1                 1
+
+                              evsplatida                                             1                 1
+
+                              evsplatibe, evsplatihe, evsplatie                      1                 1
+
+                              evsplatibea, evsplatihea, evsplatiea                   1                 1
+
+                              evswapbhilo                                            1                 1
+
+                              evswapblohi                                            1                 1
+
+                              evswaphe                                               1                 1
+
+                              evswaphhi                                              1                 1
+           Swap
+                              evswaphhilo                                            1                 1
+
+                              evswaphlo                                              1                 1
+
+                              evswaphlohi                                            1                 1
+
+                              evswapho                                               1                 1
+
+                              evunpkhibsi, evunpkhibui, evunpklobsi,                 1                 1
+                              evunpklobui
+
+          Unpack              evunpkhihf, evunpkhihsi, evunkpkhihui, evunpklohf,     1                 1
+                              evunpklohsi, evunkpklohui
+
+                              evunpkhiwgsf, evunpklowgsf                             1                 1
+
+                              evxtrb                                                 1                 1
+
+           Extract            evxtrd                                                 1                 1
+
+                              evxtrh                                                 1                 1
+
+                              evinsb                                                 1                 1
+           Insert
+                              evinsh                                                 1                 1
+
+
+
+
+                               e200z7 Power Architecture Core Reference Manual, Rev. 2
+6-38                                                                                         Freescale Semiconductor
+                                                                                      Signal Processing Extension (SPE)
+
+
+6.3.8        SPE Multiply and Multiply/Accumulate Instruction Timing
+Table 6-22 shows instruction timing for SPE multiply and multiply/accumulate instructions.
+                     Table 6-22. SPE Multiply and Multiply/Accumulate Instruction Timing
+
+                       Instruction                                 Latency                   Throughput
+
+               all evm{b,h,w} instructions                            4                           1
+
+
+6.3.9        SPE Dot Product Instruction Timing
+Table 6-23 shows instruction timing for SPE dot product instructions.
+                                   Table 6-23. SPE Dot Product Instruction Timing
+
+                       Instruction                                 Latency                   Throughput
+
+                  all evdotp instructions                            4                            1
+
+
+6.3.10       SPE Misc. Vector Instruction Timing
+Table 6-24 shows instruction timing for SPE miscellaneous instructions.
+                                   Table 6-24. SPE Misc. Vector Instruction Timing
+
+             Operation                               Instruction                   Latency            Throughput
+
+                                                        evlvsl                        1                   1
+        load vector for shift
+                                                        evlvsr                        1                   1
+
+        store Accumulator                              evmar                          1                   1
+
+         load Accumulator                              evmra                          1                   1
+
+      Bit reversed increment                            brinc                         1                   1
+
+
+
+6.3.11       SPE Load and Store Instruction Timing
+Table 6-25 shows instruction timing for SPE load and store instructions.
+                                 Table 6-25. SPE Load and Store Instruction Timing
+
+                       Instruction                                 Latency                   Throughput
+
+                       all ev loads                                   3                           1
+
+                       all ev stores                                  3                           1
+
+
+
+
+                                e200z7 Power Architecture Core Reference Manual, Rev. 2
+Freescale Semiconductor                                                                                            6-39
+Signal Processing Extension (SPE)
+
+
+
+
+                               e200z7 Power Architecture Core Reference Manual, Rev. 2
+6-40                                                                                     Freescale Semiconductor
