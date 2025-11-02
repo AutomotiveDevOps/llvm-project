@@ -261,6 +261,27 @@ RelExpr PPC::getRelExpr(RelType type, const Symbol &s,
   case R_PPC_TPREL16_LO:
   case R_PPC_TPREL16_HI:
     return R_TLS;
+  // VLE (Variable Length Encoding) relocations
+  // Reference: VLEPIM Section 2.2.3
+  case R_PPC_VLE_REL8:
+  case R_PPC_VLE_REL15:
+  case R_PPC_VLE_REL24:
+  case R_PPC_VLE_REL32:
+    return R_PC;
+  case R_PPC_VLE_ADDR16_LO:
+  case R_PPC_VLE_ADDR16_HI:
+  case R_PPC_VLE_ADDR16_HA:
+  case R_PPC_VLE_ADDR24:
+  case R_PPC_VLE_ADDR32:
+    return R_ABS;
+  case R_PPC_VLE_SDAREL_LO:
+  case R_PPC_VLE_SDAREL_HI:
+  case R_PPC_VLE_SDAREL_HA:
+    return R_PPC_EMB_SDAREL;
+  case R_PPC_VLE_SDAREL_OFF_LO:
+  case R_PPC_VLE_SDAREL_OFF_HI:
+  case R_PPC_VLE_SDAREL_OFF_HA:
+    return R_PPC_EMB_SDAREL;
   default:
     error(getErrorLocation(loc) + "unknown relocation (" + Twine(type) +
           ") against symbol " + toString(s));
@@ -355,6 +376,80 @@ void PPC::relocate(uint8_t *loc, const Relocation &rel, uint64_t val) const {
     write32(loc, (read32(loc) & ~mask) | (val & mask));
     break;
   }
+  // VLE (Variable Length Encoding) relocations
+  // Reference: VLEPIM Section 2.2.3
+  case R_PPC_VLE_REL8: {
+    // 8-bit PC-relative branch displacement (word-aligned)
+    // VLE branches use word-aligned offsets, so shift by 1
+    uint32_t mask = 0x000000FF;
+    checkInt(loc, val, 9, rel);  // 8 bits + sign, but check range
+    checkAlignment(loc, val, 2, rel);
+    write16(loc, (read16(loc) & ~mask) | ((val >> 1) & mask));
+    break;
+  }
+  case R_PPC_VLE_REL15: {
+    // 15-bit PC-relative branch displacement (word-aligned)
+    uint32_t mask = 0x00007FFF;
+    checkInt(loc, val, 16, rel);
+    checkAlignment(loc, val, 2, rel);
+    write16(loc, (read16(loc) & ~mask) | ((val >> 1) & mask));
+    break;
+  }
+  case R_PPC_VLE_REL24: {
+    // 24-bit PC-relative branch displacement (word-aligned)
+    uint32_t mask = 0x00FFFFFE;
+    checkInt(loc, val, 25, rel);
+    checkAlignment(loc, val, 2, rel);
+    write32(loc, (read32(loc) & ~mask) | ((val >> 1) & mask));
+    break;
+  }
+  case R_PPC_VLE_REL32:
+    // 32-bit PC-relative
+    checkInt(loc, val, 32, rel);
+    write32(loc, val);
+    break;
+  case R_PPC_VLE_ADDR16_LO:
+    checkIntUInt(loc, val, 16, rel);
+    write16(loc, val);
+    break;
+  case R_PPC_VLE_ADDR16_HI:
+    write16(loc, val >> 16);
+    break;
+  case R_PPC_VLE_ADDR16_HA:
+    write16(loc, ha(val));
+    break;
+  case R_PPC_VLE_ADDR24: {
+    // 24-bit absolute address
+    uint32_t mask = 0x00FFFFFC;
+    checkIntUInt(loc, val, 24, rel);
+    checkAlignment(loc, val, 4, rel);
+    write32(loc, (read32(loc) & ~mask) | (val & mask));
+    break;
+  }
+  case R_PPC_VLE_ADDR32:
+    checkIntUInt(loc, val, 32, rel);
+    write32(loc, val);
+    break;
+  case R_PPC_VLE_SDAREL_LO:
+    checkInt(loc, val, 16, rel);
+    write16(loc, val);
+    break;
+  case R_PPC_VLE_SDAREL_HI:
+    write16(loc, val >> 16);
+    break;
+  case R_PPC_VLE_SDAREL_HA:
+    write16(loc, ha(val));
+    break;
+  case R_PPC_VLE_SDAREL_OFF_LO:
+    checkInt(loc, val, 16, rel);
+    write16(loc, val);
+    break;
+  case R_PPC_VLE_SDAREL_OFF_HI:
+    write16(loc, val >> 16);
+    break;
+  case R_PPC_VLE_SDAREL_OFF_HA:
+    write16(loc, ha(val));
+    break;
   default:
     llvm_unreachable("unknown relocation");
   }
