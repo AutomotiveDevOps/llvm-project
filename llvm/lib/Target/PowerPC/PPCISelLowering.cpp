@@ -1461,6 +1461,7 @@ const char *PPCTargetLowering::getTargetNodeName(unsigned Opcode) const {
   case PPCISD::BCTRL:           return "PPCISD::BCTRL";
   case PPCISD::BCTRL_LOAD_TOC:  return "PPCISD::BCTRL_LOAD_TOC";
   case PPCISD::RET_FLAG:        return "PPCISD::RET_FLAG";
+  case PPCISD::RFI_FLAG:         return "PPCISD::RFI_FLAG";
   case PPCISD::READ_TIME_BASE:  return "PPCISD::READ_TIME_BASE";
   case PPCISD::EH_SJLJ_SETJMP:  return "PPCISD::EH_SJLJ_SETJMP";
   case PPCISD::EH_SJLJ_LONGJMP: return "PPCISD::EH_SJLJ_LONGJMP";
@@ -7721,6 +7722,17 @@ PPCTargetLowering::LowerReturn(SDValue Chain, CallingConv::ID CallConv,
   // Add the flag if we have it.
   if (Flag.getNode())
     RetOps.push_back(Flag);
+
+  // Interrupt service routines use different return instructions.
+  const Function &Func = DAG.getMachineFunction().getFunction();
+  if (Func.hasFnAttribute("interrupt")) {
+    if (!Func.getReturnType()->isVoidTy())
+      report_fatal_error(
+          "Functions with the interrupt attribute must have void return type!");
+
+    // Use RFI_FLAG for interrupt handlers - will be lowered to e_rfi/rfi
+    return DAG.getNode(PPCISD::RFI_FLAG, dl, MVT::Other, RetOps);
+  }
 
   return DAG.getNode(PPCISD::RET_FLAG, dl, MVT::Other, RetOps);
 }

@@ -30,6 +30,10 @@ extern char __bss_start__[];
 extern char __bss_end__[];
 extern char _stack_top[];
 
+// IVOR table symbol (provided by linker script)
+// This symbol points to the base of the .core_exceptions_table section
+extern char __IVPR_VALUE[];
+
 // C++ constructor support (provided by crtbegin)
 extern void _init(void) __attribute__((weak));
 
@@ -59,6 +63,19 @@ void _start(void) {
         : "r" (stack_top)
         : "r1"
     );
+    
+    // Initialize IVPR (Interrupt Vector Prefix Register) for e200 cores
+    // IVPR points to the base of the IVOR table (.core_exceptions_table)
+    // This must be set before any interrupts can be serviced
+    uintptr_t ivpr_value = (uintptr_t)&__IVPR_VALUE;
+    if (ivpr_value != 0) {
+        __asm__ volatile (
+            "mtspr 63, %0"  // SPR 63 is IVPR
+            :
+            : "r" (ivpr_value)
+            : "memory"
+        );
+    }
     
     // Copy .data section from Flash to RAM
     // This is needed when .data is in RAM but initialized data is in Flash

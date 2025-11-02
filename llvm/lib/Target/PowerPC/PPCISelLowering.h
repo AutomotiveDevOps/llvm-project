@@ -279,6 +279,9 @@ namespace llvm {
     ///   operand #3 optional in flag
     TC_RETURN,
 
+    /// Return from interrupt flag - used for interrupt handlers
+    RFI_FLAG,
+
     /// ch, gl = CR6[UN]SET ch, inglue - Toggle CR bit 6 for SVR4 vararg calls
     CR6SET,
     CR6UNSET,

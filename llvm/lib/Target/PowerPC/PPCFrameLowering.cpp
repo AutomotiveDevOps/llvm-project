@@ -1752,8 +1752,31 @@ void PPCFrameLowering::determineCalleeSaves(MachineFunction &MF,
   //  Save and clear the LR state.
   PPCFunctionInfo *FI = MF.getInfo<PPCFunctionInfo>();
   unsigned LR = RegInfo->getRARegister();
-  FI->setMustSaveLR(MustSaveLR(MF, LR));
-  SavedRegs.reset(LR);
+  
+  // Interrupt handlers must save all registers they use
+  if (MF.getFunction().hasFnAttribute("interrupt")) {
+    // Always save Link Register and Condition Register for interrupt handlers
+    SavedRegs.set(LR);
+    // Save entire Condition Register (all fields)
+    SavedRegs.set(PPC::CR0);
+    SavedRegs.set(PPC::CR1);
+    SavedRegs.set(PPC::CR2);
+    SavedRegs.set(PPC::CR3);
+    SavedRegs.set(PPC::CR4);
+    SavedRegs.set(PPC::CR5);
+    SavedRegs.set(PPC::CR6);
+    SavedRegs.set(PPC::CR7);
+    
+    // Mark that we need to save LR for interrupt handlers
+    FI->setMustSaveLR(true);
+    
+    // Note: GPRs will be saved automatically by register allocator
+    // based on which ones are actually used
+  } else {
+    // Non-interrupt functions: normal LR handling
+    FI->setMustSaveLR(MustSaveLR(MF, LR));
+    SavedRegs.reset(LR);
+  }
 
   //  Save R31 if necessary
   int FPSI = FI->getFramePointerSaveIndex();

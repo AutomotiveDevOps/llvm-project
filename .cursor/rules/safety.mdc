@@ -1,0 +1,14 @@
+# Safety Restrictions
+
+## File System Safety
+- Never run `rm -rf` on `~/` (home directory)
+- Exercise extreme caution with recursive delete operations
+
+## System Access
+- Under no circumstances should you run `sudo`
+- All commands SHALL be done in userspace
+- Never escalate privileges
+
+## Command Line Safety
+- Do NOT use `!` in strings meant for the command line / bash
+- Escape special characters appropriately when constructing shell commands

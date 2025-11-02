@@ -1354,7 +1354,7 @@ def E_SC : SCForm<17, 1, (outs), (ins u7imm:$LEV),
 
 // e_rfi - Return From Interrupt (opcode 0x4C000064, XL-form)
 def E_RFI : XLForm_1_np<19, 50, (outs), (ins),
-                        "e_rfi", "", IIC_RFID, [(int_ppc_rfi)]>,
+                        "e_rfi", "", IIC_RFID, [(rfiflag)]>,
             Requires<[HasVLE, IsE200]>;
 
 //=== Trap Instructions ===//

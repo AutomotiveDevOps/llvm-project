@@ -1,0 +1,15 @@
+# Makefile Conventions
+
+## Variable Syntax
+- Makefiles SHALL use full escape for all variables: `${VAR}` not `$VAR`
+- This avoids confusion and ensures proper variable expansion
+
+## Target Dependencies
+- Makefiles SHALL use actual files/folders as targets where possible
+- Example: `python -m venv venv` generates `venv` directory
+- Any target depending on Python venv shall use `venv` as a dependency
+- This allows GNU make to resolve dependencies correctly and in the right order
+
+## Virtual Environment Targets
+- Do not use `.PHONY` for `venv` targets
+- Use the actual directory/file as the target dependency

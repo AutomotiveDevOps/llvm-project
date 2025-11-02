@@ -266,6 +266,8 @@ def PPCbctrl_load_toc : SDNode<"PPCISD::BCTRL_LOAD_TOC",
                                 SDNPVariadic]>;
 
 def retflag       : SDNode<"PPCISD::RET_FLAG", SDTNone,
+                         [SDNPHasChain, SDNPOptInGlue, SDNPOptOutGlue]>;
+def rfiflag       : SDNode<"PPCISD::RFI_FLAG", SDTNone,
                            [SDNPHasChain, SDNPOptInGlue, SDNPVariadic]>;
 
 def PPCtc_return : SDNode<"PPCISD::TC_RETURN", SDT_PPCTC_ret,
@@ -4351,7 +4353,7 @@ def TLBSX2D : XForm_base_r3xo<31, 914, (outs),
 
 def RFID : XForm_0<19, 18, (outs), (ins), "rfid", IIC_IntRFID, []>;
 
-def RFI : XForm_0<19, 50, (outs), (ins), "rfi", IIC_SprRFI, []>,
+def RFI : XForm_0<19, 50, (outs), (ins), "rfi", IIC_SprRFI, [(rfiflag)]>,
                   Requires<[IsBookE]>;
 def RFCI : XForm_0<19, 51, (outs), (ins), "rfci", IIC_BrB, []>,
                    Requires<[IsBookE]>;

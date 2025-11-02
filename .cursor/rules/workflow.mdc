@@ -1,0 +1,6 @@
+# Development Workflow
+
+## File Changes
+- After all file changes, add and commit per commit message rules
+- See `git.mdc` for commit message format requirements
+- Follow git push rules from `git.mdc`

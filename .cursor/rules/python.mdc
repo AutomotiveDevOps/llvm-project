@@ -1,0 +1,23 @@
+# Python Development Rules
+
+## Virtual Environment
+- All Python-related operations SHALL use a virtual environment
+- Never attempt to use the system pip
+- Never attempt to install Python packages to the system
+- The Python virtual environment SHALL be named `venv_{project}`
+
+## Virtual Environment Tools
+- All Makefile references to pip and Python installed tools SHALL use full paths to venv bin directory
+- Examples:
+  - `venv_{project}/bin/pytest`
+  - `venv_{project}/bin/pip`
+
+## Code Style
+
+### Type Checking
+- All Python scripts SHALL use full mypy typing
+- Ensure type annotations are complete and accurate
+
+### Documentation
+- All Python scripts SHALL be documented to meet numpy style guidelines
+- Follow numpy docstring conventions for functions, classes, and modules
