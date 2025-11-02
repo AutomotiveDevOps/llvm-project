@@ -315,6 +315,10 @@ public:
   bool isU4Imm() const { return Kind == Immediate && isUInt<4>(getImm()); }
   bool isU5Imm() const { return Kind == Immediate && isUInt<5>(getImm()); }
   bool isS5Imm() const { return Kind == Immediate && isInt<5>(getImm()); }
+  bool isS6Imm() const { return Kind == Immediate && isInt<6>(getImm()); }
+  bool isS8Imm() const { return Kind == Expression ||
+                                 (Kind == Immediate && isInt<8>(getImm()) &&
+                                  (getImm() & 3) == 0); }
   bool isU6Imm() const { return Kind == Immediate && isUInt<6>(getImm()); }
   bool isU6ImmX2() const { return Kind == Immediate &&
                                   isUInt<6>(getImm()) &&
@@ -400,6 +404,9 @@ public:
   bool isCondBr() const { return Kind == Expression ||
                                  (Kind == Immediate && isInt<16>(getImm()) &&
                                   (getImm() & 3) == 0); }
+  bool isBD5() const { return Kind == Expression ||
+                               (Kind == Immediate && isInt<5>(getImm()) &&
+                                (getImm() & 3) == 0); }
   bool isImmZero() const { return Kind == Immediate && getImm() == 0; }
   bool isRegNumber() const { return Kind == Immediate && isUInt<5>(getImm()); }
   bool isVSRegNumber() const {

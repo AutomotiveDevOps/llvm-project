@@ -380,9 +380,20 @@ getMachineOpValue(const MCInst &MI, const MCOperand &MO,
             MI.getOpcode() != PPC::MFOCRF && MI.getOpcode() != PPC::MFOCRF8) ||
            MO.getReg() < PPC::CR0 || MO.getReg() > PPC::CR7);
     unsigned OpNo = getOpIdxForMO(MI, MO);
+    const MCInstrDesc &Desc = MCII.get(MI.getOpcode());
+    
+    // Check if this is a VLE instruction (16-bit size)
+    if (Desc.getSize() == 2) {
+      // For VLE instructions, use special register encoding
+      unsigned VLEEncoded = PPCInstrInfo::encodeVLERegister(MO.getReg());
+      if (VLEEncoded != ~0U)
+        return VLEEncoded;
+      // If encoding failed, fall through to standard encoding
+      // (some VLE instructions may allow all 32 registers)
+    }
+    
     unsigned Reg =
-      PPCInstrInfo::getRegNumForOperand(MCII.get(MI.getOpcode()),
-                                        MO.getReg(), OpNo);
+      PPCInstrInfo::getRegNumForOperand(Desc, MO.getReg(), OpNo);
     return CTX.getRegisterInfo()->getEncodingValue(Reg);
   }
 

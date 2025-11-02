@@ -557,6 +557,8 @@ public:
   /// The operand number argument will be useful when we need to extend this
   /// to instructions that use both Altivec and VSX numbering (for different
   /// operands).
+  /// For VLE instructions, registers use special encoding: r0-r7 encode as 0-7,
+  /// r24-r31 encode as 8-15 (by subtracting 16).
   static unsigned getRegNumForOperand(const MCInstrDesc &Desc, unsigned Reg,
                                       unsigned OpNo) {
     int16_t regClass = Desc.OpInfo[OpNo].RegClass;
@@ -574,11 +576,51 @@ public:
         if (isVRRegister(Reg))
           return PPC::VSX32 + (Reg - PPC::V0);
         break;
+      // VLE register encoding: GPRC registers use special encoding for VLE
+      // RX field: r0-r7 -> 0-7, r24-r31 -> 8-15 (r24-16=8, etc.)
+      // RY field: same encoding but shifted
+      case PPC::GPRCRegClassID: {
+        // Check if this is a VLE instruction (16-bit or VLE-specific encoding)
+        // VLE instructions have Size=2 and use special register encoding
+        if (Desc.getSize() == 2 && Desc.getNumOperands() > 0) {
+          unsigned RegNum = Reg - PPC::R0;
+          // VLE encoding: r0-r7 map to 0-7, r24-r31 map to 8-15
+          if (RegNum >= 0 && RegNum < 8)
+            return RegNum;  // Direct encoding for r0-r7
+          else if (RegNum >= 24 && RegNum <= 31)
+            return RegNum - 16;  // r24-r31 -> 8-15
+          // For other registers in VLE mode, encoding depends on instruction
+          // Some instructions allow r8-r23, others don't
+        }
+        break;
+      }
       // Other RegClass doesn't need mapping
       default:
         break;
     }
     return Reg;
+  }
+
+  /// encodeVLERegister - Encodes a GPR register for VLE instructions
+  /// Returns the 4-bit encoded value: r0-r7 -> 0-7, r24-r31 -> 8-15
+  /// Returns ~0U if register cannot be encoded
+  static unsigned encodeVLERegister(unsigned Reg) {
+    unsigned RegNum = Reg - PPC::R0;
+    if (RegNum < 8)
+      return RegNum;
+    else if (RegNum >= 24 && RegNum <= 31)
+      return RegNum - 16;
+    return ~0U;  // Invalid register for VLE encoding
+  }
+
+  /// decodeVLERegister - Decodes a 4-bit VLE register encoding back to GPR
+  /// Encoded value 0-7 -> r0-r7, 8-15 -> r24-r31
+  static unsigned decodeVLERegister(unsigned Encoded) {
+    if (Encoded < 8)
+      return PPC::R0 + Encoded;
+    else if (Encoded <= 15)
+      return PPC::R0 + Encoded + 16;  // 8->r24, 9->r25, etc.
+    return ~0U;  // Invalid encoding
   }
 
   /// Check \p Opcode is BDNZ (Decrement CTR and branch if it is still nonzero).
