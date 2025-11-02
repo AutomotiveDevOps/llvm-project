@@ -29,6 +29,12 @@ Technical details:
 - Dependencies: {{key_dependencies}}
 ```
 
-## Push Behavior
+## Push Behavior and Remote Sync
 - All git commits SHALL be followed by `git push` if and only if a remote exists
 - Do not push if no remote is configured
+- After every commit, automatically run `git push` to keep local and remote in sync
+- After every merge, automatically run `git push` if local commits are ahead of remote
+- Never skip pushing - the remote repository must stay synchronized with local changes
+- If push fails due to conflicts or network issues, retry once before reporting the error
+- Always push to the tracked remote branch for the current branch
+- Use `git push` (without arguments) which will push to the configured upstream branch
