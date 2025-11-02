@@ -14,13 +14,13 @@ This document assesses the completeness of the PowerPC VLE (Variable-Length Enco
 
 | Category | Status | Completion % | Notes |
 |----------|--------|--------------|-------|
-| 16-bit Instruction Definitions | ✅ Complete | ~95% | Most instructions defined, some edge cases may be missing |
-| 32-bit Instruction Definitions (e_ prefix) | ⚠️ Partial | ~60% | Framework in place, many instructions referenced but not explicitly defined |
-| Instruction Encoding/Decoding | ✅ Complete | ~90% | Core infrastructure complete per [VLEPEM Chapter 2.1](https://www.nxp.com/docs/en/reference-manual/VLEPEM.pdf#page=2-1) |
-| Assembler Parser | 🚧 In Progress | ~40% | Basic support, needs refinement |
-| Disassembler | ✅ Complete | ~85% | Core instructions supported |
-| Instruction Selection | 🚧 In Progress | ~30% | Basic patterns exist, optimization heuristics needed |
-| Code Size Optimization | ❌ Not Started | ~0% | Critical feature for VLE (20-30% reduction expected) |
+| 16-bit Instruction Definitions | ✅ Complete | (95%, 4h) | Most instructions defined, some edge cases may be missing |
+| 32-bit Instruction Definitions (e_ prefix) | ⚠️ Partial | (60%, 32h) | Framework in place, many instructions referenced but not explicitly defined |
+| Instruction Encoding/Decoding | ✅ Complete | (90%, 4h) | Core infrastructure complete per [VLEPEM Chapter 2.1](https://www.nxp.com/docs/en/reference-manual/VLEPEM.pdf#page=2-1) |
+| Assembler Parser | 🚧 In Progress | (40%, 30h) | Basic support, needs refinement |
+| Disassembler | ✅ Complete | (85%, 8h) | Core instructions supported |
+| Instruction Selection | 🚧 In Progress | (30%, 56h) | Basic patterns exist, optimization heuristics needed |
+| Code Size Optimization | ❌ Not Started | (0%, 56h) | Critical feature for VLE (20-30% reduction expected) |
 
 ## Detailed Assessment by VLEPEM Chapter
 
@@ -161,7 +161,7 @@ According to VLEPEM Table B-3, 32-bit VLE instructions map to standard PowerPC i
 
 ### 2. Assembler Parser (VLEPEM Chapter 3)
 
-**Status: 🚧 In Progress (~40%)**
+**Status: 🚧 In Progress (40%, 30h)**
 
 **Missing Features:**
 - Full validation of immediate operand ranges for 16-bit instructions
@@ -172,7 +172,7 @@ According to VLEPEM Table B-3, 32-bit VLE instructions map to standard PowerPC i
 
 ### 3. Instruction Selection Optimization
 
-**Status: 🚧 In Progress (~30%)**
+**Status: 🚧 In Progress (30%, 56h)**
 
 **Critical Missing Feature:** Code size optimization heuristics that prefer 16-bit VLE instructions when possible.
 
@@ -205,17 +205,41 @@ According to VLEPEM, different e200 core variants support different features:
 
 ### 5. Exception Handling
 
-**Status: ❓ Unknown**
+**Status: ✅ Partial - Utilities Implemented, Usage Documentation Provided**
 
 VLEPEM Section 2.1.2.1 (p.2-2) describes misaligned, mismatched, and byte-ordering instruction storage exceptions.
 
 VLEPEM Section 2.1.2.2 (p.2-3) describes VLE exception syndrome bits.
 
-**Need to Verify:** Exception handling for variable-length instructions is properly implemented.
+**Implementation Status:**
+
+1. **Exception Syndrome Bits Handling** (VLEPEM Section 2.1.2.2):
+   - ✅ Utility functions implemented in `PPCVLEUtils.h` namespace `VLEExceptionSyndrome`
+   - ✅ Functions to extract instruction length from syndrome bits
+   - ✅ Functions to detect misaligned exceptions
+   - ✅ Test cases added in `VLEUtilsTest.cpp`
+   - ⚠️ **Note**: Exception handlers are typically user-written code or runtime library code, not compiler-generated. The utilities are provided for exception handler implementers to use.
+
+2. **Misaligned Instruction Exceptions** (VLEPEM Section 2.1.2.1):
+   - ✅ Utility function `VLEExceptionSyndrome::isMisalignedException()` implemented
+   - ✅ Detects misalignment for both 16-bit (2-byte alignment) and 32-bit (4-byte alignment) VLE instructions
+   - ⚠️ **Note**: Actual exception handling code is typically user-provided. Utilities facilitate correct handling.
+
+3. **Return Address Adjustment**:
+   - ✅ Utility function `adjustExceptionReturnAddress()` exists (AN4648)
+   - ✅ Alternative function `adjustExceptionReturnAddressFromSyndrome()` for syndrome-based adjustment
+   - ✅ Test cases verify correct behavior
+   - ⚠️ **Note**: Usage in exception handlers is application-specific. Handlers for IVOR1 (machine check) and other exceptions that require SRR0/MCSRR0 adjustment should use these utilities.
+
+4. **IVOR Table Setup**:
+   - ✅ Added to `crt0_ppc.S` - Initializes IVPR register if `__IVPR_VALUE` symbol is defined
+   - ✅ Already present in `crt0_ppc.c` - C version also initializes IVPR
 
 **Reference:** 
 - VLEPEM Section 2.1.2.1, p.2-2
 - VLEPEM Section 2.1.2.2, p.2-3
+- Implementation: `llvm/lib/Target/PowerPC/MCTargetDesc/PPCVLEUtils.h`
+- Tests: `llvm/unittests/Target/PowerPC/VLEUtilsTest.cpp`
 
 ### 6. Toolchain Integration
 
@@ -233,11 +257,11 @@ According to VLEPEM, VLE is designed for embedded systems. Current toolchain sup
 
 ### VLEPEM Table B-3 Compliance
 
-**16-bit Instructions:** ~95% compliant
+**16-bit Instructions:** (95%, 4h) compliant
 - All major instruction forms defined
 - Some edge cases or rarely-used instructions may be missing
 
-**32-bit Instructions:** ~60% compliant
+**32-bit Instructions:** (60%, 32h) compliant
 - Framework exists for mapping to standard PowerPC
 - Many instructions explicitly defined
 - Some instruction variants likely missing (indexed forms, byte-reversed, etc.)
@@ -286,7 +310,7 @@ The LLVM VLE implementation is **substantially complete** for the core instructi
 
 **For Production Use:** The implementation is suitable for basic VLE code generation, but will not achieve the full 20-30% code size reduction promised in VLEPEM without instruction selection optimization.
 
-**For Full VLEPEM Compliance:** Estimated 60-70% complete. Remaining work focuses on optimization, toolchain integration, and edge cases rather than core instruction support.
+**For Full VLEPEM Compliance:** (65%, 180h). Remaining work focuses on optimization, toolchain integration, and edge cases rather than core instruction support.
 
 ---
 

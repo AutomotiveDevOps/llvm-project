@@ -45,6 +45,19 @@ _start:
 1:
     mr      %r1, %r3    // Copy to stack pointer register
     
+    // Step 1.5: Initialize IVPR (Interrupt Vector Prefix Register) for e200 cores
+    // IVPR points to the base of the IVOR table (.core_exceptions_table)
+    // This must be set before any interrupts can be serviced
+    // The linker script provides __IVPR_VALUE symbol at the base of the IVOR table
+    .extern __IVPR_VALUE
+    .weak __IVPR_VALUE
+    lis     %r3, __IVPR_VALUE@h
+    ori     %r3, %r3, __IVPR_VALUE@l
+    cmpwi   %r3, 0
+    beq     init_ivpr_done              // Skip if __IVPR_VALUE is not defined
+    mtspr   63, %r3                     // SPR 63 is IVPR (Interrupt Vector Prefix Register)
+init_ivpr_done:
+    
     // Step 2: Copy .data section from Flash to RAM
     // Linker provides these symbols:
     // __data_load__ = Load address (in Flash)

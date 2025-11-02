@@ -460,27 +460,27 @@ Create test cases for:
 
 ### Estimated Effort
 
-1. **Clang Attribute Support**: 2-3 days
+1. **Clang Attribute Support**: (0%, 20h)
    - Attribute definition and parsing
    - Validation logic
    - Documentation
 
-2. **LLVM Backend Support**: 3-4 days
+2. **LLVM Backend Support**: (0%, 28h)
    - Register save list definitions
    - Frame lowering modifications
    - Instruction selection validation
    - Return instruction generation
 
-3. **Startup Code**: 1-2 days
+3. **Startup Code**: (0%, 12h)
    - IVOR table initialization
    - Helper functions
 
-4. **Testing**: 2-3 days
+4. **Testing**: (0%, 20h)
    - Unit tests
    - Code generation tests
    - Integration tests
 
-**Total**: ~8-12 days of development work
+**Total**: (0%, 80h)
 
 ---
 

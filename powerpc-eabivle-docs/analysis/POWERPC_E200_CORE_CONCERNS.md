@@ -8,7 +8,7 @@ This document identifies three critical areas of concern in the PowerPC e200 cor
 
 ## Area 1: Incomplete VLE Code Size Optimization
 
-**Status**: ~30-50% Complete (Partial Implementation Exists)  
+**Status**: (35%, 56h) - Partial Implementation Exists  
 **Priority**: HIGH  
 **Impact**: Core value proposition of VLE (20-30% code size reduction) not fully realized
 
@@ -80,7 +80,7 @@ The VLE (Variable Length Encoding) extension's primary benefit is 20-30% code si
 
 - **Code References**:
   - `PPCInstrVLE.td:1755-1756` - TODO comments: "Add predicates for checking immediate ranges fit in 6 bits", "Implement instruction selection optimization passes"
-  - `VLEPEM_IMPLEMENTATION_ASSESSMENT.md:175-188` - Status marked as "In Progress (~30%)"
+  - `VLEPEM_IMPLEMENTATION_ASSESSMENT.md:175-188` - Status marked as "In Progress (30%, 56h)"
   - `CODE_SIZE_OPTIMIZATION_REQUIREMENTS.md` - Detailed requirements showing gaps
 
 - **Status Documentation Conflicts**:

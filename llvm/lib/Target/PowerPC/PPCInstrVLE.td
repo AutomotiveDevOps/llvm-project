@@ -1752,8 +1752,8 @@ def : InstAlias<"mtcr $rA", (MTCRF 255, gprc:$rA), 0>,
 // in the smaller ranges. Instruction selection will need additional C++
 // support to fully optimize for code size.
 
-// TODO: Add predicates for checking immediate ranges fit in 6 bits
-// TODO: Implement instruction selection optimization passes
+// TODO (8h): Add predicates for checking immediate ranges fit in 6 bits - part of instruction selection optimization (30%, 56h)
+// TODO (48h): Implement instruction selection optimization passes - accurate cost model, pattern prioritization, register hints (30%, 56h)
 // TODO: Add more branch condition mnemonics with link register update (bcl, etc.)
 // TODO: Add trap instruction simplified mnemonics (VLEPIM Appendix A.7)
 // TODO: Add Move to Condition Register (mtcr) simplified mnemonic when implemented

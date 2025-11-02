@@ -115,5 +115,50 @@ TEST_F(VLEUtilsTest, TestEdgeCases) {
   EXPECT_FALSE(isVLE32BitInstruction(BothOne)); // Need exactly 0x1000 pattern
 }
 
+// Test VLE exception syndrome utilities (VLEPEM Section 2.1.2.2)
+TEST_F(VLEUtilsTest, TestExceptionSyndromeBits) {
+  using namespace VLEExceptionSyndrome;
+
+  // Test syndrome bits indicating 16-bit instruction
+  // Assume bit 0 indicates length: 0 = 16-bit, 1 = 32-bit
+  uint32_t Syndrome16Bit = 0x0U;  // Length bit = 0
+  uint32_t LengthMask = 0x1U;      // Bit 0 indicates length
+
+  EXPECT_FALSE(isInstruction32BitFromSyndrome(Syndrome16Bit, LengthMask));
+  EXPECT_EQ(getInstructionLengthFromSyndrome(Syndrome16Bit, LengthMask), 2U);
+
+  // Test syndrome bits indicating 32-bit instruction
+  uint32_t Syndrome32Bit = 0x1U;  // Length bit = 1
+  EXPECT_TRUE(isInstruction32BitFromSyndrome(Syndrome32Bit, LengthMask));
+  EXPECT_EQ(getInstructionLengthFromSyndrome(Syndrome32Bit, LengthMask), 4U);
+
+  // Test misaligned exception detection
+  // 16-bit instruction at odd address (should be 2-byte aligned)
+  uint64_t Misaligned16Addr = 0x1001U;  // Not 2-byte aligned
+  EXPECT_TRUE(isMisalignedException(Misaligned16Addr, Syndrome16Bit, LengthMask));
+
+  // 16-bit instruction at aligned address
+  uint64_t Aligned16Addr = 0x1000U;  // 2-byte aligned
+  EXPECT_FALSE(isMisalignedException(Aligned16Addr, Syndrome16Bit, LengthMask));
+
+  // 32-bit instruction at 2-byte but not 4-byte aligned address
+  uint64_t Misaligned32Addr = 0x1002U;  // 2-byte aligned but not 4-byte aligned
+  EXPECT_TRUE(isMisalignedException(Misaligned32Addr, Syndrome32Bit, LengthMask));
+
+  // 32-bit instruction at 4-byte aligned address
+  uint64_t Aligned32Addr = 0x1000U;  // 4-byte aligned
+  EXPECT_FALSE(isMisalignedException(Aligned32Addr, Syndrome32Bit, LengthMask));
+
+  // Test return address adjustment using syndrome bits
+  uint64_t ReturnAddr = 0x2000U;
+  uint64_t Adjusted16 = adjustExceptionReturnAddressFromSyndrome(
+      ReturnAddr, Syndrome16Bit, LengthMask);
+  EXPECT_EQ(Adjusted16, 0x2002U);
+
+  uint64_t Adjusted32 = adjustExceptionReturnAddressFromSyndrome(
+      ReturnAddr, Syndrome32Bit, LengthMask);
+  EXPECT_EQ(Adjusted32, 0x2004U);
+}
+
 } // end anonymous namespace
 

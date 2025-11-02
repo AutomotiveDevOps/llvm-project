@@ -127,6 +127,82 @@ inline uint64_t adjustExceptionReturnAddress(uint64_t ReturnAddress,
   return ReturnAddress + Length;
 }
 
+/// Exception syndrome bits for VLE exceptions (VLEPEM Section 2.1.2.2)
+/// 
+/// For e200 cores, certain exception types provide syndrome information
+/// in special registers (e.g., ESR - Exception Syndrome Register) that
+/// indicate VLE-specific instruction encoding details.
+namespace VLEExceptionSyndrome {
+  /// Extract instruction length indication from exception syndrome bits
+  ///
+  /// VLEPEM Section 2.1.2.2 describes exception syndrome bits that indicate
+  /// whether the instruction that caused an exception was a VLE 16-bit or
+  /// 32-bit instruction. This information is typically available in ESR
+  /// (Exception Syndrome Register) or similar exception status registers.
+  ///
+  /// Note: The exact bit positions and register names vary by e200 core variant.
+  /// Consult the specific e200 Core Reference Manual for details.
+  ///
+  /// \param SyndromeBits The exception syndrome register value
+  /// \param SyndromeLengthBitMask Bit mask for the instruction length bit(s)
+  ///                              (e.g., 0x1 for a single bit indicating length)
+  /// \returns true if syndrome indicates 32-bit instruction, false for 16-bit
+  inline bool isInstruction32BitFromSyndrome(uint32_t SyndromeBits,
+                                             uint32_t SyndromeLengthBitMask) {
+    // Extract and check the instruction length bit(s) from syndrome
+    // Typically, bit = 0 means 16-bit, bit = 1 means 32-bit
+    // The exact interpretation depends on the core variant
+    return (SyndromeBits & SyndromeLengthBitMask) != 0;
+  }
+
+  /// Get instruction length in bytes from exception syndrome
+  ///
+  /// \param SyndromeBits The exception syndrome register value
+  /// \param SyndromeLengthBitMask Bit mask for the instruction length bit(s)
+  /// \returns Instruction length in bytes (2 for VLE16, 4 for VLE32)
+  inline unsigned getInstructionLengthFromSyndrome(uint32_t SyndromeBits,
+                                                    uint32_t SyndromeLengthBitMask) {
+    return isInstruction32BitFromSyndrome(SyndromeBits, SyndromeLengthBitMask) ? 4 : 2;
+  }
+
+  /// Check if exception indicates misaligned instruction
+  ///
+  /// VLEPEM Section 2.1.2.1 describes misaligned instruction exceptions.
+  /// VLE instructions can be 16-bit (2-byte aligned) or 32-bit (4-byte aligned).
+  /// This function checks if an exception address indicates a misalignment.
+  ///
+  /// \param ExceptionAddress The exception address (from SRR0/MCSRR0)
+  /// \param SyndromeBits The exception syndrome register value
+  /// \param SyndromeLengthBitMask Bit mask for instruction length in syndrome
+  /// \returns true if the address is misaligned for the instruction type
+  inline bool isMisalignedException(uint64_t ExceptionAddress,
+                                     uint32_t SyndromeBits,
+                                     uint32_t SyndromeLengthBitMask) {
+    bool Is32Bit = isInstruction32BitFromSyndrome(SyndromeBits, SyndromeLengthBitMask);
+    unsigned Alignment = Is32Bit ? 4 : 2;
+    return (ExceptionAddress % Alignment) != 0;
+  }
+
+  /// Adjust exception return address using syndrome bits
+  ///
+  /// This is an alternative to adjustExceptionReturnAddress() that uses
+  /// syndrome bits directly instead of decoding the instruction word.
+  /// Useful when the instruction word is not available or when syndrome
+  /// bits provide the authoritative length indication.
+  ///
+  /// \param ReturnAddress The address stored in SRR0/MCSRR0 by the hardware
+  /// \param SyndromeBits The exception syndrome register value
+  /// \param SyndromeLengthBitMask Bit mask for instruction length in syndrome
+  /// \returns The adjusted return address
+  inline uint64_t adjustExceptionReturnAddressFromSyndrome(
+      uint64_t ReturnAddress,
+      uint32_t SyndromeBits,
+      uint32_t SyndromeLengthBitMask) {
+    unsigned Length = getInstructionLengthFromSyndrome(SyndromeBits, SyndromeLengthBitMask);
+    return ReturnAddress + Length;
+  }
+} // end namespace VLEExceptionSyndrome
+
 } // end namespace PPC
 } // end namespace llvm
 

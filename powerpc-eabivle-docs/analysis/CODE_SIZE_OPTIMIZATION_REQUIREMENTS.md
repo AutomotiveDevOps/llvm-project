@@ -2,7 +2,7 @@
 
 ## Current Status
 
-**Status**: 🚧 ~30% Complete  
+**Status**: 🚧 (30%, 56h)  
 **Goal**: Achieve 20-30% code size reduction promised by VLE specification
 
 ### What Exists

@@ -62,7 +62,7 @@ This document identifies multiple areas where the PowerPC eabi-none baremetal im
 
 ## 3. Code Size Optimization Heuristics
 
-**Status**: 🚧 In Progress (~30%)  
+**Status**: 🚧 In Progress (30%, 56h)  
 **Priority**: HIGH  
 **Impact**: Core value proposition of VLE (20-30% code size reduction)
 
@@ -111,25 +111,44 @@ This document identifies multiple areas where the PowerPC eabi-none baremetal im
 
 ## 5. Exception Handling and VLE Exception Syndrome
 
-**Status**: ❓ Unknown/Incomplete  
+**Status**: ✅ Partial - Utilities Implemented  
 **Priority**: MEDIUM  
 **Impact**: Correctness for VLE instruction exceptions
 
-### Issues
-- Exception handling for VLE misaligned instructions needs verification
-- VLE exception syndrome bits (VLEPEM Section 2.1.2.2) may not be properly handled
-- Exception vectors may not account for VLE-specific exceptions
-- No documentation on how VLE exceptions differ from standard PowerPC exceptions
+### Implementation Status
 
-### Recommended Improvements
-- Verify exception handling for variable-length instruction decode failures
-- Implement proper VLE exception syndrome bit handling
-- Add tests for VLE-specific exceptions (misaligned, byte-ordering)
-- Document exception handling behavior in VLE mode
-- Ensure interrupt vector table accounts for VLE exceptions
+1. **Exception Syndrome Bits Handling** (VLEPEM Section 2.1.2.2):
+   - ✅ Implemented utility functions in `PPCVLEUtils.h::VLEExceptionSyndrome` namespace
+   - ✅ Functions to extract instruction length from syndrome bits (ESR register)
+   - ✅ Functions to detect misaligned instruction exceptions
+   - ✅ Test cases added in `VLEUtilsTest.cpp`
+
+2. **Misaligned Instruction Exceptions** (VLEPEM Section 2.1.2.1):
+   - ✅ Utility function `isMisalignedException()` implemented
+   - ✅ Handles both 16-bit (2-byte alignment) and 32-bit (4-byte alignment) cases
+   - ✅ Test cases verify correct detection
+
+3. **Return Address Adjustment**:
+   - ✅ Utility function `adjustExceptionReturnAddress()` available (AN4648)
+   - ✅ Alternative `adjustExceptionReturnAddressFromSyndrome()` for syndrome-based adjustment
+   - ✅ Test cases verify correct behavior
+   - ⚠️ **Note**: Exception handlers are typically user-written code. These utilities are provided for exception handler implementers.
+
+4. **IVOR Table Setup**:
+   - ✅ Added IVPR initialization to `crt0_ppc.S` (assembly version)
+   - ✅ Already present in `crt0_ppc.c` (C version)
+   - ✅ Initializes IVPR register from `__IVPR_VALUE` symbol if available
+
+### Remaining Work
+
+- Document best practices for using VLE exception utilities in user exception handlers
+- Provide example exception handler code demonstrating proper use of utilities
+- Note: Exception handlers are typically application-specific code, not compiler-generated
 
 **Reference Files**:
-- `../implementation/VLEPEM_IMPLEMENTATION_ASSESSMENT.md` (lines 206-218) - Notes unknown status
+- Implementation: `llvm/lib/Target/PowerPC/MCTargetDesc/PPCVLEUtils.h`
+- Tests: `llvm/unittests/Target/PowerPC/VLEUtilsTest.cpp`
+- Startup: `compiler-rt/lib/crt/crt0_ppc.S`, `compiler-rt/lib/crt/crt0_ppc.c`
 
 ---
 

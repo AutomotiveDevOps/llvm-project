@@ -1,0 +1,275 @@
+# Test file for PPCVLEOpt pass (Post-RA VLE optimization)
+# This tests the pass in isolation after register allocation
+# 
+# The pass converts standard PowerPC instructions to VLE when:
+# - Registers are in range R0-R7 (16-bit VLE)
+# - Immediate values fit in VLE constraints
+#
+# RUN: llc -run-pass=ppc-vle-opt -mtriple=powerpc-none-eabivle -mcpu=e200z4 -mvle \
+# RUN:     -verify-machineinstrs %s -o - | FileCheck %s
+# 
+# Test that the pass correctly identifies and converts instructions
+
+---
+name:            test_vle_load_eligible
+# Test case: Load with R0-R7 registers and small displacement -> should convert to SE_LBZ
+alignment:       4
+exposesReturnsTwice: false
+legalized:       true
+regBankSelected: true
+selected:        true
+tracksRegLiveness: true
+liveins:         
+  - { reg: '$r3' }   # Base register R3 (in range 0-7)
+frameInfo:       
+  isFrameAddressTaken: false
+  isReturnAddressTaken: false
+  hasStackMap:     false
+  hasPatchPoint:   false
+  stackSize:       0
+  offsetAdjustment: 0
+  maxAlignment:    0
+  adjustsStack:    false
+  hasCalls:        false
+body:             |
+  bb.0.entry:
+    liveins: $r3
+  
+    ; Load byte from offset 10 (fits in u4imm: 0-15)
+    ; CHECK-LABEL: name: test_vle_load_eligible
+    ; CHECK: SE_LBZ $r4, 10, killed $r3
+    $r4 = LBZ $r3, 10, implicit-def $rm
+    BLR implicit $lr, implicit $rm, implicit $r4
+
+...
+---
+name:            test_vle_load_ineligible_reg
+# Test case: Load with R8 (out of range) -> should NOT convert
+alignment:       4
+exposesReturnsTwice: false
+legalized:       true
+regBankSelected: true
+selected:        true
+tracksRegLiveness: true
+liveins:         
+  - { reg: '$r8' }   # Base register R8 (out of range)
+frameInfo:       
+  isFrameAddressTaken: false
+  isReturnAddressTaken: false
+  hasStackMap:     false
+  hasPatchPoint:   false
+  stackSize:       0
+  offsetAdjustment: 0
+  maxAlignment:    0
+  adjustsStack:    false
+  hasCalls:        false
+body:             |
+  bb.0.entry:
+    liveins: $r8
+  
+    ; Load byte - should remain as LBZ (not SE_LBZ) because R8 is out of range
+    ; CHECK-LABEL: name: test_vle_load_ineligible_reg
+    ; CHECK: LBZ $r4, 10, killed $r8
+    ; CHECK-NOT: SE_LBZ
+    $r4 = LBZ $r8, 10, implicit-def $rm
+    BLR implicit $lr, implicit $rm, implicit $r4
+
+...
+---
+name:            test_vle_load_ineligible_imm
+# Test case: Load with R0-R7 but displacement too large -> should NOT convert
+alignment:       4
+exposesReturnsTwice: false
+legalized:       true
+regBankSelected: true
+selected:        true
+tracksRegLiveness: true
+liveins:         
+  - { reg: '$r5' }   # Base register R5 (in range)
+frameInfo:       
+  isFrameAddressTaken: false
+  isReturnAddressTaken: false
+  hasStackMap:     false
+  hasPatchPoint:   false
+  stackSize:       0
+  offsetAdjustment: 0
+  maxAlignment:    0
+  adjustsStack:    false
+  hasCalls:        false
+body:             |
+  bb.0.entry:
+    liveins: $r5
+  
+    ; Load byte from offset 20 (exceeds u4imm max of 15) -> should remain LBZ
+    ; CHECK-LABEL: name: test_vle_load_ineligible_imm
+    ; CHECK: LBZ $r4, 20, killed $r5
+    ; CHECK-NOT: SE_LBZ
+    $r4 = LBZ $r5, 20, implicit-def $rm
+    BLR implicit $lr, implicit $rm, implicit $r4
+
+...
+---
+name:            test_vle_addi_eligible
+# Test case: ADDI with R0-R7 and small immediate -> should convert to SE_ADDI
+alignment:       4
+exposesReturnsTwice: false
+legalized:       true
+regBankSelected: true
+selected:        true
+tracksRegLiveness: true
+liveins:         
+  - { reg: '$r1' }   # Source register R1 (in range)
+frameInfo:       
+  isFrameAddressTaken: false
+  isReturnAddressTaken: false
+  hasStackMap:     false
+  hasPatchPoint:   false
+  stackSize:       0
+  offsetAdjustment: 0
+  maxAlignment:    0
+  adjustsStack:    false
+  hasCalls:        false
+body:             |
+  bb.0.entry:
+    liveins: $r1
+  
+    ; ADDI with immediate 15 (fits in s6imm: -32 to 31)
+    ; CHECK-LABEL: name: test_vle_addi_eligible
+    ; CHECK: SE_ADDI $r2, killed $r1, 15
+    $r2 = ADDI $r1, 15, implicit-def $rm
+    BLR implicit $lr, implicit $rm, implicit $r2
+
+...
+---
+name:            test_vle_addi_ineligible_imm
+# Test case: ADDI with R0-R7 but immediate too large -> should NOT convert
+alignment:       4
+exposesReturnsTwice: false
+legalized:       true
+regBankSelected: true
+selected:        true
+tracksRegLiveness: true
+liveins:         
+  - { reg: '$r2' }   # Source register R2 (in range)
+frameInfo:       
+  isFrameAddressTaken: false
+  isReturnAddressTaken: false
+  hasStackMap:     false
+  hasPatchPoint:   false
+  stackSize:       0
+  offsetAdjustment: 0
+  maxAlignment:    0
+  adjustsStack:    false
+  hasCalls:        false
+body:             |
+  bb.0.entry:
+    liveins: $r2
+  
+    ; ADDI with immediate 50 (exceeds s6imm max of 31) -> should remain ADDI
+    ; CHECK-LABEL: name: test_vle_addi_ineligible_imm
+    ; CHECK: ADDI $r3, killed $r2, 50
+    ; CHECK-NOT: SE_ADDI
+    $r3 = ADDI $r2, 50, implicit-def $rm
+    BLR implicit $lr, implicit $rm, implicit $r3
+
+...
+---
+name:            test_vle_add_eligible
+# Test case: ADD with all registers in R0-R7 -> should convert to SE_ADD
+alignment:       4
+exposesReturnsTwice: false
+legalized:       true
+regBankSelected: true
+selected:        true
+tracksRegLiveness: true
+liveins:         
+  - { reg: '$r4' }
+  - { reg: '$r5' }
+frameInfo:       
+  isFrameAddressTaken: false
+  isReturnAddressTaken: false
+  hasStackMap:     false
+  hasPatchPoint:   false
+  stackSize:       0
+  offsetAdjustment: 0
+  maxAlignment:    0
+  adjustsStack:    false
+  hasCalls:        false
+body:             |
+  bb.0.entry:
+    liveins: $r4, $r5
+  
+    ; ADD with all registers in range
+    ; CHECK-LABEL: name: test_vle_add_eligible
+    ; CHECK: SE_ADD $r6, killed $r4, killed $r5
+    $r6 = ADD4 killed $r4, killed $r5, implicit-def $rm
+    BLR implicit $lr, implicit $rm, implicit $r6
+
+...
+---
+name:            test_vle_store_eligible
+# Test case: Store with R0-R7 and small displacement -> should convert to SE_STW
+alignment:       4
+exposesReturnsTwice: false
+legalized:       true
+regBankSelected: true
+selected:        true
+tracksRegLiveness: true
+liveins:         
+  - { reg: '$r3' }   # Base register
+  - { reg: '$r7' }   # Value to store
+frameInfo:       
+  isFrameAddressTaken: false
+  isReturnAddressTaken: false
+  hasStackMap:     false
+  hasPatchPoint:   false
+  stackSize:       0
+  offsetAdjustment: 0
+  maxAlignment:    0
+  adjustsStack:    false
+  hasCalls:        false
+body:             |
+  bb.0.entry:
+    liveins: $r3, $r7
+  
+    ; Store word from offset 20 (fits in u5imm: 0-31 for word)
+    ; CHECK-LABEL: name: test_vle_store_eligible
+    ; CHECK: SE_STW killed $r7, 20, killed $r3
+    STW killed $r7, $r3, 20, implicit-def $rm
+    BLR implicit $lr, implicit $rm
+
+...
+---
+name:            test_vle_cmpi_eligible
+# Test case: CMPWI with R0-R7 and small immediate -> should convert to SE_CMPI
+alignment:       4
+exposesReturnsTwice: false
+legalized:       true
+regBankSelected: true
+selected:        true
+tracksRegLiveness: true
+liveins:         
+  - { reg: '$r6' }
+frameInfo:       
+  isFrameAddressTaken: false
+  isReturnAddressTaken: false
+  hasStackMap:     false
+  hasPatchPoint:   false
+  stackSize:       0
+  offsetAdjustment: 0
+  maxAlignment:    0
+  adjustsStack:    false
+  hasCalls:        false
+body:             |
+  bb.0.entry:
+    liveins: $r6
+  
+    ; CMPWI with immediate 10 (fits in s6imm: -32 to 31)
+    ; CHECK-LABEL: name: test_vle_cmpi_eligible
+    ; CHECK: SE_CMPI killed $r6, 10
+    CMPWI $r6, 10, implicit-def $cr0
+    BLR implicit $lr, implicit $rm
+
+...
+---
+
