@@ -1035,14 +1035,34 @@ def : InstAlias<"cmpli $RX, $IMM", (SE_CMPLI crrc:$crD, gprc:$RX, u5imm_vle:$IMM
 //===----------------------------------------------------------------------===//
 // Load address is typically implemented as: addi $RD, $RA, $DISP
 // For VLE, this uses se_addi when the displacement fits in 5 bits.
-// Note: Full "la" support may require 32-bit VLE instructions (e_addi) for
-// larger displacements, which will be added with e_ prefix instructions.
+// For larger displacements, use e_addi (32-bit VLE instruction).
+// "la" mnemonic maps to ADDI with rA=0 when VLE is enabled.
+// This allows use of e_addi or se_addi depending on immediate size.
+def : InstAlias<"la $rD, $src", (ADDI gprc:$rD, ZERO, i16imm:$src), 0>,
+   Requires<[HasVLE, IsE200]>;
 
 //===----------------------------------------------------------------------===//
 // Integer Select (isel) - VLEPIM Appendix A.10.1
 //===----------------------------------------------------------------------===//
-// Integer Select instruction - will be implemented with 32-bit VLE instructions (e_isel)
-// when e_ prefix instructions are added.
+// Integer Select instruction - now implemented with e_isel (32-bit VLE instruction)
+// e_isel alias already defined above in 32-bit VLE instructions section
+// Additional simplified mnemonics for isel with conditions:
+def : InstAlias<"iseleq $rT, $rA, $rB", 
+   (ISEL gprc:$rT, gprc_nox0:$rA, gprc:$rB, CR0EQ), 0>,
+   Requires<[HasVLE, IsE200]>;
+def : InstAlias<"iselgt $rT, $rA, $rB", 
+   (ISEL gprc:$rT, gprc_nox0:$rA, gprc:$rB, CR0GT), 0>,
+   Requires<[HasVLE, IsE200]>;
+def : InstAlias<"isellt $rT, $rA, $rB", 
+   (ISEL gprc:$rT, gprc_nox0:$rA, gprc:$rB, CR0LT), 0>,
+   Requires<[HasVLE, IsE200]>;
+
+//===----------------------------------------------------------------------===//
+// Move to Condition Register (mtcr) - VLEPIM Appendix A.9.4
+//===----------------------------------------------------------------------===//
+// Move to Condition Register - maps to MTCRF with mask 255 (all CR fields)
+def : InstAlias<"mtcr $rA", (MTCRF 255, gprc:$rA), 0>,
+   Requires<[HasVLE, IsE200]>;
 
 //===----------------------------------------------------------------------===//
 // VLE Instruction Selection Patterns

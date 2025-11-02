@@ -3160,6 +3160,12 @@ on Linux and FreeBSD: it has been tested to correctly compile many
 large C and C++ codebases. PowerPC (32bit) is still missing certain
 features (e.g. PIC code on ELF platforms).
 
+Embedded PowerPC e200/VLE support is available for bare-metal targets
+(``powerpc-none-elf``, ``powerpc-none-eabivle``). VLE (Variable Length
+Encoding) provides 16-bit and 32-bit instruction formats optimized for
+code size. See :doc:`EmbeddedPowerPC` for details on embedded PowerPC
+compilation.
+
 Other platforms
 ^^^^^^^^^^^^^^^
 

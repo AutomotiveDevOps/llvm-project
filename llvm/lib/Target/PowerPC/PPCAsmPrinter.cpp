@@ -1297,6 +1297,49 @@ void PPCLinuxAsmPrinter::emitStartOfAsmFile(Module &M) {
       TS->emitAbiVersion(2);
   }
 
+  // Emit VLE note section if VLE is enabled (VLEPIM Section 2.2.1-2.2.2)
+  // The note section identifies the ELF file as containing VLE code.
+  // Reference: VLEPIM Section 2.2.1 "VLE Information Section"
+  //            VLEPIM Section 2.2.2 "VLE Identification"
+  if (Subtarget && Subtarget->hasVLE() && TM.getTargetTriple().isOSBinFormatELF()) {
+    MCSection *Cur = OutStreamer->getCurrentSectionOnly();
+    MCSection *VleNote = OutContext.getELFSection(
+        ".note.VLE", ELF::SHT_NOTE, ELF::SHF_ALLOC);
+    OutStreamer->SwitchSection(VleNote);
+
+    // VLE note format (VLEPIM Section 2.2.1, Figure 2-1):
+    // - Name size: 9 bytes ("FreeScale" + null terminator)
+    // - Description size: 4 bytes (VLE identifier value)
+    // - Type: NT_VERSION (1)
+    // - Name: "FreeScale" (null-terminated, 4-byte aligned)
+    // - Description: VLE identifier (4 bytes, 4-byte aligned)
+    
+    emitAlignment(Align(4));
+    
+    // Name size: "FreeScale\0" = 9 bytes
+    OutStreamer->emitIntValue(9, 4);
+    
+    // Description size: 4 bytes (VLE identifier)
+    OutStreamer->emitIntValue(4, 4);
+    
+    // Type: NT_VERSION (1) - VLEPIM Section 2.2.2
+    OutStreamer->emitIntValue(ELF::NT_VERSION, 4);
+    
+    // Name: "FreeScale" (VLEPIM specifies "FreeScale" vendor name)
+    OutStreamer->emitBytes(StringRef("FreeScale", 9));
+    
+    // Align name to 4 bytes
+    emitAlignment(Align(4));
+    
+    // Description: VLE identifier (VLEPIM Table 2-1)
+    // The identifier value is processor-specific. For e200 cores, use 1
+    // to indicate VLE support is present.
+    OutStreamer->emitIntValue(1, 4); // VLE identifier
+    
+    OutStreamer->endSection(VleNote);
+    OutStreamer->SwitchSection(Cur);
+  }
+
   if (static_cast<const PPCTargetMachine &>(TM).isPPC64() ||
       !isPositionIndependent())
     return AsmPrinter::emitStartOfAsmFile(M);

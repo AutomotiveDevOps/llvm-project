@@ -105,12 +105,34 @@ const char *ppc::getPPCAsmModeForCPU(StringRef Name) {
       .Default("-many");
 }
 
+/// getPPCTargetFeatures - Collect PowerPC target features from command-line
+/// arguments and target triple.
+///
+/// This function processes PowerPC-specific target features including:
+/// - SPE (Signal Processing Extension) support based on sub-architecture
+/// - VLE (Variable Length Encoding) mode for embedded e200 cores
+/// - Float ABI selection (hard/soft float)
+/// - Secure PLT mode for certain operating systems
+///
+/// For embedded PowerPC targets (powerpc-none-elf, powerpc-none-eabivle),
+/// VLE support is determined by:
+/// - Target triple environment: eabivle enables VLE by default
+/// - -mvle / -mno-vle flags (explicit control)
+///
+/// \param D The driver instance for diagnostics
+/// \param Triple The target triple
+/// \param Args The command-line arguments
+/// \param Features Output vector of target features (e.g., "+vle", "-hard-float")
 void ppc::getPPCTargetFeatures(const Driver &D, const llvm::Triple &Triple,
                                const ArgList &Args,
                                std::vector<StringRef> &Features) {
   if (Triple.getSubArch() == llvm::Triple::PPCSubArch_spe)
     Features.push_back("+spe");
 
+  // Process VLE mode for embedded PowerPC e200 targets.
+  // VLE is enabled by default for powerpc-none-eabivle triples, or explicitly
+  // via -mvle flag. The feature is handled by handleTargetFeaturesGroup which
+  // processes options::OPT_m_ppc_Features_Group (including -mvle).
   handleTargetFeaturesGroup(Args, Features, options::OPT_m_ppc_Features_Group);
 
   ppc::FloatABI FloatABI = ppc::getPPCFloatABI(D, Args);

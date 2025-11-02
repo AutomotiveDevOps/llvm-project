@@ -23,6 +23,7 @@ Using Clang as a Compiler
    AttributeReference
    DiagnosticsReference
    CrossCompilation
+   EmbeddedPowerPC
    ClangStaticAnalyzer
    ThreadSafetyAnalysis
    AddressSanitizer

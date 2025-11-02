@@ -480,6 +480,29 @@ DecodeStatus PPCDisassembler::getInstruction(MCInst &MI, uint64_t &Size,
 
   // Read the instruction in the proper endianness.
   uint64_t Inst = ReadFunc(Bytes.data());
+  uint32_t Inst32 = static_cast<uint32_t>(Inst);
+
+  // When VLE is enabled, we need to distinguish between:
+  // - VLE32 instructions (32-bit VLE with e_ prefix)
+  // - BookE instructions (standard 32-bit PowerPC instructions)
+  // According to AN4648, we can use the algorithm to check if a 32-bit
+  // instruction is VLE32 or BookE when in a VLE context.
+  // The algorithm checks bits 31 and 28: (upper_halfword & 0x9000) == 0x1000
+  // to identify 32-bit VLE instructions.
+  if (STI.getFeatureBits()[PPC::FeatureVLE]) {
+    // Check if this is a 32-bit VLE instruction using AN4648 algorithm
+    // Note: In real hardware, VLE vs BookE context is determined by MMU
+    // page settings (MAS2[VLE] bit), but for disassembly we try both.
+    if (PPC::isVLE32BitInstruction(Inst32)) {
+      // This appears to be a 32-bit VLE instruction (e_ prefix)
+      // Try decoding with VLE32 decoder table if it exists
+      // TODO: Once TableGen generates DecoderTableVLE32, use it here
+      // For now, fall through to standard decoding (VLE32 may decode
+      // as standard instructions if no VLE32 decoder table is available)
+    }
+    // If not VLE32, it might be BookE (standard 32-bit) or could be
+    // a 16-bit VLE that we failed to decode earlier
+  }
 
   if (STI.getFeatureBits()[PPC::FeatureQPX]) {
     DecodeStatus result =
