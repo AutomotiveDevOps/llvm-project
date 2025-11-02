@@ -40,6 +40,16 @@ def DirectiveE500mc : SubtargetFeature<"", "CPUDirective",
                                        "PPC::DIR_E500mc", "">;
 def DirectiveE5500  : SubtargetFeature<"", "CPUDirective",
                                        "PPC::DIR_E5500", "">;
+def DirectiveE200Z0  : SubtargetFeature<"", "CPUDirective",
+                                       "PPC::DIR_E200Z0", "">;
+def DirectiveE200Z3  : SubtargetFeature<"", "CPUDirective",
+                                       "PPC::DIR_E200Z3", "">;
+def DirectiveE200Z4  : SubtargetFeature<"", "CPUDirective",
+                                       "PPC::DIR_E200Z4", "">;
+def DirectiveE200Z6  : SubtargetFeature<"", "CPUDirective",
+                                       "PPC::DIR_E200Z6", "">;
+def DirectiveE200Z7  : SubtargetFeature<"", "CPUDirective",
+                                       "PPC::DIR_E200Z7", "">;
 def DirectivePwr3: SubtargetFeature<"", "CPUDirective", "PPC::DIR_PWR3", "">;
 def DirectivePwr4: SubtargetFeature<"", "CPUDirective", "PPC::DIR_PWR4", "">;
 def DirectivePwr5: SubtargetFeature<"", "CPUDirective", "PPC::DIR_PWR5", "">;
@@ -72,6 +82,8 @@ def FeatureAltivec   : SubtargetFeature<"altivec","HasAltivec", "true",
 def FeatureSPE       : SubtargetFeature<"spe","HasSPE", "true",
                                         "Enable SPE instructions",
                                         [FeatureHardFloat]>;
+def FeatureVLE       : SubtargetFeature<"vle","HasVLE", "true",
+                                        "Enable VLE (Variable Length Encoding) instructions">;
 def FeatureMFOCRF    : SubtargetFeature<"mfocrf","HasMFOCRF", "true",
                                         "Enable the MFOCRF instruction">;
 def FeatureFSqrt     : SubtargetFeature<"fsqrt","HasFSQRT", "true",
@@ -126,6 +138,8 @@ def FeatureMSYNC     : SubtargetFeature<"msync", "HasOnlyMSYNC", "true",
                               [FeatureBookE]>;
 def FeatureE500      : SubtargetFeature<"e500", "IsE500", "true",
                                         "Enable E500/E500mc instructions">;
+def FeatureE200      : SubtargetFeature<"e200", "IsE200", "true",
+                                        "Enable e200 instructions">;
 def FeatureSecurePlt : SubtargetFeature<"secure-plt","SecurePlt", "true",
                                         "Enable secure plt mode">;
 def FeaturePPC4xx    : SubtargetFeature<"ppc4xx", "IsPPC4xx", "true",
@@ -501,6 +515,21 @@ def : ProcessorModel<"e5500", PPCE5500Model,
                   [DirectiveE5500, FeatureMFOCRF, Feature64Bit,
                    FeatureSTFIWX, FeatureICBT, FeatureBookE,
                    FeatureISEL, FeatureMFTB]>;
+def : ProcessorModel<"e200z0", PPCE200Z0Model,
+                  [DirectiveE200Z0,
+                   FeatureICBT, FeatureBookE,
+                   FeatureISEL, FeatureMFTB, FeatureE200,
+                   FeatureVLE]>;
+def : ProcessorModel<"e200z4", PPCE200Z4Model,
+                  [DirectiveE200Z4,
+                   FeatureICBT, FeatureBookE,
+                   FeatureISEL, FeatureMFTB, FeatureE200,
+                   FeatureSPE, FeatureFPU, FeatureVLE]>;
+def : ProcessorModel<"e200z6", PPCE200Z6Model,
+                  [DirectiveE200Z6,
+                   FeatureICBT, FeatureBookE,
+                   FeatureISEL, FeatureMFTB, FeatureE200,
+                   FeatureFPU, FeatureVLE]>;
 def : ProcessorModel<"a2", PPCA2Model,
                   [DirectiveA2, FeatureICBT, FeatureBookE, FeatureMFOCRF,
                    FeatureFCPSGN, FeatureFSqrt, FeatureFRE, FeatureFRES,

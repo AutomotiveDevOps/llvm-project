@@ -60,6 +60,8 @@ bool PPCTargetInfo::handleTargetFeatures(std::vector<std::string> &Features,
       HasSPE = true;
       LongDoubleWidth = LongDoubleAlign = 64;
       LongDoubleFormat = &llvm::APFloat::IEEEdouble();
+    } else if (Feature == "+vle") {
+      HasVLE = true;
     } else if (Feature == "-hard-float") {
       FloatABI = SoftFloat;
     }
@@ -494,7 +496,8 @@ static constexpr llvm::StringLiteral ValidCPUNames[] = {
     {"620"},         {"630"},     {"g3"},      {"7400"},      {"g4"},
     {"7450"},        {"g4+"},     {"750"},     {"8548"},      {"970"},
     {"g5"},          {"a2"},      {"a2q"},     {"e500"},      {"e500mc"},
-    {"e5500"},       {"power3"},  {"pwr3"},    {"power4"},    {"pwr4"},
+    {"e5500"},       {"e200z0"},  {"e200z4"}, {"e200z6"},    {"power3"},
+    {"pwr3"},        {"power4"},  {"pwr4"},
     {"power5"},      {"pwr5"},    {"power5x"}, {"pwr5x"},     {"power6"},
     {"pwr6"},        {"power6x"}, {"pwr6x"},   {"power7"},    {"pwr7"},
     {"power8"},      {"pwr8"},    {"power9"},  {"pwr9"},      {"power10"},

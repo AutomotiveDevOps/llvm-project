@@ -101,6 +101,8 @@ void PPCSubtarget::initializeEnvironment() {
   IsPPC4xx = false;
   IsPPC6xx = false;
   IsE500 = false;
+  IsE200 = false;
+  HasVLE = false;
   FeatureMFTB = false;
   AllowsUnalignedFPAccess = false;
   DeprecatedDST = false;

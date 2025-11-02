@@ -48,6 +48,11 @@ enum {
   DIR_E500,
   DIR_E500mc,
   DIR_E5500,
+  DIR_E200Z0,
+  DIR_E200Z3,
+  DIR_E200Z4,
+  DIR_E200Z6,
+  DIR_E200Z7,
   DIR_PWR3,
   DIR_PWR4,
   DIR_PWR5,
@@ -123,6 +128,8 @@ protected:
   bool IsBookE;
   bool HasOnlyMSYNC;
   bool IsE500;
+  bool IsE200;
+  bool HasVLE;
   bool IsPPC4xx;
   bool IsPPC6xx;
   bool FeatureMFTB;
@@ -277,6 +284,8 @@ public:
   bool isSecurePlt() const {return SecurePlt; }
   bool vectorsUseTwoUnits() const {return VectorsUseTwoUnits; }
   bool isE500() const { return IsE500; }
+  bool isE200() const { return IsE200; }
+  bool hasVLE() const { return HasVLE; }
   bool isFeatureMFTB() const { return FeatureMFTB; }
   bool allowsUnalignedFPAccess() const { return AllowsUnalignedFPAccess; }
   bool isDeprecatedDST() const { return DeprecatedDST; }

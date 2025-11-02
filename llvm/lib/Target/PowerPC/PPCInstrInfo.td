@@ -3406,6 +3406,7 @@ include "PPCInstr64Bit.td"
 include "PPCInstrVSX.td"
 include "PPCInstrQPX.td"
 include "PPCInstrHTM.td"
+include "PPCInstrVLE.td"
 
 def crnot : OutPatFrag<(ops node:$in),
                        (CRNOR $in, $in)>;

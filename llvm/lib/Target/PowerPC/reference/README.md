@@ -5,11 +5,23 @@ This directory contains reference documentation for PowerPC e200 cores and VLE (
 ## Required Documentation
 
 ### PowerPC Book E Specification
-- **Status**: ⚠️ NOT FOUND - Needs to be obtained
+- **Status**: ✅ DOWNLOADED - Available in reference directory
+- **URL**: https://www.nxp.com/docs/en/user-guide/BOOK_EUM.pdf
+- **File**: `PowerPC_BookE_Enhanced_PowerPC_Architecture.pdf` (9.5M, 452 pages)
 - **Purpose**: Architectural specification for Book E, including VLE appendix
-- **Location**: Should be placed here once obtained
+- **Source**: IBM/NXP (Enhanced PowerPC Architecture, Version 1.0, May 7, 2002)
+- **Location**: `/projects/llvm-project/llvm/lib/Target/PowerPC/reference/PowerPC_BookE_Enhanced_PowerPC_Architecture.pdf`
 - **Usage**: Primary reference for VLE instruction encoding and architectural details
 - **Priority**: HIGH - Required for VLE implementation
+- **Contents**:
+  - Book E architecture overview
+  - Processor control
+  - Branch and condition register operations
+  - Integer operations
+  - Floating-point operations
+  - Storage instructions
+  - Memory management
+  - Instruction encoding details
 
 ### VLE Programming Interface Manual (VLEPIM)
 - **Status**: ✅ DOWNLOADED - Available in reference directory
@@ -54,10 +66,32 @@ This directory contains reference documentation for PowerPC e200 cores and VLE (
   - Nexus 2+ Module
 - **Priority**: MEDIUM - Needed for scheduling refinement
 
+#### e200z3 Core Reference Manual
+- **Status**: ✅ DOWNLOADED - Available in reference directory
+- **URL**: https://www.elektronikjk.com/elementy_czynne/IC/E200Z3.pdf
+- **File**: `E200Z3_Core_Reference_Manual.pdf` (5.1M, 442 pages)
+- **Purpose**: Pipeline details, instruction timing
+- **Source**: Freescale/NXP
+- **Location**: `/projects/llvm-project/llvm/lib/Target/PowerPC/reference/E200Z3_Core_Reference_Manual.pdf`
+- **Priority**: LOW - TODO processor (not currently targeted)
+
 #### e200z4 Core Reference Manual
-- **Status**: ⚠️ NOT FOUND - Needs to be obtained
+- **Status**: ✅ DOWNLOADED - Available in reference directory
+- **URL**: https://www.elektronikjk.com/elementy_czynne/IC/E200Z4.pdf
+- **File**: `E200Z4_Core_Reference_Manual.pdf` (7.8M, 866 pages)
 - **Purpose**: 5-stage dual-issue pipeline, SPE, FPU timing
-- **Source**: NXP/Freescale
+- **Source**: Freescale (e200z4RM Rev. 0 10/2009)
+- **Location**: `/projects/llvm-project/llvm/lib/Target/PowerPC/reference/E200Z4_Core_Reference_Manual.pdf`
+- **Contents**:
+  - e200z4 Core Complex Overview
+  - Register Model
+  - Instruction Model (including VLE)
+  - Instruction Pipeline and Execution Timing
+  - Interrupts and Exceptions
+  - L1 Cache Features
+  - Memory Management Unit
+  - SPE (Signal Processing Extension) details
+  - FPU timing and features
 - **Priority**: MEDIUM - Needed for scheduling refinement
 
 #### e200z6 Core Reference Manual
@@ -72,10 +106,10 @@ This directory contains reference documentation for PowerPC e200 cores and VLE (
 ## Implementation Notes
 
 ### e200 Core Variants
-- **e200z0**: 4-stage pipeline, VLE-focused, minimal features (no MMU/cache/FPU)
-- **e200z4**: 5-stage **dual-issue** pipeline, SPE, FPU, I-cache, VLE support
-- **e200z6**: 7-stage **single-issue** pipeline, FPU, unified 32KB L1 cache, 32-entry MMU, VLE support
-- **e200z3**: TODO - Future support
+- **e200z0**: 4-stage pipeline, VLE-focused, minimal features (no MMU/cache/FPU) ✅ Manual available
+- **e200z3**: TODO - Future support ✅ Manual available (442 pages)
+- **e200z4**: 5-stage **dual-issue** pipeline, SPE, FPU, I-cache, VLE support ✅ Manual available (866 pages)
+- **e200z6**: 7-stage **single-issue** pipeline, FPU, unified 32KB L1 cache, 32-entry MMU, VLE support ✅ Manual available (428 pages)
 - **e200z7**: TODO - Future support
 
 **Important**: e200z6 scheduling model needs correction - it's single-issue, not dual-issue.
