@@ -22,14 +22,19 @@ add_llvm_target(PowerPCCodeGen
   PPCCallingConv.cpp
   PPCCCState.cpp
   PPCCTRLoops.cpp
+  PPCCTRLoopsVerify.cpp
+  PPCEarlyReturn.cpp
+  PPCExpandAtomicPseudoInsts.cpp
+  PPCExpandISEL.cpp
+  PPCFastISel.cpp
+  PPCFrameLowering.cpp
+  PPCGenScalarMASSEntries.cpp
   PPCHazardRecognizers.cpp
   PPCInstrInfo.cpp
   PPCISelDAGToDAG.cpp
   PPCISelLowering.cpp
-  PPCEarlyReturn.cpp
-  PPCFastISel.cpp
-  PPCFrameLowering.cpp
   PPCLoopInstrFormPrep.cpp
+  PPCLowerMASSVEntries.cpp
   PPCMCInstLower.cpp
   PPCMachineFunctionInfo.cpp
   PPCMachineScheduler.cpp
@@ -37,6 +42,7 @@ add_llvm_target(PowerPCCodeGen
   PPCMIPeephole.cpp
   PPCRegisterInfo.cpp
   PPCQPXLoadSplat.cpp
+  PPCSelectionDAGInfo.cpp
   PPCSubtarget.cpp
   PPCTargetMachine.cpp
   PPCTargetObjectFile.cpp
@@ -47,9 +53,8 @@ add_llvm_target(PowerPCCodeGen
   PPCReduceCRLogicals.cpp
   PPCVSXFMAMutate.cpp
   PPCVSXSwapRemoval.cpp
-  PPCExpandISEL.cpp
+  PPCVSXWACCCopy.cpp
   PPCPreEmitPeephole.cpp
-  PPCLowerMASSVEntries.cpp
   PPCVLEOpt.cpp
   )
 
