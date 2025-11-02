@@ -9,7 +9,9 @@ is mapped to the certification requirements it supports.
 UID: REF-001
 TITLE: e200z0 Core Reference Manual
 DOCUMENT_NUMBER: E200Z0CRM
-PUBLISHER: NXP Semiconductors
+PUBLISHER: NXP Semiconductors (formerly Freescale)
+STATUS: AVAILABLE
+URL: https://www.elektronikjk.com/elementy_czynne/IC/E200Z0.pdf
 
 REQUIRED_SECTIONS:
 1. Instruction Timing and Latency Tables
@@ -56,7 +58,9 @@ USED_FOR:
 UID: REF-002
 TITLE: e200z4 Core Reference Manual
 DOCUMENT_NUMBER: e200z4RM, Rev. 0, 10/2009
-PUBLISHER: NXP Semiconductors
+PUBLISHER: NXP Semiconductors (formerly Freescale)
+STATUS: AVAILABLE
+URL: https://www.elektronikjk.com/elementy_czynne/IC/E200Z4.pdf
 
 REQUIRED_SECTIONS:
 1. Dual-Issue Pipeline Architecture
