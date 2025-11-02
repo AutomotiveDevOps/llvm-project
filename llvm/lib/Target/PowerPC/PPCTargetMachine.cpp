@@ -121,6 +121,7 @@ extern "C" LLVM_EXTERNAL_VISIBILITY void LLVMInitializePowerPCTarget() {
   initializePPCTLSDynamicCallPass(PR);
   initializePPCMIPeepholePass(PR);
   initializePPCLowerMASSVEntriesPass(PR);
+  initializePPCVLEOptPass(PR);
 }
 
 /// Return the datalayout string of a subtarget.
@@ -475,6 +476,9 @@ void PPCPassConfig::addMachineSSAOptimization() {
   if (EnableBranchCoalescing && getOptLevel() != CodeGenOpt::None)
     addPass(createPPCBranchCoalescingPass());
   TargetPassConfig::addMachineSSAOptimization();
+  // VLE optimization pass - convert standard PowerPC to VLE for code size
+  if (getOptLevel() == CodeGenOpt::Aggressive && TM->getTargetTriple().getArch() == Triple::ppc)
+    addPass(createPPCVLEOptPass());
   // For little endian, remove where possible the vector swap instructions
   // introduced at code generation to normalize vector element order.
   if (TM->getTargetTriple().getArch() == Triple::ppc64le &&

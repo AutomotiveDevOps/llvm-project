@@ -24,6 +24,7 @@ Using Clang as a Compiler
    DiagnosticsReference
    CrossCompilation
    EmbeddedPowerPC
+   EmbeddedPowerPCQuickStart
    ClangStaticAnalyzer
    ThreadSafetyAnalysis
    AddressSanitizer

@@ -26,6 +26,7 @@ public:
   ~BareMetal() override;
 
   static bool handlesTarget(const llvm::Triple &Triple);
+
 protected:
   Tool *buildLinker() const override;
 
@@ -47,11 +48,13 @@ public:
   const char *getDefaultLinker() const override { return "ld.lld"; }
 
   std::string getRuntimesDir() const;
-  void AddClangSystemIncludeArgs(const llvm::opt::ArgList &DriverArgs,
-                                 llvm::opt::ArgStringList &CC1Args) const override;
-  void addClangTargetOptions(const llvm::opt::ArgList &DriverArgs,
-                             llvm::opt::ArgStringList &CC1Args,
-                             Action::OffloadKind DeviceOffloadKind) const override;
+  void
+  AddClangSystemIncludeArgs(const llvm::opt::ArgList &DriverArgs,
+                            llvm::opt::ArgStringList &CC1Args) const override;
+  void
+  addClangTargetOptions(const llvm::opt::ArgList &DriverArgs,
+                        llvm::opt::ArgStringList &CC1Args,
+                        Action::OffloadKind DeviceOffloadKind) const override;
   void AddClangCXXStdlibIncludeArgs(
       const llvm::opt::ArgList &DriverArgs,
       llvm::opt::ArgStringList &CC1Args) const override;

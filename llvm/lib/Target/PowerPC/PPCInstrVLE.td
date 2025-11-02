@@ -1483,6 +1483,120 @@ def E_LHAU : DForm_1<43, (outs gprc:$rD), (ins memrix:$src),
                      [(set i32:$rD, (sextloadi16 xoaddr:$src))]>,
              Requires<[HasVLE, IsE200]>;
 
+//=== Indexed Form Load/Store Instructions ===//
+// These use X-form addressing (base + index registers)
+
+// e_lbzx - Load Byte and Zero Indexed (opcode 0x7C0000AE, X-form)
+def E_LBZX : XForm_1_memOp<31, 21, (outs gprc:$rD), (ins memrr:$src),
+                           "e_lbzx", "$rD, $src", IIC_LdStLoad,
+                           [(set i32:$rD, (zextloadi8 xaddr:$src))]>,
+            Requires<[HasVLE, IsE200]>;
+
+// e_stbx - Store Byte Indexed (opcode 0x7C0001AE, X-form)
+def E_STBX : XForm_8_memOp<31, 725, (outs), (ins gprc:$rS, memrr:$dst),
+                           "e_stbx", "$rS, $dst", IIC_LdStStore,
+                           [(store (truncstorei8 i32:$rS, xaddr:$dst))]>,
+            Requires<[HasVLE, IsE200]>;
+
+// e_lhzx - Load Halfword and Zero Indexed (opcode 0x7C00022E, X-form)
+def E_LHZX : XForm_1_memOp<31, 279, (outs gprc:$rD), (ins memrr:$src),
+                           "e_lhzx", "$rD, $src", IIC_LdStLoad,
+                           [(set i32:$rD, (zextloadi16 xaddr:$src))]>,
+            Requires<[HasVLE, IsE200]>;
+
+// e_sthx - Store Halfword Indexed (opcode 0x7C00036E, X-form)
+def E_STHX : XForm_8_memOp<31, 878, (outs), (ins gprc:$rS, memrr:$dst),
+                           "e_sthx", "$rS, $dst", IIC_LdStStore,
+                           [(store (truncstorei16 i32:$rS, xaddr:$dst))]>,
+            Requires<[HasVLE, IsE200]>;
+
+// e_lhax - Load Halfword Algebraic Indexed (opcode 0x7C0002AE, X-form)
+def E_LHAX : XForm_1_memOp<31, 343, (outs gprc:$rD), (ins memrr:$src),
+                           "e_lhax", "$rD, $src", IIC_LdStLHA,
+                           [(set i32:$rD, (sextloadi16 xaddr:$src))]>,
+            Requires<[HasVLE, IsE200]>;
+
+// e_lwzx - Load Word and Zero Indexed (opcode 0x7C00002E, X-form)
+def E_LWZX : XForm_1_memOp<31, 23, (outs gprc:$rD), (ins memrr:$src),
+                           "e_lwzx", "$rD, $src", IIC_LdStLoad,
+                           [(set i32:$rD, (load xaddr:$src))]>,
+            Requires<[HasVLE, IsE200]>;
+
+// e_stwx - Store Word Indexed (opcode 0x7C00012E, X-form)
+def E_STWX : XForm_8_memOp<31, 151, (outs), (ins gprc:$rS, memrr:$dst),
+                           "e_stwx", "$rS, $dst", IIC_LdStStore,
+                           [(store i32:$rS, xaddr:$dst)]>,
+            Requires<[HasVLE, IsE200]>;
+
+// e_lbzux - Load Byte and Zero with Update Indexed (opcode 0x7C0000EE, X-form)
+def E_LBZUX : XForm_1_memOp<31, 119, (outs gprc:$rD), (ins memrr:$src),
+                            "e_lbzux", "$rD, $src", IIC_LdStLoadUpd,
+                            [(set i32:$rD, (zextloadi8 xoaddr:$src))]>,
+             Requires<[HasVLE, IsE200]>;
+
+// e_stbux - Store Byte with Update Indexed (opcode 0x7C0001EE, X-form)
+def E_STBUX : XForm_8_memOp<31, 751, (outs), (ins gprc:$rS, memrr:$dst),
+                            "e_stbux", "$rS, $dst", IIC_LdStStoreUpd,
+                            [(store (truncstorei8 i32:$rS, xoaddr:$dst))]>,
+             Requires<[HasVLE, IsE200]>;
+
+// e_lhzux - Load Halfword and Zero with Update Indexed (opcode 0x7C00026E, X-form)
+def E_LHZUX : XForm_1_memOp<31, 311, (outs gprc:$rD), (ins memrr:$src),
+                            "e_lhzux", "$rD, $src", IIC_LdStLoadUpd,
+                            [(set i32:$rD, (zextloadi16 xoaddr:$src))]>,
+             Requires<[HasVLE, IsE200]>;
+
+// e_sthux - Store Halfword with Update Indexed (opcode 0x7C0003EE, X-form)
+def E_STHUX : XForm_8_memOp<31, 1006, (outs), (ins gprc:$rS, memrr:$dst),
+                            "e_sthux", "$rS, $dst", IIC_LdStStoreUpd,
+                            [(store (truncstorei16 i32:$rS, xoaddr:$dst))]>,
+             Requires<[HasVLE, IsE200]>;
+
+// e_lwzux - Load Word and Zero with Update Indexed (opcode 0x7C00006E, X-form)
+def E_LWZUX : XForm_1_memOp<31, 55, (outs gprc:$rD), (ins memrr:$src),
+                            "e_lwzux", "$rD, $src", IIC_LdStLoadUpd,
+                            [(set i32:$rD, (load xoaddr:$src))]>,
+             Requires<[HasVLE, IsE200]>;
+
+// e_stwux - Store Word with Update Indexed (opcode 0x7C0001EE, X-form)
+def E_STWUX : XForm_8_memOp<31, 183, (outs), (ins gprc:$rS, memrr:$dst),
+                            "e_stwux", "$rS, $dst", IIC_LdStStoreUpd,
+                            [(store i32:$rS, xoaddr:$dst)]>,
+             Requires<[HasVLE, IsE200]>;
+
+// e_lhaux - Load Halfword Algebraic with Update Indexed (opcode 0x7C0002EE, X-form)
+def E_LHAUX : XForm_1_memOp<31, 375, (outs gprc:$rD), (ins memrr:$src),
+                            "e_lhaux", "$rD, $src", IIC_LdStLHA,
+                            [(set i32:$rD, (sextloadi16 xoaddr:$src))]>,
+             Requires<[HasVLE, IsE200]>;
+
+//=== Byte-Reversed Load/Store Instructions ===//
+// These instructions handle byte-order conversion for network protocols
+
+// e_lhbrx - Load Halfword Byte-Reversed Indexed (opcode 0x7C00062C, X-form)
+def E_LHBRX : XForm_1_memOp<31, 790, (outs gprc:$rD), (ins memrr:$src),
+                            "e_lhbrx", "$rD, $src", IIC_LdStLoad,
+                            [(set i32:$rD, (bswap (zextloadi16 xaddr:$src)))]>,
+             Requires<[HasVLE, IsE200]>;
+
+// e_sthbrx - Store Halfword Byte-Reversed Indexed (opcode 0x7C00072C, X-form)
+def E_STHBRX : XForm_8_memOp<31, 918, (outs), (ins gprc:$rS, memrr:$dst),
+                             "e_sthbrx", "$rS, $dst", IIC_LdStStore,
+                             [(store (truncstorei16 (bswap i32:$rS), xaddr:$dst))]>,
+              Requires<[HasVLE, IsE200]>;
+
+// e_lwbrx - Load Word Byte-Reversed Indexed (opcode 0x7C00042C, X-form)
+def E_LWBRX : XForm_1_memOp<31, 534, (outs gprc:$rD), (ins memrr:$src),
+                            "e_lwbrx", "$rD, $src", IIC_LdStLoad,
+                            [(set i32:$rD, (bswap (load xaddr:$src)))]>,
+             Requires<[HasVLE, IsE200]>;
+
+// e_stwbrx - Store Word Byte-Reversed Indexed (opcode 0x7C00052C, X-form)
+def E_STWBRX : XForm_8_memOp<31, 662, (outs), (ins gprc:$rS, memrr:$dst),
+                             "e_stwbrx", "$rS, $dst", IIC_LdStStore,
+                             [(store (bswap i32:$rS), xaddr:$dst)]>,
+              Requires<[HasVLE, IsE200]>;
+
 // Note: Additional e_ instructions from VLEPEM Table B-3 include:
 // - Record form variants of all instructions (e_add., e_and., etc.)
 // - Additional arithmetic (neg, neg., abs, etc.)

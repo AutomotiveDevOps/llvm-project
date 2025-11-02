@@ -50,6 +50,7 @@ namespace llvm {
   FunctionPass *createPPCBoolRetToIntPass();
   FunctionPass *createPPCExpandISELPass();
   FunctionPass *createPPCPreEmitPeepholePass();
+  FunctionPass *createPPCVLEOptPass();
   void LowerPPCMachineInstrToMCInst(const MachineInstr *MI, MCInst &OutMI,
                                     AsmPrinter &AP);
   bool LowerPPCMachineOperandToMCOperand(const MachineOperand &MO,
@@ -79,6 +80,7 @@ namespace llvm {
 
   ModulePass *createPPCLowerMASSVEntriesPass();
   void initializePPCLowerMASSVEntriesPass(PassRegistry &);
+  void initializePPCVLEOptPass(PassRegistry &);
   extern char &PPCLowerMASSVEntriesID;
   
   namespace PPCII {

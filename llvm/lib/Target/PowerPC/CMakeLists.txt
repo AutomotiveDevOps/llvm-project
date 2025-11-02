@@ -50,6 +50,7 @@ add_llvm_target(PowerPCCodeGen
   PPCExpandISEL.cpp
   PPCPreEmitPeephole.cpp
   PPCLowerMASSVEntries.cpp
+  PPCVLEOpt.cpp
   )
 
 add_subdirectory(AsmParser)

@@ -9,8 +9,8 @@
 #include "BareMetal.h"
 
 #include "CommonArgs.h"
-#include "InputInfo.h"
 #include "Gnu.h"
+#include "InputInfo.h"
 
 #include "clang/Driver/Compilation.h"
 #include "clang/Driver/Driver.h"
@@ -28,7 +28,7 @@ using namespace clang::driver::tools;
 using namespace clang::driver::toolchains;
 
 BareMetal::BareMetal(const Driver &D, const llvm::Triple &Triple,
-                           const ArgList &Args)
+                     const ArgList &Args)
     : ToolChain(D, Triple, Args) {
   getProgramPaths().push_back(getDriver().getInstalledDir());
   if (getDriver().getInstalledDir() != getDriver().Dir)
@@ -38,6 +38,16 @@ BareMetal::BareMetal(const Driver &D, const llvm::Triple &Triple,
 BareMetal::~BareMetal() {}
 
 /// Is the triple {arm,thumb}-none-none-{eabi,eabihf} ?
+///
+/// This function identifies ARM bare-metal triples for which the BareMetal
+/// toolchain should be used. Currently only ARM targets are supported.
+///
+/// TODO: Extend to support PowerPC embedded targets:
+///   - powerpc-none-elf
+///   - powerpc-none-eabivle (with VLE support)
+///
+/// \param Triple The target triple to check
+/// \returns true if this is an ARM bare-metal triple
 static bool isARMBareMetal(const llvm::Triple &Triple) {
   if (Triple.getArch() != llvm::Triple::arm &&
       Triple.getArch() != llvm::Triple::thumb)
@@ -56,6 +66,13 @@ static bool isARMBareMetal(const llvm::Triple &Triple) {
   return true;
 }
 
+/// Check if the BareMetal toolchain should handle the given target triple.
+///
+/// Currently only handles ARM bare-metal targets. Future work: extend to
+/// support PowerPC embedded targets (powerpc-none-elf, powerpc-none-eabivle).
+///
+/// \param Triple The target triple to check
+/// \returns true if this toolchain should handle the target
 bool BareMetal::handlesTarget(const llvm::Triple &Triple) {
   return isARMBareMetal(Triple);
 }
@@ -94,8 +111,8 @@ void BareMetal::addClangTargetOptions(const ArgList &DriverArgs,
   CC1Args.push_back("-nostdsysteminc");
 }
 
-void BareMetal::AddClangCXXStdlibIncludeArgs(
-    const ArgList &DriverArgs, ArgStringList &CC1Args) const {
+void BareMetal::AddClangCXXStdlibIncludeArgs(const ArgList &DriverArgs,
+                                             ArgStringList &CC1Args) const {
   if (DriverArgs.hasArg(options::OPT_nostdinc) ||
       DriverArgs.hasArg(options::OPT_nostdlibinc) ||
       DriverArgs.hasArg(options::OPT_nostdincxx))
@@ -156,8 +173,8 @@ void BareMetal::AddCXXStdlibLibArgs(const ArgList &Args,
 
 void BareMetal::AddLinkRuntimeLib(const ArgList &Args,
                                   ArgStringList &CmdArgs) const {
-  CmdArgs.push_back(Args.MakeArgString("-lclang_rt.builtins-" +
-                                       getTriple().getArchName()));
+  CmdArgs.push_back(
+      Args.MakeArgString("-lclang_rt.builtins-" + getTriple().getArchName()));
 }
 
 void baremetal::Linker::ConstructJob(Compilation &C, const JobAction &JA,
@@ -167,7 +184,7 @@ void baremetal::Linker::ConstructJob(Compilation &C, const JobAction &JA,
                                      const char *LinkingOutput) const {
   ArgStringList CmdArgs;
 
-  auto &TC = static_cast<const toolchains::BareMetal&>(getToolChain());
+  auto &TC = static_cast<const toolchains::BareMetal &>(getToolChain());
 
   AddLinkerInputs(TC, Inputs, Args, CmdArgs, JA);
 
@@ -191,7 +208,6 @@ void baremetal::Linker::ConstructJob(Compilation &C, const JobAction &JA,
   CmdArgs.push_back("-o");
   CmdArgs.push_back(Output.getFilename());
 
-  C.addCommand(std::make_unique<Command>(JA, *this,
-                                          Args.MakeArgString(TC.GetLinkerPath()),
-                                          CmdArgs, Inputs));
+  C.addCommand(std::make_unique<Command>(
+      JA, *this, Args.MakeArgString(TC.GetLinkerPath()), CmdArgs, Inputs));
 }
