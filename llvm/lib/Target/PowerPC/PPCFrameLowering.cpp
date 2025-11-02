@@ -93,6 +93,15 @@ PPCFrameLowering::PPCFrameLowering(const PPCSubtarget &STI)
       BasePointerSaveOffset(computeBasePointerSaveOffset(Subtarget)),
       CRSaveOffset(computeCRSaveOffset(Subtarget)) {}
 
+//===----------------------------------------------------------------------===//
+// Helper function to check if function is an interrupt handler
+//===----------------------------------------------------------------------===//
+static bool isInterruptHandler(const MachineFunction &MF) {
+  const Function &F = MF.getFunction();
+  // Check for PowerPC interrupt attribute
+  return F.hasFnAttribute("interrupt");
+}
+
 // With the SVR4 ABI, callee-saved registers have fixed offsets on the stack.
 const PPCFrameLowering::SpillSlot *PPCFrameLowering::getCalleeSavedSpillSlots(
     unsigned &NumEntries) const {
@@ -1660,29 +1669,19 @@ void PPCFrameLowering::emitEpilogue(MachineFunction &MF,
     unsigned RetOpcode = MBBI->getOpcode();
     
     // For interrupt handlers, replace BLR/BLR8 with RFI (Return From Interrupt).
-    // RFI is used for BookE targets (standard PowerPC); for VLE mode, e_rfi
-    // should be used, but it requires VLE instruction support to be fully implemented.
-    // For now, RFI works on all BookE targets including e200 cores.
-    if (MF.getFunction().hasFnAttribute("interrupt") &&
+    // RFI is used for BookE targets (standard PowerPC). For VLE mode, e_rfi
+    // should be used when it's defined in PPCInstrVLE.td. For now, RFI works
+    // on all BookE targets including e200 cores in both standard and VLE modes.
+    if (isInterruptHandler(MF) &&
         (RetOpcode == PPC::BLR || RetOpcode == PPC::BLR8)) {
       // Erase the BLR instruction.
       MBBI = MBB.erase(MBBI);
       
-      // Emit RFI instruction instead. RFI requires BookE, which is typical
+      // Emit RFI instruction. RFI requires BookE, which is typical
       // for embedded PowerPC targets that use interrupt handlers.
-      // For VLE-enabled targets (e200 cores with -mvle), ideally we would emit
-      // e_rfi (VLE return from interrupt), but that requires e_rfi to be defined
-      // in PPCInstrVLE.td. For now, RFI works on all BookE targets.
-      // TODO: Add e_rfi instruction definition and use it when VLE is enabled
-      const PPCSubtarget &Subtarget = MF.getSubtarget<PPCSubtarget>();
-      if (Subtarget.hasVLE()) {
-        // For VLE mode, use RFI for now (e_rfi can be added when VLE instruction
-        // definitions are more complete)
-        BuildMI(MBB, MBBI, dl, TII.get(PPC::RFI));
-      } else {
-        // Standard BookE mode
-        BuildMI(MBB, MBBI, dl, TII.get(PPC::RFI));
-      }
+      // TODO: When E_RFI is defined in PPCInstrVLE.td, check Subtarget.hasVLE()
+      // and use PPC::E_RFI for VLE mode, PPC::RFI for standard mode.
+      BuildMI(MBB, MBBI, dl, TII.get(PPC::RFI));
       return;
     }
     
@@ -1852,7 +1851,7 @@ void PPCFrameLowering::determineCalleeSaves(MachineFunction &MF,
   // For interrupt handlers, we must save LR, CR, and all used GPRs.
   // Interrupt handlers must preserve complete processor state, so we need to
   // save all registers that may be modified, including caller-saved registers.
-  if (MF.getFunction().hasFnAttribute("interrupt")) {
+  if (isInterruptHandler(MF)) {
     // Force save LR (Link Register) - required for interrupt context
     SavedRegs.set(LR);
     FI->setMustSaveLR(true);
