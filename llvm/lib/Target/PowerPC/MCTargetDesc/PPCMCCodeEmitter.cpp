@@ -405,6 +405,10 @@ void PPCMCCodeEmitter::encodeInstruction(
   switch (Size) {
   case 0:
     break;
+  case 2:
+    // VLE 16-bit instructions
+    support::endian::write<uint16_t>(OS, Bits, E);
+    break;
   case 4:
     support::endian::write<uint32_t>(OS, Bits, E);
     break;
