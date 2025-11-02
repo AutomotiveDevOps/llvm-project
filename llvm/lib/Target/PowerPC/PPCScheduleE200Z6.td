@@ -17,9 +17,10 @@
 // Relevant functional units in the NXP e200z6 core:
 //
 //  * Fetch & Decode
-//    Single-issue in-order processor with 5-stage pipeline:
-//    IF (Instruction Fetch), ID (Instruction Decode), EX (Execute),
-//    MEM (Memory), WB (Write Back)
+//    Single-issue in-order processor with 7-stage pipeline:
+//    IF1, IF2 (Instruction Fetch stages), ID (Instruction Decode), 
+//    EX (Execute), MEM (Memory), WB1, WB2 (Write Back stages)
+//    Note: e200z6 has a 7-stage pipeline with unified 32KB L1 cache
 //
 def E200Z6_FETCH : FuncUnit; // Instruction fetch stage
 def E200Z6_DECODE : FuncUnit; // Instruction decode stage
@@ -28,18 +29,20 @@ def E200Z6_MEM    : FuncUnit; // Memory stage
 def E200Z6_WB     : FuncUnit; // Write back stage
 
 //  * Execute
-//    Single execution unit for integer operations, branch unit, and LSU.
+//    Single execution unit for integer operations, branch unit, LSU, and FPU.
+//    e200z6 has FPU support with unified cache (32KB L1)
 def E200Z6_ALU    : FuncUnit; // Integer ALU
 def E200Z6_BU     : FuncUnit; // Branch unit
 def E200Z6_LSU    : FuncUnit; // Load/store unit
 def E200Z6_MUL    : FuncUnit; // Multiply unit
+def E200Z6_FPU    : FuncUnit; // Floating-point unit
 
 def E200Z6_GPR_Bypass : Bypass;
 def E200Z6_CR_Bypass  : Bypass;
 
 def PPCE200Z6Itineraries : ProcessorItineraries<
   [E200Z6_FETCH, E200Z6_DECODE, E200Z6_EX, E200Z6_MEM, E200Z6_WB,
-   E200Z6_ALU, E200Z6_BU, E200Z6_LSU, E200Z6_MUL],
+   E200Z6_ALU, E200Z6_BU, E200Z6_LSU, E200Z6_MUL, E200Z6_FPU],
   [E200Z6_CR_Bypass, E200Z6_GPR_Bypass], [
   InstrItinData<IIC_IntSimple,   [InstrStage<1, [E200Z6_FETCH], 0>,
                                    InstrStage<1, [E200Z6_DECODE], 0>,

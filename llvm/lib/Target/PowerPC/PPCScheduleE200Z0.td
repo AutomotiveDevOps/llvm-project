@@ -16,15 +16,16 @@
 // Relevant functional units in the NXP e200z0 core:
 //
 //  * Fetch & Decode
-//    Single-issue in-order processor with 5-stage pipeline:
+//    Single-issue in-order processor with 4-stage pipeline:
 //    IF (Instruction Fetch), ID (Instruction Decode), EX (Execute),
-//    MEM (Memory), WB (Write Back)
+//    WB (Write Back)
+//    Note: e200z0 has a simplified 4-stage pipeline (no separate MEM stage)
 //
 def E200Z0_FETCH : FuncUnit; // Instruction fetch stage
 def E200Z0_DECODE : FuncUnit; // Instruction decode stage
 def E200Z0_EX     : FuncUnit; // Execute stage
-def E200Z0_MEM    : FuncUnit; // Memory stage
 def E200Z0_WB     : FuncUnit; // Write back stage
+// Note: Memory operations are handled in EX stage for e200z0 (no separate MEM)
 
 //  * Execute
 //    Single execution unit for integer operations, branch unit, and LSU.
@@ -37,7 +38,7 @@ def E200Z0_GPR_Bypass : Bypass;
 def E200Z0_CR_Bypass  : Bypass;
 
 def PPCE200Z0Itineraries : ProcessorItineraries<
-  [E200Z0_FETCH, E200Z0_DECODE, E200Z0_EX, E200Z0_MEM, E200Z0_WB,
+  [E200Z0_FETCH, E200Z0_DECODE, E200Z0_EX, E200Z0_WB,
    E200Z0_ALU, E200Z0_BU, E200Z0_LSU, E200Z0_MUL],
   [E200Z0_CR_Bypass, E200Z0_GPR_Bypass], [
   InstrItinData<IIC_IntSimple,   [InstrStage<1, [E200Z0_FETCH], 0>,

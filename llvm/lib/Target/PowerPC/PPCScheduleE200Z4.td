@@ -16,9 +16,10 @@
 // Relevant functional units in the NXP e200z4 core:
 //
 //  * Fetch & Decode
-//    Single-issue in-order processor with 5-stage pipeline:
+//    Dual-issue in-order processor with 5-stage pipeline:
 //    IF (Instruction Fetch), ID (Instruction Decode), EX (Execute),
 //    MEM (Memory), WB (Write Back)
+//    Can dispatch up to 2 instructions per clock cycle (dual-issue)
 //
 def E200Z4_FETCH : FuncUnit; // Instruction fetch stage
 def E200Z4_DECODE : FuncUnit; // Instruction decode stage
@@ -26,20 +27,33 @@ def E200Z4_EX     : FuncUnit; // Execute stage
 def E200Z4_MEM    : FuncUnit; // Memory stage
 def E200Z4_WB     : FuncUnit; // Write back stage
 
+//  * Dispatch (Dual-issue)
+//    Two dispatch ports for dual-issue capability
+def E200Z4_DIS0   : FuncUnit; // Dispatch port 0 (instruction 1)
+def E200Z4_DIS1   : FuncUnit; // Dispatch port 1 (instruction 2)
+
 //  * Execute
-//    Single execution unit for integer operations, branch unit, and LSU.
-def E200Z4_ALU    : FuncUnit; // Integer ALU
+//    Multiple execution units: SU0, SU1, BU, LSU, MU, FPU/SPE
+//    Some instructions can only execute in SU0 but not SU1
+def E200Z4_SU0    : FuncUnit; // Simple unit 0
+def E200Z4_SU1    : FuncUnit; // Simple unit 1 (limited instructions)
+def E200Z4_ALU    : FuncUnit; // Integer ALU (alias for SU0)
 def E200Z4_BU     : FuncUnit; // Branch unit
 def E200Z4_LSU    : FuncUnit; // Load/store unit
 def E200Z4_MUL    : FuncUnit; // Multiply unit
+def E200Z4_FPU    : FuncUnit; // FPU pipeline (SPE-capable)
+def E200Z4_SPE    : FuncUnit; // Signal Processing Extension unit
+def E200Z4_ICache : FuncUnit; // Instruction cache (affects fetch timing)
 
 def E200Z4_GPR_Bypass : Bypass;
 def E200Z4_CR_Bypass  : Bypass;
+def E200Z4_SPE_Bypass : Bypass;
 
 def PPCE200Z4Itineraries : ProcessorItineraries<
   [E200Z4_FETCH, E200Z4_DECODE, E200Z4_EX, E200Z4_MEM, E200Z4_WB,
-   E200Z4_ALU, E200Z4_BU, E200Z4_LSU, E200Z4_MUL],
-  [E200Z4_CR_Bypass, E200Z4_GPR_Bypass], [
+   E200Z4_DIS0, E200Z4_DIS1, E200Z4_SU0, E200Z4_SU1, E200Z4_ALU,
+   E200Z4_BU, E200Z4_LSU, E200Z4_MUL, E200Z4_FPU, E200Z4_SPE, E200Z4_ICache],
+  [E200Z4_CR_Bypass, E200Z4_GPR_Bypass, E200Z4_SPE_Bypass], [
   InstrItinData<IIC_IntSimple,   [InstrStage<1, [E200Z4_FETCH], 0>,
                                    InstrStage<1, [E200Z4_DECODE], 0>,
                                    InstrStage<1, [E200Z4_EX, E200Z4_ALU]>,
