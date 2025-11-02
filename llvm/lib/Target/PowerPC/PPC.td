@@ -134,6 +134,9 @@ def FeatureMSYNC     : SubtargetFeature<"msync", "HasOnlyMSYNC", "true",
                               [FeatureBookE]>;
 def FeatureE500      : SubtargetFeature<"e500", "IsE500", "true",
                                         "Enable E500/E500mc instructions">;
+def FeatureVLE       : SubtargetFeature<"vle","HasVLE", "true",
+                                        "Enable VLE (Variable Length Encoding) instructions",
+                                        [FeatureBookE]>;
 def FeatureSecurePlt : SubtargetFeature<"secure-plt","SecurePlt", "true",
                                         "Enable secure plt mode">;
 def FeaturePPC4xx    : SubtargetFeature<"ppc4xx", "IsPPC4xx", "true",

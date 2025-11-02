@@ -127,6 +127,7 @@ protected:
   bool IsBookE;
   bool HasOnlyMSYNC;
   bool IsE500;
+  bool HasVLE;
   bool IsPPC4xx;
   bool IsPPC6xx;
   bool FeatureMFTB;
@@ -285,6 +286,7 @@ public:
   bool allowsUnalignedFPAccess() const { return AllowsUnalignedFPAccess; }
   bool isDeprecatedDST() const { return DeprecatedDST; }
   bool hasICBT() const { return HasICBT; }
+  bool hasVLE() const { return HasVLE; }
   bool hasInvariantFunctionDescriptors() const {
     return HasInvariantFunctionDescriptors;
   }

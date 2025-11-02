@@ -1870,16 +1870,44 @@ void PPCFrameLowering::determineCalleeSaves(MachineFunction &MF,
       }
     }
 
-    // Force save all used GPRs. In interrupt context, we need to preserve
-    // all registers that the function uses.
-    const TargetRegisterInfo *TRI = RegInfo;
+    // For interrupt handlers, save all GPRs that are used in the function.
+    // This ensures that all modified registers are preserved across the
+    // interrupt handler execution. We check both caller-saved and callee-saved
+    // GPRs that are actually used.
+    const MachineRegisterInfo &MRI = MF.getRegInfo();
+    
+    // Save all callee-saved GPRs that are used.
     const MCPhysReg *CSRegs = RegInfo->getCalleeSavedRegs(&MF);
     for (unsigned i = 0; CSRegs[i]; ++i) {
       unsigned Reg = CSRegs[i];
-      if (PPC::GPRCRegClass.contains(Reg) || PPC::G8RCRegClass.contains(Reg)) {
-        // Check if this register is actually used in the function.
-        if (MF.getRegInfo().isPhysRegUsed(Reg))
-          SavedRegs.set(Reg);
+      if ((PPC::GPRCRegClass.contains(Reg) || PPC::G8RCRegClass.contains(Reg)) &&
+          MRI.isPhysRegUsed(Reg))
+        SavedRegs.set(Reg);
+    }
+    
+    // Also save caller-saved GPRs if the function makes calls.
+    // In interrupt handlers that make function calls, we need to preserve
+    // all caller-saved registers as well.
+    if (MFI.hasCalls()) {
+      // R3-R10 (X3-X10) are caller-saved argument registers
+      // R11-X11, R12-X12 are caller-saved scratch registers
+      // R0-X0 is a special register (constant 0, but can be used as scratch)
+      static const MCPhysReg CallerSavedGPRs[] = {
+        PPC::R3, PPC::R4, PPC::R5, PPC::R6, PPC::R7, PPC::R8,
+        PPC::R9, PPC::R10, PPC::R11, PPC::R12,
+        PPC::X3, PPC::X4, PPC::X5, PPC::X6, PPC::X7, PPC::X8,
+        PPC::X9, PPC::X10, PPC::X11, PPC::X12,
+        0
+      };
+      for (unsigned i = 0; CallerSavedGPRs[i]; ++i) {
+        unsigned Reg = CallerSavedGPRs[i];
+        // Only save registers that are actually used and valid for the target.
+        if (MRI.isPhysRegUsed(Reg)) {
+          // Make sure the register is valid for the target architecture.
+          if ((isPPC64 && PPC::G8RCRegClass.contains(Reg)) ||
+              (!isPPC64 && PPC::GPRCRegClass.contains(Reg)))
+            SavedRegs.set(Reg);
+        }
       }
     }
   }
