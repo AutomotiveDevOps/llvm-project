@@ -1,0 +1,44 @@
+Power ISA 2.07 Book V - Complete Instruction List
+======================================================================
+
+and                       I16A         SR, VLE, e_add2i., Add, (2, operand), Immediate Record
+e_add2is                  I16A         VLE                                 Add (2 operand) Immediate Shifted
+e_addi                    SCI8         SR, VLE                             Add Scaled Immediate
+e_addic                   SCI8         SR, VLE                             Add Scaled Immediate Carrying
+e_andi                    SCI8         SR, VLE                             AND Scaled Immediate
+e_b                       BD24         VLE                                 Branch [and Link]
+e_bc                      BD15         CT, VLE                             Branch Conditional [and Link]
+e_cmp16i                  I16A         VLE                                 Compare Immediate Word
+e_cmph16i                 I16A         VLE                                 Compare Halfword Immediate
+e_cmphl16i                I16A         VLE                                 Compare Halfword Logical Immediate
+e_cmpi                    SCI8         VLE                                 Compare Scaled Immediate Word
+e_cmpl16i                 I16A         VLE                                 Compare Logical Immediate Word
+e_cmpli                   SCI8         VLE                                 Compare Logical Scaled Immediate Word
+e_crand                   XL           VLE                                 Condition Register AND
+e_crandc                  XL           VLE                                 Condition Register AND with Complement
+e_creqv                   XL           VLE                                 Condition Register Equivalent
+e_crnand                  XL           VLE                                 Condition Register NAND
+e_crnor                   XL           VLE                                 Condition Register NOR
+e_cror                    XL           VLE                                 Condition Register OR
+e_crorc                   XL           VLE                                 Condition Register OR with Complement
+e_crxor                   XL           VLE                                 Condition Register XOR
+e_lbzu                    D8           VLE                                 Load Byte and Zero with Update
+e_lhau                    D8           VLE                                 Load Halfword Algebraic with Update
+e_lhzu                    D8           VLE                                 Load Halfword and Zero with Update
+e_li                      LI20         VLE                                 Load Immediate
+e_lis                     I16L         VLE                                 Load Immediate Shifted
+e_lmw                     D8           VLE                                 Load Multiple Word
+e_lwzu                    D8           VLE                                 Load Word and Zero with Update
+e_mcrf                    XL           VLE                                 Move CR Field
+e_mull2i                  I16A         VLE                                 Multiply (2 operand) Low Immediate
+e_mulli                   SCI8         VLE                                 Multiply Low Scaled Immediate
+e_or2i                    I16L         VLE                                 OR (two operand) Immediate
+e_or2is                   I16L         VLE                                 OR (2 operand) Immediate Shifted
+e_ori                     SCI8         SR, VLE                             OR Scaled Immediate
+e_sc                      ESC          VLE,                                System Call
+e_stbu                    D8           VLE                                 Store Byte with Update
+e_sthu                    D8           VLE                                 Store Halfword with Update
+e_stmw                    D8           VLE                                 Store Multiple Word
+e_stwu                    D8           VLE                                 Store Word with Update
+e_subfic                  SCI8         SR, VLE                             Subtract From Scaled Immediate Carrying
+e_xori                    SCI8         SR, VLE                             XOR Scaled Immediate

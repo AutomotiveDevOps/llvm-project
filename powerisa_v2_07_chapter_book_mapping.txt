@@ -1,0 +1,71 @@
+Power ISA 2.07 Chapter to Book Mapping
+============================================================
+
+Chapter 1: Variable Length Encoding Introduction   1265
+  Primary Book: V
+  Books Referenced: V
+  Size: 258 bytes
+
+Chapter 2: VLE Storage Addressing   1269
+  Primary Book: V
+  Books Referenced: V
+  Size: 262 bytes
+
+Chapter 3: VLE Compatibility with Books I–III                      1271
+  Primary Book: V
+  Books Referenced: V
+  Size: 284 bytes
+
+Chapter 4: Branch Operation Instructions                    1283
+  Primary Book: V
+  Books Referenced: V
+  Size: 288 bytes
+
+Chapter 5: Fixed-Point Instructions                                 1309
+  Primary Book: V
+  Books Referenced: I, III-E, V
+  Size: 2,880 bytes
+
+Chapter 6: Storage Control Instructions                   1311
+  Primary Book: V
+  Books Referenced: II, III-E, V
+  Size: 2,699 bytes
+
+Chapter 7: Additional Categories Available in VLE                           1313
+  Primary Book: V
+  Books Referenced: II, III-E, V
+  Size: 1,092,062 bytes
+
+Chapter 8: Reset and Initialization   1195
+  Primary Book: III-E
+  Books Referenced: III-E
+  Size: 270 bytes
+
+Chapter 9: Timer Facilities                 1211
+  Primary Book: III-E
+  Books Referenced: III-E
+  Size: 2,824 bytes
+
+Chapter 10: Debug Facilities               1227
+  Primary Book: III-E
+  Books Referenced: III-E
+  Size: 2,168 bytes
+
+Chapter 11: Processor Control [Category: Embedded.Processor Control]
+  Primary Book: III-E
+  Books Referenced: III-E
+  Size: 290 bytes
+
+Chapter 12: Synchronization Requirements for Context Alterations                            
+  Primary Book: I
+  Books Referenced: I, II, III, III-E
+  Size: 67,429 bytes
+
+
+=== Book Summary ===
+
+Book I: Chapters 12
+
+Book III-E: Chapters 8, 9, 10, 11
+
+Book V: Chapters 1, 2, 3, 4, 5, 6, 7
