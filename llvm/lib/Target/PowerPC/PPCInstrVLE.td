@@ -12,11 +12,6 @@
 // VLE instructions can be either 16-bit or 32-bit, providing code size
 // optimization for embedded systems. Typical code size reduction: 20-30%
 //
-// WHY THIS EXISTS: See VLE_WHY.md for the full story of how GCC rejected
-// VLE support as "too invasive" in 2013, leaving billions of embedded devices
-// without proper open-source compiler support. This is our attempt to fix
-// that wrong, one instruction at a time.
-//
 // Reference: 
 // - PowerPC Book E Enhanced Architecture (VLE Appendix)
 // - VLE Programming Interface Manual (VLEPIM)
@@ -36,8 +31,9 @@
 // - Instruction selection optimization: 🚧 TODO
 //
 //===----------------------------------------------------------------------===//
+// Note: PPCRegisterInfo.td is included via PPC.td, so we don't include it here
+// to avoid duplicate definitions of sub_lt, sub_gt, etc.
 
-include "PPCRegisterInfo.td"
 include "PPCInstrFormats.td"
 
 //===----------------------------------------------------------------------===//
