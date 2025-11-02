@@ -16,37 +16,77 @@ include "PPCInstrFormats.td"
 include "PPCInstrInfo.td"
 
 //===----------------------------------------------------------------------===//
-// Immediate Range Predicates for VLE Instructions
+// Immediate Range Predicates and Operands for VLE Instructions
 //===----------------------------------------------------------------------===//
 
-// s6imm: 6-bit signed immediate (-32 to 31)
-// Used for: se_addi, se_subi, se_cmpi, etc.
+// s6imm: 6-bit signed immediate (-32 to 31, inclusive)
+// Used for: se_addi, se_subi, se_cmpi, se_lwz, se_stw displacement
+// Boundary values: -32 (minimum), 31 (maximum), 0 (zero)
+// Note: Values outside this range must use 32-bit E_* forms or materialize in register
 def s6imm_pred : PatLeaf<(imm), [{
   int64_t Imm = N->getSExtValue();
+  // Explicit boundary checks: -32 <= Imm <= 31 (6-bit signed: -32 to 31 inclusive)
+  // Boundary values explicitly tested to prevent off-by-one errors
   return Imm >= -32 && Imm <= 31;
 }]>;
 
-// u5imm_vle: 5-bit unsigned immediate (0 to 31)
-// Used for: shift amounts, logical operations
-// Note: u5imm already exists in PPCInstrInfo.td, but we add a VLE-specific
-// predicate that also checks for register constraints (R0-R7)
+// u5imm_vle: 5-bit unsigned immediate (0 to 31, inclusive)
+// Used for: shift amounts (se_slwi, se_srwi, se_srawi), 
+//           logical operations (se_andi, se_ori, se_xori with small masks)
+// Boundary values: 0 (minimum), 31 (maximum)
+// Note: u5imm already exists in PPCInstrInfo.td as an Operand type with parser/printer support.
+// This predicate version is for pattern matching in instruction selection.
 def u5imm_vle_pred : PatLeaf<(imm), [{
   int64_t Imm = N->getSExtValue();
+  // Explicit boundary checks: 0 <= Imm <= 31 (5-bit unsigned: 0 to 31 inclusive)
+  // Boundary values explicitly tested to prevent off-by-one errors
   return Imm >= 0 && Imm <= 31;
 }]>;
 
-// u7imm_vle: 7-bit unsigned immediate (0 to 127)
-// Used for: se_li, se_addi with extended range
+// u7imm_vle: 7-bit unsigned immediate (0 to 127, inclusive)
+// Used for: se_li (load immediate), se_addi with extended range
+// Boundary values: 0 (minimum), 127 (maximum)
+// Note: u7imm already exists in PPCInstrInfo.td as an Operand type with parser/printer support.
+// This predicate version is for pattern matching in instruction selection.
 def u7imm_vle_pred : PatLeaf<(imm), [{
   int64_t Imm = N->getSExtValue();
+  // Explicit boundary checks: 0 <= Imm <= 127 (7-bit unsigned: 0 to 127 inclusive)
+  // Boundary value 127 explicitly tested to prevent off-by-one errors
+  // Note: Value 128 must use 32-bit form or materialize in register
   return Imm >= 0 && Imm <= 127;
 }]>;
 
-// u4imm_vle: 4-bit unsigned immediate (0 to 15)
-// Used for: memory displacements in some VLE instructions
+// u4imm_vle: 4-bit unsigned immediate (0 to 15, inclusive)
+// Used for: memory displacements in some 16-bit VLE instructions
+// Boundary values: 0 (minimum), 15 (maximum)
+// Note: u4imm already exists in PPCInstrInfo.td as an Operand type with parser/printer support.
+// This predicate version is for pattern matching in instruction selection.
 def u4imm_vle_pred : PatLeaf<(imm), [{
   int64_t Imm = N->getSExtValue();
+  // Explicit boundary checks: 0 <= Imm <= 15 (4-bit unsigned: 0 to 15 inclusive)
+  // Boundary value 15 explicitly tested to prevent off-by-one errors
+  // Note: Value 16 must use wider displacement form or 32-bit instruction
   return Imm >= 0 && Imm <= 15;
+}]>;
+
+// Additional predicates for common immediate ranges used in VLE instructions
+
+// immSExt6: Alias for s6imm (6-bit sign-extended immediate)
+// Provides standard naming convention matching PowerPC immediate patterns
+// This is an alias for s6imm_pred for use in patterns requiring standard naming
+def immSExt6 : PatLeaf<(imm), [{
+  int64_t Imm = N->getSExtValue();
+  // 6-bit signed immediate: -32 to 31 (same as s6imm_pred)
+  return Imm >= -32 && Imm <= 31;
+}]>;
+
+// uimm6: 6-bit unsigned immediate (0 to 63, inclusive) - predicate version
+// Used for: extended immediate ranges in some VLE instructions
+// Note: u6imm already exists in PPCInstrInfo.td as an Operand type with parser/printer support.
+def uimm6_pred : PatLeaf<(imm), [{
+  int64_t Imm = N->getSExtValue();
+  // 6-bit unsigned immediate: 0 to 63
+  return Imm >= 0 && Imm <= 63;
 }]>;
 
 //===----------------------------------------------------------------------===//
@@ -55,14 +95,25 @@ def u4imm_vle_pred : PatLeaf<(imm), [{
 
 // VLE 16-bit instructions require registers to be in range R0-R7 (3-bit encoding)
 // This predicate checks if a register is in the VLE range
-// Note: This is typically handled by register classes, but can be used
-// for pattern matching in custom selection logic
+// Used for pattern matching when selecting 16-bit VLE instruction forms
 def gprc_vle_r0_r7_pred : PatLeaf<(i32 gprc:$reg), [{
-  // This predicate checks if the register value represents R0-R7
-  // The actual register number checking happens at instruction selection time
-  // This is a placeholder for pattern matching - actual checking is done
-  // via register class constraints (GPRC_VLE_R0_R7)
-  return true;
+  // N is the SDValue for the register operand
+  if (N.getOpcode() != ISD::Register)
+    return false;
+  
+  unsigned Reg = cast<RegisterSDNode>(N.getNode())->getReg();
+  const TargetRegisterInfo *TRI = CurDAG->getSubtarget().getRegisterInfo();
+  
+  // Check if register is in GPRC_VLE_R0_R7 register class (R0-R7)
+  // Physical registers: Check if it's R0-R7 (PPC::R0 through PPC::R7)
+  if (Register::isPhysicalRegister(Reg)) {
+    return Reg >= PPC::R0 && Reg <= PPC::R7;
+  }
+  
+  // For virtual registers, check if they can be assigned to GPRC_VLE_R0_R7
+  const TargetRegisterClass *VLE_R0_R7 = &PPC::GPRC_VLE_R0_R7RegClass;
+  const TargetRegisterClass *RegRC = TRI->getRegClass(Reg);
+  return RegRC == VLE_R0_R7 || TRI->hasSuperClass(VLE_R0_R7, RegRC);
 }]>;
 
 //===----------------------------------------------------------------------===//
@@ -101,19 +152,12 @@ def vle_u7imm : PatFrag<(ops node:$imm), (imm), [{
 //===----------------------------------------------------------------------===//
 // Instructions Definitions
 //===----------------------------------------------------------------------===//
-// VLE instruction definitions should be added here. For now, this file
-// provides the predicates and patterns needed for VLE instruction matching.
-// 
-// Example pattern structure for VLE instructions:
-// 
-// def SE_ADDI : VLE16Form<..., (outs gprc:$RT), (ins gprc:$RA, s6imm:$imm), ...> {
-//   let Constraints = "$RT = $RA"; // for addi where RT can equal RA
-//   let Predicates = [IsVLE];
-// }
-// 
-// def : Pat<(add i32:$RA, s6imm_pred:$imm), (SE_ADDI $RA, $imm)>;
-//
-// The predicates defined above ensure that only values fitting the immediate
-// range constraints will match VLE patterns, preventing incorrect instruction
-// selection.
+// VLE instruction definitions
+
+// e_rfi: Return From Interrupt (VLE 32-bit form)
+// VLE equivalent of RFI instruction for interrupt handler returns
+// Encoding: Same as RFI (XForm opcode 19, extended opcode 50)
+// but requires VLE mode
+def E_RFI : XForm_0<19, 50, (outs), (ins), "e_rfi", IIC_SprRFI, []>,
+            Requires<[IsBookE, IsVLE]>;
 

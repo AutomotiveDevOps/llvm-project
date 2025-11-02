@@ -1670,18 +1670,18 @@ void PPCFrameLowering::emitEpilogue(MachineFunction &MF,
     
     // For interrupt handlers, replace BLR/BLR8 with RFI (Return From Interrupt).
     // RFI is used for BookE targets (standard PowerPC). For VLE mode, e_rfi
-    // should be used when it's defined in PPCInstrVLE.td. For now, RFI works
-    // on all BookE targets including e200 cores in both standard and VLE modes.
+    // should be used (VLE 32-bit form of RFI).
     if (isInterruptHandler(MF) &&
         (RetOpcode == PPC::BLR || RetOpcode == PPC::BLR8)) {
       // Erase the BLR instruction.
       MBBI = MBB.erase(MBBI);
       
-      // Emit RFI instruction. RFI requires BookE, which is typical
-      // for embedded PowerPC targets that use interrupt handlers.
-      // TODO: When E_RFI is defined in PPCInstrVLE.td, check Subtarget.hasVLE()
-      // and use PPC::E_RFI for VLE mode, PPC::RFI for standard mode.
-      BuildMI(MBB, MBBI, dl, TII.get(PPC::RFI));
+      // Emit RFI or e_rfi instruction depending on VLE mode.
+      // RFI/e_rfi requires BookE, which is typical for embedded PowerPC
+      // targets that use interrupt handlers.
+      const PPCSubtarget &Subtarget = MF.getSubtarget<PPCSubtarget>();
+      unsigned RFIOpcode = Subtarget.hasVLE() ? PPC::E_RFI : PPC::RFI;
+      BuildMI(MBB, MBBI, dl, TII.get(RFIOpcode));
       return;
     }
     
@@ -1856,39 +1856,31 @@ void PPCFrameLowering::determineCalleeSaves(MachineFunction &MF,
     SavedRegs.set(LR);
     FI->setMustSaveLR(true);
 
-    // Force save CR (the entire condition register).
-    // Interrupt handlers must save all CR fields (CR0-CR7) to preserve state.
+    // Force save CR (the entire condition register) - UNCONDITIONAL for interrupt handlers.
+    // Interrupt handlers must preserve complete processor state. CR may be modified
+    // implicitly by comparison operations, branches, and arithmetic instructions,
+    // even if CR fields are not explicitly tested. Saving CR unconditionally ensures
+    // correct restoration of the interrupted context.
     // On 64-bit SVR4 and AIX, we save CR at SP+8. On 32-bit SVR4, we save
-    // it in the callee-saved area. For interrupts, we need to ensure CR spill
-    // slot is allocated if any CR fields are used.
+    // it in the callee-saved area.
     if (!SavedRegs.test(PPC::CR2) && !SavedRegs.test(PPC::CR3) &&
         !SavedRegs.test(PPC::CR4)) {
-      // Check if any CR fields are used - if so, allocate CR spill slot
-      bool CRUsed = false;
-      for (unsigned CR = PPC::CR0; CR <= PPC::CR7; ++CR) {
-        if (MF.getRegInfo().isPhysRegUsed(CR)) {
-          CRUsed = true;
-          break;
-        }
-      }
-      if (CRUsed) {
-        SavedRegs.set(PPC::CR2);
-        SavedRegs.set(PPC::CR3);
-        SavedRegs.set(PPC::CR4);
-        FI->addMustSaveCR(PPC::CR2);
-        FI->addMustSaveCR(PPC::CR3);
-        FI->addMustSaveCR(PPC::CR4);
+      SavedRegs.set(PPC::CR2);
+      SavedRegs.set(PPC::CR3);
+      SavedRegs.set(PPC::CR4);
+      FI->addMustSaveCR(PPC::CR2);
+      FI->addMustSaveCR(PPC::CR3);
+      FI->addMustSaveCR(PPC::CR4);
 
-        // Create the CR spill slot if it doesn't exist.
-        if (!FI->getCRSpillFrameIndex()) {
-          const uint64_t SpillSize = 4;
-          const int64_t SpillOffset =
-              Subtarget.isPPC64() ? 8 : Subtarget.isAIXABI() ? 4 : -4;
-          int FrameIdx =
-              MFI.CreateFixedObject(SpillSize, SpillOffset,
-                                    /* IsImmutable */ true, /* IsAliased */ false);
-          FI->setCRSpillFrameIndex(FrameIdx);
-        }
+      // Create the CR spill slot if it doesn't exist.
+      if (!FI->getCRSpillFrameIndex()) {
+        const uint64_t SpillSize = 4;
+        const int64_t SpillOffset =
+            Subtarget.isPPC64() ? 8 : Subtarget.isAIXABI() ? 4 : -4;
+        int FrameIdx =
+            MFI.CreateFixedObject(SpillSize, SpillOffset,
+                                  /* IsImmutable */ true, /* IsAliased */ false);
+        FI->setCRSpillFrameIndex(FrameIdx);
       }
     }
 
@@ -1932,6 +1924,31 @@ void PPCFrameLowering::determineCalleeSaves(MachineFunction &MF,
         }
       }
     }
+
+    // Check for Special Purpose Register (SPR) usage in interrupt handlers.
+    // SPRs like XER and CTR may be used and need to be saved/restored.
+    // XER (Fixed-Point Exception Register) may be implicitly modified by
+    // arithmetic operations (overflow/carry bits), and CTR (Count Register)
+    // may be used for loops.
+    // Note: SPRs cannot be directly spilled like GPRs; they require mfspr/mtspr
+    // instructions to save/restore, which will be handled in emitPrologue/emitEpilogue.
+    if (MRI.isPhysRegUsed(PPC::XER)) {
+      // XER is used - mark that we need XER save/restore
+      FI->setMustSaveXER(true);
+    }
+    
+    if (MRI.isPhysRegUsed(PPC::CTR) || MRI.isPhysRegUsed(PPC::CTR8)) {
+      // CTR is used - mark that we need CTR save/restore
+      // CTR is typically reserved for counter-based loops, but if it's
+      // explicitly used in an interrupt handler, we must preserve it.
+      FI->setMustSaveCTR(true);
+    }
+    
+    // Note: Other SPRs (MSR, IVORs, etc.) are typically not modified by
+    // interrupt handlers, but if mfspr/mtspr instructions are used to access
+    // other SPRs, they should be tracked and saved. This requires more sophisticated
+    // analysis of mfspr/mtspr instruction usage, which can be added in a future
+    // enhancement.
   }
 }
 
