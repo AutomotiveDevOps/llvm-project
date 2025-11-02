@@ -1,0 +1,357 @@
+[TITLE:e200 Cores Certification - Required Reference Manuals and Information]
+
+[INTRO]
+This document lists the NXP/Freescale reference manuals and specific information
+needed to complete the e200 cores certification improvements. Each manual section
+is mapped to the certification requirements it supports.
+
+[REF-MANUAL-001]
+UID: REF-001
+TITLE: e200z0 Core Reference Manual
+DOCUMENT_NUMBER: E200Z0CRM
+PUBLISHER: NXP Semiconductors
+
+REQUIRED_SECTIONS:
+1. Instruction Timing and Latency Tables
+   - All instruction latencies (integer, branch, load/store, multiply, divide)
+   - Pipeline stage breakdown for each instruction type
+   - Load-to-use latency specifications
+   - Multiply instruction latency (currently modeled as 4 cycles)
+   - Divide instruction latency (currently modeled as 34 cycles)
+   - Branch misprediction penalty
+
+2. Pipeline Architecture
+   - Confirmation of 4-stage pipeline (IF, ID, EX, WB)
+   - Functional unit descriptions (ALU, BU, LSU, MUL)
+   - Resource sharing constraints
+   - Bypass path specifications (GPR, CR bypasses)
+   - Register forwarding latency
+
+3. Interrupt Handling
+   - IVOR (Interrupt Vector Offset Register) table
+   - Interrupt context save requirements
+   - Critical vs external interrupt differentiation
+   - Special-purpose register save requirements for interrupts
+   - Link register (LR) handling in interrupt context
+
+4. Memory System
+   - Cache architecture (if applicable)
+   - Memory access timing
+   - Memory barrier semantics (MSYNC, SYNC, ISYNC)
+
+5. Exception Handling
+   - Division by zero behavior
+   - Integer overflow exception handling
+   - Exception latency specifications
+
+USED_FOR:
+- CERT-001: Complete Pipeline Scheduling Model
+- CERT-002: Fix Memory Stage Reference (COMPLETED)
+- CERT-003: Interrupt Handler Context Save
+- CERT-005: Exception Handling
+- CERT-006: Memory Barrier Semantics
+- CERT-010: Register Spill Timing
+
+[REF-MANUAL-002]
+UID: REF-002
+TITLE: e200z4 Core Reference Manual
+DOCUMENT_NUMBER: e200z4RM, Rev. 0, 10/2009
+PUBLISHER: NXP Semiconductors
+
+REQUIRED_SECTIONS:
+1. Dual-Issue Pipeline Architecture
+   - Dual-issue pairing rules (exact combinations)
+   - Dispatch port behavior (DIS0, DIS1)
+   - Functional units: SU0, SU1, BU, LSU, MU, FPU/SPE
+   - SU0 vs SU1 instruction restrictions
+   - Resource conflict rules for dual-issue
+
+2. Instruction Timing
+   - Latency for paired vs unpaired instructions
+   - SPE (Signal Processing Extension) instruction latencies
+   - FPU instruction latencies
+   - Load/store latency with bypass
+   - Multiply instruction latency
+
+3. Cache System
+   - Instruction cache (ICache) specifications
+   - Cache miss penalties
+   - Cache coherency requirements
+
+4. VLE (Variable Length Encoding)
+   - 16-bit vs 32-bit instruction selection rules
+   - Register constraints (R0-R7 for 16-bit forms)
+   - Immediate value encoding constraints
+   - Instruction alignment requirements
+
+USED_FOR:
+- CERT-001: Complete Pipeline Scheduling Model (dual-issue rules)
+- CERT-004: VLE Register Constraints
+- CERT-007: Deterministic Code Generation
+- CERT-008: VLE Instruction Length Decoding
+- CERT-009: VLE Immediate Boundary Conditions
+
+[REF-MANUAL-003]
+UID: REF-003
+TITLE: e200z6 Core Reference Manual
+PUBLISHER: NXP Semiconductors
+
+REQUIRED_SECTIONS:
+1. Single-Issue Pipeline Architecture
+   - 7-stage pipeline details (IF1, IF2, ID, EX, MEM, WB1, WB2)
+   - Unified 32KB L1 cache architecture
+   - Resource sharing: MUL, FPU, LSU conflict rules
+   - Functional unit pipeline stages
+
+2. Instruction Timing
+   - Load-to-use latency (currently modeled as 4 cycles)
+   - FPU instruction latencies
+   - Multiply instruction latency
+   - Divide instruction latency (34 cycles mentioned in code)
+   - Branch misprediction penalty (3 cycles in model)
+
+3. Cache Coherency
+   - Unified cache coherency protocols
+   - Memory barrier requirements (MSYNC vs SYNC)
+   - Store-before-load ordering guarantees
+   - Cache line size and alignment
+
+4. Exception Handling
+   - Division exception behavior
+   - FPU exception handling (FPSCR management)
+   - Exception latency
+
+USED_FOR:
+- CERT-001: Complete Pipeline Scheduling Model
+- CERT-005: Exception Handling
+- CERT-006: Memory Barrier Semantics (unified cache)
+- CERT-010: Register Spill Timing
+
+[REF-MANUAL-004]
+UID: REF-004
+TITLE: e200z7 Core Reference Manual
+DOCUMENT_NUMBER: E200Z7CRM
+PUBLISHER: NXP Semiconductors
+
+REQUIRED_SECTIONS:
+1. Dual-Issue Pipeline Architecture
+   - Dual-issue pairing rules (exact combinations)
+   - ALU0 vs ALU1 restrictions
+   - Pairing restrictions (instructions that can't pair)
+   - SPE/FPU pairing rules
+   - LSU pairing rules
+
+2. Instruction Timing
+   - Latency for paired instructions
+   - SPE instruction latencies
+   - FPU instruction latencies (including FPR bypass)
+   - Divide instruction latency (32 cycles mentioned in code)
+   - Multiply instruction latency (4 cycles)
+
+3. Functional Units
+   - ALU0 and ALU1 capabilities
+   - MUL unit location (in ALU0)
+   - SPE/FPU unit behavior
+   - Bypass paths (GPR, CR, SPE, FPR)
+
+USED_FOR:
+- CERT-001: Complete Pipeline Scheduling Model (dual-issue)
+- CERT-003: Interrupt Handler Context Save (SPE/FPU)
+- CERT-007: Deterministic Code Generation
+
+[REF-MANUAL-005]
+UID: REF-005
+TITLE: Power Architecture Book E Specification
+PUBLISHER: Power.org or NXP/Freescale
+
+REQUIRED_SECTIONS:
+1. BookE Interrupt Model
+   - IVOR (Interrupt Vector Offset Register) specifications
+   - Critical interrupt (IVOR0) vs external interrupt (IVOR4)
+   - Interrupt context save requirements
+   - RFI and e_rfi instruction semantics
+
+2. Memory Model
+   - Memory ordering semantics
+   - MSYNC vs SYNC vs LWSYNC semantics
+   - Memory barrier ordering guarantees
+
+3. Exception Model
+   - Exception types and priorities
+   - Exception handling requirements
+   - Register state preservation
+
+USED_FOR:
+- CERT-003: Interrupt Handler Context Save
+- CERT-006: Memory Barrier Semantics
+- CERT-005: Exception Handling
+
+[REF-MANUAL-006]
+UID: REF-006
+TITLE: VLE (Variable Length Encoding) Specification
+PUBLISHER: NXP/Freescale or Power.org
+
+REQUIRED_SECTIONS:
+1. Instruction Encoding
+   - 16-bit instruction encoding rules
+   - 32-bit instruction encoding rules
+   - Register encoding constraints (3-bit for R0-R7)
+   - Immediate value encoding constraints
+
+2. Instruction Alignment
+   - 16-bit instruction alignment requirements (2-byte)
+   - 32-bit instruction alignment requirements (4-byte)
+   - Mixed-mode code boundaries
+   - Instruction stream decoding rules
+
+3. Immediate Value Constraints
+   - s6imm: 6-bit signed immediate (-32 to 31)
+   - u5imm: 5-bit unsigned immediate (0 to 31)
+   - u7imm: 7-bit unsigned immediate (0 to 127)
+   - u4imm: 4-bit unsigned immediate (0 to 15)
+   - Boundary value handling
+
+4. Register Constraints
+   - 16-bit instructions require R0-R7
+   - Register allocation implications
+   - Instruction selection rules
+
+USED_FOR:
+- CERT-004: VLE Register Constraints
+- CERT-008: VLE Instruction Length Decoding
+- CERT-009: VLE Immediate Boundary Conditions
+
+[INFO-REQUIREMENTS]
+
+[INFO-TIMING]
+UID: INFO-TIMING
+TITLE: Critical Timing Information Needed
+
+FOR_CERT_001:
+1. Exact instruction latencies for all instruction classes
+2. Pipeline stage breakdown with cycle counts
+3. Bypass path latencies (how many cycles for forwarding)
+4. Resource conflict resolution (when units are shared)
+5. Branch misprediction penalties (exact cycles, not estimates)
+6. Cache miss penalties (for WCET analysis)
+7. Load-to-use latency with all bypass scenarios
+
+FOR_CERT_005:
+1. Division by zero exception behavior (hardware trap vs software check)
+2. Exception handler latency
+3. Integer overflow exception specifications
+4. FPSCR exception flag behavior
+
+FOR_CERT_006:
+1. MSYNC instruction exact semantics
+2. Unified cache coherency protocol details
+3. Memory ordering guarantees
+4. Cache line size and alignment requirements
+5. Store buffer behavior
+
+FOR_CERT_010:
+1. Stack access latency
+2. Cache behavior for stack accesses
+3. Spill slot alignment requirements
+4. Register save/restore instruction timing
+
+[INFO-INTERRUPT]
+UID: INFO-INTERRUPT
+TITLE: Critical Interrupt Handling Information Needed
+
+FOR_CERT_003:
+1. IVOR table specifications (which interrupts map to which IVORs)
+2. Critical interrupt (IVOR0) context save requirements
+3. External interrupt (IVOR4) context save requirements
+4. SPR registers that must be saved for each interrupt type
+5. FPR registers that must be saved when FPU is used
+6. FPSCR save/restore requirements
+7. Link register (LR) handling in interrupt context
+8. Nested interrupt handling rules
+9. VLE mode interrupt return requirements (e_rfi usage)
+
+[INFO-VLE]
+UID: INFO-VLE
+TITLE: Critical VLE Information Needed
+
+FOR_CERT_004:
+1. Exact register encoding for 16-bit instructions (3-bit = R0-R7)
+2. Instruction selection rules (when 16-bit vs 32-bit form)
+3. Register allocation requirements
+
+FOR_CERT_008:
+1. Instruction alignment rules
+2. Instruction stream decoding algorithm
+3. Error detection for misaligned/corrupted streams
+4. Mixed-mode boundary handling
+
+FOR_CERT_009:
+1. Immediate value encoding algorithms
+2. Boundary value handling (-32, 31, 0, 127, 15)
+3. Truncation/extension rules
+4. Error cases when immediate doesn't fit
+
+[INFO-DUAL-ISSUE]
+UID: INFO-DUAL-ISSUE
+TITLE: Critical Dual-Issue Information Needed
+
+FOR_CERT_001_AND_CERT_007:
+1. Exact pairing rules for e200z4 and e200z7
+2. Instructions that cannot pair
+3. Resource conflict resolution when pairing
+4. Latency differences between paired and unpaired execution
+5. Deterministic pairing behavior requirements
+
+[ACCESS_REQUIREMENTS]
+
+LEGAL_ACCESS:
+Most NXP/Freescale reference manuals require:
+1. NDA (Non-Disclosure Agreement) with NXP/Freescale
+2. Product licensing agreement
+3. Account with NXP/Freescale support portal
+
+PUBLIC_ACCESS:
+Some information may be available in:
+1. Public application notes
+2. Errata documents
+3. Community forums (limited)
+4. Open-source projects using e200 cores
+
+RECOMMENDED_APPROACH:
+1. Contact NXP/Freescale support for e200 core documentation access
+2. Request specifically:
+   - e200z0/z4/z6/z7 Core Reference Manuals
+   - BookE specification documents
+   - VLE encoding specification
+   - Application notes on interrupt handling
+   - Timing analysis guidelines for WCET
+
+[VALIDATION_REQUIREMENTS]
+
+WHEN_MANUALS_OBTAINED:
+1. Create validation test matrix mapping manual sections to code
+2. Verify all instruction latencies match manual specifications
+3. Verify all bypass paths are correctly modeled
+4. Verify interrupt context save requirements match manual
+5. Verify memory barrier semantics match manual
+6. Verify VLE encoding constraints match specification
+7. Create regression tests based on manual specifications
+8. Document any discrepancies between current code and manuals
+9. Update CompleteModel flags after validation
+
+[PRIORITY]
+
+HIGH_PRIORITY:
+- e200z6 Core Reference Manual (most extensively used in codebase)
+- e200z4 Core Reference Manual (dual-issue rules)
+- BookE Interrupt Specification
+
+MEDIUM_PRIORITY:
+- e200z0 Core Reference Manual
+- e200z7 Core Reference Manual
+- VLE Encoding Specification
+
+LOW_PRIORITY:
+- Application notes and errata
+- Timing analysis guidelines
+
