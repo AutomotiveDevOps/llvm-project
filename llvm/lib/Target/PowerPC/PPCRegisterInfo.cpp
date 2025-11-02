@@ -435,15 +435,18 @@ unsigned PPCRegisterInfo::getRegPressureLimit(const TargetRegisterClass *RC,
     unsigned FP = TFI->hasFP(MF) ? 1 : 0;
     unsigned Limit = 32 - FP - DefaultSafety;
     
-    // VLE code size optimization: For VLE targets optimizing for code size,
-    // reduce register pressure limit to encourage use of R0-R7 for 16-bit VLE
-    // instructions. 16-bit VLE instructions require 3-bit register encoding
-    // (registers 0-7), so preferring these registers enables code size reduction.
-    if (Subtarget.hasVLE() && 
-        (MF.getFunction().hasOptSize() || MF.getFunction().hasMinSize())) {
-      // Reduce limit by 2-3 registers to encourage R0-R7 usage
-      // This makes the allocator more conservative and prefer lower registers
-      Limit = std::max(24u, Limit - 2);
+    // VLE code size optimization: For VLE targets, reduce register pressure limit
+    // to encourage use of R0-R7 for 16-bit VLE instructions. 16-bit VLE instructions
+    // require 3-bit register encoding (registers 0-7), so preferring these registers
+    // enables code size reduction and better instruction selection opportunities.
+    if (Subtarget.hasVLE()) {
+      // Reduce limit to encourage R0-R7 usage
+      // This makes the allocator more conservative and prefer lower registers,
+      // which are required for 16-bit VLE instruction encoding
+      unsigned Reduction = (MF.getFunction().hasOptSize() || MF.getFunction().hasMinSize()) 
+                           ? 3  // Stronger preference when optimizing for size
+                           : 1; // Still prefer R0-R7 even without explicit size opt
+      Limit = std::max(24u, Limit - Reduction);
     }
     
     return Limit;

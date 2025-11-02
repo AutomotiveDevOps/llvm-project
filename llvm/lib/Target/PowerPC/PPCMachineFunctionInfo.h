@@ -72,6 +72,24 @@ class PPCFunctionInfo : public MachineFunctionInfo {
   /// Indicates whether VRSAVE is spilled in the current function.
   bool SpillsVRSAVE = false;
 
+  /// MustSaveXER - For interrupt handlers, indicates that XER (Fixed-Point
+  /// Exception Register) must be saved/restored because it's used or modified.
+  bool MustSaveXER = false;
+
+  /// MustSaveCTR - For interrupt handlers, indicates that CTR (Count Register)
+  /// must be saved/restored because it's used.
+  bool MustSaveCTR = false;
+
+  /// MustSaveFPRs - For interrupt handlers with FPU/SPE support (e200z4, e200z6, e200z7),
+  /// indicates that FPRs (Floating-Point Registers) must be saved/restored because
+  /// they're used in FPU operations.
+  bool MustSaveFPRs = false;
+
+  /// MustSaveSPEFSCR - For interrupt handlers with SPE support (e200z4, e200z7),
+  /// indicates that SPEFSCR (SPE Floating-Point Status and Control Register)
+  /// must be saved/restored because FPU operations modify it implicitly.
+  bool MustSaveSPEFSCR = false;
+
   /// LRStoreRequired - The bool indicates whether there is some explicit use of
   /// the LR/LR8 stack slot that is not obvious from scanning the code.  This
   /// requires that the code generator produce a store of LR to the stack on
@@ -180,6 +198,18 @@ public:
 
   void setSpillsVRSAVE()       { SpillsVRSAVE = true; }
   bool isVRSAVESpilled() const { return SpillsVRSAVE; }
+
+  void setMustSaveXER(bool U) { MustSaveXER = U; }
+  bool mustSaveXER() const    { return MustSaveXER; }
+
+  void setMustSaveCTR(bool U) { MustSaveCTR = U; }
+  bool mustSaveCTR() const    { return MustSaveCTR; }
+
+  void setMustSaveFPRs(bool U) { MustSaveFPRs = U; }
+  bool mustSaveFPRs() const     { return MustSaveFPRs; }
+
+  void setMustSaveSPEFSCR(bool U) { MustSaveSPEFSCR = U; }
+  bool mustSaveSPEFSCR() const     { return MustSaveSPEFSCR; }
 
   void setLRStoreRequired() { LRStoreRequired = true; }
   bool isLRStoreRequired() const { return LRStoreRequired; }

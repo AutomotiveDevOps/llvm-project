@@ -31,19 +31,29 @@ def E200Z6_WB     : FuncUnit; // Write back stage
 //  * Execute
 //    Single execution unit for integer operations, branch unit, LSU, and FPU.
 //    e200z6 has FPU support with unified cache (32KB L1)
+//    Resource sharing constraints:
+//    - Single-issue processor: Only one instruction executes per cycle
+//    - MUL, FPU, and LSU share execution resources and cannot execute simultaneously
+//    - ALU operations can execute concurrently with other units when supported
+//    - Branch unit operates independently but still subject to single-issue constraint
 def E200Z6_ALU    : FuncUnit; // Integer ALU
 def E200Z6_BU     : FuncUnit; // Branch unit
-def E200Z6_LSU    : FuncUnit; // Load/store unit
-def E200Z6_MUL    : FuncUnit; // Multiply unit
-def E200Z6_FPU    : FuncUnit; // Floating-point unit
+def E200Z6_LSU    : FuncUnit; // Load/store unit (shares execution resources with MUL/FPU)
+def E200Z6_MUL    : FuncUnit; // Multiply unit (shares execution resources with FPU/LSU)
+def E200Z6_FPU    : FuncUnit; // Floating-point unit (shares execution resources with MUL/LSU)
 
+// Bypass paths model register forwarding in the pipeline.
+// GPR_Bypass: General-purpose register bypass (EX to EX forwarding for integer operations)
+// CR_Bypass: Condition register bypass (CR field forwarding)
+// FPR_Bypass: Floating-point register bypass (FPU result forwarding)
 def E200Z6_GPR_Bypass : Bypass;
 def E200Z6_CR_Bypass  : Bypass;
+def E200Z6_FPR_Bypass : Bypass;
 
 def PPCE200Z6Itineraries : ProcessorItineraries<
   [E200Z6_FETCH, E200Z6_DECODE, E200Z6_EX, E200Z6_MEM, E200Z6_WB,
    E200Z6_ALU, E200Z6_BU, E200Z6_LSU, E200Z6_MUL, E200Z6_FPU],
-  [E200Z6_CR_Bypass, E200Z6_GPR_Bypass], [
+  [E200Z6_CR_Bypass, E200Z6_GPR_Bypass, E200Z6_FPR_Bypass], [
   InstrItinData<IIC_IntSimple,   [InstrStage<1, [E200Z6_FETCH], 0>,
                                    InstrStage<1, [E200Z6_DECODE], 0>,
                                    InstrStage<1, [E200Z6_EX, E200Z6_ALU]>,
@@ -157,14 +167,14 @@ def PPCE200Z6Itineraries : ProcessorItineraries<
                                    InstrStage<1, [E200Z6_EX]>,
                                    InstrStage<1, [E200Z6_MEM, E200Z6_LSU]>,
                                    InstrStage<1, [E200Z6_WB]>],
-                                  [6, 1, 1, 1, 1], // Latency = 3
+                                  [6, 1, 1, 1, 1], // Latency = 4 (3 pipeline stages + 1 writeback)
                                   [E200Z6_GPR_Bypass, E200Z6_GPR_Bypass]>,
   InstrItinData<IIC_LdStLoadUpd, [InstrStage<1, [E200Z6_FETCH], 0>,
                                    InstrStage<1, [E200Z6_DECODE], 0>,
                                    InstrStage<1, [E200Z6_EX, E200Z6_ALU], 0>,
                                    InstrStage<1, [E200Z6_MEM, E200Z6_LSU]>,
                                    InstrStage<1, [E200Z6_WB]>],
-                                  [6, 1, 1, 1, 1], // Latency = 3
+                                  [6, 1, 1, 1, 1], // Latency = 4 (3 pipeline stages + 1 writeback)
                                   [E200Z6_GPR_Bypass, E200Z6_GPR_Bypass],
                                   2>, // 2 micro-ops
   InstrItinData<IIC_LdStLoadUpdX,[InstrStage<1, [E200Z6_FETCH], 0>,
@@ -172,14 +182,14 @@ def PPCE200Z6Itineraries : ProcessorItineraries<
                                    InstrStage<1, [E200Z6_EX, E200Z6_ALU], 0>,
                                    InstrStage<1, [E200Z6_MEM, E200Z6_LSU]>,
                                    InstrStage<1, [E200Z6_WB]>],
-                                  [6, 1, 1, 1, 1], // Latency = 3
+                                  [6, 1, 1, 1, 1], // Latency = 4 (3 pipeline stages + 1 writeback)
                                   [E200Z6_GPR_Bypass, E200Z6_GPR_Bypass],
                                   2>, // 2 micro-ops
   InstrItinData<IIC_LdStStore,   [InstrStage<1, [E200Z6_FETCH], 0>,
                                    InstrStage<1, [E200Z6_DECODE], 0>,
                                    InstrStage<1, [E200Z6_EX]>,
                                    InstrStage<1, [E200Z6_MEM, E200Z6_LSU]>],
-                                  [5, 1, 1, 1], // Latency = 3
+                                  [5, 1, 1, 1], // Latency = 4 (store completion timing)
                                   [NoBypass, E200Z6_GPR_Bypass]>,
   InstrItinData<IIC_LdStSTU,     [InstrStage<1, [E200Z6_FETCH], 0>,
                                    InstrStage<1, [E200Z6_DECODE], 0>,
@@ -218,9 +228,9 @@ def PPCE200Z6Itineraries : ProcessorItineraries<
 def PPCE200Z6Model : SchedMachineModel {
   let IssueWidth = 1;  // Single-issue in-order processor.
                        // CORRECTED: Was incorrectly modeled as dual-issue.
-  let LoadLatency = 4; // Load-to-use latency (3 cycles + 1 for writeback).
-                       // This is overriden by OperandCycles if the
-                       // Itineraries are queried instead.
+  let LoadLatency = 4; // Load-to-use latency (4 cycles total: FETCH+DECODE+EX+MEM+WB stages).
+                       // Aligned with itinerary OperandCycles timing. This is overriden by
+                       // OperandCycles if the Itineraries are queried instead.
   let MicroOpBufferSize = 0; // In-order processor, no reorder buffer.
   let MispredictPenalty = 3;  // Branch misprediction penalty.
   let PostRAScheduler = 1;

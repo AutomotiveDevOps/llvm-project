@@ -40,6 +40,11 @@ def E200Z7_SPE    : FuncUnit; // Signal Processing Engine / FPU unit
 def E200Z7_LSU    : FuncUnit; // Load/store unit
 def E200Z7_MUL    : FuncUnit; // Multiply unit (in ALU0)
 
+// Bypass paths model register forwarding in the pipeline.
+// GPR_Bypass: General-purpose register bypass (EX to EX forwarding for integer operations)
+// CR_Bypass: Condition register bypass (CR field forwarding)
+// SPE_Bypass: Signal Processing Engine bypass (SPE result forwarding for vector operations)
+// FPR_Bypass: Floating-point register bypass (FPU result forwarding)
 def E200Z7_GPR_Bypass : Bypass;
 def E200Z7_CR_Bypass  : Bypass;
 def E200Z7_SPE_Bypass : Bypass;

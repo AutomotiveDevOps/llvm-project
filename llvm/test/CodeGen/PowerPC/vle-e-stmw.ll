@@ -23,3 +23,5 @@ entry:
   ret void
 }
 
+attributes #0 = { minsize optsize "target-cpu"="e200z4" }
+

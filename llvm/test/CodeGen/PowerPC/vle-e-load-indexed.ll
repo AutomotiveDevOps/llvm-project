@@ -46,3 +46,5 @@ entry:
   ret i32 %val
 }
 
+attributes #0 = { minsize optsize "target-cpu"="e200z4" }
+

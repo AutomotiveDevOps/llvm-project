@@ -45,6 +45,10 @@ def E200Z4_FPU    : FuncUnit; // FPU pipeline (SPE-capable)
 def E200Z4_SPE    : FuncUnit; // Signal Processing Extension unit
 def E200Z4_ICache : FuncUnit; // Instruction cache (affects fetch timing)
 
+// Bypass paths model register forwarding in the pipeline.
+// GPR_Bypass: General-purpose register bypass (EX to EX forwarding for integer operations)
+// CR_Bypass: Condition register bypass (CR field forwarding)
+// SPE_Bypass: Signal Processing Engine bypass (SPE result forwarding for vector/FPU operations)
 def E200Z4_GPR_Bypass : Bypass;
 def E200Z4_CR_Bypass  : Bypass;
 def E200Z4_SPE_Bypass : Bypass;
@@ -219,7 +223,8 @@ def PPCE200Z4Itineraries : ProcessorItineraries<
                                    InstrStage<1, [E200Z4_WB]>],
                                   [5, 1, 1, 1, 1], // Latency = 1, Repeat rate = 1
                                   [E200Z4_CR_Bypass, E200Z4_GPR_Bypass]>,
-  // SPE instructions - cannot pair, must use ALU0
+  // SPE instructions - cannot pair, must use DIS0 (dispatch port 0)
+  // Note: DIS0 is used for e200z4 dual-issue dispatch (not ALU0 which is e200z7 terminology)
   // SPE simple operations: evaddw, evsubfw, evand, etc. - 1 cycle latency
   InstrItinData<IIC_VecGeneral,  [InstrStage<1, [E200Z4_FETCH, E200Z4_ICache], 0>,
                                    InstrStage<1, [E200Z4_DIS0], 0>,
@@ -266,6 +271,22 @@ def PPCE200Z4Itineraries : ProcessorItineraries<
 
 // ===---------------------------------------------------------------------===//
 // e200z4 machine model for scheduling and other instruction cost heuristics.
+//
+// DUAL-ISSUE PAIRING RULES (from e200z4RM manual, Chapter 4):
+// NOTE: Exact pairing rules table needs to be extracted from manual Chapter 4.
+// The scheduler does not currently enforce explicit pairing constraints.
+// Known restrictions based on code comments:
+// - SPE instructions cannot pair (must use DIS0 only)
+// - Some instructions are restricted to SU0 only (not SU1)
+// - Dispatch ports: DIS0 and DIS1 for dual-issue capability
+//
+// TODO: Extract complete pairing rules table from e200z4 Core Reference Manual
+// Chapter 4, Section 4.X (Instruction Pipeline and Execution Timing) to:
+// 1. Document which instruction types can pair
+// 2. Specify exact pairing combinations
+// 3. List SU0-only instruction restrictions
+// 4. Model resource conflicts and pairing constraints
+// 5. Set CompleteModel = 1 after validation
 
 def PPCE200Z4Model : SchedMachineModel {
   let IssueWidth = 2;  // Dual-issue in-order processor.
@@ -276,7 +297,9 @@ def PPCE200Z4Model : SchedMachineModel {
   let MispredictPenalty = 3;  // Branch misprediction penalty.
   let PostRAScheduler = 1;
 
-  let CompleteModel = 0;
+  let CompleteModel = 0; // Incomplete: Missing explicit dual-issue pairing rules
+                         // and resource conflict modeling. Need to extract from
+                         // e200z4 Core Reference Manual Chapter 4.
 
   let Itineraries = PPCE200Z4Itineraries;
 }

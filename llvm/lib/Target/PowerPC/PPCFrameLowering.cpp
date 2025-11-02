@@ -1944,11 +1944,55 @@ void PPCFrameLowering::determineCalleeSaves(MachineFunction &MF,
       FI->setMustSaveCTR(true);
     }
     
+    // Check for FPR (Floating-Point Register) usage in interrupt handlers.
+    // e200z4 and e200z7 have SPE/FPU support. If FPU operations are used in
+    // an interrupt handler, all FPRs used must be saved to preserve processor state.
+    // FPRs are saved using standard floating-point store instructions (stfs/stfd).
+    const PPCSubtarget &Subtarget = MF.getSubtarget<PPCSubtarget>();
+    if (Subtarget.hasSPE() || Subtarget.hasFPU()) {
+      // Check for any FPR usage in the interrupt handler
+      bool UsesFPR = false;
+      for (unsigned i = 0; i < 32; ++i) {
+        unsigned FPR = isPPC64 ? PPC::F8_First + i : PPC::F0 + i;
+        if (MRI.isPhysRegUsed(FPR)) {
+          UsesFPR = true;
+          break;
+        }
+      }
+      
+      if (UsesFPR) {
+        // Mark that FPRs need to be saved/restored
+        // TODO: Track which specific FPRs are used and save only those.
+        // For now, mark that FPR save is needed. The actual save/restore
+        // will be handled in emitPrologue/emitEpilogue when FPR save slots
+        // are allocated.
+        FI->setMustSaveFPRs(true);
+        
+        // For e200z4/e200z7 with SPE, also save SPEFSCR (SPE Floating-Point
+        // Status and Control Register) if FPU operations are used.
+        // SPEFSCR contains exception flags and control bits that must be preserved.
+        if (Subtarget.hasSPE()) {
+          if (MRI.isPhysRegUsed(PPC::SPEFSCR)) {
+            FI->setMustSaveSPEFSCR(true);
+          } else {
+            // Even if SPEFSCR is not explicitly read, FPU operations modify it
+            // implicitly (exception flags, rounding mode, etc.), so we should
+            // save it if any FPR operations are present.
+            FI->setMustSaveSPEFSCR(true);
+          }
+        }
+      }
+    }
+    
     // Note: Other SPRs (MSR, IVORs, etc.) are typically not modified by
     // interrupt handlers, but if mfspr/mtspr instructions are used to access
     // other SPRs, they should be tracked and saved. This requires more sophisticated
     // analysis of mfspr/mtspr instruction usage, which can be added in a future
     // enhancement.
+    // 
+    // TODO: Extract IVOR table from e200z4 Core Reference Manual Chapter 5 to
+    // determine if different interrupt types (critical vs external) require
+    // different register save requirements.
   }
 }
 

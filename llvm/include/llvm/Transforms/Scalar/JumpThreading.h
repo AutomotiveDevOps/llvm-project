@@ -78,6 +78,7 @@ class JumpThreadingPass : public PassInfoMixin<JumpThreadingPass> {
   TargetLibraryInfo *TLI;
   LazyValueInfo *LVI;
   AliasAnalysis *AA;
+  TargetTransformInfo *TTI;
   DomTreeUpdater *DTU;
   std::unique_ptr<BlockFrequencyInfo> BFI;
   std::unique_ptr<BranchProbabilityInfo> BPI;
@@ -97,7 +98,8 @@ public:
 
   // Glue for old PM.
   bool runImpl(Function &F, TargetLibraryInfo *TLI_, LazyValueInfo *LVI_,
-               AliasAnalysis *AA_, DomTreeUpdater *DTU_, bool HasProfileData_,
+               AliasAnalysis *AA_, TargetTransformInfo *TTI_,
+               DomTreeUpdater *DTU_, bool HasProfileData_,
                std::unique_ptr<BlockFrequencyInfo> BFI_,
                std::unique_ptr<BranchProbabilityInfo> BPI_);
 
