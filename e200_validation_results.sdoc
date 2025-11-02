@@ -1,0 +1,248 @@
+[TITLE:e200 Cores Validation Results - Manual vs Implementation]
+
+[INTRO]
+This document tracks the validation of LLVM e200 core implementation against
+official reference manuals. Results are documented here as validation progresses.
+
+MANUAL_REFERENCES:
+- e200z0: https://www.elektronikjk.com/elementy_czynne/IC/E200Z0.pdf (E200Z0CRM, Rev. 0, 4/2008)
+- e200z4: https://www.elektronikjk.com/elementy_czynne/IC/E200Z4.pdf (e200z4RM, Rev. 0, 10/2009)
+
+VALIDATION_STATUS:
+- Started: Manual extraction and comparison in progress
+- Priority: Instruction timing (CERT-001) and interrupt handling (CERT-003)
+
+[VALIDATION-CERT-001-PIPELINE]
+UID: VAL-CERT-001
+TITLE: e200z0 Pipeline Architecture Validation
+
+MANUAL_CHAPTER: Chapter 4 - Instruction Pipeline and Execution Timing
+
+PIPELINE_STAGES_VERIFICATION:
+Status: VALIDATED
+Manual_States: 4-stage pipeline (IF, ID, EX, WB)
+LLVM_Implementation: ✓ Correctly models 4 stages
+Code_Location: PPCScheduleE200Z0.td:19-28
+Notes: Manual confirms no separate MEM stage - memory operations in EX stage.
+Our fix (CERT-002) was correct.
+
+FUNCTIONAL_UNITS_VERIFICATION:
+Status: IN_PROGRESS
+Manual_Should_List:
+- ALU (Integer ALU)
+- BU (Branch Unit)  
+- LSU (Load/Store Unit)
+- MUL (Multiply Unit)
+LLVM_Implementation: ✓ All units defined (lines 32-35)
+Code_Location: PPCScheduleE200Z0.td:32-35
+Next_Step: Verify resource sharing constraints from manual
+
+INSTRUCTION_LATENCIES_VERIFICATION:
+Status: PENDING_EXTRACTION
+Required_From_Manual:
+- Chapter 4, Section 4.X: Instruction timing tables
+- Verify each instruction class latency:
+  * Integer simple: 1 cycle (modeled as 1)
+  * Integer compare: 1-2 cycles (modeled as 1 or 2)
+  * Multiply: 4 cycles (modeled as 4)
+  * Divide: 34 cycles (modeled as 34)
+  * Load: 3 cycles (modeled as 3 in itinerary)
+  * Store: 3 cycles (modeled as 3)
+  * Branch: 1 cycle (modeled as 1)
+  * SPR ops: 1 cycle (modeled as 1)
+
+BYPASS_PATHS_VERIFICATION:
+Status: PENDING_EXTRACTION
+Manual_Should_Describe:
+- GPR bypass (register forwarding)
+- CR bypass (condition register forwarding)
+LLVM_Implementation: ✓ Both defined (lines 41-42)
+Code_Location: PPCScheduleE200Z0.td:41-42
+Next_Step: Verify forwarding latency from manual
+
+BRANCH_MISPREDICTION_VERIFICATION:
+Status: PENDING_EXTRACTION
+Current_Model: 3 cycles
+Manual_Location: Chapter 4 - Branch prediction/timing
+Next_Step: Extract exact penalty from manual
+
+LOAD_TO_USE_LATENCY_VERIFICATION:
+Status: PENDING_EXTRACTION
+Current_Model: 4 cycles (3 pipeline + 1 writeback)
+Manual_Location: Chapter 4 - Load/store timing
+Next_Step: Verify against manual specification
+
+[VALIDATION-CERT-003-INTERRUPTS]
+UID: VAL-CERT-003
+TITLE: Interrupt Handler Context Save Validation
+
+MANUAL_CHAPTER: Chapter 5 - Interrupts and Exceptions
+
+RFI_INSTRUCTION_VERIFICATION:
+Status: PENDING_EXTRACTION
+Manual_Location: Chapter 5 - Returning from exception handler (RFI)
+LLVM_Implementation: ✓ Uses RFI for interrupt returns (line 1683)
+Code_Location: PPCFrameLowering.cpp:1662-1686
+Current_Behavior: Checks for VLE, uses E_RFI if VLE enabled
+Next_Step: Verify RFI/e_rfi semantics from manual Section 5.27
+
+INTERRUPT_CONTEXT_SAVE_VERIFICATION:
+Status: IN_PROGRESS
+Manual_Chapter: Chapter 5 - Exception handling, Chapter 2 - Register model
+
+Register_Save_Requirements:
+GPR_Save:
+  Status: PARTIALLY_VALIDATED
+  LLVM_Implementation: ✓ Saves GPRs based on usage tracking
+  Code_Location: PPCFrameLowering.cpp:1855-1913
+  Manual_Requirement: Extract from Chapter 5
+
+CR_Save:
+  Status: PARTIALLY_VALIDATED
+  LLVM_Implementation: ✓ Saves CR if used
+  Code_Location: PPCFrameLowering.cpp:1860-1893
+  Manual_Requirement: Extract from Chapter 5
+
+LR_Save:
+  Status: PARTIALLY_VALIDATED
+  LLVM_Implementation: ✓ Saves LR
+  Code_Location: PPCFrameLowering.cpp:1856
+  Manual_Requirement: Verify from manual
+
+SPR_Save:
+  Status: MISSING
+  LLVM_Implementation: ✗ Not saved
+  Code_Location: PPCFrameLowering.cpp:1843-1913
+  Manual_Requirement: Extract which SPRs must be saved from Chapter 5
+
+FPR_Save:
+  Status: N/A_FOR_E200Z0
+  Note: e200z0 has no FPU, so no FPR save needed
+
+FPSCR_Save:
+  Status: N/A_FOR_E200Z0
+  Note: e200z0 has no FPU, so no FPSCR save needed
+
+IVOR_TABLE_VERIFICATION:
+Status: PENDING_EXTRACTION
+Manual_Location: Chapter 5 - Interrupt Vector Offset Register (IVOR) table
+Required_Information:
+- IVOR0: Critical interrupt
+- IVOR4: External interrupt
+- Other IVOR entries
+- Context save requirements per interrupt type
+LLVM_Implementation: No differentiation currently
+Code_Location: PPCFrameLowering.cpp (needs IVOR-based logic)
+Next_Step: Extract IVOR table from Chapter 5
+
+EXCEPTION_ENTRY_EXIT_VERIFICATION:
+Status: PENDING_EXTRACTION
+Manual_Location: Chapter 5 - Exception entry/exit sequences
+Required_Information:
+- Automatic register save by hardware (SRR0/SRR1)
+- Software-saved registers
+- MSR handling
+- Context synchronization requirements
+
+[VALIDATION-CERT-005-EXCEPTIONS]
+UID: VAL-CERT-005
+TITLE: Exception Handling Validation
+
+MANUAL_CHAPTER: Chapter 5 - Interrupts and Exceptions, Chapter 3 - Instruction Model
+
+DIVISION_EXCEPTION_VERIFICATION:
+Status: PENDING_EXTRACTION
+Manual_Location: Chapter 5 - Program exceptions, Chapter 3 - Division instructions
+Required_Information:
+- Division by zero behavior (hardware trap vs software check)
+- Exception type and priority
+- Exception latency
+Current_Model: 34 cycle latency for division (no exception path modeled)
+Code_Location: PPCScheduleE200Z0.td:81-86
+Next_Step: Extract division exception specs from manual
+
+INTEGER_OVERFLOW_VERIFICATION:
+Status: PENDING_EXTRACTION
+Manual_Location: Chapter 5 - Arithmetic exceptions
+Required_Information:
+- Overflow detection mechanism
+- XER register SO bit behavior
+- Exception generation
+
+[VALIDATION-CERT-006-MEMORY-BARRIERS]
+UID: VAL-CERT-006
+TITLE: Memory Barrier Semantics Validation
+
+MANUAL_CHAPTER: Chapter 3 - Instruction Model, Section 3.4
+
+MSYNC_SEMANTICS_VERIFICATION:
+Status: PENDING_EXTRACTION
+Manual_Location: Chapter 3, Section 3.4 - Memory Synchronization
+Required_Information:
+- MSYNC exact semantics (sync vs lwsync)
+- Memory ordering guarantees
+- Cache coherency requirements
+Current_Usage: MSYNC used for both sync and lwsync in LLVM
+Code_Location: PPCInstrInfo.td:2341-2358
+Next_Step: Verify if this is correct from manual
+
+SYNC_INSTRUCTION_VERIFICATION:
+Status: PENDING_EXTRACTION
+Manual_Location: Chapter 3, Section 3.4
+Required_Information:
+- Is SYNC supported on e200z0 or only MSYNC?
+- Instruction semantics if supported
+
+ISYNC_INSTRUCTION_VERIFICATION:
+Status: PENDING_EXTRACTION
+Manual_Location: Chapter 3, Section 3.4
+Required_Information:
+- ISYNC semantics for instruction synchronization
+- Usage with RFI (mentioned in manual index)
+
+[VALIDATION-NEXT-STEPS]
+UID: NEXT-STEPS
+
+IMMEDIATE_ACTIONS:
+1. Extract Chapter 4 instruction timing tables from e200z0 manual
+2. Extract Chapter 5 IVOR table and exception handling details
+3. Extract Chapter 3 memory barrier specifications
+4. Compare extracted data with LLVM implementation
+5. Document discrepancies
+
+VALIDATION_ORDER:
+1. CERT-001: Pipeline timing (highest priority - affects WCET)
+2. CERT-003: Interrupt handling (safety-critical)
+3. CERT-005: Exception handling (safety-critical)
+4. CERT-006: Memory barriers (multi-threaded safety)
+5. CERT-010: Register spill timing (WCET)
+
+[VALIDATION-DISCREPANCIES]
+UID: DISCREPANCIES
+TITLE: Discrepancies Found Between Manual and Implementation
+
+Status: No discrepancies documented yet - validation in progress
+
+When discrepancies are found, document:
+- Manual specification
+- LLVM implementation
+- Impact on certification
+- Proposed fix
+
+[VALIDATION-NOTES]
+UID: NOTES
+
+EXTRACTION_METHOD:
+Manual extraction requires careful reading of PDF sections.
+Key sections to extract:
+- Tables with instruction latencies
+- Pipeline timing diagrams
+- IVOR register tables
+- Exception handling flowcharts
+- Register save/restore specifications
+
+VALIDATION_TIMELINE:
+- Start: Manual comparison initiated
+- Target: Complete extraction for CERT-001, CERT-003, CERT-005, CERT-006
+- Status: In progress
+
