@@ -1,0 +1,310 @@
+[TITLE:e200 Cores Certification Readiness - 10 Critical Improvements]
+
+[REQ-CERT-001]
+UID: CERT-001
+STATUS: Draft
+TITLE: Complete Pipeline Scheduling Model for Accurate WCET Analysis
+
+DESCRIPTION:
+All e200 core scheduling models (e200z0, e200z4, e200z6, e200z7) are marked as incomplete (CompleteModel = 0), indicating missing hazard detection, resource conflict modeling, and bypass path coverage. This violates ISO 26262 WCET analysis requirements (ASIL D - Part 6, Table 9).
+
+CURRENT_STATE:
+- PPCE200Z0Model: CompleteModel = 0
+- PPCE200Z4Model: CompleteModel = 0  
+- PPCE200Z6Model: CompleteModel = 0
+- PPCE200Z7Model: CompleteModel = 0
+
+CODE_LOCATION:
+llvm/lib/Target/PowerPC/PPCScheduleE200Z0.td:227
+llvm/lib/Target/PowerPC/PPCScheduleE200Z4.td:283
+llvm/lib/Target/PowerPC/PPCScheduleE200Z6.td:238
+llvm/lib/Target/PowerPC/PPCScheduleE200Z7.td:253
+
+REQUIRED_ACTIONS:
+1. Verify all instruction latencies against e200 Core Reference Manuals
+2. Model all bypass paths explicitly (GPR, CR, FPR, SPE bypasses)
+3. Add resource conflict detection for shared execution units (MUL, FPU, LSU)
+4. Verify branch misprediction penalties for all branch types
+5. Add cache miss penalty modeling for WCET analysis
+6. Model dual-issue pairing rules for e200z4 and e200z7
+7. Set CompleteModel = 1 after validation
+
+CERTIFICATION_IMPACT:
+Cannot proceed with ISO 26262 WCET certification until scheduling model is complete and validated.
+
+[REQ-CERT-002]
+UID: CERT-002
+STATUS: Draft
+TITLE: Fix e200z0 Scheduling Model Memory Stage Reference Error
+
+DESCRIPTION:
+The e200z0 scheduling model incorrectly references E200Z0_MEM in itinerary definitions despite documentation stating e200z0 has no separate MEM stage (4-stage pipeline: IF, ID, EX, WB). Memory operations are handled in EX stage. This causes incorrect instruction scheduling and timing analysis.
+
+CURRENT_STATE:
+- File documentation states: "e200z0 has a simplified 4-stage pipeline (no separate MEM stage)"
+- Comment at line 28: "Note: Memory operations are handled in EX stage for e200z0 (no separate MEM)"
+- Itinerary definitions at lines 51, 59, 67, 76, 91, 99, 107, 115, 123, 131, 159, 166, 174, 182, 188, 195, 202, 209 reference E200Z0_MEM which is not defined
+- E200Z0_MEM FuncUnit definition is missing
+
+CODE_LOCATION:
+llvm/lib/Target/PowerPC/PPCScheduleE200Z0.td:22-28, 51-212
+
+REQUIRED_ACTIONS:
+1. Remove all E200Z0_MEM references from itinerary definitions
+2. Update memory access itineraries to use E200Z0_EX stage instead
+3. Verify load/store latency modeling accounts for EX stage memory access
+4. Update comments to clarify memory operation timing
+5. Add regression tests for e200z0 memory operation scheduling
+
+CERTIFICATION_IMPACT:
+Incorrect scheduling model invalidates WCET analysis results required for ISO 26262 certification.
+
+[REQ-CERT-003]
+UID: CERT-003
+STATUS: Draft
+TITLE: Implement Complete Interrupt Handler Register Context Save/Restore
+
+DESCRIPTION:
+Interrupt handler context save logic does not preserve all required registers. SPRs, FPRs, and FPSCR are not saved. No differentiation between critical and external interrupt requirements. VLE mode requirements not addressed. This violates ISO 26262 ASIL D requirements (Part 6, Table 10) for deterministic interrupt context preservation.
+
+CURRENT_STATE:
+- Only LR, CR, and GPRs are saved based on usage tracking
+- SPRs (Special Purpose Registers) are not saved
+- FPRs (Floating-Point Registers) are not checked/saved
+- FPSCR (Floating-Point Status and Control Register) not preserved
+- No differentiation between critical (IVOR0) and external (IVOR4) interrupts
+- VLE mode interrupt return (e_rfi) not implemented (TODO comment exists)
+
+CODE_LOCATION:
+llvm/lib/Target/PowerPC/PPCFrameLowering.cpp:1843-1913 (interrupt handler context save)
+llvm/lib/Target/PowerPC/PPCFrameLowering.cpp:1662-1676 (RFI vs BLR, missing e_rfi)
+
+REQUIRED_ACTIONS:
+1. Add SPR save/restore logic for interrupt handlers using SPR registers
+2. Add FPR save/restore when FPU operations are detected in interrupt handler
+3. Add FPSCR save/restore for interrupt handlers using FPU
+4. Differentiate register save requirements: critical (minimal) vs external (full)
+5. Implement e_rfi instruction for VLE mode interrupt returns
+6. Add compile-time warnings for unsaved register usage in interrupt handlers
+7. Add tests for all e200 variant-specific interrupt requirements
+
+CERTIFICATION_IMPACT:
+Incomplete interrupt context preservation causes unpredictable behavior in safety-critical systems, preventing certification.
+
+[REQ-CERT-004]
+UID: CERT-004
+STATUS: Draft
+TITLE: Enforce VLE Register Constraint (R0-R7) for 16-bit Instructions
+
+DESCRIPTION:
+16-bit VLE instructions require registers in range R0-R7 (3-bit encoding), but register allocation does not enforce this constraint. This causes runtime illegal instruction faults when R8-R31 are used with 16-bit VLE instruction forms, violating ISO 26262 ASIL C requirements (Part 6, Table 8).
+
+CURRENT_STATE:
+- PPCInstrVLE.td defines gprc_vle_r0_r7_pred predicate that always returns true (placeholder)
+- No GPRC_VLE_R0_R7 register class defined
+- Register allocator assigns R8-R31 without checking VLE constraints
+- Instruction selector may choose 16-bit VLE form without verifying register assignment
+
+CODE_LOCATION:
+llvm/lib/Target/PowerPC/PPCInstrVLE.td:56-66
+llvm/lib/Target/PowerPC/PPCRegisterInfo.td
+
+REQUIRED_ACTIONS:
+1. Define GPRC_VLE_R0_R7 register class restricting to R0-R7
+2. Add register allocation preference for R0-R7 when VLE optimization enabled
+3. Add instruction selection predicate verifying register is in R0-R7 before selecting 16-bit form
+4. Add compile-time error if register outside R0-R7 used with 16-bit VLE pattern
+5. Add register scavenging logic to prefer R0-R7 for VLE code size optimization
+6. Add comprehensive tests for register constraint violations
+
+CERTIFICATION_IMPACT:
+Runtime illegal instruction faults violate deterministic execution requirements for certification.
+
+[REQ-CERT-005]
+UID: CERT-005
+STATUS: Draft
+TITLE: Add Deterministic Exception Handling for Division and Arithmetic Operations
+
+DESCRIPTION:
+Integer division instructions have 34-cycle latency but exception handling paths are not correctly modeled or generated. Divide-by-zero and integer overflow exceptions are not handled deterministically. PowerPC architecture requires software checking for divide-by-zero as hardware doesn't trap in all cases. This violates ISO 26262 ASIL D requirements (Part 6, Table 15).
+
+CURRENT_STATE:
+- Division latency modeled (34 cycles for e200z6) but exception path not modeled
+- No compile-time divide-by-zero detection
+- No explicit divide-by-zero checks generated before division instructions
+- Integer overflow detection missing
+- Exception handler registration not verified
+
+CODE_LOCATION:
+llvm/lib/Target/PowerPC/PPCScheduleE200Z6.td:80-86 (IIC_IntDivW latency)
+llvm/lib/Target/PowerPC/PPCISelLowering.cpp (exception handling)
+llvm/lib/Target/PowerPC/PPCInstrInfo.td (division instruction definitions)
+
+REQUIRED_ACTIONS:
+1. Add compile-time divide-by-zero detection and error generation
+2. Generate explicit divide-by-zero checks before division instructions when not provably safe
+3. Model division exception path latency in scheduling
+4. Add integer overflow detection for division operations
+5. Ensure exception handlers properly registered for arithmetic exceptions
+6. Document division exception handling requirements for e200 cores
+7. Add runtime checks with deterministic exception paths
+
+CERTIFICATION_IMPACT:
+Undeterministic exception handling violates ISO 26262 deterministic error recovery requirements.
+
+[REQ-CERT-006]
+UID: CERT-006
+STATUS: Draft
+TITLE: Fix Memory Barrier Semantics for Unified L1 Cache Architecture
+
+DESCRIPTION:
+e200z6 has unified 32KB L1 cache, but memory barrier generation (msync/sync) may not account for all memory ordering requirements or cache coherency edge cases. MSYNC is used for both sync and lwsync operations, which may be incorrect. Memory ordering violations can cause race conditions in multi-threaded safety-critical systems. This violates ISO 26262 ASIL D requirements (Part 6, Table 14).
+
+CURRENT_STATE:
+- MSYNC instruction used for both sync and lwsync operations
+- Unified L1 cache coherency requirements not explicitly modeled
+- Memory barrier placement for atomic operations may be incorrect
+- Memory model compliance not verified
+
+CODE_LOCATION:
+llvm/lib/Target/PowerPC/PPCInstrInfo.td:2341-2358 (MSYNC/SYNC definitions)
+llvm/lib/Target/PowerPC/PPCISelLowering.cpp (memory barrier lowering)
+llvm/lib/Target/PowerPC/PPCScheduleE200Z6.td:23 (unified L1 cache model)
+
+REQUIRED_ACTIONS:
+1. Verify MSYNC instruction semantics match required memory barrier types (sync vs lwsync)
+2. Add cache coherency modeling for unified L1 cache architecture
+3. Ensure memory barrier placement for atomic operations correctly orders shared variable accesses
+4. Add memory model compliance verification (SC, TSO, etc.)
+5. Document unified cache coherency requirements for e200z6
+6. Add compile-time warnings for potentially incorrect memory barrier usage
+7. Verify memory barrier latency correctly modeled in scheduling
+
+CERTIFICATION_IMPACT:
+Incorrect memory ordering violates multi-threaded system correctness requirements for certification.
+
+[REQ-CERT-007]
+UID: CERT-007
+STATUS: Draft
+TITLE: Implement Deterministic Code Generation for WCET Analysis
+
+DESCRIPTION:
+Code size optimizations for VLE may introduce non-deterministic instruction selection or pipeline behavior. Register allocation and instruction scheduling decisions may vary between compiler runs, breaking WCET assumptions. Optimization level changes cause different code generation with different WCET. This violates ISO 26262 ASIL D requirements (Part 6, Table 16) for deterministic worst-case execution time.
+
+CURRENT_STATE:
+- VLE optimization heuristics may not be deterministic
+- Register allocation decisions vary between compilation runs
+- Instruction scheduling introduces timing variations based on optimization level
+- Compiler version changes break WCET assumptions
+
+CODE_LOCATION:
+llvm/lib/Target/PowerPC/PPCTargetTransformInfo.cpp:234-281 (VLE code size optimization)
+llvm/lib/Target/PowerPC/PPCVLEOpt.cpp (VLE-specific optimizations)
+llvm/lib/Target/PowerPC/PPCMachineScheduler.cpp (instruction scheduling)
+
+REQUIRED_ACTIONS:
+1. Make VLE instruction selection deterministic (same input → same output)
+2. Add compiler flag to disable timing-affecting optimizations for safety-critical code
+3. Document WCET analysis requirements and compiler settings
+4. Add deterministic register allocation mode for safety-critical functions
+5. Verify instruction scheduling doesn't introduce non-deterministic timing
+6. Add WCET analysis annotations for compiler-generated code
+7. Ensure optimization level doesn't affect instruction selection for critical paths
+
+CERTIFICATION_IMPACT:
+Non-deterministic code generation makes WCET analysis impossible, preventing certification.
+
+[REQ-CERT-008]
+UID: CERT-008
+STATUS: Draft
+TITLE: Add Complete VLE Instruction Length Decoding Validation
+
+DESCRIPTION:
+VLE uses variable-length encoding (16/32-bit), and misalignment or corrupted instruction streams could cause incorrect instruction boundaries. No explicit alignment checking or boundary validation exists. Instruction decoder may misinterpret length, cascading errors through instruction stream. This violates ISO 26262 ASIL D requirements (Part 6, Table 12) for instruction fetch integrity.
+
+CURRENT_STATE:
+- No explicit alignment checking in instruction decoder
+- No instruction boundary validation to detect corrupted streams
+- Disassembler may incorrectly identify instruction length
+- Code emitter doesn't enforce alignment for VLE instructions
+- No error handling for misaligned or corrupted streams
+
+CODE_LOCATION:
+llvm/lib/Target/PowerPC/PPCInstrVLE.td (VLE instruction definitions)
+llvm/lib/Target/PowerPC/Disassembler/PPCDisassembler.cpp
+llvm/lib/Target/PowerPC/MCTargetDesc/PPCMCCodeEmitter.cpp
+
+REQUIRED_ACTIONS:
+1. Add explicit alignment checking in instruction decoder (16-bit VLE must be 2-byte aligned)
+2. Add instruction boundary validation to detect corrupted instruction streams
+3. Add disassembler verification that instruction length matches encoding
+4. Add code emitter alignment enforcement for VLE instructions
+5. Add error detection for mixed-mode (standard/VLE) code boundaries
+6. Document instruction stream format requirements
+7. Add instruction stream integrity checks (CRC/checksum for safety-critical code)
+
+CERTIFICATION_IMPACT:
+Instruction stream corruption prevents deterministic execution required for certification.
+
+[REQ-CERT-009]
+UID: CERT-009
+STATUS: Draft
+TITLE: Implement Correct VLE Immediate Value Boundary Condition Validation
+
+DESCRIPTION:
+Immediate value range predicates for VLE instructions may cause incorrect instruction selection at boundary values (-32, 31, 0, 127, 15). Silent truncation or incorrect encoding when values are at exact boundaries. Instruction selector may bypass validation checks. This violates ISO 26262 ASIL C/D requirements (Part 6, Table 7) for correct instruction encoding.
+
+CURRENT_STATE:
+- Predicates use inclusive ranges but instruction selection may not validate at all decision points
+- AsmParser validates ranges but instruction selection may bypass checks
+- Boundary value immediate testing missing
+- Silent truncation not detected
+
+CODE_LOCATION:
+llvm/lib/Target/PowerPC/PPCInstrVLE.td:22-50 (immediate predicates)
+llvm/lib/Target/PowerPC/AsmParser/PPCAsmParser.cpp:1190-1215
+llvm/lib/Target/PowerPC/PPCISelDAGToDAG.cpp (instruction selection)
+
+REQUIRED_ACTIONS:
+1. Add explicit boundary value tests for all immediate predicates
+2. Ensure instruction selection rejects patterns when immediate values don't fit exactly
+3. Add compile-time errors (not warnings) when VLE immediate constraints are violated
+4. Verify that 16-bit VLE instruction encoding correctly truncates/extends immediate values
+5. Add runtime validation in disassembler to detect illegal encodings
+6. Add comprehensive boundary value testing (-32, 31, 0, 127, 15, -1)
+
+CERTIFICATION_IMPACT:
+Incorrect instruction encoding causes execution of unintended operations, preventing certification.
+
+[REQ-CERT-010]
+UID: CERT-010
+STATUS: Draft
+TITLE: Add Register Spill/Fill Timing Modeling for WCET Analysis
+
+DESCRIPTION:
+Register spill and fill operations (storing/loading registers to/from stack) are not accounted for in worst-case execution time (WCET) analysis. Spill operations add memory access latency that can break timing guarantees. Cache misses when accessing spill slots are not modeled. This violates ISO 26262 ASIL D requirements (Part 6, Table 27) for accurate WCET analysis.
+
+CURRENT_STATE:
+- Spill/fill operations create memory accesses (stw, lwz) but latency not modeled in scheduling
+- Cache miss penalties for spill slot accesses not accounted for
+- Register pressure causes excessive spilling without timing analysis
+- Spill slot alignment requirements add hidden timing overhead
+- Interrupt handler context save/restore spills not accounted for in WCET
+
+CODE_LOCATION:
+llvm/lib/Target/PowerPC/PPCInstrInfo.cpp:1095-1118 (StoreRegToStackSlot)
+llvm/lib/Target/PowerPC/PPCInstrInfo.cpp:1157-1176 (LoadRegFromStackSlot)
+llvm/lib/Target/PowerPC/PPCFrameLowering.cpp:2269-2311
+
+REQUIRED_ACTIONS:
+1. Model register spill/fill latency explicitly in instruction scheduling
+2. Account for cache miss penalties when accessing spill slots
+3. Add WCET annotations for functions with register spills
+4. Limit register spilling in safety-critical functions
+5. Verify spill slot alignment doesn't add timing overhead
+6. Document spill/fill timing requirements for each e200 variant
+7. Add timing analysis verification for spilled register accesses
+
+CERTIFICATION_IMPACT:
+Missing spill/fill timing causes incorrect WCET calculations, preventing accurate timing analysis required for certification.
+
