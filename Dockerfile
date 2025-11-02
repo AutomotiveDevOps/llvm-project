@@ -44,6 +44,12 @@ ENV BUILD_DIR=/build/build
 ENV INSTALL_DIR=/build/install
 ENV PACKAGE_DIR=/build/packages
 
+# Set parallel build level to use all available CPUs
+# Detect CPU count and store it for use during build
+# CMAKE_BUILD_PARALLEL_LEVEL can also be set via environment, but we'll pass it explicitly to ninja
+RUN echo "Available CPUs: $(nproc)" && \
+    echo "$(nproc)" > /tmp/cpu_count.txt
+
 # Create directories
 RUN mkdir -p ${BUILD_DIR} ${INSTALL_DIR} ${PACKAGE_DIR}
 
@@ -67,10 +73,14 @@ RUN cmake -G Ninja \
     /build/src/llvm
 
 # Build with parallel jobs (use all available CPUs)
-RUN ninja -j$(nproc)
+# Note: ninja auto-detects CPUs by default, but we make it explicit
+RUN NPROC=$(cat /tmp/cpu_count.txt) && \
+    echo "Building with ${NPROC} parallel jobs..." && \
+    ninja -j${NPROC}
 
-# Install to install directory
-RUN ninja install
+# Install to install directory (install is typically fast, but can also be parallelized)
+RUN NPROC=$(cat /tmp/cpu_count.txt) && \
+    ninja install -j${NPROC}
 
 # Prepare package metadata
 WORKDIR ${PACKAGE_DIR}
