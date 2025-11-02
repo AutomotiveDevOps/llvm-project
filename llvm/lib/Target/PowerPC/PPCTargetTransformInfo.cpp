@@ -250,6 +250,8 @@ PPCTTIImpl::getUserCost(const User *U, ArrayRef<const Value *> Operands,
       
       // Basic cost: standard PowerPC instruction is 4 bytes
       unsigned BaseCost = 4;
+      bool HasVLEEquivalent = false;
+      bool CouldUse16Bit = false;
       
       // Check if this operation has a VLE equivalent
       switch (I->getOpcode()) {
@@ -264,12 +266,37 @@ PPCTTIImpl::getUserCost(const User *U, ArrayRef<const Value *> Operands,
       case Instruction::Shl:
       case Instruction::LShr:
       case Instruction::AShr:
-        // These operations have VLE equivalents. Estimate cost:
-        // If registers could be R0-R7 and immediates fit, use 16-bit VLE (2 bytes)
-        // Otherwise, 32-bit VLE or standard PowerPC (4 bytes)
-        // For now, assume 50% chance of fitting 16-bit VLE (heuristic)
-        // This will be refined by actual instruction selection
-        BaseCost = 3; // Slightly prefer VLE-capable instructions
+        HasVLEEquivalent = true;
+        // Check if operands might fit in 16-bit VLE constraints
+        // 16-bit VLE requires:
+        //   - Registers R0-R7 (3-bit encoding)
+        //   - Immediates: s6imm (-32 to 31), u5imm (0-31), or u7imm (0-127)
+        for (unsigned i = 0, e = I->getNumOperands(); i != e; ++i) {
+          const Value *Op = I->getOperand(i);
+          
+          // Check for constant operands that might fit in VLE immediate range
+          if (const ConstantInt *CI = dyn_cast<ConstantInt>(Op)) {
+            int64_t ImmVal = CI->getSExtValue();
+            // Check if immediate fits common VLE ranges
+            if (ImmVal >= -32 && ImmVal <= 31) {
+              // Fits in s6imm - could use 16-bit VLE
+              CouldUse16Bit = true;
+              break;
+            } else if (ImmVal >= 0 && ImmVal <= 127) {
+              // Fits in u7imm - could use 16-bit VLE (for se_li, etc.)
+              if (I->getOpcode() == Instruction::Add || 
+                  I->getOpcode() == Instruction::Sub) {
+                CouldUse16Bit = true;
+                break;
+              }
+            }
+          }
+        }
+        
+        // If we detected potential 16-bit VLE usage, use 2-byte cost
+        // Otherwise use 3 bytes (between 16-bit and 32-bit) as heuristic
+        // This encourages the instruction selector to prefer VLE
+        BaseCost = CouldUse16Bit ? 2 : 3;
         break;
       default:
         // Keep standard cost for other operations
