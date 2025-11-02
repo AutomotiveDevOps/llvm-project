@@ -53,7 +53,7 @@ WORKDIR ${BUILD_DIR}
 RUN cmake -G Ninja \
     -DCMAKE_BUILD_TYPE=Release \
     -DLLVM_TARGETS_TO_BUILD="PowerPC" \
-    -DLLVM_ENABLE_PROJECTS="clang;lld;compiler-rt" \
+    -DLLVM_ENABLE_PROJECTS="clang;lld" \
     -DLLVM_ENABLE_ASSERTIONS=OFF \
     -DLLVM_ENABLE_BACKTRACES=OFF \
     -DLLVM_ENABLE_EH=ON \
@@ -64,14 +64,6 @@ RUN cmake -G Ninja \
     -DLLVM_INCLUDE_BENCHMARKS=OFF \
     -DCMAKE_INSTALL_PREFIX=${INSTALL_DIR} \
     -DLLVM_DEFAULT_TARGET_TRIPLE=powerpc-none-elf \
-    -DCOMPILER_RT_BAREMETAL_BUILD=ON \
-    -DCOMPILER_RT_OS_DIR=baremetal \
-    -DCOMPILER_RT_DEFAULT_TARGET_ONLY=ON \
-    -DCOMPILER_RT_BUILD_BUILTINS=ON \
-    -DCOMPILER_RT_BUILD_SANITIZERS=OFF \
-    -DCOMPILER_RT_BUILD_XRAY=OFF \
-    -DCOMPILER_RT_BUILD_LIBFUZZER=OFF \
-    -DCOMPILER_RT_BUILD_PROFILE=OFF \
     /build/src/llvm
 
 # Build with parallel jobs (use all available CPUs)
@@ -108,20 +100,8 @@ RUN PACKAGE_VERSION=$(cat /tmp/llvm_version.txt) && \
     mkdir -p ${DEB_DIR}/DEBIAN && \
     mkdir -p ${DEB_DIR}/usr && \
     cp -r ${INSTALL_DIR}/* ${DEB_DIR}/usr/ && \
-    cat > ${DEB_DIR}/DEBIAN/control <<EOF
-Package: llvm-ppc-vle
-Version: ${PACKAGE_VERSION}
-Architecture: ${BUILD_ARCH}
-Maintainer: LLVM PowerPC e200 VLE Build
-Description: LLVM/Clang toolchain for PowerPC Embedded with VLE extensions
- This package contains the complete LLVM/Clang toolchain built for
- PowerPC e200 cores with Variable Length Encoding (VLE) support.
- Includes clang, lld, compiler-rt, and all necessary libraries and headers
- for compiling embedded PowerPC code with VLE instructions.
-Section: devel
-Priority: optional
-EOF
-    && dpkg-deb --build ${DEB_DIR} ${PACKAGE_DIR}/${PACKAGE_NAME}.deb && \
+    printf 'Package: llvm-ppc-vle\nVersion: %s\nArchitecture: %s\nMaintainer: LLVM PowerPC e200 VLE Build\nDescription: LLVM/Clang toolchain for PowerPC Embedded with VLE extensions\n This package contains the complete LLVM/Clang toolchain built for\n PowerPC e200 cores with Variable Length Encoding (VLE) support.\n Includes clang, lld, compiler-rt, and all necessary libraries and headers\n for compiling embedded PowerPC code with VLE instructions.\nSection: devel\nPriority: optional\n' "${PACKAGE_VERSION}" "${BUILD_ARCH}" > ${DEB_DIR}/DEBIAN/control && \
+    dpkg-deb --build ${DEB_DIR} ${PACKAGE_DIR}/${PACKAGE_NAME}.deb && \
     echo "Created ${PACKAGE_NAME}.deb"
 
 # Create .tar.bz2 archive
@@ -153,7 +133,7 @@ else
     echo "  docker run -v \$(pwd)/output:/output <image>"
 fi
 EOF
-    chmod +x /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
 # Default command: copy packages to output directory
 ENTRYPOINT ["/entrypoint.sh"]
