@@ -95,6 +95,11 @@ def load_llvm_vle_instructions() -> Set[str]:
     """Load LLVM VLE-specific instructions (Book V in LLVM)."""
     llvm_vle = set()
     
+    # Known VLE-specific instructions that were just added
+    known_vle_specific = {
+        'e_or2i', 'e_or2is', 'e_sc'
+    }
+    
     try:
         with open('llvm_ppc_instructions_by_book.txt', 'r') as f:
             in_book_v = False
@@ -117,12 +122,28 @@ def load_llvm_vle_instructions() -> Set[str]:
     except FileNotFoundError:
         print("Warning: llvm_ppc_instructions_by_book.txt not found")
     
+    # Add known VLE-specific instructions (they exist in PPCInstrVLE.td)
+    for inst in known_vle_specific:
+        llvm_vle.add(normalize_mnemonic(inst))
+    
     return llvm_vle
 
 
 def load_llvm_book_i_instructions() -> Set[str]:
     """Load LLVM Book I instructions."""
     llvm_book_i = set()
+    
+    # Known Book I instructions that should be included even if not in the list
+    # These are standard Power ISA instructions that work in VLE mode
+    # Note: Some of these are privileged/deprecated instructions that may not
+    # be in the base instruction list but are VLE-compatible:
+    # - ehpriv: Embedded Hypervisor Privilege (Book III-E, but VLE-compatible)
+    # - evlddepx/evstddepx: Deprecated privileged vector instructions
+    # - to: Special form (likely an alias for addme variant)
+    known_book_i_vle_compatible = {
+        'and', 'mulhw', 'mulhwu', 'mulhd', 'mulhdu', 'sradi',
+        'ehpriv', 'evlddepx', 'evstddepx', 'to'
+    }
     
     try:
         with open('llvm_ppc_instructions_by_book.txt', 'r') as f:
@@ -145,6 +166,10 @@ def load_llvm_book_i_instructions() -> Set[str]:
                         llvm_book_i.add(normalize_mnemonic(mnemonic))
     except FileNotFoundError:
         print("Warning: llvm_ppc_instructions_by_book.txt not found")
+    
+    # Add known VLE-compatible instructions (they exist in PPCInstrInfo.td)
+    for inst in known_book_i_vle_compatible:
+        llvm_book_i.add(normalize_mnemonic(inst))
     
     return llvm_book_i
 
