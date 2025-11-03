@@ -29,6 +29,19 @@ build:
 		exit 1; \
 	fi
 	@echo "Using existing build in $(BUILDDIR)"
+	@echo "Validating build executables..."
+	@if [ ! -f "$(BUILDDIR)/bin/clang" ] && [ ! -f "$(BUILDDIR)/bin/clang-22" ]; then \
+		echo "WARNING: clang executable not found in $(BUILDDIR)/bin/"; \
+		echo "Clang will not be available in the package. Rebuild LLVM with clang enabled if needed."; \
+	fi
+	@if [ ! -f "$(BUILDDIR)/bin/lld" ]; then \
+		echo "WARNING: lld executable not found in $(BUILDDIR)/bin/"; \
+		echo "Please rebuild LLVM with -DLLVM_ENABLE_LLD=ON"; \
+	fi
+	@if [ ! -d "$(BUILDDIR)/lib/clang" ] && [ ! -f "$(BUILDDIR)/lib/libclang_rt.builtins-powerpc.a" ]; then \
+		echo "WARNING: compiler-rt not found. Linking may fail with missing symbols."; \
+		echo "Consider rebuilding with compiler-rt enabled."; \
+	fi
 
 install: build
 	@echo "Installing to package directories at $(INSTALL_PREFIX)..."
@@ -40,6 +53,35 @@ install: build
 	@echo "Copying binaries and libraries..."
 	@cp -r $(BUILDDIR)/bin $(PKGDIR)$(INSTALL_PREFIX)/ 2>/dev/null || true
 	@cp -r $(BUILDDIR)/lib $(PKGDIR)$(INSTALL_PREFIX)/ 2>/dev/null || true
+	
+	@echo "Fixing clang symlinks..."
+	@CLANG_EXE=$$([ -f "$(PKGDIR)$(INSTALL_PREFIX)/bin/clang-22" ] && echo "clang-22" || \
+	              [ -f "$(PKGDIR)$(INSTALL_PREFIX)/bin/clang" ] && echo "clang" || echo ""); \
+	if [ -n "$$CLANG_EXE" ]; then \
+		if [ "$$CLANG_EXE" != "clang" ]; then \
+			ln -sfn $$CLANG_EXE $(PKGDIR)$(INSTALL_PREFIX)/bin/clang; \
+		fi; \
+		ln -sfn $$CLANG_EXE $(PKGDIR)$(INSTALL_PREFIX)/bin/clang++; \
+		ln -sfn $$CLANG_EXE $(PKGDIR)$(INSTALL_PREFIX)/bin/clang-cl; \
+		ln -sfn $$CLANG_EXE $(PKGDIR)$(INSTALL_PREFIX)/bin/clang-cpp; \
+	else \
+		echo "WARNING: No clang executable found, symlinks will be broken"; \
+	fi
+	
+	@echo "Fixing lld symlinks..."
+	@if [ -f "$(PKGDIR)$(INSTALL_PREFIX)/bin/lld" ]; then \
+		ln -sfn lld $(PKGDIR)$(INSTALL_PREFIX)/bin/ld.lld; \
+		ln -sfn lld $(PKGDIR)$(INSTALL_PREFIX)/bin/lld-link; \
+		ln -sfn lld $(PKGDIR)$(INSTALL_PREFIX)/bin/ld64.lld; \
+		ln -sfn lld $(PKGDIR)$(INSTALL_PREFIX)/bin/wasm-ld; \
+	else \
+		echo "WARNING: lld executable not found, symlinks will be broken"; \
+		for link in ld.lld lld-link ld64.lld wasm-ld; do \
+			if [ -L "$(PKGDIR)$(INSTALL_PREFIX)/bin/$$link" ]; then \
+				rm -f "$(PKGDIR)$(INSTALL_PREFIX)/bin/$$link"; \
+			fi; \
+		done; \
+	fi
 	@if [ -d "$(BUILDDIR)/share" ]; then \
 		cp -r $(BUILDDIR)/share $(PKGDIR)$(INSTALL_PREFIX)/ 2>/dev/null || true; \
 	fi
