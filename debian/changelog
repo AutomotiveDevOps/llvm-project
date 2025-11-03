@@ -1,0 +1,9 @@
+llvm-vle-ppc (11.0.0-1) unstable; urgency=medium
+
+  * Initial package for LLVM with PowerPC VLE (Variable Length Encoding) support
+  * Built with PowerPC target enabled for e200z4/e200z6/e200z7 cores
+  * Supports powerpc-none-eabivle and powerpc-unknown-linux-gnu VLE triplets
+  * Includes Clang frontend and LLD linker with VLE PowerPC support
+
+ -- Cursor.sh | Claude <cursor@cursor.sh>  Mon, 03 Nov 2025 10:54:10 -0500
+

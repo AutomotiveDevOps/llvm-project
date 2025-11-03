@@ -1,0 +1,2 @@
+/usr/bin/ar Dqc ../../libLLVMFrontendDirective.a CMakeFiles/LLVMFrontendDirective.dir/Spelling.cpp.o
+/usr/bin/ranlib -D ../../libLLVMFrontendDirective.a

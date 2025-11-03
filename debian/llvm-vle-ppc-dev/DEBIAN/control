@@ -1,0 +1,9 @@
+Package: llvm-vle-ppc-dev
+Version: 11.0.0-1
+Architecture: amd64
+Maintainer: Cursor.sh | Claude <cursor@cursor.sh>
+Depends: llvm-vle-ppc (= 11.0.0-1)
+Description: Development files for LLVM with PowerPC VLE support
+ This package provides development headers and libraries for building
+ applications with LLVM PowerPC VLE support.
+Installed-Size: 2000

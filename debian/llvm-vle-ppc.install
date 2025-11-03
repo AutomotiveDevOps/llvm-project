@@ -1,0 +1,7 @@
+usr/bin/*
+usr/lib/*.so*
+usr/lib/lib*.a
+usr/lib/cmake
+usr/share/man/man1/*
+usr/share/clang
+

@@ -1,0 +1,2 @@
+/usr/bin/ar Dqc ../../libLLVMFrontendAtomic.a CMakeFiles/LLVMFrontendAtomic.dir/Atomic.cpp.o
+/usr/bin/ranlib -D ../../libLLVMFrontendAtomic.a

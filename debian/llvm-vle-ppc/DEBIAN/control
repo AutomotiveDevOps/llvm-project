@@ -1,0 +1,16 @@
+Package: llvm-vle-ppc
+Version: 11.0.0-1
+Architecture: amd64
+Maintainer: Cursor.sh | Claude <cursor@cursor.sh>
+Depends: libc6 (>= 2.17), libgcc-s1 (>= 3.0), libstdc++6 (>= 5.2), libz1 (>= 1:1.1.4)
+Description: LLVM compiler infrastructure with PowerPC VLE support
+ LLVM is a collection of modular and reusable compiler and toolchain
+ technologies. This package provides LLVM with PowerPC VLE (Variable
+ Length Encoding) support enabled for e200z4/e200z6/e200z7 cores.
+ .
+ This package includes:
+  - LLVM core libraries and tools
+  - Clang C/C++ compiler frontend
+  - LLD linker
+  - Support for powerpc-none-eabivle and powerpc-unknown-linux-gnu triplets
+Installed-Size: 447467

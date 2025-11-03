@@ -1,0 +1,2 @@
+/usr/bin/ar Dqc ../../libLLVMSupportLSP.a CMakeFiles/LLVMSupportLSP.dir/Protocol.cpp.o CMakeFiles/LLVMSupportLSP.dir/Transport.cpp.o CMakeFiles/LLVMSupportLSP.dir/Logging.cpp.o
+/usr/bin/ranlib -D ../../libLLVMSupportLSP.a

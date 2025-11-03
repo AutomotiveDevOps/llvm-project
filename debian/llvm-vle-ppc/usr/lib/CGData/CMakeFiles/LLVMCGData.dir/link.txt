@@ -1,0 +1,2 @@
+/usr/bin/ar Dqc ../libLLVMCGData.a CMakeFiles/LLVMCGData.dir/CodeGenData.cpp.o CMakeFiles/LLVMCGData.dir/CodeGenDataReader.cpp.o CMakeFiles/LLVMCGData.dir/CodeGenDataWriter.cpp.o CMakeFiles/LLVMCGData.dir/OutlinedHashTree.cpp.o CMakeFiles/LLVMCGData.dir/OutlinedHashTreeRecord.cpp.o CMakeFiles/LLVMCGData.dir/StableFunctionMap.cpp.o CMakeFiles/LLVMCGData.dir/StableFunctionMapRecord.cpp.o
+/usr/bin/ranlib -D ../libLLVMCGData.a

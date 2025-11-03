@@ -1,0 +1,114 @@
+#!/usr/bin/make -f
+
+# debian/rules for LLVM with PowerPC VLE support
+# Simplified version without debhelper
+
+BUILDDIR = $(CURDIR)/build
+PKGDIR = $(CURDIR)/debian/llvm-vle-ppc
+PKGDEVDIR = $(CURDIR)/debian/llvm-vle-ppc-dev
+ARCH := $(shell dpkg --print-architecture)
+VERSION := $(shell dpkg-parsechangelog -S Version 2>/dev/null || echo "11.0.0-1")
+
+.PHONY: clean build install binary binary-indep binary-arch
+
+clean:
+	@echo "Cleaning package directories..."
+	rm -rf $(PKGDIR)
+	rm -rf $(PKGDEVDIR)
+	rm -rf $(CURDIR)/debian/files
+	rm -rf $(CURDIR)/debian/*.substvars
+	rm -rf $(CURDIR)/debian/tmp
+	rm -f $(CURDIR)/../llvm-vle-ppc_*.deb
+	rm -f $(CURDIR)/../llvm-vle-ppc-dev_*.deb
+
+build:
+	@echo "Checking for existing build in $(BUILDDIR)..."
+	@if [ ! -d "$(BUILDDIR)" ] || [ ! -f "$(BUILDDIR)/bin/llc" ]; then \
+		echo "Build directory not found or incomplete. Please build LLVM first."; \
+		exit 1; \
+	fi
+	@echo "Using existing build in $(BUILDDIR)"
+
+install: build
+	@echo "Installing to package directories..."
+	@mkdir -p $(PKGDIR)/usr
+	@mkdir -p $(PKGDEVDIR)/usr
+	@mkdir -p $(PKGDIR)/DEBIAN
+	@mkdir -p $(PKGDEVDIR)/DEBIAN
+	
+	@echo "Copying binaries and libraries..."
+	@cp -r $(BUILDDIR)/bin $(PKGDIR)/usr/ 2>/dev/null || true
+	@cp -r $(BUILDDIR)/lib $(PKGDIR)/usr/ 2>/dev/null || true
+	@if [ -d "$(BUILDDIR)/share" ]; then \
+		cp -r $(BUILDDIR)/share $(PKGDIR)/usr/ 2>/dev/null || true; \
+	fi
+	
+	@echo "Copying development files..."
+	@if [ -d "$(BUILDDIR)/include" ]; then \
+		cp -r $(BUILDDIR)/include $(PKGDEVDIR)/usr/ 2>/dev/null || true; \
+	fi
+	@if [ -d "$(BUILDDIR)/lib/cmake" ]; then \
+		mkdir -p $(PKGDEVDIR)/usr/lib && \
+		cp -r $(BUILDDIR)/lib/cmake $(PKGDEVDIR)/usr/lib/ 2>/dev/null || true; \
+	fi
+	@if [ -d "$(BUILDDIR)/lib/pkgconfig" ]; then \
+		mkdir -p $(PKGDEVDIR)/usr/lib && \
+		cp -r $(BUILDDIR)/lib/pkgconfig $(PKGDEVDIR)/usr/lib/ 2>/dev/null || true; \
+	fi
+	
+	@echo "Resolving library dependencies..."
+	@mkdir -p $(CURDIR)/debian/llvm-vle-ppc/DEBIAN
+	@if command -v dpkg-shlibdeps >/dev/null 2>&1; then \
+		dpkg-shlibdeps -O $(PKGDIR)/usr/lib/*.so* 2>/dev/null | sed 's/shlibs:Depends=//' > $(CURDIR)/debian/llvm-vle-ppc.substvars || echo "" > $(CURDIR)/debian/llvm-vle-ppc.substvars; \
+		SHLIBDEPS=$$(cat $(CURDIR)/debian/llvm-vle-ppc.substvars 2>/dev/null | head -1); \
+	else \
+		SHLIBDEPS="libc6 (>= 2.17), libgcc-s1 (>= 3.0), libstdc++6 (>= 5.2), libz1 (>= 1:1.1.4)"; \
+	fi
+	
+	@echo "Generating control files..."
+	@echo "Package: llvm-vle-ppc" > $(PKGDIR)/DEBIAN/control
+	@echo "Version: $(VERSION)" >> $(PKGDIR)/DEBIAN/control
+	@echo "Architecture: $(ARCH)" >> $(PKGDIR)/DEBIAN/control
+	@echo "Maintainer: Cursor.sh | Claude <cursor@cursor.sh>" >> $(PKGDIR)/DEBIAN/control
+	@if [ -n "$$SHLIBDEPS" ]; then \
+		echo "Depends: $$SHLIBDEPS" >> $(PKGDIR)/DEBIAN/control; \
+	else \
+		echo "Depends: libc6 (>= 2.17), libgcc-s1 (>= 3.0), libstdc++6 (>= 5.2), libz1 (>= 1:1.1.4)" >> $(PKGDIR)/DEBIAN/control; \
+	fi
+	@echo "Description: LLVM compiler infrastructure with PowerPC VLE support" >> $(PKGDIR)/DEBIAN/control
+	@echo " LLVM is a collection of modular and reusable compiler and toolchain" >> $(PKGDIR)/DEBIAN/control
+	@echo " technologies. This package provides LLVM with PowerPC VLE (Variable" >> $(PKGDIR)/DEBIAN/control
+	@echo " Length Encoding) support enabled for e200z4/e200z6/e200z7 cores." >> $(PKGDIR)/DEBIAN/control
+	@echo " ." >> $(PKGDIR)/DEBIAN/control
+	@echo " This package includes:" >> $(PKGDIR)/DEBIAN/control
+	@echo "  - LLVM core libraries and tools" >> $(PKGDIR)/DEBIAN/control
+	@echo "  - Clang C/C++ compiler frontend" >> $(PKGDIR)/DEBIAN/control
+	@echo "  - LLD linker" >> $(PKGDIR)/DEBIAN/control
+	@echo "  - Support for powerpc-none-eabivle and powerpc-unknown-linux-gnu triplets" >> $(PKGDIR)/DEBIAN/control
+	
+	@echo "Package: llvm-vle-ppc-dev" > $(PKGDEVDIR)/DEBIAN/control
+	@echo "Version: $(VERSION)" >> $(PKGDEVDIR)/DEBIAN/control
+	@echo "Architecture: $(ARCH)" >> $(PKGDEVDIR)/DEBIAN/control
+	@echo "Maintainer: Cursor.sh | Claude <cursor@cursor.sh>" >> $(PKGDEVDIR)/DEBIAN/control
+	@echo "Depends: llvm-vle-ppc (= $(VERSION))" >> $(PKGDEVDIR)/DEBIAN/control
+	@echo "Description: Development files for LLVM with PowerPC VLE support" >> $(PKGDEVDIR)/DEBIAN/control
+	@echo " This package provides development headers and libraries for building" >> $(PKGDEVDIR)/DEBIAN/control
+	@echo " applications with LLVM PowerPC VLE support." >> $(PKGDEVDIR)/DEBIAN/control
+	
+	@echo "Calculating installed size..."
+	@du -sk $(PKGDIR)/usr | awk '{print "Installed-Size: " $$1}' >> $(PKGDIR)/DEBIAN/control
+	@du -sk $(PKGDEVDIR)/usr | awk '{print "Installed-Size: " $$1}' >> $(PKGDEVDIR)/DEBIAN/control
+
+binary-indep: install
+
+binary-arch: install
+	@echo "Building binary packages..."
+	@fakeroot dpkg-deb --build $(PKGDIR) $(CURDIR)/.. 2>&1
+	@fakeroot dpkg-deb --build $(PKGDEVDIR) $(CURDIR)/.. 2>&1
+	@echo "Packages built successfully:"
+	@ls -lh $(CURDIR)/../llvm-vle-ppc_*.deb $(CURDIR)/../llvm-vle-ppc-dev_*.deb 2>/dev/null || true
+
+binary: binary-indep binary-arch
+
+%:
+	@echo "Target $@ not implemented"
