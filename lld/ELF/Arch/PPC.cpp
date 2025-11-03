@@ -201,13 +201,21 @@ void PPC::writeGotPlt(uint8_t *buf, const Symbol &s) const {
 
 bool PPC::needsThunk(RelExpr expr, RelType type, const InputFile *file,
                      uint64_t branchAddr, const Symbol &s, int64_t a) const {
-  if (type != R_PPC_LOCAL24PC && type != R_PPC_REL24 && type != R_PPC_PLTREL24)
-    return false;
-  if (s.isInPlt(ctx))
-    return true;
-  if (s.isUndefWeak())
-    return false;
-  return !PPC::inBranchRange(type, branchAddr, s.getVA(ctx, a));
+  // Handle regular PowerPC relocations
+  if (type == R_PPC_LOCAL24PC || type == R_PPC_REL24 || type == R_PPC_PLTREL24) {
+    if (s.isInPlt(ctx))
+      return true;
+    if (s.isUndefWeak())
+      return false;
+    return !PPC::inBranchRange(type, branchAddr, s.getVA(ctx, a));
+  }
+  // Handle VLE relocations
+  if (type == R_PPC_VLE_REL8 || type == R_PPC_VLE_REL15 || type == R_PPC_VLE_REL24) {
+    if (s.isUndefWeak())
+      return false;
+    return !PPC::inBranchRange(type, branchAddr, s.getVA(ctx, a));
+  }
+  return false;
 }
 
 uint32_t PPC::getThunkSectionSpacing() const { return 0x2000000; }
@@ -216,6 +224,13 @@ bool PPC::inBranchRange(RelType type, uint64_t src, uint64_t dst) const {
   uint64_t offset = dst - src;
   if (type == R_PPC_LOCAL24PC || type == R_PPC_REL24 || type == R_PPC_PLTREL24)
     return isInt<26>(offset);
+  // VLE relocations use word-aligned (2-byte) offsets, so shift by 1
+  if (type == R_PPC_VLE_REL8)
+    return isInt<9>(offset >> 1);  // 8 bits + sign, word-aligned
+  if (type == R_PPC_VLE_REL15)
+    return isInt<16>(offset >> 1); // 15 bits + sign, word-aligned
+  if (type == R_PPC_VLE_REL24)
+    return isInt<25>(offset >> 1); // 24 bits + sign, word-aligned
   llvm_unreachable("unsupported relocation type used in branch");
 }
 
@@ -265,8 +280,10 @@ RelExpr PPC::getRelExpr(RelType type, const Symbol &s,
   case R_PPC_TPREL16_HA:
   case R_PPC_TPREL16_LO:
   case R_PPC_TPREL16_HI:
-<<<<<<< HEAD
-    return R_TLS;
+    return R_TPREL;
+  // Internal linker relocation (not used in getRelExpr, handled separately)
+  case R_PPC_VLE_RELAX:
+    return R_NONE;
   // VLE (Variable Length Encoding) relocations
   // Reference: VLEPIM Section 2.2.3
   case R_PPC_VLE_REL8:
@@ -288,9 +305,6 @@ RelExpr PPC::getRelExpr(RelType type, const Symbol &s,
   case R_PPC_VLE_SDAREL_OFF_HI:
   case R_PPC_VLE_SDAREL_OFF_HA:
     return R_PPC_EMB_SDAREL;
-=======
-    return R_TPREL;
->>>>>>> upstream/main
   default:
     Err(ctx) << getErrorLoc(ctx, loc) << "unknown relocation (" << type.v
              << ") against symbol " << &s;
@@ -479,6 +493,12 @@ void PPC::relocate(uint8_t *loc, const Relocation &rel, uint64_t val) const {
     break;
   case R_PPC_VLE_SDAREL_OFF_HA:
     write16(loc, ha(val));
+    break;
+  case R_PPC_VLE_RELAX:
+    // R_PPC_VLE_RELAX is an internal relocation marking VLE stub locations.
+    // The stub code has already been written, and this relocation marks where
+    // the branch instruction should be updated to jump to the stub.
+    // This is handled by the thunk mechanism, so we just skip relocation here.
     break;
   default:
     llvm_unreachable("unknown relocation");

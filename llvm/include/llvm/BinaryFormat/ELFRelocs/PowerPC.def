@@ -154,6 +154,8 @@ ELF_RELOC(R_PPC_REL16,                  249)
 ELF_RELOC(R_PPC_REL16_LO,               250)
 ELF_RELOC(R_PPC_REL16_HI,               251)
 ELF_RELOC(R_PPC_REL16_HA,               252)
+// Internal linker relaxation relocations (not part of public ABI)
+ELF_RELOC(R_PPC_VLE_RELAX,              51)   // VLE branch relaxation stub marker
 // VLE (Variable Length Encoding) relocations
 // Reference: VLEPIM (Variable-Length Encoding Extension Programming Interface Manual)
 ELF_RELOC(R_PPC_VLE_REL8,               253)

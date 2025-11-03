@@ -1,0 +1,130 @@
+e200 Core Reference Manuals - Extracted Instruction Information
+================================================================================
+
+
+### E200Z0
+
+Unsupported Instructions (11):
+  - lswi
+  - lswx
+  - mfapidi
+  - mfdcrx
+  - mtdcrx
+  - string
+  - stswi
+  - stswx
+  - supported
+  - these
+  - unsupported
+
+Optionally Supported Instructions:
+  cache: dcba, dcbf, dcbi, dcbt, dcbtst, dcbst, dcbz, icbi, icbt
+  cache_locking: dcbtls, dcbtstls, dcblc, icbtls, icblc
+  tlb: tlbivax, tlbre, tlbsx, tlbsync, tlbwe
+  dcr: mfdcr, mtdcr
+
+Core Extensions (8):
+  - isel
+  - mfspr
+  - processor
+  - se_rfdi
+  - the
+  - these
+  - update
+  - wait
+
+### E200Z3
+
+Unsupported Instructions (17):
+  - fxxxx
+  - lfxxxx
+  - lswi
+  - lswx
+  - mcrfs
+  - mfapidi
+  - mfdcrx
+  - mffs
+  - mtdcrx
+  - point
+  - sfxxxx
+  - string
+  - stswi
+  - stswx
+  - supported
+  - these
+  - unsupported
+
+Optionally Supported Instructions:
+  cache: dcba, dcbf, dcbi, dcbt, dcbtst, dcbst, dcbz, icbi, icbt
+  cache_locking: dcbtls, dcbtstls, dcblc, icbtls, icblc
+  tlb: tlbivax, tlbre, tlbsx, tlbsync, tlbwe
+  dcr: mfdcr, mtdcr
+
+Core Extensions (0):
+
+### E200Z4
+
+Unsupported Instructions (17):
+  - fxxxx
+  - lfxxx
+  - lswi
+  - lswx
+  - manual
+  - mcrfs
+  - mfapidi
+  - mfdcrx
+  - mffs
+  - mtdcrx
+  - sfxxxx
+  - string
+  - stswi
+  - stswx
+  - supported
+  - these
+  - unsupported
+
+Optionally Supported Instructions:
+  cache: dcba, dcbf, dcbi, dcbt, dcbtst, dcbst, dcbz, icbi, icbt
+  cache_locking: dcbtls, dcbtstls, dcblc, icbtls, icblc
+  tlb: tlbivax, tlbre, tlbsx, tlbsync, tlbwe
+  dcr: mfdcr, mtdcr
+
+Core Extensions (0):
+
+### E200Z6
+
+Unsupported Instructions (10):
+  - category
+  - lbarx
+  - lharx
+  - mfapidi
+  - mfdcr
+  - mfdcrx
+  - mtdcrx
+  - specific
+  - summary
+  - supported
+
+Optionally Supported Instructions:
+  dcr: mfdcr, mtdcr
+
+Core Extensions (0):
+
+### E200Z7
+
+Unsupported Instructions (10):
+  - category
+  - lbarx
+  - lharx
+  - mfapidi
+  - mfdcr
+  - mfdcrx
+  - mtdcrx
+  - specific
+  - summary
+  - supported
+
+Optionally Supported Instructions:
+  dcr: mfdcr, mtdcr
+
+Core Extensions (0):

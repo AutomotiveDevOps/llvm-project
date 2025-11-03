@@ -490,6 +490,16 @@ public:
   void addSymbols(ThunkSection &isec) override;
 };
 
+class VLEStub final : public Thunk {
+public:
+  VLEStub(Ctx &ctx, Symbol &dest, int64_t addend)
+      : Thunk(ctx, dest, addend) {}
+  uint32_t size() override { return 16; } // 4 words: e_lis, e_add16i, mtctr, se_bctr+padding
+  void writeTo(uint8_t *buf) override;
+  void addSymbols(ThunkSection &isec) override;
+  bool isCompatibleWith(const InputSection &isec, const Relocation &rel) const override;
+};
+
 // PPC64 Plt call stubs.
 // Any call site that needs to call through a plt entry needs a call stub in
 // the .text section. The call stub is responsible for:
@@ -1402,6 +1412,61 @@ void PPC32LongThunk::writeTo(uint8_t *buf) {
   write32(ctx, buf + 4, 0x4e800420); // bctr
 }
 
+void elf::writeVLEStub(Ctx &ctx, uint8_t *buf, uint64_t targetVA) {
+  // VLE stub sequence (from GCC binutils patch):
+  // e_lis r12, target@ha
+  // e_add16i r12, r12, target@l
+  // mtctr r12
+  // se_bctr + se_nop (padding to 16 bytes)
+  
+  auto ha = [](uint32_t v) -> uint16_t { return (v + 0x8000) >> 16; };
+  auto lo = [](uint32_t v) -> uint16_t { return v & 0xffff; };
+  
+  uint32_t d = targetVA;
+  uint16_t haVal = ha(d);
+  uint16_t loVal = lo(d);
+  
+  // e_lis r12, haVal
+  // Base instruction: 0x7180e000 = e_lis r12, 0
+  // Encoding uses split16 format (from GCC patch, matches VLEPIM split16a):
+  //   insn |= (((ha_val & 0xf800) << 5) | (ha_val & 0x7ff))
+  // Where:
+  //   - (ha_val & 0xf800) << 5: High 5 bits of ha_val shifted to instruction bits 16-20
+  //   - (ha_val & 0x7ff): Low 11 bits of ha_val go to instruction bits 21-31
+  // Note: The base instruction has zeros in the immediate field positions
+  uint32_t e_lis = 0x7180e000; // e_lis r12, 0
+  e_lis |= ((haVal & 0xf800) << 5); // High 5 bits to instruction bits 16-20 (split16a format)
+  e_lis |= (haVal & 0x7ff);         // Low 11 bits to instruction bits 21-31
+  
+  // e_add16i r12, r12, loVal
+  // Base instruction: 0x1d8c0000 = e_add16i r12, r12, 0
+  // Encoding: low 11 bits of immediate go to bits 21-31
+  uint32_t e_add16i = 0x1d8c0000; // e_add16i r12, r12, 0
+  e_add16i |= (loVal & 0x7ff);    // Low 11 bits to bits 21-31
+  
+  write32(ctx, buf + 0, e_lis);      // e_lis r12, target@ha
+  write32(ctx, buf + 4, e_add16i);   // e_add16i r12, r12, target@l
+  write32(ctx, buf + 8, 0x7d8903a6); // mtctr r12
+  write32(ctx, buf + 12, 0x00064400); // se_bctr (0x0006) + se_nop (0x4400)
+}
+
+void VLEStub::writeTo(uint8_t *buf) {
+  uint64_t targetVA = destination.getVA(ctx, addend);
+  writeVLEStub(ctx, buf, targetVA);
+}
+
+void VLEStub::addSymbols(ThunkSection &isec) {
+  addSymbol(ctx.saver.save("__VLEStub_" + destination.getName()), STT_FUNC, 0,
+            isec);
+}
+
+bool VLEStub::isCompatibleWith(const InputSection &isec,
+                                const Relocation &rel) const {
+  // VLE stubs are only compatible with VLE relocations
+  return rel.type == R_PPC_VLE_REL8 || rel.type == R_PPC_VLE_REL15 ||
+         rel.type == R_PPC_VLE_REL24;
+}
+
 void elf::writePPC64LoadAndBranch(Ctx &ctx, uint8_t *buf, int64_t offset) {
   uint16_t offHa = (offset + 0x8000) >> 16;
   uint16_t offLo = offset & 0xffff;
@@ -1769,6 +1834,13 @@ static std::unique_ptr<Thunk> addThunkMips(Ctx &ctx, RelType type, Symbol &s) {
 
 static std::unique_ptr<Thunk> addThunkPPC32(Ctx &ctx, const InputSection &isec,
                                             const Relocation &rel, Symbol &s) {
+  // Handle VLE relocations
+  if (rel.type == R_PPC_VLE_REL8 || rel.type == R_PPC_VLE_REL15 ||
+      rel.type == R_PPC_VLE_REL24) {
+    return std::make_unique<VLEStub>(ctx, s, rel.addend);
+  }
+  
+  // Handle regular PowerPC relocations
   assert((rel.type == R_PPC_LOCAL24PC || rel.type == R_PPC_REL24 ||
           rel.type == R_PPC_PLTREL24) &&
          "unexpected relocation type for thunk");
