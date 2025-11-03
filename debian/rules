@@ -62,7 +62,7 @@ install: build
 		dpkg-shlibdeps -O $(PKGDIR)/usr/lib/*.so* 2>/dev/null | sed 's/shlibs:Depends=//' > $(CURDIR)/debian/llvm-vle-ppc.substvars || echo "" > $(CURDIR)/debian/llvm-vle-ppc.substvars; \
 		SHLIBDEPS=$$(cat $(CURDIR)/debian/llvm-vle-ppc.substvars 2>/dev/null | head -1); \
 	else \
-		SHLIBDEPS="libc6 (>= 2.17), libgcc-s1 (>= 3.0), libstdc++6 (>= 5.2), libz1 (>= 1:1.1.4)"; \
+		SHLIBDEPS="libc6 (>= 2.17), libgcc-s1 (>= 3.0), libstdc++6 (>= 5.2), zlib1g (>= 1:1.2.0)"; \
 	fi
 	
 	@echo "Generating control files..."
@@ -73,7 +73,7 @@ install: build
 	@if [ -n "$$SHLIBDEPS" ]; then \
 		echo "Depends: $$SHLIBDEPS" >> $(PKGDIR)/DEBIAN/control; \
 	else \
-		echo "Depends: libc6 (>= 2.17), libgcc-s1 (>= 3.0), libstdc++6 (>= 5.2), libz1 (>= 1:1.1.4)" >> $(PKGDIR)/DEBIAN/control; \
+		echo "Depends: libc6 (>= 2.17), libgcc-s1 (>= 3.0), libstdc++6 (>= 5.2), zlib1g (>= 1:1.2.0)" >> $(PKGDIR)/DEBIAN/control; \
 	fi
 	@echo "Description: LLVM compiler infrastructure with PowerPC VLE support" >> $(PKGDIR)/DEBIAN/control
 	@echo " LLVM is a collection of modular and reusable compiler and toolchain" >> $(PKGDIR)/DEBIAN/control
