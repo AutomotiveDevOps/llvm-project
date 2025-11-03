@@ -719,19 +719,8 @@ def pcreladdr : ComplexPattern<iPTR, 1, "SelectAddrPCRel", [], []>;
 
 //===----------------------------------------------------------------------===//
 // PowerPC Instruction Predicate Definitions.
-def In32BitMode  : Predicate<"!PPCSubTarget->isPPC64()">;
-def In64BitMode  : Predicate<"PPCSubTarget->isPPC64()">;
-def IsVLE   : Predicate<"PPCSubTarget->hasVLE()">;
-def HasSPE  : Predicate<"PPCSubTarget->hasSPE()">;
-def HasICBT : Predicate<"PPCSubTarget->hasICBT()">;
-def HasPartwordAtomics : Predicate<"PPCSubTarget->hasPartwordAtomics()">;
-def NoNaNsFPMath : Predicate<"TM.Options.NoNaNsFPMath">;
-def NaNsFPMath   : Predicate<"!TM.Options.NoNaNsFPMath">;
-def HasBPERMD : Predicate<"PPCSubTarget->hasBPERMD()">;
-def HasExtDiv : Predicate<"PPCSubTarget->hasExtDiv()">;
-def IsISA3_0 : Predicate<"PPCSubTarget->isISA3_0()">;
-def HasFPU : Predicate<"PPCSubTarget->hasFPU()">;
-def PCRelativeMemops : Predicate<"PPCSubTarget->hasPCRelativeMemops()">;
+// Note: Most predicates are defined in PPC.td. Only predicates unique to
+// instruction selection are defined here.
 
 // Load and Store Instruction Selection addressing modes.
 let WantsParent = true in {

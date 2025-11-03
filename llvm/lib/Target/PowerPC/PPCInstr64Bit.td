@@ -52,14 +52,7 @@ let Interpretation64Bit = 1, isCodeGenOnly = 1 in {
 let isTerminator = 1, isBarrier = 1, PPC970_Unit = 7, hasSideEffects = 0 in {
   let isReturn = 1, isPredicable = 1, Uses = [LR8, RM] in
     def BLR8 : XLForm_2_ext<19, 16, 20, 0, 0, (outs), (ins), "blr", IIC_BrB,
-<<<<<<< HEAD
-                            [(retflag)]>, Requires<[In64BitMode]>;
-  let isReturn = 1, isTerminator = 1, isBarrier = 1 in
-    def RFID : XForm_0<19, 18, (outs), (ins), "rfid", IIC_IntRFID, [(rfiflag)]>,
-                  Requires<[In64BitMode]>;
-=======
                             [(PPCretglue)]>, Requires<[IsPPC64]>;
->>>>>>> upstream/main
   let isBranch = 1, isIndirectBranch = 1, Uses = [CTR8] in {
     let isPredicable = 1 in
       def BCTR8 : XLForm_2_ext<19, 528, 20, 0, 0, (outs), (ins), "bctr", IIC_BrB,

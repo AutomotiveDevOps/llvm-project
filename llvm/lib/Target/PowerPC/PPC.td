@@ -384,6 +384,7 @@ def HasSYNC   : Predicate<"!Subtarget->hasOnlyMSYNC()">;
 def IsPPC4xx  : Predicate<"Subtarget->isPPC4xx()">;
 def IsPPC6xx  : Predicate<"Subtarget->isPPC6xx()">;
 def IsE500  : Predicate<"Subtarget->isE500()">;
+def IsVLE   : Predicate<"Subtarget->hasVLE()">;
 def HasSPE  : Predicate<"Subtarget->hasSPE()">;
 def HasICBT : Predicate<"Subtarget->hasICBT()">;
 def HasPartwordAtomics : Predicate<"Subtarget->hasPartwordAtomics()">;

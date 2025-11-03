@@ -147,20 +147,18 @@ def gprc_vle_r0_r7_pred : PatLeaf<(i32 gprc:$reg), [{
 // 16-bit VLE instructions use compact encoding with 3-bit register fields (R0-R7)
 class VLE16Form<bits<16> encoding, dag OOL, dag IOL, string asmstr,
                 InstrItinClass itin, list<dag> pattern>
-  : I<0, OOL, IOL, asmstr, itin> {
+  : I<0, OOL, IOL, asmstr, itin>, Requires<[IsBookE, IsVLE]> {
   let Size = 2;  // 16-bit instructions
   let Pattern = pattern;
   let Inst{0-15} = encoding;
-  let Requires = [IsBookE, IsVLE];
 }
 
 // VLE 32-bit instruction format placeholder class
 // 32-bit VLE instructions (E_* prefix) typically reuse Book E opcodes
 class VLE32Form<bits<6> opcode, dag OOL, dag IOL, string asmstr,
                 InstrItinClass itin, list<dag> pattern>
-  : I<opcode, OOL, IOL, asmstr, itin> {
+  : I<opcode, OOL, IOL, asmstr, itin>, Requires<[IsBookE, IsVLE]> {
   let Pattern = pattern;
-  let Requires = [IsBookE, IsVLE];
 }
 
 //===----------------------------------------------------------------------===//
