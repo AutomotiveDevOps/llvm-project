@@ -72,9 +72,11 @@ Book V in the PowerISA spec lists ALL instructions *available in VLE mode*. For 
 - **Supervisor Instructions:** 15 found in LLVM
 - **Status:** ✅ **Likely Complete** (limited extraction data)
 
-<!-- ### Book III-E - Embedded Operating Environment
-- **Embedded Supervisor Instructions:** Limited extraction (5 instructions)
-- **Status:** ⚠️ **Partially Analyzed** (needs more data) -->
+### Book III-E - Embedded Operating Environment
+- **Embedded Supervisor Instructions:** 5 instructions analyzed
+- **LLVM Instructions Found:** 4 (mfdcr, mtdcr, mfpmr, mtpmr)
+- **Missing:** 1 instruction (ehpriv)
+- **Status:** ✅ **Mostly Complete** (80% coverage)
 
 ## Analysis Limitations
 
