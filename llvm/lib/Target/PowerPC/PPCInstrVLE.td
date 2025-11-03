@@ -602,6 +602,11 @@ def SE_SC : SCForm<17, 0, (outs), (ins u16imm:$imm),
                    [(PPCsc imm:$imm)]>
            Requires<[IsBookE, IsVLE]>, hasSideEffects<1>;
 
+// e_sc: System Call (32-bit VLE)
+def E_SC : SCForm<17, 1, 0, (outs), (ins i32imm:$LEV),
+                  "e_sc $LEV", IIC_Syscall, []>
+          Requires<[IsBookE, IsVLE]>, hasSideEffects<1>;
+
 //===----------------------------------------------------------------------===//
 // E_ Prefix Instructions (32-bit VLE)
 //===----------------------------------------------------------------------===//
@@ -709,12 +714,26 @@ def E_ORI_rec : DForm_4<24, (outs gprc:$dst), (ins gprc:$src1, u16imm:$src2),
                         "e_ori. $dst, $src1, $src2", IIC_IntGeneral, []>,
                Requires<[IsBookE, IsVLE]>, isRecordForm;
 
+// e_or2i: OR (2 operand) Immediate (32-bit VLE)
+def E_OR2I : DForm_4<24, (outs GPRC_VLE_R0_R7:$dst),
+                     (ins GPRC_VLE_R0_R7:$src1, u5imm:$src2),
+                     "e_or2i $dst, $src1, $src2", IIC_IntGeneral,
+                     [(set i32:$dst, (or i32:$src1, u5imm_vle_pred:$src2))]>
+            Requires<[IsBookE, IsVLE]>;
+
 // e_or2i.: OR (2 operand) Immediate & record CR (32-bit VLE)
 let Defs = [CR0] in
 def E_OR2I_rec : DForm_4<24, (outs GPRC_VLE_R0_R7:$dst),
                          (ins GPRC_VLE_R0_R7:$src1, u5imm:$src2),
                          "e_or2i. $dst, $src1, $src2", IIC_IntGeneral, []>,
                 Requires<[IsBookE, IsVLE]>, isRecordForm;
+
+// e_or2is: OR (2 operand) Immediate Shifted (32-bit VLE)
+def E_OR2IS : DForm_4<24, (outs GPRC_VLE_R0_R7:$dst),
+                      (ins GPRC_VLE_R0_R7:$src1, u5imm:$src2),
+                      "e_or2is $dst, $src1, $src2", IIC_IntGeneral,
+                      [(set i32:$dst, (or i32:$src1, (shl u5imm_vle_pred:$src2, 1)))]>
+             Requires<[IsBookE, IsVLE]>;
 
 // e_or2is.: OR (2 operand) Immediate Shifted & record CR (32-bit VLE)
 let Defs = [CR0] in

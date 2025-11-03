@@ -745,27 +745,27 @@ def : ProcessorModel<"e200z0", PPCE200Z0Model,
                   [DirectiveE200Z0,
                    FeatureICBT, FeatureBookE,
                    FeatureISEL, FeatureMFTB, FeatureE200,
-                   FeatureMSYNC]>;
+                   FeatureMSYNC, FeatureISA2_07]>;
 def : ProcessorModel<"e200z4", PPCE200Z4Model,
                   [DirectiveE200Z4,
                    FeatureICBT, FeatureBookE,
                    FeatureISEL, FeatureMFTB, FeatureE200,
-                   FeatureSPE, FeatureMSYNC]>;
+                   FeatureSPE, FeatureMSYNC, FeatureISA2_07]>;
 def : ProcessorModel<"e200z3", PPCE200Z3Model,
                   [DirectiveE200Z3,
                    FeatureICBT, FeatureBookE,
                    FeatureISEL, FeatureMFTB, FeatureE200,
-                   FeatureMSYNC]>;
+                   FeatureMSYNC, FeatureISA2_07]>;
 def : ProcessorModel<"e200z6", PPCE200Z6Model,
                   [DirectiveE200Z6,
                    FeatureICBT, FeatureBookE,
                    FeatureISEL, FeatureMFTB, FeatureE200,
-                   FeatureFPU, FeatureMSYNC]>;
+                   FeatureFPU, FeatureMSYNC, FeatureISA2_07]>;
 def : ProcessorModel<"e200z7", PPCE200Z7Model,
                   [DirectiveE200Z7,
                    FeatureICBT, FeatureBookE,
                    FeatureISEL, FeatureMFTB, FeatureE200,
-                   FeatureSPE, FeatureMSYNC]>;
+                   FeatureSPE, FeatureMSYNC, FeatureISA2_07]>;
 def : ProcessorModel<"a2", PPCA2Model,
                   [DirectiveA2, FeatureICBT, FeatureBookE, FeatureMFOCRF,
                    FeatureFCPSGN, FeatureFSqrt, FeatureFRE, FeatureFRES,
