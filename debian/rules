@@ -69,7 +69,7 @@ install: build
 	@echo "Package: llvm-vle-ppc" > $(PKGDIR)/DEBIAN/control
 	@echo "Version: $(VERSION)" >> $(PKGDIR)/DEBIAN/control
 	@echo "Architecture: $(ARCH)" >> $(PKGDIR)/DEBIAN/control
-	@echo "Maintainer: Cursor.sh | Claude <cursor@cursor.sh>" >> $(PKGDIR)/DEBIAN/control
+	@echo "Maintainer: AutomotiveDevOps <noreply@github.com>" >> $(PKGDIR)/DEBIAN/control
 	@if [ -n "$$SHLIBDEPS" ]; then \
 		echo "Depends: $$SHLIBDEPS" >> $(PKGDIR)/DEBIAN/control; \
 	else \
@@ -89,7 +89,7 @@ install: build
 	@echo "Package: llvm-vle-ppc-dev" > $(PKGDEVDIR)/DEBIAN/control
 	@echo "Version: $(VERSION)" >> $(PKGDEVDIR)/DEBIAN/control
 	@echo "Architecture: $(ARCH)" >> $(PKGDEVDIR)/DEBIAN/control
-	@echo "Maintainer: Cursor.sh | Claude <cursor@cursor.sh>" >> $(PKGDEVDIR)/DEBIAN/control
+	@echo "Maintainer: AutomotiveDevOps <noreply@github.com>" >> $(PKGDEVDIR)/DEBIAN/control
 	@echo "Depends: llvm-vle-ppc (= $(VERSION))" >> $(PKGDEVDIR)/DEBIAN/control
 	@echo "Description: Development files for LLVM with PowerPC VLE support" >> $(PKGDEVDIR)/DEBIAN/control
 	@echo " This package provides development headers and libraries for building" >> $(PKGDEVDIR)/DEBIAN/control

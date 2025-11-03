@@ -1,7 +1,7 @@
 Source: llvm-vle-ppc
 Section: devel
 Priority: optional
-Maintainer: Cursor.sh | Claude <cursor@cursor.sh>
+Maintainer: AutomotiveDevOps <noreply@github.com>
 Build-Depends: cmake (>= 3.20.0),
                ninja-build,
                python3,
@@ -12,8 +12,8 @@ Build-Depends: cmake (>= 3.20.0),
                pkg-config
 Standards-Version: 4.6.2
 Homepage: https://llvm.org/
-Vcs-Browser: https://github.com/llvm/llvm-project
-Vcs-Git: https://github.com/llvm/llvm-project.git
+Vcs-Browser: https://github.com/AutomotiveDevOps/llvm-project
+Vcs-Git: https://github.com/AutomotiveDevOps/llvm-project.git
 
 Package: llvm-vle-ppc
 Architecture: any

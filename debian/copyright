@@ -1,14 +1,14 @@
 Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
 Upstream-Name: llvm-vle-ppc
 Upstream-Contact: https://llvm.org/
-Source: https://github.com/llvm/llvm-project
+Source: https://github.com/AutomotiveDevOps/llvm-project
 
 Files: *
 Copyright: 2003-2024, LLVM Project
 License: Apache-2.0 WITH LLVM-exception
 
 Files: debian/*
-Copyright: 2024, Cursor.sh
+Copyright: 2024, AutomotiveDevOps
 License: Same as package
 
 License: Apache-2.0 WITH LLVM-exception

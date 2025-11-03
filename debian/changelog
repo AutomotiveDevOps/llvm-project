@@ -5,5 +5,5 @@ llvm-vle-ppc (11.0.0-1) unstable; urgency=medium
   * Supports powerpc-none-eabivle and powerpc-unknown-linux-gnu VLE triplets
   * Includes Clang frontend and LLD linker with VLE PowerPC support
 
- -- Cursor.sh | Claude <cursor@cursor.sh>  Mon, 03 Nov 2025 10:54:10 -0500
+ -- AutomotiveDevOps <noreply@github.com>  Mon, 03 Nov 2025 11:27:00 -0500
 
