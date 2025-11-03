@@ -157,13 +157,9 @@ def FeatureMSYNC     : SubtargetFeature<"msync", "HasOnlyMSYNC", "true",
                               [FeatureBookE]>;
 def FeatureE500      : SubtargetFeature<"e500", "IsE500", "true",
                                         "Enable E500/E500mc instructions">;
-<<<<<<< HEAD
 def FeatureE200      : SubtargetFeature<"e200", "IsE200", "true",
                                         "Enable e200 instructions">;
-def FeatureSecurePlt : SubtargetFeature<"secure-plt","SecurePlt", "true",
-=======
 def FeatureSecurePlt : SubtargetFeature<"secure-plt","IsSecurePlt", "true",
->>>>>>> upstream/main
                                         "Enable secure plt mode">;
 def FeaturePPC4xx    : SubtargetFeature<"ppc4xx", "IsPPC4xx", "true",
                                         "Enable PPC 4xx instructions">;

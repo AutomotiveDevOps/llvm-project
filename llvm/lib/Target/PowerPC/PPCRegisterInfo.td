@@ -336,16 +336,24 @@ def GPRC : RegisterClass<"PPC", [i32,f32], 32, (add (sequence "R%u", 2, 12),
                                                     R31, R0, R1, FP, BP)> {
   // On non-Darwin PPC64 systems, R2 can be allocated, but must be restored, so
   // put it at the end of the list.
-<<<<<<< HEAD
+  // On AIX, CSRs are allocated starting from R31 according to:
+  // https://www.ibm.com/docs/en/ssw_aix_72/assembler/assembler_pdf.pdf.
+  // This also helps setting the correct `NumOfGPRsSaved' in traceback table.
+  // VLE code size optimization: Prefer R0-R7 for 16-bit VLE instructions
+  // This alternative order prioritizes R0-R7 which are required
+  // for 16-bit VLE encoding (3-bit register field)
   let AltOrders = [(add (sub GPRC, R2), R2),
-                   // VLE code size optimization: Prefer R0-R7 for 16-bit VLE instructions
-                   // This alternative order prioritizes R0-R7 which are required
-                   // for 16-bit VLE encoding (3-bit register field)
+                   (add (sequence "R%u", 2, 12),
+                        (sequence "R%u", 31, 13), R0, R1, FP, BP),
                    (add R0, R1, R2, R3, R4, R5, R6, R7,
                         (sequence "R%u", 8, 12),
                         (sequence "R%u", 30, 13), R31, FP, BP)];
   let AltOrderSelect = [{
     const PPCSubtarget &Subtarget = MF.getSubtarget<PPCSubtarget>();
+    // First check if getGPRAllocationOrderIdx() is available and handles the case
+    int Idx = Subtarget.getGPRAllocationOrderIdx();
+    if (Idx >= 0)
+      return Idx;
     // Use 64-bit ELF ABI order when needed
     if (Subtarget.is64BitELFABI())
       return 1;
@@ -365,16 +373,6 @@ def GPRC : RegisterClass<"PPC", [i32,f32], 32, (add (sequence "R%u", 2, 12),
     }
     // Default order
     return 0;
-=======
-  // On AIX, CSRs are allocated starting from R31 according to:
-  // https://www.ibm.com/docs/en/ssw_aix_72/assembler/assembler_pdf.pdf.
-  // This also helps setting the correct `NumOfGPRsSaved' in traceback table.
-  let AltOrders = [(add (sub GPRC, R2), R2),
-                   (add (sequence "R%u", 2, 12),
-                        (sequence "R%u", 31, 13), R0, R1, FP, BP)];
-  let AltOrderSelect = [{
-    return MF.getSubtarget<PPCSubtarget>().getGPRAllocationOrderIdx();
->>>>>>> upstream/main
   }];
 }
 

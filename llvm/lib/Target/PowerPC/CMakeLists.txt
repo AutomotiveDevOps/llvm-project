@@ -27,16 +27,11 @@ add_llvm_target(PowerPCCodeGen
   PPCCallingConv.cpp
   PPCCTRLoops.cpp
   PPCCTRLoopsVerify.cpp
-<<<<<<< HEAD
   PPCEarlyReturn.cpp
   PPCExpandAtomicPseudoInsts.cpp
-  PPCExpandISEL.cpp
   PPCFastISel.cpp
   PPCFrameLowering.cpp
   PPCGenScalarMASSEntries.cpp
-=======
-  PPCExpandAtomicPseudoInsts.cpp
->>>>>>> upstream/main
   PPCHazardRecognizers.cpp
   PPCInstrInfo.cpp
   PPCISelDAGToDAG.cpp
@@ -49,10 +44,6 @@ add_llvm_target(PowerPCCodeGen
   PPCMacroFusion.cpp
   PPCMIPeephole.cpp
   PPCRegisterInfo.cpp
-<<<<<<< HEAD
-  PPCQPXLoadSplat.cpp
-=======
->>>>>>> upstream/main
   PPCSelectionDAGInfo.cpp
   PPCSubtarget.cpp
   PPCTargetMachine.cpp
@@ -64,14 +55,8 @@ add_llvm_target(PowerPCCodeGen
   PPCReduceCRLogicals.cpp
   PPCVSXFMAMutate.cpp
   PPCVSXSwapRemoval.cpp
-<<<<<<< HEAD
-  PPCVSXWACCCopy.cpp
   PPCPreEmitPeephole.cpp
   PPCVLEOpt.cpp
-=======
-  PPCPreEmitPeephole.cpp
-  PPCLowerMASSVEntries.cpp
-  PPCGenScalarMASSEntries.cpp
   GISel/PPCCallLowering.cpp
   GISel/PPCRegisterBankInfo.cpp
   GISel/PPCLegalizerInfo.cpp
@@ -96,7 +81,6 @@ add_llvm_target(PowerPCCodeGen
 
   ADD_TO_COMPONENT
   PowerPC
->>>>>>> upstream/main
   )
 
 add_subdirectory(AsmParser)

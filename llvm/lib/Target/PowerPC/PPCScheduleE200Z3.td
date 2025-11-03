@@ -10,15 +10,18 @@
 // Power processor.
 //
 // e200z3 Core Characteristics:
-// - 5-stage single-issue pipeline
+// - 4-stage single-issue pipeline (IF, ID, EX, WB)
 // - MMU support
 // - Instruction cache support
 // - No FPU (unlike e200z4/z6)
 // - No SPE (Signal Processing Extension)
 // - Supports 32-bit PowerPC ISA and VLE (Variable Length Encoding)
 //
-// Reference: PowerPC Book E specification
-// NXP e200z3 Core Reference Manual (E200Z3_Core_Reference_Manual.pdf)
+// All information is derived from the "e200z3 Power Architecture Core Reference Manual",
+// Freescale Semiconductor, Rev. 2, specifically:
+// - Chapter 6: Instruction Pipeline and Execution Timing
+// - Table 6-2: Instruction Class Cycle Counts
+// - Chapter 4: Interrupts and Exceptions
 //
 //===----------------------------------------------------------------------===//
 // Relevant functional units in the e200z3 core:
@@ -73,22 +76,26 @@ def PPCE200Z3Itineraries : ProcessorItineraries<
   InstrItinData<IIC_IntDivW,     [InstrStage<1, [E200Z3_DIS], 0>,
                                   InstrStage<1, [E200Z3_MU], 0>,
                                   InstrStage<14, [E200Z3_MU]>],
-                                 [16, 1], // Latency=4..35, Repeat= 4..35
+                                 [16, 1], // Latency = 6-16 (worst case 16), Repeat = 6-16
+                                 // Manual (Table 6-2): 6-16 cycles (data dependent), not pipelined, blocking
                                  [E200Z3_GPR_Bypass,
                                   E200Z3_GPR_Bypass]>,
   InstrItinData<IIC_IntMulHW,    [InstrStage<1, [E200Z3_DIS], 0>,
-                                  InstrStage<4, [E200Z3_MU]>],
-                                 [6, 1], // Latency = 4, Repeat rate = 1
+                                  InstrStage<1, [E200Z3_MU]>],
+                                 [3, 1], // Latency = 1, Repeat rate = 1
+                                 // Manual (Table 6-2): 1 cycle latency, 1 per cycle throughput
                                  [E200Z3_GPR_Bypass,
                                   E200Z3_GPR_Bypass]>,
   InstrItinData<IIC_IntMulHWU,   [InstrStage<1, [E200Z3_DIS], 0>,
-                                  InstrStage<4, [E200Z3_MU]>],
-                                 [6, 1], // Latency = 4, Repeat rate = 1
+                                  InstrStage<1, [E200Z3_MU]>],
+                                 [3, 1], // Latency = 1, Repeat rate = 1
+                                 // Manual (Table 6-2): 1 cycle latency, 1 per cycle throughput
                                  [E200Z3_GPR_Bypass,
                                   E200Z3_GPR_Bypass]>,
   InstrItinData<IIC_IntMulLI,    [InstrStage<1, [E200Z3_DIS], 0>,
-                                  InstrStage<4, [E200Z3_MU]>],
-                                 [6, 1], // Latency = 4, Repeat rate = 1
+                                  InstrStage<1, [E200Z3_MU]>],
+                                 [3, 1], // Latency = 1, Repeat rate = 1
+                                 // Manual (Table 6-2): 1 cycle latency, 1 per cycle throughput
                                  [E200Z3_GPR_Bypass,
                                   E200Z3_GPR_Bypass]>,
   InstrItinData<IIC_IntRotate,   [InstrStage<1, [E200Z3_DIS], 0>,
@@ -123,12 +130,14 @@ def PPCE200Z3Itineraries : ProcessorItineraries<
                                  [2, 1], // Latency = 1
                                  [E200Z3_CR_Bypass, E200Z3_GPR_Bypass]>,
   InstrItinData<IIC_LdStLoad,    [InstrStage<1, [E200Z3_DIS], 0>,
-                                  InstrStage<2, [E200Z3_LSU]>],
-                                 [3, 1], // Latency = 2
+                                  InstrStage<1, [E200Z3_LSU]>],
+                                 [2, 1], // Latency = 1
+                                 // Manual (Table 6-2): 1 cycle latency, 1 per cycle throughput (fully pipelined)
                                  [E200Z3_GPR_Bypass]>,
   InstrItinData<IIC_LdStLoadUpd, [InstrStage<1, [E200Z3_DIS], 0>,
-                                  InstrStage<2, [E200Z3_LSU]>],
-                                 [3, 1, 1], // Latency = 2
+                                  InstrStage<1, [E200Z3_LSU]>],
+                                 [2, 1, 1], // Latency = 1 (same as regular load)
+                                 // Manual (Table 6-2): 1 cycle latency, 1 per cycle throughput
                                  [E200Z3_GPR_Bypass,
                                   E200Z3_GPR_Bypass]>,
   InstrItinData<IIC_LdStStore,   [InstrStage<1, [E200Z3_DIS], 0>,
@@ -178,7 +187,8 @@ def PPCE200Z3Itineraries : ProcessorItineraries<
 def PPCE200Z3Model : SchedMachineModel {
   let IssueWidth = 1;  // Single-issue pipeline
   let MicroOpBufferSize = 0;
-  let LoadLatency = 2;  // Load latency for cache
+  let LoadLatency = 2;  // Load-to-use latency (manual: 1 cycle latency + 1 cycle for writeback)
+                        // Manual (Table 6-2): Loads have 1 cycle latency, 1 per cycle throughput
   let MispredictPenalty = 3;
   let CompleteModel = 0;  // Incomplete: Some pseudo-instructions may not have explicit scheduling
   let Itineraries = PPCE200Z3Itineraries;
