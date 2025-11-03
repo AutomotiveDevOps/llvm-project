@@ -8,6 +8,7 @@ PKGDIR = $(CURDIR)/debian/llvm-vle-ppc
 PKGDEVDIR = $(CURDIR)/debian/llvm-vle-ppc-dev
 ARCH := $(shell dpkg --print-architecture)
 VERSION := $(shell dpkg-parsechangelog -S Version 2>/dev/null || echo "11.0.0-1")
+INSTALL_PREFIX = /usr/local/s32ds-power-linux/llvm-powerpc-eabivle
 
 .PHONY: clean build install binary binary-indep binary-arch
 
@@ -30,36 +31,36 @@ build:
 	@echo "Using existing build in $(BUILDDIR)"
 
 install: build
-	@echo "Installing to package directories..."
-	@mkdir -p $(PKGDIR)/usr
-	@mkdir -p $(PKGDEVDIR)/usr
+	@echo "Installing to package directories at $(INSTALL_PREFIX)..."
+	@mkdir -p $(PKGDIR)$(INSTALL_PREFIX)
+	@mkdir -p $(PKGDEVDIR)$(INSTALL_PREFIX)
 	@mkdir -p $(PKGDIR)/DEBIAN
 	@mkdir -p $(PKGDEVDIR)/DEBIAN
 	
 	@echo "Copying binaries and libraries..."
-	@cp -r $(BUILDDIR)/bin $(PKGDIR)/usr/ 2>/dev/null || true
-	@cp -r $(BUILDDIR)/lib $(PKGDIR)/usr/ 2>/dev/null || true
+	@cp -r $(BUILDDIR)/bin $(PKGDIR)$(INSTALL_PREFIX)/ 2>/dev/null || true
+	@cp -r $(BUILDDIR)/lib $(PKGDIR)$(INSTALL_PREFIX)/ 2>/dev/null || true
 	@if [ -d "$(BUILDDIR)/share" ]; then \
-		cp -r $(BUILDDIR)/share $(PKGDIR)/usr/ 2>/dev/null || true; \
+		cp -r $(BUILDDIR)/share $(PKGDIR)$(INSTALL_PREFIX)/ 2>/dev/null || true; \
 	fi
 	
 	@echo "Copying development files..."
 	@if [ -d "$(BUILDDIR)/include" ]; then \
-		cp -r $(BUILDDIR)/include $(PKGDEVDIR)/usr/ 2>/dev/null || true; \
+		cp -r $(BUILDDIR)/include $(PKGDEVDIR)$(INSTALL_PREFIX)/ 2>/dev/null || true; \
 	fi
 	@if [ -d "$(BUILDDIR)/lib/cmake" ]; then \
-		mkdir -p $(PKGDEVDIR)/usr/lib && \
-		cp -r $(BUILDDIR)/lib/cmake $(PKGDEVDIR)/usr/lib/ 2>/dev/null || true; \
+		mkdir -p $(PKGDEVDIR)$(INSTALL_PREFIX)/lib && \
+		cp -r $(BUILDDIR)/lib/cmake $(PKGDEVDIR)$(INSTALL_PREFIX)/lib/ 2>/dev/null || true; \
 	fi
 	@if [ -d "$(BUILDDIR)/lib/pkgconfig" ]; then \
-		mkdir -p $(PKGDEVDIR)/usr/lib && \
-		cp -r $(BUILDDIR)/lib/pkgconfig $(PKGDEVDIR)/usr/lib/ 2>/dev/null || true; \
+		mkdir -p $(PKGDEVDIR)$(INSTALL_PREFIX)/lib && \
+		cp -r $(BUILDDIR)/lib/pkgconfig $(PKGDEVDIR)$(INSTALL_PREFIX)/lib/ 2>/dev/null || true; \
 	fi
 	
 	@echo "Resolving library dependencies..."
 	@mkdir -p $(CURDIR)/debian/llvm-vle-ppc/DEBIAN
-	@if command -v dpkg-shlibdeps >/dev/null 2>&1; then \
-		dpkg-shlibdeps -O $(PKGDIR)/usr/lib/*.so* 2>/dev/null | sed 's/shlibs:Depends=//' > $(CURDIR)/debian/llvm-vle-ppc.substvars || echo "" > $(CURDIR)/debian/llvm-vle-ppc.substvars; \
+	@if command -v dpkg-shlibdeps >/dev/null 2>&1 && [ -d "$(PKGDIR)$(INSTALL_PREFIX)/lib" ]; then \
+		dpkg-shlibdeps -O $(PKGDIR)$(INSTALL_PREFIX)/lib/*.so* 2>/dev/null | sed 's/shlibs:Depends=//' > $(CURDIR)/debian/llvm-vle-ppc.substvars || echo "" > $(CURDIR)/debian/llvm-vle-ppc.substvars; \
 		SHLIBDEPS=$$(cat $(CURDIR)/debian/llvm-vle-ppc.substvars 2>/dev/null | head -1); \
 	else \
 		SHLIBDEPS="libc6 (>= 2.17), libgcc-s1 (>= 3.0), libstdc++6 (>= 5.2), zlib1g (>= 1:1.2.0)"; \
@@ -96,8 +97,8 @@ install: build
 	@echo " applications with LLVM PowerPC VLE support." >> $(PKGDEVDIR)/DEBIAN/control
 	
 	@echo "Calculating installed size..."
-	@du -sk $(PKGDIR)/usr | awk '{print "Installed-Size: " $$1}' >> $(PKGDIR)/DEBIAN/control
-	@du -sk $(PKGDEVDIR)/usr | awk '{print "Installed-Size: " $$1}' >> $(PKGDEVDIR)/DEBIAN/control
+	@du -sk $(PKGDIR)$(INSTALL_PREFIX) | awk '{print "Installed-Size: " $$1}' >> $(PKGDIR)/DEBIAN/control
+	@du -sk $(PKGDEVDIR)$(INSTALL_PREFIX) | awk '{print "Installed-Size: " $$1}' >> $(PKGDEVDIR)/DEBIAN/control
 
 binary-indep: install
 
