@@ -25,15 +25,21 @@
 // SCI8 Format: Scaled Immediate 8-bit (RT,RA form)
 // Used for: e_addi, e_addic, e_subfic
 // Format: 32-bit instruction with 8-bit scaled immediate
-// Encoding from Power ISA 2.07 Book VLE Chapter 5
+// Encoding from Power ISA 2.07 Book VLE Chapter 5, Section 1.4.16
 // Bits 0-5: Primary opcode (6)
 // Bits 6-10: RT (destination register, 5 bits)
 // Bits 11-15: RA (source register, 5 bits)
 // Bits 16-19: Extended opcode (XO, 4 bits)
 // Bit 20: Rc (record bit)
-// Bits 21-22: F (2 bits) - set to 0 for now, needs proper scaling logic
-// Bit 23: SCL (scale bit) - set to 0 for now, needs proper scaling logic
+// Bit 21: F (fill bit, 1 bit) - fill value for high bits
+// Bits 22-23: SCL (scale bits, 2 bits) - shift amount: 0=0, 1=8, 2=16, 3=24
 // Bits 24-31: UI8 (8-bit unsigned immediate)
+// 
+// SCI8 encoding formula: sci8 = (56-SCL×8 bits of F) || UI8 || (SCL×8 bits of F)
+// Where SCL values: 0=no shift, 1=shift 8, 2=shift 16, 3=shift 24
+// 
+// Note: SCI8 scaling logic should be implemented in the encoder/assembler.
+// For now, we use simple encoding: F=0, SCL=0, UI8=immediate (for values 0-255)
 class VLE_SCI8Form_RTRA<bits<4> xo, bit rc, dag OOL, dag IOL, string asmstr,
                         InstrItinClass itin, list<dag> pattern>
         : I<6, OOL, IOL, asmstr, itin> {
@@ -48,23 +54,29 @@ class VLE_SCI8Form_RTRA<bits<4> xo, bit rc, dag OOL, dag IOL, string asmstr,
   let Inst{11-15}  = RA;
   let Inst{16-19}  = xo;
   let Inst{20}     = rc;
-  let Inst{21-22}  = 0b00;  // F field - set to 0 (no scaling for now)
-  let Inst{23}     = 0;     // SCL field - set to 0 (no scaling for now)
+  let Inst{21}     = 0;     // F field - set to 0 (basic encoding, scaling TODO)
+  let Inst{22-23}  = 0b00;  // SCL field - set to 0 (no scaling, scaling TODO)
   let Inst{24-31}  = UI8;
 }
 
 // SCI8 Format: Scaled Immediate 8-bit (RS,RA form)
 // Used for: e_andi, e_ori, e_xori
 // Format: 32-bit instruction with 8-bit scaled immediate
-// Encoding from Power ISA 2.07 Book VLE Chapter 5
+// Encoding from Power ISA 2.07 Book VLE Chapter 5, Section 1.4.16
 // Bits 0-5: Primary opcode (6)
 // Bits 6-10: RS (source register, 5 bits)
 // Bits 11-15: RA (destination register, 5 bits)
 // Bits 16-19: Extended opcode (XO, 4 bits)
 // Bit 20: Rc (record bit)
-// Bits 21-22: F (2 bits) - set to 0 for now
-// Bit 23: SCL (scale bit) - set to 0 for now
+// Bit 21: F (fill bit, 1 bit) - fill value for high bits
+// Bits 22-23: SCL (scale bits, 2 bits) - shift amount: 0=0, 1=8, 2=16, 3=24
 // Bits 24-31: UI8 (8-bit unsigned immediate)
+// 
+// SCI8 encoding formula: sci8 = (56-SCL×8 bits of F) || UI8 || (SCL×8 bits of F)
+// Where SCL values: 0=no shift, 1=shift 8, 2=shift 16, 3=shift 24
+// 
+// Note: SCI8 scaling logic should be implemented in the encoder/assembler.
+// For now, we use simple encoding: F=0, SCL=0, UI8=immediate (for values 0-255)
 class VLE_SCI8Form_RSRA<bits<4> xo, bit rc, dag OOL, dag IOL, string asmstr,
                         InstrItinClass itin, list<dag> pattern>
         : I<6, OOL, IOL, asmstr, itin> {
@@ -79,8 +91,8 @@ class VLE_SCI8Form_RSRA<bits<4> xo, bit rc, dag OOL, dag IOL, string asmstr,
   let Inst{11-15}  = RA;
   let Inst{16-19}  = xo;
   let Inst{20}     = rc;
-  let Inst{21-22}  = 0b00;  // F field - set to 0 (no scaling for now)
-  let Inst{23}     = 0;     // SCL field - set to 0 (no scaling for now)
+  let Inst{21}     = 0;     // F field - set to 0 (basic encoding, scaling TODO)
+  let Inst{22-23}  = 0b00;  // SCL field - set to 0 (no scaling, scaling TODO)
   let Inst{24-31}  = UI8;
 }
 
@@ -389,6 +401,152 @@ def E_STWU : VLE_D8Form_Store<0b0110,
                                IIC_LdStSTU,
                                []>, RegConstraint<"$dst.reg = $ea_result">,
                                NoEncode<"$ea_result">;
+
+//===----------------------------------------------------------------------===//
+// VLE Load/Store Instructions (No Update)
+//===----------------------------------------------------------------------===//
+
+// D Format: 16-bit displacement for load/store without update
+// Used for: e_lbz, e_lhz, e_lwz, e_stb, e_sth, e_stw
+// Format: 32-bit instruction with 16-bit displacement
+// Encoding from Power ISA 2.07 Book VLE Chapter 5
+// Bits 0-5: Primary opcode (varies by instruction)
+// Bits 6-10: RT (load) or RS (store) - 5 bits
+// Bits 11-15: RA (base register) - 5 bits
+// Bits 16-31: D (16-bit signed displacement)
+class VLE_DForm_Load<bits<6> opcode, dag OOL, dag IOL, string asmstr,
+                     InstrItinClass itin, list<dag> pattern>
+        : I<opcode, OOL, IOL, asmstr, itin>, MemriOp {
+  bits<5> RT;
+  bits<5> RA;
+  bits<16> D;
+
+  let Pattern = pattern;
+
+  // D format encoding (load without update)
+  let Inst{6-10}   = RT;
+  let Inst{11-15}  = RA;
+  let Inst{16-31}  = D;
+}
+
+class VLE_DForm_Store<bits<6> opcode, dag OOL, dag IOL, string asmstr,
+                      InstrItinClass itin, list<dag> pattern>
+        : I<opcode, OOL, IOL, asmstr, itin>, MemriOp {
+  bits<5> RS;
+  bits<5> RA;
+  bits<16> D;
+
+  let Pattern = pattern;
+
+  // D format encoding (store without update)
+  let Inst{6-10}   = RS;
+  let Inst{11-15}  = RA;
+  let Inst{16-31}  = D;
+}
+
+// e_stw: Store Word
+// Stores word from RS to memory address (RA)+D
+// Primary opcode: 21 (0x15 = 0x54000000 >> 26)
+// Encoding: D form
+def E_STW : VLE_DForm_Store<21,
+                             (outs),
+                             (ins gprc:$RS, (memri $D, $RA):$dst),
+                             "e_stw $RS, $dst",
+                             IIC_LdStStore,
+                             [(store i32:$RS, DForm:$dst)]>;
+
+//===----------------------------------------------------------------------===//
+// VLE Move Instructions
+//===----------------------------------------------------------------------===//
+
+// LI20 Format: Load Immediate 20-bit
+// Used for: e_li
+// Format: 32-bit instruction with 20-bit immediate (split across fields)
+// Encoding from Power ISA 2.07 Book VLE Chapter 5, Section 1.4.17
+// Bits 0-5: Primary opcode (28 = 0x1C = 0x70000000 >> 26)
+// Bits 6-10: RT (destination register)
+// Bits 11-15: LI20[5:9] (part 1 of 20-bit immediate)
+// Bits 16-20: ELEV (5 bits, set to 0 for e_li)
+// Bits 17-20: LI20[1:4] (part 2 of 20-bit immediate)
+// Bit 21: LI20[0] (part 3 of 20-bit immediate)
+// Bits 22-31: LI20[10:19] (part 4 of 20-bit immediate)
+// The LI20 field is: LI20[1:4] || LI20[5:9] || LI20[0] || LI20[10:19]
+// Primary opcode 28, XO=0 (bits 16-20 = 0)
+class VLE_LI20Form<dag OOL, dag IOL, string asmstr,
+                    InstrItinClass itin, list<dag> pattern>
+        : I<28, OOL, IOL, asmstr, itin> {
+  bits<5> RT;
+  bits<20> LI20;
+
+  let Pattern = pattern;
+
+  // LI20 format encoding
+  let Inst{6-10}   = RT;
+  let Inst{11-15}  = LI20{5-9};    // LI20[5:9]
+  let Inst{16-20}  = 0b00000;      // ELEV = 0 (XO = 0 for e_li)
+  let Inst{17-20}  = LI20{1-4};     // LI20[1:4]
+  let Inst{21}     = LI20{0};       // LI20[0]
+  let Inst{22-31}  = LI20{10-19};   // LI20[10:19]
+}
+
+// I16L Format: 16-bit Load/Logical Immediate
+// Used for: e_lis, e_or2i
+// Format: 32-bit instruction with 16-bit unsigned immediate (duplicated)
+// Encoding from Power ISA 2.07 Book VLE Chapter 5, Section 1.4.14
+// Bits 0-5: Primary opcode (28 = 0x1C = 0x7000C000 >> 26)
+// Bits 6-10: RT (destination register)
+// Bits 11-15: UI[0:4] (first part of 16-bit unsigned immediate)
+// Bits 16-19: Extended opcode (XO, 4 bits)
+// Bits 20-31: UI[0:11] (second part of 16-bit unsigned immediate, duplicated)
+// The UI field is duplicated in bits 11-15 and 20-31
+class VLE_I16LForm<bits<4> xo, dag OOL, dag IOL, string asmstr,
+                   InstrItinClass itin, list<dag> pattern>
+        : I<28, OOL, IOL, asmstr, itin> {
+  bits<5> RT;
+  bits<16> UI;
+
+  let Pattern = pattern;
+
+  // I16L format encoding
+  let Inst{6-10}   = RT;
+  let Inst{11-15}  = UI{0-4};       // UI[0:4]
+  let Inst{16-19}  = xo;
+  let Inst{20-31}  = UI{0-11};      // UI[0:11] (duplicated)
+}
+
+// e_li: Load Immediate
+// Loads a 20-bit sign-extended immediate value into RT
+// Primary opcode: 28, XO=0
+// Note: For MVP, using s16imm operand (can be extended to 20-bit later)
+def E_LI : VLE_LI20Form<(outs gprc:$RT),
+                         (ins s16imm:$LI20),
+                         "e_li $RT, $LI20",
+                         IIC_IntSimple,
+                         [(set i32:$RT, imm32SExt16:$LI20)]>;
+
+// e_lis: Load Immediate Shifted
+// Loads a 16-bit unsigned immediate value, shifted left 16 bits, into RT
+// Primary opcode: 28, XO=0xE (0b1110)
+// Pattern: matches immediate with low 16 bits zero (shifted left 16)
+def E_LIS : VLE_I16LForm<0b1110,
+                          (outs gprc:$RT),
+                          (ins u16imm:$UI),
+                          "e_lis $RT, $UI",
+                          IIC_IntSimple,
+                          [(set i32:$RT, imm16ShiftedZExt:$UI)]>;
+
+// e_or2i: OR 2-operand Immediate
+// ORs RT with 16-bit unsigned immediate (shifted left 16 bits) and stores result in RT
+// Primary opcode: 28, XO=0xC (0b1100)
+// Pattern: matches OR with immediate that has low 16 bits zero
+// Note: RT is both input and output (read-modify-write), but TableGen requires different names
+def E_OR2I : VLE_I16LForm<0b1100,
+                           (outs gprc:$RT),
+                           (ins gprc:$RST, u16imm:$UI),
+                           "e_or2i $RT, $UI",
+                           IIC_IntSimple,
+                           [(set i32:$RT, (or i32:$RST, imm16ShiftedZExt:$UI))]>,
+                           RegConstraint<"$RT = $RST">;
 
 } // Predicates = [IsBookE, IsISA2_07]
 
