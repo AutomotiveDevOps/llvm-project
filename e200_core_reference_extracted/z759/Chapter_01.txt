@@ -1,0 +1,268 @@
+Chapter 1
+e200z759n3 Overview
+1.1       Overview of the e200z759n3
+The e200z759n3 processor family is a set of CPU cores that implement low-cost versions of the PowerISA
+2.06 architecture.
+The e200z759n3 is a dual-issue, 32-bit PowerISA 2.06 compliant design with 64-bit general purpose
+registers (GPRs). PowerISA 2.06 floating-point instructions are not supported by e200z759n3 in hardware,
+but are trapped and may be emulated by software.
+An Embedded Floating-point (EFPU2) APU is provided to support real-time single-precision embedded
+numerics operations using the general-purpose registers.
+A Signal Processing Extension (SPE) APU is provided to support real-time SIMD fixed point and
+single-precision, embedded numerics operations using the general-purpose registers. All arithmetic
+instructions that execute in the core operate on data in the general purpose registers (GPRs). The GPRs
+have been extended to 64-bits in order to support vector instructions defined by the SPE APU. These
+instructions operate on a vector pair of 16-bit or 32-bit data types, and deliver vector and scalar results.
+In addition to the base PowerISA 2.06 instruction set support, the e200z759n3 core also implements the
+VLE (variable-length encoding) technology, providing improved code density. The VLE technology is
+further documented in “PowerPC VLE Definition, Version 1.03", a separate document.
+The e200z759n3 processor integrates a pair of integer execution units, a branch control unit, instruction
+fetch unit and load/store unit, and a multi-ported register file capable of sustaining six read and three write
+operations per clock. Most integer instructions execute in a single clock cycle. Branch target prefetching
+is performed by the branch unit to allow single-cycle branches in many cases.
+The e200z759n3 contains a 16 KB instruction cache (ICache), a 16 KB Data Cache, as well as a Memory
+Management Unit. A Nexus Class 3+ module is also integrated.
+
+
+
+1.1.1        Features
+The following is a list of some of the key features of the e200z759n3:
+   • Dual issue, 32-bit PowerISA 2.06 compliant CPU
+   • Implements the VLE APU for reduced code footprint
+   • In-order execution and retirement
+   • Precise exception handling
+   • Branch processing unit
+       — Dedicated branch address calculation adder
+       — Branch target prefetching using BTB
+       — Return Address Stack
+
+
+                                   e200z759n3 Core Reference Manual, Rev. 2
+Freescale Semiconductor                                                                                      23
+     •   Load/store unit
+         — 3 cycle load latency
+         — Fully pipelined
+         — Big and Little endian support
+         — Misaligned access support
+     •   64-bit General Purpose Register file
+     •   Dual AHB 2.v6 64-bit System buses
+     •   Memory Management Unit (MMU) with 32-entry fully-associative TLB and multiple page size
+         support
+     •   16Kbyte, 4-Way Set Associative Harvard I and D Caches
+     •   Embedded Floating-point APU (EFPU2) supporting scalar and SIMD single-precision
+         floating-point operations
+     •   Signal Processing Extension (SPE1.1) APU supporting SIMD fixed-point operations, using the
+         64-bit General Purpose Register file.
+     •   Performance Monitor APU supporting execution profiling
+     •   Nexus Class 3-plus Real-time Development Unit
+     •   Power management
+         — Low power design - extensive clock gating
+         — Power saving modes: doze, nap, sleep, wait
+         — Dynamic power management of execution units, caches and MMUs
+     •   Testability
+         — Synthesizeable, MuxD scan design
+         — Optional ABIST/MBIST for arrays
+         — Built-in Parallel Signature Unit
+
+1.1.2        Microarchitecture summary
+The e200z759n3 processor utilizes a ten stage instruction pipeline, with four stages for execution. The
+Instruction Fetch 0, Instruction Fetch 1, Instruction Fetch 2, Instruction Decode0, Instruction Decode
+1/Register file Read/ EA Calc, Execute 0/ Memory Access0, Execute1/Memory Access1,
+Execute2/Memory Access2, Execute 3, and Register Writeback stages operate in an overlapped fashion,
+allowing single clock instruction execution for most instructions.
+The integer execution units each consists of a 32-bit Arithmetic Unit (AU), a Logic Unit (LU), a 32-bit
+Barrel shifter (Shifter), a Mask-Insertion Unit (MIU), a Condition Register manipulation Unit (CRU), a
+Count-Leading-Zeros unit (CLZ), a 32x32 Hardware Multiplier array, and result feed-forward hardware.
+Integer EU1 also supports hardware division.
+Most arithmetic and logical operations are executed in a single cycle with the exception of multiply, which
+is implemented with a pipelined hardware array, and the divide instructions. A Count-Leading-Zeros unit
+operates in a single clock cycle.
+
+
+                                  e200z759n3 Core Reference Manual, Rev. 2
+24                                                                                   Freescale Semiconductor
+The Instruction Unit contains a PC incrementer and dedicated Branch Address adders to minimize delays
+during change of flow operations. Sequential prefetching is performed to ensure a supply of instructions
+into the execution pipeline. Branch target prefetching is performed to accelerate taken branches.
+Prefetched instructions are placed into an instruction buffer.
+Branch target addresses are calculated in parallel with branch instruction decode, resulting in execution
+time of four clocks for correctly predicted branches. Conditional branches that are not taken execute in a
+single clock. Branches with successful BTB target prefetching have an effective execution time of one
+clock if correctly predicted.
+Memory load and store operations are provided for byte, halfword, word (32-bit), and doubleword data
+with automatic zero or sign extension of byte and halfword load data as well as optional byte reversal of
+data. These instructions can be pipelined to allow effective single cycle throughput. Load and store
+multiple word instructions allow low overhead context save and restore operations. The load/store unit
+contains a dedicated effective address adder to allow effective address generation to be optimized.
+The Condition Register unit supports the condition register (CR) and condition register operations defined
+by the PowerPC architecture. The condition register consists of eight 4-bit fields that reflect the results of
+certain operations, such as move, integer and floating-point compare, arithmetic, and logical instructions,
+and provide a mechanism for testing and branching.
+Vectored and autovectored interrupts are supported by the CPU. Vectored interrupt support is provided to
+allow multiple interrupt sources to have unique interrupt handlers invoked with no software overhead.
+The SPE1.1 APU supports vector instructions operating on 16 and 32-bit fixed-point data types. The
+EFPU2 APU supports 32-bit IEEE-754 single-precision floating-point formats, and supports scalar and
+vector single-precision floating-point operations in a pipelined fashion. The 64-bit general purpose register
+file is used for source and destination operands, and there is a unified storage model for scalar
+single-precision floating-point data types of 32-bits and the normal integer type. Low latency fixed-point
+and floating-point add, subtract, mixed add/subtract, sum, diff, min, max, multiply, multiply-add,
+multiply-sub, divide, square root, compare, and conversion operations are provided, and most operations
+can be pipelined.
+
+
+
+
+                                   e200z759n3 Core Reference Manual, Rev. 2
+Freescale Semiconductor                                                                                     25
+                                                          OnCE/NEXUS
+                                                                                                      CPU
+                                                         CONTROL LOGIC                                                          SIMD and EFP
+                                                                                                CONTROL LOGIC                      UNITS
+
+
+
+
+                                                            MEMORY
+                                                          MANAGEMENT                                  LR                               INTEGER
+                                                             UNIT                              SPR    CR         GPR                  EXECUTION
+                                                                                                      CTR                                UNITS
+                                                                                                      XER
+      ADDRESS
+
+
+
+
+                                                                                                                                       MULTIPLY
+                        INSTRUCTION BUS INTERFACE UNIT
+
+
+
+
+                                                                                               INSTRUCTION UNIT                         UNITS
+                                                                                             INSTRUCTION BUFFER
+                                                                 INSTRUCTION CACHE
+
+
+
+
+                                                                                                                                                   CONTROL
+                32
+      DATA
+
+
+
+
+                                                                                                                                     EXTERNAL
+                                                                                                                                       SPR
+                                                                                                                                    INTERFACE       DATA
+                64
+
+
+
+
+                                                                                                                                   (MTSPR/MFSPR)
+      CONTROL
+
+
+
+
+                                                                                                     PC     BRANCH
+                                                                                                    UNIT     UNIT
+
+                                                                                                     LOAD/
+                N
+
+
+
+
+                                                                                                     STORE
+                                                                                                      UNIT
+
+
+
+
+                                                                                                 DATA CACHE
+
+
+
+
+                                                                                          DATA BUS INTERFACE UNIT
+
+
+
+                                                                                               32           64         N
+                                                                                     ADDRESS        DATA         CONTROL
+                                                                                     Figure 1-1. e200z759n3 block diagram
+
+
+1.1.2.1              Instruction unit features
+The features of the e200z759n3 Instruction unit are:
+   • 64-bit path to cache supports fetching of two 32-bit instruction per clock
+   • Instruction buffer holds up to 10 32-bit instructions
+   • Dedicated PC incrementer supporting instruction prefetches
+
+                                                                                     e200z759n3 Core Reference Manual, Rev. 2
+26                                                                                                                                        Freescale Semiconductor
+    •   Branch unit with dedicated branch address adder, and branch lookahead logic (BTB) supporting
+        single cycle execution of successfully predicted branches
+
+1.1.2.2       Integer unit features
+The e200z759n3 integer units support single cycle execution of most integer instructions:
+   • 32-bit AU for arithmetic and comparison operations
+   • 32-bit LU for logical operations
+   • 32-bit priority encoder for count leading zero’s function
+   • 32-bit single cycle barrel shifter for static shifts and rotates
+   • 32-bit mask unit for data masking and insertion
+   • Divider logic for signed and unsigned divide in 4-15 clocks with minimized execution timing (EU1
+       only)
+   • Pipelined 32x32 hardware multiplier array supports 32 × 32  32 multiply with 3 clock latency, 1
+       clock throughput
+
+1.1.2.3       Load/store unit features
+The e200z759n3 load/store unit supports load, store, and the load multiple / store multiple instructions:
+   • 32-bit effective address adder for data memory address calculations
+   • Pipelined operation supports throughput of one load or store operation per cycle
+   • Dedicated 64-bit interface to memory supports saving and restoring of up to two registers per cycle
+       for load multiple and store multiple word instructions
+
+1.1.2.4       Cache features
+The features of the cache are as follows:
+   • Separate 16 KB, 4-way set-associative instruction and data caches (Harvard architecture)
+   • Copyback and Writethrough Support
+   • 8-entry store buffer
+   • Push buffer
+   • Linefill buffer
+   • 32-bit address bus plus attributes and control
+   • Separate uni-directional 64-bit read data bus and 64-bit write data bus
+   • Support for cache line locking
+   • Support for way allocation
+   • Support for write allocation policies
+   • Support for tag and data parity
+   • Support for multi-bit EDC for the ICache
+   • Correction/auto-invalidation capability for the I and D caches
+   • Hardware cache coherency support for the data cache
+
+                                 e200z759n3 Core Reference Manual, Rev. 2
+Freescale Semiconductor                                                                                27
+1.1.2.5      MMU Features
+The features of the MMU are as follows:
+   • Virtual memory support
+   • 32-bit virtual and physical addresses
+   • 8-bit process identifier
+   • 32-entry fully-associative TLB
+   • Multiple page size support from 1 KB to 4 GB
+   • Entry flush protection
+
+1.1.2.6      e200z759n3 system bus features
+The features of the e200z759n3 system bus interface are as follows:
+   • Independent Instruction and Data interfaces
+   • AMBA AHB2.v6 protocol
+   • 32-bit address bus, 64-bit data bus, plus attributes and control
+   • Data interface provides separate uni-directional 64-bit read and write data buses
+   • Support for HCLK running at a slower rate than CPU clock
+
+
+
+
+                                e200z759n3 Core Reference Manual, Rev. 2
+28                                                                                Freescale Semiconductor

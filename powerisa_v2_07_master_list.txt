@@ -1,0 +1,931 @@
+Power ISA 2.07 - Complete Master Instruction List
+================================================================================
+
+This file consolidates instructions from all Power ISA 2.07 books:
+- Book I: User Instruction Set Architecture
+- Book II: Virtual Environment Architecture
+- Book III-S: Operating Environment Architecture (Server)
+- Book III-E: Operating Environment Architecture (Embedded)
+- Book V: Variable Length Encoding (VLE)
+
+Total unique instructions: 452
+
+================================================================================
+
+
+### Book I Instructions (406 total)
+
+brinc                          SP                                       Bit Reversed Increment
+efdabs                         SP.FD                                    Floating-Point Double-Precision Absolute Value
+efdadd                         SP.FD                                    Floating-Point Double-Precision Add
+efdcfs                         SP.FD                                    Floating-Point Double-Precision Convert from Singl
+efdcfsf                        SP.FD                                    Convert Floating-Point Double-Precision from Signe
+efdcfsi                        SP.FD                                    Convert Floating-Point Double-Precision from Signe
+efdcfsid                       SP.FD                                    Convert Floating-Point Double-Precision from Signe
+efdcfuf                        SP.FD                                    Convert Floating-Point Double-Precision from Unsig
+efdcfui                        SP.FD                                    Convert Floating-Point Double-Precision from Unsig
+efdcfuid                       SP.FD                                    Convert Floating-Point Double-Precision from Unsig
+efdcmpeq                       SP.FD                                    Floating-Point Double-Precision Compare Equal
+efdcmpgt                       SP.FD                                    Floating-Point Double-Precision Compare Greater Th
+efdcmplt                       SP.FD                                    Floating-Point Double-Precision Compare Less Than
+efdctsf                        SP.FD                                    Convert Floating-Point Double-Precision to Signed
+efdctsi                        SP.FD                                    Convert Floating-Point Double-Precision to Signed
+efdctsidz                      SP.FD                                    Convert Floating-Point Double-Precision to Signed
+efdctsiz                       SP.FD                                    Convert Floating-Point Double-Precision to Signed
+efdctuf                        SP.FD                                    Convert Floating-Point Double-Precision to Unsigne
+efdctui                        SP.FD                                    Convert Floating-Point Double-Precision to Unsigne
+efdctuidz                      SP.FD                                    Convert Floating-Point Double-Precision to Unsigne
+efdctuiz                       SP.FD                                    Convert Floating-Point Double-Precision to Unsigne
+efddiv                         SP.FD                                    Floating-Point Double-Precision Divide
+efdmul                         SP.FD                                    Floating-Point Double-Precision Multiply
+efdnabs                        SP.FD                                    Floating-Point Double-Precision Negative Absolute
+efdneg                         SP.FD                                    Floating-Point Double-Precision Negate
+efdsub                         SP.FD                                    Floating-Point Double-Precision Subtract
+efdtsteq                       SP.FD                                    Floating-Point Double-Precision Test Equal
+efdtstgt                       SP.FD                                    Floating-Point Double-Precision Test Greater Than
+efdtstlt                       SP.FD                                    Floating-Point Double-Precision Test Less Than
+efsabs                         SP.FS                                    Floating-Point Single-Precision Absolute Value
+efsadd                         SP.FS                                    Floating-Point Single-Precision Add
+efscfd                         SP.FD                                    Floating-Point Single-Precision Convert from Doubl
+efscfsf                        SP.FS                                    Convert Floating-Point Single-Precision from Signe
+efscfsi                        SP.FS                                    Convert Floating-Point Single-Precision from Signe
+efscfuf                        SP.FS                                    Convert Floating-Point Single-Precision from Unsig
+efscfui                        SP.FS                                    Convert Floating-Point Single-Precision from Unsig
+efscmpeq                       SP.FS                                    Floating-Point Single-Precision Compare Equal
+efscmpgt                       SP.FS                                    Floating-Point Single-Precision Compare Greater Th
+efscmplt                       SP.FS                                    Floating-Point Single-Precision Compare Less Than
+efsctsf                        SP.FS                                    Convert Floating-Point Single-Precision to Signed
+efsctsi                        SP.FS                                    Convert Floating-Point Single-Precision to Signed
+efsctsiz                       SP.FS                                    Convert Floating-Point Single-Precision to Signed
+efsctuf                        SP.FS                                    Convert Floating-Point Single-Precision to Unsigne
+efsctui                        SP.FS                                    Convert Floating-Point Single-Precision to Unsigne
+efsctuiz                       SP.FS                                    Convert Floating-Point Single-Precision to Unsigne
+efsdiv                         SP.FS                                    Floating-Point Single-Precision Divide
+efsmul                         SP.FS                                    Floating-Point Single-Precision Multiply
+efsnabs                        SP.FS                                    Floating-Point Single-Precision Negative Absolute
+efsneg                         SP.FS                                    Floating-Point Single-Precision Negate
+efssub                         SP.FS                                    Floating-Point Single-Precision Subtract
+efststeq                       SP.FS                                    Floating-Point Single-Precision Test Equal
+efststgt                       SP.FS                                    Floating-Point Single-Precision Test Greater Than
+efststlt                       SP.FS                                    Floating-Point Single-Precision Test Less Than
+evabs                          SP                                       Vector Absolute Value
+evaddiw                        SP                                       Vector Add Immediate Word
+evaddsmiaaw                    SP                                       Vector Add Signed, Modulo, Integer to Accumulator
+evaddssiaaw                    SP                                       Vector Add Signed, Saturate, Integer to Accumulato
+evaddumiaaw                    SP                                       Vector Add Unsigned, Modulo, Integer to Accumulato
+evaddusiaaw                    SP                                       Vector Add Unsigned, Saturate, Integer to Accumula
+evaddw                         SP                                       Vector Add Word
+evand                          SP                                       Vector AND
+evandc                         SP                                       Vector AND with Complement
+evcmpeq                        SP                                       Vector Compare Equal
+evcmpgts                       SP                                       Vector Compare Greater Than Signed
+evcmpgtu                       SP                                       Vector Compare Greater Than Unsigned
+evcmplts                       SP                                       Vector Compare Less Than Signed
+evcmpltu                       SP                                       Vector Compare Less Than Unsigned
+evcntlsw                       SP                                       Vector Count Leading Signed Bits Word
+evcntlzw                       SP                                       Vector Count Leading Zeros Word
+evdivws                        SP                                       Vector Divide Word Signed
+evdivwu                        SP                                       Vector Divide Word Unsigned
+eveqv                          SP                                       Vector Equivalent
+evextsb                        SP                                       Vector Extend Sign Byte
+evextsh                        SP                                       Vector Extend Sign Halfword
+evfsabs                        SP.FV                                    Vector Floating-Point Single-Precision Absolute Va
+evfsadd                        SP.FV                                    Vector Floating-Point Single-Precision Add
+evfscfsf                       SP.FV                                    Vector Convert Floating-Point Single-Precision fro
+evfscfsi                       SP.FV                                    Vector Convert Floating-Point Single-Precision fro
+evfscfuf                       SP.FV                                    Vector Convert Floating-Point Single-Precision fro
+evfscfui                       SP.FV                                    Vector Convert Floating-Point Single-Precision fro
+evfscmpeq                      SP.FV                                    Vector Floating-Point Single-Precision Compare Equ
+evfscmpgt                      SP.FV                                    Vector Floating-Point Single-Precision Compare Gre
+evfscmplt                      SP.FV                                    Vector Floating-Point Single-Precision Compare Les
+evfsctsf                       SP.FV                                    Vector Convert Floating-Point Single-Precision to
+evfsctsi                       SP.FV                                    Vector Convert Floating-Point Single-Precision to
+evfsctsiz                      SP.FV                                    Vector Convert Floating-Point Single-Precision to
+evfsctuf                       SP.FV                                    Vector Convert Floating-Point Single-Precision to
+evfsctui                       SP.FV                                    Vector Convert Floating-Point Single-Precision to
+evfsctuiz                      SP.FV                                    Vector Convert Floating-Point Single-Precision to
+evfsdiv                        SP.FV                                    Vector Floating-Point Single-Precision Divide
+evfsmul                        SP.FV                                    Vector Floating-Point Single-Precision Multiply
+evfsnabs                       SP.FV                                    Vector Floating-Point Single-Precision Negative Ab
+evfsneg                        SP.FV                                    Vector Floating-Point Single-Precision Negate
+evfssub                        SP.FV                                    Vector Floating-Point Single-Precision Subtract
+evfststeq                      SP.FV                                    Vector Floating-Point Single-Precision Test Equal
+evfststgt                      SP.FV                                    Vector Floating-Point Single-Precision Test Greate
+evfststlt                      SP.FV                                    Vector Floating-Point Single-Precision Test Less T
+evldd                          SP                                       Vector Load Double Word into Double Word
+evlddepx                       P,                                       E.PD                             Vector Load Doubl
+evlddx                         SP                                       Vector Load Double Word into Double Word Indexed
+evldh                          SP                                       Vector Load Double Word into Four Halfwords
+evldhx                         SP                                       Vector Load Double Word into Four Halfwords Indexe
+evldw                          SP                                       Vector Load Double Word into Two Words
+evldwx                         SP                                       Vector Load Double Word into Two Words Indexed
+evlhhesplat                    SP                                       Vector Load Halfword into Halfwords Even and Splat
+evlhhesplatx                   SP                                       Vector Load Halfword into Halfwords Even and Splat
+evlhhossplat                   SP                                       Vector Load Halfword into Halfword Odd and Splat
+evlhhossplatx                  SP                                       Vector Load Halfword into Halfword Odd Signed and
+evlhhousplat                   SP                                       Vector Load Halfword into Halfword Odd Unsigned an
+evlhhousplatx                  SP                                       Vector Load Halfword into Halfword Odd Unsigned an
+evlwhe                         SP                                       Vector Load Word into Two Halfwords Even
+evlwhex                        SP                                       Vector Load Word into Two Halfwords Even Indexed
+evlwhos                        SP                                       Vector Load Word into Two Halfwords Odd Signed (wi
+evlwhosx                       SP                                       Vector Load Word into Two Halfwords Odd Signed
+evlwhou                        SP                                       Vector Load Word into Two Halfwords Odd Unsigned
+evlwhoux                       SP                                       Vector Load Word into Two Halfwords Odd Unsigned
+evlwhsplat                     SP                                       Vector Load Word into Two Halfwords and Splat
+evlwhsplatx                    SP                                       Vector Load Word into Two Halfwords and Splat Inde
+evlwwsplat                     SP                                       Vector Load Word into Word and Splat
+evlwwsplatx                    SP                                       Vector Load Word into Word and Splat Indexed
+evmergehi                      SP                                       Vector Merge High
+evmergehilo                    SP                                       Vector Merge High/Low
+evmergelo                      SP                                       Vector Merge Low
+evmergelohi                    SP                                       Vector Merge Low/High
+evmhegsmfaa                    SP                                       Vector Multiply Halfwords, Even, Guarded, Signed,
+evmhegsmfan                    SP                                       Vector Multiply Halfwords, Even, Guarded, Signed,
+evmhegsmiaa                    SP                                       Vector Multiply Halfwords, Even, Guarded, Signed,
+evmhegsmian                    SP                                       Vector Multiply Halfwords, Even, Guarded, Signed,
+evmhegumiaa                    SP                                       Vector Multiply Halfwords, Even, Guarded, Unsigned
+evmhegumian                    SP                                       Vector Multiply Halfwords, Even, Guarded, Unsigned
+evmhesmf                       SP                                       Vector Multiply Halfwords, Even, Signed, Modulo, F
+evmhesmfa                      SP                                       Vector Multiply Halfwords, Even, Signed, Modulo, F
+evmhesmfaaw                    SP                                       Vector Multiply Halfwords, Even, Signed, Modulo, F
+evmhesmfanw                    SP                                       Vector Multiply Halfwords, Even, Signed, Modulo, F
+evmhesmi                       SP                                       Vector Multiply Halfwords, Even, Signed, Modulo, I
+evmhesmia                      SP                                       Vector Multiply Halfwords, Even, Signed, Modulo, I
+evmhesmiaaw                    SP                                       Vector Multiply Halfwords, Even, Signed, Modulo, I
+evmhesmianw                    SP                                       Vector Multiply Halfwords, Even, Signed, Modulo, I
+evmhessf                       SP                                       Vector Multiply Halfwords, Even, Signed, Saturate,
+evmhessfa                      SP                                       Vector Multiply Halfwords, Even, Signed, Saturate,
+evmhessfaaw                    SP                                       Vector Multiply Halfwords, Even, Signed, Saturate,
+evmhessfanw                    SP                                       Vector Multiply Halfwords, Even, Signed, Saturate,
+evmhessiaaw                    SP                                       Vector Multiply Halfwords, Even, Signed, Saturate,
+evmhessianw                    SP                                       Vector Multiply Halfwords, Even, Signed, Saturate,
+evmheumi                       SP                                       Vector Multiply Halfwords, Even, Unsigned, Modulo,
+evmheumia                      SP                                       Vector Multiply Halfwords, Even, Unsigned, Modulo,
+evmheumiaaw                    SP                                       Vector Multiply Halfwords, Even, Unsigned, Modulo,
+evmheumianw                    SP                                       Vector Multiply Halfwords, Even, Unsigned, Modulo,
+evmheusiaaw                    SP                                       Vector Multiply Halfwords, Even, Unsigned, Saturat
+evmheusianw                    SP                                       Vector Multiply Halfwords, Even, Unsigned, Saturat
+evmhogsmfaa                    SP                                       Vector Multiply Halfwords, Odd, Guarded, Signed, M
+evmhogsmfan                    SP                                       Vector Multiply Halfwords, Odd, Guarded, Signed, M
+evmhogsmiaa                    SP                                       Vector Multiply Halfwords, Odd, Guarded, Signed, M
+evmhogsmian                    SP                                       Vector Multiply Halfwords, Odd, Guarded, Signed, M
+evmhogumiaa                    SP                                       Vector Multiply Halfwords, Odd, Guarded, Unsigned,
+evmhogumian                    SP                                       Vector Multiply Halfwords, Odd, Guarded, Unsigned,
+evmhosmf                       SP                                       Vector Multiply Halfwords, Odd, Signed, Modulo, Fr
+evmhosmfa                      SP                                       Vector Multiply Halfwords, Odd, Signed, Modulo, Fr
+evmhosmfaaw                    SP                                       Vector Multiply Halfwords, Odd, Signed, Modulo, Fr
+evmhosmfanw                    SP                                       Vector Multiply Halfwords, Odd, Signed, Modulo, Fr
+evmhosmi                       SP                                       Vector Multiply Halfwords, Odd, Signed, Modulo, In
+evmhosmia                      SP                                       Vector Multiply Halfwords, Odd, Signed, Modulo, In
+evmhosmiaaw                    SP                                       Vector Multiply Halfwords, Odd, Signed, Modulo, In
+evmhosmianw                    SP                                       Vector Multiply Halfwords, Odd, Signed, Modulo, In
+evmhossf                       SP                                       Vector Multiply Halfwords, Odd, Signed, Saturate,
+evmhossfa                      SP                                       Vector Multiply Halfwords, Odd, Signed, Fractional
+evmhossfaaw                    SP                                       Vector Multiply Halfwords, Odd, Signed, Saturate,
+evmhossfanw                    SP                                       Vector Multiply Halfwords, Odd, Signed, Saturate,
+evmhossiaaw                    SP                                       Vector Multiply Halfwords, Odd, Signed, Saturate,
+evmhossianw                    SP                                       Vector Multiply Halfwords, Odd, Signed, Saturate,
+evmhoumi                       SP                                       Vector Multiply Halfwords, Odd, Unsigned, Modulo,
+evmhoumia                      SP                                       Vector Multiply Halfwords, Odd, Unsigned, Modulo,
+evmhoumiaaw                    SP                                       Vector Multiply Halfwords, Odd, Unsigned, Modulo,
+evmhoumianw                    SP                                       Vector Multiply Halfwords, Odd, Unsigned, Modulo,
+evmhousiaaw                    SP                                       Vector Multiply Halfwords, Odd, Unsigned, Saturate
+evmhousianw                    SP                                       Vector Multiply Halfwords, Odd, Unsigned, Saturate
+evmra                          SP                                       Initialize Accumulator
+evmwhsmf                       SP                                       Vector Multiply Word High Signed, Modulo, Fraction
+evmwhsmfa                      SP                                       Vector Multiply Word High Signed, Modulo, Fraction
+evmwhsmi                       SP                                       Vector Multiply Word High Signed, Modulo, Integer
+evmwhsmia                      SP                                       Vector Multiply Word High Signed, Modulo, Integer
+evmwhssf                       SP                                       Vector Multiply Word High Signed, Saturate, Fracti
+evmwhssfa                      SP                                       Vector Multiply Word High Signed, Saturate, Fracti
+evmwhumi                       SP                                       Vector Multiply Word High Unsigned, Modulo, Intege
+evmwhumia                      SP                                       Vector Multiply Word High Unsigned, Modulo, Intege
+evmwlsmiaaw                    SP                                       Vector Multiply Word Low Signed, Modulo, Integer a
+evmwlsmianw                    SP                                       Vector Multiply Word Low Signed, Modulo, Integer a
+evmwlssiaaw                    SP                                       Vector Multiply Word Low Signed, Saturate, Integer
+evmwlssianw                    SP                                       Vector Multiply Word Low Signed, Saturate, Integer
+evmwlumi                       SP                                       Vector Multiply Word Low Unsigned, Modulo, Integer
+evmwlumia                      SP                                       Vector Multiply Word Low Unsigned, Modulo, Integer
+evmwlumiaaw                    SP                                       Vector Multiply Word Low Unsigned, Modulo, Integer
+evmwlumianw                    SP                                       Vector Multiply Word Low Unsigned, Modulo, Integer
+evmwlusiaaw                    SP                                       Vector Multiply Word Low Unsigned, Saturate, Integ
+evmwlusianw                    SP                                       Vector Multiply Word Low Unsigned, Saturate, Integ
+evmwsmf                        SP                                       Vector Multiply Word Signed, Modulo, Fractional
+evmwsmfa                       SP                                       Vector Multiply Word Signed, Modulo, Fractional to
+evmwsmfaa                      SP                                       Vector Multiply Word Signed, Modulo, Fractional an
+evmwsmfan                      SP                                       Vector Multiply Word Signed, Modulo, Fractional an
+evmwsmi                        SP                                       Vector Multiply Word Signed, Modulo, Integer
+evmwsmia                       SP                                       Vector Multiply Word Signed, Modulo, Integer to Ac
+evmwsmiaa                      SP                                       Vector Multiply Word Signed, Modulo, Integer and A
+evmwsmian                      SP                                       Vector Multiply Word Signed, Modulo, Integer and A
+evmwssf                        SP                                       Vector Multiply Word Signed, Saturate, Fractional
+evmwssfa                       SP                                       Vector Multiply Word Signed, Saturate, Fractional
+evmwssfaa                      SP                                       Vector Multiply Word Signed, Saturate, Fractional
+evmwssfan                      SP                                       Vector Multiply Word Signed, Saturate, Fractional
+evmwumi                        SP                                       Vector Multiply Word Unsigned, Modulo, Integer
+evmwumia                       SP                                       Vector Multiply Word Unsigned, Modulo, Integer to
+evmwumiaa                      SP                                       Vector Multiply Word Unsigned, Modulo, Integer and
+evmwumian                      SP                                       Vector Multiply Word Unsigned, Modulo, Integer and
+evnand                         SP                                       Vector NAND
+evneg                          SP                                       Vector Negate
+evnor                          SP                                       Vector NOR
+evor                           SP                                       Vector OR
+evorc                          SP                                       Vector OR with Complement
+evrlw                          SP                                       Vector Rotate Left Word
+evrlwi                         SP                                       Vector Rotate Left Word Immediate
+evrndw                         SP                                       Vector Round Word
+evsel                          SP                                       Vector Select
+evslw                          SP                                       Vector Shift Left Word
+evslwi                         SP                                       Vector Shift Left Word Immediate
+evsplatfi                      SP                                       Vector Splat Fractional Immediate
+evsplati                       SP                                       Vector Splat Immediate
+evsrwis                        SP                                       Vector Shift Right Word Immediate Signed
+evsrwiu                        SP                                       Vector Shift Right Word Immediate Unsigned
+evsrws                         SP                                       Vector Shift Right Word Signed
+evsrwu                         SP                                       Vector Shift Right Word Unsigned
+evstdd                         SP                                       Vector Store Double of Double
+evstddepx                      P,                                       E.PD                             Vector Store Doub
+evstddx                        SP                                       Vector Store Doubleword of Doubleword Indexed
+evstdh                         SP                                       Vector Store Double of Four Halfwords
+evstdhx                        SP                                       Vector Store Double of Four Halfwords Indexed
+evstdw                         SP                                       Vector Store Double of Two Words
+evstdwx                        SP                                       Vector Store Double of Two Words Indexed
+evstwhe                        SP                                       Vector Store Word of Two Halfwords from Even
+evstwhex                       SP                                       Vector Store Word of Two Halfwords from Even Index
+evstwho                        SP                                       Vector Store Word of Two Halfwords from Odd
+evstwhox                       SP                                       Vector Store Word of Two Halfwords from Odd Indexe
+evstwwe                        SP                                       Vector Store Word of Word from Even
+evstwwex                       SP                                       Vector Store Word of Word from Even Indexed
+evstwwo                        SP                                       Vector Store Word of Word from Odd
+evstwwox                       SP                                       Vector Store Word of Word from Odd Indexed
+evsubfsmiaaw                   SP                                       Vector Subtract Signed, Modulo, Integer to Accumul
+evsubfssiaaw                   SP                                       Vector Subtract Signed, Saturate, Integer to Accum
+evsubfumiaaw                   SP                                       Vector Subtract Unsigned, Modulo, Integer to Accum
+evsubfusiaaw                   SP                                       Vector Subtract Unsigned, Saturate, Integer to Acc
+evsubfw                        SP                                       Vector Subtract from Word
+evsubifw                       SP                                       Vector Subtract Immediate from Word
+evxor                          SP                                       Vector XOR
+mfcr                           B                                        Move From Condition Register
+mfocrf                         B                                        Move From One Condition Register Field
+mfspr                          O,                                       B                                Move From Special
+mfvscr                         V                                        Move From VSCR
+mtcrf                          B                                        Move To Condition Register Fields
+mtocrf                         B                                        Move To One Condition Register Field
+mtspr                          O,                                       B                                Move To Special P
+mtvscr                         V                                        Move To VSCR
+mulhd                          SR,                                      64                              Multiply High Doub
+mulhdu                         SR,                                      64                              Multiply High Doub
+mulhw                          SR,                                      B                               Multiply High Word
+mulhwu                         SR,                                      B                               Multiply High Word
+sradi                          SR,                                      64                              Shift Right Algebr
+to                             SR,                                      B, addme[o][.], Add             Minus One Extended
+vaddcuw                        V                                        Vector Add and write Carry-out Unsigned Word
+vaddfp                         V                                        Vector Add Single-Precision
+vaddsbs                        V                                        Vector Add Signed Byte Saturate
+vaddshs                        V                                        Vector Add Signed Halfword Saturate
+vaddsws                        V                                        Vector Add Signed Word Saturate
+vaddubm                        V                                        Vector Add Unsigned Byte Modulo
+vaddubs                        V                                        Vector Add Unsigned Byte Saturate
+vadduhm                        V                                        Vector Add Unsigned Halfword Modulo
+vadduhs                        V                                        Vector Add Unsigned Halfword Saturate
+vadduwm                        V                                        Vector Add Unsigned Word Modulo
+vadduws                        V                                        Vector Add Unsigned Word Saturate
+vand                           V                                        Vector Logical AND
+vandc                          V                                        Vector Logical AND with Complement
+vavgsb                         V                                        Vector Average Signed Byte
+vavgsh                         V                                        Vector Average Signed Halfword
+vavgsw                         V                                        Vector Average Signed Word
+vavgub                         V                                        Vector Average Unsigned Byte
+vavguh                         V                                        Vector Average Unsigned Halfword
+vavguw                         V                                        Vector Average Unsigned Word
+vcfsx                          V                                        Vector Convert From Signed Fixed-Point Word
+vcfux                          V                                        Vector Convert From
+vcmpbfp                        V                                        Vector Compare Bounds Single-Precision
+vcmpeqfp                       V                                        Vector Compare Equal To Single-Precision
+vcmpequb                       V                                        Vector Compare Equal To Unsigned Byte
+vcmpequh                       V                                        Vector Compare Equal To Unsigned Halfword
+vcmpequw                       V                                        Vector Compare Equal To Unsigned Word
+vcmpgefp                       V                                        Vector Compare Greater Than or Equal To Single-Pre
+vcmpgtfp                       V                                        Vector Compare Greater Than Single-Precision
+vcmpgtsb                       V                                        Vector Compare Greater Than Signed Byte
+vcmpgtsh                       V                                        Vector Compare Greater Than Signed Halfword
+vcmpgtsw                       V                                        Vector Compare Greater Than Signed Word
+vcmpgtub                       V                                        Vector Compare Greater Than Unsigned Byte
+vcmpgtuh                       V                                        Vector Compare Greater Than Unsigned Halfword
+vcmpgtuw                       V                                        Vector Compare Greater Than Unsigned Word
+vctsxs                         V                                        Vector Convert To Signed Fixed-Point Word Saturate
+vctuxs                         V                                        Vector Convert To Unsigned Fixed-Point Word Satura
+vexptefp                       V                                        Vector 2 Raised to the Exponent Estimate Floating-
+vlogefp                        V                                        Vector Log Base 2 Estimate Floating-Point
+vmaddfp                        V                                        Vector Multiply-Add Single-Precision
+vmaxfp                         V                                        Vector Maximum Single-Precision
+vmaxsb                         V                                        Vector Maximum Signed Byte
+vmaxsh                         V                                        Vector Maximum Signed Halfword
+vmaxsw                         V                                        Vector Maximum Signed Word
+vmaxub                         V                                        Vector Maximum Unsigned Byte
+vmaxuh                         V                                        Vector Maximum Unsigned Halfword
+vmaxuw                         V                                        Vector Maximum Unsigned Word
+vmhaddshs                      V                                        Vector Multiply-High-Add Signed Halfword Saturate
+vmhraddshs                     V                                        Vector Multiply-High-Round-Add Signed Halfword Sat
+vminfp                         V                                        Vector Minimum Single-Precision
+vminsb                         V                                        Vector Minimum Signed Byte
+vminsh                         V                                        Vector Minimum Signed Halfword
+vminsw                         V                                        Vector Minimum Signed Word
+vminub                         V                                        Vector Minimum Unsigned Byte
+vminuh                         V                                        Vector Minimum Unsigned Halfword
+vminuw                         V                                        Vector Minimum Unsigned Word
+vmladduhm                      V                                        Vector Multiply-Low-Add Unsigned Halfword Modulo
+vmrghb                         V                                        Vector Merge High Byte
+vmrghh                         V                                        Vector Merge High Halfword
+vmrghw                         V                                        Vector Merge High Word
+vmrglb                         V                                        Vector Merge Low Byte
+vmrglh                         V                                        Vector Merge Low Halfword
+vmrglw                         V                                        Vector Merge Low Word
+vmsummbm                       V                                        Vector Multiply-Sum Mixed Byte Modulo
+vmsumshm                       V                                        Vector Multiply-Sum Signed Halfword Modulo
+vmsumshs                       V                                        Vector Multiply-Sum Signed Halfword Saturate
+vmsumubm                       V                                        Vector Multiply-Sum Unsigned Byte Modulo
+vmsumuhm                       V                                        Vector Multiply-Sum Unsigned Halfword Modulo
+vmsumuhs                       V                                        Vector Multiply-Sum Unsigned Halfword Saturate
+vmulesb                        V                                        Vector Multiply Even Signed Byte
+vmulesh                        V                                        Vector Multiply Even Signed Halfword
+vmuleub                        V                                        Vector Multiply Even Unsigned Byte
+vmuleuh                        V                                        Vector Multiply Even Unsigned Halfword
+vmulosb                        V                                        Vector Multiply Odd Signed Byte
+vmulosh                        V                                        Vector Multiply Odd Signed Halfword
+vmuloub                        V                                        Vector Multiply Odd Unsigned Byte
+vmulouh                        V                                        Vector Multiply Odd Unsigned Halfword
+vnmsubfp                       V                                        Vector Negative Multiply-Subtract Single-Precision
+vnor                           V                                        Vector Logical NOR
+vor                            V                                        Vector Logical OR
+vperm                          V                                        Vector Permute
+vpkpx                          V                                        Vector Pack Pixel
+vpkshss                        V                                        Vector Pack Signed Halfword Signed Saturate
+vpkshus                        V                                        Vector Pack Signed Halfword Unsigned Saturate
+vpkswss                        V                                        Vector Pack Signed Word Signed Saturate
+vpkswus                        V                                        Vector Pack Signed Word Unsigned Saturate
+vpkuhum                        V                                        Vector Pack Unsigned Halfword Unsigned Modulo
+vpkuhus                        V                                        Vector Pack Unsigned Halfword Unsigned Saturate
+vpkuwum                        V                                        Vector Pack Unsigned Word Unsigned Modulo
+vpkuwus                        V                                        Vector Pack Unsigned Word Unsigned Saturate
+vrefp                          V                                        Vector Reciprocal Estimate Single-Precision
+vrfim                          V                                        Vector Round to Single-Precision Integer toward -I
+vrfin                          V                                        Vector Round to Single-Precision Integer Nearest
+vrfip                          V                                        Vector Round to Single-Precision Integer toward +I
+vrfiz                          V                                        Vector Round to Single-Precision Integer toward Ze
+vrlb                           V                                        Vector Rotate Left Byte
+vrlh                           V                                        Vector Rotate Left Halfword
+vrlw                           V                                        Vector Rotate Left Word
+vrsqrtefp                      V                                        Vector Reciprocal Square Root Estimate Single-Prec
+vsel                           V                                        Vector Select
+vsl                            V                                        Vector Shift Left
+vslb                           V                                        Vector Shift Left Byte
+vsldoi                         V                                        Vector Shift Left Double by Octet Immediate
+vslh                           V                                        Vector Shift Left Halfword
+vslo                           V                                        Vector Shift Left by Octet
+vslw                           V                                        Vector Shift Left Word
+vspltb                         V                                        Vector Splat Byte
+vsplth                         V                                        Vector Splat Halfword
+vspltisb                       V                                        Vector Splat Immediate Signed Byte
+vspltish                       V                                        Vector Splat Immediate Signed Halfword
+vspltisw                       V                                        Vector Splat Immediate Signed Word
+vspltw                         V                                        Vector Splat Word
+vsr                            V                                        Vector Shift Right
+vsrab                          V                                        Vector Shift Right Algebraic Word
+vsrah                          V                                        Vector Shift Right Algebraic Halfword
+vsraw                          V                                        Vector Shift Right Algebraic Word
+vsrb                           V                                        Vector Shift Right Byte
+vsrh                           V                                        Vector Shift Right Halfword
+vsro                           V                                        Vector Shift Right by Octet
+vsrw                           V                                        Vector Shift Right Word
+vsubcuw                        V                                        Vector Subtract and Write Carry-Out Unsigned Word
+vsubfp                         V                                        Vector Subtract Single-Precision
+vsubsbs                        V                                        Vector Subtract Signed Byte Saturate
+vsubshs                        V                                        Vector Subtract Signed Halfword Saturate
+vsubsws                        V                                        Vector Subtract Signed Word Saturate
+vsububm                        V                                        Vector Subtract Unsigned Byte Modulo
+vsububs                        V                                        Vector Subtract Unsigned Byte Saturate
+vsubuhm                        V                                        Vector Subtract Unsigned Halfword Modulo
+vsubuhs                        V                                        Vector Subtract Unsigned Halfword Saturate
+vsubuwm                        V                                        Vector Subtract Unsigned Word Modulo
+vsubuws                        V                                        Vector Subtract Unsigned Word Saturate
+vsum2sws                       V                                        Vector Sum across Half Signed Word Saturate
+vsum4sbs                       V                                        Vector Sum across Quarter Signed Byte Saturate
+vsum4shs                       V                                        Vector Sum across Quarter Signed Halfword Saturate
+vsum4ubs                       V                                        Vector Sum across Quarter Unsigned Byte Saturate
+vsumsws                        V                                        Vector Sum across Signed Word Saturate
+vupkhpx                        V                                        Vector Unpack High Pixel
+vupkhsb                        V                                        Vector Unpack High Signed Byte
+vupkhsh                        V                                        Vector Unpack High Signed Halfword
+vupklpx                        V                                        Vector Unpack Low Pixel
+vupklsb                        V                                        Vector Unpack Low Signed Byte
+vupklsh                        V                                        Vector Unpack Low Signed Halfword
+vxor                           V                                        Vector Logical XOR
+
+### Book III-E Instructions (5 total)
+
+ehpriv                         E.HV                                     Embedded Hypervisor Privilege
+mfdcr                          P,                                       E.DC                             Move From Device 
+mfpmr                          O,                                       E.PM                             Move From Perform
+mtdcr                          P,                                       E.DC                             Move To Device Co
+mtpmr                          O,                                       E.PM                             Move To Performan
+
+### Book V Instructions (41 total)
+
+and                            SR,                                      VLE, e_add2i., Add, (2, operand), Immediate Record
+e_add2is                       VLE                                      Add (2 operand) Immediate Shifted
+e_addi                         SR,                                      VLE                             Add Scaled Immedia
+e_addic                        SR,                                      VLE                             Add Scaled Immedia
+e_andi                         SR,                                      VLE                             AND Scaled Immedia
+e_b                            VLE                                      Branch [and Link]
+e_bc                           CT,                                      VLE                             Branch Conditional
+e_cmp16i                       VLE                                      Compare Immediate Word
+e_cmph16i                      VLE                                      Compare Halfword Immediate
+e_cmphl16i                     VLE                                      Compare Halfword Logical Immediate
+e_cmpi                         VLE                                      Compare Scaled Immediate Word
+e_cmpl16i                      VLE                                      Compare Logical Immediate Word
+e_cmpli                        VLE                                      Compare Logical Scaled Immediate Word
+e_crand                        VLE                                      Condition Register AND
+e_crandc                       VLE                                      Condition Register AND with Complement
+e_creqv                        VLE                                      Condition Register Equivalent
+e_crnand                       VLE                                      Condition Register NAND
+e_crnor                        VLE                                      Condition Register NOR
+e_cror                         VLE                                      Condition Register OR
+e_crorc                        VLE                                      Condition Register OR with Complement
+e_crxor                        VLE                                      Condition Register XOR
+e_lbzu                         VLE                                      Load Byte and Zero with Update
+e_lhau                         VLE                                      Load Halfword Algebraic with Update
+e_lhzu                         VLE                                      Load Halfword and Zero with Update
+e_li                           VLE                                      Load Immediate
+e_lis                          VLE                                      Load Immediate Shifted
+e_lmw                          VLE                                      Load Multiple Word
+e_lwzu                         VLE                                      Load Word and Zero with Update
+e_mcrf                         VLE                                      Move CR Field
+e_mull2i                       VLE                                      Multiply (2 operand) Low Immediate
+e_mulli                        VLE                                      Multiply Low Scaled Immediate
+e_or2i                         VLE                                      OR (two operand) Immediate
+e_or2is                        VLE                                      OR (2 operand) Immediate Shifted
+e_ori                          SR,                                      VLE                             OR Scaled Immediat
+e_sc                           VLE,                                     System Call
+e_stbu                         VLE                                      Store Byte with Update
+e_sthu                         VLE                                      Store Halfword with Update
+e_stmw                         VLE                                      Store Multiple Word
+e_stwu                         VLE                                      Store Word with Update
+e_subfic                       SR,                                      VLE                             Subtract From Scal
+e_xori                         SR,                                      VLE                             XOR Scaled Immedia
+
+
+### Master List (Deduplicated, 452 unique)
+
+and                            [Books: V              ] VLE, e_add2i., Add, (2, operand), Immediate Record
+brinc                          [Books: I              ] Bit Reversed Increment
+e_add2is                       [Books: V              ] Add (2 operand) Immediate Shifted
+e_addi                         [Books: V              ] VLE                             Add Scaled Immedia
+e_addic                        [Books: V              ] VLE                             Add Scaled Immedia
+e_andi                         [Books: V              ] VLE                             AND Scaled Immedia
+e_b                            [Books: V              ] Branch [and Link]
+e_bc                           [Books: V              ] VLE                             Branch Conditional
+e_cmp16i                       [Books: V              ] Compare Immediate Word
+e_cmph16i                      [Books: V              ] Compare Halfword Immediate
+e_cmphl16i                     [Books: V              ] Compare Halfword Logical Immediate
+e_cmpi                         [Books: V              ] Compare Scaled Immediate Word
+e_cmpl16i                      [Books: V              ] Compare Logical Immediate Word
+e_cmpli                        [Books: V              ] Compare Logical Scaled Immediate Word
+e_crand                        [Books: V              ] Condition Register AND
+e_crandc                       [Books: V              ] Condition Register AND with Complement
+e_creqv                        [Books: V              ] Condition Register Equivalent
+e_crnand                       [Books: V              ] Condition Register NAND
+e_crnor                        [Books: V              ] Condition Register NOR
+e_cror                         [Books: V              ] Condition Register OR
+e_crorc                        [Books: V              ] Condition Register OR with Complement
+e_crxor                        [Books: V              ] Condition Register XOR
+e_lbzu                         [Books: V              ] Load Byte and Zero with Update
+e_lhau                         [Books: V              ] Load Halfword Algebraic with Update
+e_lhzu                         [Books: V              ] Load Halfword and Zero with Update
+e_li                           [Books: V              ] Load Immediate
+e_lis                          [Books: V              ] Load Immediate Shifted
+e_lmw                          [Books: V              ] Load Multiple Word
+e_lwzu                         [Books: V              ] Load Word and Zero with Update
+e_mcrf                         [Books: V              ] Move CR Field
+e_mull2i                       [Books: V              ] Multiply (2 operand) Low Immediate
+e_mulli                        [Books: V              ] Multiply Low Scaled Immediate
+e_or2i                         [Books: V              ] OR (two operand) Immediate
+e_or2is                        [Books: V              ] OR (2 operand) Immediate Shifted
+e_ori                          [Books: V              ] VLE                             OR Scaled Immediat
+e_sc                           [Books: V              ] System Call
+e_stbu                         [Books: V              ] Store Byte with Update
+e_sthu                         [Books: V              ] Store Halfword with Update
+e_stmw                         [Books: V              ] Store Multiple Word
+e_stwu                         [Books: V              ] Store Word with Update
+e_subfic                       [Books: V              ] VLE                             Subtract From Scal
+e_xori                         [Books: V              ] VLE                             XOR Scaled Immedia
+efdabs                         [Books: I              ] Floating-Point Double-Precision Absolute Value
+efdadd                         [Books: I              ] Floating-Point Double-Precision Add
+efdcfs                         [Books: I              ] Floating-Point Double-Precision Convert from Singl
+efdcfsf                        [Books: I              ] Convert Floating-Point Double-Precision from Signe
+efdcfsi                        [Books: I              ] Convert Floating-Point Double-Precision from Signe
+efdcfsid                       [Books: I              ] Convert Floating-Point Double-Precision from Signe
+efdcfuf                        [Books: I              ] Convert Floating-Point Double-Precision from Unsig
+efdcfui                        [Books: I              ] Convert Floating-Point Double-Precision from Unsig
+efdcfuid                       [Books: I              ] Convert Floating-Point Double-Precision from Unsig
+efdcmpeq                       [Books: I              ] Floating-Point Double-Precision Compare Equal
+efdcmpgt                       [Books: I              ] Floating-Point Double-Precision Compare Greater Th
+efdcmplt                       [Books: I              ] Floating-Point Double-Precision Compare Less Than
+efdctsf                        [Books: I              ] Convert Floating-Point Double-Precision to Signed
+efdctsi                        [Books: I              ] Convert Floating-Point Double-Precision to Signed
+efdctsidz                      [Books: I              ] Convert Floating-Point Double-Precision to Signed
+efdctsiz                       [Books: I              ] Convert Floating-Point Double-Precision to Signed
+efdctuf                        [Books: I              ] Convert Floating-Point Double-Precision to Unsigne
+efdctui                        [Books: I              ] Convert Floating-Point Double-Precision to Unsigne
+efdctuidz                      [Books: I              ] Convert Floating-Point Double-Precision to Unsigne
+efdctuiz                       [Books: I              ] Convert Floating-Point Double-Precision to Unsigne
+efddiv                         [Books: I              ] Floating-Point Double-Precision Divide
+efdmul                         [Books: I              ] Floating-Point Double-Precision Multiply
+efdnabs                        [Books: I              ] Floating-Point Double-Precision Negative Absolute
+efdneg                         [Books: I              ] Floating-Point Double-Precision Negate
+efdsub                         [Books: I              ] Floating-Point Double-Precision Subtract
+efdtsteq                       [Books: I              ] Floating-Point Double-Precision Test Equal
+efdtstgt                       [Books: I              ] Floating-Point Double-Precision Test Greater Than
+efdtstlt                       [Books: I              ] Floating-Point Double-Precision Test Less Than
+efsabs                         [Books: I              ] Floating-Point Single-Precision Absolute Value
+efsadd                         [Books: I              ] Floating-Point Single-Precision Add
+efscfd                         [Books: I              ] Floating-Point Single-Precision Convert from Doubl
+efscfsf                        [Books: I              ] Convert Floating-Point Single-Precision from Signe
+efscfsi                        [Books: I              ] Convert Floating-Point Single-Precision from Signe
+efscfuf                        [Books: I              ] Convert Floating-Point Single-Precision from Unsig
+efscfui                        [Books: I              ] Convert Floating-Point Single-Precision from Unsig
+efscmpeq                       [Books: I              ] Floating-Point Single-Precision Compare Equal
+efscmpgt                       [Books: I              ] Floating-Point Single-Precision Compare Greater Th
+efscmplt                       [Books: I              ] Floating-Point Single-Precision Compare Less Than
+efsctsf                        [Books: I              ] Convert Floating-Point Single-Precision to Signed
+efsctsi                        [Books: I              ] Convert Floating-Point Single-Precision to Signed
+efsctsiz                       [Books: I              ] Convert Floating-Point Single-Precision to Signed
+efsctuf                        [Books: I              ] Convert Floating-Point Single-Precision to Unsigne
+efsctui                        [Books: I              ] Convert Floating-Point Single-Precision to Unsigne
+efsctuiz                       [Books: I              ] Convert Floating-Point Single-Precision to Unsigne
+efsdiv                         [Books: I              ] Floating-Point Single-Precision Divide
+efsmul                         [Books: I              ] Floating-Point Single-Precision Multiply
+efsnabs                        [Books: I              ] Floating-Point Single-Precision Negative Absolute
+efsneg                         [Books: I              ] Floating-Point Single-Precision Negate
+efssub                         [Books: I              ] Floating-Point Single-Precision Subtract
+efststeq                       [Books: I              ] Floating-Point Single-Precision Test Equal
+efststgt                       [Books: I              ] Floating-Point Single-Precision Test Greater Than
+efststlt                       [Books: I              ] Floating-Point Single-Precision Test Less Than
+ehpriv                         [Books: III-E          ] Embedded Hypervisor Privilege
+evabs                          [Books: I              ] Vector Absolute Value
+evaddiw                        [Books: I              ] Vector Add Immediate Word
+evaddsmiaaw                    [Books: I              ] Vector Add Signed, Modulo, Integer to Accumulator
+evaddssiaaw                    [Books: I              ] Vector Add Signed, Saturate, Integer to Accumulato
+evaddumiaaw                    [Books: I              ] Vector Add Unsigned, Modulo, Integer to Accumulato
+evaddusiaaw                    [Books: I              ] Vector Add Unsigned, Saturate, Integer to Accumula
+evaddw                         [Books: I              ] Vector Add Word
+evand                          [Books: I              ] Vector AND
+evandc                         [Books: I              ] Vector AND with Complement
+evcmpeq                        [Books: I              ] Vector Compare Equal
+evcmpgts                       [Books: I              ] Vector Compare Greater Than Signed
+evcmpgtu                       [Books: I              ] Vector Compare Greater Than Unsigned
+evcmplts                       [Books: I              ] Vector Compare Less Than Signed
+evcmpltu                       [Books: I              ] Vector Compare Less Than Unsigned
+evcntlsw                       [Books: I              ] Vector Count Leading Signed Bits Word
+evcntlzw                       [Books: I              ] Vector Count Leading Zeros Word
+evdivws                        [Books: I              ] Vector Divide Word Signed
+evdivwu                        [Books: I              ] Vector Divide Word Unsigned
+eveqv                          [Books: I              ] Vector Equivalent
+evextsb                        [Books: I              ] Vector Extend Sign Byte
+evextsh                        [Books: I              ] Vector Extend Sign Halfword
+evfsabs                        [Books: I              ] Vector Floating-Point Single-Precision Absolute Va
+evfsadd                        [Books: I              ] Vector Floating-Point Single-Precision Add
+evfscfsf                       [Books: I              ] Vector Convert Floating-Point Single-Precision fro
+evfscfsi                       [Books: I              ] Vector Convert Floating-Point Single-Precision fro
+evfscfuf                       [Books: I              ] Vector Convert Floating-Point Single-Precision fro
+evfscfui                       [Books: I              ] Vector Convert Floating-Point Single-Precision fro
+evfscmpeq                      [Books: I              ] Vector Floating-Point Single-Precision Compare Equ
+evfscmpgt                      [Books: I              ] Vector Floating-Point Single-Precision Compare Gre
+evfscmplt                      [Books: I              ] Vector Floating-Point Single-Precision Compare Les
+evfsctsf                       [Books: I              ] Vector Convert Floating-Point Single-Precision to
+evfsctsi                       [Books: I              ] Vector Convert Floating-Point Single-Precision to
+evfsctsiz                      [Books: I              ] Vector Convert Floating-Point Single-Precision to
+evfsctuf                       [Books: I              ] Vector Convert Floating-Point Single-Precision to
+evfsctui                       [Books: I              ] Vector Convert Floating-Point Single-Precision to
+evfsctuiz                      [Books: I              ] Vector Convert Floating-Point Single-Precision to
+evfsdiv                        [Books: I              ] Vector Floating-Point Single-Precision Divide
+evfsmul                        [Books: I              ] Vector Floating-Point Single-Precision Multiply
+evfsnabs                       [Books: I              ] Vector Floating-Point Single-Precision Negative Ab
+evfsneg                        [Books: I              ] Vector Floating-Point Single-Precision Negate
+evfssub                        [Books: I              ] Vector Floating-Point Single-Precision Subtract
+evfststeq                      [Books: I              ] Vector Floating-Point Single-Precision Test Equal
+evfststgt                      [Books: I              ] Vector Floating-Point Single-Precision Test Greate
+evfststlt                      [Books: I              ] Vector Floating-Point Single-Precision Test Less T
+evldd                          [Books: I              ] Vector Load Double Word into Double Word
+evlddepx                       [Books: I              ] E.PD                             Vector Load Doubl
+evlddx                         [Books: I              ] Vector Load Double Word into Double Word Indexed
+evldh                          [Books: I              ] Vector Load Double Word into Four Halfwords
+evldhx                         [Books: I              ] Vector Load Double Word into Four Halfwords Indexe
+evldw                          [Books: I              ] Vector Load Double Word into Two Words
+evldwx                         [Books: I              ] Vector Load Double Word into Two Words Indexed
+evlhhesplat                    [Books: I              ] Vector Load Halfword into Halfwords Even and Splat
+evlhhesplatx                   [Books: I              ] Vector Load Halfword into Halfwords Even and Splat
+evlhhossplat                   [Books: I              ] Vector Load Halfword into Halfword Odd and Splat
+evlhhossplatx                  [Books: I              ] Vector Load Halfword into Halfword Odd Signed and
+evlhhousplat                   [Books: I              ] Vector Load Halfword into Halfword Odd Unsigned an
+evlhhousplatx                  [Books: I              ] Vector Load Halfword into Halfword Odd Unsigned an
+evlwhe                         [Books: I              ] Vector Load Word into Two Halfwords Even
+evlwhex                        [Books: I              ] Vector Load Word into Two Halfwords Even Indexed
+evlwhos                        [Books: I              ] Vector Load Word into Two Halfwords Odd Signed (wi
+evlwhosx                       [Books: I              ] Vector Load Word into Two Halfwords Odd Signed
+evlwhou                        [Books: I              ] Vector Load Word into Two Halfwords Odd Unsigned
+evlwhoux                       [Books: I              ] Vector Load Word into Two Halfwords Odd Unsigned
+evlwhsplat                     [Books: I              ] Vector Load Word into Two Halfwords and Splat
+evlwhsplatx                    [Books: I              ] Vector Load Word into Two Halfwords and Splat Inde
+evlwwsplat                     [Books: I              ] Vector Load Word into Word and Splat
+evlwwsplatx                    [Books: I              ] Vector Load Word into Word and Splat Indexed
+evmergehi                      [Books: I              ] Vector Merge High
+evmergehilo                    [Books: I              ] Vector Merge High/Low
+evmergelo                      [Books: I              ] Vector Merge Low
+evmergelohi                    [Books: I              ] Vector Merge Low/High
+evmhegsmfaa                    [Books: I              ] Vector Multiply Halfwords, Even, Guarded, Signed,
+evmhegsmfan                    [Books: I              ] Vector Multiply Halfwords, Even, Guarded, Signed,
+evmhegsmiaa                    [Books: I              ] Vector Multiply Halfwords, Even, Guarded, Signed,
+evmhegsmian                    [Books: I              ] Vector Multiply Halfwords, Even, Guarded, Signed,
+evmhegumiaa                    [Books: I              ] Vector Multiply Halfwords, Even, Guarded, Unsigned
+evmhegumian                    [Books: I              ] Vector Multiply Halfwords, Even, Guarded, Unsigned
+evmhesmf                       [Books: I              ] Vector Multiply Halfwords, Even, Signed, Modulo, F
+evmhesmfa                      [Books: I              ] Vector Multiply Halfwords, Even, Signed, Modulo, F
+evmhesmfaaw                    [Books: I              ] Vector Multiply Halfwords, Even, Signed, Modulo, F
+evmhesmfanw                    [Books: I              ] Vector Multiply Halfwords, Even, Signed, Modulo, F
+evmhesmi                       [Books: I              ] Vector Multiply Halfwords, Even, Signed, Modulo, I
+evmhesmia                      [Books: I              ] Vector Multiply Halfwords, Even, Signed, Modulo, I
+evmhesmiaaw                    [Books: I              ] Vector Multiply Halfwords, Even, Signed, Modulo, I
+evmhesmianw                    [Books: I              ] Vector Multiply Halfwords, Even, Signed, Modulo, I
+evmhessf                       [Books: I              ] Vector Multiply Halfwords, Even, Signed, Saturate,
+evmhessfa                      [Books: I              ] Vector Multiply Halfwords, Even, Signed, Saturate,
+evmhessfaaw                    [Books: I              ] Vector Multiply Halfwords, Even, Signed, Saturate,
+evmhessfanw                    [Books: I              ] Vector Multiply Halfwords, Even, Signed, Saturate,
+evmhessiaaw                    [Books: I              ] Vector Multiply Halfwords, Even, Signed, Saturate,
+evmhessianw                    [Books: I              ] Vector Multiply Halfwords, Even, Signed, Saturate,
+evmheumi                       [Books: I              ] Vector Multiply Halfwords, Even, Unsigned, Modulo,
+evmheumia                      [Books: I              ] Vector Multiply Halfwords, Even, Unsigned, Modulo,
+evmheumiaaw                    [Books: I              ] Vector Multiply Halfwords, Even, Unsigned, Modulo,
+evmheumianw                    [Books: I              ] Vector Multiply Halfwords, Even, Unsigned, Modulo,
+evmheusiaaw                    [Books: I              ] Vector Multiply Halfwords, Even, Unsigned, Saturat
+evmheusianw                    [Books: I              ] Vector Multiply Halfwords, Even, Unsigned, Saturat
+evmhogsmfaa                    [Books: I              ] Vector Multiply Halfwords, Odd, Guarded, Signed, M
+evmhogsmfan                    [Books: I              ] Vector Multiply Halfwords, Odd, Guarded, Signed, M
+evmhogsmiaa                    [Books: I              ] Vector Multiply Halfwords, Odd, Guarded, Signed, M
+evmhogsmian                    [Books: I              ] Vector Multiply Halfwords, Odd, Guarded, Signed, M
+evmhogumiaa                    [Books: I              ] Vector Multiply Halfwords, Odd, Guarded, Unsigned,
+evmhogumian                    [Books: I              ] Vector Multiply Halfwords, Odd, Guarded, Unsigned,
+evmhosmf                       [Books: I              ] Vector Multiply Halfwords, Odd, Signed, Modulo, Fr
+evmhosmfa                      [Books: I              ] Vector Multiply Halfwords, Odd, Signed, Modulo, Fr
+evmhosmfaaw                    [Books: I              ] Vector Multiply Halfwords, Odd, Signed, Modulo, Fr
+evmhosmfanw                    [Books: I              ] Vector Multiply Halfwords, Odd, Signed, Modulo, Fr
+evmhosmi                       [Books: I              ] Vector Multiply Halfwords, Odd, Signed, Modulo, In
+evmhosmia                      [Books: I              ] Vector Multiply Halfwords, Odd, Signed, Modulo, In
+evmhosmiaaw                    [Books: I              ] Vector Multiply Halfwords, Odd, Signed, Modulo, In
+evmhosmianw                    [Books: I              ] Vector Multiply Halfwords, Odd, Signed, Modulo, In
+evmhossf                       [Books: I              ] Vector Multiply Halfwords, Odd, Signed, Saturate,
+evmhossfa                      [Books: I              ] Vector Multiply Halfwords, Odd, Signed, Fractional
+evmhossfaaw                    [Books: I              ] Vector Multiply Halfwords, Odd, Signed, Saturate,
+evmhossfanw                    [Books: I              ] Vector Multiply Halfwords, Odd, Signed, Saturate,
+evmhossiaaw                    [Books: I              ] Vector Multiply Halfwords, Odd, Signed, Saturate,
+evmhossianw                    [Books: I              ] Vector Multiply Halfwords, Odd, Signed, Saturate,
+evmhoumi                       [Books: I              ] Vector Multiply Halfwords, Odd, Unsigned, Modulo,
+evmhoumia                      [Books: I              ] Vector Multiply Halfwords, Odd, Unsigned, Modulo,
+evmhoumiaaw                    [Books: I              ] Vector Multiply Halfwords, Odd, Unsigned, Modulo,
+evmhoumianw                    [Books: I              ] Vector Multiply Halfwords, Odd, Unsigned, Modulo,
+evmhousiaaw                    [Books: I              ] Vector Multiply Halfwords, Odd, Unsigned, Saturate
+evmhousianw                    [Books: I              ] Vector Multiply Halfwords, Odd, Unsigned, Saturate
+evmra                          [Books: I              ] Initialize Accumulator
+evmwhsmf                       [Books: I              ] Vector Multiply Word High Signed, Modulo, Fraction
+evmwhsmfa                      [Books: I              ] Vector Multiply Word High Signed, Modulo, Fraction
+evmwhsmi                       [Books: I              ] Vector Multiply Word High Signed, Modulo, Integer
+evmwhsmia                      [Books: I              ] Vector Multiply Word High Signed, Modulo, Integer
+evmwhssf                       [Books: I              ] Vector Multiply Word High Signed, Saturate, Fracti
+evmwhssfa                      [Books: I              ] Vector Multiply Word High Signed, Saturate, Fracti
+evmwhumi                       [Books: I              ] Vector Multiply Word High Unsigned, Modulo, Intege
+evmwhumia                      [Books: I              ] Vector Multiply Word High Unsigned, Modulo, Intege
+evmwlsmiaaw                    [Books: I              ] Vector Multiply Word Low Signed, Modulo, Integer a
+evmwlsmianw                    [Books: I              ] Vector Multiply Word Low Signed, Modulo, Integer a
+evmwlssiaaw                    [Books: I              ] Vector Multiply Word Low Signed, Saturate, Integer
+evmwlssianw                    [Books: I              ] Vector Multiply Word Low Signed, Saturate, Integer
+evmwlumi                       [Books: I              ] Vector Multiply Word Low Unsigned, Modulo, Integer
+evmwlumia                      [Books: I              ] Vector Multiply Word Low Unsigned, Modulo, Integer
+evmwlumiaaw                    [Books: I              ] Vector Multiply Word Low Unsigned, Modulo, Integer
+evmwlumianw                    [Books: I              ] Vector Multiply Word Low Unsigned, Modulo, Integer
+evmwlusiaaw                    [Books: I              ] Vector Multiply Word Low Unsigned, Saturate, Integ
+evmwlusianw                    [Books: I              ] Vector Multiply Word Low Unsigned, Saturate, Integ
+evmwsmf                        [Books: I              ] Vector Multiply Word Signed, Modulo, Fractional
+evmwsmfa                       [Books: I              ] Vector Multiply Word Signed, Modulo, Fractional to
+evmwsmfaa                      [Books: I              ] Vector Multiply Word Signed, Modulo, Fractional an
+evmwsmfan                      [Books: I              ] Vector Multiply Word Signed, Modulo, Fractional an
+evmwsmi                        [Books: I              ] Vector Multiply Word Signed, Modulo, Integer
+evmwsmia                       [Books: I              ] Vector Multiply Word Signed, Modulo, Integer to Ac
+evmwsmiaa                      [Books: I              ] Vector Multiply Word Signed, Modulo, Integer and A
+evmwsmian                      [Books: I              ] Vector Multiply Word Signed, Modulo, Integer and A
+evmwssf                        [Books: I              ] Vector Multiply Word Signed, Saturate, Fractional
+evmwssfa                       [Books: I              ] Vector Multiply Word Signed, Saturate, Fractional
+evmwssfaa                      [Books: I              ] Vector Multiply Word Signed, Saturate, Fractional
+evmwssfan                      [Books: I              ] Vector Multiply Word Signed, Saturate, Fractional
+evmwumi                        [Books: I              ] Vector Multiply Word Unsigned, Modulo, Integer
+evmwumia                       [Books: I              ] Vector Multiply Word Unsigned, Modulo, Integer to
+evmwumiaa                      [Books: I              ] Vector Multiply Word Unsigned, Modulo, Integer and
+evmwumian                      [Books: I              ] Vector Multiply Word Unsigned, Modulo, Integer and
+evnand                         [Books: I              ] Vector NAND
+evneg                          [Books: I              ] Vector Negate
+evnor                          [Books: I              ] Vector NOR
+evor                           [Books: I              ] Vector OR
+evorc                          [Books: I              ] Vector OR with Complement
+evrlw                          [Books: I              ] Vector Rotate Left Word
+evrlwi                         [Books: I              ] Vector Rotate Left Word Immediate
+evrndw                         [Books: I              ] Vector Round Word
+evsel                          [Books: I              ] Vector Select
+evslw                          [Books: I              ] Vector Shift Left Word
+evslwi                         [Books: I              ] Vector Shift Left Word Immediate
+evsplatfi                      [Books: I              ] Vector Splat Fractional Immediate
+evsplati                       [Books: I              ] Vector Splat Immediate
+evsrwis                        [Books: I              ] Vector Shift Right Word Immediate Signed
+evsrwiu                        [Books: I              ] Vector Shift Right Word Immediate Unsigned
+evsrws                         [Books: I              ] Vector Shift Right Word Signed
+evsrwu                         [Books: I              ] Vector Shift Right Word Unsigned
+evstdd                         [Books: I              ] Vector Store Double of Double
+evstddepx                      [Books: I              ] E.PD                             Vector Store Doub
+evstddx                        [Books: I              ] Vector Store Doubleword of Doubleword Indexed
+evstdh                         [Books: I              ] Vector Store Double of Four Halfwords
+evstdhx                        [Books: I              ] Vector Store Double of Four Halfwords Indexed
+evstdw                         [Books: I              ] Vector Store Double of Two Words
+evstdwx                        [Books: I              ] Vector Store Double of Two Words Indexed
+evstwhe                        [Books: I              ] Vector Store Word of Two Halfwords from Even
+evstwhex                       [Books: I              ] Vector Store Word of Two Halfwords from Even Index
+evstwho                        [Books: I              ] Vector Store Word of Two Halfwords from Odd
+evstwhox                       [Books: I              ] Vector Store Word of Two Halfwords from Odd Indexe
+evstwwe                        [Books: I              ] Vector Store Word of Word from Even
+evstwwex                       [Books: I              ] Vector Store Word of Word from Even Indexed
+evstwwo                        [Books: I              ] Vector Store Word of Word from Odd
+evstwwox                       [Books: I              ] Vector Store Word of Word from Odd Indexed
+evsubfsmiaaw                   [Books: I              ] Vector Subtract Signed, Modulo, Integer to Accumul
+evsubfssiaaw                   [Books: I              ] Vector Subtract Signed, Saturate, Integer to Accum
+evsubfumiaaw                   [Books: I              ] Vector Subtract Unsigned, Modulo, Integer to Accum
+evsubfusiaaw                   [Books: I              ] Vector Subtract Unsigned, Saturate, Integer to Acc
+evsubfw                        [Books: I              ] Vector Subtract from Word
+evsubifw                       [Books: I              ] Vector Subtract Immediate from Word
+evxor                          [Books: I              ] Vector XOR
+mfcr                           [Books: I              ] Move From Condition Register
+mfdcr                          [Books: III-E          ] E.DC                             Move From Device 
+mfocrf                         [Books: I              ] Move From One Condition Register Field
+mfpmr                          [Books: III-E          ] E.PM                             Move From Perform
+mfspr                          [Books: I              ] B                                Move From Special
+mfvscr                         [Books: I              ] Move From VSCR
+mtcrf                          [Books: I              ] Move To Condition Register Fields
+mtdcr                          [Books: III-E          ] E.DC                             Move To Device Co
+mtocrf                         [Books: I              ] Move To One Condition Register Field
+mtpmr                          [Books: III-E          ] E.PM                             Move To Performan
+mtspr                          [Books: I              ] B                                Move To Special P
+mtvscr                         [Books: I              ] Move To VSCR
+mulhd                          [Books: I              ] 64                              Multiply High Doub
+mulhdu                         [Books: I              ] 64                              Multiply High Doub
+mulhw                          [Books: I              ] B                               Multiply High Word
+mulhwu                         [Books: I              ] B                               Multiply High Word
+sradi                          [Books: I              ] 64                              Shift Right Algebr
+to                             [Books: I              ] B, addme[o][.], Add             Minus One Extended
+vaddcuw                        [Books: I              ] Vector Add and write Carry-out Unsigned Word
+vaddfp                         [Books: I              ] Vector Add Single-Precision
+vaddsbs                        [Books: I              ] Vector Add Signed Byte Saturate
+vaddshs                        [Books: I              ] Vector Add Signed Halfword Saturate
+vaddsws                        [Books: I              ] Vector Add Signed Word Saturate
+vaddubm                        [Books: I              ] Vector Add Unsigned Byte Modulo
+vaddubs                        [Books: I              ] Vector Add Unsigned Byte Saturate
+vadduhm                        [Books: I              ] Vector Add Unsigned Halfword Modulo
+vadduhs                        [Books: I              ] Vector Add Unsigned Halfword Saturate
+vadduwm                        [Books: I              ] Vector Add Unsigned Word Modulo
+vadduws                        [Books: I              ] Vector Add Unsigned Word Saturate
+vand                           [Books: I              ] Vector Logical AND
+vandc                          [Books: I              ] Vector Logical AND with Complement
+vavgsb                         [Books: I              ] Vector Average Signed Byte
+vavgsh                         [Books: I              ] Vector Average Signed Halfword
+vavgsw                         [Books: I              ] Vector Average Signed Word
+vavgub                         [Books: I              ] Vector Average Unsigned Byte
+vavguh                         [Books: I              ] Vector Average Unsigned Halfword
+vavguw                         [Books: I              ] Vector Average Unsigned Word
+vcfsx                          [Books: I              ] Vector Convert From Signed Fixed-Point Word
+vcfux                          [Books: I              ] Vector Convert From
+vcmpbfp                        [Books: I              ] Vector Compare Bounds Single-Precision
+vcmpeqfp                       [Books: I              ] Vector Compare Equal To Single-Precision
+vcmpequb                       [Books: I              ] Vector Compare Equal To Unsigned Byte
+vcmpequh                       [Books: I              ] Vector Compare Equal To Unsigned Halfword
+vcmpequw                       [Books: I              ] Vector Compare Equal To Unsigned Word
+vcmpgefp                       [Books: I              ] Vector Compare Greater Than or Equal To Single-Pre
+vcmpgtfp                       [Books: I              ] Vector Compare Greater Than Single-Precision
+vcmpgtsb                       [Books: I              ] Vector Compare Greater Than Signed Byte
+vcmpgtsh                       [Books: I              ] Vector Compare Greater Than Signed Halfword
+vcmpgtsw                       [Books: I              ] Vector Compare Greater Than Signed Word
+vcmpgtub                       [Books: I              ] Vector Compare Greater Than Unsigned Byte
+vcmpgtuh                       [Books: I              ] Vector Compare Greater Than Unsigned Halfword
+vcmpgtuw                       [Books: I              ] Vector Compare Greater Than Unsigned Word
+vctsxs                         [Books: I              ] Vector Convert To Signed Fixed-Point Word Saturate
+vctuxs                         [Books: I              ] Vector Convert To Unsigned Fixed-Point Word Satura
+vexptefp                       [Books: I              ] Vector 2 Raised to the Exponent Estimate Floating-
+vlogefp                        [Books: I              ] Vector Log Base 2 Estimate Floating-Point
+vmaddfp                        [Books: I              ] Vector Multiply-Add Single-Precision
+vmaxfp                         [Books: I              ] Vector Maximum Single-Precision
+vmaxsb                         [Books: I              ] Vector Maximum Signed Byte
+vmaxsh                         [Books: I              ] Vector Maximum Signed Halfword
+vmaxsw                         [Books: I              ] Vector Maximum Signed Word
+vmaxub                         [Books: I              ] Vector Maximum Unsigned Byte
+vmaxuh                         [Books: I              ] Vector Maximum Unsigned Halfword
+vmaxuw                         [Books: I              ] Vector Maximum Unsigned Word
+vmhaddshs                      [Books: I              ] Vector Multiply-High-Add Signed Halfword Saturate
+vmhraddshs                     [Books: I              ] Vector Multiply-High-Round-Add Signed Halfword Sat
+vminfp                         [Books: I              ] Vector Minimum Single-Precision
+vminsb                         [Books: I              ] Vector Minimum Signed Byte
+vminsh                         [Books: I              ] Vector Minimum Signed Halfword
+vminsw                         [Books: I              ] Vector Minimum Signed Word
+vminub                         [Books: I              ] Vector Minimum Unsigned Byte
+vminuh                         [Books: I              ] Vector Minimum Unsigned Halfword
+vminuw                         [Books: I              ] Vector Minimum Unsigned Word
+vmladduhm                      [Books: I              ] Vector Multiply-Low-Add Unsigned Halfword Modulo
+vmrghb                         [Books: I              ] Vector Merge High Byte
+vmrghh                         [Books: I              ] Vector Merge High Halfword
+vmrghw                         [Books: I              ] Vector Merge High Word
+vmrglb                         [Books: I              ] Vector Merge Low Byte
+vmrglh                         [Books: I              ] Vector Merge Low Halfword
+vmrglw                         [Books: I              ] Vector Merge Low Word
+vmsummbm                       [Books: I              ] Vector Multiply-Sum Mixed Byte Modulo
+vmsumshm                       [Books: I              ] Vector Multiply-Sum Signed Halfword Modulo
+vmsumshs                       [Books: I              ] Vector Multiply-Sum Signed Halfword Saturate
+vmsumubm                       [Books: I              ] Vector Multiply-Sum Unsigned Byte Modulo
+vmsumuhm                       [Books: I              ] Vector Multiply-Sum Unsigned Halfword Modulo
+vmsumuhs                       [Books: I              ] Vector Multiply-Sum Unsigned Halfword Saturate
+vmulesb                        [Books: I              ] Vector Multiply Even Signed Byte
+vmulesh                        [Books: I              ] Vector Multiply Even Signed Halfword
+vmuleub                        [Books: I              ] Vector Multiply Even Unsigned Byte
+vmuleuh                        [Books: I              ] Vector Multiply Even Unsigned Halfword
+vmulosb                        [Books: I              ] Vector Multiply Odd Signed Byte
+vmulosh                        [Books: I              ] Vector Multiply Odd Signed Halfword
+vmuloub                        [Books: I              ] Vector Multiply Odd Unsigned Byte
+vmulouh                        [Books: I              ] Vector Multiply Odd Unsigned Halfword
+vnmsubfp                       [Books: I              ] Vector Negative Multiply-Subtract Single-Precision
+vnor                           [Books: I              ] Vector Logical NOR
+vor                            [Books: I              ] Vector Logical OR
+vperm                          [Books: I              ] Vector Permute
+vpkpx                          [Books: I              ] Vector Pack Pixel
+vpkshss                        [Books: I              ] Vector Pack Signed Halfword Signed Saturate
+vpkshus                        [Books: I              ] Vector Pack Signed Halfword Unsigned Saturate
+vpkswss                        [Books: I              ] Vector Pack Signed Word Signed Saturate
+vpkswus                        [Books: I              ] Vector Pack Signed Word Unsigned Saturate
+vpkuhum                        [Books: I              ] Vector Pack Unsigned Halfword Unsigned Modulo
+vpkuhus                        [Books: I              ] Vector Pack Unsigned Halfword Unsigned Saturate
+vpkuwum                        [Books: I              ] Vector Pack Unsigned Word Unsigned Modulo
+vpkuwus                        [Books: I              ] Vector Pack Unsigned Word Unsigned Saturate
+vrefp                          [Books: I              ] Vector Reciprocal Estimate Single-Precision
+vrfim                          [Books: I              ] Vector Round to Single-Precision Integer toward -I
+vrfin                          [Books: I              ] Vector Round to Single-Precision Integer Nearest
+vrfip                          [Books: I              ] Vector Round to Single-Precision Integer toward +I
+vrfiz                          [Books: I              ] Vector Round to Single-Precision Integer toward Ze
+vrlb                           [Books: I              ] Vector Rotate Left Byte
+vrlh                           [Books: I              ] Vector Rotate Left Halfword
+vrlw                           [Books: I              ] Vector Rotate Left Word
+vrsqrtefp                      [Books: I              ] Vector Reciprocal Square Root Estimate Single-Prec
+vsel                           [Books: I              ] Vector Select
+vsl                            [Books: I              ] Vector Shift Left
+vslb                           [Books: I              ] Vector Shift Left Byte
+vsldoi                         [Books: I              ] Vector Shift Left Double by Octet Immediate
+vslh                           [Books: I              ] Vector Shift Left Halfword
+vslo                           [Books: I              ] Vector Shift Left by Octet
+vslw                           [Books: I              ] Vector Shift Left Word
+vspltb                         [Books: I              ] Vector Splat Byte
+vsplth                         [Books: I              ] Vector Splat Halfword
+vspltisb                       [Books: I              ] Vector Splat Immediate Signed Byte
+vspltish                       [Books: I              ] Vector Splat Immediate Signed Halfword
+vspltisw                       [Books: I              ] Vector Splat Immediate Signed Word
+vspltw                         [Books: I              ] Vector Splat Word
+vsr                            [Books: I              ] Vector Shift Right
+vsrab                          [Books: I              ] Vector Shift Right Algebraic Word
+vsrah                          [Books: I              ] Vector Shift Right Algebraic Halfword
+vsraw                          [Books: I              ] Vector Shift Right Algebraic Word
+vsrb                           [Books: I              ] Vector Shift Right Byte
+vsrh                           [Books: I              ] Vector Shift Right Halfword
+vsro                           [Books: I              ] Vector Shift Right by Octet
+vsrw                           [Books: I              ] Vector Shift Right Word
+vsubcuw                        [Books: I              ] Vector Subtract and Write Carry-Out Unsigned Word
+vsubfp                         [Books: I              ] Vector Subtract Single-Precision
+vsubsbs                        [Books: I              ] Vector Subtract Signed Byte Saturate
+vsubshs                        [Books: I              ] Vector Subtract Signed Halfword Saturate
+vsubsws                        [Books: I              ] Vector Subtract Signed Word Saturate
+vsububm                        [Books: I              ] Vector Subtract Unsigned Byte Modulo
+vsububs                        [Books: I              ] Vector Subtract Unsigned Byte Saturate
+vsubuhm                        [Books: I              ] Vector Subtract Unsigned Halfword Modulo
+vsubuhs                        [Books: I              ] Vector Subtract Unsigned Halfword Saturate
+vsubuwm                        [Books: I              ] Vector Subtract Unsigned Word Modulo
+vsubuws                        [Books: I              ] Vector Subtract Unsigned Word Saturate
+vsum2sws                       [Books: I              ] Vector Sum across Half Signed Word Saturate
+vsum4sbs                       [Books: I              ] Vector Sum across Quarter Signed Byte Saturate
+vsum4shs                       [Books: I              ] Vector Sum across Quarter Signed Halfword Saturate
+vsum4ubs                       [Books: I              ] Vector Sum across Quarter Unsigned Byte Saturate
+vsumsws                        [Books: I              ] Vector Sum across Signed Word Saturate
+vupkhpx                        [Books: I              ] Vector Unpack High Pixel
+vupkhsb                        [Books: I              ] Vector Unpack High Signed Byte
+vupkhsh                        [Books: I              ] Vector Unpack High Signed Halfword
+vupklpx                        [Books: I              ] Vector Unpack Low Pixel
+vupklsb                        [Books: I              ] Vector Unpack Low Signed Byte
+vupklsh                        [Books: I              ] Vector Unpack Low Signed Halfword
+vxor                           [Books: I              ] Vector Logical XOR

@@ -45,10 +45,11 @@ static bool isRISCVBareMetal(const llvm::Triple &Triple) {
   return Triple.getEnvironmentName() == "elf";
 }
 
-/// Is the triple powerpc[64][le]-*-none-eabi?
+/// Is the triple powerpc[64][le]-*-none-eabi or powerpc-*-none-eabivle?
 static bool isPPCBareMetal(const llvm::Triple &Triple) {
   return Triple.isPPC() && Triple.getOS() == llvm::Triple::UnknownOS &&
-         Triple.getEnvironment() == llvm::Triple::EABI;
+         (Triple.getEnvironment() == llvm::Triple::EABI ||
+          Triple.getEnvironment() == llvm::Triple::EABIVLE);
 }
 
 static bool findRISCVMultilibs(const Driver &D,
@@ -426,6 +427,18 @@ void BareMetal::addClangTargetOptions(const ArgList &DriverArgs,
                                       ArgStringList &CC1Args,
                                       Action::OffloadKind) const {
   CC1Args.push_back("-nostdsysteminc");
+
+  // Automatically enable VLE for powerpc-*-eabivle targets
+  const llvm::Triple &Triple = getTriple();
+  if (Triple.isPPC() && Triple.getEnvironment() == llvm::Triple::EABIVLE) {
+    // Enable VLE feature via target-feature
+    CC1Args.push_back("-target-feature");
+    CC1Args.push_back("+vle");
+    // Set default CPU to e200z4 if not specified
+    if (!DriverArgs.hasArg(options::OPT_mcpu_EQ)) {
+      CC1Args.push_back("-mcpu=e200z4");
+    }
+  }
 }
 
 void BareMetal::addLibStdCxxIncludePaths(

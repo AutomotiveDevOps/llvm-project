@@ -1,0 +1,149 @@
+# PowerPC e200 Reference Documentation
+
+This directory contains reference documentation for PowerPC e200 cores and VLE (Variable Length Encoding) support.
+
+## Required Documentation
+
+### PowerPC Book E Specification
+- **Status**: ✅ DOWNLOADED - Available in reference directory
+- **URL**: https://www.nxp.com/docs/en/user-guide/BOOK_EUM.pdf
+- **File**: `PowerPC_BookE_Enhanced_PowerPC_Architecture.pdf` (9.5M, 452 pages)
+- **Purpose**: Architectural specification for Book E, including VLE appendix
+- **Source**: IBM/NXP (Enhanced PowerPC Architecture, Version 1.0, May 7, 2002)
+- **Location**: `PowerPC_BookE_Enhanced_PowerPC_Architecture.pdf` (in this directory)
+- **Usage**: Primary reference for VLE instruction encoding and architectural details
+- **Priority**: HIGH - Required for VLE implementation
+- **Contents**:
+  - Book E architecture overview
+  - Processor control
+  - Branch and condition register operations
+  - Integer operations
+  - Floating-point operations
+  - Storage instructions
+  - Memory management
+  - Instruction encoding details
+
+### VLE Programming Interface Manual (VLEPIM)
+- **Status**: ✅ DOWNLOADED - Available in reference directory
+- **URL**: https://www.nxp.com/docs/en/supporting-information/VLEPIM.pdf
+- **File**: `VLEPIM.pdf` (905K)
+- **Purpose**: Complete VLE instruction set reference with encoding details
+- **Location**: `VLEPIM.pdf` (in this directory)
+- **Usage**: VLE instruction definitions, instruction selection, disassembler
+- **Priority**: HIGH - Required for VLE implementation
+
+### GCC VLE Fork Source Code
+- **Location**: `/projects/gcc-4.9.4-vle`
+- **Status**: ✅ LOCATION CONFIRMED - GCC 4.9.4 with VLE modifications
+- **Findings**: 
+  - This is the actual VLE fork (not `/projects/gcc`)
+  - Contains standard PowerPC backend with e500/e500mc/e5500 support
+  - VLE implementation details need further analysis
+  - Key files: `gcc/config/rs6000/rs6000.c` (34,552 lines), `rs6000.md` (15,940 lines)
+- **Usage**: Reference for VLE instruction encoding patterns and code generation strategies
+- **Analysis Status**: Initial search completed - detailed VLE pattern analysis pending
+
+## e200 Processor Documentation Sources
+
+### NXP/Freescale Documentation
+
+#### e200z0 Core Reference Manual
+- **Status**: ✅ DOWNLOADED - Available in reference directory
+- **URL**: https://www.elektronikjk.com/elementy_czynne/IC/E200Z0.pdf
+- **File**: `E200Z0_Core_Reference_Manual.pdf` (3.4M)
+- **Purpose**: 4-stage pipeline details, VLE timing, instruction model
+- **Source**: Freescale (e200z0CORERM Rev. 0 4/2008)
+- **Location**: `E200Z0_Core_Reference_Manual.pdf` (in this directory)
+- **Contents**: 
+  - e200z0 and e200z0h Overview
+  - Register Model
+  - Instruction Model (including VLE)
+  - Instruction Pipeline and Execution Timing
+  - Interrupts and Exceptions
+  - Core Complex Interfaces
+  - Power Management
+  - Debug Support
+  - Nexus 2+ Module
+- **Priority**: MEDIUM - Needed for scheduling refinement
+
+#### e200z3 Core Reference Manual
+- **Status**: ✅ DOWNLOADED - Available in reference directory
+- **URL**: https://www.elektronikjk.com/elementy_czynne/IC/E200Z3.pdf
+- **File**: `E200Z3_Core_Reference_Manual.pdf` (5.1M, 442 pages)
+- **Purpose**: Pipeline details, instruction timing
+- **Source**: Freescale/NXP
+- **Location**: `E200Z3_Core_Reference_Manual.pdf` (in this directory)
+- **Priority**: LOW - TODO processor (not currently targeted)
+
+#### e200z4 Core Reference Manual
+- **Status**: ✅ DOWNLOADED - Available in reference directory
+- **URL**: https://www.elektronikjk.com/elementy_czynne/IC/E200Z4.pdf
+- **File**: `E200Z4_Core_Reference_Manual.pdf` (7.8M, 866 pages)
+- **Purpose**: 5-stage dual-issue pipeline, SPE, FPU timing
+- **Source**: Freescale (e200z4RM Rev. 0 10/2009)
+- **Location**: `E200Z4_Core_Reference_Manual.pdf` (in this directory)
+- **Contents**:
+  - e200z4 Core Complex Overview
+  - Register Model
+  - Instruction Model (including VLE)
+  - Instruction Pipeline and Execution Timing
+  - Interrupts and Exceptions
+  - L1 Cache Features
+  - Memory Management Unit
+  - SPE (Signal Processing Extension) details
+  - FPU timing and features
+- **Priority**: MEDIUM - Needed for scheduling refinement
+
+#### e200z6 Core Reference Manual
+- **Status**: ✅ DOWNLOADED - Available in reference directory
+- **URL**: https://web.eecs.umich.edu/~jfr/embeddedctrls/files/E200Z6_RM.pdf
+- **File**: `E200Z6_Core_Reference_Manual.pdf` (2.7M)
+- **Purpose**: 7-stage single-issue pipeline, unified cache
+- **Location**: `E200Z6_Core_Reference_Manual.pdf` (in this directory)
+- **Note**: **IMPORTANT**: e200z6 is 7-stage **single-issue**, not dual-issue
+- **Priority**: MEDIUM - Needed for scheduling refinement and correction
+
+#### e200z7 Core Reference Manual (e200z759n3)
+- **Status**: ✅ REFERENCED - Manual available online
+- **URL**: https://community.nxp.com/pwmxy87654/attachments/pwmxy87654/mpc5xxx/11751/1/e200z759CRM.pdf
+- **File**: `e200z759CRM.pdf` (e200z759n3 Core Reference Manual)
+- **Source**: Freescale/NXP (e200z759n3CRM, Rev. 2, January 2015)
+- **Purpose**: Dual-issue pipeline, EFPU2 (Embedded Floating-Point Unit 2), SPE, enhanced cache features
+- **Contents**:
+  - e200z759n3 Overview and Features
+  - Register Model (including VLE mode instruction syndrome)
+  - Instruction Model and Pipeline
+  - Embedded Floating-Point APU (EFPU2)
+  - Cache and MMU features
+  - Branch prediction and execution timing
+- **Priority**: HIGH - Used for e200z7 scheduling model implementation
+
+## Implementation Notes
+
+### e200 Core Variants
+- **e200z0**: 4-stage pipeline, VLE-focused, minimal features (no MMU/cache/FPU) ✅ Manual available ✅ Implemented
+- **e200z3**: 5-stage **single-issue** pipeline, MMU, I-cache, VLE support ✅ Manual available (442 pages) ✅ Implemented
+- **e200z4**: 5-stage **dual-issue** pipeline, SPE, FPU, I-cache, VLE support ✅ Manual available (866 pages) ✅ Implemented
+- **e200z6**: 7-stage **single-issue** pipeline, FPU, unified 32KB L1 cache, 32-entry MMU, VLE support ✅ Manual available (428 pages) ✅ Implemented
+- **e200z7**: Dual-issue pipeline, EFPU2 (Embedded Floating-Point Unit 2), SPE, enhanced cache, VLE support ✅ Manual available (e200z759n3 Core Reference Manual, Rev. 2, January 2015) ✅ Implemented
+
+**Important**: e200z6 scheduling model needs correction - it's single-issue, not dual-issue.
+
+### VLE (Variable Length Encoding)
+VLE is a critical feature for e200 cores, providing:
+- 16-bit and 32-bit instruction formats
+- Significant code size reduction for embedded applications
+- Instruction set optimized for small code footprint
+
+The VLE instruction set is documented in the PowerPC Book E specification, VLE Appendix.
+
+## Background and Context
+
+**For the full story behind why VLE support exists**, see `../implementation/VLE_WHY.md` - a humorous tale of rejected patches, burning platforms, and billions of devices running on 11-year-old compiler forks.
+
+The short version: GCC rejected VLE support as "too invasive" in 2013, leaving the embedded PowerPC ecosystem stuck with either expensive proprietary toolchains (Green Hills: $10k+/seat) or 11-year-old compiler forks. This LLVM implementation aims to fix that wrong.
+
+## Links
+- [NXP PowerPC e200 Documentation](https://www.nxp.com/products/processors-and-microcontrollers/power-architecture-processors/powerpc-cores/e200-powerpc-core:E200_POWERPC_CORE)
+- [Freescale/NXP Technical Documentation](https://www.nxp.com/support/developer-resources)
+

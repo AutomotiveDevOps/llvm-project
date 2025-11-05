@@ -1,0 +1,2469 @@
+Chapter 3
+Instruction Model
+This chapter provides additional information about Power Architecture technology as it relates specifically
+to the e200z4.
+The e200z4 is a 32-bit implementation of Power Architecture technology as defined in the Power ISA.
+This architecture specification includes a recognition that different processor implementations may require
+clarifications, extensions, or deviations from the architectural descriptions.
+
+3.1       Unsupported Instructions and Instruction Forms
+Because the e200z4 is a 32-bit Power ISA embedded core, all of the instructions defined for 64-bit
+implementations of the Power ISA architecture are illegal on the e200. See the EREF for more information
+on 64-bit instructions. The e200 takes an illegal instruction exception type program interrupt upon
+encountering a 64-bit Power ISA instruction.
+The e200z4 core does not support the instructions listed in Table 3-1. An unimplemented instruction or
+FP-unavailable exception is generated if the processor attempts to execute one of these instructions.
+                                Table 3-1. List of Unsupported Instructions
+
+                                         Type/Name            Mnemonics
+
+                                  String Instructions       lswi, lswx,
+                                                            stswi, stswx
+
+                                  Floating Point            fxxxx, lfxxx,
+                                  Instructions              sfxxxx, mcrfs,
+                                                            mffs, mtfxxx
+
+                                  Device control register   mfapidi, mfdcrx,
+                                  and Move from APID        mtdcrx
+
+
+
+
+                          e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+Freescale Semiconductor                                                                                 3-1
+3.2      Optionally Supported Instructions and Instruction Forms
+e200 cores optionally support the instructions listed in Table 3-2 if a cache and/or TLB is present. An
+instruction exception may be generated if the processor attempts to execute one of these instructions and
+the related functional block is not present. The specific instruction may also be treated as a no-op.
+
+                             Table 3-2. List of Optionally Supported Instructions
+
+                                  Type / Name         Mnemonics             Unit
+
+                             Cache Management       dcba, dcbf,       Data Cache
+                             Instructions1          dcbi, dcbt,
+                                                    dcbtst, dcbst,
+                                                    dcbz
+                             Cache Management       icbi, icbt        Instruction
+                             Instructions2                            Cache
+                             Cache Locking          dcbtls,           Data Cache
+                             Instructions3          dcbtstls,
+                                                    dcblc
+                             Cache Locking          icbtls, icblc     Instruction
+                             Instructions2                            Cache
+                             TLB Management         tlbivax, tlbre,   TLB
+                             Instructions2          tlbsx, tlbsync,
+                                                    tlbwe
+                             DCR Management 2       mfdcr, mtdcr      DCR
+                         1 These instructions are not supported and are treated as
+                           no-ops, with the exception of dcbz which results in an
+                           Alignment Interrupt, and dcbi, which is treated as a
+                           privileged no-op.
+                         2
+                           These instructions are supported by e200z446n3
+                         3 These instructions are not supported and are treated as
+                           no-ops.
+
+
+
+3.3      Implementation Specific Instructions
+Several instructions defined in the Power ISA are implementation specific. Table 3-3 summarizes the e200
+implementation-specific instructions.
+                         Table 3-3. Implementation-specific Instruction Summary
+
+                                 Mnemonic              Implementation Details
+
+                                 mfapidi
+                                                       Unimplemented instructions
+                                 mfdcrx
+
+                                 mtdcrx
+
+
+
+
+                          e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+3-2                                                                                  Freescale Semiconductor
+                          Table 3-3. Implementation-specific Instruction Summary
+
+                                   Mnemonic               Implementation Details
+
+                                stbcx., sthcx., stwcx.    Address match with prior
+                                                          lbarx, lharx, or lwarx not
+                                                          required for store to be
+                                                          performed
+
+                                mfdcr, mtdcr1             Optionally supported
+                                                          instructions
+                               1
+                                   The e200 CPU takes an illegal instruction exception
+                                   for unsupported DCR values
+
+
+3.4       Power ISA Instruction Extensions
+This section describes the various extensions to the architecture to support the VLE functionality.
+   • rfci, rfdi, rfi, rfmci—No longer mask bit 62 of CSRR0, DSRR0, or SRR0 respectively. The
+       destination address is [D,C, MC]SRR0[32:62] || 0b0.
+   • bclr, bclrl, bcctr, bcctrl—No longer mask bit 62 of the LR or CTR respectively. The destination
+       address is [LR,CTR][32:62] || 0b0.
+
+3.5       Memory Access Alignment Support
+The e200 core provides hardware support for unaligned memory accesses. However, there is a
+performance degradation for accesses which cross a 64-bit (8 byte) boundary; the throughput of the
+load/store unit is degraded to 1 misaligned load every 2 cycles. Stores which are misaligned across a 64-bit
+(8 byte) boundary can be translated at a rate of 2 cycles per store. Frequent use of unaligned memory
+accesses is discouraged because of the impact on performance.
+                                                   NOTE
+                Accesses which cross a translation boundary may be restarted. A misaligned
+                access which crosses a page boundary is restarted in its entirety in the event
+                of a TLB miss of the second portion of the access. This may result in the first
+                portion being accessed twice.
+                Accesses that cross a translation boundary where the endianness changes
+                cause a byte ordering DSI exception.
+
+3.6       Memory Synchronization and Reservation Instructions
+The msync instruction provides a synchronization function and a memory barrier function. This
+instruction waits for all preceding instructions and data memory accesses to complete before the msync
+instruction completes. Subsequent instructions in the instruction stream are not initiated until after the
+msync instruction completes to ensure these functions have been performed.
+On the e200 core, the mbar instruction with MO = 0, 1, or 2 behaves similarly to the msync instruction,
+but only waits for previous data memory accesses rather than all previous instructions to complete before
+completing. The mbar instruction may be preferred for most memory synchronization operations, since it
+
+                           e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+Freescale Semiconductor                                                                                  3-3
+does not stall instruction execution if no load or store operations remain in the execution pipeline, unlike
+the msync instruction. The mbar instruction with the MO field not equal to 0, 1, or 2 is treated as illegal
+by the e200 core.
+The e200 core implements the lwarx and stwcx. instructions as described in the Power ISA embedded
+category, as well as the lharx, lbarx, sthcx., and stbcx. instructions defined by the Freescale EIS enhanced
+reservation instruction set. If the EA is not a multiple of the access size for these instructions, an alignment
+interrupt is invoked. The e200 allows reservation instructions to access a page that is marked as
+write-through required or cache-inhibited, and no data storage interrupt is invoked.
+As allowed by the Power ISA embedded category, the e200 core does not require that for a reservation
+store-type instruction to succeed, the EA of the store-type instruction must be to the same reservation
+granule as the EA of a preceding reservation load-type instruction. Reservation granularity is
+implementation-dependent. The e200 core does not define a reservation granule explicitly; reservation
+granularity is defined by external logic. When no external logic is provided, the e200 core performs no
+address comparison checking, thus the effective implementation granularity is null.
+The e200 core implements an internal status flag (HID1[ATS]) representing reservation status. This flag
+is set when a load-type reservation instruction is executed and completes without error, and it remains set
+until it is cleared by one of the following mechanisms:
+     • Execution of a store-type reservation instruction is completed without error.
+     • The e200 core p_rsrv_clr input signal is asserted.
+     • The reservation is invalidated when an external input, critical input, or non-maskable interrupt is
+         signaled and the HID0[ICR] bit is set.
+When the e200 core decodes a store-type reservation instruction, it checks the value of the local reservation
+flag (HID1[ATS]). If the status indicates that no reservation is active, then the store-type reservation
+instruction is treated as a nop. No exceptions will be taken, and no access is performed, thus no data
+breakpoint will occur, regardless of matching the data breakpoint attributes.
+The e200 core provides the input signal p_xfail_b, which is sampled at termination of a st[b,h,w]cx. store
+transfer to allow an external agent or mechanism to indicate that the st[b,h,w]cx. instruction has failed to
+update memory, even though a reservation existed for the store at the time it was issued. This is not
+considered an error, and will cause the condition codes for the st[b,h,w]cx. instruction to be written as if
+a reservation did not exist for the st[b,h,w]cx. instruction. In addition, any outstanding reservation will be
+cleared.
+The p_rsrv_clr input signal is not intended for normal use in managing reservations. It is provided for
+specialized system applications. The normal bus protocol is used to manage reservations using external
+reservation logic in systems with multiple coherent bus masters, using the transfer type and transfer
+response signals. In single coherent master systems, no external logic is required, and the internal
+reservation flag is sufficient to support multi-tasking applications.
+
+3.7       Branch Prediction
+The e200z4 instruction fetching mechanism uses a branch target buffer (BTB) that holds branch target
+addresses combined with a 2-bit saturating up-down counter scheme for branch prediction. Branch paths
+
+
+                           e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+3-4                                                                                      Freescale Semiconductor
+are predicted by either the branch target buffer (BTB hit) or a selectable static prediction algorithm (BTB
+miss) and subsequently checked to see if the prediction was correct. This enables operation beyond a
+conditional branch without waiting for the branch to be decoded and resolved.
+The instruction fetch unit predicts the direction of the branch as follows:
+   • Predict taken for any backward branch whose fetch address hits in the BTB and is predicted taken
+       by the counter or misses in the BTB and static prediction control in BUCSR for backward branches
+       indicates “predict taken.” Otherwise predict not-taken.
+   • Predict taken for any forward branch whose fetch address hits in the BTB and is predicted taken
+       by the counter or misses in the BTB and static prediction control in BUCSR for forward branches
+       indicates “predict taken.” Otherwise predict not-taken.
+
+3.8       Interruption of Instructions by Interrupt Requests
+In general, the core samples pending non-maskable interrupts, external input, and critical input interrupt
+requests at instruction boundaries. However, in order to reduce interrupt latency, long running instructions
+may be interrupted prior to completion. Instructions in this class include divides (divw[uo][.], efsdiv,
+evfsdiv, evdivw[su]), floating square root (efssqrt, evfssqrt), load multiple word (lmw, e_lmw), and store
+multiple word (stmw, e_stmw). In addition, the e_lmvgprw, e_stmvgprw, e_lmvsprw, and e_stmvsprw
+Volatile Context Save/Restore instructions may also be interrupted prior to completion. When interrupted
+prior to completion, the value saved in SRR0/CSRR0/MCSRR0 will be the address of the interrupted
+instruction. The instruction will be restarted from the beginning after returning to it from the interrupt
+handler.
+
+3.9       New e200z4 Categories
+The e200z4 core implements the following Freescale EIS categories that extend the Power ISA:
+   • The ISEL category, which is described in Section 3.10, “ISEL Instruction.”
+   • The Enhanced Debug category and the Debug Notify Halt Instruction, which are described in
+       Section 3.11, “Enhanced Debug.”
+   • The Machine Check category ,which is described in Section 3.12, “Machine Check.”
+   • The WAIT category, which is described in Section 3.13, “WAIT Instruction.”
+   • The Volatile Context Save/Restore category, which is described in Section 3.15, “Volatile Context
+       Save/Restore.”
+   • The Embedded Floating-Point category version 2, described along with supporting instructions in
+       Chapter 6, “Embedded Floating-Point Unit, Version 2.”
+   • The Signal Processing Extension (SPE) category version 1.1, described along with supporting
+       instructions in Chapter 7, “Signal Processing Extension Unit.”
+   • The Cache Line-Locking category, which is described in Section 9.10, “Cache Line
+       Locking/Unlocking.”
+   • The Enhanced Reservations category, which is described in Section 3.14, “Enhanced
+       Reservations.”
+
+
+
+                          e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+Freescale Semiconductor                                                                                  3-5
+3.10         ISEL Instruction
+The isel instruction provides a way to select one of two registers and place the result in a destination
+register under the control of a predicate value supplied by a bit in the condition register. This instruction
+can be used to eliminate branches in software and in many cases improve performance. This instruction
+can also increase program execution time determinism by eliminating the need to predict the target and
+direction of the branches replaced by the integer select function. The instruction form and definition is as
+follows:
+
+
+isel                                                                                                        isel
+Integer Select
+
+isel                  RT, RA, RB, crb
+
+               31                RT              RA              RB              crb             01111      0
+
+       0              5   6            10 11            15 16          20 21             25 26           30 31
+
+           if RA=0 then a ← 320 else a ← GPR(RA)
+           c = CRcrb
+           if c then GPR(RT) ← a
+           else GPR(RT) ← GPR(RB)
+
+For isel, if the bit of the CR specified by (crb) is set, the contents of RA|0 are copied into RT. If the bit of
+the CR specified by (crb) is clear, the contents of RB are copied into RT.
+Other registers altered:
+    • None
+
+3.11         Enhanced Debug
+The e200z4 implements the Power ISA embedded debug architecture to support the capability to handle
+the debug interrupt as an additional interrupt level. To support this interrupt level, a new ‘return from
+debug interrupt’ (rfdi, se_rfdi) instruction is defined as part of the debug instruction set, along with a new
+pair of save/restore registers, DSRR0, and DSRR1.
+When the debug capability is enabled (HID0[DAPUEN] = 1), the rfdi or se_rfdi instruction provides a
+means to return from a debug interrupt. See Section 2.4.11, “Hardware Implementation Dependent
+Register 0 (HID0)” for more information about enabling the debug functionality.
+The instruction form and definition is as follows.
+
+
+
+
+                              e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+3-6                                                                                         Freescale Semiconductor
+rfdi                                                                                                               rfdi
+Return From Debug Interrupt
+
+rfdi
+
+               19                                    ///                                          0000100111       0
+
+       0              5   6                                                          20 21                      30 31
+
+           MSR ←DSRR1
+           PC ←DSRR00:30 || 10
+
+The rfdi instruction is used to return from a debug interrupt, or as a means of simultaneously establishing
+a new context and synchronizing on that new context.
+The contents of debug save/restore register 1 are placed into the machine state register. If the new machine
+state register value does not enable any pending exceptions, then the next instruction is fetched, under
+control of the new machine state register value from the address DSRR0[0–30]|| 1’b0. If the new machine
+state register value enables one or more pending exceptions, the interrupt associated with the highest
+priority pending exception is generated; in this case the value placed into save/restore register 0 or critical
+save/restore register 0 by the interrupt processing mechanism is the address of the instruction that would
+have been executed next had the interrupt not occurred (that is, the address in debug save/restore register
+0 at the time of the execution of the rfdi).
+Execution of this instruction is privileged and context synchronizing.
+Special registers altered:
+   • MSR
+When the debug functionality is disabled (HID0[DAPUEN] = 0), this instruction is treated as an illegal
+instruction.
+
+
+se_rfdi                                                                                                        se_rfdi
+Return From Debug Interrupt
+
+se_rfdi
+
+                                 0   0   0   0   0   0   0   0   0   0   0   0   0    1   0   1   0
+
+                                 0                                                                15
+
+           MSR ←DSRR1
+           PC ←DSRR032:62 || 0b0
+
+The rfdi or se_rfdi instruction is used either to return from a debug interrupt or as a means of
+simultaneously establishing a new context and synchronizing on that new context.
+
+
+
+                              e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+Freescale Semiconductor                                                                                                 3-7
+The contents of debug save/restore register 1 are placed into the machine state register. If the new machine
+state register value does not enable any pending exceptions, then the next instruction is fetched, under
+control of the new machine state register value from the address DSRR0[32–62]|| 0b0. If the new machine
+state register value enables one or more pending exceptions, the interrupt associated with the highest
+priority pending exception is generated; in this case the value placed into save/restore register 0 or critical
+save/restore register 0 by the interrupt processing mechanism is the address of the instruction that would
+have been executed next had the interrupt not occurred (that is, the address in debug save/restore register
+0 at the time of the execution of the rfdi or se_rfdi).
+Execution of this instruction is privileged and context synchronizing.
+Special registers altered:
+   • MSR
+When the debug functionality is disabled (HID0[DAPUEN] = 0), this instruction is treated as an illegal
+instruction.
+
+3.11.1        Debug Notify Halt Instructions
+The dnh, e_dnh, and se_dnh instructions provide a bridge between the execution of instructions on the
+core in a non-halted mode and an external debug facility. dnh, e_dnh, and se_dnh allows software to
+transition the core from a running state to a debug halted state if enabled by an external debugger. dnh
+provides the external debugger with bits reserved in the instruction itself to pass additional information.
+When the e200z4 CPU enters a debug halted state due to a dnh, e_dnh, or se_dnh instruction, the
+instruction is stored in the CPUSCR[IR] portion and the CPUSCR[PC] value points to the instruction.
+Prior to exiting the debug halted state, the external debugger should update the CPUSCR to point past the
+dnh, e_dnh, or se_dnh instruction.
+Note that the dnh instruction is only available in the Power ISA embedded category instruction pages, and
+the e_dnh and se_dnh instructions are only available in VLE instruction pages.
+
+
+dnh                                                                                                                dnh
+Debugger Notify Halt
+dnh                            dui, duis
+
+
+      0             5   6          10   11         15   16         20   21                                    30   31
+
+      0 1 0 0 1 1            dui                    duis                0    0   1   1   0   0    0   1   1   0    /
+
+          if EDBCR[DNH_EN] = 1 then
+               implementation dependent register ¨ dui
+               halt processor
+          else
+               illegal instruction exception
+
+
+
+
+                             e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+3-8                                                                                              Freescale Semiconductor
+Execution of the dnh instruction causes the processor to halt if the external debug facility has enabled such
+action by previously setting the EDBCR[DNH_EN] bit. If the processor is halted, the contents of the dui
+field are provided to the external debug facility to identify the reason for the halt.
+If EDBCR[DNH_EN] has not been previously set by the external debug facility, executing the dnh
+instruction produces an illegal instruction exception.
+The duis field is provided to pass additional information about the halt, but requires that actions be
+performed by the external debug facility to access the dnh instruction to read the contents of the field.
+The dnh instruction is not privileged, and executes the same regardless of the state of MSR[PR].
+Whether the processor is in IDM or EDM mode has no effect on the execution of the dnh instruction.
+Other registers altered:
+   • None
+                                                     NOTE
+                After the dnh instruction has executed, the instruction itself can be read
+                back by the Illegal Instruction Interrupt handler or the external debug
+                facility if the contents of the dui and duis field are of interest. If the
+                processor entered the Illegal Instruction Interrupt handler, software can use
+                SRR0 to obtain the address of the dnh instruction which caused the handler
+                to be invoked. If the processor is halted in debug mode, the external debug
+                facility can access the CPUSCR register to obtain the dnh instruction which
+                caused the processor to halt.
+
+
+e_dnh                                                                                                         e_dnh
+Debugger Notify Halt
+e_dnh                           dui, duis
+
+
+     0              5     6         10   11         15   16         20   21                                   30   31
+
+     0 1 1 1 1 1              dui                    duis                0    0   0   1   1   0   0   0   0   1    /
+
+         if EDBCR[DNH_EN] = 1 then
+              implementation dependent register ¨ dui
+              halt processor
+         else
+              illegal instruction exception
+
+Execution of the e_dnh instruction causes the processor to halt if the external debug facility has enabled
+such action by previously setting the EDBCR[DNH_EN] bit. If the processor is halted, the contents of the
+dui field are provided to the external debug facility to identify the reason for the halt.
+If EDBCR[DNH_EN] has not been previously set by the external debug facility, executing the e_dnh
+instruction produces an illegal instruction exception.
+
+
+
+                              e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+Freescale Semiconductor                                                                                                 3-9
+The duis field is provided to pass additional information about the halt, but requires that actions be
+performed by the external debug facility to access the e_dnh instruction to read the contents of the field.
+The e_dnh instruction is not privileged; it executes the same regardless of the state of MSR[PR].
+Whether the processor is in IDM or EDM mode has no effect on the execution of the e_dnh instruction.
+Other registers altered:
+   • None
+
+
+se_dnh                                                                                                      se_dnh
+Debugger Notify Halt
+se_dnh
+
+                               0   0   0   0   0   0   0   0   0   0   0   0   0   1   1   1   1
+
+                               0                                                               15
+
+       if EDBCRDNH_EN = 1 then
+
+              halt processor
+       else
+              illegal instruction exception
+
+Execution of the se_dnh instruction causes the processor to halt if the external debug facility has enabled
+such action by previously setting the EDBCR[DNH_EN] bit.
+If EDBCR[DNH_EN] has not been previously set by the external debug facility, executing the se_dnh
+instruction produces an illegal instruction exception.
+The se_dnh instruction is not privileged; it executes the same regardless of the state of MSR[PR].
+Whether the processor is in IDM or EDM mode has no effect on the execution of the se_dnh instruction.
+Other registers altered:
+   • None
+
+3.12      Machine Check
+The e200z4 implements the Power ISA embedded category machine check functionality to support the
+capability to handle the machine check interrupt as an additional interrupt level. To support this interrupt
+level, a new “return from machine check interrupt” (rfmci, se_rfmci) instruction is defined as part of the
+machine check instruction set, along with a new pair of save/restore registers, MCSRR0, and MCSRR1, a
+machine check syndrome register MCSR, and a machine check address register MCAR.
+
+
+
+
+                           e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+3-10                                                                                                Freescale Semiconductor
+The rfmci and se_rfmci instructions provide a means to return from a machine check interrupt. The
+instruction form and definitions is as follows:
+
+
+rfmci                                                                                                           rfmci
+Return From Machine Check Interrupt
+
+rfmci
+
+             19                                      ///                                           0000100110      0
+
+     0                5   6                                                        20 21                        30 31
+
+         MSR ←MCSRR1
+         PC ←MCSRR00:30 || 10
+
+The rfmci instruction is used either to return from a machine check interrupt or as a means of
+simultaneously establishing a new context and synchronizing on that new context.
+The contents of machine check save/restore register 1 are place into the machine state register. If the new
+machine state register value does not enable any pending exceptions, then the next instruction is fetched,
+under control of the new machine state register value from the address MCSRR0[0–30]|| 1’b0. If the new
+machine state register value enables one or more pending exceptions, the interrupt associated with the
+highest priority pending exception is generated; in this case the value placed into the appropriate
+save/restore register 0 by the interrupt processing mechanism is the address of the instruction that would
+have been executed next had the interrupt not occurred (i.e. the address in machine check save/restore
+register 0 at the time of the execution of the rfmci).
+Execution of this instruction is privileged and context synchronizing.
+Special registers altered:
+   • MSR
+                                                       NOTE
+                  This instruction is only available in 32-bit Power ISA embedded category
+                  instruction pages, it is not available in VLE instruction pages.
+
+
+se_rfmci                                                                                                    se_rfmci
+Return From Machine Check Interrupt
+
+se_rfmci
+
+                                 0   0   0   0   0   0     0   0   0   0   0   0   1   0   1   1
+
+                                 0                                                             15
+
+         MSR ←MCSRR1
+         PC ←MCSRR00:30 || 10
+
+
+                              e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+Freescale Semiconductor                                                                                                 3-11
+The se_rfmci instruction is used to return from a machine check interrupt, or as a means of simultaneously
+establishing a new context and synchronizing on that new context.
+The contents of machine check save/restore register 1 are placed into the machine state register. If the new
+machine state register value does not enable any pending exceptions, the next instruction is fetched under
+control of the new machine state register value from the address MCSRR0[0–30]|| 1’b0. If the new
+Machine State Register value enables one or more pending exceptions, the interrupt associated with the
+highest priority pending exception is generated; in this case the value placed into the appropriate
+Save/Restore Register 0 by the interrupt processing mechanism is the address of the instruction that would
+have been executed next had the interrupt not occurred (that is, the address in Machine Check Save/Restore
+Register 0 at the time of the execution of the se_rfmci).
+Execution of this instruction is privileged and context synchronizing.
+Special Registers Altered:
+   • MSR
+                                                         NOTE
+                    This instruction is only available in VLE instruction pages, it is not available
+                    in 32-bit Power ISA embedded category instruction pages.
+
+3.13           WAIT Instruction
+The wait instruction allows software to cease all synchronous activity, waiting for an asynchronous
+interrupt or debug interrupt to occur. The instruction can be used to cease processor activity in both user
+and supervisor modes. Asynchronous interrupts which will cause the waiting state to be exited if enabled
+are critical input, external input, machine check pin (p_mcp_b). Non-maskable interrupts (p_nmi_b) will
+also cause the waiting state to be exited.
+
+
+wait                                                                                                                     wait
+Wait for Interrupt
+wait
+
+       0                    5   6            10 11           15 16           20 21                                       31
+
+       0   1    1   1   1   1                          ///                      0    0   0   0   1   1   1   1   1   0   /
+
+
+The wait instruction provides an ordering function for the effects of all instructions executed by the
+processor executing the wait instruction and stops synchronous processor activity. Executing a wait
+instruction ensures that all instructions have completed before the wait instruction completes, causes
+processor instruction fetching to cease, and ensures that no subsequent instructions are initiated until an
+asynchronous interrupt or a debug interrupt occurs.
+Once the wait instruction has completed, the program counter will point to the next sequential instruction.
+The saved value in xSRR0 when the processor re-initiates activity will point to the instruction following
+the wait instruction.
+
+
+                                    e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+3-12                                                                                                 Freescale Semiconductor
+Execution of a wait instruction places the CPU in the waiting state and is indicated by assertion of the
+p_waiting output signal. The signal will be negated after leaving the waiting state.
+Software must ensure that interrupts responsible for exiting the waiting state are enabled before executing
+a wait instruction.
+Architecture Note: The wait instruction can be used in verification test cases to signal the end of a test
+case. The encoding for the instruction is the same in both big- and little-endian modes.
+
+3.14      Enhanced Reservations
+The e200 implements the Freescale EIS enhanced reservations functionality, which extends the load and
+reserve and store conditional instructions to support byte and half word data types. These instructions
+operate in the same manner as the lwarx and stwcx. instructions, except for the size of the access.
+
+
+Load Byte And Reserve Indexed
+lbarx                        RT,RA,RB                                                             (X-mode)
+
+                 0 1 1 1 1 1         RT          RA           RB     0 0 0 0 1 1 0 1 0 0 /
+
+                 0              6           11           16          21                   31
+
+
+        if RA=0 then a ← 640 else a ← GPR(RA)
+        if X-mode then EA ← 320 || (a + GPR(RB))32:63
+        RESERVE ← 1
+        RESERVE_ADDR ← real_addr(EA)
+        GPR(RT) ← 560 || MEM(EA,1)
+
+Let the effective address (EA) be calculated as follows:
+For lbarx, let EA be 32 0s concatenated with bits 32:63 of the sum of the contents of GPR[RA], or 64 0s
+if RA = 0, and the contents of GPR[RB].
+The byte in storage addressed by EA is loaded into GPR[RT]56:63. GPR[RT]0:55 are set to 0.
+This instruction creates a reservation for use by a store byte conditional instruction. An address computed
+from the EA is associated with the reservation and replaces any address previously associated with the
+reservation.
+Special registers altered:
+None
+
+
+
+
+                             e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+Freescale Semiconductor                                                                                 3-13
+Load Half Word And Reserve Indexed
+lharx                        RT,RA,RB                                                               (X-mode)
+
+                 0 1 1 1 1 1         RT          RA           RB     0 0 0 1 1 1 0 1 0 0 /
+
+                 0              6           11           16          21                     31
+
+
+         if RA=0 then a ← 640 else a ← GPR(RA)
+         EA ← 320 || (a + GPR(RB))32:63
+         RESERVE ← 1
+         RESERVE_ADDR ← real_addr(EA)
+         GPR(RT) ← 480 || MEM(EA,2)
+
+Let the effective address (EA) be calculated as follows:
+For lharx, let EA be 32 zeros concatenated with bits 32–63 of the sum of the contents of GPR[RA], or 64
+zeros if RA = 0 and the contents of GPR[RB].
+The half word in storage addressed by EA is loaded into GPR[RT]48:63. GPR[RT]0:47 are set to 0.
+This instruction creates a reservation for use by a Store Half Word Conditional instruction. An address
+computed from the EA is associated with the reservation and replaces any address previously associated
+with the reservation.
+EA must be a multiple of two. If it is not, either an alignment interrupt is invoked or the results are
+boundedly undefined.
+Special registers altered:
+None
+
+
+Store Byte Conditional Indexed
+stbcx.                       RS,RA,RB                                                               (X-mode)
+
+                 0 1 1 1 1 1         RS          RA           RB     1 0 1 0 1 1 0 1 1 0 1
+
+                 0              6           11           16          21                     31
+
+
+         if RA=0 then a ← 640 else a ← GPR(RA)
+         EA ← 320 || (a + GPR(RB))32:63
+         if RESERVE then
+            if RESERVE_ADDR = real_addr(EA) then
+                MEM(EA,1) ← GPR(RS)56:63
+                CR0 ← 0b00 || 0b1 || XERSO
+            else
+                u ← undefined 1-bit value
+                if u then MEM(EA,1) ← GPR(RS)56:63
+                CR0 ← 0b00 || u || XERSO
+            RESERVE ← 0
+         else
+            CR0 ← 0b00 || 0b0 || XERSO
+
+
+                             e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+3-14                                                                                    Freescale Semiconductor
+Let the effective address (EA) be calculated as follows:
+For stbcx., let EA be 32 zeros concatenated with bits 32–63 of the sum of the contents of GPR[RA], or 64
+zeros if RA = 0 and the contents of GPR[RB].
+If a reservation exists and the storage address specified by the stbcx. is the same as that specified by the
+lbarx instruction that established the reservation, the contents of bits 56–63 of GPR[RS] are stored into
+the byte in storage addressed by EA and the reservation is cleared.
+If a reservation exists but the storage address specified by the stbcx. is not the same as that specified by
+the load and reserve instruction that established the reservation, the reservation is cleared, and it is
+undefined whether the instruction completes without altering storage.
+If a reservation does not exist, the instruction completes without altering storage.
+CR Field 0 is set to reflect whether the store operation was performed, as follows.
+CR0[LT GT EQ SO] = 0b00 || store_performed || XER[SO]
+Special registers altered:
+CR0
+
+
+Store Half Word Conditional Indexed
+sthcx.                       RS,RA,RB                                                              (X-mode)
+
+                 0 1 1 1 1 1         RS          RA           RB     1 0 1 1 0 1 0 1 1 0 1
+
+                 0              6           11           16          21                    31
+
+
+         if RA=0 then a ← 640 else a ← GPR(RA)
+         EA ← 320 || (a + GPR(RB))32:63
+         if RESERVE then
+            if RESERVE_ADDR = real_addr(EA) then
+                MEM(EA,2) ← GPR(RS)48:63
+                CR0 ← 0b00 || 0b1 || XERSO
+            else
+                u ← undefined 1-bit value
+                if u then MEM(EA,2) ← GPR(RS)48:63
+                CR0 ← 0b00 || u || XERSO
+            RESERVE ← 0
+         else
+            CR0 ← 0b00 || 0b0 || XERSO
+
+Let the effective address (EA) be calculated as follows:
+For sthcx., let EA be 32 zeros concatenated with bits 32–63 of the sum of the contents of GPR[RA], or 64
+zeros if RA = 0 and the contents of GPR[RB].
+If a reservation exists and the storage address specified by the sthcx. is the same as that specified by the
+lharx instruction that established the reservation, the contents of bits 48–63 of GPR[RS] are stored into
+the half word in storage addressed by EA and the reservation is cleared.
+
+
+                             e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+Freescale Semiconductor                                                                                  3-15
+If a reservation exists but the storage address specified by the sthcx. is not the same as that specified by
+the load and reserve instruction that established the reservation, the reservation is cleared, and it is
+undefined whether the instruction completes without altering storage.
+If a reservation does not exist, the instruction completes without altering storage.
+CR Field 0 is set to reflect whether the store operation was performed, as follows.
+CR0[LT GT EQ SO] = 0b00 || store_performed || XER[SO]
+EA must be a multiple of two. If it is not, either an alignment interrupt is invoked or the results are
+boundedly undefined.
+Special registers altered:
+CR0
+
+3.15      Volatile Context Save/Restore
+The e200 implements the Power ISA embedded category volatile context save/restore instruction set to
+support the capability to quickly save and restore volatile register context on entry into an interrupt handler.
+To support this functionality, a new set of instructions has been defined as part of the volatile context
+save/restore instruction set, as shown in Table 3-4.
+                             Table 3-4. Volatile Context Save/Restore Instruction Set
+
+          Instruction                                                    Definition
+
+ e_lmvgprw, e_stmvgprw                                  Load/Store Multiple Volatile GPRS (r0, r3:r12)
+
+ e_lmvsprw, e_stmvsprw                        Load/Store Multiple Volatile SPRS (CR, LR, CTR, and XER)
+
+ e_lmvsrrw, e_stmvsrrw                              Load/Store Multiple Volatile SRRS (SRR0, SRR1)
+
+ e_lmvcsrrw, e_stmvcsrrw                          Load/Store Multiple Volatile CSRRS (CSRR0, CSRR1)
+
+ e_lmvdsrrw, e_stmvdsrrw                          Load/Store Multiple Volatile DSRRS (DSRR0, DSRR1)
+
+ e_lmvmcsrrw, e_stmvmcsrrw                    Load/Store Multiple Volatile MCSRRS (MCSRR0, MCSRR1)
+
+These instructions are available in VLE instruction pages to perform a multiple register load or store to a
+word aligned memory address.
+
+
+Load Multiple Volatile GPR Word
+e_lmvgprw                        D8(RA)                                                                       (D8-mode)
+
+                0 0 0 1 1 0 0 0 0 0 0              RA         0 0 0 1 0 0 0 0                 D8
+
+                0                6           11              16                       24                 31
+
+
+       if RA=0 then EA ← EXTS(D8)
+       else         EA ← (GPR(RA)+EXTS(D8))
+
+
+
+
+                             e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+3-16                                                                                               Freescale Semiconductor
+       GPR(r0)32:63 ← MEM(EA,4)
+       EA ← (EA+4)
+
+       r ← 3
+       do while r ≤ 12
+                    GPR(r)32:63 ← MEM(EA,4)
+           EA ← (EA+4)
+           r ← r + 1
+
+Let the effective address (EA) be the sum of the contents of GPR[RA], or 0 if RA = 0 and the
+sign-extended value of the D8 instruction field.
+Bits 32–63 of registers GPR[R0] and GPR[R3] through GPR[12] are loaded from n consecutive words in
+storage starting at address EA.
+EA must be a multiple of four. If it is not, either an alignment interrupt is invoked or the results are
+boundedly undefined.
+Special registers affected:
+None
+
+
+Store Multiple Volatile GPR Word
+e_stmvgprw                       D8(RA)                                                            (D8-mode)
+
+                 0 0 0 1 1 0 0 0 0 0 0            RA      0 0 0 1 0 0 0 1                D8
+
+                 0               6           11           16                 24               31
+
+
+       if RA=0 then EA ← EXTS(D8)
+       else         EA ← (GPR(RA)+EXTS(D8))
+
+       MEM(EA,4) ← GPR(r0)32:63
+       EA ← (EA+4)
+
+       r ← 3
+       do while r ≤ 12
+          MEM(EA,4) ← GPR(r)32:63
+          r ← r + 1
+          EA ← (EA+4)
+
+Let the effective address (EA) be the sum of the contents of GPR[RA], or 0 if RA = 0 and the
+sign-extended value of the D8 instruction field.
+Bits 32–63 of registers GPR[R0] and GPR[R3] through GPR[12] are stored in n consecutive words in
+storage starting at address EA.
+EA must be a multiple of four. If it is not, either an alignment interrupt is invoked or the results are
+boundedly undefined.
+Special registers affected:
+None
+
+
+                              e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+Freescale Semiconductor                                                                                    3-17
+Load Multiple Volatile SPR Word
+e_lmvsprw                        D8(RA)                                                                 (D8-mode)
+
+                0 0 0 1 1 0 0 0 0 0 1             RA      0 0 0 1 0 0 0 0                D8
+
+                0                6           11           16                 24                   31
+
+
+       if RA=0 then EA ← EXTS(D8)
+       else         EA ← (GPR(RA)+EXTS(D8))
+       CR32:63 ← MEM(EA,4)
+       EA ← (EA+4)
+
+       LR32:63 ← MEM(EA,4)
+       EA ← (EA+4)
+
+       CTR32:63 ← MEM(EA,4)
+       EA ← (EA+4)
+
+       XER32:63 ← MEM(EA,4)
+
+Let the effective address (EA) be the sum of the contents of GPR[RA], or 0 if RA = 0 and the
+sign-extended value of the D8 instruction field.
+Bits 32–63 of registers CR, LR, CTR, and XER are loaded from n consecutive words in storage starting at
+address EA.
+EA must be a multiple of four. If it is not, either an alignment interrupt is invoked or the results are
+boundedly undefined.
+Special registers affected:
+CR, LR, CTR, XER
+
+
+Store Multiple Volatile SPR Word
+e_stmvsprw                       D8(RA)                                                                 (D8-mode)
+
+                0 0 0 1 1 0 0 0 0 0 1             RA      0 0 0 1 0 0 0 1                D8
+
+                0                6           11           16                 24                   31
+
+
+       if RA=0 then EA ← EXTS(D8)
+       else         EA ← (GPR(RA)+EXTS(D8))
+
+       MEM(EA,4) ← CR32:63
+       EA ← (EA+4)
+
+       MEM(EA,4) ← LR32:63
+       EA ← (EA+4)
+
+       MEM(EA,4) ← CTR32:63
+
+
+
+
+                              e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+3-18                                                                                          Freescale Semiconductor
+       EA ← (EA+4)
+
+       MEM(EA,4) ← XER32:63
+
+Let the effective address (EA) be the sum of the contents of GPR[RA], or 0 if RA=0 and the sign-extended
+value of the D8 instruction field.
+Bits 32–63 of registers CR, LR, CTR, and XER are stored in n consecutive words in storage starting at
+address EA.
+EA must be a multiple of 4. If it is not, either an Alignment interrupt is invoked or the results are boundedly
+undefined.
+Special registers affected:
+None
+
+
+Load Multiple Volatile SRR Word
+e_lmvsrrw                        D8(RA)                                                            (D8-mode)
+
+                 0 0 0 1 1 0 0 0 1 0 0            RA      0 0 0 1 0 0 0 0                D8
+
+                 0               6           11           16                 24               31
+
+
+       if RA=0 then EA ← EXTS(D8)
+
+       else               EA ← (GPR(RA)+EXTS(D8))
+
+       SRR032:63 ← MEM(EA,4)
+       EA ← (EA+4)
+       SRR132:63 ← MEM(EA,4)
+
+Let the effective address (EA) be the sum of the contents of GPR[RA], or 0 if RA = 0 and the
+sign-extended value of the D8 instruction field.
+Bits 32–63 of registers SRR0 and SRR1 are loaded from consecutive words in storage starting at address
+EA.
+EA must be a multiple of four. If it is not, either an alignment interrupt is invoked or the results are
+boundedly undefined.
+Special registers affected:
+SRR0, SRR1
+
+
+Store Multiple Volatile SRR Word
+e_stmvsrrw                       D8(RA)                                                            (D8-mode)
+
+                 0 0 0 1 1 0 0 0 1 0 0            RA      0 0 0 1 0 0 0 1                D8
+
+
+
+                              e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+Freescale Semiconductor                                                                                    3-19
+                0                   6                 11                16                      24                    31
+
+       if RA=0 then EA ← EXTS(D8)
+       else         EA ← (GPR(RA)+EXTS(D8))
+
+       MEM(EA,4) ← SRR032:63
+       EA ← (EA+4)
+       MEM(EA,4) ← SRR132:63
+
+
+Let the effective address (EA) be the sum of the contents of GPR[RA], or 0 if RA = 0 and the
+sign-extended value of the D8 instruction field.
+Bits 32–63 of registers SRR0 and SRR1 are stored in consecutive words in storage starting at address EA.
+EA must be a multiple of four. If it is not, either an alignment interrupt is invoked or the results are
+boundedly undefined.
+Special registers affected:
+None
+
+
+Load Multiple Volatile CSRR Word
+e_lmvcsrrw                          D8(RA)                                                                                  (D8-mode)
+                        0   0   0   1 1   0   0   0    1   0   1        RA    0 0   0   1   0    0   0   0           D8
+                        0                     6                    11        16                              24               31
+       if RA=0 then EA ← EXTS(D8)
+       else         EA ← (GPR(RA)+EXTS(D8))
+
+       CSRR032:63 ← MEM(EA,4)
+       EA ← (EA+4)
+       CSRR132:63 ← MEM(EA,4)
+
+
+Let the effective address (EA) be the sum of the contents of GPR[RA], or 0 if RA = 0 and the
+sign-extended value of the D8 instruction field.
+Bits 32–63 of registers CSRR0 and CSRR1 are loaded from consecutive words in storage starting at
+address EA.
+EA must be a multiple of four. If it is not, either an alignment interrupt is invoked or the results are
+boundedly undefined.
+Special registers affected:
+CSRR0, CSRR1
+
+
+
+
+                              e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+3-20                                                                                                              Freescale Semiconductor
+Store Multiple Volatile CSRR Word
+e_stmvcsrrw                           D8(RA)                                                                           (D8-mode)
+                          0 0 0 1 1 0 0 0 1 0 1                          RA   0 0 0 1 0 0 0 1                     D8
+                          0                     6                   11        16                             24         31
+       if RA=0 then EA ← EXTS(D8)
+       else         EA ← (GPR(RA)+EXTS(D8))
+
+       MEM(EA,4) ← CSRR032:63
+       EA ← (EA+4)
+       MEM(EA,4) ← CSRR132:63
+
+
+Let the effective address (EA) be the sum of the contents of GPR[RA], or 0 if RA = 0 and the
+sign-extended value of the D8 instruction field.
+Bits 32–63 of registers CSRR0 and CSRR1 are stored in consecutive words in storage starting at address
+EA.
+EA must be a multiple of four. If it is not, either an alignment interrupt is invoked or the results are
+boundedly undefined.
+Special registers affected:
+None
+
+
+Load Multiple Volatile DSRR Word
+e_lmvdsrrw                            D8(RA)                                                                           (D8-mode)
+                          0   0   0   1 1   0   0   0   1   1   0        RA    0 0   0   1   0   0   0   0        D8
+                          0                     6                   11        16                             24         31
+       if RA=0 then EA ← EXTS(D8)
+       else         EA ← (GPR(RA)+EXTS(D8))
+
+       DSRR032:63 ← MEM(EA,4)
+       EA ← (EA+4)
+       DSRR132:63 ← MEM(EA,4)
+
+
+Let the effective address (EA) be the sum of the contents of GPR[RA], or 0 if RA = 0 and the
+sign-extended value of the D8 instruction field.
+Bits 32–63 of registers DSRR0 and DSRR1 are loaded from consecutive words in storage starting at
+address EA.
+EA must be a multiple of four. If it is not, either an alignment interrupt is invoked or the results are
+boundedly undefined.
+Special registers affected:
+DSRR0, DSRR1
+
+
+
+                              e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+Freescale Semiconductor                                                                                                      3-21
+Store Multiple Volatile DSRR Word
+e_stmvdsrrw                           D8(RA)                                                                          (D8-mode)
+
+                0   0   0   1 1   0   0   0   1   1   0        RA   0 0   0   1   0   0   0   1        D8
+
+                0                     6                   11        16                            24            31
+
+
+       if RA=0 then EA ← EXTS(D8)
+       else         EA ← (GPR(RA)+EXTS(D8))
+
+       MEM(EA,4) ← DSRR032:63
+       EA ← (EA+4)
+       MEM(EA,4) ← DSRR132:63
+
+
+Let the effective address (EA) be the sum of the contents of GPR[RA], or 0 if RA = 0 and the
+sign-extended value of the D8 instruction field.
+Bits 32–63 of registers DSRR0 and DSRR1 are stored in consecutive words in storage starting at address
+EA.
+EA must be a multiple of four. If it is not, either an Alignment interrupt is invoked or the results are
+boundedly undefined.
+Special registers affected:
+None
+
+
+Load Multiple Volatile MCSRR Word
+e_lmvmcsrrw                           D8(RA)                                                                          (D8-mode)
+
+                0 0 0 1 1 0 0 0 1 1 1                          RA   0 0 0 1 0 0 0 0                    D8
+
+                0                     6                   11        16                            24            31
+
+
+       if RA=0 then EA ← EXTS(D8)
+       else         EA ← (GPR(RA)+EXTS(D8))
+
+       MCSRR032:63 ← MEM(EA,4)
+       EA ← (EA+4)
+       MCSRR132:63 ← MEM(EA,4)
+
+
+Let the effective address (EA) be the sum of the contents of GPR[RA], or 0 if RA = 0 and the
+sign-extended value of the D8 instruction field.
+Bits 32–63 of registers MCSRR0 and MCSRR1 are loaded from consecutive words in storage starting at
+address EA.
+EA must be a multiple of four. If it is not, either an alignment interrupt is invoked or the results are
+boundedly undefined.
+
+                              e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+3-22                                                                                                        Freescale Semiconductor
+Special registers affected:
+MCSRR0, MCSRR1
+
+
+Store Multiple Volatile MCSRR Word
+e_stmvmcsrrw                     D8(RA)                                                            (D8-mode)
+
+                 0 0 0 1 1 0 0 0 1 1 1            RA      0 0 0 1 0 0 0 1                D8
+
+                 0               6           11           16                 24               31
+
+
+       if RA=0 then EA ← EXTS(D8)
+       else         EA ← (GPR(RA)+EXTS(D8))
+
+       MEM(EA,4) ← MCSRR032:63
+       EA ← (EA+4)
+       MEM(EA,4) ← MCSRR132:63
+
+
+Let the effective address (EA) be the sum of the contents of GPR(RA), or 0 if RA=0, and the sign-extended
+value of the D8 instruction field.
+Bits 32–63 of registers MCSRR0 and MCSRR1 are stored in consecutive words in storage starting at
+address EA.
+EA must be a multiple of four. If it is not, either an alignment interrupt is invoked or the results are
+boundedly undefined.
+Special registers affected:
+None
+
+3.16      Unimplemented SPRs and Read-Only SPRs
+The e200 fully decodes the SPR field of the mfspr and mtspr instructions. If the SPR specified is undefined
+and not privileged, an illegal instruction exception is generated. If the SPR specified is undefined and
+privileged and the CPU is in user mode (MSRPR = 1), a privileged instruction exception is generated. If
+the SPR specified is undefined and privileged and the CPU is in supervisor mode (MSRPR = 0), an illegal
+instruction exception is generated.
+For the mtspr instruction, if the SPR specified is read-only and not privileged, an illegal instruction
+exception is generated. If the SPR specified is read-only and privileged and the CPU is in user mode
+(MSR[PR] = 1), a privileged instruction exception is generated. If the SPR specified is read-only and
+privileged and the CPU is in supervisor mode (MSR[PR] = 0), an illegal instruction exception is generated.
+
+
+
+
+                              e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+Freescale Semiconductor                                                                                    3-23
+3.17      Invalid Forms of Instructions
+This section discusses the following invalid forms of instructions:
+   • Section 3.17.1, “Load and Store with Update Instructions”
+   • Section 3.17.2, “Load Multiple Word (lmw, e_lmw) Instruction”
+   • Section 3.17.3, “Branch Conditional To Count Register Instructions”
+   • Section 3.17.4, “Instructions With Reserved Fields Non-Zero”
+
+3.17.1      Load and Store with Update Instructions
+Power ISA defines the case when a load with update instruction specifies the same register in the RT and
+RA field of the instruction as an invalid format. For this invalid case, the e200 core will perform the
+instruction and update the register with the load data. In addition, if RA = 0 for any load or store with
+update instruction, the e200 core will update RA (GPR0).
+
+3.17.2      Load Multiple Word (lmw, e_lmw) Instruction
+The Power ISA embedded category defines as invalid any form of the lmw or e_lmw instruction in which
+RA is in the range of registers to be loaded, including the case in which RA = 0. On the e200, invalid forms
+of the lmw or e_lmw instruction are executed as follows:
+    • Case 1—RA is in the range of RT, RA!=0.
+        In this case, address generation for individual loads to register targets is done using the
+        architectural value of RA that existed when beginning execution of this lmw or e_lmw instruction.
+        RA is overwritten with a value fetched from memory as if it had not been the base register. Note
+        that if the instruction is interrupted and restarted, the base address may be different if RA has been
+        overwritten.
+    • Case 2—RA = 0 and RT = 0.
+        In this case, address generation for all loads to register targets RT = 0 to RT = 31 is done
+        substituting the value of 0 for the RA operand.
+
+3.17.3      Branch Conditional To Count Register Instructions
+The Power ISA embedded category defines as invalid any bcctr or bcctrl instruction that specifies the
+decrement and test CTR (BO[2] = 0) option. For these invalid forms of instructions, the core executes the
+instruction by decrementing the CTR and branch to the location specified by the pre-decremented CTR
+value if all CR and CTR conditions are met as specified by the other BO field settings.
+
+3.17.4      Instructions With Reserved Fields Non-Zero
+The Power ISA embedded category defines certain bit fields in various instructions as reserved and
+specifies that these fields be set to zero. Per the Power ISA embedded category recommendation, the e200
+ignores the value of the reserved field (bit 31) in X-form integer load and store instructions. The e200
+ignores the value of the reserved z bits in the BO field of branch instructions. For all other instructions, the
+e200 generates an illegal instruction exception if a reserved field is non-zero.
+
+                           e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+3-24                                                                                     Freescale Semiconductor
+3.18         Instruction Summary
+Table 3-5 and Table 3-6 list all 32-bit instructions in the Power ISA embedded category, as well as certain
+e200-specific instructions, sorted by mnemonic. Format, opcode, mnemonic, instruction name, and page
+number in the EREF are included in the table. For e200-specific instructions, page number is not shown.
+Instructions not listed here, but which are part of the Power ISA embedded category will either signal an
+illegal unimplemented or FP unavailable exception. Implementation-dependent instructions are noted with
+a footnote. Instructions which are optionally supported (when an optional function is added to the base
+core) are shown with shaded entries.
+Note that specific areas of functionality are not included in the table below:
+   • Cache maintenance instructions
+   • SPE
+   • VLE
+   • WAIT
+   • Enhanced reservation functionality
+   • Volatile context save/restore functionality
+
+3.18.1          Instruction Index Sorted by Mnemonic
+Table 3-5 shows the instructions sorted by mnemonic.
+                                        Table 3-5. Instructions Sorted by Mnemonic
+
+
+
+
+                                                                                                       BooK E 0.99 Page
+                       Opcode
+  Format
+
+
+
+
+                                          Mnemonic                              Instruction
+           Primary        Extended
+           (Inst0:5)      (Inst21:31)
+
+
+  X        011111       01000 01010 0        add     Add                                               223
+
+  X        011111       01000 01010 1        add.    Add & record CR                                   223
+
+  X        011111       00000 01010 0        addc    Add Carrying                                      224
+
+  X        011111       00000 01010 1       addc.    Add Carrying & record CR                          224
+
+  X        011111       10000 01010 0       addco    Add Carrying & record OV                          224
+
+  X        011111       10000 01010 1       addco.   Add Carrying & record OV & CR                     224
+
+  X        011111       00100 01010 0       adde     Add Extended with CA                              225
+
+  X        011111       00100 01010 1       adde.    Add Extended with CA & record CR                  225
+
+  X        011111       10100 01010 0       addeo    Add Extended with CA & record OV                  225
+
+Legend:
+- Don’t care, usually part of an operand field
+/ Reserved bit, invalid instruction form if encoded as 1
+? Allocated for implementation-dependent use. See User’ Manual for the implementation
+
+
+
+
+                                 e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+Freescale Semiconductor                                                                                  3-25
+                                          Table 3-5. Instructions Sorted by Mnemonic
+
+
+
+
+                                                                                                                    BooK E 0.99 Page
+                       Opcode
+  Format
+
+
+
+
+                                            Mnemonic                             Instruction
+           Primary        Extended
+           (Inst0:5)      (Inst21:31)
+
+
+  X        011111       10100 01010 1         addeo.   Add Extended with CA & record OV & CR                        225
+
+  D        001110         ----- ----- -        addi    Add Immediate                                                226
+
+  D        001100         ----- ----- -       addic    Add Immediate Carrying                                       227
+
+  D        001101         ----- ----- -       addic.   Add Immediate Carrying & record CR                           227
+
+  D        001111         ----- ----- -       addis    Add Immediate Shifted                                        226
+
+  X        011111       00111 01010 0         addme    Add to Minus One Extended with CA                            228
+
+  X        011111       00111 01010 1        addme.    Add to Minus One Extended with CA & record CR                228
+
+  X        011111       10111 01010 0        addmeo    Add to Minus One Extended with CA & record OV                228
+
+  X        011111       10111 01010 1        addmeo.   Add to Minus One Extended with CA & record OV & CR           228
+
+  X        011111       11000 01010 0         addo     Add & record OV                                              223
+
+  X        011111       11000 01010 1         addo.    Add & record OV & CR                                         223
+
+  X        011111       00110 01010 0         addze    Add to Zero Extended with CA                                 229
+
+  X        011111       00110 01010 1         addze.   Add to Zero Extended with CA & record CR                     229
+
+  X        011111       10110 01010 0        addzeo    Add to Zero Extended with CA & record OV                     229
+
+  X        011111       10110 01010 1        addzeo.   Add to Zero Extended with CA & record OV & CR                229
+
+  X        011111       00000 11100 0          and     AND                                                          230
+
+  X        011111       00000 11100 1          and.    AND & record CR                                              230
+
+  X        011111       00001 11100 0          andc    AND with Complement                                          230
+
+  X        011111       00001 11100 1         andc.    AND with Complement & record CR                              230
+
+  D        011100         ----- ----- -        andi.   AND Immediate & record CR                                    230
+
+  D        011101         ----- ----- -       andis.   AND Immediate Shifted & record CR                            230
+
+    I      010010         ----- ----0 0         b      Branch                                                       231
+
+    I      010010         ----- ----1 0         ba     Branch Absolute                                              231
+
+  B        010000         ----- ----0 0         bc     Branch Conditional                                           232
+
+  B        010000         ----- ----1 0        bca     Branch Conditional Absolute                                  232
+
+  XL       010011       10000 10000 0          bcctr   Branch Conditional to Count Register                         233
+
+Legend:
+- Don’t care, usually part of an operand field
+/ Reserved bit, invalid instruction form if encoded as 1
+? Allocated for implementation-dependent use. See User’ Manual for the implementation
+
+
+
+
+                                  e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+3-26                                                                                              Freescale Semiconductor
+                                           Table 3-5. Instructions Sorted by Mnemonic
+
+
+
+
+                                                                                                       BooK E 0.99 Page
+                       Opcode
+  Format
+
+
+
+
+                                             Mnemonic                                Instruction
+           Primary        Extended
+           (Inst0:5)      (Inst21:31)
+
+
+  XL       010011       10000 10000 1          bcctrl    Branch Conditional to Count Register & Link   233
+
+  B        010000         ----- ----0 1         bcl      Branch Conditional & Link                     232
+
+  B        010000         ----- ----1 1         bcla     Branch Conditional & Link Absolute            232
+
+  XL       010011       00000 10000 0           bclr     Branch Conditional to Link Register           234
+
+  XL       010011       00000 10000 1           bclrl    Branch Conditional to Link Register & Link    234
+
+    I      010010         ----- ----0 1          bl      Branch & Link                                 231
+
+    I      010010         ----- ----1 1         bla      Branch & Link Absolute                        231
+
+   X       011111        00000 00000 /          cmp      Compare                                       235
+
+  D        001011          ----- ----- -        cmpi     Compare Immediate                             235
+
+   X       011111        00001 00000 /          cmpl     Compare Logical                               236
+
+  D        001010          ----- ----- -       cmpli     Compare Logical Immediate                     236
+
+   X       011111       00000 11010 0          cntlzw    Count Leading Zeros Word                      237
+
+   X       011111       00000 11010 1          cntlzw.   Count Leading Zeros Word & record CR          237
+
+  XL       010011        01000 00001 /         crand     Condition Register AND                        238
+
+  XL       010011        00100 00001 /         crandc    Condition Register AND with Complement        238
+
+  XL       010011        01001 00001 /         creqv     Condition Register Equivalent                 238
+
+  XL       010011        00111 00001 /         crnand    Condition Register NAND                       239
+
+  XL       010011        00001 00001 /         crnor     Condition Register NOR                        239
+
+  XL       010011        01110 00001 /          cror     Condition Register OR                         239
+
+  XL       010011        01101 00001 /         crorc     Condition Register OR with Complement         240
+
+  XL       010011        00110 00001 /         crxor     Condition Register XOR                        240
+
+   X       011111        10111 10110 /          dcba     Data Cache Block Allocate                     241
+
+   X       011111        00010 10110 /          dcbf     Data Cache Block Flush                        242
+
+   X       011111        01110 10110 /          dcbi     Data Cache Block Invalidate                   243
+
+   X       011111        01100 00110 /         dcblc1    Data Cache Block Lock Clear                    ----
+
+  X        011111        00001 10110 /         dcbst     Data Cache Block Store                        245
+
+Legend:
+- Don’t care, usually part of an operand field
+/ Reserved bit, invalid instruction form if encoded as 1
+? Allocated for implementation-dependent use. See User’ Manual for the implementation
+
+
+
+
+                                   e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+Freescale Semiconductor                                                                                  3-27
+                                           Table 3-5. Instructions Sorted by Mnemonic
+
+
+
+
+                                                                                                                           BooK E 0.99 Page
+                       Opcode
+  Format
+
+
+
+
+                                             Mnemonic                                  Instruction
+           Primary        Extended
+           (Inst0:5)      (Inst21:31)
+
+
+  X        011111        01000 10110 /          dcbt        Data Cache Block Touch                                         246
+                                                        1
+  X        011111        00101 00110 /         dcbtls       Data Cache Block Touch and Lock Set                             ----
+
+  X        011111        00111 10110 /         dcbtst       Data Cache Block Touch for Store                               247
+
+  X        011111        00100 00110 /        dcbtstls1     Data Cache Block Touch for Store and Lock Set                   ----
+
+  X        011111        11111 10110 /          dcbz        Data Cache Block set to Zero                                   248
+
+  X        011111       01111 01011 0           divw        Divide Word                                                    251
+
+  X        011111       01111 01011 1          divw.        Divide Word & record CR                                        251
+
+  X        011111       11111 01011 0          divwo        Divide Word & record OV                                        251
+
+  X        011111       11111 01011 1          divwo.       Divide Word & record OV & CR                                   251
+
+  X        011111       01110 01011 0          divwu        Divide Word Unsigned                                           252
+
+  X        011111       01110 01011 1          divwu.       Divide Word Unsigned & record CR                               252
+
+  X        011111       11110 01011 0          divwuo       Divide Word Unsigned & record OV                               252
+
+  X        011111       11110 01011 1         divwuo.       Divide Word Unsigned & record OV & CR                          252
+
+  X        011111       01000 11100 0           eqv         Equivalent                                                     253
+
+  X        011111       01000 11100 1           eqv.        Equivalent & record CR                                         253
+
+  X        011111       11101 11010 0          extsb        Extend Sign Byte                                               254
+
+  X        011111       11101 11010 1          extsb.       Extend Sign Byte & record CR                                   254
+
+  X        011111       11100 11010 0          extsh        Extend Sign Half Word                                          254
+
+  X        011111       11100 11010 1          extsh.       Extend Sign Half Word and record CR                            254
+
+  X        011111        11110 10110 /          icbi        Instruction Cache Block Invalidate                             280
+
+  X        011111        00111 00110 /         icblc1       Instruction Cache Block Lock Clear                              ----
+
+  X        011111        00000 10110 /          icbt        Instruction Cache Block Touch                                  281
+
+  X        011111        01111 00110 /         icbtls1      Instruction Cache Block Touch and Lock Set                      ----
+
+  ??       011111         ----- 01111 /         isel2       Integer Select                                                  ----
+
+  XL       010011        00100 10110 /         isync        Instruction Synchronize                                        282
+
+  D        100010          ----- ----- -         lbz        Load Byte & Zero                                               283
+
+Legend:
+- Don’t care, usually part of an operand field
+/ Reserved bit, invalid instruction form if encoded as 1
+? Allocated for implementation-dependent use. See User’ Manual for the implementation
+
+
+
+
+                                   e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+3-28                                                                                                     Freescale Semiconductor
+                                           Table 3-5. Instructions Sorted by Mnemonic
+
+
+
+
+                                                                                                       BooK E 0.99 Page
+                       Opcode
+  Format
+
+
+
+
+                                             Mnemonic                              Instruction
+           Primary        Extended
+           (Inst0:5)      (Inst21:31)
+
+
+  D        100011          ----- ----- -        lbzu    Load Byte & Zero with Update                   283
+
+  X        011111        00011 10111 /         lbzux    Load Byte & Zero with Update Indexed           283
+
+  X        011111        00010 10111 /          lbzx    Load Byte & Zero Indexed                       283
+
+  D        101010          ----- ----- -        lha     Load Half Word Algebraic                       288
+
+  D        101011          ----- ----- -        lhau    Load Half Word Algebraic with Update           288
+
+  X        011111        01011 10111 /         lhaux    Load Half Word Algebraic with Update Indexed   288
+
+  X        011111        01010 10111 /          lhax    Load Half Word Algebraic Indexed               288
+
+  X        011111        11000 10110 /          lhbrx   Load Half Word Byte-Reverse Indexed            289
+
+  D        101000          ----- ----- -        lhz     Load Half Word and Zero                        290
+
+  D        101001          ----- ----- -        lhzu    Load Half Word & Zero with Update              290
+
+  X        011111        01001 10111 /         lhzux    Load Half Word & Zero with Update Indexed      290
+
+  X        011111        01000 10111 /          lhzx    Load Half Word & Zero Indexed                  290
+
+  D        101110          ----- ----- -        lmw     Load Multiple Word                             291
+
+  X        011111        00000 10100 /         lwarx3   Load Word & Reserve Indexed                    294
+
+  X        011111        10000 10110 /         lwbrx    Load Word Byte-Reverse Indexed                 296
+
+  D        100000          ----- ----- -        lwz     Load Word & Zero                               297
+
+  D        100001          ----- ----- -        lwzu    Load Word & Zero with Update                   297
+
+  X        011111        00001 10111 /         lwzux    Load Word & Zero with Update Indexed           297
+
+  X        011111        00000 10111 /          lwzx    Load Word & Zero Indexed                       297
+
+  X        011111        11010 10110 /         mbar3    Memory Barrier                                 298
+
+  XL       010011        00000 00000 /          mcrf    Move Condition Register Field                  299
+
+  X        011111        10000 00000 /         mcrxr    Move to Condition Register from XER            300
+
+  X        011111        00000 10011 /          mfcr    Move From Condition Register                   301
+
+ XFX       011111        01010 00011 /         mfdcr    Move From Device Control Register              302
+
+  X        011111        00010 10011 /         mfmsr    Move From Machine State Register               303
+
+ XFX       011111        01010 10011 /         mfspr    Move From Special Purpose Register             304
+
+Legend:
+- Don’t care, usually part of an operand field
+/ Reserved bit, invalid instruction form if encoded as 1
+? Allocated for implementation-dependent use. See User’ Manual for the implementation
+
+
+
+
+                                   e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+Freescale Semiconductor                                                                                  3-29
+                                           Table 3-5. Instructions Sorted by Mnemonic
+
+
+
+
+                                                                                                                    BooK E 0.99 Page
+                       Opcode
+  Format
+
+
+
+
+                                             Mnemonic                             Instruction
+           Primary        Extended
+           (Inst0:5)      (Inst21:31)
+
+
+  X        011111        10010 10110 /        msync3    Memory Synchronize                                          305
+
+ XFX       011111        00100 10000 /         mtcrf    Move To Condition Register Fields                           306
+
+ XFX       011111        01110 00011 /         mtdcr    Move To Device Control Register                             307
+
+  X        011111        00100 10010 /         mtmsr    Move To Machine State Register                              311
+
+ XFX       011111        01110 10011 /         mtspr    Move To Special Purpose Register                            312
+
+  X        011111        /0010 01011 0         mulhw    Multiply High Word                                          314
+
+  X        011111        /0010 01011 1         mulhw.   Multiply High Word & record CR                              314
+
+  X        011111        /0000 01011 0        mulhwu    Multiply High Word Unsigned                                 314
+
+  X        011111        /0000 01011 1        mulhwu.   Multiply High Word Unsigned & record CR                     314
+
+  D        000111          ----- ----- -        mulli   Multiply Low Immediate                                      315
+
+  X        011111       00111 01011 0          mullw    Multiply Low Word                                           316
+
+  X        011111       00111 01011 1          mullw.   Multiply Low Word & record CR                               316
+
+  X        011111       10111 01011 0          mullwo   Multiply Low Word & record OV                               316
+
+  X        011111       10111 01011 1         mullwo.   Multiply Low Word & record OV & CR                          316
+
+  X        011111       01110 11100 0          nand     NAND                                                        317
+
+  X        011111       01110 11100 1          nand.    NAND & record CR                                            317
+
+  X        011111       00011 01000 0           neg     Negate                                                      318
+
+  X        011111       00011 01000 1           neg.    Negate & record CR                                          318
+
+  X        011111       10011 01000 0          nego     Negate & record OV                                          318
+
+  X        011111       10011 01000 1          nego.    Negate & record OV & record CR                              318
+
+  X        011111       00011 11100 0           nor     NOR                                                         319
+
+  X        011111       00011 11100 1           nor.    NOR & record CR                                             319
+
+  X        011111       01101 11100 0            or     OR                                                          320
+
+  X        011111       01101 11100 1            or.    OR & record CR                                              320
+
+  X        011111       01100 11100 0           orc     OR with Complement                                          320
+
+  X        011111       01100 11100 1           orc.    OR with Complement & record CR                              320
+
+Legend:
+- Don’t care, usually part of an operand field
+/ Reserved bit, invalid instruction form if encoded as 1
+? Allocated for implementation-dependent use. See User’ Manual for the implementation
+
+
+
+
+                                   e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+3-30                                                                                              Freescale Semiconductor
+                                           Table 3-5. Instructions Sorted by Mnemonic
+
+
+
+
+                                                                                                                       BooK E 0.99 Page
+                       Opcode
+  Format
+
+
+
+
+                                             Mnemonic                                   Instruction
+           Primary        Extended
+           (Inst0:5)      (Inst21:31)
+
+
+  D        011000          ----- ----- -         ori       OR Immediate                                                320
+
+  D        011001          ----- ----- -        oris       OR Immediate Shifted                                        320
+
+  XL       010011        00001 10011 /           rfci      Return From Critical Interrupt                              321
+                                                       4
+  XL       010011        00001 00111 /          rfdi       Return From Debug Interrupt                                  ----
+
+  XL       010011        00001 10010 /           rfi       Return From Interrupt                                       322
+
+  XL       010011        00001 00110 /         rfmci5      Return From Machine Check Interrupt                          ----
+
+  M        010100         ----- ----- 0        rlwimi      Rotate Left Word Immediate then Mask Insert                 327
+
+  M        010100         ----- ----- 1        rlwimi.     Rotate Left Word Immediate then Mask Insert & record CR     327
+
+  M        010101         ----- ----- 0        rlwinm      Rotate Left Word Immediate then AND with Mask               328
+
+  M        010101         ----- ----- 1        rlwinm.     Rotate Left Word Immediate then AND with Mask & record CR   328
+
+  M        010111         ----- ----- 0        rlwnm       Rotate Left Word then AND with Mask                         328
+
+  M        010111         ----- ----- 1        rlwnm.      Rotate Left Word then AND with Mask & record CR             328
+
+  SC       010001          ///// ////1 /         sc        System Call                                                 330
+
+  X        011111       00000 11000 0           slw        Shift Left Word                                             332
+
+  X        011111       00000 11000 1           slw.       Shift Left Word & record CR                                 332
+
+  X        011111       11000 11000 0           sraw       Shift Right Algebraic Word                                  334
+
+  X        011111       11000 11000 1          sraw.       Shift Right Algebraic Word & record CR                      334
+
+  X        011111       11001 11000 0          srawi       Shift Right Algebraic Word Immediate                        334
+
+  X        011111       11001 11000 1          srawi.      Shift Right Algebraic Word Immediate & record CR            334
+
+  X        011111       10000 11000 0           srw        Shift Right Word                                            336
+
+  X        011111       10000 11000 1           srw.       Shift Right Word & record CR                                336
+
+  D        100110          ----- ----- -         stb       Store Byte                                                  337
+
+  D        100111          ----- ----- -        stbu       Store Byte with Update                                      337
+
+  X        011111        00111 10111 /         stbux       Store Byte with Update Indexed                              337
+
+  X        011111        00110 10111 /          stbx       Store Byte Indexed                                          337
+
+  D        101100          ----- ----- -         sth       Store Half Word                                             343
+
+Legend:
+- Don’t care, usually part of an operand field
+/ Reserved bit, invalid instruction form if encoded as 1
+? Allocated for implementation-dependent use. See User’ Manual for the implementation
+
+
+
+
+                                    e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+Freescale Semiconductor                                                                                                  3-31
+                                           Table 3-5. Instructions Sorted by Mnemonic
+
+
+
+
+                                                                                                                           BooK E 0.99 Page
+                       Opcode
+  Format
+
+
+
+
+                                             Mnemonic                                   Instruction
+           Primary        Extended
+           (Inst0:5)      (Inst21:31)
+
+
+  X        011111        11100 10110 /         sthbrx       Store Half Word Byte-Reverse Indexed                           344
+
+  D        101101          ----- ----- -        sthu        Store Half Word with Update                                    343
+
+  X        011111        01101 10111 /         sthux        Store Half Word with Update Indexed                            343
+
+  X        011111        01100 10111 /          sthx        Store Half Word Indexed                                        343
+
+  D        101111          ----- ----- -        stmw        Store Multiple Word                                            345
+
+  D        100100          ----- ----- -        stw         Store Word                                                     347
+
+  X        011111        10100 10110 /         stwbrx       Store Word Byte-Reverse Indexed                                348
+                                                        3
+  X        011111       00100 10110 1          stwcx.       Store Word Conditional Indexed & record CR                     349
+
+  D        100101          ----- ----- -        stwu        Store Word with Update                                         347
+
+  X        011111        00101 10111 /         stwux        Store Word with Update Indexed                                 347
+
+  X        011111        00100 10111 /          stwx        Store Word Indexed                                             347
+
+  X        011111       00001 01000 0           subf        Subtract From                                                  351
+
+  X        011111       00001 01000 1           subf.       Subtract From & record CR                                      351
+
+  X        011111       00000 01000 0          subfc        Subtract From Carrying                                         352
+
+  X        011111       00000 01000 1          subfc.       Subtract From Carrying & record CR                             352
+
+  X        011111       10000 01000 0          subfco       Subtract From Carrying & record OV                             352
+
+  X        011111       10000 01000 1          subfco.      Subtract From Carrying & record OV & CR                        352
+
+  X        011111       00100 01000 0          subfe        Subtract From Extended with CA                                 353
+
+  X        011111       00100 01000 1          subfe.       Subtract From Extended with CA & record CR                     353
+
+  X        011111       10100 01000 0          subfeo       Subtract From Extended with CA & record OV                     353
+
+  X        011111       10100 01000 1          subfeo.      Subtract From Extended with CA & record OV & CR                353
+
+  D        001000          ----- ----- -       subfic       Subtract From Immediate Carrying                               354
+
+  X        011111       00111 01000 0          subfme       Subtract From Minus One Extended with CA                       355
+
+  X        011111       00111 01000 1         subfme.       Subtract From Minus One Extended with CA & record CR           355
+
+  X        011111       10111 01000 0         subfmeo       Subtract From Minus One Extended with CA & record OV           355
+
+  X        011111       10111 01000 1         subfmeo.      Subtract From Minus One Extended with CA & record OV & CR      355
+
+Legend:
+- Don’t care, usually part of an operand field
+/ Reserved bit, invalid instruction form if encoded as 1
+? Allocated for implementation-dependent use. See User’ Manual for the implementation
+
+
+
+
+                                   e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+3-32                                                                                                     Freescale Semiconductor
+                                             Table 3-5. Instructions Sorted by Mnemonic
+
+
+
+
+                                                                                                                  BooK E 0.99 Page
+                         Opcode
+    Format
+
+
+
+
+                                               Mnemonic                                Instruction
+             Primary        Extended
+             (Inst0:5)      (Inst21:31)
+
+
+    X        011111       10001 01000 0          subfo     Subtract From & record OV                              351
+
+    X        011111       10001 01000 1          subfo.    Subtract From & record OV & CR                         351
+
+    X        011111       00110 01000 0          subfze    Subtract From Zero Extended with CA                    356
+
+    X        011111       00110 01000 1          subfze.   Subtract From Zero Extended with CA & record CR        356
+
+    X        011111       10110 01000 0         subfzeo    Subtract From Zero Extended with CA & record OV        356
+
+    X        011111       10110 01000 1         subfzeo.   Subtract From Zero Extended with CA & record OV & CR   356
+
+    X        011111        11000 10010 /         tlbivax   TLB Invalidate Virtual Address Indexed                 358
+
+    X        011111        11101 10010 /          tlbre    TLB Read Entry                                         359
+
+    X        011111       11100 10010 ?           tlbsx    TLB Search Indexed                                     360
+
+    X        011111        10001 10110 /         tlbsync   TLB Synchronize                                        361
+
+    X        011111        11110 10010 /         tlbwe     TLB Write Entry                                        362
+
+    X        011111        00000 00100 /           tw      Trap Word                                              363
+
+    D        000011          ----- ----- -         twi     Trap Word Immediate                                    363
+
+    X        011111        00100 00011 /         wrtee     Write External Enable                                  364
+
+    X        011111        00101 00011 /         wrteei    Write External Enable Immediate                        364
+
+    X        011111       01001 11100 0           xor      XOR                                                    365
+
+    X        011111       01001 11100 1           xor.     XOR & record CR                                        365
+
+    D        011010          ----- ----- -        xori     XOR Immediate                                          365
+
+    D        011011          ----- ----- -        xoris    XOR Immediate Shifted                                  365
+
+Legend:
+- Don’t care, usually part of an operand field
+/ Reserved bit, invalid instruction form if encoded as 1
+? Allocated for implementation-dependent use. See User’ Manual for the implementation
+1
+  Motorola Book E cache locking APU, refer to Section 9.10, “Cache Line Locking/Unlocking” on page 9-19
+2 Motorola Book E isel APU, refer to Section 3.10, “ISEL Instruction” on page 3-6
+3
+  See Section 3.6, “Memory Synchronization and Reservation Instructions” on page 3-3
+4 See Section 3.11, “Enhanced Debug” on page 3-6
+5 See Section 3.12, “Machine Check” on page 3-10
+
+
+
+
+                                     e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+Freescale Semiconductor                                                                                             3-33
+3.18.2          Instruction Index Sorted by Opcode
+Table 3-6 lists instructions sorted by opcode.
+                                           Table 3-6. Instructions Sorted by Opcode
+
+
+
+
+                                                                                                                       BooK E 0.99 Page
+                       Opcode
+  Format
+
+
+
+
+                                            Mnemonic                               Instruction
+           Primary        Extended
+           (Inst0:5)      (Inst21:31)
+
+
+   D       000011          ----- ----- -       twi     Trap Word Immediate                                            363
+
+   D       000111          ----- ----- -      mulli    Multiply Low Immediate                                         315
+
+   D       001000          ----- ----- -      subfic   Subtract From Immediate Carrying                               354
+
+   D       001010          ----- ----- -      cmpli    Compare Logical Immediate                                      236
+
+   D       001011          ----- ----- -      cmpi     Compare Immediate                                              235
+
+   D       001100          ----- ----- -      addic    Add Immediate Carrying                                         227
+
+   D       001101          ----- ----- -      addic.   Add Immediate Carrying & record CR                             227
+
+   D       001110          ----- ----- -       addi    Add Immediate                                                  226
+
+   D       001111          ----- ----- -      addis    Add Immediate Shifted                                          226
+
+   B       010000         ----- ----0 0         bc     Branch Conditional                                             232
+
+   B       010000         ----- ----0 1        bcl     Branch Conditional & Link                                      232
+
+   B       010000         ----- ----1 0        bca     Branch Conditional Absolute                                    232
+
+   B       010000         ----- ----1 1        bcla    Branch Conditional & Link Absolute                             232
+
+  SC       010001          ///// ////1 /        sc     System Call                                                    330
+
+    I      010010         ----- ----0 0         b      Branch                                                         231
+
+    I      010010         ----- ----0 1         bl     Branch & Link                                                  231
+
+    I      010010         ----- ----1 0         ba     Branch Absolute                                                231
+
+    I      010010         ----- ----1 1        bla     Branch & Link Absolute                                         231
+
+  XL       010011        00000 00000 /         mcrf    Move Condition Register Field                                  299
+
+  XL       010011       00000 10000 0          bclr    Branch Conditional to Link Register                            234
+
+  XL       010011       00000 10000 1          bclrl   Branch Conditional to Link Register & Link                     234
+
+  XL       010011        00001 00001 /        crnor    Condition Register NOR                                         239
+
+  XL       010011        00001 00110 /        rfmci    Return From Machine Check Interrupt                            ----
+
+  XL       010011        00001 00111 /         rfdi    Return From Debug Interrupt                                    ----
+
+Legend:
+- Don’t care, usually part of an operand field
+/ Reserved bit, invalid instruction form if encoded as 1
+? Allocated for implementation-dependent use. See User’ Manual for the implementation
+
+
+                                    e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+3-34                                                                                                Freescale Semiconductor
+                                    Table 3-6. Instructions Sorted by Opcode (Continued)
+
+
+
+
+                                                                                                                   BooK E 0.99 Page
+                       Opcode
+  Format
+
+
+
+
+                                           Mnemonic                               Instruction
+           Primary        Extended
+           (Inst0:5)      (Inst21:31)
+
+
+  XL       010011        00001 10010 /         rfi     Return From Interrupt                                       322
+
+  XL       010011        00001 10011 /        rfci     Return From Critical Interrupt                              321
+
+  XL       010011        00100 00001 /       crandc    Condition Register AND with Complement                      238
+
+  XL       010011        00100 10110 /       isync     Instruction Synchronize                                     282
+
+  XL       010011        00110 00001 /       crxor     Condition Register XOR                                      240
+
+  XL       010011        00111 00001 /       crnand    Condition Register NAND                                     239
+
+  XL       010011        01000 00001 /       crand     Condition Register AND                                      238
+
+  XL       010011        01001 00001 /       creqv     Condition Register Equivalent                               238
+
+  XL       010011        01101 00001 /       crorc     Condition Register OR with Complement                       240
+
+  XL       010011        01110 00001 /        cror     Condition Register OR                                       239
+
+  XL       010011       10000 10000 0        bcctr     Branch Conditional to Count Register                        233
+
+  XL       010011       10000 10000 1        bcctrl    Branch Conditional to Count Register & Link                 233
+
+  M        010100          ----- ----- 0     rlwimi    Rotate Left Word Immediate then Mask Insert                 327
+
+  M        010100          ----- ----- 1     rlwimi.   Rotate Left Word Immediate then Mask Insert & record CR     327
+
+  M        010101          ----- ----- 0     rlwinm    Rotate Left Word Immediate then AND with Mask               328
+
+  M        010101          ----- ----- 1    rlwinm.    Rotate Left Word Immediate then AND with Mask & record CR   328
+
+  M        010111          ----- ----- 0     rlwnm     Rotate Left Word then AND with Mask                         328
+
+  M        010111          ----- ----- 1     rlwnm.    Rotate Left Word then AND with Mask & record CR             328
+
+   D       011000          ----- ----- -       ori     OR Immediate                                                320
+
+   D       011001          ----- ----- -      oris     OR Immediate Shifted                                        320
+
+   D       011010          ----- ----- -      xori     XOR Immediate                                               365
+
+   D       011011          ----- ----- -     xoris     XOR Immediate Shifted                                       365
+
+   D       011100          ----- ----- -     andi.     AND Immediate & record CR                                   230
+
+   D       011101          ----- ----- -     andis.    AND Immediate Shifted & record CR                           230
+
+  ??       011111         ----- 01111 /       isel     Integer Select                                              ----
+
+   X       011111        00000 00000 /        cmp      Compare                                                     235
+
+Legend:
+- Don’t care, usually part of an operand field
+/ Reserved bit, invalid instruction form if encoded as 1
+? Allocated for implementation-dependent use. See User’ Manual for the implementation
+
+
+
+                                   e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+Freescale Semiconductor                                                                                            3-35
+                                 Table 3-6. Instructions Sorted by Opcode (Continued)
+
+
+
+
+                                                                                                                 BooK E 0.99 Page
+                       Opcode
+  Format
+
+
+
+
+                                         Mnemonic                               Instruction
+           Primary        Extended
+           (Inst0:5)      (Inst21:31)
+
+
+   X       011111        00000 00100 /      tw      Trap Word                                                   363
+
+   X       011111       00000 01000 0      subfc    Subtract From Carrying                                      352
+
+   X       011111       00000 01000 1      subfc.   Subtract From Carrying & record CR                          352
+
+   X       011111       00000 01010 0      addc     Add Carrying                                                224
+
+   X       011111       00000 01010 1      addc.    Add Carrying & record CR                                    224
+
+   X       011111        /0000 01011 0    mulhwu    Multiply High Word Unsigned                                 314
+
+   X       011111        /0000 01011 1    mulhwu.   Multiply High Word Unsigned & record CR                     314
+
+   X       011111        00000 10011 /     mfcr     Move From Condition Register                                301
+
+   X       011111        00000 10100 /     lwarx    Load Word & Reserve Indexed                                 294
+
+   X       011111        00000 10110 /      icbt    Instruction Cache Block Touch                               281
+
+   X       011111        00000 10111 /     lwzx     Load Word & Zero Indexed                                    297
+
+   X       011111       00000 11000 0       slw     Shift Left Word                                             332
+
+   X       011111       00000 11000 1       slw.    Shift Left Word & record CR                                 332
+
+   X       011111       00000 11010 0      cntlzw   Count Leading Zeros Word                                    237
+
+   X       011111       00000 11010 1     cntlzw.   Count Leading Zeros Word & record CR                        237
+
+   X       011111       00000 11100 0       and     AND                                                         230
+
+   X       011111       00000 11100 1      and.     AND & record CR                                             230
+
+   X       011111        00001 00000 /     cmpl     Compare Logical                                             236
+
+   X       011111       00001 01000 0       subf    Subtract From                                               351
+
+   X       011111       00001 01000 1      subf.    Subtract From & record CR                                   351
+
+   X       011111        00001 10110 /     dcbst    Data Cache Block Store                                      245
+
+   X       011111        00001 10111 /     lwzux    Load Word & Zero with Update Indexed                        297
+
+   X       011111       00001 11100 0      andc     AND with Complement                                         230
+
+   X       011111       00001 11100 1      andc.    AND with Complement & record CR                             230
+
+   X       011111        /0010 01011 0     mulhw    Multiply High Word                                          314
+
+   X       011111        /0010 01011 1    mulhw.    Multiply High Word & record CR                              314
+
+Legend:
+- Don’t care, usually part of an operand field
+/ Reserved bit, invalid instruction form if encoded as 1
+? Allocated for implementation-dependent use. See User’ Manual for the implementation
+
+
+
+                                 e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+3-36                                                                                          Freescale Semiconductor
+                                 Table 3-6. Instructions Sorted by Opcode (Continued)
+
+
+
+
+                                                                                                        BooK E 0.99 Page
+                       Opcode
+  Format
+
+
+
+
+                                         Mnemonic                                Instruction
+           Primary        Extended
+           (Inst0:5)      (Inst21:31)
+
+
+   X       011111        00010 10011 /     mfmsr      Move From Machine State Register                  303
+
+   X       011111        00010 10110 /      dcbf      Data Cache Block Flush                            242
+
+   X       011111        00010 10111 /      lbzx      Load Byte & Zero Indexed                          283
+
+   X       011111       00011 01000 0       neg       Negate                                            318
+
+   X       011111       00011 01000 1       neg.      Negate & record CR                                318
+
+   X       011111        00011 10111 /     lbzux      Load Byte & Zero with Update Indexed              283
+
+   X       011111       00011 11100 0       nor       NOR                                               319
+
+   X       011111       00011 11100 1       nor.      NOR & record CR                                   319
+
+   X       011111        00100 00011 /     wrtee      Write External Enable                             364
+
+   X       011111        00100 00110 /    dcbtstls1   Data Cache Block Touch for Store and Lock Set     ----
+
+   X       011111       00100 01000 0      subfe      Subtract From Extended with CA                    353
+
+   X       011111       00100 01000 1      subfe.     Subtract From Extended with CA & record CR        353
+
+   X       011111       00100 01010 0      adde       Add Extended with CA                              225
+
+   X       011111       00100 01010 1      adde.      Add Extended with CA & record CR                  225
+
+ XFX       011111        00100 10000 /     mtcrf      Move To Condition Register Fields                 306
+
+   X       011111        00100 10010 /     mtmsr      Move To Machine State Register                    311
+
+   X       011111       00100 10110 1      stwcx.     Store Word Conditional Indexed & record CR        349
+
+   X       011111        00100 10111 /      stwx      Store Word Indexed                                347
+
+   X       011111        00101 00011 /     wrteei     Write External Enable Immediate                   364
+
+   X       011111        00101 00110 /    dcbtls1     Data Cache Block Touch and Lock Set               ----
+
+   X       011111        00101 10111 /     stwux      Store Word with Update Indexed                    347
+
+   X       011111       00110 01000 0      subfze     Subtract From Zero Extended with CA               356
+
+   X       011111       00110 01000 1     subfze.     Subtract From Zero Extended with CA & record CR   356
+
+   X       011111       00110 01010 0      addze      Add to Zero Extended with CA                      229
+
+   X       011111       00110 01010 1     addze.      Add to Zero Extended with CA & record CR          229
+
+   X       011111        00110 10111 /      stbx      Store Byte Indexed                                337
+
+Legend:
+- Don’t care, usually part of an operand field
+/ Reserved bit, invalid instruction form if encoded as 1
+? Allocated for implementation-dependent use. See User’ Manual for the implementation
+
+
+
+                                 e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+Freescale Semiconductor                                                                                 3-37
+                                 Table 3-6. Instructions Sorted by Opcode (Continued)
+
+
+
+
+                                                                                                                      BooK E 0.99 Page
+                       Opcode
+  Format
+
+
+
+
+                                         Mnemonic                             Instruction
+           Primary        Extended
+           (Inst0:5)      (Inst21:31)
+
+
+   X       011111        00111 00110 /     icblc1   Instruction Cache Block Lock Clear                               ----
+
+   X       011111       00111 01000 0     subfme    Subtract From Minus One Extended with CA                         355
+
+   X       011111       00111 01000 1     subfme.   Subtract From Minus One Extended with CA & record CR             355
+
+   X       011111       00111 01010 0     addme     Add to Minus One Extended with CA                                228
+
+   X       011111       00111 01010 1     addme.    Add to Minus One Extended with CA & record CR                    228
+
+   X       011111       00111 01011 0      mullw    Multiply Low Word                                                316
+
+   X       011111       00111 01011 1      mullw.   Multiply Low Word & record CR                                    316
+
+   X       011111        00111 10110 /     dcbtst   Data Cache Block Touch for Store                                 247
+
+   X       011111        00111 10111 /     stbux    Store Byte with Update Indexed                                   337
+
+   X       011111       01000 01010 0       add     Add                                                              223
+
+   X       011111       01000 01010 1      add.     Add & record CR                                                  223
+
+   X       011111        01000 10110 /      dcbt    Data Cache Block Touch                                           246
+
+   X       011111        01000 10111 /      lhzx    Load Half Word & Zero Indexed                                    290
+
+   X       011111       01000 11100 0       eqv     Equivalent                                                       253
+
+   X       011111       01000 11100 1       eqv.    Equivalent & record CR                                           253
+
+   X       011111        01001 10111 /     lhzux    Load Half Word & Zero with Update Indexed                        290
+
+   X       011111       01001 11100 0       xor     XOR                                                              365
+
+   X       011111       01001 11100 1       xor.    XOR & record CR                                                  365
+
+ XFX       011111        01010 00011 /     mfdcr    Move From Device Control Register                                302
+
+ XFX       011111        01010 10011 /     mfspr    Move From Special Purpose Register                               304
+
+   X       011111        01010 10111 /      lhax    Load Half Word Algebraic Indexed                                 288
+
+   X       011111        01011 10111 /     lhaux    Load Half Word Algebraic with Update Indexed                     288
+
+   X       011111        01100 00110 /     dcblc1   Data Cache Block Lock Clear                                      ----
+
+   X       011111        01100 10111 /      sthx    Store Half Word Indexed                                          343
+
+   X       011111       01100 11100 0       orc     OR with Complement                                               320
+
+   X       011111       01100 11100 1       orc.    OR with Complement & record CR                                   320
+
+Legend:
+- Don’t care, usually part of an operand field
+/ Reserved bit, invalid instruction form if encoded as 1
+? Allocated for implementation-dependent use. See User’ Manual for the implementation
+
+
+
+                                 e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+3-38                                                                                               Freescale Semiconductor
+                                 Table 3-6. Instructions Sorted by Opcode (Continued)
+
+
+
+
+                                                                                                  BooK E 0.99 Page
+                       Opcode
+  Format
+
+
+
+
+                                         Mnemonic                                Instruction
+           Primary        Extended
+           (Inst0:5)      (Inst21:31)
+
+
+   X       011111        01101 10111 /     sthux     Store Half Word with Update Indexed          343
+
+   X       011111       01101 11100 0        or      OR                                           320
+
+   X       011111       01101 11100 1        or.     OR & record CR                               320
+
+ XFX       011111        01110 00011 /     mtdcr     Move To Device Control Register              307
+
+   X       011111       01110 01011 0      divwu     Divide Word Unsigned                         252
+
+   X       011111       01110 01011 1      divwu.    Divide Word Unsigned & record CR             252
+
+ XFX       011111        01110 10011 /     mtspr     Move To Special Purpose Register             312
+
+   X       011111        01110 10110 /      dcbi     Data Cache Block Invalidate                  243
+
+   X       011111       01110 11100 0      nand      NAND                                         317
+
+   X       011111       01110 11100 1      nand.     NAND & record CR                             317
+
+   X       011111        01111 00110 /     icbtls1   Instruction Cache Block Touch and Lock Set   ----
+
+   X       011111       01111 01011 0      divw      Divide Word                                  251
+
+   X       011111       01111 01011 1      divw.     Divide Word & record CR                      251
+
+   X       011111        10000 00000 /     mcrxr     Move to Condition Register from XER          300
+
+   X       011111       10000 01000 0      subfco    Subtract From Carrying & record OV           352
+
+   X       011111       10000 01000 1     subfco.    Subtract From Carrying & record OV & CR      352
+
+   X       011111       10000 01010 0      addco     Add Carrying & record OV                     224
+
+   X       011111       10000 01010 1     addco.     Add Carrying & record OV & CR                224
+
+   X       011111        10000 10110 /     lwbrx     Load Word Byte-Reverse Indexed               296
+
+   X       011111       10000 11000 0       srw      Shift Right Word                             336
+
+   X       011111       10000 11000 1       srw.     Shift Right Word & record CR                 336
+
+   X       011111       10001 01000 0      subfo     Subtract From & record OV                    351
+
+   X       011111       10001 01000 1      subfo.    Subtract From & record OV & CR               351
+
+   X       011111        10001 10110 /    tlbsync    TLB Synchronize                              361
+
+   X       011111        10010 10110 /     msync     Memory Synchronize                           305
+
+   X       011111       10011 01000 0      nego      Negate & record OV                           318
+
+Legend:
+- Don’t care, usually part of an operand field
+/ Reserved bit, invalid instruction form if encoded as 1
+? Allocated for implementation-dependent use. See User’ Manual for the implementation
+
+
+
+                                 e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+Freescale Semiconductor                                                                           3-39
+                                 Table 3-6. Instructions Sorted by Opcode (Continued)
+
+
+
+
+                                                                                                                     BooK E 0.99 Page
+                       Opcode
+  Format
+
+
+
+
+                                         Mnemonic                                 Instruction
+           Primary        Extended
+           (Inst0:5)      (Inst21:31)
+
+
+   X       011111       10011 01000 1      nego.     Negate & record OV & record CR                                 318
+
+   X       011111       10100 01000 0     subfeo     Subtract From Extended with CA & record OV                     353
+
+   X       011111       10100 01000 1     subfeo.    Subtract From Extended with CA & record OV & CR                353
+
+   X       011111       10100 01010 0      addeo     Add Extended with CA & record OV                               225
+
+   X       011111       10100 01010 1     addeo.     Add Extended with CA & record OV & CR                          225
+
+   X       011111        10100 10110 /     stwbrx    Store Word Byte-Reverse Indexed                                348
+
+   X       011111       10110 01000 0     subfzeo    Subtract From Zero Extended with CA & record OV                356
+
+   X       011111       10110 01000 1     subfzeo.   Subtract From Zero Extended with CA & record OV & CR           356
+
+   X       011111       10110 01010 0     addzeo     Add to Zero Extended with CA & record OV                       229
+
+   X       011111       10110 01010 1     addzeo.    Add to Zero Extended with CA & record OV & CR                  229
+
+   X       011111       10111 01000 0     subfmeo    Subtract From Minus One Extended with CA & record OV           355
+
+   X       011111       10111 01000 1    subfmeo.    Subtract From Minus One Extended with CA & record OV & CR      355
+
+   X       011111       10111 01010 0     addmeo     Add to Minus One Extended with CA & record OV                  228
+
+   X       011111       10111 01010 1     addmeo.    Add to Minus One Extended with CA & record OV & CR             228
+
+   X       011111       10111 01011 0     mullwo     Multiply Low Word & record OV                                  316
+
+   X       011111       10111 01011 1     mullwo.    Multiply Low Word & record OV & CR                             316
+
+   X       011111        10111 10110 /     dcba      Data Cache Block Allocate                                      241
+
+   X       011111       11000 01010 0      addo      Add & record OV                                                223
+
+   X       011111       11000 01010 1      addo.     Add & record OV & CR                                           223
+
+   X       011111        11000 10010 /     tlbivax   TLB Invalidate Virtual Address Indexed                         358
+
+   X       011111        11000 10110 /     lhbrx     Load Half Word Byte-Reverse Indexed                            289
+
+   X       011111       11000 11000 0      sraw      Shift Right Algebraic Word                                     334
+
+   X       011111       11000 11000 1      sraw.     Shift Right Algebraic Word & record CR                         334
+
+   X       011111       11001 11000 0      srawi     Shift Right Algebraic Word Immediate                           334
+
+   X       011111       11001 11000 1      srawi.    Shift Right Algebraic Word Immediate & record CR               334
+
+   X       011111        11010 10110 /     mbar      Memory Barrier                                                 298
+
+Legend:
+- Don’t care, usually part of an operand field
+/ Reserved bit, invalid instruction form if encoded as 1
+? Allocated for implementation-dependent use. See User’ Manual for the implementation
+
+
+
+                                 e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+3-40                                                                                              Freescale Semiconductor
+                                    Table 3-6. Instructions Sorted by Opcode (Continued)
+
+
+
+
+                                                                                               BooK E 0.99 Page
+                       Opcode
+  Format
+
+
+
+
+                                           Mnemonic                              Instruction
+           Primary        Extended
+           (Inst0:5)      (Inst21:31)
+
+
+   X       011111       11100 10010 ?        tlbsx    TLB Search Indexed                       360
+
+   X       011111        11100 10110 /       sthbrx   Store Half Word Byte-Reverse Indexed     344
+
+   X       011111       11100 11010 0        extsh    Extend Sign Half Word                    254
+
+   X       011111       11100 11010 1        extsh.   Extend Sign Half Word & record CR        254
+
+   X       011111        11101 10010 /        tlbre   TLB Read Entry                           359
+
+   X       011111       11101 11010 0        extsb    Extend Sign Byte                         254
+
+   X       011111       11101 11010 1        extsb.   Extend Sign Byte & record CR             254
+
+   X       011111       11110 01011 0        divwuo   Divide Word Unsigned & record OV         252
+
+   X       011111       11110 01011 1       divwuo.   Divide Word Unsigned & record OV & CR    252
+
+   X       011111        11110 10010 /       tlbwe    TLB Write Entry                          362
+
+   X       011111        11110 10110 /        icbi    Instruction Cache Block Invalidate       280
+
+   X       011111       11111 01011 0        divwo    Divide Word & record OV                  251
+
+   X       011111       11111 01011 1        divwo.   Divide Word & record OV & CR             251
+
+   X       011111        11111 10110 /       dcbz     Data Cache Block set to Zero             248
+
+   D       100000          ----- ----- -      lwz     Load Word & Zero                         297
+
+   D       100001          ----- ----- -      lwzu    Load Word & Zero with Update             297
+
+   D       100010          ----- ----- -      lbz     Load Byte & Zero                         283
+
+   D       100011          ----- ----- -      lbzu    Load Byte & Zero with Update             283
+
+   D       100100          ----- ----- -      stw     Store Word                               347
+
+   D       100101          ----- ----- -     stwu     Store Word with Update                   347
+
+   D       100110          ----- ----- -      stb     Store Byte                               337
+
+   D       100111          ----- ----- -      stbu    Store Byte with Update                   337
+
+   D       101000          ----- ----- -      lhz     Load Half Word & Zero                    290
+
+   D       101001          ----- ----- -      lhzu    Load Half Word & Zero with Update        290
+
+   D       101010          ----- ----- -      lha     Load Half Word Algebraic                 288
+
+   D       101011          ----- ----- -      lhau    Load Half Word Algebraic with Update     288
+
+Legend:
+- Don’t care, usually part of an operand field
+/ Reserved bit, invalid instruction form if encoded as 1
+? Allocated for implementation-dependent use. See User’ Manual for the implementation
+
+
+
+                                   e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+Freescale Semiconductor                                                                        3-41
+                                   Table 3-6. Instructions Sorted by Opcode (Continued)
+
+
+
+
+                                                                                                                      BooK E 0.99 Page
+                       Opcode
+  Format
+
+
+
+
+                                          Mnemonic                             Instruction
+           Primary        Extended
+           (Inst0:5)      (Inst21:31)
+
+
+   D       101100         ----- ----- -      sth     Store Half Word                                                 343
+
+   D       101101         ----- ----- -      sthu    Store Half Word with Update                                     343
+
+   D       101110         ----- ----- -      lmw     Load Multiple Word                                              291
+
+   D       101111         ----- ----- -     stmw     Store Multiple Word                                             345
+1Legend:
+  Freescale Power ISA cache locking category, refer to Section 9.10, “Cache Line Locking/Unlocking.”
+- Don’t care, usually part of an operand field
+/ Reserved bit, invalid instruction form if encoded as 1
+? Allocated for implementation-dependent use. See User’ Manual for the implementation
+
+
+
+
+                                  e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+3-42                                                                                               Freescale Semiconductor

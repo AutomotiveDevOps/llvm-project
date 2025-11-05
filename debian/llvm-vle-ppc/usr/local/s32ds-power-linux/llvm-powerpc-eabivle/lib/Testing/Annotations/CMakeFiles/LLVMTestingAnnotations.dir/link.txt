@@ -1,0 +1,2 @@
+/usr/bin/ar Dqc ../../libLLVMTestingAnnotations.a CMakeFiles/LLVMTestingAnnotations.dir/Annotations.cpp.o
+/usr/bin/ranlib -D ../../libLLVMTestingAnnotations.a

@@ -1,0 +1,327 @@
+[TITLE:e200 Cores Manual Validation Plan - Certification Improvements]
+
+[INTRO]
+This document provides a validation plan to verify LLVM e200 core implementation
+against the official reference manuals. Manuals are now available:
+- e200z0: https://www.elektronikjk.com/elementy_czynne/IC/E200Z0.pdf
+- e200z4: https://www.elektronikjk.com/elementy_czynne/IC/E200Z4.pdf
+
+[MANUAL-STATUS]
+UID: MANUAL-STATUS
+STATUS: Available
+
+e200z0_CORE_REFERENCE_MANUAL:
+- URL: https://www.elektronikjk.com/elementy_czynne/IC/E200Z0.pdf
+- Document: e200z0 Power Architecture™ Core Reference Manual
+- Document Number: E200Z0CRM
+- Revision: Rev. 0, 4/2008
+- Publisher: Freescale Semiconductor (now NXP)
+
+e200z4_CORE_REFERENCE_MANUAL:
+- URL: https://www.elektronikjk.com/elementy_czynne/IC/E200Z4.pdf
+- Document: e200z4 Power Architecture™ Core Reference Manual
+- Document Number: e200z4RM
+- Revision: Rev. 0, 10/2009
+- Publisher: Freescale Semiconductor (now NXP)
+
+[VALIDATION-CERT-001]
+UID: VAL-001
+TITLE: Validate e200z0 Pipeline Scheduling Model (CERT-001)
+
+MANUAL_SECTIONS:
+- Chapter 4: Instruction Pipeline and Execution Timing
+- Section 4.1: Pipeline Overview
+- Section 4.2: Instruction Timing
+- Section 4.3: Execution Timing Tables
+
+VALIDATION_CHECKLIST:
+1. Verify 4-stage pipeline model:
+   - [ ] Confirm IF (Instruction Fetch) stage
+   - [ ] Confirm ID (Instruction Decode) stage
+   - [ ] Confirm EX (Execute) stage
+   - [ ] Confirm WB (Write Back) stage
+   - [ ] Verify NO separate MEM stage (memory in EX)
+
+2. Verify instruction latencies:
+   - [ ] Integer simple operations: Verify 1 cycle latency
+   - [ ] Integer compare operations: Verify 1-2 cycle latency
+   - [ ] Multiply operations: Verify 4 cycle latency
+   - [ ] Divide operations: Verify 34 cycle latency
+   - [ ] Load operations: Verify 3 cycle latency (FETCH+DECODE+EX+WB)
+   - [ ] Store operations: Verify 3 cycle latency
+   - [ ] Branch operations: Verify 1 cycle latency
+   - [ ] SPR operations (MFSPR/MTSPR): Verify 1 cycle latency
+
+3. Verify bypass paths:
+   - [ ] GPR bypass: Verify EX to EX forwarding latency
+   - [ ] CR bypass: Verify condition register forwarding
+   - [ ] Document any additional bypass paths
+
+4. Verify functional units:
+   - [ ] ALU (Integer ALU)
+   - [ ] BU (Branch Unit)
+   - [ ] LSU (Load/Store Unit)
+   - [ ] MUL (Multiply Unit)
+   - [ ] Verify resource sharing constraints
+
+5. Verify branch misprediction penalty:
+   - [ ] Current model: 3 cycles
+   - [ ] Verify against manual specification
+
+6. Verify load-to-use latency:
+   - [ ] Current model: 4 cycles (3 cycles + 1 writeback)
+   - [ ] Verify against manual specification
+
+CODE_LOCATIONS_TO_VERIFY:
+- llvm/lib/Target/PowerPC/PPCScheduleE200Z0.td:48-201 (itineraries)
+- llvm/lib/Target/PowerPC/PPCScheduleE200Z0.td:218-230 (model parameters)
+
+[VALIDATION-CERT-003]
+UID: VAL-003
+TITLE: Validate Interrupt Handler Context Save (CERT-003)
+
+MANUAL_SECTIONS:
+- Chapter 5: Interrupts and Exceptions
+- Section 5.1: Exception Model Overview
+- Section 5.2: Exception Types
+- Section 5.3: Exception Handling
+- Section 5.4: Returning from Exception Handler
+- Chapter 2: Register Model
+- Section 2.3: Special Purpose Register Descriptions
+- Section 2.4.3: Special Purpose Register Summary
+
+VALIDATION_CHECKLIST:
+1. Verify interrupt return mechanism:
+   - [ ] RFI instruction: Verify correct usage (BookE requirement)
+   - [ ] e_rfi instruction: Verify VLE mode requirement
+   - [ ] Link register (LR): Verify save/restore requirements
+   - [ ] Status registers (SRR0/SRR1): Verify automatic save/restore
+
+2. Verify interrupt context save requirements:
+   - [ ] GPR (General Purpose Registers): Verify save requirements
+   - [ ] CR (Condition Register): Verify save requirements
+   - [ ] LR (Link Register): Verify save requirements
+   - [ ] SPR (Special Purpose Registers): Identify which must be saved
+   - [ ] FPR (Floating-Point Registers): N/A for e200z0 (no FPU)
+   - [ ] FPSCR: N/A for e200z0 (no FPU)
+
+3. Verify IVOR (Interrupt Vector Offset Register) table:
+   - [ ] Critical interrupt: IVOR0 specification
+   - [ ] External interrupt: IVOR4 specification
+   - [ ] Other interrupt types and IVOR mappings
+   - [ ] Differentiate context save requirements by interrupt type
+
+4. Verify exception handling:
+   - [ ] Exception entry sequence
+   - [ ] Exception exit sequence (RFI)
+   - [ ] MSR (Machine State Register) handling
+   - [ ] Context synchronization requirements
+
+CODE_LOCATIONS_TO_VERIFY:
+- llvm/lib/Target/PowerPC/PPCFrameLowering.cpp:1843-1913 (interrupt context save)
+- llvm/lib/Target/PowerPC/PPCFrameLowering.cpp:1662-1686 (RFI/e_rfi handling)
+
+[VALIDATION-CERT-005]
+UID: VAL-005
+TITLE: Validate Exception Handling (CERT-005)
+
+MANUAL_SECTIONS:
+- Chapter 5: Interrupts and Exceptions
+- Section 5.2: Exception Types
+- Section 5.2.X: Program Exceptions
+- Section 5.2.X: Arithmetic Exceptions
+- Chapter 3: Instruction Model
+- Section 3.X: Division Instructions
+
+VALIDATION_CHECKLIST:
+1. Verify division exception behavior:
+   - [ ] Division by zero: Hardware trap or software check required?
+   - [ ] Exception type: Program exception or system exception?
+   - [ ] Exception latency: Cycles from division to exception
+   - [ ] XER register: Overflow bit handling
+
+2. Verify integer overflow:
+   - [ ] Overflow detection mechanism
+   - [ ] Exception generation for overflow
+   - [ ] XER register: SO (Summary Overflow) bit behavior
+
+3. Verify exception handler requirements:
+   - [ ] Exception handler entry point
+   - [ ] Register state at exception entry
+   - [ ] Exception handler return sequence
+
+CODE_LOCATIONS_TO_VERIFY:
+- llvm/lib/Target/PowerPC/PPCScheduleE200Z0.td:81-86 (division latency)
+- llvm/lib/Target/PowerPC/PPCISelLowering.cpp (exception lowering)
+
+[VALIDATION-CERT-006]
+UID: VAL-006
+TITLE: Validate Memory Barrier Semantics (CERT-006)
+
+MANUAL_SECTIONS:
+- Chapter 3: Instruction Model
+- Section 3.4: Memory Synchronization and Reservation Instructions
+- Chapter 4: Instruction Pipeline and Execution Timing
+- Memory access timing specifications
+
+VALIDATION_CHECKLIST:
+1. Verify memory barrier instructions:
+   - [ ] MSYNC: Verify exact semantics for BookE
+   - [ ] SYNC: Verify if supported (or MSYNC only)
+   - [ ] LWSYNC: Verify if supported
+   - [ ] ISYNC: Verify instruction synchronization
+
+2. Verify memory ordering:
+   - [ ] Store-before-load ordering guarantees
+   - [ ] Memory barrier latency
+   - [ ] Cache coherency requirements (if cache exists)
+
+3. Verify reservation instructions:
+   - [ ] LWARX (load word and reserve indexed)
+   - [ ] STWCX (store word conditional indexed)
+   - [ ] Reservation granule size
+
+CODE_LOCATIONS_TO_VERIFY:
+- llvm/lib/Target/PowerPC/PPCInstrInfo.td:2341-2358 (MSYNC/SYNC definitions)
+- llvm/lib/Target/PowerPC/PPCISelLowering.cpp (memory barrier lowering)
+
+[VALIDATION-CERT-010]
+UID: VAL-010
+TITLE: Validate Register Spill/Fill Timing (CERT-010)
+
+MANUAL_SECTIONS:
+- Chapter 4: Instruction Pipeline and Execution Timing
+- Load/store instruction timing
+- Stack pointer operations
+
+VALIDATION_CHECKLIST:
+1. Verify stack access timing:
+   - [ ] Store to stack (STW): Verify latency
+   - [ ] Load from stack (LWZ): Verify latency
+   - [ ] Stack pointer update: Verify latency
+   - [ ] Cache behavior: Verify if stack accesses are cached
+
+2. Verify register save/restore:
+   - [ ] Multiple register save (STMW): Verify if supported
+   - [ ] Multiple register load (LMW): Verify if supported
+   - [ ] Register save/restore latency in interrupt context
+
+CODE_LOCATIONS_TO_VERIFY:
+- llvm/lib/Target/PowerPC/PPCInstrInfo.cpp:1095-1118 (spill operations)
+- llvm/lib/Target/PowerPC/PPCInstrInfo.cpp:1157-1176 (fill operations)
+
+[VALIDATION-CERT-004]
+UID: VAL-004
+TITLE: Validate VLE Register Constraints (CERT-004) - e200z4 Manual
+
+MANUAL_SECTIONS:
+- e200z4 Core Reference Manual: VLE specification
+- Chapter 3: Instruction Model
+- VLE encoding rules
+
+VALIDATION_CHECKLIST:
+1. Verify VLE register constraints:
+   - [ ] 16-bit instructions: Verify R0-R7 requirement (3-bit encoding)
+   - [ ] 32-bit instructions: Verify R0-R31 support
+   - [ ] Instruction selection rules: When to use 16-bit vs 32-bit
+
+2. Verify immediate value constraints:
+   - [ ] s6imm: Verify -32 to 31 range
+   - [ ] u5imm: Verify 0 to 31 range
+   - [ ] u7imm: Verify 0 to 127 range
+   - [ ] u4imm: Verify 0 to 15 range
+   - [ ] Boundary value handling
+
+CODE_LOCATIONS_TO_VERIFY:
+- llvm/lib/Target/PowerPC/PPCInstrVLE.td:22-70 (immediate predicates)
+- llvm/lib/Target/PowerPC/PPCRegisterInfo.td:327 (GPRC_VLE_R0_R7 register class)
+
+[EXTRACTION-PRIORITY]
+UID: EXTRACT-PRIORITY
+
+HIGH_PRIORITY_EXTRACTION:
+1. e200z0 Chapter 4: Instruction Pipeline and Execution Timing
+   - Complete instruction latency tables
+   - Pipeline stage breakdown
+   - Bypass path specifications
+   - Load-to-use latency
+
+2. e200z0 Chapter 5: Interrupts and Exceptions
+   - IVOR table
+   - Exception entry/exit sequences
+   - Register save requirements
+   - RFI instruction semantics
+
+3. e200z0 Chapter 3: Instruction Model
+   - Division instruction behavior
+   - Memory barrier semantics
+   - Exception specifications
+
+MEDIUM_PRIORITY_EXTRACTION:
+1. e200z4 Manual: VLE specification sections
+2. e200z4 Manual: Dual-issue pairing rules
+3. e200z4 Manual: SPE/FPU instruction timing
+
+[VALIDATION-PROCESS]
+UID: VAL-PROCESS
+
+STEP_1_EXTRACT:
+Extract key information from manuals:
+1. Create spreadsheet/table with instruction latencies from Chapter 4
+2. Extract IVOR table from Chapter 5
+3. Extract exception specifications from Chapter 5
+4. Extract memory barrier semantics from Chapter 3
+
+STEP_2_COMPARE:
+Compare extracted data with LLVM implementation:
+1. Instruction latencies: Compare manual vs PPCScheduleE200Z0.td
+2. Pipeline stages: Verify stage structure matches manual
+3. Interrupt handling: Compare manual vs PPCFrameLowering.cpp
+4. Exception handling: Verify manual requirements vs implementation
+
+STEP_3_DOCUMENT_DISCREPANCIES:
+Document any differences:
+1. Create discrepancy report
+2. Prioritize by certification impact
+3. Propose fixes for each discrepancy
+
+STEP_4_IMPLEMENT_FIXES:
+Implement fixes based on manual specifications:
+1. Update instruction latencies if incorrect
+2. Fix interrupt context save logic
+3. Implement missing exception handling
+4. Correct memory barrier usage
+
+STEP_5_VERIFY:
+Verify fixes against manual:
+1. Re-run validation checklist
+2. Update CompleteModel flags if appropriate
+3. Create regression tests based on manual specs
+
+[MANUAL-CHAPTER-MAPPING]
+UID: MANUAL-MAP
+
+e200z0_MANUAL_STRUCTURE:
+Chapter 1: e200z0 and e200z0h Overview
+Chapter 2: Register Model → CERT-003 (interrupt context save)
+Chapter 3: Instruction Model → CERT-005 (exceptions), CERT-006 (memory barriers)
+Chapter 4: Instruction Pipeline and Execution Timing → CERT-001 (scheduling), CERT-010 (spill timing)
+Chapter 5: Interrupts and Exceptions → CERT-003 (interrupt handling), CERT-005 (exceptions)
+Chapter 6: Core Complex Interfaces
+Chapter 7: Power Management
+Chapter 8: Debug Support
+Chapter 9: Nexus 2+ Module
+
+[REFERENCES]
+UID: REFERENCES
+
+e200z0_MANUAL:
+- URL: https://www.elektronikjk.com/elementy_czynne/IC/E200Z0.pdf
+- Document Number: E200Z0CRM
+- Revision: Rev. 0, 4/2008
+
+e200z4_MANUAL:
+- URL: https://www.elektronikjk.com/elementy_czynne/IC/E200Z4.pdf
+- Document Number: e200z4RM
+- Revision: Rev. 0, 10/2009
+

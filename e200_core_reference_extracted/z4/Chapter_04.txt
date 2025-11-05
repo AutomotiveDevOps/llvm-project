@@ -1,0 +1,1325 @@
+Chapter 4
+Instruction Pipeline and Execution Timing
+This section describes the e200z4 instruction pipeline and instruction timing information. The core is
+partitioned into the following subsystems:
+    • Instruction unit
+    • Control unit
+    • Branch unit
+    • Instruction decode unit
+    • Exception handling unit
+    • Execution units
+    • Core interface
+
+4.1       Overview of Operation
+A block diagram of the e200z446n3 core is shown in Figure 4-1. The instruction fetch unit prefetches
+instructions from memory into the instruction buffers. The decode unit decodes each instruction and
+generates information needed by the branch unit and the execution units. Prefetched instructions are
+written into the instruction buffers.
+The instruction issue unit attempts to issue a pair of instructions each cycle to the execution units. Source
+operands for each of the instructions are provided from the GPRs or from the operand feed-forward muxes.
+Data or resource hazards may create stall conditions that cause instruction issue to be stalled for one or
+more cycles until the hazard is eliminated.
+The execution units write the result of a finished instruction onto the proper result bus and into the
+destination registers. The writeback logic retires an instruction when the instruction has finished
+execution. Up to three results can be simultaneously written, depending on the size of the result.
+Two execution units are provided to allow dual issue of most instructions. Only a single load/store unit is
+provided. Only a single integer divide unit is provided, thus a pair of divide instructions cannot issue
+simultaneously. In addition, the divide unit is blocking.
+
+
+
+
+                           e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+Freescale Semiconductor                                                                                   4-1
+         Additional Features                       Instruction/Control Unit                                Instruction Memory Unit
+       • OnCe/Nexus 1/Nexus 3                                              Fetch Unit                                    Software-Managed
+                                           Instruction Buffer                                         Two/Four
+         control logic                                                  Program Counter              Instructions         L1 Unified MMU
+                                          (8/16 Instructions)
+       • Dual AHB 2.v6 buses
+                                                                           One-Stage                                        16-Entry
+       • SPE (SIMD)                                                         Fetch                                   Fully Associative         ••
+                                                                                                                                               •
+       • Embedded scalar/                                                                                                       TLB
+         vector floating-point                                       Branch Processing Unit                                1-, 4-, 16-, 64-,
+       • Power management                                                                                               256-Kbyte, 1-, 4-, 16-,
+                                                                       +      EA Calc
+       • Time base/decrementer                   Decode                                                                  64-, 256-Mbyte, 1-,
+         counter                                  Stage                       8-Entry Branch                             4-Gbyte page sizes
+                                                                              Target Buffer
+
+                                                 Two-Instruction, In-Order Dispatch                                   MAS
+                                                                                                                    Registers
+                                                 Execution Units
+                          Execute Stage      Executes all e200z446n3 instructions (including                 2- or 4-Way Set-Associative
+      32 GPRs          Two-stage,            Power ISA base, SPE, and VLE categories) as                      4-Kbyte Instruction Cache
+       (64-Bit)        single-path           described in Chapter 3, “Instruction Model.” As
+                       execute pipeline      many as two instructions can execute
+                       with overlapped
+                       execution and         simultaneously, as described in Chapter 4,
+                       feed forwarding       “Instruction Pipeline and Execution Timing.”                 Instruction Bus Interface Unit
+                                                                                Load/Store
+                                                                                   Unit                     32                 64                  N
+       CR                                                                        + EA Calc
+      XER
+                                                                                                        Address            Data           Control
+       LR
+      CTR              Write-Back Stage
+      Additional
+        SPRs                                                                                                 Data Bus Interface Unit
+                                Two-Instruction, In-Order Write-Back
+                                                                                                              32                64                 N
+
+                                                                                                        Address             Data          Control
+                                               Figure 4-1. e200z4 Block Diagram
+
+Table 4-1 shows the e200z446n3 concurrent instruction issue capabilities. Note that data dependencies
+between instructions generally preclude dual issue. In particular, read after write dependencies are handled
+by stalling the issue pipeline as required to ensure the proper execution ordering.
+                                  Table 4-1. Concurrent Instruction Issue Capabilities
+
+         Class Of                                            Scalar                            Vector
+                        Branch         Load/Store                           Scalar Float                     Vector Float           Special
+        Instruction                                         Integer                            Integer
+
+      Branch               —                 4                  4                 4              4                  4                 —
+
+      Load/store            4                —                  4                 4              4                  4                 —
+
+      Scalar Integer        4                4                  41                4              42                 4                 —
+
+      Scalar Float          4                4                  4                 4              4                  —                 —
+
+      Vector Integer        4                4                  42                4              43                 4                 —
+
+      Vector Float          4                4                  4                —               4                  —                 —
+
+      Special              —                 —                  —                —               —                  —                 —
+
+
+
+                                 e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+4-2                                                                                                                 Freescale Semiconductor
+   1
+     Excludes divide class instructions occurring in both issue slots
+   2
+     Excludes vector MAC/multiply class instructions occurring with scalar multiply, or divide class instructions occurring in
+     both issue slots
+   3
+     Excludes vector MAC/multiply class instructions occurring in both issue slots, or divide class instructions occurring in
+     both issue slots
+
+
+4.2       Core Subsystems
+This section provides a brief overview of the core subsystems.
+
+4.2.1        Control Unit
+The control unit coordinates the instruction fetch unit, branch unit, instruction decode unit, instruction
+issue unit, completion unit and exception handling logic.
+
+4.2.2        Instruction Unit
+The instruction unit controls the flow of instructions from the cache to the instruction buffers and decode
+unit. Eight instruction prefetch buffers allow the instruction unit to fetch instructions ahead of actual
+execution and serve to decouple memory and the execution pipeline.
+
+4.2.3        Branch Unit
+The branch unit executes branch instructions, predicts conditional branches, and provides branch target
+addresses for instruction fetches. It contains an 8-entry branch target buffer to accelerate execution of
+branch instructions.
+
+4.2.4        Instruction Decode Unit
+The decode unit includes the instruction buffers. A pair of instructions can be decoded each clock cycle.
+The major functions of the decode logic are:
+   • Opcode decoding to determine the instruction class and resource requirements for each instruction
+       being decoded.
+   • Source and destination register dependency checking.
+   • Execution unit assignment.
+   • Determine any decode serializations, and inhibit subsequent instruction decoding.
+The decode unit operates in a single processor clock cycle.
+
+4.2.5        Exception Handling
+The exception handling unit includes logic to handle exceptions, interrupts, and traps.
+
+
+
+
+                               e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+Freescale Semiconductor                                                                                                          4-3
+4.3       Execution Units
+The core data execution units consist of the integer units, SPE floating-point units, and the load/store unit.
+Included in the execution units section are the 32 general-purpose registers (GPRs). Instructions with data
+dependencies begin execution when all such dependencies are resolved.
+
+4.3.1       Integer Execution Units
+Each integer execution unit is used to process arithmetic and logical instructions. Adds, subtracts,
+compares, count leading zeros, shifts and rotates execute in a single cycle.
+Multiply instructions have a latency of 2 cycles with a maximum throughput of 1 per cycle.
+Divide instructions have a variable latency (4–14 cycles) depending upon the operand data. The worst case
+integer divide will take 14 cycles. While the divide is running, the rest of the pipeline is unavailable for
+additional instructions (blocking divide).
+
+4.3.2       Load/Store Unit
+The load/store unit executes instructions that move data between the GPRs and the memory subsystem.
+Loads, when free of data dependencies, execute with a maximum throughput of one per cycle and have a
+two cycle latency. Stores also execute with a maximum throughput of one per cycle and two cycle latency.
+Store data can be fed-forward from an immediately preceding load with no stall.
+
+
+4.3.3       Embedded Floating-point Execution Units
+The embedded floating-point execution units are used to process EFPU floating-point arithmetic
+instructions. Adds, subtracts, compares, multiply, and multiply-accumulate pipelines have a latency of 2
+cycles with a maximum throughput of 1 per cycle. SPE floating-point divide instructions have a latency
+of 13 cycles. While the divide is running, the rest of the pipeline is unavailable for additional instructions
+(blocking divide).
+
+4.4       Instruction Pipeline
+The processor pipeline consists of stages for instruction fetch, instruction decode, register read,
+execution, and result writeback. Certain stages involve multiple clock cycles of execution. The processor
+also contains an instruction prefetch buffer to allow buffering of instructions prior to the decode stage.
+Instructions proceed from this buffer to the instruction decode stage by entering the instruction decode
+register.
+
+
+
+
+                           e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+4-4                                                                                     Freescale Semiconductor
+Table 4-2 explains the five pipeline stages.
+                                                   Table 4-2. Pipeline Stages
+
+                            STAGE                                           Description
+
+                   IFETCH                         Instruction Fetch From Memory
+
+                   DECODE/RF READ/FF/             Instruction Decode/Register Read/Operand Forwarding/
+                   MEM EA                         Memory Effective Address Generation
+
+                   EXECUTE0/MEM0                  Instruction Execution stage 0/Memory Access stage 0
+
+                   EXECUTE1/MEM1                  Instruction Execution stage 1/Memory Access stage 1
+
+                   WB                             Write Back to Registers
+
+Figure 4-2 shows the pipeline diagram.
+
+                    Simple Instructions
+
+
+
+
+      IFetch                  I0,I1       I2,I3
+
+      Decode1/ Reg read/ FFwd             I0,I1     I2,I3
+
+      Execute0                                      I0,I1   I2,I3
+
+      Feedforward                                           I0,I1    I2,I3
+
+      Writeback                                                      I0,I1      I2,I3
+
+
+
+
+                    Load Instructions
+
+
+
+
+       IFetch                L0,L1        I2,I3
+
+       Decode1/ Reg read / EA calc L0,L1            L1,I2
+
+       Memory0                                       L0       L1
+
+       Memory1                                                L0      L1
+
+       Writeback                                                      L0         L1
+
+
+                                                  Figure 4-2. Pipeline Diagram
+
+
+
+
+                              e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+Freescale Semiconductor                                                                                  4-5
+4.4.1        Description of Pipeline Stages
+The IFetch pipeline stage retrieves instructions from the memory system and determines where the next
+instruction fetch is performed. Up to two 32-bit instructions or four 16-bit instructions are sent from
+memory to the instruction buffers each cycle.
+The decode pipeline stage decodes instructions, reads operands from the register file, and performs
+dependency checking.
+Execution occurs in one or both of the execute pipeline stages in each execution unit (perhaps over
+multiple cycles). Execution of most load/store instructions is pipelined. The load/store unit has three
+pipeline stages: effective address calculation (EA Calc), initial memory access (MEM0), and final memory
+access, data format, and forward (MEM1).
+Simple integer instructions complete execution in the Execute 0 stage of the pipeline. Multiply instructions
+require both the Execute 0 and Execute 1 stages but may be pipelined as well. Most condition-setting
+instructions complete in the Execute 0 stage of the pipeline, thus conditional branches dependent on a
+condition-setting instruction may be resolved by an instruction in this stage.
+Result feed-forward hardware forwards the result of one instruction into the source operand(s) of a
+following instruction so that the execution of data-dependent instructions does not wait until the
+completion of the result write-back. Feed forward hardware is supplied to allow bypassing of completed
+instructions from both execute stages into the first execution stage for a subsequent data-dependent
+instruction.
+
+4.4.2        Instruction Prefetch Buffers and Branch Target Buffer
+The e200z4 contains an eight-entry instruction prefetch buffer, which supplies instructions into the
+instruction register (IR) for decoding. Each slot in the prefetch buffer is 32 bits wide, capable of holding a
+single 32-bit instruction or a pair of 16-bit instructions.
+Instruction prefetches request a 64-bit double word, and the prefetch buffer is filled with a pair of
+instructions at a time, except for the case of a change of flow fetch where the target is to the second (odd)
+word. In that case only a 32-bit prefetch is performed to load the instruction prefetch buffer. This 32-bit
+fetch may be immediately followed by a 64-bit prefetch to fill slots 0 and 1 in the event that the branch is
+resolved to be taken.
+In normal sequential execution, instructions are loaded into the IR from prefetch buffer slots 0 and 1. As
+a pair of slots are emptied, they are refilled. Whenever a pair of slots is empty, a 64-bit prefetch is initiated,
+which fills the earliest empty slot pairs beginning with slot 0.
+If the instruction prefetch buffer empties, instruction issue stalls, and the buffer is refilled. The first
+returned instruction is forwarded directly to the IR. Open cycles on the memory bus are utilized to keep
+the buffer full when possible.
+
+
+
+
+                            e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+4-6                                                                                        Freescale Semiconductor
+Figure 4-3 shows the instruction prefetch buffers.
+
+
+           DATA 0:63
+
+
+
+
+                                SLOT6
+
+
+
+
+                                          SLOT4
+
+
+
+
+                                                     SLOT2
+
+
+
+                                                             SLOT0
+
+
+
+
+                                                                                           DECODE
+                                                                        MUX
+                                                                                                    .
+
+
+
+
+                                                                                     IR
+                                                                                                    .
+
+
+
+
+                                                     SLOT3
+                                SLOT7
+
+
+
+
+                                          SLOT5
+
+
+
+
+                                                             SLOT1
+                              Figure 4-3. e200z4 Instruction Prefetch Buffers
+
+To resolve branch instructions and improve the accuracy of branch predictions, the e200z4 implements a
+dynamic branch prediction mechanism using an 8-entry branch target buffer (BTB).
+An entry is allocated in the BTB whenever a branch resolves as taken and the BTB is enabled. Entries in
+the BTB are allocated on taken branches using a FIFO replacement algorithm.
+Each BTB entry holds the branch target address and a 2-bit branch history counter whose value is
+incremented or decremented on a BTB hit depending on whether the branch was taken. The counter can
+assume four different values: strongly taken, weakly taken, weakly not taken, and strongly not taken. On
+initial allocation of an entry to the BTB for a taken branch, the counter is initialized to the weakly-taken
+state.
+A branch will be predicted as taken on a hit in the BTB with a counter value of strongly or weakly taken.
+In this case the target address contained in the BTB is used to redirect the instruction fetch stream to the
+target of the branch prior to the branch reaching the instruction decode stage. In the case of a BTB miss,
+static prediction is used to predict the outcome of the branch. In the case of a mispredicted branch, the
+instruction fetch stream will return to the proper instruction stream after the branch has been resolved.
+When a branch is predicted taken and the branch is later resolved (in the branch execute stage), the value
+of the appropriate BTB counter is updated. If a branch whose counter indicates weakly taken is resolved
+as taken, the counter increments so that the prediction becomes strongly taken. If the branch resolves as
+not taken, the prediction changes to weakly not-taken. The counter saturates in the strongly taken states
+when the prediction is correct.
+The e200z4 does not implement the static branch prediction that is defined by the Power ISA embedded
+category architecture. The BO prediction bit in branch encodings is ignored.
+Dynamic branch prediction is enabled by setting BUCSR[BPEN]. Allocation of branch target buffer
+entries may be controlled using the BUCSR[BALLOC] field to control whether forward or backward
+branches (or both) are candidates for entry into the BTB, and thus for branch prediction. Once a branch is
+in the BTB, BUCSR[ALLOC] has no further effect on that branch entry. Clearing BUCSR[BPEN]
+disables dynamic branch prediction, in which case the e200z4 reverts to a static prediction mechanism
+using the BUCSR[BPRED] field to control whether forward or backward branches (or both) are predicted
+taken or not taken.
+
+                          e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+Freescale Semiconductor                                                                                  4-7
+The BTB uses virtual addresses for performing tag comparisons. On allocation of a BTB entry, the
+effective address of a taken branch, along with the current Instruction Space (as indicated by MSR[IS]) is
+loaded into the entry and the counter value is set to weakly taken. The current PID value is not maintained
+as part of the tag information.
+The e200z4 does support automatic flushing of the BTB when the current PID value is updated by a mtcr
+PID0 instruction. Software is otherwise responsible for maintaining coherency in the BTB when a change
+in effective to real (virtual to physical) address mapping is changed. This is supported by the
+BUCSR[BBFI] control bit.
+Figure 4-4 shows the branch target buffer.
+                             TAG                                         DATA
+
+
+                       branch addr[0:30]     IS           target address[0:30]    counter   entry 0
+
+
+                       branch addr[0:30]     IS           target address[0:30]    counter   entry 1
+
+
+                              ...            ...                   ...            ...       ...
+
+
+                       branch addr[0:30]     IS           target address[0:30]    counter   entry 7
+
+
+                                                   IS = Instruction Space
+                                       Figure 4-4. e200z4 Branch Target Buffer
+
+
+4.4.3         Single-Cycle Instruction Pipeline Operation
+Sequences of single-cycle execution instructions follow the flow in Figure 4-5. Instructions are issued and
+completed in program order. Most arithmetic and logical instructions fall into this category. Instructions
+may feed-forward results of execution at the end of the E0 or FF stage.
+
+         Time Slot
+
+
+
+
+      1st, 2ndInst.          IF     DEC      E0         FF       WB
+
+
+      3rd, 4th Inst.                 IF     DEC         E0        FF        WB
+
+
+      5th, 6th Inst.                        IF         DEC       E0         FF   WB
+
+                            Figure 4-5. Basic Pipe Line Flow, Single Cycle Instructions
+
+
+
+
+                               e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+4-8                                                                                         Freescale Semiconductor
+4.4.4        Basic Load and Store Instruction Pipeline Operation
+For load and store instructions, the effective address is calculated in the EA Calc stage, and memory is
+accessed in the MEM0–MEM1 stages. Data selection and alignment is performed in MEM1, and the result
+is available at the end of MEM1 for the following instruction. If the instruction has a data dependency on
+the result of a load, there is a single stall cycle. Data will be fed-forward from the preceding load at the end
+of the MEM1 stage.
+Figure 4-6 shows the basic pipe line flow for the load/store instructions.
+
+        Time Slot
+
+
+
+
+     1st LD Inst.             IF    DEC/     M0     M1      WB
+                                    EA
+
+     2nd LD Inst.                    IF     DEC/    M0       M1     WB
+                                            EA
+
+     3rd single cycle Inst.                 IF     DEC      stall    E0     FF       WB
+     (data dependent)
+
+                              Figure 4-6. Basic Pipe Line Flow, Load/Store Instructions
+
+
+4.4.5        Change-of-Flow Instruction Pipeline Operation
+Simple change of flow instructions require 2 clock cycles to refill the pipeline with the target instruction
+for taken branches and branch and link instructions with no BTB hit and correct branch prediction.
+Figure 4-7 shows the basic pipe line flow for the change of flow instructions.
+
+        Time Slot
+
+
+
+
+     BR Inst.                 IF    DEC     (E0)    (E1)    WB
+
+
+     Target Inst.                           TF       DEC     E0      E1     WB
+
+   Figure 4-7. Basic Pipe Line Flow, Branch Instructions (BTB Miss, Correct Prediction, Branch Taken)
+
+This 2 cycle timing may be reduced for branch type instructions by performing the target fetch
+speculatively while the branch instruction is still being fetched into the instruction buffer if the branch
+
+
+                               e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+Freescale Semiconductor                                                                                       4-9
+target address can be obtained from the BTB. The resulting branch timing is reduced to a single clock when
+the target fetch is initiated early enough and the branch is correctly predicted.
+Figure 4-8 shows the basic pipe line flow for the reduced timing.
+
+          Time Slot
+
+
+
+
+        BR Inst.             IF     DEC    (E0)    (E1)    WB
+                          (BTB hit)
+
+       Target Inst.                TF      DEC     E0      E1     WB
+
+       Figure 4-8. Basic Pipe Line Flow, Branch Instructions (BTB Hit, Correct Prediction, Branch Taken)
+
+For certain cases where the branch is incorrectly predicted, 3 cycles are required for the not-taken branch,
+which must correct the misprediction outcome. Figure 4-9 shows one example.
+
+          Time Slot
+
+
+
+
+        BR Inst.             IF     DEC    (E0)    (E1)    WB
+                          (BTB hit)
+
+       Target Inst.                TF      DEC     abort --       --
+
+        Next seq. Inst.                            IF      DEC     E0       E1      WB
+
+       Figure 4-9. Basic Pipe Line Flow, Branch Instruction (BTB Hit, Predict Taken, Incorrect Prediction)
+
+
+
+
+                              e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+4-10                                                                                     Freescale Semiconductor
+For certain other cases where the branch is incorrectly predicted as taken, a stall cycle is required to correct
+the misprediction outcome and begin refilling the instruction buffer. Figure 4-10 shows one example.
+
+
+
+        Time Slot
+
+
+
+
+     BR Inst.             IF   DEC        (E0)    (E1)    WB
+                       (BTB miss)
+
+     Next Inst.                   IF     DEC      E0      E1    WB
+
+     Target Inst.                        TF       abort --      --
+
+     Next Seq Inst.                               IF      DEC     E0      E1      WB
+
+
+                            Figure 4-10. Basic Pipe Line Flow, Branch Instructions
+                    (BTB Miss, Predict Taken, Incorrect Prediction, Instruction Buffer Empty)
+
+
+4.4.6        Basic Multi-Cycle Instruction Pipeline Operation
+Most multi-cycle instructions may be pipelined so that the effective execution time is smaller than the
+overall number of clock cycles spent in execution. The restrictions to this execution overlap are that no
+data dependencies between the instructions are present and that instructions must complete and write back
+results in order. A single cycle instruction which follows a multi-cycle instruction must wait for
+completion of the multi-cycle instruction prior to its write-back in order to meet the in-order requirement.
+Result feed-forward paths are provided so that execution may continue prior to result write-back.
+
+
+
+
+                             e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+Freescale Semiconductor                                                                                     4-11
+Figure 4-11 shows the basic pipe line flow for multi-cycle instruction.
+          Time Slot
+
+
+
+
+       1st Mul                IF    DEC       E0     E1      WB
+       Inst.
+
+
+       2nd Inst.                     IF      DEC     E0       FF     WB
+        single cycle.
+
+
+       3rd Inst.                             IF     DEC      E0       FF     WB
+       (data dependent
+       single-cycle)
+
+                            Figure 4-11. Basic Pipe Line Flow, Multiply Class Instructions
+
+Since load and store instructions calculate the effective address in the DEC stage, any dependency on a
+previous instruction for EA calculation may stall the load or store in DEC until the result is available.
+Figure 4-12 shows the infrequent case of a load instruction dependent on a multiply instruction.
+
+          Time Slot
+
+
+
+
+       1st Mul                IF    DEC       E0     E1      WB
+       Inst.
+
+
+       2nd Inst.                     IF      DEC     E0       FF     WB
+       single cycle
+
+
+       3rd Inst.                             IF     DEC DEC           FF     WB
+       (data dependent                              (stall)
+       load)
+
+                      Figure 4-12. Pipe Line Flow, Multiply with Data Dependent Load Instruction
+
+
+
+
+                                e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+4-12                                                                                         Freescale Semiconductor
+The divide and load and store multiple instructions require multiple cycles in the execute stage as shown
+in Figure 4-13.
+
+        Time Slot
+
+
+
+     long inst.           IF        DEC E0      E1     ....    ....    ....   ....   ....   Elast WB
+
+
+
+     next inst.                     IF     DEC —       —       —       —      —      —      —   E0     FF   WB
+     (single cycle)
+
+
+                                    Figure 4-13. Basic Pipe Line Flow, long instruction
+
+
+4.4.7        Additional Examples of Instruction Pipeline Operation for Load and
+             Store
+Figure 4-14 shows an example of pipelining a data-dependent add instruction following a load with update
+instruction. While the first load begins accessing memory in the M0 stage, the next load with update can
+be calculating a new effective address in the EA Calc stage. Following the EA Calc, the updated base
+register value can be fed-forward to subsequent instructions, even during the MEM0 or MEM1 stage. The
+add in this example will not stall, even though a data dependency exists on the updated base register of
+the load with update.
+
+        Time Slot
+
+
+
+
+     1st LD Inst.              IF        DEC/   M0        M1          WB
+                                         EA
+
+     2nd LD Inst.                        IF     DEC/      M0          M1      WB
+                                                EA
+
+     3rd single cycle Inst.                     IF      DEC           E0       FF      WB
+     (data dependent
+     on EA calc)
+
+               Figure 4-14. Pipe Line Flow, Load/Store Instructions with Base Register Update
+
+
+
+
+                                e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+Freescale Semiconductor                                                                                          4-13
+Figure 4-15 shows an example of pipelining a data-dependent store instruction following a load
+instruction. The store in this example will stall, due to the store data dependency existing on the load data
+of the load instruction.
+
+          Time Slot
+
+
+
+
+       1st LD Inst.        IF    DEC/      M0     M1      WB
+                                 EA
+
+       2nd LD Inst.               IF      DEC/    M0       M1     WB
+                                          EA
+
+       3rd Inst.                          IF     DEC DEC/          M0     M1       WB
+       (data dependent                           (stall) EA
+       store data)
+                      Figure 4-15. Pipelined Store Instruction with Store Data Dependency
+
+
+4.4.8         Move To/From SPR Instruction Pipeline Operation
+Many mtspr and mfspr instructions are treated like single cycle instructions in the pipeline and do not
+cause stalls. The following SPRs are exceptions and do cause stalls:
+   • MSR
+   • Debug SPRs
+   • The SPE unit
+   • Cache/MMU SPRs
+Figure 4-16–Figure 4-18 show examples of mtspr and mfspr instruction timing.
+
+
+
+
+                             e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+4-14                                                                                    Freescale Semiconductor
+Figure 4-16 applies to the debug SPRs and SPEFSCR. These instructions do not begin execution until all
+previous instructions have finished their execute stage(s). In addition, execution of subsequent instructions
+is stalled until the mfspr and mtspr instructions complete.
+
+        Time Slot
+
+
+
+
+     Prev Inst.            IF    DEC/      E0     E1      WB
+                                 EA
+
+     mtspr, mfspr                 IF      DEC stall        E0     E1      WB
+     Debug, SPE                           (stall)
+
+     Next Inst.                           IF     DEC stall         stall stall       E0   E1    WB
+                                                 (stall)
+
+                     Figure 4-16. mtspr, mfspr Instruction Execution, Debug and SPE SPRs
+
+Figure 4-17 applies to the mtmsr instruction and the wrtee and wrteei instructions. Execution of
+subsequent instructions is stalled until the cycle after these instructions write-back.
+        Time Slot
+
+
+
+
+     Prev Inst.            IF    DEC/      E0     E1      WB
+                                 EA
+
+     mtmsr, wrtee,                IF      DEC     E0       E1     WB
+     wrteei Inst.
+
+
+     Next Inst.                           IF     DEC stall         stall E0          E1   WB
+                                                 (stall)
+                                Figure 4-17. mtmsr, wrtee[i] Instruction Execution
+
+Access to cache and MMU SPRs are stalled until all outstanding bus accesses have completed on both
+interfaces and the Cache and MMU are idle (p_[d,i]_cmbusy negated) to allow an access window where
+no translations or cache cycles are required. Other situations such as a cache linefill may cause the cache
+to be busy even when the processor interface is idle (p_[d,i]_tbusy[0]_b is negated). In these cases
+execution stalls until the cache and MMU are idle as signaled by negation of p_[d,i]_cmbusy. Processor
+access requests will be held off during execution of a Cache/MMU SPR instruction. A subsequent access
+request may be generated the cycle following the last execute stage (i.e. during the WB cycle). This same
+
+
+
+                            e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+Freescale Semiconductor                                                                                  4-15
+protocol applies to cache and MMU management instructions (e.g. icbi, tlbre, tlbwe, etc.) as well as the
+DCRs.
+Figure 4-18 shows an example where an outstanding bus access causes mtspr/mfspr execution to be
+delayed until the bus becomes idle.
+
+  Time Slot
+
+
+
+                                                                                                             S3
+prev
+Instruction                 IF      DEC      E0      ....   E1last   WB
+mtspr, mfspr                         IF    DEC      stall   stall    E0        E1    WB
+
+Next Instruction                             IF    DEC      stall    stall   stall    E0    E1               WB
+
+              p_rd_spr,
+              p_wr_spr
+
+         p_[i,d]_treq_b
+
+       p_[i,d]_tbusy[0]_b
+
+           p_[i,d]_ta_b
+
+
+        p_[i,d]_cmbusy
+
+          Figure 4-18. Cache/DCR, MMU mtspr, mfspr and MMU Management Instruction Execution
+
+
+4.5           Control Hazards
+ Internal control hazards exist in the e200z4 that can cause certain instruction sequences to incur one or
+more stall cycles. One such hazard is an mfspr instruction preceded by a mtspr instruction. This causes
+issue stalls until the mtspr completes.
+
+4.6           Instruction Serialization
+There are three types of serialization required by the core:
+   • Completion
+   • Dispatch (Decode/Issue)
+   • Refetch
+
+
+
+
+                                 e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+4-16                                                                                        Freescale Semiconductor
+4.6.1        Completion Serialization
+A completion serialized instruction is held for execution until all prior instructions have completed. The
+instruction will then execute once it is next to complete in program order. Results from these instructions
+will not be available for or forwarded to subsequent instructions until the instruction completes.
+Instructions which are completion serialized are:
+    • Instructions that access or modify system control or status registers, such as mcrxr, mtmsr, wrtee,
+        wrteei, mtspr, mfspr (except to CTR/LR)
+    • Instructions that manage caches and TLBs
+    • Instructions defined by the architecture as context or execution synchronizing, such as isync,
+        se_isync, msync, rfi, rfci, rfdi, rfmci, se_rfi, se_rfci, se_rfdi, se_rfmci, sc, se_sc.
+    • wait
+
+4.6.2        Dispatch Serialization
+Some instructions are dispatch serialized by the core. An instruction that is dispatch serialized prevents the
+next instruction from decoding until all instructions, up to and including the dispatch serialized instruction,
+complete. Instructions that are dispatch serialized are isync, se_isync, msync, rfi, rfci, rfdi, rfmci, se_rfi,
+se_rfci, se_rfdi, se_rfmci, sc, se_sc.
+The mbar instruction is “pseudo-dispatch” serialized; it prevents the next instruction from decoding until
+all previous load and store class instructions have completed.
+
+4.6.3        Refetch Serialization
+Refetch serialized instructions inhibit dispatching of subsequent instructions and force a pipeline refill to
+refetch subsequent instructions after completion. These include:
+    • The context synchronizing instructions isync, se_isync.
+    • The rfi, rfci, rfdi, rfmci, se_rfi, se_rfci, se_rfdi, se_rfmci, sc, se_sc instructions.
+
+
+
+
+                           e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+Freescale Semiconductor                                                                                    4-17
+4.7          Interrupt Recognition and Exception Processing
+Figure 4-19 shows timing for interrupt recognition and exception processing overhead. This example
+shows best-case response timing when an interrupt is received and processed during execution of a
+sequence of single-cycle instructions. The handler is present in the cache and proceeds with no bubbles.
+  Time Slot
+                  1           2         3        4       5          6    7     8       9     10      11
+
+                                                                                                              S3
+Single cycle    DEC       E0          E1      WB
+Instructions
+
+                 IF      DEC         Abort      --      --
+
+                                                                                                               WB
+                          IF          Stall   Stall    Stall   Stall
+
+
+                                              final sample point
+p_extint_b
+
+
+p_iack
+
+
+
+ 1st Instruction of handler                                        IF   DEC   E0      E1     WB            WB
+
+
+
+                      Figure 4-19. Interrupt Recognition and Handler Instruction Execution
+
+Figure 4-20 shows timing for interrupt recognition and exception processing overhead. This example
+shows best-case response timing when an interrupt is received and processed during execution of a load
+
+
+
+
+                                  e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+4-18                                                                                         Freescale Semiconductor
+ or store instruction. The fetch for the handler is delayed until completion of any outstanding load or store,
+ regardless of the number of wait-states.
+
+Time Slot
+                1       2      3      4       5       6         7     8       9     10      11
+
+                                                                                                     S3
+Load/Store    M0      wait   wait    M1     WB
+Instruction
+
+              DEC      E0    Abort   --      --
+
+                                                                                                     WB
+                      DEC    Abort   --      --      --
+
+                                           final sample point
+
+p_extint_b
+
+
+p_iack
+
+
+                                                                IF   DEC    E0      E1    WB      EX2     WB
+1st Instruction of handler
+
+         Figure 4-20. Interrupt Recognition and Handler Instruction Execution—Load/Store in Progress
+
+
+
+
+                             e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+ Freescale Semiconductor                                                                                  4-19
+ Figure 4-21 shows timing for interrupt recognition and exception processing overhead. This example
+ shows best-case response timing when an interrupt is received and processed during execution of a
+ multicycle interruptible instructions. The handler is present in the cache and proceeds with no bubbles.
+
+Time Slot
+                                                                                                             S3
+                   1         2     3       4      5        6           7    8     9     10
+
+                                                                                                          S3
+Multi-cycle     DEC      E0       E1     Abort    --      --
+Interruptible
+Instruction
+Next Instruction        DEC      stall   Abort   --       --
+
+
+                                                 final sample point                                        WB
+
+p_extint_b
+
+
+p_iack
+
+
+
+                                                                      IF   DEC   E0     E1     WB      EX2        WB
+1st Instruction of handler
+
+      Figure 4-21. Interrupt Recognition and Handler Instruction Execution—Multi-Cycle Instruction Abort
+
+
+ 4.8            Concurrent Instruction Execution
+ The core effectively has several execution units:
+    • Branch unit
+    • Dual scalar integer units
+    • Dual vector integer units
+    • Dual scalar embedded floating-point units/single vector embedded floating-point unit
+    • Load/store unit
+ These executions units are pipelined and support overlapped execution of instructions. In certain cases, the
+ branch unit predicts branches and supplies a speculative instruction stream to the instruction buffer unit.
+ The following instruction timing section accurately indicates the number of cycles an instruction executes
+ in the appropriate unit, however, determining the elapsed time or cycles to execute a sequence of
+ instructions is beyond the scope of this document.
+
+ 4.9            Instruction Timings
+ Table 4-3 shows instruction timing in number of processor clock cycles for various instruction classes.
+ Pipelined instructions are shown with cycles of total latency and throughput cycles. Divide instructions are
+ not pipelined and block other instructions from executing during divide execution. Timing for SPE
+
+
+                                 e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+ 4-20                                                                                        Freescale Semiconductor
+instructions is detailed in Section 7.6, “SPE Instruction Timing.” Timing for EFPU2 instructions is
+detailed in Section 6.5, “EFPU Instruction Timing.”
+Load/store multiple instruction cycles are represented as a fixed number of cycles plus a variable number
+of cycles where ‘n’ is the number of words accessed by the instruction. In addition, cycle times marked
+with a ‘&’ require a variable number of additional cycles due to serialization.
+                                         Table 4-3. Instruction Class Cycle Counts
+
+                  Class of Instructions               Latency         Throughput              Special Notes
+
+     integer: add, sub, shift, rotate, logical,          1                 1         —
+     cntlzw
+
+     integer: compare                                    1                 1         —
+
+     Branch                                             3/2/1            3/2/1       Correct branch lookahead allows
+                                                                                     single cycle execution
+                                                                                     worst-case mispredicted branch
+                                                                                     is 3 cycles
+
+      multiply                                           2                 1         —
+
+      divide                                            4–14             4–14        data dependent timing
+
+     CR logical                                          1                 1         —
+
+     loads (non-multiple)                                2                 1         —
+
+     load multiple                                 2 + n ÷ 2 (max)   1 + n ÷ 2 (max) Actual timing depends on n and
+                                                                                     address alignment.
+
+     stores (non-multiple)                               2                 1         —
+
+     store multiple                                2 + n ÷ 2 (max)   1 + n ÷ 2 (max) Actual timing depends on n and
+                                                                                     address alignment.
+
+     mtmsr, wrtee, wrteei                                3&                3         —
+
+     mcrf                                                1                 1         —
+
+     mfspr, mtspr                                        4&               4&         applies to Debug SPRs, optional
+                                                                                     unit SPRS
+
+     mfspr, mfmsr                                        1                 1         applies to internal, non Debug
+                                                                                     SPRs
+
+     mfcr, mtcr                                          1                 1         —
+
+     rfi, rfci, rfdi, rfmci                              3                 —         —
+
+     sc                                                  4                 —         —
+
+     tw, twi                                             4                 —         Trap taken timing
+
+
+
+
+                                 e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+Freescale Semiconductor                                                                                                4-21
+Detailed timing for each instruction mnemonic along with serialization requirements is shown in
+Table 4-4.
+                              Table 4-4. Instruction Timing by Mnemonic
+
+                                Mnemonic         Latency       Serialization
+
+                              add[o][.]             1              none
+
+                              addc[o][.]            1              none
+
+                              adde[o][.]            1              none
+
+                              addi                  1              none
+
+                              addic[.]              1              none
+
+                              addis                 1              none
+
+                              addme[o][.]           1              none
+
+                              addze[o][.]           1              none
+
+                              and[.]                1              none
+
+                              andc[.]               1              none
+
+                              andi.                 1              none
+
+                              andis.                1              none
+
+                              b[l][a]              3/2/1           none
+
+                              bc[l][a]             3/2/1           none
+
+                              bcctr[l]             3/2             none
+
+                              bclr[l]              3/2             none
+
+                              cmp                   1              none
+
+                              cmpi                  1              none
+
+                              cmpl                  1              none
+
+                              cmpli                 1              none
+
+                              cntlzw[.]             1              none
+
+                              crand                 1              none
+
+                              crandc                1              none
+
+                              creqv                 1              none
+
+                              crnand                1              none
+
+                              crnor                 1              none
+
+                              cror                  1              none
+
+                              crorc                 1              none
+
+                              crxor                 1              none
+
+                              divw[o][.]          4-141            none
+
+                              divwu[o][.]         4-141            none
+
+
+
+                         e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+4-22                                                                                Freescale Semiconductor
+                          Table 4-4. Instruction Timing by Mnemonic (Continued)
+
+                                Mnemonic          Latency       Serialization
+
+                               eqv[.]                1              none
+
+                               extsb[.]              1              none
+
+                               extsh[.]              1              none
+
+                               isel                  1              none
+
+                               isync                 32            refetch
+
+                               lbarx                 2              none
+
+                               lbz                   23             none
+
+                               lbzu                  23             none
+
+                               lbzux                 23             none
+
+                               lbzx                  23             none
+
+                               lha                   23             none
+
+                               lharx                 23             none
+
+                               lhau                  23             none
+
+                               lhaux                 23             none
+
+                               lhax                  23             none
+
+                               lhbrx                 23             none
+
+                               lhz                   23             none
+
+                               lhzu                  23             none
+
+                               lhzux                 23             none
+
+                               lhzx                  23             none
+
+                               lmw                2 +(n/2)          none
+
+                               lwarx                 23             none
+
+                               lwbrx                 23             none
+
+                               lwz                   23             none
+
+                               lwzu                  23             none
+
+                               lwzux                 23             none
+
+                               lwzx                  23             none
+
+                               mbar                  12           pseudo-
+                                                                  dispatch
+
+                               mcrf                  1              none
+
+                               mcrxr                 1           completion
+
+                               mfcr                  1              none
+
+                               mfmsr                 1              none
+
+
+
+                          e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+Freescale Semiconductor                                                              4-23
+       Table 4-4. Instruction Timing by Mnemonic (Continued)
+
+              Mnemonic         Latency       Serialization
+
+            mfspr (except         1              none
+            DEBUG)
+
+            mfspr                 42          completion
+            (DEBUG)
+
+            msync                 12          completion
+
+            mtcrf                 2              none
+
+            mtmsr                 32          completion
+
+            mtspr                 42          completion
+            (DEBUG)
+
+            mtspr (except         1              none
+            DEBUG, msr,
+            hid0/1)
+
+            mulhw[.]              2              none
+
+            mulhwu[.]             2              none
+
+            mulli                 2              none
+
+            mullw[o][.]           2              none
+
+            nand[.]               1              none
+
+            neg[o][.]             1              none
+
+            nop (ori              1              none
+            r0,r0,0)
+
+            nor[.]                1              none
+
+            or[.]                 1              none
+
+            orc[.]                1              none
+
+            ori                   1              none
+
+            oris                  1              none
+
+            rfci                  3             refetch
+
+            rfdi                  3             refetch
+
+            rfi                   3             refetch
+
+            rfmci                 3             refetch
+
+            rlwimi[.]             1              none
+
+            rlwinm[.]             1              none
+
+            rlwnm[.]              1              none
+
+            sc                    4             refetch
+
+            slw[.]                1              none
+
+            sraw[.]               1              none
+
+
+
+       e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+4-24                                                              Freescale Semiconductor
+                          Table 4-4. Instruction Timing by Mnemonic (Continued)
+
+                                Mnemonic          Latency       Serialization
+
+                               srawi[.]              1              none
+
+                               srw[.]                1              none
+
+                               stb                   23             none
+
+                               stbcx.                2              none
+
+                               stbu                  23             none
+
+                               stbux                 23             none
+
+                               stbx                  23             none
+
+                               sth                   23             none
+
+                               sthbrx                23             none
+
+                               sthcx.                23             none
+
+                               sthu                  23             none
+
+                               sthux                 23             none
+
+                               sthx                  23             none
+
+                               stmw              2 + (n ÷ 2)        none
+
+                               stw                   23             none
+
+                               stwbrx                23             none
+
+                               stwcx.                23             none
+
+                               stwu                  23             none
+
+                               stwux                 23             none
+
+                               stwx                  23             none
+
+                               subf[o][.]            1              none
+
+                               subfc[o][.]           1              none
+
+                               subfe[o][.]           1              none
+
+                               subfic                1              none
+
+                               subfme[o][.]          1              none
+
+                               subfze[o][.]          1              none
+
+                               tw                    4              none
+
+                               twi                   4              none
+
+                               wrtee                 3           completion
+
+                               wrteei                3           completion
+
+                               xor[.]                1              none
+
+                               xori                  1              none
+
+                               xoris                 1              none
+
+
+                          e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+Freescale Semiconductor                                                              4-25
+                                       1
+                                         With early-out capability, timing is data dependent
+                                       2
+                                         Plus additional synchronization time
+                                       3
+                                         Aligned
+
+
+4.10        Operand Placement On Performance
+The placement (location and alignment) of operands in memory affects the relative performance of
+memory accesses, in some cases significantly. Table 4-5 indicates the effects for the e200z4 core.
+In Table 4-5, optimal means that one effective address (EA) calculation occurs during the memory
+operation. Good means that multiple EA calculations occur during the memory operation that may cause
+additional bus activities with multiple bus transfers. Poor means that an alignment interrupt is generated
+by the storage operation.
+                           Table 4-5. Performance Effects of Storage Operand Placement
+
+                                           Operand                   Boundary Crossing*
+
+                              Size             Byte         None         —             Protection
+                                               Align.                                  Boundary
+
+
+
+                              4 Byte           4           Optimal       —             --
+                                               <4          Good                        Good
+
+                              2 Byte           2           Optimal       —             --
+                                               <2          Good                        Good
+
+                              1 Byte           1           Optimal       —             --
+
+                              lmw, stmw        4           Good          —             Good
+                                               <4          Poor                        Poor
+
+                              string           N/A         —             —             —
+
+Note:
+Optimal: One EA calculation occurs.
+Good: Multiple EA calculations occur that may cause additional bus activities with multiple bus transfers.
+Poor: Alignment interrupt occurs.
+
+
+
+
+                               e200z4 Power Architecture™ Core Reference Manual, Rev. 0
+4-26                                                                                                   Freescale Semiconductor

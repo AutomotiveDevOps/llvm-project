@@ -1,0 +1,13645 @@
+/*===- TableGen'erated file -------------------------------------*- C++ -*-===*\
+|*                                                                            *|
+|* Target Instruction Enum Values and Descriptors                             *|
+|*                                                                            *|
+|* Automatically generated file, do not edit!                                 *|
+|*                                                                            *|
+\*===----------------------------------------------------------------------===*/
+
+#ifdef GET_INSTRINFO_ENUM
+#undef GET_INSTRINFO_ENUM
+namespace llvm {
+
+namespace PPC {
+  enum {
+    PHI	= 0,
+    INLINEASM	= 1,
+    INLINEASM_BR	= 2,
+    CFI_INSTRUCTION	= 3,
+    EH_LABEL	= 4,
+    GC_LABEL	= 5,
+    ANNOTATION_LABEL	= 6,
+    KILL	= 7,
+    EXTRACT_SUBREG	= 8,
+    INSERT_SUBREG	= 9,
+    IMPLICIT_DEF	= 10,
+    SUBREG_TO_REG	= 11,
+    COPY_TO_REGCLASS	= 12,
+    DBG_VALUE	= 13,
+    DBG_LABEL	= 14,
+    REG_SEQUENCE	= 15,
+    COPY	= 16,
+    BUNDLE	= 17,
+    LIFETIME_START	= 18,
+    LIFETIME_END	= 19,
+    STACKMAP	= 20,
+    FENTRY_CALL	= 21,
+    PATCHPOINT	= 22,
+    LOAD_STACK_GUARD	= 23,
+    PREALLOCATED_SETUP	= 24,
+    PREALLOCATED_ARG	= 25,
+    STATEPOINT	= 26,
+    LOCAL_ESCAPE	= 27,
+    FAULTING_OP	= 28,
+    PATCHABLE_OP	= 29,
+    PATCHABLE_FUNCTION_ENTER	= 30,
+    PATCHABLE_RET	= 31,
+    PATCHABLE_FUNCTION_EXIT	= 32,
+    PATCHABLE_TAIL_CALL	= 33,
+    PATCHABLE_EVENT_CALL	= 34,
+    PATCHABLE_TYPED_EVENT_CALL	= 35,
+    ICALL_BRANCH_FUNNEL	= 36,
+    G_ADD	= 37,
+    G_SUB	= 38,
+    G_MUL	= 39,
+    G_SDIV	= 40,
+    G_UDIV	= 41,
+    G_SREM	= 42,
+    G_UREM	= 43,
+    G_AND	= 44,
+    G_OR	= 45,
+    G_XOR	= 46,
+    G_IMPLICIT_DEF	= 47,
+    G_PHI	= 48,
+    G_FRAME_INDEX	= 49,
+    G_GLOBAL_VALUE	= 50,
+    G_EXTRACT	= 51,
+    G_UNMERGE_VALUES	= 52,
+    G_INSERT	= 53,
+    G_MERGE_VALUES	= 54,
+    G_BUILD_VECTOR	= 55,
+    G_BUILD_VECTOR_TRUNC	= 56,
+    G_CONCAT_VECTORS	= 57,
+    G_PTRTOINT	= 58,
+    G_INTTOPTR	= 59,
+    G_BITCAST	= 60,
+    G_FREEZE	= 61,
+    G_INTRINSIC_TRUNC	= 62,
+    G_INTRINSIC_ROUND	= 63,
+    G_READCYCLECOUNTER	= 64,
+    G_LOAD	= 65,
+    G_SEXTLOAD	= 66,
+    G_ZEXTLOAD	= 67,
+    G_INDEXED_LOAD	= 68,
+    G_INDEXED_SEXTLOAD	= 69,
+    G_INDEXED_ZEXTLOAD	= 70,
+    G_STORE	= 71,
+    G_INDEXED_STORE	= 72,
+    G_ATOMIC_CMPXCHG_WITH_SUCCESS	= 73,
+    G_ATOMIC_CMPXCHG	= 74,
+    G_ATOMICRMW_XCHG	= 75,
+    G_ATOMICRMW_ADD	= 76,
+    G_ATOMICRMW_SUB	= 77,
+    G_ATOMICRMW_AND	= 78,
+    G_ATOMICRMW_NAND	= 79,
+    G_ATOMICRMW_OR	= 80,
+    G_ATOMICRMW_XOR	= 81,
+    G_ATOMICRMW_MAX	= 82,
+    G_ATOMICRMW_MIN	= 83,
+    G_ATOMICRMW_UMAX	= 84,
+    G_ATOMICRMW_UMIN	= 85,
+    G_ATOMICRMW_FADD	= 86,
+    G_ATOMICRMW_FSUB	= 87,
+    G_FENCE	= 88,
+    G_BRCOND	= 89,
+    G_BRINDIRECT	= 90,
+    G_INTRINSIC	= 91,
+    G_INTRINSIC_W_SIDE_EFFECTS	= 92,
+    G_ANYEXT	= 93,
+    G_TRUNC	= 94,
+    G_CONSTANT	= 95,
+    G_FCONSTANT	= 96,
+    G_VASTART	= 97,
+    G_VAARG	= 98,
+    G_SEXT	= 99,
+    G_SEXT_INREG	= 100,
+    G_ZEXT	= 101,
+    G_SHL	= 102,
+    G_LSHR	= 103,
+    G_ASHR	= 104,
+    G_FSHL	= 105,
+    G_FSHR	= 106,
+    G_ICMP	= 107,
+    G_FCMP	= 108,
+    G_SELECT	= 109,
+    G_UADDO	= 110,
+    G_UADDE	= 111,
+    G_USUBO	= 112,
+    G_USUBE	= 113,
+    G_SADDO	= 114,
+    G_SADDE	= 115,
+    G_SSUBO	= 116,
+    G_SSUBE	= 117,
+    G_UMULO	= 118,
+    G_SMULO	= 119,
+    G_UMULH	= 120,
+    G_SMULH	= 121,
+    G_UADDSAT	= 122,
+    G_SADDSAT	= 123,
+    G_USUBSAT	= 124,
+    G_SSUBSAT	= 125,
+    G_FADD	= 126,
+    G_FSUB	= 127,
+    G_FMUL	= 128,
+    G_FMA	= 129,
+    G_FMAD	= 130,
+    G_FDIV	= 131,
+    G_FREM	= 132,
+    G_FPOW	= 133,
+    G_FEXP	= 134,
+    G_FEXP2	= 135,
+    G_FLOG	= 136,
+    G_FLOG2	= 137,
+    G_FLOG10	= 138,
+    G_FNEG	= 139,
+    G_FPEXT	= 140,
+    G_FPTRUNC	= 141,
+    G_FPTOSI	= 142,
+    G_FPTOUI	= 143,
+    G_SITOFP	= 144,
+    G_UITOFP	= 145,
+    G_FABS	= 146,
+    G_FCOPYSIGN	= 147,
+    G_FCANONICALIZE	= 148,
+    G_FMINNUM	= 149,
+    G_FMAXNUM	= 150,
+    G_FMINNUM_IEEE	= 151,
+    G_FMAXNUM_IEEE	= 152,
+    G_FMINIMUM	= 153,
+    G_FMAXIMUM	= 154,
+    G_PTR_ADD	= 155,
+    G_PTRMASK	= 156,
+    G_SMIN	= 157,
+    G_SMAX	= 158,
+    G_UMIN	= 159,
+    G_UMAX	= 160,
+    G_BR	= 161,
+    G_BRJT	= 162,
+    G_INSERT_VECTOR_ELT	= 163,
+    G_EXTRACT_VECTOR_ELT	= 164,
+    G_SHUFFLE_VECTOR	= 165,
+    G_CTTZ	= 166,
+    G_CTTZ_ZERO_UNDEF	= 167,
+    G_CTLZ	= 168,
+    G_CTLZ_ZERO_UNDEF	= 169,
+    G_CTPOP	= 170,
+    G_BSWAP	= 171,
+    G_BITREVERSE	= 172,
+    G_FCEIL	= 173,
+    G_FCOS	= 174,
+    G_FSIN	= 175,
+    G_FSQRT	= 176,
+    G_FFLOOR	= 177,
+    G_FRINT	= 178,
+    G_FNEARBYINT	= 179,
+    G_ADDRSPACE_CAST	= 180,
+    G_BLOCK_ADDR	= 181,
+    G_JUMP_TABLE	= 182,
+    G_DYN_STACKALLOC	= 183,
+    G_READ_REGISTER	= 184,
+    G_WRITE_REGISTER	= 185,
+    CFENCE8	= 186,
+    CLRLSLDI	= 187,
+    CLRLSLDI_rec	= 188,
+    CLRLSLWI	= 189,
+    CLRLSLWI_rec	= 190,
+    CLRRDI	= 191,
+    CLRRDI_rec	= 192,
+    CLRRWI	= 193,
+    CLRRWI_rec	= 194,
+    CP_COPY_FIRST	= 195,
+    CP_COPYx	= 196,
+    CP_PASTE_LAST	= 197,
+    CP_PASTEx	= 198,
+    DCBFL	= 199,
+    DCBFLP	= 200,
+    DCBFx	= 201,
+    DCBTCT	= 202,
+    DCBTDS	= 203,
+    DCBTSTCT	= 204,
+    DCBTSTDS	= 205,
+    DCBTSTT	= 206,
+    DCBTSTx	= 207,
+    DCBTT	= 208,
+    DCBTx	= 209,
+    DFLOADf32	= 210,
+    DFLOADf64	= 211,
+    DFSTOREf32	= 212,
+    DFSTOREf64	= 213,
+    EXTLDI	= 214,
+    EXTLDI_rec	= 215,
+    EXTLWI	= 216,
+    EXTLWI_rec	= 217,
+    EXTRDI	= 218,
+    EXTRDI_rec	= 219,
+    EXTRWI	= 220,
+    EXTRWI_rec	= 221,
+    INSLWI	= 222,
+    INSLWI_rec	= 223,
+    INSRDI	= 224,
+    INSRDI_rec	= 225,
+    INSRWI	= 226,
+    INSRWI_rec	= 227,
+    LAx	= 228,
+    LIWAX	= 229,
+    LIWZX	= 230,
+    RLWIMIbm	= 231,
+    RLWIMIbm_rec	= 232,
+    RLWINMbm	= 233,
+    RLWINMbm_rec	= 234,
+    RLWNMbm	= 235,
+    RLWNMbm_rec	= 236,
+    ROTRDI	= 237,
+    ROTRDI_rec	= 238,
+    ROTRWI	= 239,
+    ROTRWI_rec	= 240,
+    SLDI	= 241,
+    SLDI_rec	= 242,
+    SLWI	= 243,
+    SLWI_rec	= 244,
+    SPILLTOVSR_LD	= 245,
+    SPILLTOVSR_LDX	= 246,
+    SPILLTOVSR_ST	= 247,
+    SPILLTOVSR_STX	= 248,
+    SRDI	= 249,
+    SRDI_rec	= 250,
+    SRWI	= 251,
+    SRWI_rec	= 252,
+    STIWX	= 253,
+    SUBI	= 254,
+    SUBIC	= 255,
+    SUBIC_rec	= 256,
+    SUBIS	= 257,
+    SUBPCIS	= 258,
+    XFLOADf32	= 259,
+    XFLOADf64	= 260,
+    XFSTOREf32	= 261,
+    XFSTOREf64	= 262,
+    ADD4	= 263,
+    ADD4O	= 264,
+    ADD4O_rec	= 265,
+    ADD4TLS	= 266,
+    ADD4_rec	= 267,
+    ADD8	= 268,
+    ADD8O	= 269,
+    ADD8O_rec	= 270,
+    ADD8TLS	= 271,
+    ADD8TLS_	= 272,
+    ADD8_rec	= 273,
+    ADDC	= 274,
+    ADDC8	= 275,
+    ADDC8O	= 276,
+    ADDC8O_rec	= 277,
+    ADDC8_rec	= 278,
+    ADDCO	= 279,
+    ADDCO_rec	= 280,
+    ADDC_rec	= 281,
+    ADDE	= 282,
+    ADDE8	= 283,
+    ADDE8O	= 284,
+    ADDE8O_rec	= 285,
+    ADDE8_rec	= 286,
+    ADDEO	= 287,
+    ADDEO_rec	= 288,
+    ADDE_rec	= 289,
+    ADDI	= 290,
+    ADDI8	= 291,
+    ADDIC	= 292,
+    ADDIC8	= 293,
+    ADDIC_rec	= 294,
+    ADDIS	= 295,
+    ADDIS8	= 296,
+    ADDISdtprelHA	= 297,
+    ADDISdtprelHA32	= 298,
+    ADDISgotTprelHA	= 299,
+    ADDIStlsgdHA	= 300,
+    ADDIStlsldHA	= 301,
+    ADDIStocHA	= 302,
+    ADDIStocHA8	= 303,
+    ADDIdtprelL	= 304,
+    ADDIdtprelL32	= 305,
+    ADDItlsgdL	= 306,
+    ADDItlsgdL32	= 307,
+    ADDItlsgdLADDR	= 308,
+    ADDItlsgdLADDR32	= 309,
+    ADDItlsldL	= 310,
+    ADDItlsldL32	= 311,
+    ADDItlsldLADDR	= 312,
+    ADDItlsldLADDR32	= 313,
+    ADDItocL	= 314,
+    ADDME	= 315,
+    ADDME8	= 316,
+    ADDME8O	= 317,
+    ADDME8O_rec	= 318,
+    ADDME8_rec	= 319,
+    ADDMEO	= 320,
+    ADDMEO_rec	= 321,
+    ADDME_rec	= 322,
+    ADDPCIS	= 323,
+    ADDZE	= 324,
+    ADDZE8	= 325,
+    ADDZE8O	= 326,
+    ADDZE8O_rec	= 327,
+    ADDZE8_rec	= 328,
+    ADDZEO	= 329,
+    ADDZEO_rec	= 330,
+    ADDZE_rec	= 331,
+    ADJCALLSTACKDOWN	= 332,
+    ADJCALLSTACKUP	= 333,
+    AND	= 334,
+    AND8	= 335,
+    AND8_rec	= 336,
+    ANDC	= 337,
+    ANDC8	= 338,
+    ANDC8_rec	= 339,
+    ANDC_rec	= 340,
+    ANDI8_rec	= 341,
+    ANDIS8_rec	= 342,
+    ANDIS_rec	= 343,
+    ANDI_rec	= 344,
+    ANDI_rec_1_EQ_BIT	= 345,
+    ANDI_rec_1_EQ_BIT8	= 346,
+    ANDI_rec_1_GT_BIT	= 347,
+    ANDI_rec_1_GT_BIT8	= 348,
+    AND_rec	= 349,
+    ATOMIC_CMP_SWAP_I16	= 350,
+    ATOMIC_CMP_SWAP_I32	= 351,
+    ATOMIC_CMP_SWAP_I64	= 352,
+    ATOMIC_CMP_SWAP_I8	= 353,
+    ATOMIC_LOAD_ADD_I16	= 354,
+    ATOMIC_LOAD_ADD_I32	= 355,
+    ATOMIC_LOAD_ADD_I64	= 356,
+    ATOMIC_LOAD_ADD_I8	= 357,
+    ATOMIC_LOAD_AND_I16	= 358,
+    ATOMIC_LOAD_AND_I32	= 359,
+    ATOMIC_LOAD_AND_I64	= 360,
+    ATOMIC_LOAD_AND_I8	= 361,
+    ATOMIC_LOAD_MAX_I16	= 362,
+    ATOMIC_LOAD_MAX_I32	= 363,
+    ATOMIC_LOAD_MAX_I64	= 364,
+    ATOMIC_LOAD_MAX_I8	= 365,
+    ATOMIC_LOAD_MIN_I16	= 366,
+    ATOMIC_LOAD_MIN_I32	= 367,
+    ATOMIC_LOAD_MIN_I64	= 368,
+    ATOMIC_LOAD_MIN_I8	= 369,
+    ATOMIC_LOAD_NAND_I16	= 370,
+    ATOMIC_LOAD_NAND_I32	= 371,
+    ATOMIC_LOAD_NAND_I64	= 372,
+    ATOMIC_LOAD_NAND_I8	= 373,
+    ATOMIC_LOAD_OR_I16	= 374,
+    ATOMIC_LOAD_OR_I32	= 375,
+    ATOMIC_LOAD_OR_I64	= 376,
+    ATOMIC_LOAD_OR_I8	= 377,
+    ATOMIC_LOAD_SUB_I16	= 378,
+    ATOMIC_LOAD_SUB_I32	= 379,
+    ATOMIC_LOAD_SUB_I64	= 380,
+    ATOMIC_LOAD_SUB_I8	= 381,
+    ATOMIC_LOAD_UMAX_I16	= 382,
+    ATOMIC_LOAD_UMAX_I32	= 383,
+    ATOMIC_LOAD_UMAX_I64	= 384,
+    ATOMIC_LOAD_UMAX_I8	= 385,
+    ATOMIC_LOAD_UMIN_I16	= 386,
+    ATOMIC_LOAD_UMIN_I32	= 387,
+    ATOMIC_LOAD_UMIN_I64	= 388,
+    ATOMIC_LOAD_UMIN_I8	= 389,
+    ATOMIC_LOAD_XOR_I16	= 390,
+    ATOMIC_LOAD_XOR_I32	= 391,
+    ATOMIC_LOAD_XOR_I64	= 392,
+    ATOMIC_LOAD_XOR_I8	= 393,
+    ATOMIC_SWAP_I16	= 394,
+    ATOMIC_SWAP_I32	= 395,
+    ATOMIC_SWAP_I64	= 396,
+    ATOMIC_SWAP_I8	= 397,
+    ATTN	= 398,
+    B	= 399,
+    BA	= 400,
+    BC	= 401,
+    BCC	= 402,
+    BCCA	= 403,
+    BCCCTR	= 404,
+    BCCCTR8	= 405,
+    BCCCTRL	= 406,
+    BCCCTRL8	= 407,
+    BCCL	= 408,
+    BCCLA	= 409,
+    BCCLR	= 410,
+    BCCLRL	= 411,
+    BCCTR	= 412,
+    BCCTR8	= 413,
+    BCCTR8n	= 414,
+    BCCTRL	= 415,
+    BCCTRL8	= 416,
+    BCCTRL8n	= 417,
+    BCCTRLn	= 418,
+    BCCTRn	= 419,
+    BCDCFN_rec	= 420,
+    BCDCFSQ_rec	= 421,
+    BCDCFZ_rec	= 422,
+    BCDCPSGN_rec	= 423,
+    BCDCTN_rec	= 424,
+    BCDCTSQ_rec	= 425,
+    BCDCTZ_rec	= 426,
+    BCDSETSGN_rec	= 427,
+    BCDSR_rec	= 428,
+    BCDS_rec	= 429,
+    BCDTRUNC_rec	= 430,
+    BCDUS_rec	= 431,
+    BCDUTRUNC_rec	= 432,
+    BCL	= 433,
+    BCLR	= 434,
+    BCLRL	= 435,
+    BCLRLn	= 436,
+    BCLRn	= 437,
+    BCLalways	= 438,
+    BCLn	= 439,
+    BCTR	= 440,
+    BCTR8	= 441,
+    BCTRL	= 442,
+    BCTRL8	= 443,
+    BCTRL8_LDinto_toc	= 444,
+    BCTRL_LWZinto_toc	= 445,
+    BCn	= 446,
+    BDNZ	= 447,
+    BDNZ8	= 448,
+    BDNZA	= 449,
+    BDNZAm	= 450,
+    BDNZAp	= 451,
+    BDNZL	= 452,
+    BDNZLA	= 453,
+    BDNZLAm	= 454,
+    BDNZLAp	= 455,
+    BDNZLR	= 456,
+    BDNZLR8	= 457,
+    BDNZLRL	= 458,
+    BDNZLRLm	= 459,
+    BDNZLRLp	= 460,
+    BDNZLRm	= 461,
+    BDNZLRp	= 462,
+    BDNZLm	= 463,
+    BDNZLp	= 464,
+    BDNZm	= 465,
+    BDNZp	= 466,
+    BDZ	= 467,
+    BDZ8	= 468,
+    BDZA	= 469,
+    BDZAm	= 470,
+    BDZAp	= 471,
+    BDZL	= 472,
+    BDZLA	= 473,
+    BDZLAm	= 474,
+    BDZLAp	= 475,
+    BDZLR	= 476,
+    BDZLR8	= 477,
+    BDZLRL	= 478,
+    BDZLRLm	= 479,
+    BDZLRLp	= 480,
+    BDZLRm	= 481,
+    BDZLRp	= 482,
+    BDZLm	= 483,
+    BDZLp	= 484,
+    BDZm	= 485,
+    BDZp	= 486,
+    BL	= 487,
+    BL8	= 488,
+    BL8_NOP	= 489,
+    BL8_NOP_TLS	= 490,
+    BL8_NOTOC	= 491,
+    BL8_TLS	= 492,
+    BL8_TLS_	= 493,
+    BLA	= 494,
+    BLA8	= 495,
+    BLA8_NOP	= 496,
+    BLR	= 497,
+    BLR8	= 498,
+    BLRL	= 499,
+    BL_NOP	= 500,
+    BL_TLS	= 501,
+    BPERMD	= 502,
+    BRINC	= 503,
+    CLRBHRB	= 504,
+    CMPB	= 505,
+    CMPB8	= 506,
+    CMPD	= 507,
+    CMPDI	= 508,
+    CMPEQB	= 509,
+    CMPLD	= 510,
+    CMPLDI	= 511,
+    CMPLW	= 512,
+    CMPLWI	= 513,
+    CMPRB	= 514,
+    CMPRB8	= 515,
+    CMPW	= 516,
+    CMPWI	= 517,
+    CNTLZD	= 518,
+    CNTLZD_rec	= 519,
+    CNTLZW	= 520,
+    CNTLZW8	= 521,
+    CNTLZW8_rec	= 522,
+    CNTLZW_rec	= 523,
+    CNTTZD	= 524,
+    CNTTZD_rec	= 525,
+    CNTTZW	= 526,
+    CNTTZW8	= 527,
+    CNTTZW8_rec	= 528,
+    CNTTZW_rec	= 529,
+    CP_ABORT	= 530,
+    CP_COPY	= 531,
+    CP_COPY8	= 532,
+    CP_PASTE	= 533,
+    CP_PASTE8	= 534,
+    CP_PASTE8_rec	= 535,
+    CP_PASTE_rec	= 536,
+    CR6SET	= 537,
+    CR6UNSET	= 538,
+    CRAND	= 539,
+    CRANDC	= 540,
+    CREQV	= 541,
+    CRNAND	= 542,
+    CRNOR	= 543,
+    CROR	= 544,
+    CRORC	= 545,
+    CRSET	= 546,
+    CRUNSET	= 547,
+    CRXOR	= 548,
+    CTRL_DEP	= 549,
+    DARN	= 550,
+    DCBA	= 551,
+    DCBF	= 552,
+    DCBFEP	= 553,
+    DCBI	= 554,
+    DCBST	= 555,
+    DCBSTEP	= 556,
+    DCBT	= 557,
+    DCBTEP	= 558,
+    DCBTST	= 559,
+    DCBTSTEP	= 560,
+    DCBZ	= 561,
+    DCBZEP	= 562,
+    DCBZL	= 563,
+    DCBZLEP	= 564,
+    DCCCI	= 565,
+    DIVD	= 566,
+    DIVDE	= 567,
+    DIVDEO	= 568,
+    DIVDEO_rec	= 569,
+    DIVDEU	= 570,
+    DIVDEUO	= 571,
+    DIVDEUO_rec	= 572,
+    DIVDEU_rec	= 573,
+    DIVDE_rec	= 574,
+    DIVDO	= 575,
+    DIVDO_rec	= 576,
+    DIVDU	= 577,
+    DIVDUO	= 578,
+    DIVDUO_rec	= 579,
+    DIVDU_rec	= 580,
+    DIVD_rec	= 581,
+    DIVW	= 582,
+    DIVWE	= 583,
+    DIVWEO	= 584,
+    DIVWEO_rec	= 585,
+    DIVWEU	= 586,
+    DIVWEUO	= 587,
+    DIVWEUO_rec	= 588,
+    DIVWEU_rec	= 589,
+    DIVWE_rec	= 590,
+    DIVWO	= 591,
+    DIVWO_rec	= 592,
+    DIVWU	= 593,
+    DIVWUO	= 594,
+    DIVWUO_rec	= 595,
+    DIVWU_rec	= 596,
+    DIVW_rec	= 597,
+    DSS	= 598,
+    DSSALL	= 599,
+    DST	= 600,
+    DST64	= 601,
+    DSTST	= 602,
+    DSTST64	= 603,
+    DSTSTT	= 604,
+    DSTSTT64	= 605,
+    DSTT	= 606,
+    DSTT64	= 607,
+    DYNALLOC	= 608,
+    DYNALLOC8	= 609,
+    DYNAREAOFFSET	= 610,
+    DYNAREAOFFSET8	= 611,
+    EFDABS	= 612,
+    EFDADD	= 613,
+    EFDCFS	= 614,
+    EFDCFSF	= 615,
+    EFDCFSI	= 616,
+    EFDCFSID	= 617,
+    EFDCFUF	= 618,
+    EFDCFUI	= 619,
+    EFDCFUID	= 620,
+    EFDCMPEQ	= 621,
+    EFDCMPGT	= 622,
+    EFDCMPLT	= 623,
+    EFDCTSF	= 624,
+    EFDCTSI	= 625,
+    EFDCTSIDZ	= 626,
+    EFDCTSIZ	= 627,
+    EFDCTUF	= 628,
+    EFDCTUI	= 629,
+    EFDCTUIDZ	= 630,
+    EFDCTUIZ	= 631,
+    EFDDIV	= 632,
+    EFDMUL	= 633,
+    EFDNABS	= 634,
+    EFDNEG	= 635,
+    EFDSUB	= 636,
+    EFDTSTEQ	= 637,
+    EFDTSTGT	= 638,
+    EFDTSTLT	= 639,
+    EFSABS	= 640,
+    EFSADD	= 641,
+    EFSCFD	= 642,
+    EFSCFSF	= 643,
+    EFSCFSI	= 644,
+    EFSCFUF	= 645,
+    EFSCFUI	= 646,
+    EFSCMPEQ	= 647,
+    EFSCMPGT	= 648,
+    EFSCMPLT	= 649,
+    EFSCTSF	= 650,
+    EFSCTSI	= 651,
+    EFSCTSIZ	= 652,
+    EFSCTUF	= 653,
+    EFSCTUI	= 654,
+    EFSCTUIZ	= 655,
+    EFSDIV	= 656,
+    EFSMUL	= 657,
+    EFSNABS	= 658,
+    EFSNEG	= 659,
+    EFSSUB	= 660,
+    EFSTSTEQ	= 661,
+    EFSTSTGT	= 662,
+    EFSTSTLT	= 663,
+    EH_SjLj_LongJmp32	= 664,
+    EH_SjLj_LongJmp64	= 665,
+    EH_SjLj_SetJmp32	= 666,
+    EH_SjLj_SetJmp64	= 667,
+    EH_SjLj_Setup	= 668,
+    EQV	= 669,
+    EQV8	= 670,
+    EQV8_rec	= 671,
+    EQV_rec	= 672,
+    EVABS	= 673,
+    EVADDIW	= 674,
+    EVADDSMIAAW	= 675,
+    EVADDSSIAAW	= 676,
+    EVADDUMIAAW	= 677,
+    EVADDUSIAAW	= 678,
+    EVADDW	= 679,
+    EVAND	= 680,
+    EVANDC	= 681,
+    EVCMPEQ	= 682,
+    EVCMPGTS	= 683,
+    EVCMPGTU	= 684,
+    EVCMPLTS	= 685,
+    EVCMPLTU	= 686,
+    EVCNTLSW	= 687,
+    EVCNTLZW	= 688,
+    EVDIVWS	= 689,
+    EVDIVWU	= 690,
+    EVEQV	= 691,
+    EVEXTSB	= 692,
+    EVEXTSH	= 693,
+    EVFSABS	= 694,
+    EVFSADD	= 695,
+    EVFSCFSF	= 696,
+    EVFSCFSI	= 697,
+    EVFSCFUF	= 698,
+    EVFSCFUI	= 699,
+    EVFSCMPEQ	= 700,
+    EVFSCMPGT	= 701,
+    EVFSCMPLT	= 702,
+    EVFSCTSF	= 703,
+    EVFSCTSI	= 704,
+    EVFSCTSIZ	= 705,
+    EVFSCTUF	= 706,
+    EVFSCTUI	= 707,
+    EVFSCTUIZ	= 708,
+    EVFSDIV	= 709,
+    EVFSMUL	= 710,
+    EVFSNABS	= 711,
+    EVFSNEG	= 712,
+    EVFSSUB	= 713,
+    EVFSTSTEQ	= 714,
+    EVFSTSTGT	= 715,
+    EVFSTSTLT	= 716,
+    EVLDD	= 717,
+    EVLDDX	= 718,
+    EVLDH	= 719,
+    EVLDHX	= 720,
+    EVLDW	= 721,
+    EVLDWX	= 722,
+    EVLHHESPLAT	= 723,
+    EVLHHESPLATX	= 724,
+    EVLHHOSSPLAT	= 725,
+    EVLHHOSSPLATX	= 726,
+    EVLHHOUSPLAT	= 727,
+    EVLHHOUSPLATX	= 728,
+    EVLWHE	= 729,
+    EVLWHEX	= 730,
+    EVLWHOS	= 731,
+    EVLWHOSX	= 732,
+    EVLWHOU	= 733,
+    EVLWHOUX	= 734,
+    EVLWHSPLAT	= 735,
+    EVLWHSPLATX	= 736,
+    EVLWWSPLAT	= 737,
+    EVLWWSPLATX	= 738,
+    EVMERGEHI	= 739,
+    EVMERGEHILO	= 740,
+    EVMERGELO	= 741,
+    EVMERGELOHI	= 742,
+    EVMHEGSMFAA	= 743,
+    EVMHEGSMFAN	= 744,
+    EVMHEGSMIAA	= 745,
+    EVMHEGSMIAN	= 746,
+    EVMHEGUMIAA	= 747,
+    EVMHEGUMIAN	= 748,
+    EVMHESMF	= 749,
+    EVMHESMFA	= 750,
+    EVMHESMFAAW	= 751,
+    EVMHESMFANW	= 752,
+    EVMHESMI	= 753,
+    EVMHESMIA	= 754,
+    EVMHESMIAAW	= 755,
+    EVMHESMIANW	= 756,
+    EVMHESSF	= 757,
+    EVMHESSFA	= 758,
+    EVMHESSFAAW	= 759,
+    EVMHESSFANW	= 760,
+    EVMHESSIAAW	= 761,
+    EVMHESSIANW	= 762,
+    EVMHEUMI	= 763,
+    EVMHEUMIA	= 764,
+    EVMHEUMIAAW	= 765,
+    EVMHEUMIANW	= 766,
+    EVMHEUSIAAW	= 767,
+    EVMHEUSIANW	= 768,
+    EVMHOGSMFAA	= 769,
+    EVMHOGSMFAN	= 770,
+    EVMHOGSMIAA	= 771,
+    EVMHOGSMIAN	= 772,
+    EVMHOGUMIAA	= 773,
+    EVMHOGUMIAN	= 774,
+    EVMHOSMF	= 775,
+    EVMHOSMFA	= 776,
+    EVMHOSMFAAW	= 777,
+    EVMHOSMFANW	= 778,
+    EVMHOSMI	= 779,
+    EVMHOSMIA	= 780,
+    EVMHOSMIAAW	= 781,
+    EVMHOSMIANW	= 782,
+    EVMHOSSF	= 783,
+    EVMHOSSFA	= 784,
+    EVMHOSSFAAW	= 785,
+    EVMHOSSFANW	= 786,
+    EVMHOSSIAAW	= 787,
+    EVMHOSSIANW	= 788,
+    EVMHOUMI	= 789,
+    EVMHOUMIA	= 790,
+    EVMHOUMIAAW	= 791,
+    EVMHOUMIANW	= 792,
+    EVMHOUSIAAW	= 793,
+    EVMHOUSIANW	= 794,
+    EVMRA	= 795,
+    EVMWHSMF	= 796,
+    EVMWHSMFA	= 797,
+    EVMWHSMI	= 798,
+    EVMWHSMIA	= 799,
+    EVMWHSSF	= 800,
+    EVMWHSSFA	= 801,
+    EVMWHUMI	= 802,
+    EVMWHUMIA	= 803,
+    EVMWLSMIAAW	= 804,
+    EVMWLSMIANW	= 805,
+    EVMWLSSIAAW	= 806,
+    EVMWLSSIANW	= 807,
+    EVMWLUMI	= 808,
+    EVMWLUMIA	= 809,
+    EVMWLUMIAAW	= 810,
+    EVMWLUMIANW	= 811,
+    EVMWLUSIAAW	= 812,
+    EVMWLUSIANW	= 813,
+    EVMWSMF	= 814,
+    EVMWSMFA	= 815,
+    EVMWSMFAA	= 816,
+    EVMWSMFAN	= 817,
+    EVMWSMI	= 818,
+    EVMWSMIA	= 819,
+    EVMWSMIAA	= 820,
+    EVMWSMIAN	= 821,
+    EVMWSSF	= 822,
+    EVMWSSFA	= 823,
+    EVMWSSFAA	= 824,
+    EVMWSSFAN	= 825,
+    EVMWUMI	= 826,
+    EVMWUMIA	= 827,
+    EVMWUMIAA	= 828,
+    EVMWUMIAN	= 829,
+    EVNAND	= 830,
+    EVNEG	= 831,
+    EVNOR	= 832,
+    EVOR	= 833,
+    EVORC	= 834,
+    EVRLW	= 835,
+    EVRLWI	= 836,
+    EVRNDW	= 837,
+    EVSEL	= 838,
+    EVSLW	= 839,
+    EVSLWI	= 840,
+    EVSPLATFI	= 841,
+    EVSPLATI	= 842,
+    EVSRWIS	= 843,
+    EVSRWIU	= 844,
+    EVSRWS	= 845,
+    EVSRWU	= 846,
+    EVSTDD	= 847,
+    EVSTDDX	= 848,
+    EVSTDH	= 849,
+    EVSTDHX	= 850,
+    EVSTDW	= 851,
+    EVSTDWX	= 852,
+    EVSTWHE	= 853,
+    EVSTWHEX	= 854,
+    EVSTWHO	= 855,
+    EVSTWHOX	= 856,
+    EVSTWWE	= 857,
+    EVSTWWEX	= 858,
+    EVSTWWO	= 859,
+    EVSTWWOX	= 860,
+    EVSUBFSMIAAW	= 861,
+    EVSUBFSSIAAW	= 862,
+    EVSUBFUMIAAW	= 863,
+    EVSUBFUSIAAW	= 864,
+    EVSUBFW	= 865,
+    EVSUBIFW	= 866,
+    EVXOR	= 867,
+    EXTSB	= 868,
+    EXTSB8	= 869,
+    EXTSB8_32_64	= 870,
+    EXTSB8_rec	= 871,
+    EXTSB_rec	= 872,
+    EXTSH	= 873,
+    EXTSH8	= 874,
+    EXTSH8_32_64	= 875,
+    EXTSH8_rec	= 876,
+    EXTSH_rec	= 877,
+    EXTSW	= 878,
+    EXTSWSLI	= 879,
+    EXTSWSLI_32_64	= 880,
+    EXTSWSLI_32_64_rec	= 881,
+    EXTSWSLI_rec	= 882,
+    EXTSW_32	= 883,
+    EXTSW_32_64	= 884,
+    EXTSW_32_64_rec	= 885,
+    EXTSW_rec	= 886,
+    EnforceIEIO	= 887,
+    FABSD	= 888,
+    FABSD_rec	= 889,
+    FABSS	= 890,
+    FABSS_rec	= 891,
+    FADD	= 892,
+    FADDS	= 893,
+    FADDS_rec	= 894,
+    FADD_rec	= 895,
+    FADDrtz	= 896,
+    FCFID	= 897,
+    FCFIDS	= 898,
+    FCFIDS_rec	= 899,
+    FCFIDU	= 900,
+    FCFIDUS	= 901,
+    FCFIDUS_rec	= 902,
+    FCFIDU_rec	= 903,
+    FCFID_rec	= 904,
+    FCMPUD	= 905,
+    FCMPUS	= 906,
+    FCPSGND	= 907,
+    FCPSGND_rec	= 908,
+    FCPSGNS	= 909,
+    FCPSGNS_rec	= 910,
+    FCTID	= 911,
+    FCTIDU	= 912,
+    FCTIDUZ	= 913,
+    FCTIDUZ_rec	= 914,
+    FCTIDU_rec	= 915,
+    FCTIDZ	= 916,
+    FCTIDZ_rec	= 917,
+    FCTID_rec	= 918,
+    FCTIW	= 919,
+    FCTIWU	= 920,
+    FCTIWUZ	= 921,
+    FCTIWUZ_rec	= 922,
+    FCTIWU_rec	= 923,
+    FCTIWZ	= 924,
+    FCTIWZ_rec	= 925,
+    FCTIW_rec	= 926,
+    FDIV	= 927,
+    FDIVS	= 928,
+    FDIVS_rec	= 929,
+    FDIV_rec	= 930,
+    FMADD	= 931,
+    FMADDS	= 932,
+    FMADDS_rec	= 933,
+    FMADD_rec	= 934,
+    FMR	= 935,
+    FMR_rec	= 936,
+    FMSUB	= 937,
+    FMSUBS	= 938,
+    FMSUBS_rec	= 939,
+    FMSUB_rec	= 940,
+    FMUL	= 941,
+    FMULS	= 942,
+    FMULS_rec	= 943,
+    FMUL_rec	= 944,
+    FNABSD	= 945,
+    FNABSD_rec	= 946,
+    FNABSS	= 947,
+    FNABSS_rec	= 948,
+    FNEGD	= 949,
+    FNEGD_rec	= 950,
+    FNEGS	= 951,
+    FNEGS_rec	= 952,
+    FNMADD	= 953,
+    FNMADDS	= 954,
+    FNMADDS_rec	= 955,
+    FNMADD_rec	= 956,
+    FNMSUB	= 957,
+    FNMSUBS	= 958,
+    FNMSUBS_rec	= 959,
+    FNMSUB_rec	= 960,
+    FRE	= 961,
+    FRES	= 962,
+    FRES_rec	= 963,
+    FRE_rec	= 964,
+    FRIMD	= 965,
+    FRIMD_rec	= 966,
+    FRIMS	= 967,
+    FRIMS_rec	= 968,
+    FRIND	= 969,
+    FRIND_rec	= 970,
+    FRINS	= 971,
+    FRINS_rec	= 972,
+    FRIPD	= 973,
+    FRIPD_rec	= 974,
+    FRIPS	= 975,
+    FRIPS_rec	= 976,
+    FRIZD	= 977,
+    FRIZD_rec	= 978,
+    FRIZS	= 979,
+    FRIZS_rec	= 980,
+    FRSP	= 981,
+    FRSP_rec	= 982,
+    FRSQRTE	= 983,
+    FRSQRTES	= 984,
+    FRSQRTES_rec	= 985,
+    FRSQRTE_rec	= 986,
+    FSELD	= 987,
+    FSELD_rec	= 988,
+    FSELS	= 989,
+    FSELS_rec	= 990,
+    FSQRT	= 991,
+    FSQRTS	= 992,
+    FSQRTS_rec	= 993,
+    FSQRT_rec	= 994,
+    FSUB	= 995,
+    FSUBS	= 996,
+    FSUBS_rec	= 997,
+    FSUB_rec	= 998,
+    FTDIV	= 999,
+    FTSQRT	= 1000,
+    GETtlsADDR	= 1001,
+    GETtlsADDR32	= 1002,
+    GETtlsldADDR	= 1003,
+    GETtlsldADDR32	= 1004,
+    HRFID	= 1005,
+    ICBI	= 1006,
+    ICBIEP	= 1007,
+    ICBLC	= 1008,
+    ICBLQ	= 1009,
+    ICBT	= 1010,
+    ICBTLS	= 1011,
+    ICCCI	= 1012,
+    ISEL	= 1013,
+    ISEL8	= 1014,
+    ISYNC	= 1015,
+    LA	= 1016,
+    LBARX	= 1017,
+    LBARXL	= 1018,
+    LBEPX	= 1019,
+    LBZ	= 1020,
+    LBZ8	= 1021,
+    LBZCIX	= 1022,
+    LBZU	= 1023,
+    LBZU8	= 1024,
+    LBZUX	= 1025,
+    LBZUX8	= 1026,
+    LBZX	= 1027,
+    LBZX8	= 1028,
+    LBZXTLS	= 1029,
+    LBZXTLS_	= 1030,
+    LBZXTLS_32	= 1031,
+    LD	= 1032,
+    LDARX	= 1033,
+    LDARXL	= 1034,
+    LDAT	= 1035,
+    LDBRX	= 1036,
+    LDCIX	= 1037,
+    LDMX	= 1038,
+    LDU	= 1039,
+    LDUX	= 1040,
+    LDX	= 1041,
+    LDXTLS	= 1042,
+    LDXTLS_	= 1043,
+    LDgotTprelL	= 1044,
+    LDgotTprelL32	= 1045,
+    LDtoc	= 1046,
+    LDtocBA	= 1047,
+    LDtocCPT	= 1048,
+    LDtocJTI	= 1049,
+    LDtocL	= 1050,
+    LFD	= 1051,
+    LFDEPX	= 1052,
+    LFDU	= 1053,
+    LFDUX	= 1054,
+    LFDX	= 1055,
+    LFIWAX	= 1056,
+    LFIWZX	= 1057,
+    LFS	= 1058,
+    LFSU	= 1059,
+    LFSUX	= 1060,
+    LFSX	= 1061,
+    LHA	= 1062,
+    LHA8	= 1063,
+    LHARX	= 1064,
+    LHARXL	= 1065,
+    LHAU	= 1066,
+    LHAU8	= 1067,
+    LHAUX	= 1068,
+    LHAUX8	= 1069,
+    LHAX	= 1070,
+    LHAX8	= 1071,
+    LHBRX	= 1072,
+    LHBRX8	= 1073,
+    LHEPX	= 1074,
+    LHZ	= 1075,
+    LHZ8	= 1076,
+    LHZCIX	= 1077,
+    LHZU	= 1078,
+    LHZU8	= 1079,
+    LHZUX	= 1080,
+    LHZUX8	= 1081,
+    LHZX	= 1082,
+    LHZX8	= 1083,
+    LHZXTLS	= 1084,
+    LHZXTLS_	= 1085,
+    LHZXTLS_32	= 1086,
+    LI	= 1087,
+    LI8	= 1088,
+    LIS	= 1089,
+    LIS8	= 1090,
+    LMW	= 1091,
+    LSWI	= 1092,
+    LVEBX	= 1093,
+    LVEHX	= 1094,
+    LVEWX	= 1095,
+    LVSL	= 1096,
+    LVSR	= 1097,
+    LVX	= 1098,
+    LVXL	= 1099,
+    LWA	= 1100,
+    LWARX	= 1101,
+    LWARXL	= 1102,
+    LWAT	= 1103,
+    LWAUX	= 1104,
+    LWAX	= 1105,
+    LWAX_32	= 1106,
+    LWA_32	= 1107,
+    LWBRX	= 1108,
+    LWBRX8	= 1109,
+    LWEPX	= 1110,
+    LWZ	= 1111,
+    LWZ8	= 1112,
+    LWZCIX	= 1113,
+    LWZU	= 1114,
+    LWZU8	= 1115,
+    LWZUX	= 1116,
+    LWZUX8	= 1117,
+    LWZX	= 1118,
+    LWZX8	= 1119,
+    LWZXTLS	= 1120,
+    LWZXTLS_	= 1121,
+    LWZXTLS_32	= 1122,
+    LWZtoc	= 1123,
+    LWZtocL	= 1124,
+    LXSD	= 1125,
+    LXSDX	= 1126,
+    LXSIBZX	= 1127,
+    LXSIHZX	= 1128,
+    LXSIWAX	= 1129,
+    LXSIWZX	= 1130,
+    LXSSP	= 1131,
+    LXSSPX	= 1132,
+    LXV	= 1133,
+    LXVB16X	= 1134,
+    LXVD2X	= 1135,
+    LXVDSX	= 1136,
+    LXVH8X	= 1137,
+    LXVL	= 1138,
+    LXVLL	= 1139,
+    LXVW4X	= 1140,
+    LXVWSX	= 1141,
+    LXVX	= 1142,
+    MADDHD	= 1143,
+    MADDHDU	= 1144,
+    MADDLD	= 1145,
+    MADDLD8	= 1146,
+    MBAR	= 1147,
+    MCRF	= 1148,
+    MCRFS	= 1149,
+    MCRXRX	= 1150,
+    MFBHRBE	= 1151,
+    MFCR	= 1152,
+    MFCR8	= 1153,
+    MFCTR	= 1154,
+    MFCTR8	= 1155,
+    MFDCR	= 1156,
+    MFFS	= 1157,
+    MFFSCDRN	= 1158,
+    MFFSCDRNI	= 1159,
+    MFFSCE	= 1160,
+    MFFSCRN	= 1161,
+    MFFSCRNI	= 1162,
+    MFFSL	= 1163,
+    MFFS_rec	= 1164,
+    MFLR	= 1165,
+    MFLR8	= 1166,
+    MFMSR	= 1167,
+    MFOCRF	= 1168,
+    MFOCRF8	= 1169,
+    MFPMR	= 1170,
+    MFSPR	= 1171,
+    MFSPR8	= 1172,
+    MFSR	= 1173,
+    MFSRIN	= 1174,
+    MFTB	= 1175,
+    MFTB8	= 1176,
+    MFVRD	= 1177,
+    MFVRSAVE	= 1178,
+    MFVRSAVEv	= 1179,
+    MFVRWZ	= 1180,
+    MFVSCR	= 1181,
+    MFVSRD	= 1182,
+    MFVSRLD	= 1183,
+    MFVSRWZ	= 1184,
+    MODSD	= 1185,
+    MODSW	= 1186,
+    MODUD	= 1187,
+    MODUW	= 1188,
+    MSGSYNC	= 1189,
+    MSYNC	= 1190,
+    MTCRF	= 1191,
+    MTCRF8	= 1192,
+    MTCTR	= 1193,
+    MTCTR8	= 1194,
+    MTCTR8loop	= 1195,
+    MTCTRloop	= 1196,
+    MTDCR	= 1197,
+    MTFSB0	= 1198,
+    MTFSB1	= 1199,
+    MTFSF	= 1200,
+    MTFSFI	= 1201,
+    MTFSFI_rec	= 1202,
+    MTFSF_rec	= 1203,
+    MTFSFb	= 1204,
+    MTLR	= 1205,
+    MTLR8	= 1206,
+    MTMSR	= 1207,
+    MTMSRD	= 1208,
+    MTOCRF	= 1209,
+    MTOCRF8	= 1210,
+    MTPMR	= 1211,
+    MTSPR	= 1212,
+    MTSPR8	= 1213,
+    MTSR	= 1214,
+    MTSRIN	= 1215,
+    MTVRD	= 1216,
+    MTVRSAVE	= 1217,
+    MTVRSAVEv	= 1218,
+    MTVRWA	= 1219,
+    MTVRWZ	= 1220,
+    MTVSCR	= 1221,
+    MTVSRD	= 1222,
+    MTVSRDD	= 1223,
+    MTVSRWA	= 1224,
+    MTVSRWS	= 1225,
+    MTVSRWZ	= 1226,
+    MULHD	= 1227,
+    MULHDU	= 1228,
+    MULHDU_rec	= 1229,
+    MULHD_rec	= 1230,
+    MULHW	= 1231,
+    MULHWU	= 1232,
+    MULHWU_rec	= 1233,
+    MULHW_rec	= 1234,
+    MULLD	= 1235,
+    MULLDO	= 1236,
+    MULLDO_rec	= 1237,
+    MULLD_rec	= 1238,
+    MULLI	= 1239,
+    MULLI8	= 1240,
+    MULLW	= 1241,
+    MULLWO	= 1242,
+    MULLWO_rec	= 1243,
+    MULLW_rec	= 1244,
+    MoveGOTtoLR	= 1245,
+    MovePCtoLR	= 1246,
+    MovePCtoLR8	= 1247,
+    NAND	= 1248,
+    NAND8	= 1249,
+    NAND8_rec	= 1250,
+    NAND_rec	= 1251,
+    NAP	= 1252,
+    NEG	= 1253,
+    NEG8	= 1254,
+    NEG8O	= 1255,
+    NEG8O_rec	= 1256,
+    NEG8_rec	= 1257,
+    NEGO	= 1258,
+    NEGO_rec	= 1259,
+    NEG_rec	= 1260,
+    NOP	= 1261,
+    NOP_GT_PWR6	= 1262,
+    NOP_GT_PWR7	= 1263,
+    NOR	= 1264,
+    NOR8	= 1265,
+    NOR8_rec	= 1266,
+    NOR_rec	= 1267,
+    OR	= 1268,
+    OR8	= 1269,
+    OR8_rec	= 1270,
+    ORC	= 1271,
+    ORC8	= 1272,
+    ORC8_rec	= 1273,
+    ORC_rec	= 1274,
+    ORI	= 1275,
+    ORI8	= 1276,
+    ORIS	= 1277,
+    ORIS8	= 1278,
+    OR_rec	= 1279,
+    PADDI	= 1280,
+    PADDI8	= 1281,
+    PADDI8pc	= 1282,
+    PADDIpc	= 1283,
+    PLBZ	= 1284,
+    PLBZ8	= 1285,
+    PLBZ8pc	= 1286,
+    PLBZpc	= 1287,
+    PLD	= 1288,
+    PLDpc	= 1289,
+    PLFD	= 1290,
+    PLFDpc	= 1291,
+    PLFS	= 1292,
+    PLFSpc	= 1293,
+    PLHA	= 1294,
+    PLHA8	= 1295,
+    PLHA8pc	= 1296,
+    PLHApc	= 1297,
+    PLHZ	= 1298,
+    PLHZ8	= 1299,
+    PLHZ8pc	= 1300,
+    PLHZpc	= 1301,
+    PLI	= 1302,
+    PLI8	= 1303,
+    PLWA	= 1304,
+    PLWA8	= 1305,
+    PLWA8pc	= 1306,
+    PLWApc	= 1307,
+    PLWZ	= 1308,
+    PLWZ8	= 1309,
+    PLWZ8pc	= 1310,
+    PLWZpc	= 1311,
+    PLXSD	= 1312,
+    PLXSDpc	= 1313,
+    PLXSSP	= 1314,
+    PLXSSPpc	= 1315,
+    PLXV	= 1316,
+    PLXVpc	= 1317,
+    POPCNTB	= 1318,
+    POPCNTD	= 1319,
+    POPCNTW	= 1320,
+    PPC32GOT	= 1321,
+    PPC32PICGOT	= 1322,
+    PSTB	= 1323,
+    PSTB8	= 1324,
+    PSTB8pc	= 1325,
+    PSTBpc	= 1326,
+    PSTD	= 1327,
+    PSTDpc	= 1328,
+    PSTFD	= 1329,
+    PSTFDpc	= 1330,
+    PSTFS	= 1331,
+    PSTFSpc	= 1332,
+    PSTH	= 1333,
+    PSTH8	= 1334,
+    PSTH8pc	= 1335,
+    PSTHpc	= 1336,
+    PSTW	= 1337,
+    PSTW8	= 1338,
+    PSTW8pc	= 1339,
+    PSTWpc	= 1340,
+    PSTXSD	= 1341,
+    PSTXSDpc	= 1342,
+    PSTXSSP	= 1343,
+    PSTXSSPpc	= 1344,
+    PSTXV	= 1345,
+    PSTXVpc	= 1346,
+    QVALIGNI	= 1347,
+    QVALIGNIb	= 1348,
+    QVALIGNIs	= 1349,
+    QVESPLATI	= 1350,
+    QVESPLATIb	= 1351,
+    QVESPLATIs	= 1352,
+    QVFABS	= 1353,
+    QVFABSs	= 1354,
+    QVFADD	= 1355,
+    QVFADDS	= 1356,
+    QVFADDSs	= 1357,
+    QVFCFID	= 1358,
+    QVFCFIDS	= 1359,
+    QVFCFIDU	= 1360,
+    QVFCFIDUS	= 1361,
+    QVFCFIDb	= 1362,
+    QVFCMPEQ	= 1363,
+    QVFCMPEQb	= 1364,
+    QVFCMPEQbs	= 1365,
+    QVFCMPGT	= 1366,
+    QVFCMPGTb	= 1367,
+    QVFCMPGTbs	= 1368,
+    QVFCMPLT	= 1369,
+    QVFCMPLTb	= 1370,
+    QVFCMPLTbs	= 1371,
+    QVFCPSGN	= 1372,
+    QVFCPSGNs	= 1373,
+    QVFCTID	= 1374,
+    QVFCTIDU	= 1375,
+    QVFCTIDUZ	= 1376,
+    QVFCTIDZ	= 1377,
+    QVFCTIDb	= 1378,
+    QVFCTIW	= 1379,
+    QVFCTIWU	= 1380,
+    QVFCTIWUZ	= 1381,
+    QVFCTIWZ	= 1382,
+    QVFLOGICAL	= 1383,
+    QVFLOGICALb	= 1384,
+    QVFLOGICALs	= 1385,
+    QVFMADD	= 1386,
+    QVFMADDS	= 1387,
+    QVFMADDSs	= 1388,
+    QVFMR	= 1389,
+    QVFMRb	= 1390,
+    QVFMRs	= 1391,
+    QVFMSUB	= 1392,
+    QVFMSUBS	= 1393,
+    QVFMSUBSs	= 1394,
+    QVFMUL	= 1395,
+    QVFMULS	= 1396,
+    QVFMULSs	= 1397,
+    QVFNABS	= 1398,
+    QVFNABSs	= 1399,
+    QVFNEG	= 1400,
+    QVFNEGs	= 1401,
+    QVFNMADD	= 1402,
+    QVFNMADDS	= 1403,
+    QVFNMADDSs	= 1404,
+    QVFNMSUB	= 1405,
+    QVFNMSUBS	= 1406,
+    QVFNMSUBSs	= 1407,
+    QVFPERM	= 1408,
+    QVFPERMs	= 1409,
+    QVFRE	= 1410,
+    QVFRES	= 1411,
+    QVFRESs	= 1412,
+    QVFRIM	= 1413,
+    QVFRIMs	= 1414,
+    QVFRIN	= 1415,
+    QVFRINs	= 1416,
+    QVFRIP	= 1417,
+    QVFRIPs	= 1418,
+    QVFRIZ	= 1419,
+    QVFRIZs	= 1420,
+    QVFRSP	= 1421,
+    QVFRSPs	= 1422,
+    QVFRSQRTE	= 1423,
+    QVFRSQRTES	= 1424,
+    QVFRSQRTESs	= 1425,
+    QVFSEL	= 1426,
+    QVFSELb	= 1427,
+    QVFSELbb	= 1428,
+    QVFSELbs	= 1429,
+    QVFSUB	= 1430,
+    QVFSUBS	= 1431,
+    QVFSUBSs	= 1432,
+    QVFTSTNAN	= 1433,
+    QVFTSTNANb	= 1434,
+    QVFTSTNANbs	= 1435,
+    QVFXMADD	= 1436,
+    QVFXMADDS	= 1437,
+    QVFXMUL	= 1438,
+    QVFXMULS	= 1439,
+    QVFXXCPNMADD	= 1440,
+    QVFXXCPNMADDS	= 1441,
+    QVFXXMADD	= 1442,
+    QVFXXMADDS	= 1443,
+    QVFXXNPMADD	= 1444,
+    QVFXXNPMADDS	= 1445,
+    QVGPCI	= 1446,
+    QVLFCDUX	= 1447,
+    QVLFCDUXA	= 1448,
+    QVLFCDX	= 1449,
+    QVLFCDXA	= 1450,
+    QVLFCSUX	= 1451,
+    QVLFCSUXA	= 1452,
+    QVLFCSX	= 1453,
+    QVLFCSXA	= 1454,
+    QVLFCSXs	= 1455,
+    QVLFDUX	= 1456,
+    QVLFDUXA	= 1457,
+    QVLFDX	= 1458,
+    QVLFDXA	= 1459,
+    QVLFDXb	= 1460,
+    QVLFIWAX	= 1461,
+    QVLFIWAXA	= 1462,
+    QVLFIWZX	= 1463,
+    QVLFIWZXA	= 1464,
+    QVLFSUX	= 1465,
+    QVLFSUXA	= 1466,
+    QVLFSX	= 1467,
+    QVLFSXA	= 1468,
+    QVLFSXb	= 1469,
+    QVLFSXs	= 1470,
+    QVLPCLDX	= 1471,
+    QVLPCLSX	= 1472,
+    QVLPCLSXint	= 1473,
+    QVLPCRDX	= 1474,
+    QVLPCRSX	= 1475,
+    QVSTFCDUX	= 1476,
+    QVSTFCDUXA	= 1477,
+    QVSTFCDUXI	= 1478,
+    QVSTFCDUXIA	= 1479,
+    QVSTFCDX	= 1480,
+    QVSTFCDXA	= 1481,
+    QVSTFCDXI	= 1482,
+    QVSTFCDXIA	= 1483,
+    QVSTFCSUX	= 1484,
+    QVSTFCSUXA	= 1485,
+    QVSTFCSUXI	= 1486,
+    QVSTFCSUXIA	= 1487,
+    QVSTFCSX	= 1488,
+    QVSTFCSXA	= 1489,
+    QVSTFCSXI	= 1490,
+    QVSTFCSXIA	= 1491,
+    QVSTFCSXs	= 1492,
+    QVSTFDUX	= 1493,
+    QVSTFDUXA	= 1494,
+    QVSTFDUXI	= 1495,
+    QVSTFDUXIA	= 1496,
+    QVSTFDX	= 1497,
+    QVSTFDXA	= 1498,
+    QVSTFDXI	= 1499,
+    QVSTFDXIA	= 1500,
+    QVSTFDXb	= 1501,
+    QVSTFIWX	= 1502,
+    QVSTFIWXA	= 1503,
+    QVSTFSUX	= 1504,
+    QVSTFSUXA	= 1505,
+    QVSTFSUXI	= 1506,
+    QVSTFSUXIA	= 1507,
+    QVSTFSUXs	= 1508,
+    QVSTFSX	= 1509,
+    QVSTFSXA	= 1510,
+    QVSTFSXI	= 1511,
+    QVSTFSXIA	= 1512,
+    QVSTFSXs	= 1513,
+    RESTORE_CR	= 1514,
+    RESTORE_CRBIT	= 1515,
+    RESTORE_VRSAVE	= 1516,
+    RFCI	= 1517,
+    RFDI	= 1518,
+    RFEBB	= 1519,
+    RFI	= 1520,
+    RFID	= 1521,
+    RFMCI	= 1522,
+    RLDCL	= 1523,
+    RLDCL_rec	= 1524,
+    RLDCR	= 1525,
+    RLDCR_rec	= 1526,
+    RLDIC	= 1527,
+    RLDICL	= 1528,
+    RLDICL_32	= 1529,
+    RLDICL_32_64	= 1530,
+    RLDICL_32_rec	= 1531,
+    RLDICL_rec	= 1532,
+    RLDICR	= 1533,
+    RLDICR_32	= 1534,
+    RLDICR_rec	= 1535,
+    RLDIC_rec	= 1536,
+    RLDIMI	= 1537,
+    RLDIMI_rec	= 1538,
+    RLWIMI	= 1539,
+    RLWIMI8	= 1540,
+    RLWIMI8_rec	= 1541,
+    RLWIMI_rec	= 1542,
+    RLWINM	= 1543,
+    RLWINM8	= 1544,
+    RLWINM8_rec	= 1545,
+    RLWINM_rec	= 1546,
+    RLWNM	= 1547,
+    RLWNM8	= 1548,
+    RLWNM8_rec	= 1549,
+    RLWNM_rec	= 1550,
+    ReadTB	= 1551,
+    SC	= 1552,
+    SELECT_CC_F16	= 1553,
+    SELECT_CC_F4	= 1554,
+    SELECT_CC_F8	= 1555,
+    SELECT_CC_I4	= 1556,
+    SELECT_CC_I8	= 1557,
+    SELECT_CC_QBRC	= 1558,
+    SELECT_CC_QFRC	= 1559,
+    SELECT_CC_QSRC	= 1560,
+    SELECT_CC_SPE	= 1561,
+    SELECT_CC_SPE4	= 1562,
+    SELECT_CC_VRRC	= 1563,
+    SELECT_CC_VSFRC	= 1564,
+    SELECT_CC_VSRC	= 1565,
+    SELECT_CC_VSSRC	= 1566,
+    SELECT_F16	= 1567,
+    SELECT_F4	= 1568,
+    SELECT_F8	= 1569,
+    SELECT_I4	= 1570,
+    SELECT_I8	= 1571,
+    SELECT_QBRC	= 1572,
+    SELECT_QFRC	= 1573,
+    SELECT_QSRC	= 1574,
+    SELECT_SPE	= 1575,
+    SELECT_SPE4	= 1576,
+    SELECT_VRRC	= 1577,
+    SELECT_VSFRC	= 1578,
+    SELECT_VSRC	= 1579,
+    SELECT_VSSRC	= 1580,
+    SETB	= 1581,
+    SETB8	= 1582,
+    SETRND	= 1583,
+    SETRNDi	= 1584,
+    SLBFEE_rec	= 1585,
+    SLBIA	= 1586,
+    SLBIE	= 1587,
+    SLBIEG	= 1588,
+    SLBMFEE	= 1589,
+    SLBMFEV	= 1590,
+    SLBMTE	= 1591,
+    SLBSYNC	= 1592,
+    SLD	= 1593,
+    SLD_rec	= 1594,
+    SLW	= 1595,
+    SLW8	= 1596,
+    SLW8_rec	= 1597,
+    SLW_rec	= 1598,
+    SPELWZ	= 1599,
+    SPELWZX	= 1600,
+    SPESTW	= 1601,
+    SPESTWX	= 1602,
+    SPILL_CR	= 1603,
+    SPILL_CRBIT	= 1604,
+    SPILL_VRSAVE	= 1605,
+    SRAD	= 1606,
+    SRADI	= 1607,
+    SRADI_32	= 1608,
+    SRADI_rec	= 1609,
+    SRAD_rec	= 1610,
+    SRAW	= 1611,
+    SRAWI	= 1612,
+    SRAWI_rec	= 1613,
+    SRAW_rec	= 1614,
+    SRD	= 1615,
+    SRD_rec	= 1616,
+    SRW	= 1617,
+    SRW8	= 1618,
+    SRW8_rec	= 1619,
+    SRW_rec	= 1620,
+    STB	= 1621,
+    STB8	= 1622,
+    STBCIX	= 1623,
+    STBCX	= 1624,
+    STBEPX	= 1625,
+    STBU	= 1626,
+    STBU8	= 1627,
+    STBUX	= 1628,
+    STBUX8	= 1629,
+    STBX	= 1630,
+    STBX8	= 1631,
+    STBXTLS	= 1632,
+    STBXTLS_	= 1633,
+    STBXTLS_32	= 1634,
+    STD	= 1635,
+    STDAT	= 1636,
+    STDBRX	= 1637,
+    STDCIX	= 1638,
+    STDCX	= 1639,
+    STDU	= 1640,
+    STDUX	= 1641,
+    STDX	= 1642,
+    STDXTLS	= 1643,
+    STDXTLS_	= 1644,
+    STFD	= 1645,
+    STFDEPX	= 1646,
+    STFDU	= 1647,
+    STFDUX	= 1648,
+    STFDX	= 1649,
+    STFIWX	= 1650,
+    STFS	= 1651,
+    STFSU	= 1652,
+    STFSUX	= 1653,
+    STFSX	= 1654,
+    STH	= 1655,
+    STH8	= 1656,
+    STHBRX	= 1657,
+    STHCIX	= 1658,
+    STHCX	= 1659,
+    STHEPX	= 1660,
+    STHU	= 1661,
+    STHU8	= 1662,
+    STHUX	= 1663,
+    STHUX8	= 1664,
+    STHX	= 1665,
+    STHX8	= 1666,
+    STHXTLS	= 1667,
+    STHXTLS_	= 1668,
+    STHXTLS_32	= 1669,
+    STMW	= 1670,
+    STOP	= 1671,
+    STSWI	= 1672,
+    STVEBX	= 1673,
+    STVEHX	= 1674,
+    STVEWX	= 1675,
+    STVX	= 1676,
+    STVXL	= 1677,
+    STW	= 1678,
+    STW8	= 1679,
+    STWAT	= 1680,
+    STWBRX	= 1681,
+    STWCIX	= 1682,
+    STWCX	= 1683,
+    STWEPX	= 1684,
+    STWU	= 1685,
+    STWU8	= 1686,
+    STWUX	= 1687,
+    STWUX8	= 1688,
+    STWX	= 1689,
+    STWX8	= 1690,
+    STWXTLS	= 1691,
+    STWXTLS_	= 1692,
+    STWXTLS_32	= 1693,
+    STXSD	= 1694,
+    STXSDX	= 1695,
+    STXSIBX	= 1696,
+    STXSIBXv	= 1697,
+    STXSIHX	= 1698,
+    STXSIHXv	= 1699,
+    STXSIWX	= 1700,
+    STXSSP	= 1701,
+    STXSSPX	= 1702,
+    STXV	= 1703,
+    STXVB16X	= 1704,
+    STXVD2X	= 1705,
+    STXVH8X	= 1706,
+    STXVL	= 1707,
+    STXVLL	= 1708,
+    STXVW4X	= 1709,
+    STXVX	= 1710,
+    SUBF	= 1711,
+    SUBF8	= 1712,
+    SUBF8O	= 1713,
+    SUBF8O_rec	= 1714,
+    SUBF8_rec	= 1715,
+    SUBFC	= 1716,
+    SUBFC8	= 1717,
+    SUBFC8O	= 1718,
+    SUBFC8O_rec	= 1719,
+    SUBFC8_rec	= 1720,
+    SUBFCO	= 1721,
+    SUBFCO_rec	= 1722,
+    SUBFC_rec	= 1723,
+    SUBFE	= 1724,
+    SUBFE8	= 1725,
+    SUBFE8O	= 1726,
+    SUBFE8O_rec	= 1727,
+    SUBFE8_rec	= 1728,
+    SUBFEO	= 1729,
+    SUBFEO_rec	= 1730,
+    SUBFE_rec	= 1731,
+    SUBFIC	= 1732,
+    SUBFIC8	= 1733,
+    SUBFME	= 1734,
+    SUBFME8	= 1735,
+    SUBFME8O	= 1736,
+    SUBFME8O_rec	= 1737,
+    SUBFME8_rec	= 1738,
+    SUBFMEO	= 1739,
+    SUBFMEO_rec	= 1740,
+    SUBFME_rec	= 1741,
+    SUBFO	= 1742,
+    SUBFO_rec	= 1743,
+    SUBFZE	= 1744,
+    SUBFZE8	= 1745,
+    SUBFZE8O	= 1746,
+    SUBFZE8O_rec	= 1747,
+    SUBFZE8_rec	= 1748,
+    SUBFZEO	= 1749,
+    SUBFZEO_rec	= 1750,
+    SUBFZE_rec	= 1751,
+    SUBF_rec	= 1752,
+    SYNC	= 1753,
+    TABORT	= 1754,
+    TABORTDC	= 1755,
+    TABORTDCI	= 1756,
+    TABORTWC	= 1757,
+    TABORTWCI	= 1758,
+    TAILB	= 1759,
+    TAILB8	= 1760,
+    TAILBA	= 1761,
+    TAILBA8	= 1762,
+    TAILBCTR	= 1763,
+    TAILBCTR8	= 1764,
+    TBEGIN	= 1765,
+    TBEGIN_RET	= 1766,
+    TCHECK	= 1767,
+    TCHECK_RET	= 1768,
+    TCRETURNai	= 1769,
+    TCRETURNai8	= 1770,
+    TCRETURNdi	= 1771,
+    TCRETURNdi8	= 1772,
+    TCRETURNri	= 1773,
+    TCRETURNri8	= 1774,
+    TD	= 1775,
+    TDI	= 1776,
+    TEND	= 1777,
+    TLBIA	= 1778,
+    TLBIE	= 1779,
+    TLBIEL	= 1780,
+    TLBIVAX	= 1781,
+    TLBLD	= 1782,
+    TLBLI	= 1783,
+    TLBRE	= 1784,
+    TLBRE2	= 1785,
+    TLBSX	= 1786,
+    TLBSX2	= 1787,
+    TLBSX2D	= 1788,
+    TLBSYNC	= 1789,
+    TLBWE	= 1790,
+    TLBWE2	= 1791,
+    TRAP	= 1792,
+    TRECHKPT	= 1793,
+    TRECLAIM	= 1794,
+    TSR	= 1795,
+    TW	= 1796,
+    TWI	= 1797,
+    UNENCODED_NOP	= 1798,
+    UPDATE_VRSAVE	= 1799,
+    UpdateGBR	= 1800,
+    VABSDUB	= 1801,
+    VABSDUH	= 1802,
+    VABSDUW	= 1803,
+    VADDCUQ	= 1804,
+    VADDCUW	= 1805,
+    VADDECUQ	= 1806,
+    VADDEUQM	= 1807,
+    VADDFP	= 1808,
+    VADDSBS	= 1809,
+    VADDSHS	= 1810,
+    VADDSWS	= 1811,
+    VADDUBM	= 1812,
+    VADDUBS	= 1813,
+    VADDUDM	= 1814,
+    VADDUHM	= 1815,
+    VADDUHS	= 1816,
+    VADDUQM	= 1817,
+    VADDUWM	= 1818,
+    VADDUWS	= 1819,
+    VAND	= 1820,
+    VANDC	= 1821,
+    VAVGSB	= 1822,
+    VAVGSH	= 1823,
+    VAVGSW	= 1824,
+    VAVGUB	= 1825,
+    VAVGUH	= 1826,
+    VAVGUW	= 1827,
+    VBPERMD	= 1828,
+    VBPERMQ	= 1829,
+    VCFSX	= 1830,
+    VCFSX_0	= 1831,
+    VCFUX	= 1832,
+    VCFUX_0	= 1833,
+    VCIPHER	= 1834,
+    VCIPHERLAST	= 1835,
+    VCLZB	= 1836,
+    VCLZD	= 1837,
+    VCLZH	= 1838,
+    VCLZLSBB	= 1839,
+    VCLZW	= 1840,
+    VCMPBFP	= 1841,
+    VCMPBFP_rec	= 1842,
+    VCMPEQFP	= 1843,
+    VCMPEQFP_rec	= 1844,
+    VCMPEQUB	= 1845,
+    VCMPEQUB_rec	= 1846,
+    VCMPEQUD	= 1847,
+    VCMPEQUD_rec	= 1848,
+    VCMPEQUH	= 1849,
+    VCMPEQUH_rec	= 1850,
+    VCMPEQUW	= 1851,
+    VCMPEQUW_rec	= 1852,
+    VCMPGEFP	= 1853,
+    VCMPGEFP_rec	= 1854,
+    VCMPGTFP	= 1855,
+    VCMPGTFP_rec	= 1856,
+    VCMPGTSB	= 1857,
+    VCMPGTSB_rec	= 1858,
+    VCMPGTSD	= 1859,
+    VCMPGTSD_rec	= 1860,
+    VCMPGTSH	= 1861,
+    VCMPGTSH_rec	= 1862,
+    VCMPGTSW	= 1863,
+    VCMPGTSW_rec	= 1864,
+    VCMPGTUB	= 1865,
+    VCMPGTUB_rec	= 1866,
+    VCMPGTUD	= 1867,
+    VCMPGTUD_rec	= 1868,
+    VCMPGTUH	= 1869,
+    VCMPGTUH_rec	= 1870,
+    VCMPGTUW	= 1871,
+    VCMPGTUW_rec	= 1872,
+    VCMPNEB	= 1873,
+    VCMPNEB_rec	= 1874,
+    VCMPNEH	= 1875,
+    VCMPNEH_rec	= 1876,
+    VCMPNEW	= 1877,
+    VCMPNEW_rec	= 1878,
+    VCMPNEZB	= 1879,
+    VCMPNEZB_rec	= 1880,
+    VCMPNEZH	= 1881,
+    VCMPNEZH_rec	= 1882,
+    VCMPNEZW	= 1883,
+    VCMPNEZW_rec	= 1884,
+    VCTSXS	= 1885,
+    VCTSXS_0	= 1886,
+    VCTUXS	= 1887,
+    VCTUXS_0	= 1888,
+    VCTZB	= 1889,
+    VCTZD	= 1890,
+    VCTZH	= 1891,
+    VCTZLSBB	= 1892,
+    VCTZW	= 1893,
+    VEQV	= 1894,
+    VEXPTEFP	= 1895,
+    VEXTRACTD	= 1896,
+    VEXTRACTUB	= 1897,
+    VEXTRACTUH	= 1898,
+    VEXTRACTUW	= 1899,
+    VEXTSB2D	= 1900,
+    VEXTSB2Ds	= 1901,
+    VEXTSB2W	= 1902,
+    VEXTSB2Ws	= 1903,
+    VEXTSH2D	= 1904,
+    VEXTSH2Ds	= 1905,
+    VEXTSH2W	= 1906,
+    VEXTSH2Ws	= 1907,
+    VEXTSW2D	= 1908,
+    VEXTSW2Ds	= 1909,
+    VEXTUBLX	= 1910,
+    VEXTUBRX	= 1911,
+    VEXTUHLX	= 1912,
+    VEXTUHRX	= 1913,
+    VEXTUWLX	= 1914,
+    VEXTUWRX	= 1915,
+    VGBBD	= 1916,
+    VINSERTB	= 1917,
+    VINSERTD	= 1918,
+    VINSERTH	= 1919,
+    VINSERTW	= 1920,
+    VLOGEFP	= 1921,
+    VMADDFP	= 1922,
+    VMAXFP	= 1923,
+    VMAXSB	= 1924,
+    VMAXSD	= 1925,
+    VMAXSH	= 1926,
+    VMAXSW	= 1927,
+    VMAXUB	= 1928,
+    VMAXUD	= 1929,
+    VMAXUH	= 1930,
+    VMAXUW	= 1931,
+    VMHADDSHS	= 1932,
+    VMHRADDSHS	= 1933,
+    VMINFP	= 1934,
+    VMINSB	= 1935,
+    VMINSD	= 1936,
+    VMINSH	= 1937,
+    VMINSW	= 1938,
+    VMINUB	= 1939,
+    VMINUD	= 1940,
+    VMINUH	= 1941,
+    VMINUW	= 1942,
+    VMLADDUHM	= 1943,
+    VMRGEW	= 1944,
+    VMRGHB	= 1945,
+    VMRGHH	= 1946,
+    VMRGHW	= 1947,
+    VMRGLB	= 1948,
+    VMRGLH	= 1949,
+    VMRGLW	= 1950,
+    VMRGOW	= 1951,
+    VMSUMMBM	= 1952,
+    VMSUMSHM	= 1953,
+    VMSUMSHS	= 1954,
+    VMSUMUBM	= 1955,
+    VMSUMUDM	= 1956,
+    VMSUMUHM	= 1957,
+    VMSUMUHS	= 1958,
+    VMUL10CUQ	= 1959,
+    VMUL10ECUQ	= 1960,
+    VMUL10EUQ	= 1961,
+    VMUL10UQ	= 1962,
+    VMULESB	= 1963,
+    VMULESH	= 1964,
+    VMULESW	= 1965,
+    VMULEUB	= 1966,
+    VMULEUH	= 1967,
+    VMULEUW	= 1968,
+    VMULOSB	= 1969,
+    VMULOSH	= 1970,
+    VMULOSW	= 1971,
+    VMULOUB	= 1972,
+    VMULOUH	= 1973,
+    VMULOUW	= 1974,
+    VMULUWM	= 1975,
+    VNAND	= 1976,
+    VNCIPHER	= 1977,
+    VNCIPHERLAST	= 1978,
+    VNEGD	= 1979,
+    VNEGW	= 1980,
+    VNMSUBFP	= 1981,
+    VNOR	= 1982,
+    VOR	= 1983,
+    VORC	= 1984,
+    VPERM	= 1985,
+    VPERMR	= 1986,
+    VPERMXOR	= 1987,
+    VPKPX	= 1988,
+    VPKSDSS	= 1989,
+    VPKSDUS	= 1990,
+    VPKSHSS	= 1991,
+    VPKSHUS	= 1992,
+    VPKSWSS	= 1993,
+    VPKSWUS	= 1994,
+    VPKUDUM	= 1995,
+    VPKUDUS	= 1996,
+    VPKUHUM	= 1997,
+    VPKUHUS	= 1998,
+    VPKUWUM	= 1999,
+    VPKUWUS	= 2000,
+    VPMSUMB	= 2001,
+    VPMSUMD	= 2002,
+    VPMSUMH	= 2003,
+    VPMSUMW	= 2004,
+    VPOPCNTB	= 2005,
+    VPOPCNTD	= 2006,
+    VPOPCNTH	= 2007,
+    VPOPCNTW	= 2008,
+    VPRTYBD	= 2009,
+    VPRTYBQ	= 2010,
+    VPRTYBW	= 2011,
+    VREFP	= 2012,
+    VRFIM	= 2013,
+    VRFIN	= 2014,
+    VRFIP	= 2015,
+    VRFIZ	= 2016,
+    VRLB	= 2017,
+    VRLD	= 2018,
+    VRLDMI	= 2019,
+    VRLDNM	= 2020,
+    VRLH	= 2021,
+    VRLW	= 2022,
+    VRLWMI	= 2023,
+    VRLWNM	= 2024,
+    VRSQRTEFP	= 2025,
+    VSBOX	= 2026,
+    VSEL	= 2027,
+    VSHASIGMAD	= 2028,
+    VSHASIGMAW	= 2029,
+    VSL	= 2030,
+    VSLB	= 2031,
+    VSLD	= 2032,
+    VSLDOI	= 2033,
+    VSLH	= 2034,
+    VSLO	= 2035,
+    VSLV	= 2036,
+    VSLW	= 2037,
+    VSPLTB	= 2038,
+    VSPLTBs	= 2039,
+    VSPLTH	= 2040,
+    VSPLTHs	= 2041,
+    VSPLTISB	= 2042,
+    VSPLTISH	= 2043,
+    VSPLTISW	= 2044,
+    VSPLTW	= 2045,
+    VSR	= 2046,
+    VSRAB	= 2047,
+    VSRAD	= 2048,
+    VSRAH	= 2049,
+    VSRAW	= 2050,
+    VSRB	= 2051,
+    VSRD	= 2052,
+    VSRH	= 2053,
+    VSRO	= 2054,
+    VSRV	= 2055,
+    VSRW	= 2056,
+    VSUBCUQ	= 2057,
+    VSUBCUW	= 2058,
+    VSUBECUQ	= 2059,
+    VSUBEUQM	= 2060,
+    VSUBFP	= 2061,
+    VSUBSBS	= 2062,
+    VSUBSHS	= 2063,
+    VSUBSWS	= 2064,
+    VSUBUBM	= 2065,
+    VSUBUBS	= 2066,
+    VSUBUDM	= 2067,
+    VSUBUHM	= 2068,
+    VSUBUHS	= 2069,
+    VSUBUQM	= 2070,
+    VSUBUWM	= 2071,
+    VSUBUWS	= 2072,
+    VSUM2SWS	= 2073,
+    VSUM4SBS	= 2074,
+    VSUM4SHS	= 2075,
+    VSUM4UBS	= 2076,
+    VSUMSWS	= 2077,
+    VUPKHPX	= 2078,
+    VUPKHSB	= 2079,
+    VUPKHSH	= 2080,
+    VUPKHSW	= 2081,
+    VUPKLPX	= 2082,
+    VUPKLSB	= 2083,
+    VUPKLSH	= 2084,
+    VUPKLSW	= 2085,
+    VXOR	= 2086,
+    V_SET0	= 2087,
+    V_SET0B	= 2088,
+    V_SET0H	= 2089,
+    V_SETALLONES	= 2090,
+    V_SETALLONESB	= 2091,
+    V_SETALLONESH	= 2092,
+    WAIT	= 2093,
+    WRTEE	= 2094,
+    WRTEEI	= 2095,
+    XOR	= 2096,
+    XOR8	= 2097,
+    XOR8_rec	= 2098,
+    XORI	= 2099,
+    XORI8	= 2100,
+    XORIS	= 2101,
+    XORIS8	= 2102,
+    XOR_rec	= 2103,
+    XSABSDP	= 2104,
+    XSABSQP	= 2105,
+    XSADDDP	= 2106,
+    XSADDQP	= 2107,
+    XSADDQPO	= 2108,
+    XSADDSP	= 2109,
+    XSCMPEQDP	= 2110,
+    XSCMPEXPDP	= 2111,
+    XSCMPEXPQP	= 2112,
+    XSCMPGEDP	= 2113,
+    XSCMPGTDP	= 2114,
+    XSCMPODP	= 2115,
+    XSCMPOQP	= 2116,
+    XSCMPUDP	= 2117,
+    XSCMPUQP	= 2118,
+    XSCPSGNDP	= 2119,
+    XSCPSGNQP	= 2120,
+    XSCVDPHP	= 2121,
+    XSCVDPQP	= 2122,
+    XSCVDPSP	= 2123,
+    XSCVDPSPN	= 2124,
+    XSCVDPSXDS	= 2125,
+    XSCVDPSXDSs	= 2126,
+    XSCVDPSXWS	= 2127,
+    XSCVDPSXWSs	= 2128,
+    XSCVDPUXDS	= 2129,
+    XSCVDPUXDSs	= 2130,
+    XSCVDPUXWS	= 2131,
+    XSCVDPUXWSs	= 2132,
+    XSCVHPDP	= 2133,
+    XSCVQPDP	= 2134,
+    XSCVQPDPO	= 2135,
+    XSCVQPSDZ	= 2136,
+    XSCVQPSWZ	= 2137,
+    XSCVQPUDZ	= 2138,
+    XSCVQPUWZ	= 2139,
+    XSCVSDQP	= 2140,
+    XSCVSPDP	= 2141,
+    XSCVSPDPN	= 2142,
+    XSCVSXDDP	= 2143,
+    XSCVSXDSP	= 2144,
+    XSCVUDQP	= 2145,
+    XSCVUXDDP	= 2146,
+    XSCVUXDSP	= 2147,
+    XSDIVDP	= 2148,
+    XSDIVQP	= 2149,
+    XSDIVQPO	= 2150,
+    XSDIVSP	= 2151,
+    XSIEXPDP	= 2152,
+    XSIEXPQP	= 2153,
+    XSMADDADP	= 2154,
+    XSMADDASP	= 2155,
+    XSMADDMDP	= 2156,
+    XSMADDMSP	= 2157,
+    XSMADDQP	= 2158,
+    XSMADDQPO	= 2159,
+    XSMAXCDP	= 2160,
+    XSMAXDP	= 2161,
+    XSMAXJDP	= 2162,
+    XSMINCDP	= 2163,
+    XSMINDP	= 2164,
+    XSMINJDP	= 2165,
+    XSMSUBADP	= 2166,
+    XSMSUBASP	= 2167,
+    XSMSUBMDP	= 2168,
+    XSMSUBMSP	= 2169,
+    XSMSUBQP	= 2170,
+    XSMSUBQPO	= 2171,
+    XSMULDP	= 2172,
+    XSMULQP	= 2173,
+    XSMULQPO	= 2174,
+    XSMULSP	= 2175,
+    XSNABSDP	= 2176,
+    XSNABSQP	= 2177,
+    XSNEGDP	= 2178,
+    XSNEGQP	= 2179,
+    XSNMADDADP	= 2180,
+    XSNMADDASP	= 2181,
+    XSNMADDMDP	= 2182,
+    XSNMADDMSP	= 2183,
+    XSNMADDQP	= 2184,
+    XSNMADDQPO	= 2185,
+    XSNMSUBADP	= 2186,
+    XSNMSUBASP	= 2187,
+    XSNMSUBMDP	= 2188,
+    XSNMSUBMSP	= 2189,
+    XSNMSUBQP	= 2190,
+    XSNMSUBQPO	= 2191,
+    XSRDPI	= 2192,
+    XSRDPIC	= 2193,
+    XSRDPIM	= 2194,
+    XSRDPIP	= 2195,
+    XSRDPIZ	= 2196,
+    XSREDP	= 2197,
+    XSRESP	= 2198,
+    XSRQPI	= 2199,
+    XSRQPIX	= 2200,
+    XSRQPXP	= 2201,
+    XSRSP	= 2202,
+    XSRSQRTEDP	= 2203,
+    XSRSQRTESP	= 2204,
+    XSSQRTDP	= 2205,
+    XSSQRTQP	= 2206,
+    XSSQRTQPO	= 2207,
+    XSSQRTSP	= 2208,
+    XSSUBDP	= 2209,
+    XSSUBQP	= 2210,
+    XSSUBQPO	= 2211,
+    XSSUBSP	= 2212,
+    XSTDIVDP	= 2213,
+    XSTSQRTDP	= 2214,
+    XSTSTDCDP	= 2215,
+    XSTSTDCQP	= 2216,
+    XSTSTDCSP	= 2217,
+    XSXEXPDP	= 2218,
+    XSXEXPQP	= 2219,
+    XSXSIGDP	= 2220,
+    XSXSIGQP	= 2221,
+    XVABSDP	= 2222,
+    XVABSSP	= 2223,
+    XVADDDP	= 2224,
+    XVADDSP	= 2225,
+    XVCMPEQDP	= 2226,
+    XVCMPEQDP_rec	= 2227,
+    XVCMPEQSP	= 2228,
+    XVCMPEQSP_rec	= 2229,
+    XVCMPGEDP	= 2230,
+    XVCMPGEDP_rec	= 2231,
+    XVCMPGESP	= 2232,
+    XVCMPGESP_rec	= 2233,
+    XVCMPGTDP	= 2234,
+    XVCMPGTDP_rec	= 2235,
+    XVCMPGTSP	= 2236,
+    XVCMPGTSP_rec	= 2237,
+    XVCPSGNDP	= 2238,
+    XVCPSGNSP	= 2239,
+    XVCVDPSP	= 2240,
+    XVCVDPSXDS	= 2241,
+    XVCVDPSXWS	= 2242,
+    XVCVDPUXDS	= 2243,
+    XVCVDPUXWS	= 2244,
+    XVCVHPSP	= 2245,
+    XVCVSPDP	= 2246,
+    XVCVSPHP	= 2247,
+    XVCVSPSXDS	= 2248,
+    XVCVSPSXWS	= 2249,
+    XVCVSPUXDS	= 2250,
+    XVCVSPUXWS	= 2251,
+    XVCVSXDDP	= 2252,
+    XVCVSXDSP	= 2253,
+    XVCVSXWDP	= 2254,
+    XVCVSXWSP	= 2255,
+    XVCVUXDDP	= 2256,
+    XVCVUXDSP	= 2257,
+    XVCVUXWDP	= 2258,
+    XVCVUXWSP	= 2259,
+    XVDIVDP	= 2260,
+    XVDIVSP	= 2261,
+    XVIEXPDP	= 2262,
+    XVIEXPSP	= 2263,
+    XVMADDADP	= 2264,
+    XVMADDASP	= 2265,
+    XVMADDMDP	= 2266,
+    XVMADDMSP	= 2267,
+    XVMAXDP	= 2268,
+    XVMAXSP	= 2269,
+    XVMINDP	= 2270,
+    XVMINSP	= 2271,
+    XVMSUBADP	= 2272,
+    XVMSUBASP	= 2273,
+    XVMSUBMDP	= 2274,
+    XVMSUBMSP	= 2275,
+    XVMULDP	= 2276,
+    XVMULSP	= 2277,
+    XVNABSDP	= 2278,
+    XVNABSSP	= 2279,
+    XVNEGDP	= 2280,
+    XVNEGSP	= 2281,
+    XVNMADDADP	= 2282,
+    XVNMADDASP	= 2283,
+    XVNMADDMDP	= 2284,
+    XVNMADDMSP	= 2285,
+    XVNMSUBADP	= 2286,
+    XVNMSUBASP	= 2287,
+    XVNMSUBMDP	= 2288,
+    XVNMSUBMSP	= 2289,
+    XVRDPI	= 2290,
+    XVRDPIC	= 2291,
+    XVRDPIM	= 2292,
+    XVRDPIP	= 2293,
+    XVRDPIZ	= 2294,
+    XVREDP	= 2295,
+    XVRESP	= 2296,
+    XVRSPI	= 2297,
+    XVRSPIC	= 2298,
+    XVRSPIM	= 2299,
+    XVRSPIP	= 2300,
+    XVRSPIZ	= 2301,
+    XVRSQRTEDP	= 2302,
+    XVRSQRTESP	= 2303,
+    XVSQRTDP	= 2304,
+    XVSQRTSP	= 2305,
+    XVSUBDP	= 2306,
+    XVSUBSP	= 2307,
+    XVTDIVDP	= 2308,
+    XVTDIVSP	= 2309,
+    XVTSQRTDP	= 2310,
+    XVTSQRTSP	= 2311,
+    XVTSTDCDP	= 2312,
+    XVTSTDCSP	= 2313,
+    XVXEXPDP	= 2314,
+    XVXEXPSP	= 2315,
+    XVXSIGDP	= 2316,
+    XVXSIGSP	= 2317,
+    XXBRD	= 2318,
+    XXBRH	= 2319,
+    XXBRQ	= 2320,
+    XXBRW	= 2321,
+    XXEXTRACTUW	= 2322,
+    XXINSERTW	= 2323,
+    XXLAND	= 2324,
+    XXLANDC	= 2325,
+    XXLEQV	= 2326,
+    XXLEQVOnes	= 2327,
+    XXLNAND	= 2328,
+    XXLNOR	= 2329,
+    XXLOR	= 2330,
+    XXLORC	= 2331,
+    XXLORf	= 2332,
+    XXLXOR	= 2333,
+    XXLXORdpz	= 2334,
+    XXLXORspz	= 2335,
+    XXLXORz	= 2336,
+    XXMRGHW	= 2337,
+    XXMRGLW	= 2338,
+    XXPERM	= 2339,
+    XXPERMDI	= 2340,
+    XXPERMDIs	= 2341,
+    XXPERMR	= 2342,
+    XXSEL	= 2343,
+    XXSLDWI	= 2344,
+    XXSLDWIs	= 2345,
+    XXSPLTIB	= 2346,
+    XXSPLTW	= 2347,
+    XXSPLTWs	= 2348,
+    gBC	= 2349,
+    gBCA	= 2350,
+    gBCAat	= 2351,
+    gBCCTR	= 2352,
+    gBCCTRL	= 2353,
+    gBCL	= 2354,
+    gBCLA	= 2355,
+    gBCLAat	= 2356,
+    gBCLR	= 2357,
+    gBCLRL	= 2358,
+    gBCLat	= 2359,
+    gBCat	= 2360,
+    INSTRUCTION_LIST_END = 2361
+  };
+
+} // end namespace PPC
+} // end namespace llvm
+#endif // GET_INSTRINFO_ENUM
+
+#ifdef GET_INSTRINFO_SCHED_ENUM
+#undef GET_INSTRINFO_SCHED_ENUM
+namespace llvm {
+
+namespace PPC {
+namespace Sched {
+  enum {
+    NoInstrModel	= 0,
+    IIC_LdStSync	= 1,
+    IIC_IntSimple	= 2,
+    IIC_IntGeneral	= 3,
+    IIC_BrB	= 4,
+    IIC_VecFP	= 5,
+    IIC_IntCompare	= 6,
+    IIC_SprABORT	= 7,
+    IIC_LdStCOPY	= 8,
+    IIC_LdStPASTE	= 9,
+    IIC_BrCR	= 10,
+    IIC_LdStLD	= 11,
+    IIC_LdStDCBF	= 12,
+    IIC_LdStLoad	= 13,
+    IIC_IntDivD	= 14,
+    IIC_IntDivW	= 15,
+    IIC_FPDGeneral	= 16,
+    IIC_FPAddSub	= 17,
+    IIC_FPDivD	= 18,
+    IIC_FPSGeneral	= 19,
+    IIC_FPCompare	= 20,
+    IIC_FPGeneral	= 21,
+    IIC_VecGeneral	= 22,
+    IIC_VecComplex	= 23,
+    IIC_LdStStore	= 24,
+    IIC_IntRotateDI	= 25,
+    IIC_FPDivS	= 26,
+    IIC_FPFused	= 27,
+    IIC_FPSqrtD	= 28,
+    IIC_FPSqrtS	= 29,
+    IIC_LdStICBI	= 30,
+    IIC_IntISEL	= 31,
+    IIC_SprISYNC	= 32,
+    IIC_LdStLWARX	= 33,
+    IIC_LdStLoadUpd	= 34,
+    IIC_LdStLoadUpdX	= 35,
+    IIC_LdStLDARX	= 36,
+    IIC_LdStLDU	= 37,
+    IIC_LdStLDUX	= 38,
+    IIC_LdStLFD	= 39,
+    IIC_LdStLFDU	= 40,
+    IIC_LdStLFDUX	= 41,
+    IIC_LdStLHA	= 42,
+    IIC_LdStLHAU	= 43,
+    IIC_LdStLHAUX	= 44,
+    IIC_LdStLMW	= 45,
+    IIC_LdStLWA	= 46,
+    IIC_IntMulHD	= 47,
+    IIC_BrMCR	= 48,
+    IIC_BrMCRX	= 49,
+    IIC_SprMFCR	= 50,
+    IIC_SprMFSPR	= 51,
+    IIC_IntMFFS	= 52,
+    IIC_SprMFMSR	= 53,
+    IIC_SprMFCRF	= 54,
+    IIC_SprMFPMR	= 55,
+    IIC_SprMFSR	= 56,
+    IIC_SprMFTB	= 57,
+    IIC_SprMSGSYNC	= 58,
+    IIC_SprMTSPR	= 59,
+    IIC_IntMTFSB0	= 60,
+    IIC_SprMTMSR	= 61,
+    IIC_SprMTMSRD	= 62,
+    IIC_SprMTPMR	= 63,
+    IIC_SprMTSR	= 64,
+    IIC_IntMulHW	= 65,
+    IIC_IntMulHWU	= 66,
+    IIC_IntMulLI	= 67,
+    IIC_VecPerm	= 68,
+    IIC_LdStSTFD	= 69,
+    IIC_LdStSTFDU	= 70,
+    IIC_SprRFI	= 71,
+    IIC_IntRFID	= 72,
+    IIC_IntRotateD	= 73,
+    IIC_IntRotate	= 74,
+    IIC_SprSLBFEE	= 75,
+    IIC_SprSLBIA	= 76,
+    IIC_SprSLBIE	= 77,
+    IIC_SprSLBIEG	= 78,
+    IIC_SprSLBMFEE	= 79,
+    IIC_SprSLBMFEV	= 80,
+    IIC_SprSLBMTE	= 81,
+    IIC_SprSLBSYNC	= 82,
+    IIC_IntShift	= 83,
+    IIC_LdStSTWCX	= 84,
+    IIC_LdStSTU	= 85,
+    IIC_LdStSTUX	= 86,
+    IIC_LdStSTD	= 87,
+    IIC_LdStSTDCX	= 88,
+    IIC_SprSTOP	= 89,
+    IIC_IntTrapD	= 90,
+    IIC_SprTLBIA	= 91,
+    IIC_SprTLBIE	= 92,
+    IIC_SprTLBIEL	= 93,
+    IIC_SprTLBSYNC	= 94,
+    IIC_IntTrapW	= 95,
+    IIC_VecFPCompare	= 96,
+    VADDUBM_VADDUDM_VADDUHM_VADDUWM_VEXTSB2D_VEXTSB2Ds_VEXTSB2W_VEXTSB2Ws_VEXTSH2D_VEXTSH2Ds_VEXTSH2W_VEXTSH2Ws_VEXTSW2D_VEXTSW2Ds_VSLD_VSRD_VSUBUBM_VSUBUDM_VSUBUHM_VSUBUWM_VPOPCNTB_VPOPCNTH_VSRAD_MTVSRDD_VEQV_VNAND_VNEGD_VNEGW_VORC_XXLAND_XXLANDC_XXLEQV_XXLEQVOnes_XXLNAND_XXLNOR_XXLOR_XXLORf_XXLORC_XXLXOR_XXLXORdpz_XXLXORspz_XXLXORz	= 97,
+    VAND_VANDC_V_SET0_V_SET0B_V_SET0H_VSLB_VSLH_VSLW_VSRB_VSRH_VSRW_VRLB_VRLD_VRLH_VRLW_VSRAB_VSRAH_VSRAW_XVABSDP_XVABSSP_XVNABSDP_XVNABSSP_XVCPSGNDP_XVCPSGNSP_XVIEXPDP_XVIEXPSP_XVXEXPDP_XVXEXPSP_VRLDMI_VRLDNM_VRLWMI_VRLWNM_VMRGEW_VMRGOW_VNOR_VOR_VSEL_VXOR_XVNEGDP_XVNEGSP_XSABSQP_XSCPSGNQP_XSIEXPQP_XSNABSQP_XSNEGQP_XSXEXPQP	= 98,
+    XXSEL	= 99,
+    TABORTDC_TABORTDCI_TABORTWC_TABORTWCI	= 100,
+    MTFSB0_MTFSB1	= 101,
+    MFFSCDRN_MFFSCDRNI_MFFSCRN_MFFSCRNI	= 102,
+    CMPRB_CMPRB8_CMPEQB	= 103,
+    TD_TDI	= 104,
+    TW_TWI	= 105,
+    FCMPUD_FCMPUS_FTDIV_FTSQRT	= 106,
+    XSTSTDCDP_XSTSTDCSP	= 107,
+    XSMAXCDP_XSMAXDP_XSMAXJDP_XSMINCDP_XSMINDP_XSMINJDP_XSXSIGDP_XSCVSPDPN	= 108,
+    XSCMPEQDP_XSCMPEXPDP_XSCMPGEDP_XSCMPGTDP_XSCMPODP_XSCMPUDP_XSTDIVDP_XSTSQRTDP	= 109,
+    CNTLZD_CNTLZD_rec_CNTLZW_CNTLZW8_CNTLZW8_rec_CNTLZW_rec_CNTTZD_CNTTZD_rec_CNTTZW_CNTTZW8_CNTTZW8_rec_CNTTZW_rec_POPCNTD_POPCNTW_CMPB_CMPB8_SETB_SETB8_BPERMD	= 110,
+    SLD_SRD_SRAD	= 111,
+    SRADI_EXTSWSLI_32_64_EXTSWSLI_SRADI_32_RLDIC	= 112,
+    MFVRD_MFVSRD_MTVRD_MTVSRD_MTVRWA_MTVRWZ_MTVSRWA_MTVSRWZ_MFVSRWZ_MFVRWZ	= 113,
+    CMPLW_CMPLWI_CMPW_CMPWI_CMPD_CMPDI_CMPLD_CMPLDI	= 114,
+    SUBFC_SUBFC8_SUBFC8O_SUBFCO_SUBFIC_SUBFIC8_ANDI8_rec_ANDIS8_rec_ANDIS_rec_ANDI_rec_ADDC_ADDC8_ADDC8O_ADDCO_ADDIC_ADDIC8_ADDIC_rec_ADDE_ADDE8_ADDE8O_ADDE8O_rec_ADDE8_rec_ADDEO_ADDEO_rec_ADDE_rec_ADDME_ADDME8_ADDME8O_ADDME8O_rec_ADDME8_rec_ADDMEO_ADDMEO_rec_ADDME_rec_ADDZE_ADDZE8_ADDZE8O_ADDZE8O_rec_ADDZE8_rec_ADDZEO_ADDZEO_rec_ADDZE_rec_SUBF_SUBF8_SUBF8O_SUBF8O_rec_SUBF8_rec_SUBFE_SUBFE8_SUBFE8O_SUBFE8O_rec_SUBFE8_rec_SUBFEO_SUBFEO_rec_SUBFE_rec_SUBFME_SUBFME8_SUBFME8O_SUBFME8O_rec_SUBFME8_rec_SUBFMEO_SUBFMEO_rec_SUBFME_rec_SUBFO_SUBFO_rec_SUBFZE_SUBFZE8_SUBFZE8O_SUBFZE8O_rec_SUBFZE8_rec_SUBFZEO_SUBFZEO_rec_SUBFZE_rec_SUBF_rec_POPCNTB_LA	= 115,
+    ADD4_ADD4O_ADD4O_rec_ADD4_rec_ADD8_ADD8O_ADD8O_rec_ADD8_rec_NEG_NEG8_NEG8O_NEG8O_rec_NEG8_rec_NEGO_NEGO_rec_NEG_rec_ADDI_ADDI8_ADDIS_ADDIS8_LI_LI8_LIS_LIS8_OR_OR8_OR8_rec_ORI_ORI8_ORIS_ORIS8_OR_rec_XOR_XOR8_XOR8_rec_XORI_XORI8_XORIS_XORIS8_XOR_rec_NAND_NAND8_NAND8_rec_NAND_rec_AND_AND8_AND8_rec_ANDC_ANDC8_ANDC8_rec_ANDC_rec_AND_rec_NOR_NOR8_NOR8_rec_NOR_rec_ORC_ORC8_ORC8_rec_ORC_rec_EQV_EQV8_EQV8_rec_EQV_rec_EXTSB_EXTSB8_EXTSB8_32_64_EXTSB8_rec_EXTSB_rec_EXTSH_EXTSH8_EXTSH8_32_64_EXTSH8_rec_EXTSH_rec_EXTSW_EXTSW_32_EXTSW_32_64_EXTSW_32_64_rec_EXTSW_rec_ADD4TLS_ADD8TLS_ADD8TLS__NOP	= 116,
+    ADDIStocHA_ADDIStocHA8_ADDItocL_COPY	= 117,
+    MCRF	= 118,
+    MCRXRX	= 119,
+    XSNABSDP_XSXEXPDP_XSABSDP_XSNEGDP_XSCPSGNDP	= 120,
+    RFEBB	= 121,
+    TBEGIN_TRECHKPT	= 122,
+    WAIT	= 123,
+    RLDCL_RLDCR	= 124,
+    RLWIMI_RLWIMI8	= 125,
+    RLDICL_RLDICL_32_RLDICL_32_64_RLDICR_RLDICR_32_RLDIMI	= 126,
+    MFOCRF_MFOCRF8	= 127,
+    MTOCRF_MTOCRF8	= 128,
+    CR6SET_CR6UNSET_CRSET_CRUNSET_CRAND_CRANDC_CRNAND_CRNOR_CROR_CRORC_CREQV_CRXOR	= 129,
+    SLW_SLW8_SRW_SRW8_RLWINM_RLWINM8_RLWNM_RLWNM8	= 130,
+    FABSD_FABSS_FNABSD_FNABSS_FNEGD_FNEGS_FCPSGND_FCPSGNS_FMR	= 131,
+    SRAW_SRAWI	= 132,
+    ISEL_ISEL8	= 133,
+    XSIEXPDP	= 134,
+    TRECLAIM_TSR_TABORT	= 135,
+    MFVSCR	= 136,
+    MTVSCR	= 137,
+    VCMPNEZB_VCMPNEZH_VCMPNEZW_VCMPEQUB_VCMPEQUD_VCMPEQUH_VCMPEQUW_VCMPNEB_VCMPNEH_VCMPNEW_VCMPEQFP_VCMPEQFP_rec_VCMPGEFP_VCMPGEFP_rec_VCMPGTFP_VCMPGTFP_rec_VCMPBFP_VCMPBFP_rec_VCMPGTSB_VCMPGTSB_rec_VCMPGTSD_VCMPGTSD_rec_VCMPGTSH_VCMPGTSH_rec_VCMPGTSW_VCMPGTSW_rec_VCMPGTUB_VCMPGTUB_rec_VCMPGTUD_VCMPGTUD_rec_VCMPGTUH_VCMPGTUH_rec_VCMPGTUW_VCMPGTUW_rec_VCMPNEB_rec_VCMPNEH_rec_VCMPNEW_rec_VCMPNEZB_rec_VCMPNEZH_rec_VCMPNEZW_rec_VCMPEQUB_rec_VCMPEQUD_rec_VCMPEQUH_rec_VCMPEQUW_rec_XVCMPEQDP_XVCMPEQDP_rec_XVCMPEQSP_XVCMPEQSP_rec_XVCMPGEDP_XVCMPGEDP_rec_XVCMPGESP_XVCMPGESP_rec_XVCMPGTDP_XVCMPGTDP_rec_XVCMPGTSP_XVCMPGTSP_rec	= 138,
+    VABSDUB_VABSDUH_VABSDUW_VCLZB_VCLZD_VCLZH_VCLZW_VCTZB_VCTZD_VCTZH_VCTZW_VPOPCNTW_VPOPCNTD_VPRTYBD_VPRTYBW	= 139,
+    VADDUBS_VADDUHS_VADDUWS_VAVGSB_VAVGSH_VAVGSW_VAVGUB_VAVGUH_VAVGUW_VADDSBS_VADDSHS_VADDSWS_VMAXFP_VMINFP_VMAXSB_VMAXSD_VMAXSH_VMAXSW_VMAXUB_VMAXUD_VMAXUH_VMAXUW_VMINSB_VMINSD_VMINSH_VMINSW_VMINUB_VMINUD_VMINUH_VMINUW_VBPERMD_VADDCUW_VSHASIGMAD_VSHASIGMAW_VSUBSBS_VSUBSHS_VSUBSWS_VSUBUBS_VSUBUHS_VSUBUWS_VSUBCUW_XVMAXDP_XVMAXSP_XVMINDP_XVMINSP_XVTSTDCDP_XVTSTDCSP_XVXSIGDP_XVXSIGSP	= 140,
+    XVTDIVDP_XVTDIVSP_XVTSQRTDP_XVTSQRTSP	= 141,
+    VADDFP_VCTSXS_VCTSXS_0_VCTUXS_VCTUXS_0_VEXPTEFP_VLOGEFP_VMADDFP_VMHADDSHS_VNMSUBFP_VREFP_VRFIM_VRFIN_VRFIP_VRFIZ_VRSQRTEFP_XVADDDP_XVADDSP_XVCVDPSP_XVCVDPSXDS_XVCVDPSXWS_XVCVDPUXDS_XVCVDPUXWS_XVCVHPSP_XVCVSPDP_XVCVSPHP_XVCVSPSXDS_XVCVSPSXWS_XVCVSPUXDS_XVCVSPUXWS_XVCVSXDDP_XVCVSXDSP_XVCVSXWDP_XVCVSXWSP_XVCVUXDDP_XVCVUXDSP_XVCVUXWDP_XVCVUXWSP_XVMADDADP_XVMADDASP_XVMADDMDP_XVMADDMSP_XVMSUBADP_XVMSUBASP_XVMSUBMDP_XVMSUBMSP_XVMULDP_XVMULSP_XVNMADDADP_XVNMADDASP_XVNMADDMDP_XVNMADDMSP_XVNMSUBADP_XVNMSUBASP_XVNMSUBMDP_XVNMSUBMSP_XVRDPI_XVRDPIC_XVRDPIM_XVRDPIP_XVRDPIZ_XVREDP_XVRESP_XVRSPI_XVRSPIC_XVRSPIM_XVRSPIP_XVRSPIZ_XVRSQRTEDP_XVRSQRTESP_XVSUBDP_XVSUBSP_VCFSX_VCFSX_0_VCFUX_VCFUX_0_VMHRADDSHS_VMLADDUHM_VMSUMMBM_VMSUMSHM_VMSUMSHS_VMSUMUBM_VMSUMUHM_VMSUMUDM_VMSUMUHS_VMULESB_VMULESH_VMULESW_VMULEUB_VMULEUH_VMULEUW_VMULOSB_VMULOSH_VMULOSW_VMULOUB_VMULOUH_VMULOUW_VSUM2SWS_VSUM4SBS_VSUM4SHS_VSUM4UBS_VSUMSWS	= 142,
+    VSUBFP_VMULUWM	= 143,
+    MADDHD_MADDHDU_MADDLD_MADDLD8_MULLD_MULLDO	= 144,
+    MULHD_MULHW_MULLW_MULLWO	= 145,
+    MULHDU_MULHWU	= 146,
+    MULLI_MULLI8	= 147,
+    FRSP_FRIMD_FRIMS_FRIND_FRINS_FRIPD_FRIPS_FRIZD_FRIZS_FRE_FRES_FADDS_FMSUBS_FMADDS_FSUBS_FCFID_FCFIDS_FCFIDU_FCFIDUS_FCTID_FCTIDU_FCTIDUZ_FCTIDZ_FCTIW_FCTIWU_FCTIWUZ_FCTIWZ_FRSQRTE_FRSQRTES_FNMADDS_FNMSUBS_FSELD_FSELS_FMULS	= 148,
+    FADD_FSUB	= 149,
+    FMSUB_FMADD_FNMADD_FNMSUB_FMUL	= 150,
+    XSMADDADP_XSMADDASP_XSMADDMDP_XSMADDMSP_XSMSUBADP_XSMSUBASP_XSMSUBMDP_XSMSUBMSP_XSMULDP_XSMULSP_XSNMADDADP_XSNMADDASP_XSNMADDMDP_XSNMADDMSP_XSNMSUBADP_XSNMSUBASP_XSNMSUBMDP_XSNMSUBMSP	= 151,
+    FSELD_rec_FSELS_rec	= 152,
+    MULHDU_rec_MULHWU_rec	= 153,
+    MULHD_rec_MULHW_rec_MULLWO_rec_MULLW_rec	= 154,
+    MULLDO_rec_MULLD_rec	= 155,
+    FRIMD_rec_FRIMS_rec_FRIND_rec_FRINS_rec_FRIPD_rec_FRIPS_rec_FRIZD_rec_FRIZS_rec_FRES_rec_FRE_rec_FADDS_rec_FSUBS_rec_FMSUBS_rec_FNMSUBS_rec_FMADDS_rec_FNMADDS_rec_FCFIDS_rec_FCFIDUS_rec_FCFIDU_rec_FCFID_rec_FCTIDUZ_rec_FCTIDU_rec_FCTIDZ_rec_FCTID_rec_FCTIWUZ_rec_FCTIWU_rec_FCTIWZ_rec_FCTIW_rec_FMULS_rec_FRSQRTES_rec_FRSQRTE_rec_FRSP_rec	= 156,
+    FADD_rec_FSUB_rec	= 157,
+    FMSUB_rec_FNMSUB_rec_FMADD_rec_FNMADD_rec_FMUL_rec	= 158,
+    XSADDDP_XSADDSP_XSCVDPHP_XSCVDPSP_XSCVDPSXDS_XSCVDPSXDSs_XSCVDPSXWS_XSCVDPUXDS_XSCVDPUXDSs_XSCVDPUXWS_XSCVDPSXWSs_XSCVDPUXWSs_XSCVHPDP_XSCVSPDP_XSCVSXDDP_XSCVSXDSP_XSCVUXDDP_XSCVUXDSP_XSRDPI_XSRDPIC_XSRDPIM_XSRDPIP_XSRDPIZ_XSREDP_XSRESP_XSRSQRTEDP_XSRSQRTESP_XSSUBDP_XSSUBSP_XSCVDPSPN_XSRSP	= 159,
+    LVSL_LVSR	= 160,
+    VSPLTISB_VSPLTISH_VSPLTISW_VSPLTB_VSPLTBs_VSPLTH_VSPLTHs_VSPLTW_XXMRGHW_XXMRGLW_XXPERM_XXPERMR_XXSLDWI_XXSLDWIs_XXSPLTIB_XXSPLTW_XXSPLTWs_XXPERMDI_XXPERMDIs	= 161,
+    V_SETALLONES_V_SETALLONESB_V_SETALLONESH_VBPERMQ_VGBBD_VMRGHB_VMRGHH_VMRGHW_VMRGLB_VMRGLH_VMRGLW_VPERM_VPERMR_VPERMXOR_VPKPX_VPKSDSS_VPKSDUS_VPKSHSS_VPKSHUS_VPKSWSS_VPKSWUS_VPKUDUM_VPKUDUS_VPKUHUM_VPKUHUS_VPKUWUM_VPKUWUS_VSL_VSLDOI_VSLO_VSLV_VSR_VSRO_VSRV_VUPKHPX_VUPKHSB_VUPKHSH_VUPKHSW_VUPKLPX_VUPKLSB_VUPKLSH_VUPKLSW_XXBRD_XXBRH_XXBRQ_XXBRW_XXEXTRACTUW_XXINSERTW_VADDCUQ_VADDECUQ_VADDEUQM_VMUL10CUQ_VMUL10ECUQ_VMUL10EUQ_VMUL10UQ_VSUBCUQ_VSUBECUQ_VSUBEUQM_XSTSTDCQP_XSXSIGQP_BCDCFN_rec_BCDCFZ_rec_BCDCPSGN_rec_BCDCTN_rec_BCDCTZ_rec_BCDSETSGN_rec_BCDS_rec_BCDTRUNC_rec_BCDUS_rec_BCDUTRUNC_rec	= 162,
+    VEXTRACTUB_VEXTRACTUH_VEXTRACTUW_VINSERTB_VINSERTD_VINSERTH_VINSERTW_MFVSRLD_MTVSRWS_VCLZLSBB_VCTZLSBB_VEXTRACTD_VEXTUBLX_VEXTUBRX_VEXTUHLX_VEXTUHRX_VEXTUWLX_VEXTUWRX_VPRTYBQ_VADDUQM_VSUBUQM	= 163,
+    XSCMPEXPQP_XSCMPOQP_XSCMPUQP	= 164,
+    BCDSR_rec_XSADDQP_XSADDQPO_XSCVDPQP_XSCVQPDP_XSCVQPDPO_XSCVQPSDZ_XSCVQPSWZ_XSCVQPUDZ_XSCVQPUWZ_XSCVSDQP_XSCVUDQP_XSRQPI_XSRQPIX_XSRQPXP_XSSUBQP_XSSUBQPO	= 165,
+    BCDCTSQ_rec	= 166,
+    XSMADDQP_XSMADDQPO_XSMSUBQP_XSMSUBQPO_XSMULQP_XSMULQPO_XSNMADDQP_XSNMADDQPO_XSNMSUBQP_XSNMSUBQPO	= 167,
+    BCDCFSQ_rec	= 168,
+    XSDIVQP_XSDIVQPO	= 169,
+    XSSQRTQP_XSSQRTQPO	= 170,
+    LXVL_LXVLL	= 171,
+    LVEBX_LVEHX_LVEWX_LVX_LVXL	= 172,
+    LXSIBZX_LXSIHZX_LXSDX_LXVB16X_LXVD2X_LXVWSX_LXSIWZX_LXV_LXVX_LXSD	= 173,
+    DFLOADf64_XFLOADf64_LIWZX	= 174,
+    DCBF_DCBFEP_DCBST_DCBSTEP_DCBT_DCBTEP_DCBZ_DCBZEP_DCBZL_DCBZLEP_DCBTST_DCBTSTEP	= 175,
+    CP_COPY_CP_COPY8	= 176,
+    CP_PASTE_CP_PASTE8	= 177,
+    ICBI_ICBIEP	= 178,
+    ICBT_ICBTLS_LBZ_LBZ8_LBZCIX_LBZX_LBZX8_LBZXTLS_LBZXTLS__LBZXTLS_32_LDBRX_LDCIX_LHBRX_LHBRX8_LHZ_LHZ8_LHZCIX_LHZX_LHZX8_LHZXTLS_LHZXTLS__LHZXTLS_32_LWBRX_LWBRX8_LWZ_LWZ8_LWZCIX_LWZX_LWZX8_LWZXTLS_LWZXTLS__LWZXTLS_32_EnforceIEIO_LSWI	= 179,
+    LBARX_LBARXL_LHARX_LHARXL_LWARX_LWARXL	= 180,
+    LD_LDX_LDXTLS_LDXTLS__DARN	= 181,
+    LDARX_LDARXL	= 182,
+    CP_ABORT	= 183,
+    ISYNC	= 184,
+    MSGSYNC	= 185,
+    TLBSYNC	= 186,
+    SYNC	= 187,
+    LMW	= 188,
+    LFIWZX_LFDX_LFD	= 189,
+    SLBIA	= 190,
+    SLBIE	= 191,
+    SLBMFEE	= 192,
+    SLBMFEV	= 193,
+    SLBMTE	= 194,
+    TLBIEL	= 195,
+    LHZU_LHZU8_LWZU_LWZU8	= 196,
+    LHZUX_LHZUX8_LWZUX_LWZUX8	= 197,
+    TEND	= 198,
+    STBCX_STHCX_STWCX	= 199,
+    STDCX	= 200,
+    LDMX	= 201,
+    LHA_LHA8_LHAX_LHAX8_LWAX_LWAX_32	= 202,
+    CP_PASTE8_rec_CP_PASTE_rec	= 203,
+    LWA_LWA_32	= 204,
+    TCHECK	= 205,
+    LFIWAX	= 206,
+    LXSIWAX	= 207,
+    LIWAX	= 208,
+    LFSX_LFS	= 209,
+    LXSSP_LXSSPX	= 210,
+    XFLOADf32_DFLOADf32	= 211,
+    LHAU_LHAU8	= 212,
+    LHAUX_LHAUX8_LWAUX	= 213,
+    LXVH8X_LXVDSX_LXVW4X	= 214,
+    STFD_STFDX_STFIWX_STFS_STFSX_STXSD_STXSDX_STXSIBX_STXSIBXv_STXSIHX_STXSIHXv_STXSIWX_STXSSP_STXSSPX	= 215,
+    STW_STW8_STDBRX_STHBRX_STWBRX_STB_STB8_STH_STH8_STBX_STBX8_STBXTLS_STBXTLS__STBXTLS_32_STHX_STHX8_STHXTLS_STHXTLS__STHXTLS_32_STWX_STWX8_STWXTLS_STWXTLS__STWXTLS_32	= 216,
+    DFSTOREf32_DFSTOREf64_XFSTOREf32_XFSTOREf64_STIWX	= 217,
+    STD_STDX_STDXTLS_STDXTLS_	= 218,
+    STBCIX_STDCIX_STHCIX_STWCIX_STSWI	= 219,
+    SLBIEG	= 220,
+    STMW	= 221,
+    TLBIE	= 222,
+    STVEBX_STVEHX_STVEWX_STVX_STVXL	= 223,
+    STXV_STXVB16X_STXVD2X_STXVH8X_STXVW4X_STXVX	= 224,
+    STXVL_STXVLL	= 225,
+    MTCTR_MTCTR8_MTCTR8loop_MTCTRloop_MTLR_MTLR8	= 226,
+    MFVRSAVE_MFVRSAVEv_MTVRSAVE_MTVRSAVEv	= 227,
+    MFPMR	= 228,
+    MTPMR	= 229,
+    MFTB_MFTB8	= 230,
+    MFCTR_MFCTR8_MFLR_MFLR8_MFSPR_MFSPR8	= 231,
+    MFMSR	= 232,
+    MTMSR	= 233,
+    MTMSRD	= 234,
+    MTSPR_MTSPR8	= 235,
+    DIVW_DIVWO_DIVWU_DIVWUO_MODSW	= 236,
+    DIVWE_DIVWEO_DIVWEU_DIVWEUO_MODSD_MODUD_MODUW	= 237,
+    DIVD_DIVDO_DIVDU_DIVDUO	= 238,
+    DIVDE_DIVDEO_DIVDEU_DIVDEUO	= 239,
+    DIVWO_rec_DIVWUO_rec_DIVWU_rec_DIVW_rec	= 240,
+    DIVD_rec_DIVDO_rec_DIVDU_rec_DIVDUO_rec	= 241,
+    DIVWE_rec_DIVWEO_rec_DIVWEU_rec_DIVWEUO_rec	= 242,
+    DIVDE_rec_DIVDEO_rec_DIVDEU_rec_DIVDEUO_rec	= 243,
+    MTCRF_MTCRF8	= 244,
+    ADDC8O_rec_ADDC8_rec_ADDCO_rec_ADDC_rec_SUBFC8O_rec_SUBFC8_rec_SUBFCO_rec_SUBFC_rec	= 245,
+    FABSD_rec_FABSS_rec_FNABSD_rec_FNABSS_rec_FCPSGND_rec_FCPSGNS_rec_FNEGD_rec_FNEGS_rec_FMR_rec	= 246,
+    MCRFS	= 247,
+    MTFSF_MTFSF_rec_MTFSFI_MTFSFI_rec	= 248,
+    MTFSFb	= 249,
+    RLDCL_rec_RLDCR_rec	= 250,
+    RLDICL_rec_RLDICR_rec_RLDICL_32_rec_RLDIMI_rec	= 251,
+    RLWIMI8_rec_RLWIMI_rec	= 252,
+    RLWINM8_rec_RLWINM_rec_RLWNM8_rec_RLWNM_rec_SLW8_rec_SLW_rec_SRW8_rec_SRW_rec	= 253,
+    SRAWI_rec_SRAW_rec	= 254,
+    MFFS_MFFSCE_MFFSL_MFFS_rec	= 255,
+    MFCR_MFCR8	= 256,
+    EXTSWSLI_32_64_rec_SRADI_rec_EXTSWSLI_rec_RLDIC_rec	= 257,
+    SRAD_rec_SLD_rec_SRD_rec	= 258,
+    FDIV	= 259,
+    FDIV_rec	= 260,
+    XSSQRTDP	= 261,
+    FSQRT	= 262,
+    XVSQRTDP	= 263,
+    XVSQRTSP	= 264,
+    FSQRT_rec	= 265,
+    XSSQRTSP	= 266,
+    FSQRTS	= 267,
+    FSQRTS_rec	= 268,
+    XSDIVDP	= 269,
+    FDIVS	= 270,
+    FDIVS_rec	= 271,
+    XSDIVSP	= 272,
+    XVDIVSP	= 273,
+    XVDIVDP	= 274,
+    LFSU	= 275,
+    LFSUX	= 276,
+    STFDU_STFDUX_STFSU_STFSUX	= 277,
+    STBU_STBU8_STDU_STHU_STHU8_STWU_STWU8	= 278,
+    STBUX_STBUX8_STDUX_STHUX_STHUX8_STWUX_STWUX8	= 279,
+    LBZU_LBZU8	= 280,
+    LBZUX_LBZUX8	= 281,
+    LDU	= 282,
+    LDUX	= 283,
+    LFDU	= 284,
+    LFDUX	= 285,
+    VPMSUMB_VPMSUMD_VPMSUMH_VPMSUMW_VCIPHER_VCIPHERLAST_VNCIPHER_VNCIPHERLAST_VSBOX	= 286,
+    BCCCTR_BCCCTR8_BCCCTRL_BCCCTRL8_BCCL_BCCLA_BCCLR_BCCLRL_BCCTR_BCCTR8_BCCTR8n_BCCTRL_BCCTRL8_BCCTRL8n_BCCTRLn_BCCTRn_BDNZ_BDNZ8_BDNZA_BDNZAm_BDNZAp_BDNZm_BDNZp_BDZ_BDZ8_BDZA_BDZAm_BDZAp_BDZm_BDZp_BDNZL_BDNZLA_BDNZLAm_BDNZLAp_BDNZLR_BDNZLR8_BDNZLRL_BDNZLRLm_BDNZLRLp_BDNZLRm_BDNZLRp_BDNZLm_BDNZLp_BDZL_BDZLA_BDZLAm_BDZLAp_BDZLR_BDZLR8_BDZLRL_BDZLRLm_BDZLRLp_BDZLRm_BDZLRp_BDZLm_BDZLp_BL_BL_NOP_BL_TLS_BL8_BL8_NOP_BL8_NOP_TLS_BL8_TLS_BL8_TLS__BLA_BLA8_BLA8_NOP_BLR_BLR8_BLRL_TAILB_TAILB8_TAILBA_TAILBA8_TAILBCTR_TAILBCTR8_gBC_gBCA_gBCAat_gBCCTR_gBCCTRL_gBCL_gBCLA_gBCLAat_gBCLR_gBCLRL_gBCLat_gBCat_BCLR_BCLRL_BCLRLn_BCLRn_BCTR_BCTR8_BCTRL_BCTRL8_B_BA_BC_BCC_BCCA_BCL_BCLalways_BCLn_BCTRL8_LDinto_toc_BCTRL_LWZinto_toc_BCn_CTRL_DEP	= 287,
+    ADDPCIS	= 288,
+    LDAT_LWAT	= 289,
+    STDAT_STWAT	= 290,
+    BRINC	= 291,
+    EVABS_EVEQV_EVNAND_EVNEG_EVADDIW_EVADDW_EVAND_EVANDC_EVCMPEQ_EVCMPGTS_EVCMPGTU_EVCMPLTS_EVCMPLTU_EVCNTLSW_EVCNTLZW_EVEXTSB_EVEXTSH_EVMERGEHI_EVMERGEHILO_EVMERGELO_EVMERGELOHI_EVNOR_EVOR_EVORC_EVXOR_EVRLW_EVRLWI_EVRNDW_EVSLW_EVSLWI_EVSPLATFI_EVSPLATI_EVSRWIS_EVSRWIU_EVSRWS_EVSRWU_EVSUBFW_EVSUBIFW	= 292,
+    EVMRA_EVADDSMIAAW_EVADDSSIAAW_EVADDUMIAAW_EVADDUSIAAW_EVDIVWS_EVDIVWU_EVMHEGSMFAA_EVMHEGSMFAN_EVMHEGSMIAA_EVMHEGSMIAN_EVMHEGUMIAA_EVMHEGUMIAN_EVMHESMF_EVMHESMFA_EVMHESMFAAW_EVMHESMFANW_EVMHESMI_EVMHESMIA_EVMHESMIAAW_EVMHESMIANW_EVMHESSF_EVMHESSFA_EVMHESSFAAW_EVMHESSFANW_EVMHESSIAAW_EVMHESSIANW_EVMHEUMI_EVMHEUMIA_EVMHEUMIAAW_EVMHEUMIANW_EVMHEUSIAAW_EVMHEUSIANW_EVMHOGSMFAA_EVMHOGSMFAN_EVMHOGSMIAA_EVMHOGSMIAN_EVMHOGUMIAA_EVMHOGUMIAN_EVMHOSMF_EVMHOSMFA_EVMHOSMFAAW_EVMHOSMFANW_EVMHOSMI_EVMHOSMIA_EVMHOSMIAAW_EVMHOSMIANW_EVMHOSSF_EVMHOSSFA_EVMHOSSFAAW_EVMHOSSFANW_EVMHOSSIAAW_EVMHOSSIANW_EVMHOUMI_EVMHOUMIA_EVMHOUMIAAW_EVMHOUMIANW_EVMHOUSIAAW_EVMHOUSIANW_EVMWHSMF_EVMWHSMFA_EVMWHSMI_EVMWHSMIA_EVMWHSSF_EVMWHSSFA_EVMWHUMI_EVMWHUMIA_EVMWLSMIAAW_EVMWLSMIANW_EVMWLSSIAAW_EVMWLSSIANW_EVMWLUMI_EVMWLUMIA_EVMWLUMIAAW_EVMWLUMIANW_EVMWLUSIAAW_EVMWLUSIANW_EVMWSMF_EVMWSMFA_EVMWSMFAA_EVMWSMFAN_EVMWSMI_EVMWSMIA_EVMWSMIAA_EVMWSMIAN_EVMWSSF_EVMWSSFA_EVMWSSFAA_EVMWSSFAN_EVMWUMI_EVMWUMIA_EVMWUMIAA_EVMWUMIAN_EVSUBFSMIAAW_EVSUBFSSIAAW_EVSUBFUMIAAW_EVSUBFUSIAAW	= 293,
+    EVLDD_EVLDDX_EVLDH_EVLDHX_EVLDW_EVLDWX_EVLHHESPLAT_EVLHHESPLATX_EVLHHOSSPLAT_EVLHHOSSPLATX_EVLHHOUSPLAT_EVLHHOUSPLATX_EVLWHE_EVLWHEX_EVLWHOS_EVLWHOSX_EVLWHOU_EVLWHOUX_EVLWHSPLAT_EVLWHSPLATX_EVLWWSPLAT_EVLWWSPLATX	= 294,
+    EVSTDD_EVSTDDX_EVSTDH_EVSTDHX_EVSTDW_EVSTDWX_EVSTWHE_EVSTWHEX_EVSTWHO_EVSTWHOX_EVSTWWE_EVSTWWEX_EVSTWWO_EVSTWWOX	= 295,
+    HRFID_ATTN_CLRBHRB_MFBHRBE_NAP_RFCI_RFDI_RFMCI_SC	= 296,
+    RFI	= 297,
+    RFID	= 298,
+    DSS_DSSALL_DST_DST64_DSTST_DSTST64_DSTSTT_DSTSTT64_DSTT_DSTT64_ICBLQ_LBEPX_LHEPX_LWEPX_TLBIVAX_TLBLD_TLBLI_TLBRE_TLBRE2_TLBSX_TLBSX2_TLBSX2D_TLBWE_TLBWE2_MBAR_TRAP_DCCCI_ICCCI	= 299,
+    ICBLC_STBEPX_STHEPX_STWEPX	= 300,
+    LFDEPX	= 301,
+    STFDEPX	= 302,
+    MFSR_MFSRIN	= 303,
+    MTSR_MTSRIN	= 304,
+    MFDCR	= 305,
+    MTDCR	= 306,
+    NOP_GT_PWR6_NOP_GT_PWR7	= 307,
+    TLBIA	= 308,
+    WRTEE_WRTEEI	= 309,
+    MSYNC	= 310,
+    SLBSYNC	= 311,
+    SLBFEE_rec	= 312,
+    STOP	= 313,
+    DCBA_DCBI	= 314,
+    SCHED_LIST_END = 315
+  };
+} // end namespace Sched
+} // end namespace PPC
+} // end namespace llvm
+#endif // GET_INSTRINFO_SCHED_ENUM
+
+#ifdef GET_INSTRINFO_MC_DESC
+#undef GET_INSTRINFO_MC_DESC
+namespace llvm {
+
+static const MCPhysReg ImplicitList1[] = { PPC::CR7, 0 };
+static const MCPhysReg ImplicitList2[] = { PPC::XER, 0 };
+static const MCPhysReg ImplicitList3[] = { PPC::XER, PPC::CR0, 0 };
+static const MCPhysReg ImplicitList4[] = { PPC::CR0, 0 };
+static const MCPhysReg ImplicitList5[] = { PPC::CARRY, 0 };
+static const MCPhysReg ImplicitList6[] = { PPC::CARRY, PPC::XER, 0 };
+static const MCPhysReg ImplicitList7[] = { PPC::CARRY, PPC::XER, PPC::CR0, 0 };
+static const MCPhysReg ImplicitList8[] = { PPC::CARRY, PPC::CR0, 0 };
+static const MCPhysReg ImplicitList9[] = { PPC::X0, PPC::X3, PPC::X4, PPC::X5, PPC::X6, PPC::X7, PPC::X8, PPC::X9, PPC::X10, PPC::X11, PPC::X12, PPC::LR8, PPC::CTR8, PPC::CR0, PPC::CR1, PPC::CR5, PPC::CR6, PPC::CR7, 0 };
+static const MCPhysReg ImplicitList10[] = { PPC::R0, PPC::R3, PPC::R4, PPC::R5, PPC::R6, PPC::R7, PPC::R8, PPC::R9, PPC::R10, PPC::R11, PPC::R12, PPC::LR, PPC::CTR, PPC::CR0, PPC::CR1, PPC::CR5, PPC::CR6, PPC::CR7, 0 };
+static const MCPhysReg ImplicitList11[] = { PPC::R1, 0 };
+static const MCPhysReg ImplicitList12[] = { PPC::CTR, 0 };
+static const MCPhysReg ImplicitList13[] = { PPC::CTR8, 0 };
+static const MCPhysReg ImplicitList14[] = { PPC::CTR, PPC::RM, 0 };
+static const MCPhysReg ImplicitList15[] = { PPC::LR, 0 };
+static const MCPhysReg ImplicitList16[] = { PPC::CTR8, PPC::RM, 0 };
+static const MCPhysReg ImplicitList17[] = { PPC::LR8, 0 };
+static const MCPhysReg ImplicitList18[] = { PPC::RM, 0 };
+static const MCPhysReg ImplicitList19[] = { PPC::LR, PPC::RM, 0 };
+static const MCPhysReg ImplicitList20[] = { PPC::CR6, 0 };
+static const MCPhysReg ImplicitList21[] = { PPC::LR8, PPC::X2, 0 };
+static const MCPhysReg ImplicitList22[] = { PPC::LR, PPC::R2, 0 };
+static const MCPhysReg ImplicitList23[] = { PPC::CTR, PPC::LR, PPC::RM, 0 };
+static const MCPhysReg ImplicitList24[] = { PPC::CTR8, PPC::LR8, PPC::RM, 0 };
+static const MCPhysReg ImplicitList25[] = { PPC::LR8, PPC::RM, 0 };
+static const MCPhysReg ImplicitList26[] = { PPC::CR1EQ, 0 };
+static const MCPhysReg ImplicitList27[] = { PPC::X1, 0 };
+static const MCPhysReg ImplicitList28[] = { PPC::CR1, 0 };
+static const MCPhysReg ImplicitList29[] = { PPC::X0, PPC::X4, PPC::X5, PPC::X6, PPC::X7, PPC::X8, PPC::X9, PPC::X10, PPC::X11, PPC::X12, PPC::LR8, PPC::CTR8, PPC::CR0, PPC::CR1, PPC::CR5, PPC::CR6, PPC::CR7, 0 };
+static const MCPhysReg ImplicitList30[] = { PPC::R0, PPC::R4, PPC::R5, PPC::R6, PPC::R7, PPC::R8, PPC::R9, PPC::R10, PPC::R11, PPC::R12, PPC::LR, PPC::CTR, PPC::CR0, PPC::CR1, PPC::CR5, PPC::CR6, PPC::CR7, 0 };
+static const MCPhysReg ImplicitList31[] = { PPC::LR, PPC::CTR, 0 };
+
+static const MCOperandInfo OperandInfo2[] = { { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo3[] = { { -1, 0, MCOI::OPERAND_IMMEDIATE, 0 }, };
+static const MCOperandInfo OperandInfo4[] = { { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, { -1, 0, MCOI::OPERAND_IMMEDIATE, 0 }, };
+static const MCOperandInfo OperandInfo5[] = { { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, ((0 << 16) | (1 << MCOI::TIED_TO)) }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, { -1, 0, MCOI::OPERAND_IMMEDIATE, 0 }, };
+static const MCOperandInfo OperandInfo6[] = { { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, { -1, 0, MCOI::OPERAND_IMMEDIATE, 0 }, };
+static const MCOperandInfo OperandInfo7[] = { { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo8[] = { { -1, 0, MCOI::OPERAND_IMMEDIATE, 0 }, { -1, 0, MCOI::OPERAND_IMMEDIATE, 0 }, };
+static const MCOperandInfo OperandInfo9[] = { { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, { -1, 0, MCOI::OPERAND_IMMEDIATE, 0 }, { -1, 0, MCOI::OPERAND_IMMEDIATE, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, { -1, 0, MCOI::OPERAND_IMMEDIATE, 0 }, { -1, 0, MCOI::OPERAND_IMMEDIATE, 0 }, };
+static const MCOperandInfo OperandInfo10[] = { { 0, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo11[] = { { 0, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, 0 }, { -1, 0, MCOI::OPERAND_IMMEDIATE, 0 }, { -1, 0, MCOI::OPERAND_IMMEDIATE, 0 }, };
+static const MCOperandInfo OperandInfo12[] = { { 0, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, 0 }, { -1, 0, MCOI::OPERAND_IMMEDIATE, 0 }, };
+static const MCOperandInfo OperandInfo13[] = { { 0, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo14[] = { { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, { 0, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo15[] = { { -1, 0, MCOI::OPERAND_GENERIC_0, 0 }, { -1, 0, MCOI::OPERAND_GENERIC_0, 0 }, { -1, 0, MCOI::OPERAND_GENERIC_0, 0 }, };
+static const MCOperandInfo OperandInfo16[] = { { -1, 0, MCOI::OPERAND_GENERIC_0, 0 }, };
+static const MCOperandInfo OperandInfo17[] = { { -1, 0, MCOI::OPERAND_GENERIC_0, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo18[] = { { -1, 0, MCOI::OPERAND_GENERIC_0, 0 }, { -1, 0, MCOI::OPERAND_GENERIC_1, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo19[] = { { -1, 0, MCOI::OPERAND_GENERIC_0, 0 }, { -1, 0, MCOI::OPERAND_GENERIC_1, 0 }, };
+static const MCOperandInfo OperandInfo20[] = { { -1, 0, MCOI::OPERAND_GENERIC_0, 0 }, { -1, 0, MCOI::OPERAND_GENERIC_0, 0 }, { -1, 0, MCOI::OPERAND_GENERIC_1, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo21[] = { { -1, 0, MCOI::OPERAND_GENERIC_0, 0 }, { -1, 0, MCOI::OPERAND_GENERIC_0, 0 }, };
+static const MCOperandInfo OperandInfo22[] = { { -1, 0, MCOI::OPERAND_GENERIC_0, 0 }, { -1, 0, MCOI::OPERAND_GENERIC_1, 0 }, { -1, 0, MCOI::OPERAND_GENERIC_1, 0 }, { -1, 0, MCOI::OPERAND_GENERIC_2, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo23[] = { { -1, 0, MCOI::OPERAND_GENERIC_0, 0 }, { -1, 0, MCOI::OPERAND_GENERIC_1, 0 }, { -1, 0, MCOI::OPERAND_GENERIC_0, 0 }, { -1, 0, MCOI::OPERAND_GENERIC_2, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo24[] = { { -1, 0, MCOI::OPERAND_GENERIC_0, 0 }, { -1, 0, MCOI::OPERAND_GENERIC_1, 0 }, { -1, 0, MCOI::OPERAND_GENERIC_2, 0 }, { -1, 0, MCOI::OPERAND_GENERIC_0, 0 }, { -1, 0, MCOI::OPERAND_GENERIC_0, 0 }, };
+static const MCOperandInfo OperandInfo25[] = { { -1, 0, MCOI::OPERAND_GENERIC_0, 0 }, { -1, 0, MCOI::OPERAND_GENERIC_1, 0 }, { -1, 0, MCOI::OPERAND_GENERIC_0, 0 }, { -1, 0, MCOI::OPERAND_GENERIC_0, 0 }, };
+static const MCOperandInfo OperandInfo26[] = { { -1, 0, MCOI::OPERAND_GENERIC_0, 0 }, { -1, 0, MCOI::OPERAND_GENERIC_1, 0 }, { -1, 0, MCOI::OPERAND_GENERIC_0, 0 }, };
+static const MCOperandInfo OperandInfo27[] = { { -1, 0, MCOI::OPERAND_GENERIC_0, 0 }, { -1, 0, MCOI::OPERAND_GENERIC_0, 0 }, { -1, 0, MCOI::OPERAND_GENERIC_IMM_0, 0 }, };
+static const MCOperandInfo OperandInfo28[] = { { -1, 0, MCOI::OPERAND_GENERIC_0, 0 }, { -1, 0, MCOI::OPERAND_GENERIC_0, 0 }, { -1, 0, MCOI::OPERAND_GENERIC_1, 0 }, };
+static const MCOperandInfo OperandInfo29[] = { { -1, 0, MCOI::OPERAND_GENERIC_0, 0 }, { -1, 0, MCOI::OPERAND_GENERIC_0, 0 }, { -1, 0, MCOI::OPERAND_GENERIC_0, 0 }, { -1, 0, MCOI::OPERAND_GENERIC_1, 0 }, };
+static const MCOperandInfo OperandInfo30[] = { { -1, 0, MCOI::OPERAND_GENERIC_0, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, { -1, 0, MCOI::OPERAND_GENERIC_1, 0 }, { -1, 0, MCOI::OPERAND_GENERIC_1, 0 }, };
+static const MCOperandInfo OperandInfo31[] = { { -1, 0, MCOI::OPERAND_GENERIC_0, 0 }, { -1, 0, MCOI::OPERAND_GENERIC_1, 0 }, { -1, 0, MCOI::OPERAND_GENERIC_0, 0 }, { -1, 0, MCOI::OPERAND_GENERIC_0, 0 }, { -1, 0, MCOI::OPERAND_GENERIC_1, 0 }, };
+static const MCOperandInfo OperandInfo32[] = { { -1, 0, MCOI::OPERAND_GENERIC_0, 0 }, { -1, 0, MCOI::OPERAND_GENERIC_0, 0 }, { -1, 0, MCOI::OPERAND_GENERIC_0, 0 }, { -1, 0, MCOI::OPERAND_GENERIC_0, 0 }, };
+static const MCOperandInfo OperandInfo33[] = { { -1, 0, MCOI::OPERAND_GENERIC_0, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, { -1, 0, MCOI::OPERAND_GENERIC_1, 0 }, };
+static const MCOperandInfo OperandInfo34[] = { { -1, 0, MCOI::OPERAND_GENERIC_0, 0 }, { -1, 0, MCOI::OPERAND_GENERIC_0, 0 }, { -1, 0, MCOI::OPERAND_GENERIC_1, 0 }, { -1, 0, MCOI::OPERAND_GENERIC_2, 0 }, };
+static const MCOperandInfo OperandInfo35[] = { { -1, 0, MCOI::OPERAND_GENERIC_0, 0 }, { -1, 0, MCOI::OPERAND_GENERIC_1, 0 }, { -1, 0, MCOI::OPERAND_GENERIC_2, 0 }, };
+static const MCOperandInfo OperandInfo36[] = { { -1, 0, MCOI::OPERAND_GENERIC_0, 0 }, { -1, 0, MCOI::OPERAND_GENERIC_1, 0 }, { -1, 0, MCOI::OPERAND_GENERIC_1, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo37[] = { { -1, 0, MCOI::OPERAND_GENERIC_0, 0 }, { -1, 0, MCOI::OPERAND_GENERIC_1, 0 }, { -1, 0, MCOI::OPERAND_IMMEDIATE, 0 }, };
+static const MCOperandInfo OperandInfo38[] = { { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, { -1, 0, MCOI::OPERAND_GENERIC_0, 0 }, };
+static const MCOperandInfo OperandInfo39[] = { { PPC::G8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo40[] = { { PPC::G8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::G8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo41[] = { { PPC::GPRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::GPRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo42[] = { { PPC::G8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::G8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo43[] = { { PPC::GPRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::GPRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo44[] = { { PPC::GPRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::GPRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo45[] = { { 1, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, 0 }, { 0, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo46[] = { { 1, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, 0 }, { 0, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo47[] = { { PPC::VSSRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, { 1, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo48[] = { { PPC::VSFRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, { 1, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo49[] = { { PPC::GPRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, { 1, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo50[] = { { PPC::VSFRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { 1, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, 0 }, { 0, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo51[] = { { PPC::G8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::G8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, { -1, 0, MCOI::OPERAND_IMMEDIATE, 0 }, };
+static const MCOperandInfo OperandInfo52[] = { { PPC::SPILLTOVSRRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, { 1, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo53[] = { { PPC::SPILLTOVSRRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { 1, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, 0 }, { 0, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo54[] = { { PPC::G8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo55[] = { { PPC::VSSRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { 1, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, 0 }, { 0, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo56[] = { { PPC::GPRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::GPRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::GPRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo57[] = { { PPC::G8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::G8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::G8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo58[] = { { PPC::G8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::G8RC_NOX0RegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo59[] = { { PPC::GPRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::GPRC_NOR0RegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo60[] = { { PPC::G8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::G8RC_NOX0RegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo61[] = { { PPC::GPRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::GPRC_NOR0RegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo62[] = { { PPC::G8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::G8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo63[] = { { PPC::G8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { -1, 0, MCOI::OPERAND_IMMEDIATE, 0 }, };
+static const MCOperandInfo OperandInfo64[] = { { PPC::CRBITRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::GPRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo65[] = { { PPC::CRBITRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::G8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo66[] = { { PPC::GPRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { 1, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, 0 }, { 0, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, 0 }, { PPC::GPRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::GPRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo67[] = { { PPC::G8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { 1, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, 0 }, { 0, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, 0 }, { PPC::G8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::G8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo68[] = { { PPC::GPRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { 1, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, 0 }, { 0, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, 0 }, { PPC::GPRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo69[] = { { PPC::G8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { 1, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, 0 }, { 0, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, 0 }, { PPC::G8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo70[] = { { -1, 0, MCOI::OPERAND_PCREL, 0 }, };
+static const MCOperandInfo OperandInfo71[] = { { PPC::CRBITRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { -1, 0, MCOI::OPERAND_PCREL, 0 }, };
+static const MCOperandInfo OperandInfo72[] = { { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, { PPC::CRRCRegClassID, 0, MCOI::OPERAND_UNKNOWN, 0 }, { -1, 0, MCOI::OPERAND_PCREL, 0 }, };
+static const MCOperandInfo OperandInfo73[] = { { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, { PPC::CRRCRegClassID, 0, MCOI::OPERAND_UNKNOWN, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo74[] = { { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, { PPC::CRRCRegClassID, 0, MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo75[] = { { PPC::CRBITRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo76[] = { { PPC::VRRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::VRRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo77[] = { { PPC::VRRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::VRRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::VRRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo78[] = { { PPC::VRRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::VRRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo79[] = { { PPC::VRRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::VRRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::VRRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo80[] = { { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, { 1, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo81[] = { { PPC::CRRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::G8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::G8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo82[] = { { PPC::CRRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::G8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo83[] = { { PPC::CRBITRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::G8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::G8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo84[] = { { PPC::CRRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::GPRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::GPRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo85[] = { { PPC::CRRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::GPRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo86[] = { { PPC::CRBITRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, { PPC::G8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::G8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo87[] = { { PPC::CRBITRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::CRBITRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::CRBITRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo88[] = { { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, { 1, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, 0 }, { 0, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo89[] = { { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, { PPC::GPRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::GPRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo90[] = { { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, { PPC::G8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::GPRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo91[] = { { PPC::GPRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::GPRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, { 1, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo92[] = { { PPC::G8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::G8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, { 1, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo93[] = { { -1, 0, MCOI::OPERAND_IMMEDIATE, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, { 1, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo94[] = { { PPC::SPERCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::SPERCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo95[] = { { PPC::SPERCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::SPERCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::SPERCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo96[] = { { PPC::SPERCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::GPRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo97[] = { { PPC::CRRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::SPERCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::SPERCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo98[] = { { PPC::GPRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::SPERCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo99[] = { { 1, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo100[] = { { PPC::GPRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { 1, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo101[] = { { PPC::SPERCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::SPERCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo102[] = { { PPC::SPERCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, { 1, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo103[] = { { PPC::SPERCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { 1, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, 0 }, { 0, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo104[] = { { PPC::SPERCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::GPRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::GPRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo105[] = { { PPC::SPERCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::SPERCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::SPERCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::CRRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo106[] = { { PPC::SPERCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo107[] = { { PPC::SPERCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, { PPC::SPERCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo108[] = { { PPC::G8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::GPRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo109[] = { { PPC::G8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::GPRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo110[] = { { PPC::F8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::F8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo111[] = { { PPC::F4RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::F4RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo112[] = { { PPC::F8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::F8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::F8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo113[] = { { PPC::F4RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::F4RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::F4RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo114[] = { { PPC::F4RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::F8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo115[] = { { PPC::CRRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::F8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::F8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo116[] = { { PPC::CRRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::F4RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::F4RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo117[] = { { PPC::F8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::F8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::F8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::F8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo118[] = { { PPC::F4RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::F4RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::F4RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::F4RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo119[] = { { PPC::F4RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::F8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::F4RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::F4RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo120[] = { { PPC::CRRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::F8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo121[] = { { PPC::GPRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::GPRC_NOR0RegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::GPRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::CRBITRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo122[] = { { PPC::G8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::G8RC_NOX0RegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::G8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::CRBITRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo123[] = { { PPC::GPRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { 1, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, 0 }, { 0, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo124[] = { { PPC::G8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, { 1, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo125[] = { { PPC::GPRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { 1, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, { 1, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, ((1 << 16) | (1 << MCOI::TIED_TO)) }, };
+static const MCOperandInfo OperandInfo126[] = { { PPC::G8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { 1, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, { 1, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, ((1 << 16) | (1 << MCOI::TIED_TO)) }, };
+static const MCOperandInfo OperandInfo127[] = { { PPC::GPRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { 1, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, 0 }, { 1, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, ((1 << 16) | (1 << MCOI::TIED_TO)) }, { 0, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo128[] = { { PPC::G8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { 1, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, 0 }, { 1, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, ((1 << 16) | (1 << MCOI::TIED_TO)) }, { 0, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo129[] = { { PPC::G8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { 1, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, 0 }, { 0, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo130[] = { { PPC::G8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { 1, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo131[] = { { PPC::GPRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { 1, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo132[] = { { PPC::G8RC_NOX0RegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, { PPC::G8RC_NOX0RegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo133[] = { { PPC::GPRC_NOR0RegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, { PPC::GPRC_NOR0RegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo134[] = { { PPC::G8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, { PPC::G8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo135[] = { { PPC::G8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, { PPC::G8RC_NOX0RegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo136[] = { { PPC::F8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, { 1, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo137[] = { { PPC::F8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { 1, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, 0 }, { 0, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo138[] = { { PPC::F8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { 1, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, { 1, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, ((1 << 16) | (1 << MCOI::TIED_TO)) }, };
+static const MCOperandInfo OperandInfo139[] = { { PPC::F8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { 1, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, 0 }, { 1, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, ((1 << 16) | (1 << MCOI::TIED_TO)) }, { 0, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo140[] = { { PPC::F4RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, { 1, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo141[] = { { PPC::F4RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { 1, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, { 1, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, ((1 << 16) | (1 << MCOI::TIED_TO)) }, };
+static const MCOperandInfo OperandInfo142[] = { { PPC::F4RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { 1, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, 0 }, { 1, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, ((1 << 16) | (1 << MCOI::TIED_TO)) }, { 0, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo143[] = { { PPC::F4RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { 1, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, 0 }, { 0, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo144[] = { { PPC::GPRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo145[] = { { PPC::VRRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { 1, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, 0 }, { 0, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo146[] = { { PPC::GPRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, { PPC::GPRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo147[] = { { PPC::GPRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, { PPC::GPRC_NOR0RegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo148[] = { { PPC::VFRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, { 1, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo149[] = { { PPC::VSRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, { 1, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo150[] = { { PPC::VSRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { 1, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, 0 }, { 0, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo151[] = { { PPC::VSRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { 1, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, 0 }, { PPC::G8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo152[] = { { PPC::G8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::G8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::G8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::G8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo153[] = { { PPC::GPRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::GPRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::GPRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::GPRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo154[] = { { PPC::CRRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::CRRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo155[] = { { PPC::CRRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo156[] = { { PPC::GPRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo157[] = { { PPC::GPRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo158[] = { { PPC::GPRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { -1, 0, MCOI::OPERAND_IMMEDIATE, 0 }, };
+static const MCOperandInfo OperandInfo159[] = { { PPC::F8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo160[] = { { PPC::F8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo161[] = { { PPC::G8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::VSRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo162[] = { { PPC::GPRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::VRSAVERCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo163[] = { { PPC::GPRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::VSRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo164[] = { { PPC::VRRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo165[] = { { PPC::G8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::VSFRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo166[] = { { PPC::GPRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::VSFRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo167[] = { { -1, 0, MCOI::OPERAND_IMMEDIATE, 0 }, { PPC::GPRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo168[] = { { -1, 0, MCOI::OPERAND_IMMEDIATE, 0 }, { PPC::G8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo169[] = { { -1, 0, MCOI::OPERAND_IMMEDIATE, 0 }, { PPC::F8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { -1, 0, MCOI::OPERAND_IMMEDIATE, 0 }, { -1, 0, MCOI::OPERAND_IMMEDIATE, 0 }, };
+static const MCOperandInfo OperandInfo170[] = { { PPC::CRRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { -1, 0, MCOI::OPERAND_IMMEDIATE, 0 }, { -1, 0, MCOI::OPERAND_IMMEDIATE, 0 }, };
+static const MCOperandInfo OperandInfo171[] = { { -1, 0, MCOI::OPERAND_IMMEDIATE, 0 }, { PPC::F8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo172[] = { { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, { PPC::GPRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo173[] = { { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, { PPC::G8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo174[] = { { PPC::VSRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::G8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo175[] = { { PPC::VRSAVERCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::GPRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo176[] = { { PPC::VSRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::GPRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo177[] = { { PPC::VSFRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::G8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo178[] = { { PPC::VSRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::G8RC_NOX0RegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::G8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo179[] = { { PPC::VSFRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::GPRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo180[] = { { PPC::G8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo181[] = { { PPC::F8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo182[] = { { PPC::F4RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo183[] = { { PPC::VFRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo184[] = { { PPC::VSRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo185[] = { { PPC::QFRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::QFRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::QFRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo186[] = { { PPC::QBRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::QBRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::QBRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo187[] = { { PPC::QSRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::QSRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::QSRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo188[] = { { PPC::QFRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::QFRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo189[] = { { PPC::QBRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::QBRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo190[] = { { PPC::QSRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::QSRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo191[] = { { PPC::QFRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::QFRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo192[] = { { PPC::QSRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::QSRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo193[] = { { PPC::QFRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::QFRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::QFRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo194[] = { { PPC::QSRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::QSRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::QSRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo195[] = { { PPC::QBRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::QBRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo196[] = { { PPC::QBRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::QFRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::QFRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo197[] = { { PPC::QBRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::QSRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::QSRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo198[] = { { PPC::QFRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::QFRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::QFRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::QFRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo199[] = { { PPC::QSRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::QSRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::QSRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::QSRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo200[] = { { PPC::QSRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::QSRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::QSRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::QFRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo201[] = { { PPC::QSRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::QFRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo202[] = { { PPC::QFRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::QBRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::QFRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::QFRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo203[] = { { PPC::QBRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::QBRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::QBRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::QBRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo204[] = { { PPC::QSRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::QBRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::QSRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::QSRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo205[] = { { PPC::QFRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo206[] = { { PPC::QFRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { 1, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, 0 }, { 0, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo207[] = { { PPC::QSRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { 1, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, 0 }, { 0, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo208[] = { { PPC::QFRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { 1, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, 0 }, { 1, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, ((1 << 16) | (1 << MCOI::TIED_TO)) }, { 0, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo209[] = { { PPC::QBRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { 1, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, 0 }, { 0, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo210[] = { { PPC::QSRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { 1, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, 0 }, { 1, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, ((1 << 16) | (1 << MCOI::TIED_TO)) }, { 0, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo211[] = { { PPC::QFRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::G8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo212[] = { { 1, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, 0 }, { PPC::QFRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { 1, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, ((0 << 16) | (1 << MCOI::TIED_TO)) }, { 0, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo213[] = { { 1, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, 0 }, { PPC::QSRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { 1, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, ((0 << 16) | (1 << MCOI::TIED_TO)) }, { 0, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo214[] = { { PPC::CRRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, { 1, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo215[] = { { PPC::CRBITRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, { 1, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo216[] = { { PPC::VRSAVERCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, { 1, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo217[] = { { PPC::G8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::G8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::GPRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo218[] = { { PPC::G8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::GPRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo219[] = { { PPC::G8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::G8RCRegClassID, 0, MCOI::OPERAND_REGISTER, ((0 << 16) | (1 << MCOI::TIED_TO)) }, { PPC::G8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo220[] = { { PPC::GPRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::GPRCRegClassID, 0, MCOI::OPERAND_REGISTER, ((0 << 16) | (1 << MCOI::TIED_TO)) }, { PPC::GPRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo221[] = { { PPC::G8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::G8RCRegClassID, 0, MCOI::OPERAND_REGISTER, ((0 << 16) | (1 << MCOI::TIED_TO)) }, { PPC::G8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo222[] = { { PPC::GPRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::GPRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo223[] = { { PPC::G8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::G8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo224[] = { { PPC::GPRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::GPRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::GPRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo225[] = { { PPC::G8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::G8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::G8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo226[] = { { PPC::VRRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::CRRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::VRRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::VRRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { -1, 0, MCOI::OPERAND_IMMEDIATE, 0 }, };
+static const MCOperandInfo OperandInfo227[] = { { PPC::F4RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::CRRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::F4RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::F4RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { -1, 0, MCOI::OPERAND_IMMEDIATE, 0 }, };
+static const MCOperandInfo OperandInfo228[] = { { PPC::F8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::CRRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::F8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::F8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { -1, 0, MCOI::OPERAND_IMMEDIATE, 0 }, };
+static const MCOperandInfo OperandInfo229[] = { { PPC::GPRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::CRRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::GPRC_NOR0RegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::GPRC_NOR0RegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { -1, 0, MCOI::OPERAND_IMMEDIATE, 0 }, };
+static const MCOperandInfo OperandInfo230[] = { { PPC::G8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::CRRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::G8RC_NOX0RegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::G8RC_NOX0RegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { -1, 0, MCOI::OPERAND_IMMEDIATE, 0 }, };
+static const MCOperandInfo OperandInfo231[] = { { PPC::QBRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::CRRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::QBRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::QBRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { -1, 0, MCOI::OPERAND_IMMEDIATE, 0 }, };
+static const MCOperandInfo OperandInfo232[] = { { PPC::QFRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::CRRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::QFRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::QFRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { -1, 0, MCOI::OPERAND_IMMEDIATE, 0 }, };
+static const MCOperandInfo OperandInfo233[] = { { PPC::QSRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::CRRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::QSRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::QSRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { -1, 0, MCOI::OPERAND_IMMEDIATE, 0 }, };
+static const MCOperandInfo OperandInfo234[] = { { PPC::SPERCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::CRRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::SPERCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::SPERCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { -1, 0, MCOI::OPERAND_IMMEDIATE, 0 }, };
+static const MCOperandInfo OperandInfo235[] = { { PPC::GPRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::CRRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::GPRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::GPRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { -1, 0, MCOI::OPERAND_IMMEDIATE, 0 }, };
+static const MCOperandInfo OperandInfo236[] = { { PPC::VSRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::CRRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::VSRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::VSRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { -1, 0, MCOI::OPERAND_IMMEDIATE, 0 }, };
+static const MCOperandInfo OperandInfo237[] = { { PPC::VRRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::CRBITRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::VRRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::VRRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo238[] = { { PPC::F4RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::CRBITRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::F4RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::F4RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo239[] = { { PPC::F8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::CRBITRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::F8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::F8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo240[] = { { PPC::GPRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::CRBITRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::GPRC_NOR0RegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::GPRC_NOR0RegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo241[] = { { PPC::G8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::CRBITRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::G8RC_NOX0RegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::G8RC_NOX0RegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo242[] = { { PPC::QBRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::CRBITRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::QBRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::QBRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo243[] = { { PPC::QFRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::CRBITRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::QFRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::QFRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo244[] = { { PPC::QSRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::CRBITRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::QSRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::QSRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo245[] = { { PPC::SPERCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::CRBITRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::SPERCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::SPERCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo246[] = { { PPC::GPRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::CRBITRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::GPRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::GPRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo247[] = { { PPC::VSRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::CRBITRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::VSRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::VSRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo248[] = { { PPC::GPRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::CRRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo249[] = { { PPC::G8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::CRRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo250[] = { { PPC::F8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::GPRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo251[] = { { PPC::G8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::G8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::GPRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo252[] = { { 1, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, 0 }, { PPC::GPRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, { 1, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, ((0 << 16) | (1 << MCOI::TIED_TO)) }, };
+static const MCOperandInfo OperandInfo253[] = { { 1, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, 0 }, { PPC::G8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, { 1, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, ((0 << 16) | (1 << MCOI::TIED_TO)) }, };
+static const MCOperandInfo OperandInfo254[] = { { 1, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, 0 }, { PPC::GPRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { 1, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, ((0 << 16) | (1 << MCOI::TIED_TO)) }, { 0, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo255[] = { { 1, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, 0 }, { PPC::G8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { 1, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, ((0 << 16) | (1 << MCOI::TIED_TO)) }, { 0, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo256[] = { { 1, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, 0 }, { PPC::F8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, { 1, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, ((0 << 16) | (1 << MCOI::TIED_TO)) }, };
+static const MCOperandInfo OperandInfo257[] = { { 1, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, 0 }, { PPC::F8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { 1, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, ((0 << 16) | (1 << MCOI::TIED_TO)) }, { 0, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo258[] = { { 1, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, 0 }, { PPC::F4RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, { 1, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, ((0 << 16) | (1 << MCOI::TIED_TO)) }, };
+static const MCOperandInfo OperandInfo259[] = { { 1, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, 0 }, { PPC::F4RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { 1, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, ((0 << 16) | (1 << MCOI::TIED_TO)) }, { 0, 0|(1<<MCOI::LookupPtrRegClass), MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo260[] = { { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, { PPC::GPRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo261[] = { { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, { -1, 0, MCOI::OPERAND_IMMEDIATE, 0 }, };
+static const MCOperandInfo OperandInfo262[] = { { -1, 0, MCOI::OPERAND_PCREL, 0 }, { -1, 0, MCOI::OPERAND_IMMEDIATE, 0 }, };
+static const MCOperandInfo OperandInfo263[] = { { PPC::CTRRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { -1, 0, MCOI::OPERAND_IMMEDIATE, 0 }, };
+static const MCOperandInfo OperandInfo264[] = { { PPC::CTRRC8RegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { -1, 0, MCOI::OPERAND_IMMEDIATE, 0 }, };
+static const MCOperandInfo OperandInfo265[] = { { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, { PPC::G8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::G8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo266[] = { { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, { PPC::G8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo267[] = { { PPC::GPRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::GPRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { -1, 0, MCOI::OPERAND_IMMEDIATE, 0 }, };
+static const MCOperandInfo OperandInfo268[] = { { PPC::VRRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::VRRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::VRRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::VRRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo269[] = { { PPC::VRRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, { PPC::VRRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo270[] = { { PPC::GPRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::VRRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo271[] = { { PPC::VFRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::VFRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo272[] = { { PPC::G8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::G8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::VRRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo273[] = { { PPC::VRRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::VRRCRegClassID, 0, MCOI::OPERAND_REGISTER, ((0 << 16) | (1 << MCOI::TIED_TO)) }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, { PPC::VRRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo274[] = { { PPC::VRRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::VRRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::VRRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::VRRCRegClassID, 0, MCOI::OPERAND_REGISTER, ((0 << 16) | (1 << MCOI::TIED_TO)) }, };
+static const MCOperandInfo OperandInfo275[] = { { PPC::VRRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::VRRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo276[] = { { PPC::VRRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, { PPC::VFRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo277[] = { { PPC::VRRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo278[] = { { PPC::VSFRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::VSFRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo279[] = { { PPC::VSFRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::VSFRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::VSFRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo280[] = { { PPC::VSSRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::VSSRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::VSSRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo281[] = { { PPC::VSRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::VSFRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::VSFRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo282[] = { { PPC::CRRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::VSFRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::VSFRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo283[] = { { PPC::CRRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::VRRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::VRRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo284[] = { { PPC::VRRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::VFRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo285[] = { { PPC::VSRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::VSSRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo286[] = { { PPC::VSSRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::VSSRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo287[] = { { PPC::VFRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::VRRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo288[] = { { PPC::VSSRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::VSRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo289[] = { { PPC::VSSRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::VSFRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo290[] = { { PPC::VSRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::G8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::G8RCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo291[] = { { PPC::VRRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::VRRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::VSFRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo292[] = { { PPC::VSFRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::VSFRCRegClassID, 0, MCOI::OPERAND_REGISTER, ((0 << 16) | (1 << MCOI::TIED_TO)) }, { PPC::VSFRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::VSFRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo293[] = { { PPC::VSSRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::VSSRCRegClassID, 0, MCOI::OPERAND_REGISTER, ((0 << 16) | (1 << MCOI::TIED_TO)) }, { PPC::VSSRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::VSSRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo294[] = { { PPC::VRRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::VRRCRegClassID, 0, MCOI::OPERAND_REGISTER, ((0 << 16) | (1 << MCOI::TIED_TO)) }, { PPC::VRRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::VRRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo295[] = { { PPC::VRRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, { PPC::VRRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo296[] = { { PPC::CRRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::VSFRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo297[] = { { PPC::CRRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, { PPC::VSFRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo298[] = { { PPC::CRRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, { PPC::VRRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo299[] = { { PPC::VSRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::VSRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo300[] = { { PPC::VSRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::VSRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::VSRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo301[] = { { PPC::VSRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::VSRCRegClassID, 0, MCOI::OPERAND_REGISTER, ((0 << 16) | (1 << MCOI::TIED_TO)) }, { PPC::VSRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::VSRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo302[] = { { PPC::CRRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::VSRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::VSRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo303[] = { { PPC::CRRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::VSRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo304[] = { { PPC::VSRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, { PPC::VSRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo305[] = { { PPC::VSFRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::VSRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo306[] = { { PPC::VSRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::VSRCRegClassID, 0, MCOI::OPERAND_REGISTER, ((0 << 16) | (1 << MCOI::TIED_TO)) }, { PPC::VSRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo307[] = { { PPC::VSRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo308[] = { { PPC::VSFRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo309[] = { { PPC::VSSRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo310[] = { { PPC::VSRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::VSRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::VSRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo311[] = { { PPC::VSRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::VSFRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo312[] = { { PPC::VSRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::VSRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::VSRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::VSRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, };
+static const MCOperandInfo OperandInfo313[] = { { PPC::VSRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo314[] = { { PPC::VSRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { PPC::VSRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo315[] = { { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, { PPC::CRBITRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { -1, 0, MCOI::OPERAND_PCREL, 0 }, };
+static const MCOperandInfo OperandInfo316[] = { { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, { PPC::CRBITRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo317[] = { { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, { PPC::CRBITRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, };
+static const MCOperandInfo OperandInfo318[] = { { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, { PPC::CRBITRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { -1, 0, MCOI::OPERAND_IMMEDIATE, 0 }, };
+static const MCOperandInfo OperandInfo319[] = { { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, { -1, 0, MCOI::OPERAND_UNKNOWN, 0 }, { PPC::CRBITRCRegClassID, 0, MCOI::OPERAND_REGISTER, 0 }, { -1, 0, MCOI::OPERAND_PCREL, 0 }, };
+
+extern const MCInstrDesc PPCInsts[] = {
+  { 0,	1,	1,	0,	0,	0|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::Variadic), 0x0ULL, nullptr, nullptr, OperandInfo2 },  // Inst #0 = PHI
+  { 1,	0,	0,	0,	0,	0|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::Variadic), 0x0ULL, nullptr, nullptr, nullptr },  // Inst #1 = INLINEASM
+  { 2,	0,	0,	0,	0,	0|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::Branch)|(1ULL<<MCID::IndirectBranch)|(1ULL<<MCID::Terminator)|(1ULL<<MCID::Variadic), 0x0ULL, nullptr, nullptr, nullptr },  // Inst #2 = INLINEASM_BR
+  { 3,	1,	0,	0,	0,	0|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::NotDuplicable), 0x0ULL, nullptr, nullptr, OperandInfo3 },  // Inst #3 = CFI_INSTRUCTION
+  { 4,	1,	0,	0,	0,	0|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::NotDuplicable), 0x0ULL, nullptr, nullptr, OperandInfo3 },  // Inst #4 = EH_LABEL
+  { 5,	1,	0,	0,	0,	0|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::NotDuplicable), 0x0ULL, nullptr, nullptr, OperandInfo3 },  // Inst #5 = GC_LABEL
+  { 6,	1,	0,	0,	0,	0|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::NotDuplicable), 0x0ULL, nullptr, nullptr, OperandInfo3 },  // Inst #6 = ANNOTATION_LABEL
+  { 7,	0,	0,	0,	0,	0|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::Variadic), 0x0ULL, nullptr, nullptr, nullptr },  // Inst #7 = KILL
+  { 8,	3,	1,	0,	0,	0|(1ULL<<MCID::Pseudo), 0x0ULL, nullptr, nullptr, OperandInfo4 },  // Inst #8 = EXTRACT_SUBREG
+  { 9,	4,	1,	0,	0,	0|(1ULL<<MCID::Pseudo), 0x0ULL, nullptr, nullptr, OperandInfo5 },  // Inst #9 = INSERT_SUBREG
+  { 10,	1,	1,	0,	0,	0|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::Rematerializable)|(1ULL<<MCID::CheapAsAMove), 0x0ULL, nullptr, nullptr, OperandInfo2 },  // Inst #10 = IMPLICIT_DEF
+  { 11,	4,	1,	0,	0,	0|(1ULL<<MCID::Pseudo), 0x0ULL, nullptr, nullptr, OperandInfo6 },  // Inst #11 = SUBREG_TO_REG
+  { 12,	3,	1,	0,	0,	0|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::CheapAsAMove), 0x0ULL, nullptr, nullptr, OperandInfo4 },  // Inst #12 = COPY_TO_REGCLASS
+  { 13,	0,	0,	0,	0,	0|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::Variadic), 0x0ULL, nullptr, nullptr, nullptr },  // Inst #13 = DBG_VALUE
+  { 14,	1,	0,	0,	0,	0|(1ULL<<MCID::Pseudo), 0x0ULL, nullptr, nullptr, OperandInfo2 },  // Inst #14 = DBG_LABEL
+  { 15,	2,	1,	0,	0,	0|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::Variadic)|(1ULL<<MCID::CheapAsAMove), 0x0ULL, nullptr, nullptr, OperandInfo7 },  // Inst #15 = REG_SEQUENCE
+  { 16,	2,	1,	0,	117,	0|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::CheapAsAMove), 0x0ULL, nullptr, nullptr, OperandInfo7 },  // Inst #16 = COPY
+  { 17,	0,	0,	0,	0,	0|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::Variadic), 0x0ULL, nullptr, nullptr, nullptr },  // Inst #17 = BUNDLE
+  { 18,	1,	0,	0,	0,	0|(1ULL<<MCID::Pseudo), 0x0ULL, nullptr, nullptr, OperandInfo3 },  // Inst #18 = LIFETIME_START
+  { 19,	1,	0,	0,	0,	0|(1ULL<<MCID::Pseudo), 0x0ULL, nullptr, nullptr, OperandInfo3 },  // Inst #19 = LIFETIME_END
+  { 20,	2,	0,	0,	0,	0|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::Call)|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::UsesCustomInserter)|(1ULL<<MCID::Variadic)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo8 },  // Inst #20 = STACKMAP
+  { 21,	0,	0,	0,	0,	0|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::MayStore)|(1ULL<<MCID::UsesCustomInserter)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, nullptr },  // Inst #21 = FENTRY_CALL
+  { 22,	6,	1,	0,	0,	0|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::Call)|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::UsesCustomInserter)|(1ULL<<MCID::Variadic)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo9 },  // Inst #22 = PATCHPOINT
+  { 23,	1,	1,	0,	0,	0|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::Rematerializable), 0x0ULL, nullptr, nullptr, OperandInfo10 },  // Inst #23 = LOAD_STACK_GUARD
+  { 24,	1,	0,	0,	0,	0|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::UsesCustomInserter)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo3 },  // Inst #24 = PREALLOCATED_SETUP
+  { 25,	3,	1,	0,	0,	0|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::UsesCustomInserter)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo11 },  // Inst #25 = PREALLOCATED_ARG
+  { 26,	0,	0,	0,	0,	0|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::Call)|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::MayStore)|(1ULL<<MCID::UsesCustomInserter)|(1ULL<<MCID::Variadic)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, nullptr },  // Inst #26 = STATEPOINT
+  { 27,	2,	0,	0,	0,	0|(1ULL<<MCID::Pseudo), 0x0ULL, nullptr, nullptr, OperandInfo12 },  // Inst #27 = LOCAL_ESCAPE
+  { 28,	1,	1,	0,	0,	0|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::Branch)|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::MayStore)|(1ULL<<MCID::Terminator)|(1ULL<<MCID::UsesCustomInserter)|(1ULL<<MCID::Variadic)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo2 },  // Inst #28 = FAULTING_OP
+  { 29,	0,	0,	0,	0,	0|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::MayStore)|(1ULL<<MCID::UsesCustomInserter)|(1ULL<<MCID::Variadic)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, nullptr },  // Inst #29 = PATCHABLE_OP
+  { 30,	0,	0,	0,	0,	0|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::UsesCustomInserter)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, nullptr },  // Inst #30 = PATCHABLE_FUNCTION_ENTER
+  { 31,	0,	0,	0,	0,	0|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::Return)|(1ULL<<MCID::Terminator)|(1ULL<<MCID::UsesCustomInserter)|(1ULL<<MCID::Variadic)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, nullptr },  // Inst #31 = PATCHABLE_RET
+  { 32,	0,	0,	0,	0,	0|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::UsesCustomInserter)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, nullptr },  // Inst #32 = PATCHABLE_FUNCTION_EXIT
+  { 33,	0,	0,	0,	0,	0|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::Return)|(1ULL<<MCID::UsesCustomInserter)|(1ULL<<MCID::Variadic)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, nullptr },  // Inst #33 = PATCHABLE_TAIL_CALL
+  { 34,	2,	0,	0,	0,	0|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::Call)|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::MayStore)|(1ULL<<MCID::UsesCustomInserter)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo13 },  // Inst #34 = PATCHABLE_EVENT_CALL
+  { 35,	3,	0,	0,	0,	0|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::Call)|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::MayStore)|(1ULL<<MCID::UsesCustomInserter)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo14 },  // Inst #35 = PATCHABLE_TYPED_EVENT_CALL
+  { 36,	0,	0,	0,	0,	0|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::Variadic)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, nullptr },  // Inst #36 = ICALL_BRANCH_FUNNEL
+  { 37,	3,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::Commutable), 0x0ULL, nullptr, nullptr, OperandInfo15 },  // Inst #37 = G_ADD
+  { 38,	3,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo), 0x0ULL, nullptr, nullptr, OperandInfo15 },  // Inst #38 = G_SUB
+  { 39,	3,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::Commutable), 0x0ULL, nullptr, nullptr, OperandInfo15 },  // Inst #39 = G_MUL
+  { 40,	3,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo), 0x0ULL, nullptr, nullptr, OperandInfo15 },  // Inst #40 = G_SDIV
+  { 41,	3,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo), 0x0ULL, nullptr, nullptr, OperandInfo15 },  // Inst #41 = G_UDIV
+  { 42,	3,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo), 0x0ULL, nullptr, nullptr, OperandInfo15 },  // Inst #42 = G_SREM
+  { 43,	3,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo), 0x0ULL, nullptr, nullptr, OperandInfo15 },  // Inst #43 = G_UREM
+  { 44,	3,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::Commutable), 0x0ULL, nullptr, nullptr, OperandInfo15 },  // Inst #44 = G_AND
+  { 45,	3,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::Commutable), 0x0ULL, nullptr, nullptr, OperandInfo15 },  // Inst #45 = G_OR
+  { 46,	3,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::Commutable), 0x0ULL, nullptr, nullptr, OperandInfo15 },  // Inst #46 = G_XOR
+  { 47,	1,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo), 0x0ULL, nullptr, nullptr, OperandInfo16 },  // Inst #47 = G_IMPLICIT_DEF
+  { 48,	1,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::Variadic), 0x0ULL, nullptr, nullptr, OperandInfo16 },  // Inst #48 = G_PHI
+  { 49,	2,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo), 0x0ULL, nullptr, nullptr, OperandInfo17 },  // Inst #49 = G_FRAME_INDEX
+  { 50,	2,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo), 0x0ULL, nullptr, nullptr, OperandInfo17 },  // Inst #50 = G_GLOBAL_VALUE
+  { 51,	3,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo), 0x0ULL, nullptr, nullptr, OperandInfo18 },  // Inst #51 = G_EXTRACT
+  { 52,	2,	2,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::Variadic), 0x0ULL, nullptr, nullptr, OperandInfo19 },  // Inst #52 = G_UNMERGE_VALUES
+  { 53,	4,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo), 0x0ULL, nullptr, nullptr, OperandInfo20 },  // Inst #53 = G_INSERT
+  { 54,	2,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::Variadic), 0x0ULL, nullptr, nullptr, OperandInfo19 },  // Inst #54 = G_MERGE_VALUES
+  { 55,	2,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::Variadic), 0x0ULL, nullptr, nullptr, OperandInfo19 },  // Inst #55 = G_BUILD_VECTOR
+  { 56,	2,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::Variadic), 0x0ULL, nullptr, nullptr, OperandInfo19 },  // Inst #56 = G_BUILD_VECTOR_TRUNC
+  { 57,	2,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::Variadic), 0x0ULL, nullptr, nullptr, OperandInfo19 },  // Inst #57 = G_CONCAT_VECTORS
+  { 58,	2,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo), 0x0ULL, nullptr, nullptr, OperandInfo19 },  // Inst #58 = G_PTRTOINT
+  { 59,	2,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo), 0x0ULL, nullptr, nullptr, OperandInfo19 },  // Inst #59 = G_INTTOPTR
+  { 60,	2,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo), 0x0ULL, nullptr, nullptr, OperandInfo19 },  // Inst #60 = G_BITCAST
+  { 61,	2,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo), 0x0ULL, nullptr, nullptr, OperandInfo21 },  // Inst #61 = G_FREEZE
+  { 62,	2,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo), 0x0ULL, nullptr, nullptr, OperandInfo21 },  // Inst #62 = G_INTRINSIC_TRUNC
+  { 63,	2,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo), 0x0ULL, nullptr, nullptr, OperandInfo21 },  // Inst #63 = G_INTRINSIC_ROUND
+  { 64,	1,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo16 },  // Inst #64 = G_READCYCLECOUNTER
+  { 65,	2,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::MayLoad), 0x0ULL, nullptr, nullptr, OperandInfo19 },  // Inst #65 = G_LOAD
+  { 66,	2,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::MayLoad), 0x0ULL, nullptr, nullptr, OperandInfo19 },  // Inst #66 = G_SEXTLOAD
+  { 67,	2,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::MayLoad), 0x0ULL, nullptr, nullptr, OperandInfo19 },  // Inst #67 = G_ZEXTLOAD
+  { 68,	5,	2,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::MayLoad), 0x0ULL, nullptr, nullptr, OperandInfo22 },  // Inst #68 = G_INDEXED_LOAD
+  { 69,	5,	2,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::MayLoad), 0x0ULL, nullptr, nullptr, OperandInfo22 },  // Inst #69 = G_INDEXED_SEXTLOAD
+  { 70,	5,	2,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::MayLoad), 0x0ULL, nullptr, nullptr, OperandInfo22 },  // Inst #70 = G_INDEXED_ZEXTLOAD
+  { 71,	2,	0,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::MayStore), 0x0ULL, nullptr, nullptr, OperandInfo19 },  // Inst #71 = G_STORE
+  { 72,	5,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::MayStore), 0x0ULL, nullptr, nullptr, OperandInfo23 },  // Inst #72 = G_INDEXED_STORE
+  { 73,	5,	2,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::MayStore), 0x0ULL, nullptr, nullptr, OperandInfo24 },  // Inst #73 = G_ATOMIC_CMPXCHG_WITH_SUCCESS
+  { 74,	4,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::MayStore), 0x0ULL, nullptr, nullptr, OperandInfo25 },  // Inst #74 = G_ATOMIC_CMPXCHG
+  { 75,	3,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::MayStore), 0x0ULL, nullptr, nullptr, OperandInfo26 },  // Inst #75 = G_ATOMICRMW_XCHG
+  { 76,	3,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::MayStore), 0x0ULL, nullptr, nullptr, OperandInfo26 },  // Inst #76 = G_ATOMICRMW_ADD
+  { 77,	3,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::MayStore), 0x0ULL, nullptr, nullptr, OperandInfo26 },  // Inst #77 = G_ATOMICRMW_SUB
+  { 78,	3,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::MayStore), 0x0ULL, nullptr, nullptr, OperandInfo26 },  // Inst #78 = G_ATOMICRMW_AND
+  { 79,	3,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::MayStore), 0x0ULL, nullptr, nullptr, OperandInfo26 },  // Inst #79 = G_ATOMICRMW_NAND
+  { 80,	3,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::MayStore), 0x0ULL, nullptr, nullptr, OperandInfo26 },  // Inst #80 = G_ATOMICRMW_OR
+  { 81,	3,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::MayStore), 0x0ULL, nullptr, nullptr, OperandInfo26 },  // Inst #81 = G_ATOMICRMW_XOR
+  { 82,	3,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::MayStore), 0x0ULL, nullptr, nullptr, OperandInfo26 },  // Inst #82 = G_ATOMICRMW_MAX
+  { 83,	3,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::MayStore), 0x0ULL, nullptr, nullptr, OperandInfo26 },  // Inst #83 = G_ATOMICRMW_MIN
+  { 84,	3,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::MayStore), 0x0ULL, nullptr, nullptr, OperandInfo26 },  // Inst #84 = G_ATOMICRMW_UMAX
+  { 85,	3,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::MayStore), 0x0ULL, nullptr, nullptr, OperandInfo26 },  // Inst #85 = G_ATOMICRMW_UMIN
+  { 86,	3,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::MayStore), 0x0ULL, nullptr, nullptr, OperandInfo26 },  // Inst #86 = G_ATOMICRMW_FADD
+  { 87,	3,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::MayStore), 0x0ULL, nullptr, nullptr, OperandInfo26 },  // Inst #87 = G_ATOMICRMW_FSUB
+  { 88,	2,	0,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo8 },  // Inst #88 = G_FENCE
+  { 89,	2,	0,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::Branch)|(1ULL<<MCID::Terminator), 0x0ULL, nullptr, nullptr, OperandInfo17 },  // Inst #89 = G_BRCOND
+  { 90,	1,	0,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::Branch)|(1ULL<<MCID::Terminator), 0x0ULL, nullptr, nullptr, OperandInfo16 },  // Inst #90 = G_BRINDIRECT
+  { 91,	1,	0,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::Variadic)|(1ULL<<MCID::Convergent), 0x0ULL, nullptr, nullptr, OperandInfo2 },  // Inst #91 = G_INTRINSIC
+  { 92,	1,	0,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::MayStore)|(1ULL<<MCID::Variadic)|(1ULL<<MCID::UnmodeledSideEffects)|(1ULL<<MCID::Convergent), 0x0ULL, nullptr, nullptr, OperandInfo2 },  // Inst #92 = G_INTRINSIC_W_SIDE_EFFECTS
+  { 93,	2,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo), 0x0ULL, nullptr, nullptr, OperandInfo19 },  // Inst #93 = G_ANYEXT
+  { 94,	2,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo), 0x0ULL, nullptr, nullptr, OperandInfo19 },  // Inst #94 = G_TRUNC
+  { 95,	2,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo), 0x0ULL, nullptr, nullptr, OperandInfo17 },  // Inst #95 = G_CONSTANT
+  { 96,	2,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo), 0x0ULL, nullptr, nullptr, OperandInfo17 },  // Inst #96 = G_FCONSTANT
+  { 97,	1,	0,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::MayStore), 0x0ULL, nullptr, nullptr, OperandInfo16 },  // Inst #97 = G_VASTART
+  { 98,	3,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::MayStore), 0x0ULL, nullptr, nullptr, OperandInfo18 },  // Inst #98 = G_VAARG
+  { 99,	2,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo), 0x0ULL, nullptr, nullptr, OperandInfo19 },  // Inst #99 = G_SEXT
+  { 100,	3,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo), 0x0ULL, nullptr, nullptr, OperandInfo27 },  // Inst #100 = G_SEXT_INREG
+  { 101,	2,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo), 0x0ULL, nullptr, nullptr, OperandInfo19 },  // Inst #101 = G_ZEXT
+  { 102,	3,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo), 0x0ULL, nullptr, nullptr, OperandInfo28 },  // Inst #102 = G_SHL
+  { 103,	3,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo), 0x0ULL, nullptr, nullptr, OperandInfo28 },  // Inst #103 = G_LSHR
+  { 104,	3,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo), 0x0ULL, nullptr, nullptr, OperandInfo28 },  // Inst #104 = G_ASHR
+  { 105,	4,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo), 0x0ULL, nullptr, nullptr, OperandInfo29 },  // Inst #105 = G_FSHL
+  { 106,	4,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo), 0x0ULL, nullptr, nullptr, OperandInfo29 },  // Inst #106 = G_FSHR
+  { 107,	4,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo), 0x0ULL, nullptr, nullptr, OperandInfo30 },  // Inst #107 = G_ICMP
+  { 108,	4,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo), 0x0ULL, nullptr, nullptr, OperandInfo30 },  // Inst #108 = G_FCMP
+  { 109,	4,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo), 0x0ULL, nullptr, nullptr, OperandInfo25 },  // Inst #109 = G_SELECT
+  { 110,	4,	2,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::Commutable), 0x0ULL, nullptr, nullptr, OperandInfo25 },  // Inst #110 = G_UADDO
+  { 111,	5,	2,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo), 0x0ULL, nullptr, nullptr, OperandInfo31 },  // Inst #111 = G_UADDE
+  { 112,	4,	2,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo), 0x0ULL, nullptr, nullptr, OperandInfo25 },  // Inst #112 = G_USUBO
+  { 113,	5,	2,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo), 0x0ULL, nullptr, nullptr, OperandInfo31 },  // Inst #113 = G_USUBE
+  { 114,	4,	2,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::Commutable), 0x0ULL, nullptr, nullptr, OperandInfo25 },  // Inst #114 = G_SADDO
+  { 115,	5,	2,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo), 0x0ULL, nullptr, nullptr, OperandInfo31 },  // Inst #115 = G_SADDE
+  { 116,	4,	2,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo), 0x0ULL, nullptr, nullptr, OperandInfo25 },  // Inst #116 = G_SSUBO
+  { 117,	5,	2,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo), 0x0ULL, nullptr, nullptr, OperandInfo31 },  // Inst #117 = G_SSUBE
+  { 118,	4,	2,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::Commutable), 0x0ULL, nullptr, nullptr, OperandInfo25 },  // Inst #118 = G_UMULO
+  { 119,	4,	2,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::Commutable), 0x0ULL, nullptr, nullptr, OperandInfo25 },  // Inst #119 = G_SMULO
+  { 120,	3,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::Commutable), 0x0ULL, nullptr, nullptr, OperandInfo15 },  // Inst #120 = G_UMULH
+  { 121,	3,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::Commutable), 0x0ULL, nullptr, nullptr, OperandInfo15 },  // Inst #121 = G_SMULH
+  { 122,	3,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::Commutable), 0x0ULL, nullptr, nullptr, OperandInfo15 },  // Inst #122 = G_UADDSAT
+  { 123,	3,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::Commutable), 0x0ULL, nullptr, nullptr, OperandInfo15 },  // Inst #123 = G_SADDSAT
+  { 124,	3,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo), 0x0ULL, nullptr, nullptr, OperandInfo15 },  // Inst #124 = G_USUBSAT
+  { 125,	3,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo), 0x0ULL, nullptr, nullptr, OperandInfo15 },  // Inst #125 = G_SSUBSAT
+  { 126,	3,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::Commutable), 0x0ULL, nullptr, nullptr, OperandInfo15 },  // Inst #126 = G_FADD
+  { 127,	3,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo), 0x0ULL, nullptr, nullptr, OperandInfo15 },  // Inst #127 = G_FSUB
+  { 128,	3,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::Commutable), 0x0ULL, nullptr, nullptr, OperandInfo15 },  // Inst #128 = G_FMUL
+  { 129,	4,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo), 0x0ULL, nullptr, nullptr, OperandInfo32 },  // Inst #129 = G_FMA
+  { 130,	4,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo), 0x0ULL, nullptr, nullptr, OperandInfo32 },  // Inst #130 = G_FMAD
+  { 131,	3,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo), 0x0ULL, nullptr, nullptr, OperandInfo15 },  // Inst #131 = G_FDIV
+  { 132,	3,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo), 0x0ULL, nullptr, nullptr, OperandInfo15 },  // Inst #132 = G_FREM
+  { 133,	3,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo), 0x0ULL, nullptr, nullptr, OperandInfo15 },  // Inst #133 = G_FPOW
+  { 134,	2,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo), 0x0ULL, nullptr, nullptr, OperandInfo21 },  // Inst #134 = G_FEXP
+  { 135,	2,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo), 0x0ULL, nullptr, nullptr, OperandInfo21 },  // Inst #135 = G_FEXP2
+  { 136,	2,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo), 0x0ULL, nullptr, nullptr, OperandInfo21 },  // Inst #136 = G_FLOG
+  { 137,	2,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo), 0x0ULL, nullptr, nullptr, OperandInfo21 },  // Inst #137 = G_FLOG2
+  { 138,	2,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo), 0x0ULL, nullptr, nullptr, OperandInfo21 },  // Inst #138 = G_FLOG10
+  { 139,	2,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo), 0x0ULL, nullptr, nullptr, OperandInfo21 },  // Inst #139 = G_FNEG
+  { 140,	2,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo), 0x0ULL, nullptr, nullptr, OperandInfo19 },  // Inst #140 = G_FPEXT
+  { 141,	2,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo), 0x0ULL, nullptr, nullptr, OperandInfo19 },  // Inst #141 = G_FPTRUNC
+  { 142,	2,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo), 0x0ULL, nullptr, nullptr, OperandInfo19 },  // Inst #142 = G_FPTOSI
+  { 143,	2,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo), 0x0ULL, nullptr, nullptr, OperandInfo19 },  // Inst #143 = G_FPTOUI
+  { 144,	2,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo), 0x0ULL, nullptr, nullptr, OperandInfo19 },  // Inst #144 = G_SITOFP
+  { 145,	2,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo), 0x0ULL, nullptr, nullptr, OperandInfo19 },  // Inst #145 = G_UITOFP
+  { 146,	2,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo), 0x0ULL, nullptr, nullptr, OperandInfo21 },  // Inst #146 = G_FABS
+  { 147,	3,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo), 0x0ULL, nullptr, nullptr, OperandInfo28 },  // Inst #147 = G_FCOPYSIGN
+  { 148,	2,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo), 0x0ULL, nullptr, nullptr, OperandInfo21 },  // Inst #148 = G_FCANONICALIZE
+  { 149,	3,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::Commutable), 0x0ULL, nullptr, nullptr, OperandInfo15 },  // Inst #149 = G_FMINNUM
+  { 150,	3,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::Commutable), 0x0ULL, nullptr, nullptr, OperandInfo15 },  // Inst #150 = G_FMAXNUM
+  { 151,	3,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::Commutable), 0x0ULL, nullptr, nullptr, OperandInfo15 },  // Inst #151 = G_FMINNUM_IEEE
+  { 152,	3,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::Commutable), 0x0ULL, nullptr, nullptr, OperandInfo15 },  // Inst #152 = G_FMAXNUM_IEEE
+  { 153,	3,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::Commutable), 0x0ULL, nullptr, nullptr, OperandInfo15 },  // Inst #153 = G_FMINIMUM
+  { 154,	3,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::Commutable), 0x0ULL, nullptr, nullptr, OperandInfo15 },  // Inst #154 = G_FMAXIMUM
+  { 155,	3,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo), 0x0ULL, nullptr, nullptr, OperandInfo28 },  // Inst #155 = G_PTR_ADD
+  { 156,	3,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo), 0x0ULL, nullptr, nullptr, OperandInfo28 },  // Inst #156 = G_PTRMASK
+  { 157,	3,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::Commutable), 0x0ULL, nullptr, nullptr, OperandInfo15 },  // Inst #157 = G_SMIN
+  { 158,	3,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::Commutable), 0x0ULL, nullptr, nullptr, OperandInfo15 },  // Inst #158 = G_SMAX
+  { 159,	3,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::Commutable), 0x0ULL, nullptr, nullptr, OperandInfo15 },  // Inst #159 = G_UMIN
+  { 160,	3,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::Commutable), 0x0ULL, nullptr, nullptr, OperandInfo15 },  // Inst #160 = G_UMAX
+  { 161,	1,	0,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::Branch)|(1ULL<<MCID::Barrier)|(1ULL<<MCID::Terminator), 0x0ULL, nullptr, nullptr, OperandInfo2 },  // Inst #161 = G_BR
+  { 162,	3,	0,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::Branch)|(1ULL<<MCID::Terminator), 0x0ULL, nullptr, nullptr, OperandInfo33 },  // Inst #162 = G_BRJT
+  { 163,	4,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo), 0x0ULL, nullptr, nullptr, OperandInfo34 },  // Inst #163 = G_INSERT_VECTOR_ELT
+  { 164,	3,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo), 0x0ULL, nullptr, nullptr, OperandInfo35 },  // Inst #164 = G_EXTRACT_VECTOR_ELT
+  { 165,	4,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo), 0x0ULL, nullptr, nullptr, OperandInfo36 },  // Inst #165 = G_SHUFFLE_VECTOR
+  { 166,	2,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo), 0x0ULL, nullptr, nullptr, OperandInfo19 },  // Inst #166 = G_CTTZ
+  { 167,	2,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo), 0x0ULL, nullptr, nullptr, OperandInfo19 },  // Inst #167 = G_CTTZ_ZERO_UNDEF
+  { 168,	2,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo), 0x0ULL, nullptr, nullptr, OperandInfo19 },  // Inst #168 = G_CTLZ
+  { 169,	2,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo), 0x0ULL, nullptr, nullptr, OperandInfo19 },  // Inst #169 = G_CTLZ_ZERO_UNDEF
+  { 170,	2,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo), 0x0ULL, nullptr, nullptr, OperandInfo19 },  // Inst #170 = G_CTPOP
+  { 171,	2,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo), 0x0ULL, nullptr, nullptr, OperandInfo21 },  // Inst #171 = G_BSWAP
+  { 172,	2,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo), 0x0ULL, nullptr, nullptr, OperandInfo21 },  // Inst #172 = G_BITREVERSE
+  { 173,	2,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo), 0x0ULL, nullptr, nullptr, OperandInfo21 },  // Inst #173 = G_FCEIL
+  { 174,	2,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo), 0x0ULL, nullptr, nullptr, OperandInfo21 },  // Inst #174 = G_FCOS
+  { 175,	2,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo), 0x0ULL, nullptr, nullptr, OperandInfo21 },  // Inst #175 = G_FSIN
+  { 176,	2,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo), 0x0ULL, nullptr, nullptr, OperandInfo21 },  // Inst #176 = G_FSQRT
+  { 177,	2,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo), 0x0ULL, nullptr, nullptr, OperandInfo21 },  // Inst #177 = G_FFLOOR
+  { 178,	2,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo), 0x0ULL, nullptr, nullptr, OperandInfo21 },  // Inst #178 = G_FRINT
+  { 179,	2,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo), 0x0ULL, nullptr, nullptr, OperandInfo21 },  // Inst #179 = G_FNEARBYINT
+  { 180,	2,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo), 0x0ULL, nullptr, nullptr, OperandInfo19 },  // Inst #180 = G_ADDRSPACE_CAST
+  { 181,	2,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo), 0x0ULL, nullptr, nullptr, OperandInfo17 },  // Inst #181 = G_BLOCK_ADDR
+  { 182,	2,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo), 0x0ULL, nullptr, nullptr, OperandInfo17 },  // Inst #182 = G_JUMP_TABLE
+  { 183,	3,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo37 },  // Inst #183 = G_DYN_STACKALLOC
+  { 184,	2,	1,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::UnmodeledSideEffects)|(1ULL<<MCID::Convergent), 0x0ULL, nullptr, nullptr, OperandInfo17 },  // Inst #184 = G_READ_REGISTER
+  { 185,	2,	0,	0,	0,	0|(1ULL<<MCID::PreISelOpcode)|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::UnmodeledSideEffects)|(1ULL<<MCID::Convergent), 0x0ULL, nullptr, nullptr, OperandInfo38 },  // Inst #185 = G_WRITE_REGISTER
+  { 186,	1,	0,	4,	1,	0|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, ImplicitList1, OperandInfo39 },  // Inst #186 = CFENCE8
+  { 187,	4,	0,	0,	0,	0|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo40 },  // Inst #187 = CLRLSLDI
+  { 188,	4,	0,	0,	0,	0|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo40 },  // Inst #188 = CLRLSLDI_rec
+  { 189,	4,	0,	0,	0,	0|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo41 },  // Inst #189 = CLRLSLWI
+  { 190,	4,	0,	0,	0,	0|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo41 },  // Inst #190 = CLRLSLWI_rec
+  { 191,	3,	0,	0,	0,	0|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo42 },  // Inst #191 = CLRRDI
+  { 192,	3,	0,	0,	0,	0|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo42 },  // Inst #192 = CLRRDI_rec
+  { 193,	3,	0,	0,	0,	0|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo43 },  // Inst #193 = CLRRWI
+  { 194,	3,	0,	0,	0,	0|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo43 },  // Inst #194 = CLRRWI_rec
+  { 195,	2,	0,	0,	0,	0|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo44 },  // Inst #195 = CP_COPY_FIRST
+  { 196,	2,	0,	0,	0,	0|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo44 },  // Inst #196 = CP_COPYx
+  { 197,	2,	0,	0,	0,	0|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo44 },  // Inst #197 = CP_PASTE_LAST
+  { 198,	2,	0,	0,	0,	0|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo44 },  // Inst #198 = CP_PASTEx
+  { 199,	2,	0,	0,	0,	0|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::MayStore)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo45 },  // Inst #199 = DCBFL
+  { 200,	2,	0,	0,	0,	0|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::MayStore)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo45 },  // Inst #200 = DCBFLP
+  { 201,	2,	0,	0,	0,	0|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo45 },  // Inst #201 = DCBFx
+  { 202,	3,	0,	0,	0,	0|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo46 },  // Inst #202 = DCBTCT
+  { 203,	3,	0,	0,	0,	0|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo46 },  // Inst #203 = DCBTDS
+  { 204,	3,	0,	0,	0,	0|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo46 },  // Inst #204 = DCBTSTCT
+  { 205,	3,	0,	0,	0,	0|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo46 },  // Inst #205 = DCBTSTDS
+  { 206,	2,	0,	0,	0,	0|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo45 },  // Inst #206 = DCBTSTT
+  { 207,	2,	0,	0,	0,	0|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo45 },  // Inst #207 = DCBTSTx
+  { 208,	2,	0,	0,	0,	0|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo45 },  // Inst #208 = DCBTT
+  { 209,	2,	0,	0,	0,	0|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo45 },  // Inst #209 = DCBTx
+  { 210,	3,	1,	4,	211,	0|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::MayLoad), 0x0ULL, nullptr, nullptr, OperandInfo47 },  // Inst #210 = DFLOADf32
+  { 211,	3,	1,	4,	174,	0|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::MayLoad), 0x0ULL, nullptr, nullptr, OperandInfo48 },  // Inst #211 = DFLOADf64
+  { 212,	3,	0,	4,	217,	0|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::MayStore), 0x0ULL, nullptr, nullptr, OperandInfo47 },  // Inst #212 = DFSTOREf32
+  { 213,	3,	0,	4,	217,	0|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::MayStore), 0x0ULL, nullptr, nullptr, OperandInfo48 },  // Inst #213 = DFSTOREf64
+  { 214,	4,	0,	0,	0,	0|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo40 },  // Inst #214 = EXTLDI
+  { 215,	4,	0,	0,	0,	0|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo40 },  // Inst #215 = EXTLDI_rec
+  { 216,	4,	0,	0,	0,	0|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo41 },  // Inst #216 = EXTLWI
+  { 217,	4,	0,	0,	0,	0|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo41 },  // Inst #217 = EXTLWI_rec
+  { 218,	4,	0,	0,	0,	0|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo40 },  // Inst #218 = EXTRDI
+  { 219,	4,	0,	0,	0,	0|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo40 },  // Inst #219 = EXTRDI_rec
+  { 220,	4,	0,	0,	0,	0|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo41 },  // Inst #220 = EXTRWI
+  { 221,	4,	0,	0,	0,	0|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo41 },  // Inst #221 = EXTRWI_rec
+  { 222,	4,	0,	0,	0,	0|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo41 },  // Inst #222 = INSLWI
+  { 223,	4,	0,	0,	0,	0|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo41 },  // Inst #223 = INSLWI_rec
+  { 224,	4,	0,	0,	0,	0|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo40 },  // Inst #224 = INSRDI
+  { 225,	4,	0,	0,	0,	0|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo40 },  // Inst #225 = INSRDI_rec
+  { 226,	4,	0,	0,	0,	0|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo41 },  // Inst #226 = INSRWI
+  { 227,	4,	0,	0,	0,	0|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo41 },  // Inst #227 = INSRWI_rec
+  { 228,	3,	0,	0,	0,	0|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo49 },  // Inst #228 = LAx
+  { 229,	3,	1,	4,	208,	0|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::MayLoad), 0x40ULL, nullptr, nullptr, OperandInfo50 },  // Inst #229 = LIWAX
+  { 230,	3,	1,	4,	174,	0|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::MayLoad), 0x40ULL, nullptr, nullptr, OperandInfo50 },  // Inst #230 = LIWZX
+  { 231,	4,	0,	0,	0,	0|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo51 },  // Inst #231 = RLWIMIbm
+  { 232,	4,	0,	0,	0,	0|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo51 },  // Inst #232 = RLWIMIbm_rec
+  { 233,	4,	0,	0,	0,	0|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo51 },  // Inst #233 = RLWINMbm
+  { 234,	4,	0,	0,	0,	0|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo51 },  // Inst #234 = RLWINMbm_rec
+  { 235,	4,	0,	0,	0,	0|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo51 },  // Inst #235 = RLWNMbm
+  { 236,	4,	0,	0,	0,	0|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo51 },  // Inst #236 = RLWNMbm_rec
+  { 237,	3,	0,	0,	0,	0|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo42 },  // Inst #237 = ROTRDI
+  { 238,	3,	0,	0,	0,	0|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo42 },  // Inst #238 = ROTRDI_rec
+  { 239,	3,	0,	0,	0,	0|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo43 },  // Inst #239 = ROTRWI
+  { 240,	3,	0,	0,	0,	0|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo43 },  // Inst #240 = ROTRWI_rec
+  { 241,	3,	0,	0,	0,	0|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo42 },  // Inst #241 = SLDI
+  { 242,	3,	0,	0,	0,	0|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo42 },  // Inst #242 = SLDI_rec
+  { 243,	3,	0,	0,	0,	0|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo43 },  // Inst #243 = SLWI
+  { 244,	3,	0,	0,	0,	0|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo43 },  // Inst #244 = SLWI_rec
+  { 245,	3,	1,	4,	0,	0|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::MayLoad), 0x0ULL, nullptr, nullptr, OperandInfo52 },  // Inst #245 = SPILLTOVSR_LD
+  { 246,	3,	1,	4,	0,	0|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::MayLoad), 0x40ULL, nullptr, nullptr, OperandInfo53 },  // Inst #246 = SPILLTOVSR_LDX
+  { 247,	3,	0,	4,	0,	0|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::MayStore), 0x0ULL, nullptr, nullptr, OperandInfo52 },  // Inst #247 = SPILLTOVSR_ST
+  { 248,	3,	0,	4,	0,	0|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::MayStore), 0x40ULL, nullptr, nullptr, OperandInfo53 },  // Inst #248 = SPILLTOVSR_STX
+  { 249,	3,	0,	0,	0,	0|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo42 },  // Inst #249 = SRDI
+  { 250,	3,	0,	0,	0,	0|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo42 },  // Inst #250 = SRDI_rec
+  { 251,	3,	0,	0,	0,	0|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo43 },  // Inst #251 = SRWI
+  { 252,	3,	0,	0,	0,	0|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo43 },  // Inst #252 = SRWI_rec
+  { 253,	3,	0,	4,	217,	0|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::MayStore), 0x40ULL, nullptr, nullptr, OperandInfo50 },  // Inst #253 = STIWX
+  { 254,	3,	0,	0,	0,	0|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo43 },  // Inst #254 = SUBI
+  { 255,	3,	0,	0,	0,	0|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo43 },  // Inst #255 = SUBIC
+  { 256,	3,	0,	0,	0,	0|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo43 },  // Inst #256 = SUBIC_rec
+  { 257,	3,	0,	0,	0,	0|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo43 },  // Inst #257 = SUBIS
+  { 258,	2,	0,	0,	0,	0|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo54 },  // Inst #258 = SUBPCIS
+  { 259,	3,	1,	4,	211,	0|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::MayLoad), 0x40ULL, nullptr, nullptr, OperandInfo55 },  // Inst #259 = XFLOADf32
+  { 260,	3,	1,	4,	174,	0|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::MayLoad), 0x40ULL, nullptr, nullptr, OperandInfo50 },  // Inst #260 = XFLOADf64
+  { 261,	3,	0,	4,	217,	0|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::MayStore), 0x40ULL, nullptr, nullptr, OperandInfo55 },  // Inst #261 = XFSTOREf32
+  { 262,	3,	0,	4,	217,	0|(1ULL<<MCID::Pseudo)|(1ULL<<MCID::MayStore), 0x40ULL, nullptr, nullptr, OperandInfo50 },  // Inst #262 = XFSTOREf64
+  { 263,	3,	1,	4,	116,	0|(1ULL<<MCID::Commutable), 0x8ULL, nullptr, nullptr, OperandInfo56 },  // Inst #263 = ADD4
+  { 264,	3,	1,	4,	116,	0|(1ULL<<MCID::Commutable), 0x8ULL, nullptr, ImplicitList2, OperandInfo56 },  // Inst #264 = ADD4O
+  { 265,	3,	1,	4,	116,	0|(1ULL<<MCID::Commutable), 0x8ULL, nullptr, ImplicitList3, OperandInfo56 },  // Inst #265 = ADD4O_rec
+  { 266,	3,	1,	4,	116,	0, 0x8ULL, nullptr, nullptr, OperandInfo43 },  // Inst #266 = ADD4TLS
+  { 267,	3,	1,	4,	116,	0|(1ULL<<MCID::Commutable), 0x8ULL, nullptr, ImplicitList4, OperandInfo56 },  // Inst #267 = ADD4_rec
+  { 268,	3,	1,	4,	116,	0|(1ULL<<MCID::Commutable), 0x8ULL, nullptr, nullptr, OperandInfo57 },  // Inst #268 = ADD8
+  { 269,	3,	1,	4,	116,	0|(1ULL<<MCID::Commutable), 0x8ULL, nullptr, ImplicitList2, OperandInfo57 },  // Inst #269 = ADD8O
+  { 270,	3,	1,	4,	116,	0|(1ULL<<MCID::Commutable), 0x8ULL, nullptr, ImplicitList3, OperandInfo57 },  // Inst #270 = ADD8O_rec
+  { 271,	3,	1,	4,	116,	0, 0x8ULL, nullptr, nullptr, OperandInfo58 },  // Inst #271 = ADD8TLS
+  { 272,	3,	1,	4,	116,	0, 0x8ULL, nullptr, nullptr, OperandInfo42 },  // Inst #272 = ADD8TLS_
+  { 273,	3,	1,	4,	116,	0|(1ULL<<MCID::Commutable), 0x8ULL, nullptr, ImplicitList4, OperandInfo57 },  // Inst #273 = ADD8_rec
+  { 274,	3,	1,	4,	115,	0|(1ULL<<MCID::Commutable), 0xcULL, nullptr, ImplicitList5, OperandInfo56 },  // Inst #274 = ADDC
+  { 275,	3,	1,	4,	115,	0|(1ULL<<MCID::Commutable), 0xcULL, nullptr, ImplicitList5, OperandInfo57 },  // Inst #275 = ADDC8
+  { 276,	3,	1,	4,	115,	0|(1ULL<<MCID::Commutable), 0xcULL, nullptr, ImplicitList6, OperandInfo57 },  // Inst #276 = ADDC8O
+  { 277,	3,	1,	4,	245,	0|(1ULL<<MCID::Commutable), 0xcULL, nullptr, ImplicitList7, OperandInfo57 },  // Inst #277 = ADDC8O_rec
+  { 278,	3,	1,	4,	245,	0|(1ULL<<MCID::Commutable), 0xcULL, nullptr, ImplicitList8, OperandInfo57 },  // Inst #278 = ADDC8_rec
+  { 279,	3,	1,	4,	115,	0|(1ULL<<MCID::Commutable), 0xcULL, nullptr, ImplicitList6, OperandInfo56 },  // Inst #279 = ADDCO
+  { 280,	3,	1,	4,	245,	0|(1ULL<<MCID::Commutable), 0xcULL, nullptr, ImplicitList7, OperandInfo56 },  // Inst #280 = ADDCO_rec
+  { 281,	3,	1,	4,	245,	0|(1ULL<<MCID::Commutable), 0xcULL, nullptr, ImplicitList8, OperandInfo56 },  // Inst #281 = ADDC_rec
+  { 282,	3,	1,	4,	115,	0|(1ULL<<MCID::Commutable), 0x8ULL, ImplicitList5, ImplicitList5, OperandInfo56 },  // Inst #282 = ADDE
+  { 283,	3,	1,	4,	115,	0|(1ULL<<MCID::Commutable), 0x8ULL, ImplicitList5, ImplicitList5, OperandInfo57 },  // Inst #283 = ADDE8
+  { 284,	3,	1,	4,	115,	0|(1ULL<<MCID::Commutable), 0x8ULL, ImplicitList5, ImplicitList6, OperandInfo57 },  // Inst #284 = ADDE8O
+  { 285,	3,	1,	4,	115,	0|(1ULL<<MCID::Commutable), 0x8ULL, ImplicitList5, ImplicitList7, OperandInfo57 },  // Inst #285 = ADDE8O_rec
+  { 286,	3,	1,	4,	115,	0|(1ULL<<MCID::Commutable), 0x8ULL, ImplicitList5, ImplicitList8, OperandInfo57 },  // Inst #286 = ADDE8_rec
+  { 287,	3,	1,	4,	115,	0|(1ULL<<MCID::Commutable), 0x8ULL, ImplicitList5, ImplicitList6, OperandInfo56 },  // Inst #287 = ADDEO
+  { 288,	3,	1,	4,	115,	0|(1ULL<<MCID::Commutable), 0x8ULL, ImplicitList5, ImplicitList7, OperandInfo56 },  // Inst #288 = ADDEO_rec
+  { 289,	3,	1,	4,	115,	0|(1ULL<<MCID::Commutable), 0x8ULL, ImplicitList5, ImplicitList8, OperandInfo56 },  // Inst #289 = ADDE_rec
+  { 290,	3,	1,	4,	116,	0, 0x8ULL, nullptr, nullptr, OperandInfo59 },  // Inst #290 = ADDI
+  { 291,	3,	1,	4,	116,	0, 0x8ULL, nullptr, nullptr, OperandInfo58 },  // Inst #291 = ADDI8
+  { 292,	3,	1,	4,	115,	0, 0xcULL, nullptr, ImplicitList5, OperandInfo43 },  // Inst #292 = ADDIC
+  { 293,	3,	1,	4,	115,	0, 0x8ULL, nullptr, ImplicitList5, OperandInfo42 },  // Inst #293 = ADDIC8
+  { 294,	3,	1,	4,	115,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x8ULL, nullptr, ImplicitList8, OperandInfo43 },  // Inst #294 = ADDIC_rec
+  { 295,	3,	1,	4,	116,	0, 0x8ULL, nullptr, nullptr, OperandInfo59 },  // Inst #295 = ADDIS
+  { 296,	3,	1,	4,	116,	0, 0x8ULL, nullptr, nullptr, OperandInfo58 },  // Inst #296 = ADDIS8
+  { 297,	3,	1,	4,	0,	0, 0x0ULL, nullptr, nullptr, OperandInfo58 },  // Inst #297 = ADDISdtprelHA
+  { 298,	3,	1,	4,	0,	0, 0x0ULL, nullptr, nullptr, OperandInfo59 },  // Inst #298 = ADDISdtprelHA32
+  { 299,	3,	1,	4,	0,	0, 0x0ULL, nullptr, nullptr, OperandInfo58 },  // Inst #299 = ADDISgotTprelHA
+  { 300,	3,	1,	4,	0,	0, 0x0ULL, nullptr, nullptr, OperandInfo58 },  // Inst #300 = ADDIStlsgdHA
+  { 301,	3,	1,	4,	0,	0, 0x0ULL, nullptr, nullptr, OperandInfo58 },  // Inst #301 = ADDIStlsldHA
+  { 302,	3,	1,	4,	117,	0|(1ULL<<MCID::MayLoad), 0x0ULL, nullptr, nullptr, OperandInfo59 },  // Inst #302 = ADDIStocHA
+  { 303,	3,	1,	4,	117,	0|(1ULL<<MCID::Rematerializable), 0x0ULL, nullptr, nullptr, OperandInfo58 },  // Inst #303 = ADDIStocHA8
+  { 304,	3,	1,	4,	0,	0, 0x0ULL, nullptr, nullptr, OperandInfo58 },  // Inst #304 = ADDIdtprelL
+  { 305,	3,	1,	4,	0,	0, 0x0ULL, nullptr, nullptr, OperandInfo59 },  // Inst #305 = ADDIdtprelL32
+  { 306,	3,	1,	4,	0,	0, 0x0ULL, nullptr, nullptr, OperandInfo58 },  // Inst #306 = ADDItlsgdL
+  { 307,	3,	1,	4,	0,	0, 0x0ULL, nullptr, nullptr, OperandInfo59 },  // Inst #307 = ADDItlsgdL32
+  { 308,	4,	1,	4,	0,	0|(1ULL<<MCID::ExtraSrcRegAllocReq)|(1ULL<<MCID::ExtraDefRegAllocReq), 0x0ULL, nullptr, ImplicitList9, OperandInfo60 },  // Inst #308 = ADDItlsgdLADDR
+  { 309,	4,	1,	4,	0,	0|(1ULL<<MCID::ExtraSrcRegAllocReq)|(1ULL<<MCID::ExtraDefRegAllocReq), 0x0ULL, nullptr, ImplicitList10, OperandInfo61 },  // Inst #309 = ADDItlsgdLADDR32
+  { 310,	3,	1,	4,	0,	0, 0x0ULL, nullptr, nullptr, OperandInfo58 },  // Inst #310 = ADDItlsldL
+  { 311,	3,	1,	4,	0,	0, 0x0ULL, nullptr, nullptr, OperandInfo59 },  // Inst #311 = ADDItlsldL32
+  { 312,	4,	1,	4,	0,	0|(1ULL<<MCID::ExtraSrcRegAllocReq)|(1ULL<<MCID::ExtraDefRegAllocReq), 0x0ULL, nullptr, ImplicitList9, OperandInfo60 },  // Inst #312 = ADDItlsldLADDR
+  { 313,	4,	1,	4,	0,	0|(1ULL<<MCID::ExtraSrcRegAllocReq)|(1ULL<<MCID::ExtraDefRegAllocReq), 0x0ULL, nullptr, ImplicitList10, OperandInfo61 },  // Inst #313 = ADDItlsldLADDR32
+  { 314,	3,	1,	4,	117,	0|(1ULL<<MCID::Rematerializable), 0x0ULL, nullptr, nullptr, OperandInfo58 },  // Inst #314 = ADDItocL
+  { 315,	2,	1,	4,	115,	0, 0x8ULL, ImplicitList5, ImplicitList5, OperandInfo44 },  // Inst #315 = ADDME
+  { 316,	2,	1,	4,	115,	0, 0x8ULL, ImplicitList5, ImplicitList5, OperandInfo62 },  // Inst #316 = ADDME8
+  { 317,	2,	1,	4,	115,	0, 0x8ULL, ImplicitList5, ImplicitList6, OperandInfo62 },  // Inst #317 = ADDME8O
+  { 318,	2,	1,	4,	115,	0, 0x8ULL, ImplicitList5, ImplicitList7, OperandInfo62 },  // Inst #318 = ADDME8O_rec
+  { 319,	2,	1,	4,	115,	0, 0x8ULL, ImplicitList5, ImplicitList8, OperandInfo62 },  // Inst #319 = ADDME8_rec
+  { 320,	2,	1,	4,	115,	0, 0x8ULL, ImplicitList5, ImplicitList6, OperandInfo44 },  // Inst #320 = ADDMEO
+  { 321,	2,	1,	4,	115,	0, 0x8ULL, ImplicitList5, ImplicitList7, OperandInfo44 },  // Inst #321 = ADDMEO_rec
+  { 322,	2,	1,	4,	115,	0, 0x8ULL, ImplicitList5, ImplicitList8, OperandInfo44 },  // Inst #322 = ADDME_rec
+  { 323,	2,	1,	4,	288,	0, 0x8ULL, nullptr, nullptr, OperandInfo63 },  // Inst #323 = ADDPCIS
+  { 324,	2,	1,	4,	115,	0, 0x8ULL, ImplicitList5, ImplicitList5, OperandInfo44 },  // Inst #324 = ADDZE
+  { 325,	2,	1,	4,	115,	0, 0x8ULL, ImplicitList5, ImplicitList5, OperandInfo62 },  // Inst #325 = ADDZE8
+  { 326,	2,	1,	4,	115,	0, 0x8ULL, ImplicitList5, ImplicitList6, OperandInfo62 },  // Inst #326 = ADDZE8O
+  { 327,	2,	1,	4,	115,	0, 0x8ULL, ImplicitList5, ImplicitList7, OperandInfo62 },  // Inst #327 = ADDZE8O_rec
+  { 328,	2,	1,	4,	115,	0, 0x8ULL, ImplicitList5, ImplicitList8, OperandInfo62 },  // Inst #328 = ADDZE8_rec
+  { 329,	2,	1,	4,	115,	0, 0x8ULL, ImplicitList5, ImplicitList6, OperandInfo44 },  // Inst #329 = ADDZEO
+  { 330,	2,	1,	4,	115,	0, 0x8ULL, ImplicitList5, ImplicitList7, OperandInfo44 },  // Inst #330 = ADDZEO_rec
+  { 331,	2,	1,	4,	115,	0, 0x8ULL, ImplicitList5, ImplicitList8, OperandInfo44 },  // Inst #331 = ADDZE_rec
+  { 332,	2,	0,	4,	0,	0, 0x0ULL, ImplicitList11, ImplicitList11, OperandInfo7 },  // Inst #332 = ADJCALLSTACKDOWN
+  { 333,	2,	0,	4,	0,	0, 0x0ULL, ImplicitList11, ImplicitList11, OperandInfo7 },  // Inst #333 = ADJCALLSTACKUP
+  { 334,	3,	1,	4,	116,	0|(1ULL<<MCID::Commutable), 0x8ULL, nullptr, nullptr, OperandInfo56 },  // Inst #334 = AND
+  { 335,	3,	1,	4,	116,	0|(1ULL<<MCID::Commutable), 0x8ULL, nullptr, nullptr, OperandInfo57 },  // Inst #335 = AND8
+  { 336,	3,	1,	4,	116,	0|(1ULL<<MCID::Commutable), 0x8ULL, nullptr, ImplicitList4, OperandInfo57 },  // Inst #336 = AND8_rec
+  { 337,	3,	1,	4,	116,	0, 0x8ULL, nullptr, nullptr, OperandInfo56 },  // Inst #337 = ANDC
+  { 338,	3,	1,	4,	116,	0, 0x8ULL, nullptr, nullptr, OperandInfo57 },  // Inst #338 = ANDC8
+  { 339,	3,	1,	4,	116,	0, 0x8ULL, nullptr, ImplicitList4, OperandInfo57 },  // Inst #339 = ANDC8_rec
+  { 340,	3,	1,	4,	116,	0, 0x8ULL, nullptr, ImplicitList4, OperandInfo56 },  // Inst #340 = ANDC_rec
+  { 341,	3,	1,	4,	115,	0, 0x8ULL, nullptr, ImplicitList4, OperandInfo42 },  // Inst #341 = ANDI8_rec
+  { 342,	3,	1,	4,	115,	0, 0x8ULL, nullptr, ImplicitList4, OperandInfo42 },  // Inst #342 = ANDIS8_rec
+  { 343,	3,	1,	4,	115,	0, 0x8ULL, nullptr, ImplicitList4, OperandInfo43 },  // Inst #343 = ANDIS_rec
+  { 344,	3,	1,	4,	115,	0, 0x8ULL, nullptr, ImplicitList4, OperandInfo43 },  // Inst #344 = ANDI_rec
+  { 345,	2,	1,	4,	0,	0|(1ULL<<MCID::UsesCustomInserter), 0x0ULL, nullptr, nullptr, OperandInfo64 },  // Inst #345 = ANDI_rec_1_EQ_BIT
+  { 346,	2,	1,	4,	0,	0|(1ULL<<MCID::UsesCustomInserter), 0x0ULL, nullptr, nullptr, OperandInfo65 },  // Inst #346 = ANDI_rec_1_EQ_BIT8
+  { 347,	2,	1,	4,	0,	0|(1ULL<<MCID::UsesCustomInserter), 0x0ULL, nullptr, nullptr, OperandInfo64 },  // Inst #347 = ANDI_rec_1_GT_BIT
+  { 348,	2,	1,	4,	0,	0|(1ULL<<MCID::UsesCustomInserter), 0x0ULL, nullptr, nullptr, OperandInfo65 },  // Inst #348 = ANDI_rec_1_GT_BIT8
+  { 349,	3,	1,	4,	116,	0|(1ULL<<MCID::Commutable), 0x8ULL, nullptr, ImplicitList4, OperandInfo56 },  // Inst #349 = AND_rec
+  { 350,	5,	1,	4,	0,	0|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::MayStore)|(1ULL<<MCID::UsesCustomInserter), 0x0ULL, nullptr, ImplicitList4, OperandInfo66 },  // Inst #350 = ATOMIC_CMP_SWAP_I16
+  { 351,	5,	1,	4,	0,	0|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::MayStore)|(1ULL<<MCID::UsesCustomInserter), 0x0ULL, nullptr, ImplicitList4, OperandInfo66 },  // Inst #351 = ATOMIC_CMP_SWAP_I32
+  { 352,	5,	1,	4,	0,	0|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::MayStore)|(1ULL<<MCID::UsesCustomInserter), 0x0ULL, nullptr, ImplicitList4, OperandInfo67 },  // Inst #352 = ATOMIC_CMP_SWAP_I64
+  { 353,	5,	1,	4,	0,	0|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::MayStore)|(1ULL<<MCID::UsesCustomInserter), 0x0ULL, nullptr, ImplicitList4, OperandInfo66 },  // Inst #353 = ATOMIC_CMP_SWAP_I8
+  { 354,	4,	1,	4,	0,	0|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::MayStore)|(1ULL<<MCID::UsesCustomInserter), 0x0ULL, nullptr, ImplicitList4, OperandInfo68 },  // Inst #354 = ATOMIC_LOAD_ADD_I16
+  { 355,	4,	1,	4,	0,	0|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::MayStore)|(1ULL<<MCID::UsesCustomInserter), 0x0ULL, nullptr, ImplicitList4, OperandInfo68 },  // Inst #355 = ATOMIC_LOAD_ADD_I32
+  { 356,	4,	1,	4,	0,	0|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::MayStore)|(1ULL<<MCID::UsesCustomInserter), 0x0ULL, nullptr, ImplicitList4, OperandInfo69 },  // Inst #356 = ATOMIC_LOAD_ADD_I64
+  { 357,	4,	1,	4,	0,	0|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::MayStore)|(1ULL<<MCID::UsesCustomInserter), 0x0ULL, nullptr, ImplicitList4, OperandInfo68 },  // Inst #357 = ATOMIC_LOAD_ADD_I8
+  { 358,	4,	1,	4,	0,	0|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::MayStore)|(1ULL<<MCID::UsesCustomInserter), 0x0ULL, nullptr, ImplicitList4, OperandInfo68 },  // Inst #358 = ATOMIC_LOAD_AND_I16
+  { 359,	4,	1,	4,	0,	0|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::MayStore)|(1ULL<<MCID::UsesCustomInserter), 0x0ULL, nullptr, ImplicitList4, OperandInfo68 },  // Inst #359 = ATOMIC_LOAD_AND_I32
+  { 360,	4,	1,	4,	0,	0|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::MayStore)|(1ULL<<MCID::UsesCustomInserter), 0x0ULL, nullptr, ImplicitList4, OperandInfo69 },  // Inst #360 = ATOMIC_LOAD_AND_I64
+  { 361,	4,	1,	4,	0,	0|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::MayStore)|(1ULL<<MCID::UsesCustomInserter), 0x0ULL, nullptr, ImplicitList4, OperandInfo68 },  // Inst #361 = ATOMIC_LOAD_AND_I8
+  { 362,	4,	1,	4,	0,	0|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::MayStore)|(1ULL<<MCID::UsesCustomInserter), 0x0ULL, nullptr, ImplicitList4, OperandInfo68 },  // Inst #362 = ATOMIC_LOAD_MAX_I16
+  { 363,	4,	1,	4,	0,	0|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::MayStore)|(1ULL<<MCID::UsesCustomInserter), 0x0ULL, nullptr, ImplicitList4, OperandInfo68 },  // Inst #363 = ATOMIC_LOAD_MAX_I32
+  { 364,	4,	1,	4,	0,	0|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::MayStore)|(1ULL<<MCID::UsesCustomInserter), 0x0ULL, nullptr, ImplicitList4, OperandInfo69 },  // Inst #364 = ATOMIC_LOAD_MAX_I64
+  { 365,	4,	1,	4,	0,	0|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::MayStore)|(1ULL<<MCID::UsesCustomInserter), 0x0ULL, nullptr, ImplicitList4, OperandInfo68 },  // Inst #365 = ATOMIC_LOAD_MAX_I8
+  { 366,	4,	1,	4,	0,	0|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::MayStore)|(1ULL<<MCID::UsesCustomInserter), 0x0ULL, nullptr, ImplicitList4, OperandInfo68 },  // Inst #366 = ATOMIC_LOAD_MIN_I16
+  { 367,	4,	1,	4,	0,	0|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::MayStore)|(1ULL<<MCID::UsesCustomInserter), 0x0ULL, nullptr, ImplicitList4, OperandInfo68 },  // Inst #367 = ATOMIC_LOAD_MIN_I32
+  { 368,	4,	1,	4,	0,	0|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::MayStore)|(1ULL<<MCID::UsesCustomInserter), 0x0ULL, nullptr, ImplicitList4, OperandInfo69 },  // Inst #368 = ATOMIC_LOAD_MIN_I64
+  { 369,	4,	1,	4,	0,	0|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::MayStore)|(1ULL<<MCID::UsesCustomInserter), 0x0ULL, nullptr, ImplicitList4, OperandInfo68 },  // Inst #369 = ATOMIC_LOAD_MIN_I8
+  { 370,	4,	1,	4,	0,	0|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::MayStore)|(1ULL<<MCID::UsesCustomInserter), 0x0ULL, nullptr, ImplicitList4, OperandInfo68 },  // Inst #370 = ATOMIC_LOAD_NAND_I16
+  { 371,	4,	1,	4,	0,	0|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::MayStore)|(1ULL<<MCID::UsesCustomInserter), 0x0ULL, nullptr, ImplicitList4, OperandInfo68 },  // Inst #371 = ATOMIC_LOAD_NAND_I32
+  { 372,	4,	1,	4,	0,	0|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::MayStore)|(1ULL<<MCID::UsesCustomInserter), 0x0ULL, nullptr, ImplicitList4, OperandInfo69 },  // Inst #372 = ATOMIC_LOAD_NAND_I64
+  { 373,	4,	1,	4,	0,	0|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::MayStore)|(1ULL<<MCID::UsesCustomInserter), 0x0ULL, nullptr, ImplicitList4, OperandInfo68 },  // Inst #373 = ATOMIC_LOAD_NAND_I8
+  { 374,	4,	1,	4,	0,	0|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::MayStore)|(1ULL<<MCID::UsesCustomInserter), 0x0ULL, nullptr, ImplicitList4, OperandInfo68 },  // Inst #374 = ATOMIC_LOAD_OR_I16
+  { 375,	4,	1,	4,	0,	0|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::MayStore)|(1ULL<<MCID::UsesCustomInserter), 0x0ULL, nullptr, ImplicitList4, OperandInfo68 },  // Inst #375 = ATOMIC_LOAD_OR_I32
+  { 376,	4,	1,	4,	0,	0|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::MayStore)|(1ULL<<MCID::UsesCustomInserter), 0x0ULL, nullptr, ImplicitList4, OperandInfo69 },  // Inst #376 = ATOMIC_LOAD_OR_I64
+  { 377,	4,	1,	4,	0,	0|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::MayStore)|(1ULL<<MCID::UsesCustomInserter), 0x0ULL, nullptr, ImplicitList4, OperandInfo68 },  // Inst #377 = ATOMIC_LOAD_OR_I8
+  { 378,	4,	1,	4,	0,	0|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::MayStore)|(1ULL<<MCID::UsesCustomInserter), 0x0ULL, nullptr, ImplicitList4, OperandInfo68 },  // Inst #378 = ATOMIC_LOAD_SUB_I16
+  { 379,	4,	1,	4,	0,	0|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::MayStore)|(1ULL<<MCID::UsesCustomInserter), 0x0ULL, nullptr, ImplicitList4, OperandInfo68 },  // Inst #379 = ATOMIC_LOAD_SUB_I32
+  { 380,	4,	1,	4,	0,	0|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::MayStore)|(1ULL<<MCID::UsesCustomInserter), 0x0ULL, nullptr, ImplicitList4, OperandInfo69 },  // Inst #380 = ATOMIC_LOAD_SUB_I64
+  { 381,	4,	1,	4,	0,	0|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::MayStore)|(1ULL<<MCID::UsesCustomInserter), 0x0ULL, nullptr, ImplicitList4, OperandInfo68 },  // Inst #381 = ATOMIC_LOAD_SUB_I8
+  { 382,	4,	1,	4,	0,	0|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::MayStore)|(1ULL<<MCID::UsesCustomInserter), 0x0ULL, nullptr, ImplicitList4, OperandInfo68 },  // Inst #382 = ATOMIC_LOAD_UMAX_I16
+  { 383,	4,	1,	4,	0,	0|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::MayStore)|(1ULL<<MCID::UsesCustomInserter), 0x0ULL, nullptr, ImplicitList4, OperandInfo68 },  // Inst #383 = ATOMIC_LOAD_UMAX_I32
+  { 384,	4,	1,	4,	0,	0|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::MayStore)|(1ULL<<MCID::UsesCustomInserter), 0x0ULL, nullptr, ImplicitList4, OperandInfo69 },  // Inst #384 = ATOMIC_LOAD_UMAX_I64
+  { 385,	4,	1,	4,	0,	0|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::MayStore)|(1ULL<<MCID::UsesCustomInserter), 0x0ULL, nullptr, ImplicitList4, OperandInfo68 },  // Inst #385 = ATOMIC_LOAD_UMAX_I8
+  { 386,	4,	1,	4,	0,	0|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::MayStore)|(1ULL<<MCID::UsesCustomInserter), 0x0ULL, nullptr, ImplicitList4, OperandInfo68 },  // Inst #386 = ATOMIC_LOAD_UMIN_I16
+  { 387,	4,	1,	4,	0,	0|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::MayStore)|(1ULL<<MCID::UsesCustomInserter), 0x0ULL, nullptr, ImplicitList4, OperandInfo68 },  // Inst #387 = ATOMIC_LOAD_UMIN_I32
+  { 388,	4,	1,	4,	0,	0|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::MayStore)|(1ULL<<MCID::UsesCustomInserter), 0x0ULL, nullptr, ImplicitList4, OperandInfo69 },  // Inst #388 = ATOMIC_LOAD_UMIN_I64
+  { 389,	4,	1,	4,	0,	0|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::MayStore)|(1ULL<<MCID::UsesCustomInserter), 0x0ULL, nullptr, ImplicitList4, OperandInfo68 },  // Inst #389 = ATOMIC_LOAD_UMIN_I8
+  { 390,	4,	1,	4,	0,	0|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::MayStore)|(1ULL<<MCID::UsesCustomInserter), 0x0ULL, nullptr, ImplicitList4, OperandInfo68 },  // Inst #390 = ATOMIC_LOAD_XOR_I16
+  { 391,	4,	1,	4,	0,	0|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::MayStore)|(1ULL<<MCID::UsesCustomInserter), 0x0ULL, nullptr, ImplicitList4, OperandInfo68 },  // Inst #391 = ATOMIC_LOAD_XOR_I32
+  { 392,	4,	1,	4,	0,	0|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::MayStore)|(1ULL<<MCID::UsesCustomInserter), 0x0ULL, nullptr, ImplicitList4, OperandInfo69 },  // Inst #392 = ATOMIC_LOAD_XOR_I64
+  { 393,	4,	1,	4,	0,	0|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::MayStore)|(1ULL<<MCID::UsesCustomInserter), 0x0ULL, nullptr, ImplicitList4, OperandInfo68 },  // Inst #393 = ATOMIC_LOAD_XOR_I8
+  { 394,	4,	1,	4,	0,	0|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::MayStore)|(1ULL<<MCID::UsesCustomInserter), 0x0ULL, nullptr, ImplicitList4, OperandInfo68 },  // Inst #394 = ATOMIC_SWAP_I16
+  { 395,	4,	1,	4,	0,	0|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::MayStore)|(1ULL<<MCID::UsesCustomInserter), 0x0ULL, nullptr, ImplicitList4, OperandInfo68 },  // Inst #395 = ATOMIC_SWAP_I32
+  { 396,	4,	1,	4,	0,	0|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::MayStore)|(1ULL<<MCID::UsesCustomInserter), 0x0ULL, nullptr, ImplicitList4, OperandInfo69 },  // Inst #396 = ATOMIC_SWAP_I64
+  { 397,	4,	1,	4,	0,	0|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::MayStore)|(1ULL<<MCID::UsesCustomInserter), 0x0ULL, nullptr, ImplicitList4, OperandInfo68 },  // Inst #397 = ATOMIC_SWAP_I8
+  { 398,	0,	0,	4,	296,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, nullptr },  // Inst #398 = ATTN
+  { 399,	1,	0,	4,	287,	0|(1ULL<<MCID::Branch)|(1ULL<<MCID::Barrier)|(1ULL<<MCID::Predicable)|(1ULL<<MCID::Terminator), 0x38ULL, nullptr, nullptr, OperandInfo70 },  // Inst #399 = B
+  { 400,	1,	0,	4,	287,	0|(1ULL<<MCID::Branch)|(1ULL<<MCID::Barrier)|(1ULL<<MCID::Terminator)|(1ULL<<MCID::UnmodeledSideEffects), 0x38ULL, nullptr, nullptr, OperandInfo2 },  // Inst #400 = BA
+  { 401,	2,	0,	4,	287,	0|(1ULL<<MCID::Branch)|(1ULL<<MCID::Terminator), 0x38ULL, nullptr, nullptr, OperandInfo71 },  // Inst #401 = BC
+  { 402,	3,	0,	4,	287,	0|(1ULL<<MCID::Branch)|(1ULL<<MCID::Terminator)|(1ULL<<MCID::UnmodeledSideEffects), 0x38ULL, nullptr, nullptr, OperandInfo72 },  // Inst #402 = BCC
+  { 403,	3,	0,	4,	287,	0|(1ULL<<MCID::Branch)|(1ULL<<MCID::Terminator)|(1ULL<<MCID::UnmodeledSideEffects), 0x38ULL, nullptr, nullptr, OperandInfo73 },  // Inst #403 = BCCA
+  { 404,	2,	0,	4,	287,	0|(1ULL<<MCID::Branch)|(1ULL<<MCID::IndirectBranch)|(1ULL<<MCID::Barrier)|(1ULL<<MCID::Terminator)|(1ULL<<MCID::UnmodeledSideEffects), 0x38ULL, ImplicitList12, nullptr, OperandInfo74 },  // Inst #404 = BCCCTR
+  { 405,	2,	0,	4,	287,	0|(1ULL<<MCID::Branch)|(1ULL<<MCID::IndirectBranch)|(1ULL<<MCID::Barrier)|(1ULL<<MCID::Terminator)|(1ULL<<MCID::UnmodeledSideEffects), 0x38ULL, ImplicitList13, nullptr, OperandInfo74 },  // Inst #405 = BCCCTR8
+  { 406,	2,	0,	4,	287,	0|(1ULL<<MCID::Call)|(1ULL<<MCID::UnmodeledSideEffects), 0x38ULL, ImplicitList14, ImplicitList15, OperandInfo74 },  // Inst #406 = BCCCTRL
+  { 407,	2,	0,	4,	287,	0|(1ULL<<MCID::Call)|(1ULL<<MCID::UnmodeledSideEffects), 0x38ULL, ImplicitList16, ImplicitList17, OperandInfo74 },  // Inst #407 = BCCCTRL8
+  { 408,	3,	0,	4,	287,	0|(1ULL<<MCID::Call)|(1ULL<<MCID::UnmodeledSideEffects), 0x38ULL, ImplicitList18, ImplicitList15, OperandInfo72 },  // Inst #408 = BCCL
+  { 409,	3,	0,	4,	287,	0|(1ULL<<MCID::Call)|(1ULL<<MCID::UnmodeledSideEffects), 0x38ULL, ImplicitList18, ImplicitList15, OperandInfo73 },  // Inst #409 = BCCLA
+  { 410,	2,	0,	4,	287,	0|(1ULL<<MCID::Return)|(1ULL<<MCID::Branch)|(1ULL<<MCID::Terminator)|(1ULL<<MCID::UnmodeledSideEffects), 0x38ULL, ImplicitList19, nullptr, OperandInfo74 },  // Inst #410 = BCCLR
+  { 411,	2,	0,	4,	287,	0|(1ULL<<MCID::Call)|(1ULL<<MCID::UnmodeledSideEffects), 0x38ULL, ImplicitList19, ImplicitList15, OperandInfo74 },  // Inst #411 = BCCLRL
+  { 412,	1,	0,	4,	287,	0|(1ULL<<MCID::Branch)|(1ULL<<MCID::IndirectBranch)|(1ULL<<MCID::Barrier)|(1ULL<<MCID::Terminator)|(1ULL<<MCID::UnmodeledSideEffects), 0x38ULL, ImplicitList12, nullptr, OperandInfo75 },  // Inst #412 = BCCTR
+  { 413,	1,	0,	4,	287,	0|(1ULL<<MCID::Branch)|(1ULL<<MCID::IndirectBranch)|(1ULL<<MCID::Barrier)|(1ULL<<MCID::Terminator)|(1ULL<<MCID::UnmodeledSideEffects), 0x38ULL, ImplicitList13, nullptr, OperandInfo75 },  // Inst #413 = BCCTR8
+  { 414,	1,	0,	4,	287,	0|(1ULL<<MCID::Branch)|(1ULL<<MCID::IndirectBranch)|(1ULL<<MCID::Barrier)|(1ULL<<MCID::Terminator)|(1ULL<<MCID::UnmodeledSideEffects), 0x38ULL, ImplicitList13, nullptr, OperandInfo75 },  // Inst #414 = BCCTR8n
+  { 415,	1,	0,	4,	287,	0|(1ULL<<MCID::Call)|(1ULL<<MCID::UnmodeledSideEffects), 0x38ULL, ImplicitList14, ImplicitList15, OperandInfo75 },  // Inst #415 = BCCTRL
+  { 416,	1,	0,	4,	287,	0|(1ULL<<MCID::Call)|(1ULL<<MCID::UnmodeledSideEffects), 0x38ULL, ImplicitList16, ImplicitList17, OperandInfo75 },  // Inst #416 = BCCTRL8
+  { 417,	1,	0,	4,	287,	0|(1ULL<<MCID::Call)|(1ULL<<MCID::UnmodeledSideEffects), 0x38ULL, ImplicitList16, ImplicitList17, OperandInfo75 },  // Inst #417 = BCCTRL8n
+  { 418,	1,	0,	4,	287,	0|(1ULL<<MCID::Call)|(1ULL<<MCID::UnmodeledSideEffects), 0x38ULL, ImplicitList14, ImplicitList15, OperandInfo75 },  // Inst #418 = BCCTRLn
+  { 419,	1,	0,	4,	287,	0|(1ULL<<MCID::Branch)|(1ULL<<MCID::IndirectBranch)|(1ULL<<MCID::Barrier)|(1ULL<<MCID::Terminator)|(1ULL<<MCID::UnmodeledSideEffects), 0x38ULL, ImplicitList12, nullptr, OperandInfo75 },  // Inst #419 = BCCTRn
+  { 420,	3,	1,	4,	162,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, ImplicitList20, OperandInfo76 },  // Inst #420 = BCDCFN_rec
+  { 421,	3,	1,	4,	168,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, ImplicitList20, OperandInfo76 },  // Inst #421 = BCDCFSQ_rec
+  { 422,	3,	1,	4,	162,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, ImplicitList20, OperandInfo76 },  // Inst #422 = BCDCFZ_rec
+  { 423,	3,	1,	4,	162,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, ImplicitList20, OperandInfo77 },  // Inst #423 = BCDCPSGN_rec
+  { 424,	2,	1,	4,	162,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, ImplicitList20, OperandInfo78 },  // Inst #424 = BCDCTN_rec
+  { 425,	2,	1,	4,	166,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, ImplicitList20, OperandInfo78 },  // Inst #425 = BCDCTSQ_rec
+  { 426,	3,	1,	4,	162,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, ImplicitList20, OperandInfo76 },  // Inst #426 = BCDCTZ_rec
+  { 427,	3,	1,	4,	162,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, ImplicitList20, OperandInfo76 },  // Inst #427 = BCDSETSGN_rec
+  { 428,	4,	1,	4,	165,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, ImplicitList20, OperandInfo79 },  // Inst #428 = BCDSR_rec
+  { 429,	4,	1,	4,	162,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, ImplicitList20, OperandInfo79 },  // Inst #429 = BCDS_rec
+  { 430,	4,	1,	4,	162,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, ImplicitList20, OperandInfo79 },  // Inst #430 = BCDTRUNC_rec
+  { 431,	3,	1,	4,	162,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, ImplicitList20, OperandInfo77 },  // Inst #431 = BCDUS_rec
+  { 432,	3,	1,	4,	162,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, ImplicitList20, OperandInfo77 },  // Inst #432 = BCDUTRUNC_rec
+  { 433,	2,	0,	4,	287,	0|(1ULL<<MCID::Call)|(1ULL<<MCID::UnmodeledSideEffects), 0x38ULL, ImplicitList18, ImplicitList15, OperandInfo71 },  // Inst #433 = BCL
+  { 434,	1,	0,	4,	287,	0|(1ULL<<MCID::Return)|(1ULL<<MCID::Branch)|(1ULL<<MCID::Terminator)|(1ULL<<MCID::UnmodeledSideEffects), 0x38ULL, ImplicitList19, nullptr, OperandInfo75 },  // Inst #434 = BCLR
+  { 435,	1,	0,	4,	287,	0|(1ULL<<MCID::Call)|(1ULL<<MCID::UnmodeledSideEffects), 0x38ULL, ImplicitList19, ImplicitList15, OperandInfo75 },  // Inst #435 = BCLRL
+  { 436,	1,	0,	4,	287,	0|(1ULL<<MCID::Call)|(1ULL<<MCID::UnmodeledSideEffects), 0x38ULL, ImplicitList19, ImplicitList15, OperandInfo75 },  // Inst #436 = BCLRLn
+  { 437,	1,	0,	4,	287,	0|(1ULL<<MCID::Branch)|(1ULL<<MCID::Terminator)|(1ULL<<MCID::UnmodeledSideEffects), 0x38ULL, nullptr, nullptr, OperandInfo75 },  // Inst #437 = BCLRn
+  { 438,	1,	0,	4,	287,	0|(1ULL<<MCID::Call)|(1ULL<<MCID::UnmodeledSideEffects), 0x38ULL, ImplicitList18, ImplicitList15, OperandInfo70 },  // Inst #438 = BCLalways
+  { 439,	2,	0,	4,	287,	0|(1ULL<<MCID::Call)|(1ULL<<MCID::UnmodeledSideEffects), 0x38ULL, ImplicitList18, ImplicitList15, OperandInfo71 },  // Inst #439 = BCLn
+  { 440,	0,	0,	4,	287,	0|(1ULL<<MCID::Branch)|(1ULL<<MCID::IndirectBranch)|(1ULL<<MCID::Barrier)|(1ULL<<MCID::Predicable)|(1ULL<<MCID::Terminator)|(1ULL<<MCID::UnmodeledSideEffects), 0x38ULL, ImplicitList12, nullptr, nullptr },  // Inst #440 = BCTR
+  { 441,	0,	0,	4,	287,	0|(1ULL<<MCID::Branch)|(1ULL<<MCID::IndirectBranch)|(1ULL<<MCID::Barrier)|(1ULL<<MCID::Predicable)|(1ULL<<MCID::Terminator)|(1ULL<<MCID::UnmodeledSideEffects), 0x38ULL, ImplicitList13, nullptr, nullptr },  // Inst #441 = BCTR8
+  { 442,	0,	0,	4,	287,	0|(1ULL<<MCID::Call)|(1ULL<<MCID::Predicable), 0x38ULL, ImplicitList14, ImplicitList15, nullptr },  // Inst #442 = BCTRL
+  { 443,	0,	0,	4,	287,	0|(1ULL<<MCID::Call)|(1ULL<<MCID::Predicable), 0x38ULL, ImplicitList16, ImplicitList17, nullptr },  // Inst #443 = BCTRL8
+  { 444,	2,	0,	8,	287,	0|(1ULL<<MCID::Call), 0x38ULL, ImplicitList16, ImplicitList21, OperandInfo80 },  // Inst #444 = BCTRL8_LDinto_toc
+  { 445,	2,	0,	8,	287,	0|(1ULL<<MCID::Call), 0x38ULL, ImplicitList14, ImplicitList22, OperandInfo80 },  // Inst #445 = BCTRL_LWZinto_toc
+  { 446,	2,	0,	4,	287,	0|(1ULL<<MCID::Branch)|(1ULL<<MCID::Terminator), 0x38ULL, nullptr, nullptr, OperandInfo71 },  // Inst #446 = BCn
+  { 447,	1,	0,	4,	287,	0|(1ULL<<MCID::Branch)|(1ULL<<MCID::Terminator)|(1ULL<<MCID::UnmodeledSideEffects), 0x38ULL, ImplicitList12, ImplicitList12, OperandInfo70 },  // Inst #447 = BDNZ
+  { 448,	1,	0,	4,	287,	0|(1ULL<<MCID::Branch)|(1ULL<<MCID::Terminator)|(1ULL<<MCID::UnmodeledSideEffects), 0x38ULL, ImplicitList13, ImplicitList13, OperandInfo70 },  // Inst #448 = BDNZ8
+  { 449,	1,	0,	4,	287,	0|(1ULL<<MCID::Branch)|(1ULL<<MCID::Terminator)|(1ULL<<MCID::UnmodeledSideEffects), 0x38ULL, ImplicitList12, ImplicitList12, OperandInfo2 },  // Inst #449 = BDNZA
+  { 450,	1,	0,	4,	287,	0|(1ULL<<MCID::Branch)|(1ULL<<MCID::Terminator)|(1ULL<<MCID::UnmodeledSideEffects), 0x38ULL, ImplicitList12, ImplicitList12, OperandInfo2 },  // Inst #450 = BDNZAm
+  { 451,	1,	0,	4,	287,	0|(1ULL<<MCID::Branch)|(1ULL<<MCID::Terminator)|(1ULL<<MCID::UnmodeledSideEffects), 0x38ULL, ImplicitList12, ImplicitList12, OperandInfo2 },  // Inst #451 = BDNZAp
+  { 452,	1,	0,	4,	287,	0|(1ULL<<MCID::Call)|(1ULL<<MCID::UnmodeledSideEffects), 0x38ULL, ImplicitList14, ImplicitList12, OperandInfo70 },  // Inst #452 = BDNZL
+  { 453,	1,	0,	4,	287,	0|(1ULL<<MCID::Call)|(1ULL<<MCID::UnmodeledSideEffects), 0x38ULL, ImplicitList14, ImplicitList12, OperandInfo2 },  // Inst #453 = BDNZLA
+  { 454,	1,	0,	4,	287,	0|(1ULL<<MCID::Call)|(1ULL<<MCID::UnmodeledSideEffects), 0x38ULL, ImplicitList14, ImplicitList12, OperandInfo2 },  // Inst #454 = BDNZLAm
+  { 455,	1,	0,	4,	287,	0|(1ULL<<MCID::Call)|(1ULL<<MCID::UnmodeledSideEffects), 0x38ULL, ImplicitList14, ImplicitList12, OperandInfo2 },  // Inst #455 = BDNZLAp
+  { 456,	0,	0,	4,	287,	0|(1ULL<<MCID::Return)|(1ULL<<MCID::Branch)|(1ULL<<MCID::Terminator)|(1ULL<<MCID::UnmodeledSideEffects), 0x38ULL, ImplicitList23, ImplicitList12, nullptr },  // Inst #456 = BDNZLR
+  { 457,	0,	0,	4,	287,	0|(1ULL<<MCID::Return)|(1ULL<<MCID::Branch)|(1ULL<<MCID::Terminator)|(1ULL<<MCID::UnmodeledSideEffects), 0x38ULL, ImplicitList24, ImplicitList13, nullptr },  // Inst #457 = BDNZLR8
+  { 458,	0,	0,	4,	287,	0|(1ULL<<MCID::Call)|(1ULL<<MCID::UnmodeledSideEffects), 0x38ULL, ImplicitList23, ImplicitList12, nullptr },  // Inst #458 = BDNZLRL
+  { 459,	0,	0,	4,	287,	0|(1ULL<<MCID::Call)|(1ULL<<MCID::UnmodeledSideEffects), 0x38ULL, ImplicitList23, ImplicitList12, nullptr },  // Inst #459 = BDNZLRLm
+  { 460,	0,	0,	4,	287,	0|(1ULL<<MCID::Call)|(1ULL<<MCID::UnmodeledSideEffects), 0x38ULL, ImplicitList23, ImplicitList12, nullptr },  // Inst #460 = BDNZLRLp
+  { 461,	0,	0,	4,	287,	0|(1ULL<<MCID::Return)|(1ULL<<MCID::Branch)|(1ULL<<MCID::Terminator)|(1ULL<<MCID::UnmodeledSideEffects), 0x38ULL, ImplicitList23, ImplicitList12, nullptr },  // Inst #461 = BDNZLRm
+  { 462,	0,	0,	4,	287,	0|(1ULL<<MCID::Return)|(1ULL<<MCID::Branch)|(1ULL<<MCID::Terminator)|(1ULL<<MCID::UnmodeledSideEffects), 0x38ULL, ImplicitList23, ImplicitList12, nullptr },  // Inst #462 = BDNZLRp
+  { 463,	1,	0,	4,	287,	0|(1ULL<<MCID::Call)|(1ULL<<MCID::UnmodeledSideEffects), 0x38ULL, ImplicitList14, ImplicitList12, OperandInfo70 },  // Inst #463 = BDNZLm
+  { 464,	1,	0,	4,	287,	0|(1ULL<<MCID::Call)|(1ULL<<MCID::UnmodeledSideEffects), 0x38ULL, ImplicitList14, ImplicitList12, OperandInfo70 },  // Inst #464 = BDNZLp
+  { 465,	1,	0,	4,	287,	0|(1ULL<<MCID::Branch)|(1ULL<<MCID::Terminator)|(1ULL<<MCID::UnmodeledSideEffects), 0x38ULL, ImplicitList12, ImplicitList12, OperandInfo70 },  // Inst #465 = BDNZm
+  { 466,	1,	0,	4,	287,	0|(1ULL<<MCID::Branch)|(1ULL<<MCID::Terminator)|(1ULL<<MCID::UnmodeledSideEffects), 0x38ULL, ImplicitList12, ImplicitList12, OperandInfo70 },  // Inst #466 = BDNZp
+  { 467,	1,	0,	4,	287,	0|(1ULL<<MCID::Branch)|(1ULL<<MCID::Terminator)|(1ULL<<MCID::UnmodeledSideEffects), 0x38ULL, ImplicitList12, ImplicitList12, OperandInfo70 },  // Inst #467 = BDZ
+  { 468,	1,	0,	4,	287,	0|(1ULL<<MCID::Branch)|(1ULL<<MCID::Terminator)|(1ULL<<MCID::UnmodeledSideEffects), 0x38ULL, ImplicitList13, ImplicitList13, OperandInfo70 },  // Inst #468 = BDZ8
+  { 469,	1,	0,	4,	287,	0|(1ULL<<MCID::Branch)|(1ULL<<MCID::Terminator)|(1ULL<<MCID::UnmodeledSideEffects), 0x38ULL, ImplicitList12, ImplicitList12, OperandInfo2 },  // Inst #469 = BDZA
+  { 470,	1,	0,	4,	287,	0|(1ULL<<MCID::Branch)|(1ULL<<MCID::Terminator)|(1ULL<<MCID::UnmodeledSideEffects), 0x38ULL, ImplicitList12, ImplicitList12, OperandInfo2 },  // Inst #470 = BDZAm
+  { 471,	1,	0,	4,	287,	0|(1ULL<<MCID::Branch)|(1ULL<<MCID::Terminator)|(1ULL<<MCID::UnmodeledSideEffects), 0x38ULL, ImplicitList12, ImplicitList12, OperandInfo2 },  // Inst #471 = BDZAp
+  { 472,	1,	0,	4,	287,	0|(1ULL<<MCID::Call)|(1ULL<<MCID::UnmodeledSideEffects), 0x38ULL, ImplicitList14, ImplicitList12, OperandInfo70 },  // Inst #472 = BDZL
+  { 473,	1,	0,	4,	287,	0|(1ULL<<MCID::Call)|(1ULL<<MCID::UnmodeledSideEffects), 0x38ULL, ImplicitList14, ImplicitList12, OperandInfo2 },  // Inst #473 = BDZLA
+  { 474,	1,	0,	4,	287,	0|(1ULL<<MCID::Call)|(1ULL<<MCID::UnmodeledSideEffects), 0x38ULL, ImplicitList14, ImplicitList12, OperandInfo2 },  // Inst #474 = BDZLAm
+  { 475,	1,	0,	4,	287,	0|(1ULL<<MCID::Call)|(1ULL<<MCID::UnmodeledSideEffects), 0x38ULL, ImplicitList14, ImplicitList12, OperandInfo2 },  // Inst #475 = BDZLAp
+  { 476,	0,	0,	4,	287,	0|(1ULL<<MCID::Return)|(1ULL<<MCID::Branch)|(1ULL<<MCID::Terminator)|(1ULL<<MCID::UnmodeledSideEffects), 0x38ULL, ImplicitList23, ImplicitList12, nullptr },  // Inst #476 = BDZLR
+  { 477,	0,	0,	4,	287,	0|(1ULL<<MCID::Return)|(1ULL<<MCID::Branch)|(1ULL<<MCID::Terminator)|(1ULL<<MCID::UnmodeledSideEffects), 0x38ULL, ImplicitList24, ImplicitList13, nullptr },  // Inst #477 = BDZLR8
+  { 478,	0,	0,	4,	287,	0|(1ULL<<MCID::Call)|(1ULL<<MCID::UnmodeledSideEffects), 0x38ULL, ImplicitList23, ImplicitList12, nullptr },  // Inst #478 = BDZLRL
+  { 479,	0,	0,	4,	287,	0|(1ULL<<MCID::Call)|(1ULL<<MCID::UnmodeledSideEffects), 0x38ULL, ImplicitList23, ImplicitList12, nullptr },  // Inst #479 = BDZLRLm
+  { 480,	0,	0,	4,	287,	0|(1ULL<<MCID::Call)|(1ULL<<MCID::UnmodeledSideEffects), 0x38ULL, ImplicitList23, ImplicitList12, nullptr },  // Inst #480 = BDZLRLp
+  { 481,	0,	0,	4,	287,	0|(1ULL<<MCID::Return)|(1ULL<<MCID::Branch)|(1ULL<<MCID::Terminator)|(1ULL<<MCID::UnmodeledSideEffects), 0x38ULL, ImplicitList23, ImplicitList12, nullptr },  // Inst #481 = BDZLRm
+  { 482,	0,	0,	4,	287,	0|(1ULL<<MCID::Return)|(1ULL<<MCID::Branch)|(1ULL<<MCID::Terminator)|(1ULL<<MCID::UnmodeledSideEffects), 0x38ULL, ImplicitList23, ImplicitList12, nullptr },  // Inst #482 = BDZLRp
+  { 483,	1,	0,	4,	287,	0|(1ULL<<MCID::Call)|(1ULL<<MCID::UnmodeledSideEffects), 0x38ULL, ImplicitList14, ImplicitList12, OperandInfo70 },  // Inst #483 = BDZLm
+  { 484,	1,	0,	4,	287,	0|(1ULL<<MCID::Call)|(1ULL<<MCID::UnmodeledSideEffects), 0x38ULL, ImplicitList14, ImplicitList12, OperandInfo70 },  // Inst #484 = BDZLp
+  { 485,	1,	0,	4,	287,	0|(1ULL<<MCID::Branch)|(1ULL<<MCID::Terminator)|(1ULL<<MCID::UnmodeledSideEffects), 0x38ULL, ImplicitList12, ImplicitList12, OperandInfo70 },  // Inst #485 = BDZm
+  { 486,	1,	0,	4,	287,	0|(1ULL<<MCID::Branch)|(1ULL<<MCID::Terminator)|(1ULL<<MCID::UnmodeledSideEffects), 0x38ULL, ImplicitList12, ImplicitList12, OperandInfo70 },  // Inst #486 = BDZp
+  { 487,	1,	0,	4,	287,	0|(1ULL<<MCID::Call), 0x38ULL, ImplicitList18, ImplicitList15, OperandInfo70 },  // Inst #487 = BL
+  { 488,	1,	0,	4,	287,	0|(1ULL<<MCID::Call), 0x38ULL, ImplicitList18, ImplicitList17, OperandInfo70 },  // Inst #488 = BL8
+  { 489,	1,	0,	8,	287,	0|(1ULL<<MCID::Call), 0x38ULL, ImplicitList18, ImplicitList17, OperandInfo70 },  // Inst #489 = BL8_NOP
+  { 490,	2,	0,	8,	287,	0|(1ULL<<MCID::Call)|(1ULL<<MCID::UnmodeledSideEffects), 0x38ULL, ImplicitList18, ImplicitList17, OperandInfo7 },  // Inst #490 = BL8_NOP_TLS
+  { 491,	1,	0,	8,	4,	0|(1ULL<<MCID::Call), 0x38ULL, ImplicitList18, ImplicitList17, OperandInfo70 },  // Inst #491 = BL8_NOTOC
+  { 492,	2,	0,	4,	287,	0|(1ULL<<MCID::Call)|(1ULL<<MCID::UnmodeledSideEffects), 0x38ULL, ImplicitList18, ImplicitList17, OperandInfo7 },  // Inst #492 = BL8_TLS
+  { 493,	2,	0,	4,	287,	0|(1ULL<<MCID::Call)|(1ULL<<MCID::UnmodeledSideEffects), 0x38ULL, ImplicitList18, ImplicitList17, OperandInfo7 },  // Inst #493 = BL8_TLS_
+  { 494,	1,	0,	4,	287,	0|(1ULL<<MCID::Call), 0x38ULL, ImplicitList18, ImplicitList15, OperandInfo2 },  // Inst #494 = BLA
+  { 495,	1,	0,	4,	287,	0|(1ULL<<MCID::Call), 0x38ULL, ImplicitList18, ImplicitList17, OperandInfo2 },  // Inst #495 = BLA8
+  { 496,	1,	0,	8,	287,	0|(1ULL<<MCID::Call), 0x38ULL, ImplicitList18, ImplicitList17, OperandInfo2 },  // Inst #496 = BLA8_NOP
+  { 497,	0,	0,	4,	287,	0|(1ULL<<MCID::Return)|(1ULL<<MCID::Barrier)|(1ULL<<MCID::Predicable)|(1ULL<<MCID::Terminator), 0x38ULL, ImplicitList19, nullptr, nullptr },  // Inst #497 = BLR
+  { 498,	0,	0,	4,	287,	0|(1ULL<<MCID::Return)|(1ULL<<MCID::Barrier)|(1ULL<<MCID::Predicable)|(1ULL<<MCID::Terminator), 0x38ULL, ImplicitList25, nullptr, nullptr },  // Inst #498 = BLR8
+  { 499,	0,	0,	4,	287,	0|(1ULL<<MCID::Call)|(1ULL<<MCID::UnmodeledSideEffects), 0x38ULL, ImplicitList19, ImplicitList15, nullptr },  // Inst #499 = BLRL
+  { 500,	1,	0,	8,	287,	0|(1ULL<<MCID::Call), 0x38ULL, ImplicitList18, ImplicitList15, OperandInfo70 },  // Inst #500 = BL_NOP
+  { 501,	2,	0,	4,	287,	0|(1ULL<<MCID::Call)|(1ULL<<MCID::UnmodeledSideEffects), 0x38ULL, ImplicitList18, ImplicitList15, OperandInfo7 },  // Inst #501 = BL_TLS
+  { 502,	3,	1,	4,	110,	0, 0x8ULL, nullptr, nullptr, OperandInfo57 },  // Inst #502 = BPERMD
+  { 503,	3,	1,	4,	291,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo56 },  // Inst #503 = BRINC
+  { 504,	0,	0,	4,	296,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x2ULL, nullptr, nullptr, nullptr },  // Inst #504 = CLRBHRB
+  { 505,	3,	1,	4,	110,	0|(1ULL<<MCID::Commutable), 0x8ULL, nullptr, nullptr, OperandInfo56 },  // Inst #505 = CMPB
+  { 506,	3,	1,	4,	110,	0|(1ULL<<MCID::Commutable), 0x8ULL, nullptr, nullptr, OperandInfo57 },  // Inst #506 = CMPB8
+  { 507,	3,	1,	4,	114,	0|(1ULL<<MCID::Compare), 0x8ULL, nullptr, nullptr, OperandInfo81 },  // Inst #507 = CMPD
+  { 508,	3,	1,	4,	114,	0|(1ULL<<MCID::Compare), 0x8ULL, nullptr, nullptr, OperandInfo82 },  // Inst #508 = CMPDI
+  { 509,	3,	1,	4,	103,	0|(1ULL<<MCID::Compare), 0x8ULL, nullptr, nullptr, OperandInfo83 },  // Inst #509 = CMPEQB
+  { 510,	3,	1,	4,	114,	0|(1ULL<<MCID::Compare), 0x8ULL, nullptr, nullptr, OperandInfo81 },  // Inst #510 = CMPLD
+  { 511,	3,	1,	4,	114,	0|(1ULL<<MCID::Compare), 0x8ULL, nullptr, nullptr, OperandInfo82 },  // Inst #511 = CMPLDI
+  { 512,	3,	1,	4,	114,	0|(1ULL<<MCID::Compare), 0x8ULL, nullptr, nullptr, OperandInfo84 },  // Inst #512 = CMPLW
+  { 513,	3,	1,	4,	114,	0|(1ULL<<MCID::Compare), 0x8ULL, nullptr, nullptr, OperandInfo85 },  // Inst #513 = CMPLWI
+  { 514,	4,	1,	4,	103,	0|(1ULL<<MCID::Compare), 0x8ULL, nullptr, nullptr, OperandInfo86 },  // Inst #514 = CMPRB
+  { 515,	4,	1,	4,	103,	0|(1ULL<<MCID::Compare), 0x8ULL, nullptr, nullptr, OperandInfo86 },  // Inst #515 = CMPRB8
+  { 516,	3,	1,	4,	114,	0|(1ULL<<MCID::Compare), 0x8ULL, nullptr, nullptr, OperandInfo84 },  // Inst #516 = CMPW
+  { 517,	3,	1,	4,	114,	0|(1ULL<<MCID::Compare), 0x8ULL, nullptr, nullptr, OperandInfo85 },  // Inst #517 = CMPWI
+  { 518,	2,	1,	4,	110,	0, 0x8ULL, nullptr, nullptr, OperandInfo62 },  // Inst #518 = CNTLZD
+  { 519,	2,	1,	4,	110,	0, 0x8ULL, nullptr, ImplicitList4, OperandInfo62 },  // Inst #519 = CNTLZD_rec
+  { 520,	2,	1,	4,	110,	0, 0x8ULL, nullptr, nullptr, OperandInfo44 },  // Inst #520 = CNTLZW
+  { 521,	2,	1,	4,	110,	0, 0x8ULL, nullptr, nullptr, OperandInfo62 },  // Inst #521 = CNTLZW8
+  { 522,	2,	1,	4,	110,	0, 0x8ULL, nullptr, ImplicitList4, OperandInfo62 },  // Inst #522 = CNTLZW8_rec
+  { 523,	2,	1,	4,	110,	0, 0x8ULL, nullptr, ImplicitList4, OperandInfo44 },  // Inst #523 = CNTLZW_rec
+  { 524,	2,	1,	4,	110,	0, 0x8ULL, nullptr, nullptr, OperandInfo62 },  // Inst #524 = CNTTZD
+  { 525,	2,	1,	4,	110,	0, 0x8ULL, nullptr, ImplicitList4, OperandInfo62 },  // Inst #525 = CNTTZD_rec
+  { 526,	2,	1,	4,	110,	0, 0x8ULL, nullptr, nullptr, OperandInfo44 },  // Inst #526 = CNTTZW
+  { 527,	2,	1,	4,	110,	0, 0x8ULL, nullptr, nullptr, OperandInfo62 },  // Inst #527 = CNTTZW8
+  { 528,	2,	1,	4,	110,	0, 0x8ULL, nullptr, ImplicitList4, OperandInfo62 },  // Inst #528 = CNTTZW8_rec
+  { 529,	2,	1,	4,	110,	0, 0x8ULL, nullptr, ImplicitList4, OperandInfo44 },  // Inst #529 = CNTTZW_rec
+  { 530,	0,	0,	4,	183,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, nullptr },  // Inst #530 = CP_ABORT
+  { 531,	3,	0,	4,	176,	0|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo43 },  // Inst #531 = CP_COPY
+  { 532,	3,	0,	4,	176,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo42 },  // Inst #532 = CP_COPY8
+  { 533,	3,	0,	4,	177,	0|(1ULL<<MCID::MayStore)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo43 },  // Inst #533 = CP_PASTE
+  { 534,	3,	0,	4,	177,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo42 },  // Inst #534 = CP_PASTE8
+  { 535,	3,	0,	4,	203,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo42 },  // Inst #535 = CP_PASTE8_rec
+  { 536,	3,	0,	4,	203,	0|(1ULL<<MCID::MayStore)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, ImplicitList4, OperandInfo43 },  // Inst #536 = CP_PASTE_rec
+  { 537,	0,	0,	4,	129,	0, 0x0ULL, nullptr, ImplicitList26, nullptr },  // Inst #537 = CR6SET
+  { 538,	0,	0,	4,	129,	0, 0x0ULL, nullptr, ImplicitList26, nullptr },  // Inst #538 = CR6UNSET
+  { 539,	3,	1,	4,	129,	0|(1ULL<<MCID::Commutable), 0x0ULL, nullptr, nullptr, OperandInfo87 },  // Inst #539 = CRAND
+  { 540,	3,	1,	4,	129,	0, 0x0ULL, nullptr, nullptr, OperandInfo87 },  // Inst #540 = CRANDC
+  { 541,	3,	1,	4,	129,	0|(1ULL<<MCID::Commutable), 0x0ULL, nullptr, nullptr, OperandInfo87 },  // Inst #541 = CREQV
+  { 542,	3,	1,	4,	129,	0|(1ULL<<MCID::Commutable), 0x0ULL, nullptr, nullptr, OperandInfo87 },  // Inst #542 = CRNAND
+  { 543,	3,	1,	4,	129,	0|(1ULL<<MCID::Commutable), 0x0ULL, nullptr, nullptr, OperandInfo87 },  // Inst #543 = CRNOR
+  { 544,	3,	1,	4,	129,	0|(1ULL<<MCID::Commutable), 0x0ULL, nullptr, nullptr, OperandInfo87 },  // Inst #544 = CROR
+  { 545,	3,	1,	4,	129,	0, 0x0ULL, nullptr, nullptr, OperandInfo87 },  // Inst #545 = CRORC
+  { 546,	1,	1,	4,	129,	0|(1ULL<<MCID::Rematerializable)|(1ULL<<MCID::CheapAsAMove), 0x0ULL, nullptr, nullptr, OperandInfo75 },  // Inst #546 = CRSET
+  { 547,	1,	1,	4,	129,	0|(1ULL<<MCID::Rematerializable)|(1ULL<<MCID::CheapAsAMove), 0x0ULL, nullptr, nullptr, OperandInfo75 },  // Inst #547 = CRUNSET
+  { 548,	3,	1,	4,	129,	0|(1ULL<<MCID::Commutable), 0x0ULL, nullptr, nullptr, OperandInfo87 },  // Inst #548 = CRXOR
+  { 549,	3,	0,	4,	287,	0|(1ULL<<MCID::Branch)|(1ULL<<MCID::UnmodeledSideEffects), 0x38ULL, nullptr, nullptr, OperandInfo72 },  // Inst #549 = CTRL_DEP
+  { 550,	2,	1,	4,	181,	0, 0x8ULL, nullptr, nullptr, OperandInfo63 },  // Inst #550 = DARN
+  { 551,	2,	0,	4,	314,	0|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::MayStore)|(1ULL<<MCID::UnmodeledSideEffects), 0x2ULL, nullptr, nullptr, OperandInfo45 },  // Inst #551 = DCBA
+  { 552,	3,	0,	4,	175,	0|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::MayStore)|(1ULL<<MCID::UnmodeledSideEffects), 0x2ULL, nullptr, nullptr, OperandInfo88 },  // Inst #552 = DCBF
+  { 553,	2,	0,	4,	175,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo45 },  // Inst #553 = DCBFEP
+  { 554,	2,	0,	4,	314,	0|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::MayStore)|(1ULL<<MCID::UnmodeledSideEffects), 0x2ULL, nullptr, nullptr, OperandInfo45 },  // Inst #554 = DCBI
+  { 555,	2,	0,	4,	175,	0|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::MayStore)|(1ULL<<MCID::UnmodeledSideEffects), 0x2ULL, nullptr, nullptr, OperandInfo45 },  // Inst #555 = DCBST
+  { 556,	2,	0,	4,	175,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo45 },  // Inst #556 = DCBSTEP
+  { 557,	3,	0,	4,	175,	0|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::MayStore), 0x2ULL, nullptr, nullptr, OperandInfo88 },  // Inst #557 = DCBT
+  { 558,	3,	0,	4,	175,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo46 },  // Inst #558 = DCBTEP
+  { 559,	3,	0,	4,	175,	0|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::MayStore), 0x2ULL, nullptr, nullptr, OperandInfo88 },  // Inst #559 = DCBTST
+  { 560,	3,	0,	4,	175,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo46 },  // Inst #560 = DCBTSTEP
+  { 561,	2,	0,	4,	175,	0|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::MayStore)|(1ULL<<MCID::UnmodeledSideEffects), 0x2ULL, nullptr, nullptr, OperandInfo45 },  // Inst #561 = DCBZ
+  { 562,	2,	0,	4,	175,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo45 },  // Inst #562 = DCBZEP
+  { 563,	2,	0,	4,	175,	0|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::MayStore)|(1ULL<<MCID::UnmodeledSideEffects), 0x2ULL, nullptr, nullptr, OperandInfo45 },  // Inst #563 = DCBZL
+  { 564,	2,	0,	4,	175,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo45 },  // Inst #564 = DCBZLEP
+  { 565,	2,	0,	4,	299,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo44 },  // Inst #565 = DCCCI
+  { 566,	3,	1,	4,	238,	0, 0x8ULL, nullptr, nullptr, OperandInfo57 },  // Inst #566 = DIVD
+  { 567,	3,	1,	4,	239,	0, 0x8ULL, nullptr, nullptr, OperandInfo57 },  // Inst #567 = DIVDE
+  { 568,	3,	1,	4,	239,	0, 0x8ULL, nullptr, ImplicitList2, OperandInfo57 },  // Inst #568 = DIVDEO
+  { 569,	3,	1,	4,	243,	0, 0x8ULL, nullptr, ImplicitList3, OperandInfo57 },  // Inst #569 = DIVDEO_rec
+  { 570,	3,	1,	4,	239,	0, 0x8ULL, nullptr, nullptr, OperandInfo57 },  // Inst #570 = DIVDEU
+  { 571,	3,	1,	4,	239,	0, 0x8ULL, nullptr, ImplicitList2, OperandInfo57 },  // Inst #571 = DIVDEUO
+  { 572,	3,	1,	4,	243,	0, 0x8ULL, nullptr, ImplicitList3, OperandInfo57 },  // Inst #572 = DIVDEUO_rec
+  { 573,	3,	1,	4,	243,	0, 0xdULL, nullptr, ImplicitList4, OperandInfo57 },  // Inst #573 = DIVDEU_rec
+  { 574,	3,	1,	4,	243,	0, 0xdULL, nullptr, ImplicitList4, OperandInfo57 },  // Inst #574 = DIVDE_rec
+  { 575,	3,	1,	4,	238,	0, 0x8ULL, nullptr, ImplicitList2, OperandInfo57 },  // Inst #575 = DIVDO
+  { 576,	3,	1,	4,	241,	0, 0x8ULL, nullptr, ImplicitList3, OperandInfo57 },  // Inst #576 = DIVDO_rec
+  { 577,	3,	1,	4,	238,	0, 0x8ULL, nullptr, nullptr, OperandInfo57 },  // Inst #577 = DIVDU
+  { 578,	3,	1,	4,	238,	0, 0x8ULL, nullptr, ImplicitList2, OperandInfo57 },  // Inst #578 = DIVDUO
+  { 579,	3,	1,	4,	241,	0, 0x8ULL, nullptr, ImplicitList3, OperandInfo57 },  // Inst #579 = DIVDUO_rec
+  { 580,	3,	1,	4,	241,	0, 0xdULL, nullptr, ImplicitList4, OperandInfo57 },  // Inst #580 = DIVDU_rec
+  { 581,	3,	1,	4,	241,	0, 0xdULL, nullptr, ImplicitList4, OperandInfo57 },  // Inst #581 = DIVD_rec
+  { 582,	3,	1,	4,	236,	0, 0x8ULL, nullptr, nullptr, OperandInfo56 },  // Inst #582 = DIVW
+  { 583,	3,	1,	4,	237,	0, 0x8ULL, nullptr, nullptr, OperandInfo56 },  // Inst #583 = DIVWE
+  { 584,	3,	1,	4,	237,	0, 0x8ULL, nullptr, ImplicitList2, OperandInfo56 },  // Inst #584 = DIVWEO
+  { 585,	3,	1,	4,	242,	0, 0x8ULL, nullptr, ImplicitList3, OperandInfo56 },  // Inst #585 = DIVWEO_rec
+  { 586,	3,	1,	4,	237,	0, 0x8ULL, nullptr, nullptr, OperandInfo56 },  // Inst #586 = DIVWEU
+  { 587,	3,	1,	4,	237,	0, 0x8ULL, nullptr, ImplicitList2, OperandInfo56 },  // Inst #587 = DIVWEUO
+  { 588,	3,	1,	4,	242,	0, 0x8ULL, nullptr, ImplicitList3, OperandInfo56 },  // Inst #588 = DIVWEUO_rec
+  { 589,	3,	1,	4,	242,	0, 0xdULL, nullptr, ImplicitList4, OperandInfo56 },  // Inst #589 = DIVWEU_rec
+  { 590,	3,	1,	4,	242,	0, 0xdULL, nullptr, ImplicitList4, OperandInfo56 },  // Inst #590 = DIVWE_rec
+  { 591,	3,	1,	4,	236,	0, 0x8ULL, nullptr, ImplicitList2, OperandInfo56 },  // Inst #591 = DIVWO
+  { 592,	3,	1,	4,	240,	0, 0x8ULL, nullptr, ImplicitList3, OperandInfo56 },  // Inst #592 = DIVWO_rec
+  { 593,	3,	1,	4,	236,	0, 0x8ULL, nullptr, nullptr, OperandInfo56 },  // Inst #593 = DIVWU
+  { 594,	3,	1,	4,	236,	0, 0x8ULL, nullptr, ImplicitList2, OperandInfo56 },  // Inst #594 = DIVWUO
+  { 595,	3,	1,	4,	240,	0, 0x8ULL, nullptr, ImplicitList3, OperandInfo56 },  // Inst #595 = DIVWUO_rec
+  { 596,	3,	1,	4,	240,	0, 0xdULL, nullptr, ImplicitList4, OperandInfo56 },  // Inst #596 = DIVWU_rec
+  { 597,	3,	1,	4,	240,	0, 0xdULL, nullptr, ImplicitList4, OperandInfo56 },  // Inst #597 = DIVW_rec
+  { 598,	1,	0,	4,	299,	0|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::MayStore)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo2 },  // Inst #598 = DSS
+  { 599,	0,	0,	4,	299,	0|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::MayStore)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, nullptr },  // Inst #599 = DSSALL
+  { 600,	3,	0,	4,	299,	0|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::MayStore)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo89 },  // Inst #600 = DST
+  { 601,	3,	0,	4,	299,	0|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::MayStore)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo90 },  // Inst #601 = DST64
+  { 602,	3,	0,	4,	299,	0|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::MayStore)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo89 },  // Inst #602 = DSTST
+  { 603,	3,	0,	4,	299,	0|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::MayStore)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo90 },  // Inst #603 = DSTST64
+  { 604,	3,	0,	4,	299,	0|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::MayStore)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo89 },  // Inst #604 = DSTSTT
+  { 605,	3,	0,	4,	299,	0|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::MayStore)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo90 },  // Inst #605 = DSTSTT64
+  { 606,	3,	0,	4,	299,	0|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::MayStore)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo89 },  // Inst #606 = DSTT
+  { 607,	3,	0,	4,	299,	0|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::MayStore)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo90 },  // Inst #607 = DSTT64
+  { 608,	4,	1,	4,	0,	0, 0x0ULL, ImplicitList11, ImplicitList11, OperandInfo91 },  // Inst #608 = DYNALLOC
+  { 609,	4,	1,	4,	0,	0, 0x0ULL, ImplicitList27, ImplicitList27, OperandInfo92 },  // Inst #609 = DYNALLOC8
+  { 610,	3,	1,	4,	0,	0, 0x0ULL, nullptr, nullptr, OperandInfo93 },  // Inst #610 = DYNAREAOFFSET
+  { 611,	3,	1,	4,	0,	0, 0x0ULL, nullptr, nullptr, OperandInfo93 },  // Inst #611 = DYNAREAOFFSET8
+  { 612,	2,	1,	4,	16,	0, 0x0ULL, nullptr, nullptr, OperandInfo94 },  // Inst #612 = EFDABS
+  { 613,	3,	1,	4,	17,	0, 0x0ULL, nullptr, nullptr, OperandInfo95 },  // Inst #613 = EFDADD
+  { 614,	2,	1,	4,	16,	0, 0x0ULL, nullptr, nullptr, OperandInfo96 },  // Inst #614 = EFDCFS
+  { 615,	2,	1,	4,	16,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo96 },  // Inst #615 = EFDCFSF
+  { 616,	2,	1,	4,	16,	0, 0x0ULL, nullptr, nullptr, OperandInfo96 },  // Inst #616 = EFDCFSI
+  { 617,	2,	1,	4,	16,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo96 },  // Inst #617 = EFDCFSID
+  { 618,	2,	1,	4,	16,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo96 },  // Inst #618 = EFDCFUF
+  { 619,	2,	1,	4,	16,	0, 0x0ULL, nullptr, nullptr, OperandInfo96 },  // Inst #619 = EFDCFUI
+  { 620,	2,	1,	4,	16,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo96 },  // Inst #620 = EFDCFUID
+  { 621,	3,	1,	4,	16,	0|(1ULL<<MCID::Compare)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo97 },  // Inst #621 = EFDCMPEQ
+  { 622,	3,	1,	4,	16,	0|(1ULL<<MCID::Compare)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo97 },  // Inst #622 = EFDCMPGT
+  { 623,	3,	1,	4,	16,	0|(1ULL<<MCID::Compare)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo97 },  // Inst #623 = EFDCMPLT
+  { 624,	2,	1,	4,	16,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo96 },  // Inst #624 = EFDCTSF
+  { 625,	2,	1,	4,	16,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo98 },  // Inst #625 = EFDCTSI
+  { 626,	2,	1,	4,	16,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo98 },  // Inst #626 = EFDCTSIDZ
+  { 627,	2,	1,	4,	16,	0, 0x0ULL, nullptr, nullptr, OperandInfo98 },  // Inst #627 = EFDCTSIZ
+  { 628,	2,	1,	4,	16,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo96 },  // Inst #628 = EFDCTUF
+  { 629,	2,	1,	4,	16,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo98 },  // Inst #629 = EFDCTUI
+  { 630,	2,	1,	4,	16,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo98 },  // Inst #630 = EFDCTUIDZ
+  { 631,	2,	1,	4,	16,	0, 0x0ULL, nullptr, nullptr, OperandInfo98 },  // Inst #631 = EFDCTUIZ
+  { 632,	3,	1,	4,	18,	0, 0x0ULL, nullptr, nullptr, OperandInfo95 },  // Inst #632 = EFDDIV
+  { 633,	3,	1,	4,	16,	0, 0x0ULL, nullptr, nullptr, OperandInfo95 },  // Inst #633 = EFDMUL
+  { 634,	2,	1,	4,	16,	0, 0x0ULL, nullptr, nullptr, OperandInfo94 },  // Inst #634 = EFDNABS
+  { 635,	2,	1,	4,	16,	0, 0x0ULL, nullptr, nullptr, OperandInfo94 },  // Inst #635 = EFDNEG
+  { 636,	3,	1,	4,	16,	0, 0x0ULL, nullptr, nullptr, OperandInfo95 },  // Inst #636 = EFDSUB
+  { 637,	3,	1,	4,	16,	0|(1ULL<<MCID::Compare)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo97 },  // Inst #637 = EFDTSTEQ
+  { 638,	3,	1,	4,	16,	0|(1ULL<<MCID::Compare)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo97 },  // Inst #638 = EFDTSTGT
+  { 639,	3,	1,	4,	16,	0|(1ULL<<MCID::Compare)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo97 },  // Inst #639 = EFDTSTLT
+  { 640,	2,	1,	4,	19,	0, 0x0ULL, nullptr, nullptr, OperandInfo44 },  // Inst #640 = EFSABS
+  { 641,	3,	1,	4,	17,	0, 0x0ULL, nullptr, nullptr, OperandInfo56 },  // Inst #641 = EFSADD
+  { 642,	2,	1,	4,	19,	0, 0x0ULL, nullptr, nullptr, OperandInfo98 },  // Inst #642 = EFSCFD
+  { 643,	2,	1,	4,	19,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo44 },  // Inst #643 = EFSCFSF
+  { 644,	2,	1,	4,	19,	0, 0x0ULL, nullptr, nullptr, OperandInfo44 },  // Inst #644 = EFSCFSI
+  { 645,	2,	1,	4,	19,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo44 },  // Inst #645 = EFSCFUF
+  { 646,	2,	1,	4,	19,	0, 0x0ULL, nullptr, nullptr, OperandInfo44 },  // Inst #646 = EFSCFUI
+  { 647,	3,	1,	4,	20,	0|(1ULL<<MCID::Compare)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo84 },  // Inst #647 = EFSCMPEQ
+  { 648,	3,	1,	4,	20,	0|(1ULL<<MCID::Compare)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo84 },  // Inst #648 = EFSCMPGT
+  { 649,	3,	1,	4,	20,	0|(1ULL<<MCID::Compare)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo84 },  // Inst #649 = EFSCMPLT
+  { 650,	2,	1,	4,	19,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo44 },  // Inst #650 = EFSCTSF
+  { 651,	2,	1,	4,	19,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo44 },  // Inst #651 = EFSCTSI
+  { 652,	2,	1,	4,	19,	0, 0x0ULL, nullptr, nullptr, OperandInfo44 },  // Inst #652 = EFSCTSIZ
+  { 653,	2,	1,	4,	19,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo96 },  // Inst #653 = EFSCTUF
+  { 654,	2,	1,	4,	19,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo44 },  // Inst #654 = EFSCTUI
+  { 655,	2,	1,	4,	19,	0, 0x0ULL, nullptr, nullptr, OperandInfo44 },  // Inst #655 = EFSCTUIZ
+  { 656,	3,	1,	4,	18,	0, 0x0ULL, nullptr, nullptr, OperandInfo56 },  // Inst #656 = EFSDIV
+  { 657,	3,	1,	4,	21,	0, 0x0ULL, nullptr, nullptr, OperandInfo56 },  // Inst #657 = EFSMUL
+  { 658,	2,	1,	4,	21,	0, 0x0ULL, nullptr, nullptr, OperandInfo44 },  // Inst #658 = EFSNABS
+  { 659,	2,	1,	4,	21,	0, 0x0ULL, nullptr, nullptr, OperandInfo44 },  // Inst #659 = EFSNEG
+  { 660,	3,	1,	4,	19,	0, 0x0ULL, nullptr, nullptr, OperandInfo56 },  // Inst #660 = EFSSUB
+  { 661,	3,	1,	4,	20,	0|(1ULL<<MCID::Compare)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo97 },  // Inst #661 = EFSTSTEQ
+  { 662,	3,	1,	4,	20,	0|(1ULL<<MCID::Compare)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo97 },  // Inst #662 = EFSTSTGT
+  { 663,	3,	1,	4,	20,	0|(1ULL<<MCID::Compare)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo97 },  // Inst #663 = EFSTSTLT
+  { 664,	1,	0,	4,	0,	0|(1ULL<<MCID::Barrier)|(1ULL<<MCID::Terminator)|(1ULL<<MCID::UsesCustomInserter)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo99 },  // Inst #664 = EH_SjLj_LongJmp32
+  { 665,	1,	0,	4,	0,	0|(1ULL<<MCID::Barrier)|(1ULL<<MCID::Terminator)|(1ULL<<MCID::UsesCustomInserter)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo99 },  // Inst #665 = EH_SjLj_LongJmp64
+  { 666,	2,	1,	4,	0,	0|(1ULL<<MCID::UsesCustomInserter)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, ImplicitList12, OperandInfo100 },  // Inst #666 = EH_SjLj_SetJmp32
+  { 667,	2,	1,	4,	0,	0|(1ULL<<MCID::UsesCustomInserter)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, ImplicitList13, OperandInfo100 },  // Inst #667 = EH_SjLj_SetJmp64
+  { 668,	1,	0,	0,	0,	0|(1ULL<<MCID::Branch)|(1ULL<<MCID::Terminator)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo70 },  // Inst #668 = EH_SjLj_Setup
+  { 669,	3,	1,	4,	116,	0|(1ULL<<MCID::Commutable), 0x8ULL, nullptr, nullptr, OperandInfo56 },  // Inst #669 = EQV
+  { 670,	3,	1,	4,	116,	0|(1ULL<<MCID::Commutable), 0x8ULL, nullptr, nullptr, OperandInfo57 },  // Inst #670 = EQV8
+  { 671,	3,	1,	4,	116,	0|(1ULL<<MCID::Commutable), 0x8ULL, nullptr, ImplicitList4, OperandInfo57 },  // Inst #671 = EQV8_rec
+  { 672,	3,	1,	4,	116,	0|(1ULL<<MCID::Commutable), 0x8ULL, nullptr, ImplicitList4, OperandInfo56 },  // Inst #672 = EQV_rec
+  { 673,	2,	1,	4,	292,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo94 },  // Inst #673 = EVABS
+  { 674,	3,	1,	4,	292,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo101 },  // Inst #674 = EVADDIW
+  { 675,	2,	1,	4,	293,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo94 },  // Inst #675 = EVADDSMIAAW
+  { 676,	2,	1,	4,	293,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo94 },  // Inst #676 = EVADDSSIAAW
+  { 677,	2,	1,	4,	293,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo94 },  // Inst #677 = EVADDUMIAAW
+  { 678,	2,	1,	4,	293,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo94 },  // Inst #678 = EVADDUSIAAW
+  { 679,	3,	1,	4,	292,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo95 },  // Inst #679 = EVADDW
+  { 680,	3,	1,	4,	292,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo95 },  // Inst #680 = EVAND
+  { 681,	3,	1,	4,	292,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo95 },  // Inst #681 = EVANDC
+  { 682,	3,	1,	4,	292,	0|(1ULL<<MCID::Compare)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo97 },  // Inst #682 = EVCMPEQ
+  { 683,	3,	1,	4,	292,	0|(1ULL<<MCID::Compare)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo97 },  // Inst #683 = EVCMPGTS
+  { 684,	3,	1,	4,	292,	0|(1ULL<<MCID::Compare)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo97 },  // Inst #684 = EVCMPGTU
+  { 685,	3,	1,	4,	292,	0|(1ULL<<MCID::Compare)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo97 },  // Inst #685 = EVCMPLTS
+  { 686,	3,	1,	4,	292,	0|(1ULL<<MCID::Compare)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo97 },  // Inst #686 = EVCMPLTU
+  { 687,	2,	1,	4,	292,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo94 },  // Inst #687 = EVCNTLSW
+  { 688,	2,	1,	4,	292,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo94 },  // Inst #688 = EVCNTLZW
+  { 689,	3,	1,	4,	293,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo95 },  // Inst #689 = EVDIVWS
+  { 690,	3,	1,	4,	293,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo95 },  // Inst #690 = EVDIVWU
+  { 691,	3,	1,	4,	292,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo95 },  // Inst #691 = EVEQV
+  { 692,	2,	1,	4,	292,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo94 },  // Inst #692 = EVEXTSB
+  { 693,	2,	1,	4,	292,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo94 },  // Inst #693 = EVEXTSH
+  { 694,	2,	1,	4,	22,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo94 },  // Inst #694 = EVFSABS
+  { 695,	3,	1,	4,	23,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo95 },  // Inst #695 = EVFSADD
+  { 696,	2,	1,	4,	23,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo94 },  // Inst #696 = EVFSCFSF
+  { 697,	2,	1,	4,	23,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo94 },  // Inst #697 = EVFSCFSI
+  { 698,	2,	1,	4,	23,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo94 },  // Inst #698 = EVFSCFUF
+  { 699,	2,	1,	4,	23,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo94 },  // Inst #699 = EVFSCFUI
+  { 700,	3,	1,	4,	19,	0|(1ULL<<MCID::Compare)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo97 },  // Inst #700 = EVFSCMPEQ
+  { 701,	3,	1,	4,	19,	0|(1ULL<<MCID::Compare)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo97 },  // Inst #701 = EVFSCMPGT
+  { 702,	3,	1,	4,	19,	0|(1ULL<<MCID::Compare)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo97 },  // Inst #702 = EVFSCMPLT
+  { 703,	2,	1,	4,	23,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo94 },  // Inst #703 = EVFSCTSF
+  { 704,	2,	1,	4,	23,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo94 },  // Inst #704 = EVFSCTSI
+  { 705,	2,	1,	4,	23,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo94 },  // Inst #705 = EVFSCTSIZ
+  { 706,	2,	1,	4,	23,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo94 },  // Inst #706 = EVFSCTUF
+  { 707,	2,	1,	4,	23,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo94 },  // Inst #707 = EVFSCTUI
+  { 708,	2,	1,	4,	23,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo94 },  // Inst #708 = EVFSCTUIZ
+  { 709,	3,	1,	4,	18,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo95 },  // Inst #709 = EVFSDIV
+  { 710,	3,	1,	4,	23,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo95 },  // Inst #710 = EVFSMUL
+  { 711,	2,	1,	4,	22,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo94 },  // Inst #711 = EVFSNABS
+  { 712,	2,	1,	4,	22,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo94 },  // Inst #712 = EVFSNEG
+  { 713,	3,	1,	4,	23,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo95 },  // Inst #713 = EVFSSUB
+  { 714,	3,	1,	4,	22,	0|(1ULL<<MCID::Compare)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo97 },  // Inst #714 = EVFSTSTEQ
+  { 715,	3,	1,	4,	22,	0|(1ULL<<MCID::Compare)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo97 },  // Inst #715 = EVFSTSTGT
+  { 716,	3,	1,	4,	22,	0|(1ULL<<MCID::Compare)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo97 },  // Inst #716 = EVFSTSTLT
+  { 717,	3,	1,	4,	294,	0|(1ULL<<MCID::MayLoad), 0x0ULL, nullptr, nullptr, OperandInfo102 },  // Inst #717 = EVLDD
+  { 718,	3,	1,	4,	294,	0|(1ULL<<MCID::MayLoad), 0x0ULL, nullptr, nullptr, OperandInfo103 },  // Inst #718 = EVLDDX
+  { 719,	3,	1,	4,	294,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo102 },  // Inst #719 = EVLDH
+  { 720,	3,	1,	4,	294,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo103 },  // Inst #720 = EVLDHX
+  { 721,	3,	1,	4,	294,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo102 },  // Inst #721 = EVLDW
+  { 722,	3,	1,	4,	294,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo103 },  // Inst #722 = EVLDWX
+  { 723,	3,	1,	4,	294,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo102 },  // Inst #723 = EVLHHESPLAT
+  { 724,	3,	1,	4,	294,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo103 },  // Inst #724 = EVLHHESPLATX
+  { 725,	3,	1,	4,	294,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo102 },  // Inst #725 = EVLHHOSSPLAT
+  { 726,	3,	1,	4,	294,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo103 },  // Inst #726 = EVLHHOSSPLATX
+  { 727,	3,	1,	4,	294,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo102 },  // Inst #727 = EVLHHOUSPLAT
+  { 728,	3,	1,	4,	294,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo103 },  // Inst #728 = EVLHHOUSPLATX
+  { 729,	3,	1,	4,	294,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo102 },  // Inst #729 = EVLWHE
+  { 730,	3,	1,	4,	294,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo103 },  // Inst #730 = EVLWHEX
+  { 731,	3,	1,	4,	294,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo102 },  // Inst #731 = EVLWHOS
+  { 732,	3,	1,	4,	294,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo103 },  // Inst #732 = EVLWHOSX
+  { 733,	3,	1,	4,	294,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo102 },  // Inst #733 = EVLWHOU
+  { 734,	3,	1,	4,	294,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo103 },  // Inst #734 = EVLWHOUX
+  { 735,	3,	1,	4,	294,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo102 },  // Inst #735 = EVLWHSPLAT
+  { 736,	3,	1,	4,	294,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo103 },  // Inst #736 = EVLWHSPLATX
+  { 737,	3,	1,	4,	294,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo102 },  // Inst #737 = EVLWWSPLAT
+  { 738,	3,	1,	4,	294,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo103 },  // Inst #738 = EVLWWSPLATX
+  { 739,	3,	1,	4,	292,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo95 },  // Inst #739 = EVMERGEHI
+  { 740,	3,	1,	4,	292,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo95 },  // Inst #740 = EVMERGEHILO
+  { 741,	3,	1,	4,	292,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo104 },  // Inst #741 = EVMERGELO
+  { 742,	3,	1,	4,	292,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo95 },  // Inst #742 = EVMERGELOHI
+  { 743,	3,	1,	4,	293,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo95 },  // Inst #743 = EVMHEGSMFAA
+  { 744,	3,	1,	4,	293,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo95 },  // Inst #744 = EVMHEGSMFAN
+  { 745,	3,	1,	4,	293,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo95 },  // Inst #745 = EVMHEGSMIAA
+  { 746,	3,	1,	4,	293,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo95 },  // Inst #746 = EVMHEGSMIAN
+  { 747,	3,	1,	4,	293,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo95 },  // Inst #747 = EVMHEGUMIAA
+  { 748,	3,	1,	4,	293,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo95 },  // Inst #748 = EVMHEGUMIAN
+  { 749,	3,	1,	4,	293,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo95 },  // Inst #749 = EVMHESMF
+  { 750,	3,	1,	4,	293,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo95 },  // Inst #750 = EVMHESMFA
+  { 751,	3,	1,	4,	293,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo95 },  // Inst #751 = EVMHESMFAAW
+  { 752,	3,	1,	4,	293,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo95 },  // Inst #752 = EVMHESMFANW
+  { 753,	3,	1,	4,	293,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo95 },  // Inst #753 = EVMHESMI
+  { 754,	3,	1,	4,	293,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo95 },  // Inst #754 = EVMHESMIA
+  { 755,	3,	1,	4,	293,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo95 },  // Inst #755 = EVMHESMIAAW
+  { 756,	3,	1,	4,	293,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo95 },  // Inst #756 = EVMHESMIANW
+  { 757,	3,	1,	4,	293,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo95 },  // Inst #757 = EVMHESSF
+  { 758,	3,	1,	4,	293,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo95 },  // Inst #758 = EVMHESSFA
+  { 759,	3,	1,	4,	293,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo95 },  // Inst #759 = EVMHESSFAAW
+  { 760,	3,	1,	4,	293,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo95 },  // Inst #760 = EVMHESSFANW
+  { 761,	3,	1,	4,	293,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo95 },  // Inst #761 = EVMHESSIAAW
+  { 762,	3,	1,	4,	293,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo95 },  // Inst #762 = EVMHESSIANW
+  { 763,	3,	1,	4,	293,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo95 },  // Inst #763 = EVMHEUMI
+  { 764,	3,	1,	4,	293,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo95 },  // Inst #764 = EVMHEUMIA
+  { 765,	3,	1,	4,	293,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo95 },  // Inst #765 = EVMHEUMIAAW
+  { 766,	3,	1,	4,	293,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo95 },  // Inst #766 = EVMHEUMIANW
+  { 767,	3,	1,	4,	293,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo95 },  // Inst #767 = EVMHEUSIAAW
+  { 768,	3,	1,	4,	293,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo95 },  // Inst #768 = EVMHEUSIANW
+  { 769,	3,	1,	4,	293,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo95 },  // Inst #769 = EVMHOGSMFAA
+  { 770,	3,	1,	4,	293,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo95 },  // Inst #770 = EVMHOGSMFAN
+  { 771,	3,	1,	4,	293,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo95 },  // Inst #771 = EVMHOGSMIAA
+  { 772,	3,	1,	4,	293,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo95 },  // Inst #772 = EVMHOGSMIAN
+  { 773,	3,	1,	4,	293,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo95 },  // Inst #773 = EVMHOGUMIAA
+  { 774,	3,	1,	4,	293,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo95 },  // Inst #774 = EVMHOGUMIAN
+  { 775,	3,	1,	4,	293,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo95 },  // Inst #775 = EVMHOSMF
+  { 776,	3,	1,	4,	293,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo95 },  // Inst #776 = EVMHOSMFA
+  { 777,	3,	1,	4,	293,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo95 },  // Inst #777 = EVMHOSMFAAW
+  { 778,	3,	1,	4,	293,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo95 },  // Inst #778 = EVMHOSMFANW
+  { 779,	3,	1,	4,	293,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo95 },  // Inst #779 = EVMHOSMI
+  { 780,	3,	1,	4,	293,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo95 },  // Inst #780 = EVMHOSMIA
+  { 781,	3,	1,	4,	293,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo95 },  // Inst #781 = EVMHOSMIAAW
+  { 782,	3,	1,	4,	293,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo95 },  // Inst #782 = EVMHOSMIANW
+  { 783,	3,	1,	4,	293,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo95 },  // Inst #783 = EVMHOSSF
+  { 784,	3,	1,	4,	293,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo95 },  // Inst #784 = EVMHOSSFA
+  { 785,	3,	1,	4,	293,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo95 },  // Inst #785 = EVMHOSSFAAW
+  { 786,	3,	1,	4,	293,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo95 },  // Inst #786 = EVMHOSSFANW
+  { 787,	3,	1,	4,	293,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo95 },  // Inst #787 = EVMHOSSIAAW
+  { 788,	3,	1,	4,	293,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo95 },  // Inst #788 = EVMHOSSIANW
+  { 789,	3,	1,	4,	293,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo95 },  // Inst #789 = EVMHOUMI
+  { 790,	3,	1,	4,	293,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo95 },  // Inst #790 = EVMHOUMIA
+  { 791,	3,	1,	4,	293,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo95 },  // Inst #791 = EVMHOUMIAAW
+  { 792,	3,	1,	4,	293,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo95 },  // Inst #792 = EVMHOUMIANW
+  { 793,	3,	1,	4,	293,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo95 },  // Inst #793 = EVMHOUSIAAW
+  { 794,	3,	1,	4,	293,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo95 },  // Inst #794 = EVMHOUSIANW
+  { 795,	2,	1,	4,	293,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo94 },  // Inst #795 = EVMRA
+  { 796,	3,	1,	4,	293,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo95 },  // Inst #796 = EVMWHSMF
+  { 797,	3,	1,	4,	293,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo95 },  // Inst #797 = EVMWHSMFA
+  { 798,	3,	1,	4,	293,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo95 },  // Inst #798 = EVMWHSMI
+  { 799,	3,	1,	4,	293,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo95 },  // Inst #799 = EVMWHSMIA
+  { 800,	3,	1,	4,	293,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo95 },  // Inst #800 = EVMWHSSF
+  { 801,	3,	1,	4,	293,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo95 },  // Inst #801 = EVMWHSSFA
+  { 802,	3,	1,	4,	293,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo95 },  // Inst #802 = EVMWHUMI
+  { 803,	3,	1,	4,	293,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo95 },  // Inst #803 = EVMWHUMIA
+  { 804,	3,	1,	4,	293,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo95 },  // Inst #804 = EVMWLSMIAAW
+  { 805,	3,	1,	4,	293,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo95 },  // Inst #805 = EVMWLSMIANW
+  { 806,	3,	1,	4,	293,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo95 },  // Inst #806 = EVMWLSSIAAW
+  { 807,	3,	1,	4,	293,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo95 },  // Inst #807 = EVMWLSSIANW
+  { 808,	3,	1,	4,	293,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo95 },  // Inst #808 = EVMWLUMI
+  { 809,	3,	1,	4,	293,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo95 },  // Inst #809 = EVMWLUMIA
+  { 810,	3,	1,	4,	293,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo95 },  // Inst #810 = EVMWLUMIAAW
+  { 811,	3,	1,	4,	293,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo95 },  // Inst #811 = EVMWLUMIANW
+  { 812,	3,	1,	4,	293,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo95 },  // Inst #812 = EVMWLUSIAAW
+  { 813,	3,	1,	4,	293,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo95 },  // Inst #813 = EVMWLUSIANW
+  { 814,	3,	1,	4,	293,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo95 },  // Inst #814 = EVMWSMF
+  { 815,	3,	1,	4,	293,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo95 },  // Inst #815 = EVMWSMFA
+  { 816,	3,	1,	4,	293,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo95 },  // Inst #816 = EVMWSMFAA
+  { 817,	3,	1,	4,	293,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo95 },  // Inst #817 = EVMWSMFAN
+  { 818,	3,	1,	4,	293,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo95 },  // Inst #818 = EVMWSMI
+  { 819,	3,	1,	4,	293,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo95 },  // Inst #819 = EVMWSMIA
+  { 820,	3,	1,	4,	293,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo95 },  // Inst #820 = EVMWSMIAA
+  { 821,	3,	1,	4,	293,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo95 },  // Inst #821 = EVMWSMIAN
+  { 822,	3,	1,	4,	293,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo95 },  // Inst #822 = EVMWSSF
+  { 823,	3,	1,	4,	293,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo95 },  // Inst #823 = EVMWSSFA
+  { 824,	3,	1,	4,	293,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo95 },  // Inst #824 = EVMWSSFAA
+  { 825,	3,	1,	4,	293,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo95 },  // Inst #825 = EVMWSSFAN
+  { 826,	3,	1,	4,	293,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo95 },  // Inst #826 = EVMWUMI
+  { 827,	3,	1,	4,	293,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo95 },  // Inst #827 = EVMWUMIA
+  { 828,	3,	1,	4,	293,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo95 },  // Inst #828 = EVMWUMIAA
+  { 829,	3,	1,	4,	293,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo95 },  // Inst #829 = EVMWUMIAN
+  { 830,	3,	1,	4,	292,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo95 },  // Inst #830 = EVNAND
+  { 831,	2,	1,	4,	292,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo94 },  // Inst #831 = EVNEG
+  { 832,	3,	1,	4,	292,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo95 },  // Inst #832 = EVNOR
+  { 833,	3,	1,	4,	292,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo95 },  // Inst #833 = EVOR
+  { 834,	3,	1,	4,	292,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo95 },  // Inst #834 = EVORC
+  { 835,	3,	1,	4,	292,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo95 },  // Inst #835 = EVRLW
+  { 836,	3,	1,	4,	292,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo101 },  // Inst #836 = EVRLWI
+  { 837,	2,	1,	4,	292,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo94 },  // Inst #837 = EVRNDW
+  { 838,	4,	1,	4,	22,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo105 },  // Inst #838 = EVSEL
+  { 839,	3,	1,	4,	292,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo95 },  // Inst #839 = EVSLW
+  { 840,	3,	1,	4,	292,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo101 },  // Inst #840 = EVSLWI
+  { 841,	2,	1,	4,	292,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo106 },  // Inst #841 = EVSPLATFI
+  { 842,	2,	1,	4,	292,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo106 },  // Inst #842 = EVSPLATI
+  { 843,	3,	1,	4,	292,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo101 },  // Inst #843 = EVSRWIS
+  { 844,	3,	1,	4,	292,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo101 },  // Inst #844 = EVSRWIU
+  { 845,	3,	1,	4,	292,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo95 },  // Inst #845 = EVSRWS
+  { 846,	3,	1,	4,	292,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo95 },  // Inst #846 = EVSRWU
+  { 847,	3,	0,	4,	295,	0|(1ULL<<MCID::MayStore), 0x0ULL, nullptr, nullptr, OperandInfo102 },  // Inst #847 = EVSTDD
+  { 848,	3,	0,	4,	295,	0|(1ULL<<MCID::MayStore), 0x0ULL, nullptr, nullptr, OperandInfo103 },  // Inst #848 = EVSTDDX
+  { 849,	3,	0,	4,	295,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo102 },  // Inst #849 = EVSTDH
+  { 850,	3,	0,	4,	295,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo103 },  // Inst #850 = EVSTDHX
+  { 851,	3,	0,	4,	295,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo102 },  // Inst #851 = EVSTDW
+  { 852,	3,	0,	4,	295,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo103 },  // Inst #852 = EVSTDWX
+  { 853,	3,	0,	4,	295,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo102 },  // Inst #853 = EVSTWHE
+  { 854,	3,	0,	4,	295,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo103 },  // Inst #854 = EVSTWHEX
+  { 855,	3,	0,	4,	295,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo102 },  // Inst #855 = EVSTWHO
+  { 856,	3,	0,	4,	295,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo103 },  // Inst #856 = EVSTWHOX
+  { 857,	3,	0,	4,	295,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo102 },  // Inst #857 = EVSTWWE
+  { 858,	3,	0,	4,	295,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo103 },  // Inst #858 = EVSTWWEX
+  { 859,	3,	0,	4,	295,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo102 },  // Inst #859 = EVSTWWO
+  { 860,	3,	0,	4,	295,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo103 },  // Inst #860 = EVSTWWOX
+  { 861,	2,	1,	4,	293,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo94 },  // Inst #861 = EVSUBFSMIAAW
+  { 862,	2,	1,	4,	293,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo94 },  // Inst #862 = EVSUBFSSIAAW
+  { 863,	2,	1,	4,	293,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo94 },  // Inst #863 = EVSUBFUMIAAW
+  { 864,	2,	1,	4,	293,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo94 },  // Inst #864 = EVSUBFUSIAAW
+  { 865,	3,	1,	4,	292,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo95 },  // Inst #865 = EVSUBFW
+  { 866,	3,	1,	4,	292,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo107 },  // Inst #866 = EVSUBIFW
+  { 867,	3,	1,	4,	292,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo95 },  // Inst #867 = EVXOR
+  { 868,	2,	1,	4,	116,	0, 0x8ULL, nullptr, nullptr, OperandInfo44 },  // Inst #868 = EXTSB
+  { 869,	2,	1,	4,	116,	0, 0x8ULL, nullptr, nullptr, OperandInfo62 },  // Inst #869 = EXTSB8
+  { 870,	2,	1,	4,	116,	0, 0x8ULL, nullptr, nullptr, OperandInfo108 },  // Inst #870 = EXTSB8_32_64
+  { 871,	2,	1,	4,	116,	0, 0x8ULL, nullptr, ImplicitList4, OperandInfo62 },  // Inst #871 = EXTSB8_rec
+  { 872,	2,	1,	4,	116,	0, 0x8ULL, nullptr, ImplicitList4, OperandInfo44 },  // Inst #872 = EXTSB_rec
+  { 873,	2,	1,	4,	116,	0, 0x8ULL, nullptr, nullptr, OperandInfo44 },  // Inst #873 = EXTSH
+  { 874,	2,	1,	4,	116,	0, 0x8ULL, nullptr, nullptr, OperandInfo62 },  // Inst #874 = EXTSH8
+  { 875,	2,	1,	4,	116,	0, 0x8ULL, nullptr, nullptr, OperandInfo108 },  // Inst #875 = EXTSH8_32_64
+  { 876,	2,	1,	4,	116,	0, 0x8ULL, nullptr, ImplicitList4, OperandInfo62 },  // Inst #876 = EXTSH8_rec
+  { 877,	2,	1,	4,	116,	0, 0x8ULL, nullptr, ImplicitList4, OperandInfo44 },  // Inst #877 = EXTSH_rec
+  { 878,	2,	1,	4,	116,	0, 0x8ULL, nullptr, nullptr, OperandInfo62 },  // Inst #878 = EXTSW
+  { 879,	3,	1,	4,	112,	0, 0x8ULL, nullptr, ImplicitList5, OperandInfo42 },  // Inst #879 = EXTSWSLI
+  { 880,	3,	1,	4,	112,	0, 0x8ULL, nullptr, nullptr, OperandInfo109 },  // Inst #880 = EXTSWSLI_32_64
+  { 881,	3,	1,	4,	257,	0, 0x8ULL, nullptr, ImplicitList4, OperandInfo109 },  // Inst #881 = EXTSWSLI_32_64_rec
+  { 882,	3,	1,	4,	257,	0, 0x8ULL, nullptr, ImplicitList8, OperandInfo42 },  // Inst #882 = EXTSWSLI_rec
+  { 883,	2,	1,	4,	116,	0, 0x8ULL, nullptr, nullptr, OperandInfo44 },  // Inst #883 = EXTSW_32
+  { 884,	2,	1,	4,	116,	0, 0x8ULL, nullptr, nullptr, OperandInfo108 },  // Inst #884 = EXTSW_32_64
+  { 885,	2,	1,	4,	116,	0, 0x8ULL, nullptr, ImplicitList4, OperandInfo108 },  // Inst #885 = EXTSW_32_64_rec
+  { 886,	2,	1,	4,	116,	0, 0x8ULL, nullptr, ImplicitList4, OperandInfo62 },  // Inst #886 = EXTSW_rec
+  { 887,	0,	0,	4,	179,	0|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::MayStore)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, nullptr },  // Inst #887 = EnforceIEIO
+  { 888,	2,	1,	4,	131,	0, 0x18ULL, nullptr, nullptr, OperandInfo110 },  // Inst #888 = FABSD
+  { 889,	2,	1,	4,	246,	0, 0x18ULL, nullptr, ImplicitList28, OperandInfo110 },  // Inst #889 = FABSD_rec
+  { 890,	2,	1,	4,	131,	0, 0x18ULL, nullptr, nullptr, OperandInfo111 },  // Inst #890 = FABSS
+  { 891,	2,	1,	4,	246,	0, 0x18ULL, nullptr, ImplicitList28, OperandInfo111 },  // Inst #891 = FABSS_rec
+  { 892,	3,	1,	4,	149,	0|(1ULL<<MCID::MayRaiseFPException)|(1ULL<<MCID::Commutable), 0x18ULL, ImplicitList18, nullptr, OperandInfo112 },  // Inst #892 = FADD
+  { 893,	3,	1,	4,	148,	0|(1ULL<<MCID::MayRaiseFPException)|(1ULL<<MCID::Commutable), 0x18ULL, ImplicitList18, nullptr, OperandInfo113 },  // Inst #893 = FADDS
+  { 894,	3,	1,	4,	156,	0|(1ULL<<MCID::MayRaiseFPException)|(1ULL<<MCID::Commutable), 0x18ULL, ImplicitList18, ImplicitList28, OperandInfo113 },  // Inst #894 = FADDS_rec
+  { 895,	3,	1,	4,	157,	0|(1ULL<<MCID::MayRaiseFPException)|(1ULL<<MCID::Commutable), 0x18ULL, ImplicitList18, ImplicitList28, OperandInfo112 },  // Inst #895 = FADD_rec
+  { 896,	3,	1,	4,	0,	0|(1ULL<<MCID::UsesCustomInserter), 0x0ULL, ImplicitList18, nullptr, OperandInfo112 },  // Inst #896 = FADDrtz
+  { 897,	2,	1,	4,	148,	0, 0x18ULL, ImplicitList18, nullptr, OperandInfo110 },  // Inst #897 = FCFID
+  { 898,	2,	1,	4,	148,	0, 0x18ULL, ImplicitList18, nullptr, OperandInfo114 },  // Inst #898 = FCFIDS
+  { 899,	2,	1,	4,	156,	0, 0x18ULL, ImplicitList18, ImplicitList28, OperandInfo114 },  // Inst #899 = FCFIDS_rec
+  { 900,	2,	1,	4,	148,	0, 0x18ULL, ImplicitList18, nullptr, OperandInfo110 },  // Inst #900 = FCFIDU
+  { 901,	2,	1,	4,	148,	0, 0x18ULL, ImplicitList18, nullptr, OperandInfo114 },  // Inst #901 = FCFIDUS
+  { 902,	2,	1,	4,	156,	0, 0x18ULL, ImplicitList18, ImplicitList28, OperandInfo114 },  // Inst #902 = FCFIDUS_rec
+  { 903,	2,	1,	4,	156,	0, 0x18ULL, ImplicitList18, ImplicitList28, OperandInfo110 },  // Inst #903 = FCFIDU_rec
+  { 904,	2,	1,	4,	156,	0, 0x18ULL, ImplicitList18, ImplicitList28, OperandInfo110 },  // Inst #904 = FCFID_rec
+  { 905,	3,	1,	4,	106,	0|(1ULL<<MCID::Compare), 0x18ULL, nullptr, nullptr, OperandInfo115 },  // Inst #905 = FCMPUD
+  { 906,	3,	1,	4,	106,	0|(1ULL<<MCID::Compare), 0x18ULL, nullptr, nullptr, OperandInfo116 },  // Inst #906 = FCMPUS
+  { 907,	3,	1,	4,	131,	0, 0x18ULL, nullptr, nullptr, OperandInfo112 },  // Inst #907 = FCPSGND
+  { 908,	3,	1,	4,	246,	0, 0x18ULL, nullptr, ImplicitList28, OperandInfo112 },  // Inst #908 = FCPSGND_rec
+  { 909,	3,	1,	4,	131,	0, 0x18ULL, nullptr, nullptr, OperandInfo113 },  // Inst #909 = FCPSGNS
+  { 910,	3,	1,	4,	246,	0, 0x18ULL, nullptr, ImplicitList28, OperandInfo113 },  // Inst #910 = FCPSGNS_rec
+  { 911,	2,	1,	4,	148,	0, 0x18ULL, ImplicitList18, nullptr, OperandInfo110 },  // Inst #911 = FCTID
+  { 912,	2,	1,	4,	148,	0, 0x18ULL, ImplicitList18, nullptr, OperandInfo110 },  // Inst #912 = FCTIDU
+  { 913,	2,	1,	4,	148,	0, 0x18ULL, ImplicitList18, nullptr, OperandInfo110 },  // Inst #913 = FCTIDUZ
+  { 914,	2,	1,	4,	156,	0, 0x18ULL, ImplicitList18, ImplicitList28, OperandInfo110 },  // Inst #914 = FCTIDUZ_rec
+  { 915,	2,	1,	4,	156,	0, 0x18ULL, ImplicitList18, ImplicitList28, OperandInfo110 },  // Inst #915 = FCTIDU_rec
+  { 916,	2,	1,	4,	148,	0, 0x18ULL, ImplicitList18, nullptr, OperandInfo110 },  // Inst #916 = FCTIDZ
+  { 917,	2,	1,	4,	156,	0, 0x18ULL, ImplicitList18, ImplicitList28, OperandInfo110 },  // Inst #917 = FCTIDZ_rec
+  { 918,	2,	1,	4,	156,	0, 0x18ULL, ImplicitList18, ImplicitList28, OperandInfo110 },  // Inst #918 = FCTID_rec
+  { 919,	2,	1,	4,	148,	0, 0x18ULL, ImplicitList18, nullptr, OperandInfo110 },  // Inst #919 = FCTIW
+  { 920,	2,	1,	4,	148,	0, 0x18ULL, ImplicitList18, nullptr, OperandInfo110 },  // Inst #920 = FCTIWU
+  { 921,	2,	1,	4,	148,	0, 0x18ULL, ImplicitList18, nullptr, OperandInfo110 },  // Inst #921 = FCTIWUZ
+  { 922,	2,	1,	4,	156,	0, 0x18ULL, ImplicitList18, ImplicitList28, OperandInfo110 },  // Inst #922 = FCTIWUZ_rec
+  { 923,	2,	1,	4,	156,	0, 0x18ULL, ImplicitList18, ImplicitList28, OperandInfo110 },  // Inst #923 = FCTIWU_rec
+  { 924,	2,	1,	4,	148,	0, 0x18ULL, ImplicitList18, nullptr, OperandInfo110 },  // Inst #924 = FCTIWZ
+  { 925,	2,	1,	4,	156,	0, 0x18ULL, ImplicitList18, ImplicitList28, OperandInfo110 },  // Inst #925 = FCTIWZ_rec
+  { 926,	2,	1,	4,	156,	0, 0x18ULL, ImplicitList18, ImplicitList28, OperandInfo110 },  // Inst #926 = FCTIW_rec
+  { 927,	3,	1,	4,	259,	0|(1ULL<<MCID::MayRaiseFPException), 0x18ULL, ImplicitList18, nullptr, OperandInfo112 },  // Inst #927 = FDIV
+  { 928,	3,	1,	4,	270,	0|(1ULL<<MCID::MayRaiseFPException), 0x18ULL, ImplicitList18, nullptr, OperandInfo113 },  // Inst #928 = FDIVS
+  { 929,	3,	1,	4,	271,	0|(1ULL<<MCID::MayRaiseFPException), 0x18ULL, ImplicitList18, ImplicitList28, OperandInfo113 },  // Inst #929 = FDIVS_rec
+  { 930,	3,	1,	4,	260,	0|(1ULL<<MCID::MayRaiseFPException), 0x18ULL, ImplicitList18, ImplicitList28, OperandInfo112 },  // Inst #930 = FDIV_rec
+  { 931,	4,	1,	4,	150,	0|(1ULL<<MCID::Commutable), 0x18ULL, ImplicitList18, nullptr, OperandInfo117 },  // Inst #931 = FMADD
+  { 932,	4,	1,	4,	148,	0|(1ULL<<MCID::Commutable), 0x18ULL, ImplicitList18, nullptr, OperandInfo118 },  // Inst #932 = FMADDS
+  { 933,	4,	1,	4,	156,	0|(1ULL<<MCID::Commutable), 0x18ULL, ImplicitList18, ImplicitList28, OperandInfo118 },  // Inst #933 = FMADDS_rec
+  { 934,	4,	1,	4,	158,	0|(1ULL<<MCID::Commutable), 0x18ULL, ImplicitList18, ImplicitList28, OperandInfo117 },  // Inst #934 = FMADD_rec
+  { 935,	2,	1,	4,	131,	0, 0x0ULL, nullptr, nullptr, OperandInfo111 },  // Inst #935 = FMR
+  { 936,	2,	1,	4,	246,	0, 0x0ULL, nullptr, ImplicitList28, OperandInfo111 },  // Inst #936 = FMR_rec
+  { 937,	4,	1,	4,	150,	0|(1ULL<<MCID::Commutable), 0x18ULL, ImplicitList18, nullptr, OperandInfo117 },  // Inst #937 = FMSUB
+  { 938,	4,	1,	4,	148,	0|(1ULL<<MCID::Commutable), 0x18ULL, ImplicitList18, nullptr, OperandInfo118 },  // Inst #938 = FMSUBS
+  { 939,	4,	1,	4,	156,	0|(1ULL<<MCID::Commutable), 0x18ULL, ImplicitList18, ImplicitList28, OperandInfo118 },  // Inst #939 = FMSUBS_rec
+  { 940,	4,	1,	4,	158,	0|(1ULL<<MCID::Commutable), 0x18ULL, ImplicitList18, ImplicitList28, OperandInfo117 },  // Inst #940 = FMSUB_rec
+  { 941,	3,	1,	4,	150,	0|(1ULL<<MCID::MayRaiseFPException)|(1ULL<<MCID::Commutable), 0x18ULL, ImplicitList18, nullptr, OperandInfo112 },  // Inst #941 = FMUL
+  { 942,	3,	1,	4,	148,	0|(1ULL<<MCID::MayRaiseFPException)|(1ULL<<MCID::Commutable), 0x18ULL, ImplicitList18, nullptr, OperandInfo113 },  // Inst #942 = FMULS
+  { 943,	3,	1,	4,	156,	0|(1ULL<<MCID::MayRaiseFPException)|(1ULL<<MCID::Commutable), 0x18ULL, ImplicitList18, ImplicitList28, OperandInfo113 },  // Inst #943 = FMULS_rec
+  { 944,	3,	1,	4,	158,	0|(1ULL<<MCID::MayRaiseFPException)|(1ULL<<MCID::Commutable), 0x18ULL, ImplicitList18, ImplicitList28, OperandInfo112 },  // Inst #944 = FMUL_rec
+  { 945,	2,	1,	4,	131,	0, 0x18ULL, nullptr, nullptr, OperandInfo110 },  // Inst #945 = FNABSD
+  { 946,	2,	1,	4,	246,	0, 0x18ULL, nullptr, ImplicitList28, OperandInfo110 },  // Inst #946 = FNABSD_rec
+  { 947,	2,	1,	4,	131,	0, 0x18ULL, nullptr, nullptr, OperandInfo111 },  // Inst #947 = FNABSS
+  { 948,	2,	1,	4,	246,	0, 0x18ULL, nullptr, ImplicitList28, OperandInfo111 },  // Inst #948 = FNABSS_rec
+  { 949,	2,	1,	4,	131,	0, 0x18ULL, nullptr, nullptr, OperandInfo110 },  // Inst #949 = FNEGD
+  { 950,	2,	1,	4,	246,	0, 0x18ULL, nullptr, ImplicitList28, OperandInfo110 },  // Inst #950 = FNEGD_rec
+  { 951,	2,	1,	4,	131,	0, 0x18ULL, nullptr, nullptr, OperandInfo111 },  // Inst #951 = FNEGS
+  { 952,	2,	1,	4,	246,	0, 0x18ULL, nullptr, ImplicitList28, OperandInfo111 },  // Inst #952 = FNEGS_rec
+  { 953,	4,	1,	4,	150,	0|(1ULL<<MCID::Commutable), 0x18ULL, ImplicitList18, nullptr, OperandInfo117 },  // Inst #953 = FNMADD
+  { 954,	4,	1,	4,	148,	0|(1ULL<<MCID::Commutable), 0x18ULL, ImplicitList18, nullptr, OperandInfo118 },  // Inst #954 = FNMADDS
+  { 955,	4,	1,	4,	156,	0|(1ULL<<MCID::Commutable), 0x18ULL, ImplicitList18, ImplicitList28, OperandInfo118 },  // Inst #955 = FNMADDS_rec
+  { 956,	4,	1,	4,	158,	0|(1ULL<<MCID::Commutable), 0x18ULL, ImplicitList18, ImplicitList28, OperandInfo117 },  // Inst #956 = FNMADD_rec
+  { 957,	4,	1,	4,	150,	0|(1ULL<<MCID::Commutable), 0x18ULL, ImplicitList18, nullptr, OperandInfo117 },  // Inst #957 = FNMSUB
+  { 958,	4,	1,	4,	148,	0|(1ULL<<MCID::Commutable), 0x18ULL, ImplicitList18, nullptr, OperandInfo118 },  // Inst #958 = FNMSUBS
+  { 959,	4,	1,	4,	156,	0|(1ULL<<MCID::Commutable), 0x18ULL, ImplicitList18, ImplicitList28, OperandInfo118 },  // Inst #959 = FNMSUBS_rec
+  { 960,	4,	1,	4,	158,	0|(1ULL<<MCID::Commutable), 0x18ULL, ImplicitList18, ImplicitList28, OperandInfo117 },  // Inst #960 = FNMSUB_rec
+  { 961,	2,	1,	4,	148,	0, 0x18ULL, nullptr, nullptr, OperandInfo110 },  // Inst #961 = FRE
+  { 962,	2,	1,	4,	148,	0, 0x18ULL, nullptr, nullptr, OperandInfo111 },  // Inst #962 = FRES
+  { 963,	2,	1,	4,	156,	0, 0x18ULL, nullptr, ImplicitList28, OperandInfo111 },  // Inst #963 = FRES_rec
+  { 964,	2,	1,	4,	156,	0, 0x18ULL, nullptr, ImplicitList28, OperandInfo110 },  // Inst #964 = FRE_rec
+  { 965,	2,	1,	4,	148,	0, 0x18ULL, ImplicitList18, nullptr, OperandInfo110 },  // Inst #965 = FRIMD
+  { 966,	2,	1,	4,	156,	0, 0x18ULL, ImplicitList18, ImplicitList28, OperandInfo110 },  // Inst #966 = FRIMD_rec
+  { 967,	2,	1,	4,	148,	0, 0x18ULL, ImplicitList18, nullptr, OperandInfo111 },  // Inst #967 = FRIMS
+  { 968,	2,	1,	4,	156,	0, 0x18ULL, ImplicitList18, ImplicitList28, OperandInfo111 },  // Inst #968 = FRIMS_rec
+  { 969,	2,	1,	4,	148,	0, 0x18ULL, ImplicitList18, nullptr, OperandInfo110 },  // Inst #969 = FRIND
+  { 970,	2,	1,	4,	156,	0, 0x18ULL, ImplicitList18, ImplicitList28, OperandInfo110 },  // Inst #970 = FRIND_rec
+  { 971,	2,	1,	4,	148,	0, 0x18ULL, ImplicitList18, nullptr, OperandInfo111 },  // Inst #971 = FRINS
+  { 972,	2,	1,	4,	156,	0, 0x18ULL, ImplicitList18, ImplicitList28, OperandInfo111 },  // Inst #972 = FRINS_rec
+  { 973,	2,	1,	4,	148,	0, 0x18ULL, ImplicitList18, nullptr, OperandInfo110 },  // Inst #973 = FRIPD
+  { 974,	2,	1,	4,	156,	0, 0x18ULL, ImplicitList18, ImplicitList28, OperandInfo110 },  // Inst #974 = FRIPD_rec
+  { 975,	2,	1,	4,	148,	0, 0x18ULL, ImplicitList18, nullptr, OperandInfo111 },  // Inst #975 = FRIPS
+  { 976,	2,	1,	4,	156,	0, 0x18ULL, ImplicitList18, ImplicitList28, OperandInfo111 },  // Inst #976 = FRIPS_rec
+  { 977,	2,	1,	4,	148,	0, 0x18ULL, ImplicitList18, nullptr, OperandInfo110 },  // Inst #977 = FRIZD
+  { 978,	2,	1,	4,	156,	0, 0x18ULL, ImplicitList18, ImplicitList28, OperandInfo110 },  // Inst #978 = FRIZD_rec
+  { 979,	2,	1,	4,	148,	0, 0x18ULL, ImplicitList18, nullptr, OperandInfo111 },  // Inst #979 = FRIZS
+  { 980,	2,	1,	4,	156,	0, 0x18ULL, ImplicitList18, ImplicitList28, OperandInfo111 },  // Inst #980 = FRIZS_rec
+  { 981,	2,	1,	4,	148,	0, 0x18ULL, ImplicitList18, nullptr, OperandInfo114 },  // Inst #981 = FRSP
+  { 982,	2,	1,	4,	156,	0, 0x18ULL, ImplicitList18, ImplicitList28, OperandInfo114 },  // Inst #982 = FRSP_rec
+  { 983,	2,	1,	4,	148,	0, 0x18ULL, nullptr, nullptr, OperandInfo110 },  // Inst #983 = FRSQRTE
+  { 984,	2,	1,	4,	148,	0, 0x18ULL, nullptr, nullptr, OperandInfo111 },  // Inst #984 = FRSQRTES
+  { 985,	2,	1,	4,	156,	0, 0x18ULL, nullptr, ImplicitList28, OperandInfo111 },  // Inst #985 = FRSQRTES_rec
+  { 986,	2,	1,	4,	156,	0, 0x18ULL, nullptr, ImplicitList28, OperandInfo110 },  // Inst #986 = FRSQRTE_rec
+  { 987,	4,	1,	4,	148,	0, 0x18ULL, nullptr, nullptr, OperandInfo117 },  // Inst #987 = FSELD
+  { 988,	4,	1,	4,	152,	0, 0x18ULL, nullptr, ImplicitList28, OperandInfo117 },  // Inst #988 = FSELD_rec
+  { 989,	4,	1,	4,	148,	0, 0x18ULL, nullptr, nullptr, OperandInfo119 },  // Inst #989 = FSELS
+  { 990,	4,	1,	4,	152,	0, 0x18ULL, nullptr, ImplicitList28, OperandInfo119 },  // Inst #990 = FSELS_rec
+  { 991,	2,	1,	4,	262,	0, 0x18ULL, ImplicitList18, nullptr, OperandInfo110 },  // Inst #991 = FSQRT
+  { 992,	2,	1,	4,	267,	0, 0x18ULL, ImplicitList18, nullptr, OperandInfo111 },  // Inst #992 = FSQRTS
+  { 993,	2,	1,	4,	268,	0, 0x18ULL, ImplicitList18, ImplicitList28, OperandInfo111 },  // Inst #993 = FSQRTS_rec
+  { 994,	2,	1,	4,	265,	0, 0x18ULL, ImplicitList18, ImplicitList28, OperandInfo110 },  // Inst #994 = FSQRT_rec
+  { 995,	3,	1,	4,	149,	0|(1ULL<<MCID::MayRaiseFPException), 0x18ULL, ImplicitList18, nullptr, OperandInfo112 },  // Inst #995 = FSUB
+  { 996,	3,	1,	4,	148,	0|(1ULL<<MCID::MayRaiseFPException), 0x18ULL, ImplicitList18, nullptr, OperandInfo113 },  // Inst #996 = FSUBS
+  { 997,	3,	1,	4,	156,	0|(1ULL<<MCID::MayRaiseFPException), 0x18ULL, ImplicitList18, ImplicitList28, OperandInfo113 },  // Inst #997 = FSUBS_rec
+  { 998,	3,	1,	4,	157,	0|(1ULL<<MCID::MayRaiseFPException), 0x18ULL, ImplicitList18, ImplicitList28, OperandInfo112 },  // Inst #998 = FSUB_rec
+  { 999,	3,	1,	4,	106,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x18ULL, nullptr, nullptr, OperandInfo115 },  // Inst #999 = FTDIV
+  { 1000,	2,	1,	4,	106,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x18ULL, nullptr, nullptr, OperandInfo120 },  // Inst #1000 = FTSQRT
+  { 1001,	3,	1,	8,	0,	0|(1ULL<<MCID::ExtraSrcRegAllocReq)|(1ULL<<MCID::ExtraDefRegAllocReq), 0x0ULL, nullptr, ImplicitList29, OperandInfo42 },  // Inst #1001 = GETtlsADDR
+  { 1002,	3,	1,	4,	0,	0|(1ULL<<MCID::ExtraSrcRegAllocReq)|(1ULL<<MCID::ExtraDefRegAllocReq), 0x0ULL, nullptr, ImplicitList30, OperandInfo43 },  // Inst #1002 = GETtlsADDR32
+  { 1003,	3,	1,	4,	0,	0|(1ULL<<MCID::ExtraSrcRegAllocReq)|(1ULL<<MCID::ExtraDefRegAllocReq), 0x0ULL, nullptr, ImplicitList29, OperandInfo42 },  // Inst #1003 = GETtlsldADDR
+  { 1004,	3,	1,	4,	0,	0|(1ULL<<MCID::ExtraSrcRegAllocReq)|(1ULL<<MCID::ExtraDefRegAllocReq), 0x0ULL, nullptr, ImplicitList30, OperandInfo43 },  // Inst #1004 = GETtlsldADDR32
+  { 1005,	0,	0,	4,	296,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, nullptr },  // Inst #1005 = HRFID
+  { 1006,	2,	0,	4,	178,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo45 },  // Inst #1006 = ICBI
+  { 1007,	2,	0,	4,	178,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo45 },  // Inst #1007 = ICBIEP
+  { 1008,	3,	0,	4,	300,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo88 },  // Inst #1008 = ICBLC
+  { 1009,	3,	0,	4,	299,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo88 },  // Inst #1009 = ICBLQ
+  { 1010,	3,	0,	4,	179,	0|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::MayStore), 0x0ULL, nullptr, nullptr, OperandInfo88 },  // Inst #1010 = ICBT
+  { 1011,	3,	0,	4,	179,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo88 },  // Inst #1011 = ICBTLS
+  { 1012,	2,	0,	4,	299,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo44 },  // Inst #1012 = ICCCI
+  { 1013,	4,	1,	4,	133,	0|(1ULL<<MCID::Select), 0x8ULL, nullptr, nullptr, OperandInfo121 },  // Inst #1013 = ISEL
+  { 1014,	4,	1,	4,	133,	0|(1ULL<<MCID::Select), 0x8ULL, nullptr, nullptr, OperandInfo122 },  // Inst #1014 = ISEL8
+  { 1015,	0,	0,	4,	184,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, nullptr },  // Inst #1015 = ISYNC
+  { 1016,	3,	1,	4,	115,	0, 0x8ULL, nullptr, nullptr, OperandInfo59 },  // Inst #1016 = LA
+  { 1017,	3,	1,	4,	180,	0|(1ULL<<MCID::MayLoad), 0x40ULL, nullptr, nullptr, OperandInfo123 },  // Inst #1017 = LBARX
+  { 1018,	3,	1,	4,	180,	0|(1ULL<<MCID::MayLoad), 0x40ULL, nullptr, nullptr, OperandInfo123 },  // Inst #1018 = LBARXL
+  { 1019,	3,	1,	4,	299,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo123 },  // Inst #1019 = LBEPX
+  { 1020,	3,	1,	4,	179,	0|(1ULL<<MCID::MayLoad), 0x10ULL, nullptr, nullptr, OperandInfo49 },  // Inst #1020 = LBZ
+  { 1021,	3,	1,	4,	179,	0|(1ULL<<MCID::MayLoad), 0x10ULL, nullptr, nullptr, OperandInfo124 },  // Inst #1021 = LBZ8
+  { 1022,	3,	1,	4,	179,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x40ULL, nullptr, nullptr, OperandInfo56 },  // Inst #1022 = LBZCIX
+  { 1023,	4,	2,	4,	280,	0|(1ULL<<MCID::MayLoad), 0x10ULL, nullptr, nullptr, OperandInfo125 },  // Inst #1023 = LBZU
+  { 1024,	4,	2,	4,	280,	0|(1ULL<<MCID::MayLoad), 0x10ULL, nullptr, nullptr, OperandInfo126 },  // Inst #1024 = LBZU8
+  { 1025,	4,	2,	4,	281,	0|(1ULL<<MCID::MayLoad), 0x50ULL, nullptr, nullptr, OperandInfo127 },  // Inst #1025 = LBZUX
+  { 1026,	4,	2,	4,	281,	0|(1ULL<<MCID::MayLoad), 0x50ULL, nullptr, nullptr, OperandInfo128 },  // Inst #1026 = LBZUX8
+  { 1027,	3,	1,	4,	179,	0|(1ULL<<MCID::MayLoad), 0x50ULL, nullptr, nullptr, OperandInfo123 },  // Inst #1027 = LBZX
+  { 1028,	3,	1,	4,	179,	0|(1ULL<<MCID::MayLoad), 0x50ULL, nullptr, nullptr, OperandInfo129 },  // Inst #1028 = LBZX8
+  { 1029,	3,	1,	4,	179,	0|(1ULL<<MCID::MayLoad), 0x8ULL, nullptr, nullptr, OperandInfo130 },  // Inst #1029 = LBZXTLS
+  { 1030,	3,	1,	4,	179,	0|(1ULL<<MCID::MayLoad), 0x8ULL, nullptr, nullptr, OperandInfo130 },  // Inst #1030 = LBZXTLS_
+  { 1031,	3,	1,	4,	179,	0|(1ULL<<MCID::MayLoad), 0x8ULL, nullptr, nullptr, OperandInfo131 },  // Inst #1031 = LBZXTLS_32
+  { 1032,	3,	1,	4,	181,	0|(1ULL<<MCID::MayLoad), 0x10ULL, nullptr, nullptr, OperandInfo124 },  // Inst #1032 = LD
+  { 1033,	3,	1,	4,	182,	0|(1ULL<<MCID::MayLoad), 0x40ULL, nullptr, nullptr, OperandInfo129 },  // Inst #1033 = LDARX
+  { 1034,	3,	1,	4,	182,	0|(1ULL<<MCID::MayLoad), 0x0ULL, nullptr, nullptr, OperandInfo129 },  // Inst #1034 = LDARXL
+  { 1035,	3,	1,	4,	289,	0|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::ExtraDefRegAllocReq), 0x40ULL, nullptr, nullptr, OperandInfo42 },  // Inst #1035 = LDAT
+  { 1036,	3,	1,	4,	179,	0|(1ULL<<MCID::MayLoad), 0x50ULL, nullptr, nullptr, OperandInfo129 },  // Inst #1036 = LDBRX
+  { 1037,	3,	1,	4,	179,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x40ULL, nullptr, nullptr, OperandInfo56 },  // Inst #1037 = LDCIX
+  { 1038,	3,	1,	4,	201,	0|(1ULL<<MCID::MayLoad), 0x10ULL, nullptr, nullptr, OperandInfo129 },  // Inst #1038 = LDMX
+  { 1039,	4,	2,	4,	282,	0|(1ULL<<MCID::MayLoad), 0x10ULL, nullptr, nullptr, OperandInfo126 },  // Inst #1039 = LDU
+  { 1040,	4,	2,	4,	283,	0|(1ULL<<MCID::MayLoad), 0x50ULL, nullptr, nullptr, OperandInfo128 },  // Inst #1040 = LDUX
+  { 1041,	3,	1,	4,	181,	0|(1ULL<<MCID::MayLoad), 0x50ULL, nullptr, nullptr, OperandInfo129 },  // Inst #1041 = LDX
+  { 1042,	3,	1,	4,	181,	0|(1ULL<<MCID::MayLoad), 0x8ULL, nullptr, nullptr, OperandInfo130 },  // Inst #1042 = LDXTLS
+  { 1043,	3,	1,	4,	181,	0|(1ULL<<MCID::MayLoad), 0x8ULL, nullptr, nullptr, OperandInfo130 },  // Inst #1043 = LDXTLS_
+  { 1044,	3,	1,	4,	0,	0|(1ULL<<MCID::MayLoad), 0x0ULL, nullptr, nullptr, OperandInfo132 },  // Inst #1044 = LDgotTprelL
+  { 1045,	3,	1,	4,	0,	0|(1ULL<<MCID::MayLoad), 0x0ULL, nullptr, nullptr, OperandInfo133 },  // Inst #1045 = LDgotTprelL32
+  { 1046,	3,	1,	4,	0,	0|(1ULL<<MCID::MayLoad), 0x10ULL, nullptr, nullptr, OperandInfo134 },  // Inst #1046 = LDtoc
+  { 1047,	3,	1,	4,	0,	0|(1ULL<<MCID::MayLoad), 0x10ULL, nullptr, nullptr, OperandInfo134 },  // Inst #1047 = LDtocBA
+  { 1048,	3,	1,	4,	0,	0|(1ULL<<MCID::MayLoad), 0x10ULL, nullptr, nullptr, OperandInfo134 },  // Inst #1048 = LDtocCPT
+  { 1049,	3,	1,	4,	0,	0|(1ULL<<MCID::MayLoad), 0x10ULL, nullptr, nullptr, OperandInfo134 },  // Inst #1049 = LDtocJTI
+  { 1050,	3,	1,	4,	0,	0|(1ULL<<MCID::MayLoad), 0x0ULL, nullptr, nullptr, OperandInfo135 },  // Inst #1050 = LDtocL
+  { 1051,	3,	1,	4,	189,	0|(1ULL<<MCID::MayLoad), 0x10ULL, nullptr, nullptr, OperandInfo136 },  // Inst #1051 = LFD
+  { 1052,	3,	1,	4,	301,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo137 },  // Inst #1052 = LFDEPX
+  { 1053,	4,	2,	4,	284,	0|(1ULL<<MCID::MayLoad), 0x10ULL, nullptr, nullptr, OperandInfo138 },  // Inst #1053 = LFDU
+  { 1054,	4,	2,	4,	285,	0|(1ULL<<MCID::MayLoad), 0x50ULL, nullptr, nullptr, OperandInfo139 },  // Inst #1054 = LFDUX
+  { 1055,	3,	1,	4,	189,	0|(1ULL<<MCID::MayLoad), 0x50ULL, nullptr, nullptr, OperandInfo137 },  // Inst #1055 = LFDX
+  { 1056,	3,	1,	4,	206,	0|(1ULL<<MCID::MayLoad), 0x50ULL, nullptr, nullptr, OperandInfo137 },  // Inst #1056 = LFIWAX
+  { 1057,	3,	1,	4,	189,	0|(1ULL<<MCID::MayLoad), 0x50ULL, nullptr, nullptr, OperandInfo137 },  // Inst #1057 = LFIWZX
+  { 1058,	3,	1,	4,	209,	0|(1ULL<<MCID::MayLoad), 0x10ULL, nullptr, nullptr, OperandInfo140 },  // Inst #1058 = LFS
+  { 1059,	4,	2,	4,	275,	0|(1ULL<<MCID::MayLoad), 0x10ULL, nullptr, nullptr, OperandInfo141 },  // Inst #1059 = LFSU
+  { 1060,	4,	2,	4,	276,	0|(1ULL<<MCID::MayLoad), 0x50ULL, nullptr, nullptr, OperandInfo142 },  // Inst #1060 = LFSUX
+  { 1061,	3,	1,	4,	209,	0|(1ULL<<MCID::MayLoad), 0x50ULL, nullptr, nullptr, OperandInfo143 },  // Inst #1061 = LFSX
+  { 1062,	3,	1,	4,	202,	0|(1ULL<<MCID::MayLoad), 0x14ULL, nullptr, nullptr, OperandInfo49 },  // Inst #1062 = LHA
+  { 1063,	3,	1,	4,	202,	0|(1ULL<<MCID::MayLoad), 0x14ULL, nullptr, nullptr, OperandInfo124 },  // Inst #1063 = LHA8
+  { 1064,	3,	1,	4,	180,	0|(1ULL<<MCID::MayLoad), 0x40ULL, nullptr, nullptr, OperandInfo123 },  // Inst #1064 = LHARX
+  { 1065,	3,	1,	4,	180,	0|(1ULL<<MCID::MayLoad), 0x40ULL, nullptr, nullptr, OperandInfo123 },  // Inst #1065 = LHARXL
+  { 1066,	4,	2,	4,	212,	0|(1ULL<<MCID::MayLoad), 0x10ULL, nullptr, nullptr, OperandInfo125 },  // Inst #1066 = LHAU
+  { 1067,	4,	2,	4,	212,	0|(1ULL<<MCID::MayLoad), 0x10ULL, nullptr, nullptr, OperandInfo126 },  // Inst #1067 = LHAU8
+  { 1068,	4,	2,	4,	213,	0|(1ULL<<MCID::MayLoad), 0x50ULL, nullptr, nullptr, OperandInfo127 },  // Inst #1068 = LHAUX
+  { 1069,	4,	2,	4,	213,	0|(1ULL<<MCID::MayLoad), 0x50ULL, nullptr, nullptr, OperandInfo128 },  // Inst #1069 = LHAUX8
+  { 1070,	3,	1,	4,	202,	0|(1ULL<<MCID::MayLoad), 0x54ULL, nullptr, nullptr, OperandInfo123 },  // Inst #1070 = LHAX
+  { 1071,	3,	1,	4,	202,	0|(1ULL<<MCID::MayLoad), 0x54ULL, nullptr, nullptr, OperandInfo129 },  // Inst #1071 = LHAX8
+  { 1072,	3,	1,	4,	179,	0|(1ULL<<MCID::MayLoad), 0x50ULL, nullptr, nullptr, OperandInfo123 },  // Inst #1072 = LHBRX
+  { 1073,	3,	1,	4,	179,	0|(1ULL<<MCID::MayLoad), 0x50ULL, nullptr, nullptr, OperandInfo129 },  // Inst #1073 = LHBRX8
+  { 1074,	3,	1,	4,	299,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo123 },  // Inst #1074 = LHEPX
+  { 1075,	3,	1,	4,	179,	0|(1ULL<<MCID::MayLoad), 0x10ULL, nullptr, nullptr, OperandInfo49 },  // Inst #1075 = LHZ
+  { 1076,	3,	1,	4,	179,	0|(1ULL<<MCID::MayLoad), 0x10ULL, nullptr, nullptr, OperandInfo124 },  // Inst #1076 = LHZ8
+  { 1077,	3,	1,	4,	179,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x40ULL, nullptr, nullptr, OperandInfo56 },  // Inst #1077 = LHZCIX
+  { 1078,	4,	2,	4,	196,	0|(1ULL<<MCID::MayLoad), 0x10ULL, nullptr, nullptr, OperandInfo125 },  // Inst #1078 = LHZU
+  { 1079,	4,	2,	4,	196,	0|(1ULL<<MCID::MayLoad), 0x10ULL, nullptr, nullptr, OperandInfo126 },  // Inst #1079 = LHZU8
+  { 1080,	4,	2,	4,	197,	0|(1ULL<<MCID::MayLoad), 0x50ULL, nullptr, nullptr, OperandInfo127 },  // Inst #1080 = LHZUX
+  { 1081,	4,	2,	4,	197,	0|(1ULL<<MCID::MayLoad), 0x50ULL, nullptr, nullptr, OperandInfo128 },  // Inst #1081 = LHZUX8
+  { 1082,	3,	1,	4,	179,	0|(1ULL<<MCID::MayLoad), 0x50ULL, nullptr, nullptr, OperandInfo123 },  // Inst #1082 = LHZX
+  { 1083,	3,	1,	4,	179,	0|(1ULL<<MCID::MayLoad), 0x50ULL, nullptr, nullptr, OperandInfo129 },  // Inst #1083 = LHZX8
+  { 1084,	3,	1,	4,	179,	0|(1ULL<<MCID::MayLoad), 0x8ULL, nullptr, nullptr, OperandInfo130 },  // Inst #1084 = LHZXTLS
+  { 1085,	3,	1,	4,	179,	0|(1ULL<<MCID::MayLoad), 0x8ULL, nullptr, nullptr, OperandInfo130 },  // Inst #1085 = LHZXTLS_
+  { 1086,	3,	1,	4,	179,	0|(1ULL<<MCID::MayLoad), 0x8ULL, nullptr, nullptr, OperandInfo131 },  // Inst #1086 = LHZXTLS_32
+  { 1087,	2,	1,	4,	116,	0|(1ULL<<MCID::MoveImm)|(1ULL<<MCID::Rematerializable)|(1ULL<<MCID::CheapAsAMove), 0x8ULL, nullptr, nullptr, OperandInfo144 },  // Inst #1087 = LI
+  { 1088,	2,	1,	4,	116,	0|(1ULL<<MCID::MoveImm)|(1ULL<<MCID::Rematerializable)|(1ULL<<MCID::CheapAsAMove), 0x8ULL, nullptr, nullptr, OperandInfo54 },  // Inst #1088 = LI8
+  { 1089,	2,	1,	4,	116,	0|(1ULL<<MCID::MoveImm)|(1ULL<<MCID::Rematerializable)|(1ULL<<MCID::CheapAsAMove), 0x8ULL, nullptr, nullptr, OperandInfo144 },  // Inst #1089 = LIS
+  { 1090,	2,	1,	4,	116,	0|(1ULL<<MCID::MoveImm)|(1ULL<<MCID::Rematerializable)|(1ULL<<MCID::CheapAsAMove), 0x8ULL, nullptr, nullptr, OperandInfo54 },  // Inst #1090 = LIS8
+  { 1091,	3,	1,	4,	188,	0|(1ULL<<MCID::MayLoad), 0x0ULL, nullptr, nullptr, OperandInfo49 },  // Inst #1091 = LMW
+  { 1092,	3,	1,	4,	179,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x40ULL, nullptr, nullptr, OperandInfo43 },  // Inst #1092 = LSWI
+  { 1093,	3,	1,	4,	172,	0|(1ULL<<MCID::MayLoad), 0x50ULL, nullptr, nullptr, OperandInfo145 },  // Inst #1093 = LVEBX
+  { 1094,	3,	1,	4,	172,	0|(1ULL<<MCID::MayLoad), 0x50ULL, nullptr, nullptr, OperandInfo145 },  // Inst #1094 = LVEHX
+  { 1095,	3,	1,	4,	172,	0|(1ULL<<MCID::MayLoad), 0x50ULL, nullptr, nullptr, OperandInfo145 },  // Inst #1095 = LVEWX
+  { 1096,	3,	1,	4,	160,	0, 0x50ULL, nullptr, nullptr, OperandInfo145 },  // Inst #1096 = LVSL
+  { 1097,	3,	1,	4,	160,	0, 0x50ULL, nullptr, nullptr, OperandInfo145 },  // Inst #1097 = LVSR
+  { 1098,	3,	1,	4,	172,	0|(1ULL<<MCID::MayLoad), 0x50ULL, nullptr, nullptr, OperandInfo145 },  // Inst #1098 = LVX
+  { 1099,	3,	1,	4,	172,	0|(1ULL<<MCID::MayLoad), 0x50ULL, nullptr, nullptr, OperandInfo145 },  // Inst #1099 = LVXL
+  { 1100,	3,	1,	4,	204,	0|(1ULL<<MCID::MayLoad), 0x14ULL, nullptr, nullptr, OperandInfo124 },  // Inst #1100 = LWA
+  { 1101,	3,	1,	4,	180,	0|(1ULL<<MCID::MayLoad), 0x40ULL, nullptr, nullptr, OperandInfo123 },  // Inst #1101 = LWARX
+  { 1102,	3,	1,	4,	180,	0|(1ULL<<MCID::MayLoad), 0x40ULL, nullptr, nullptr, OperandInfo123 },  // Inst #1102 = LWARXL
+  { 1103,	3,	1,	4,	289,	0|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::ExtraSrcRegAllocReq), 0x40ULL, nullptr, nullptr, OperandInfo43 },  // Inst #1103 = LWAT
+  { 1104,	4,	2,	4,	213,	0|(1ULL<<MCID::MayLoad), 0x50ULL, nullptr, nullptr, OperandInfo128 },  // Inst #1104 = LWAUX
+  { 1105,	3,	1,	4,	202,	0|(1ULL<<MCID::MayLoad), 0x54ULL, nullptr, nullptr, OperandInfo129 },  // Inst #1105 = LWAX
+  { 1106,	3,	1,	4,	202,	0|(1ULL<<MCID::MayLoad), 0x54ULL, nullptr, nullptr, OperandInfo123 },  // Inst #1106 = LWAX_32
+  { 1107,	3,	1,	4,	204,	0|(1ULL<<MCID::MayLoad), 0x14ULL, nullptr, nullptr, OperandInfo49 },  // Inst #1107 = LWA_32
+  { 1108,	3,	1,	4,	179,	0|(1ULL<<MCID::MayLoad), 0x50ULL, nullptr, nullptr, OperandInfo123 },  // Inst #1108 = LWBRX
+  { 1109,	3,	1,	4,	179,	0|(1ULL<<MCID::MayLoad), 0x50ULL, nullptr, nullptr, OperandInfo129 },  // Inst #1109 = LWBRX8
+  { 1110,	3,	1,	4,	299,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo123 },  // Inst #1110 = LWEPX
+  { 1111,	3,	1,	4,	179,	0|(1ULL<<MCID::MayLoad), 0x10ULL, nullptr, nullptr, OperandInfo49 },  // Inst #1111 = LWZ
+  { 1112,	3,	1,	4,	179,	0|(1ULL<<MCID::MayLoad), 0x10ULL, nullptr, nullptr, OperandInfo124 },  // Inst #1112 = LWZ8
+  { 1113,	3,	1,	4,	179,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x40ULL, nullptr, nullptr, OperandInfo56 },  // Inst #1113 = LWZCIX
+  { 1114,	4,	2,	4,	196,	0|(1ULL<<MCID::MayLoad), 0x10ULL, nullptr, nullptr, OperandInfo125 },  // Inst #1114 = LWZU
+  { 1115,	4,	2,	4,	196,	0|(1ULL<<MCID::MayLoad), 0x10ULL, nullptr, nullptr, OperandInfo126 },  // Inst #1115 = LWZU8
+  { 1116,	4,	2,	4,	197,	0|(1ULL<<MCID::MayLoad), 0x50ULL, nullptr, nullptr, OperandInfo127 },  // Inst #1116 = LWZUX
+  { 1117,	4,	2,	4,	197,	0|(1ULL<<MCID::MayLoad), 0x50ULL, nullptr, nullptr, OperandInfo128 },  // Inst #1117 = LWZUX8
+  { 1118,	3,	1,	4,	179,	0|(1ULL<<MCID::MayLoad), 0x50ULL, nullptr, nullptr, OperandInfo123 },  // Inst #1118 = LWZX
+  { 1119,	3,	1,	4,	179,	0|(1ULL<<MCID::MayLoad), 0x50ULL, nullptr, nullptr, OperandInfo129 },  // Inst #1119 = LWZX8
+  { 1120,	3,	1,	4,	179,	0|(1ULL<<MCID::MayLoad), 0x8ULL, nullptr, nullptr, OperandInfo130 },  // Inst #1120 = LWZXTLS
+  { 1121,	3,	1,	4,	179,	0|(1ULL<<MCID::MayLoad), 0x8ULL, nullptr, nullptr, OperandInfo130 },  // Inst #1121 = LWZXTLS_
+  { 1122,	3,	1,	4,	179,	0|(1ULL<<MCID::MayLoad), 0x8ULL, nullptr, nullptr, OperandInfo131 },  // Inst #1122 = LWZXTLS_32
+  { 1123,	3,	1,	4,	0,	0|(1ULL<<MCID::MayLoad), 0x0ULL, nullptr, nullptr, OperandInfo146 },  // Inst #1123 = LWZtoc
+  { 1124,	3,	1,	4,	0,	0|(1ULL<<MCID::MayLoad), 0x0ULL, nullptr, nullptr, OperandInfo147 },  // Inst #1124 = LWZtocL
+  { 1125,	3,	1,	4,	173,	0|(1ULL<<MCID::MayLoad), 0x0ULL, nullptr, nullptr, OperandInfo148 },  // Inst #1125 = LXSD
+  { 1126,	3,	1,	4,	173,	0|(1ULL<<MCID::MayLoad), 0x40ULL, nullptr, nullptr, OperandInfo50 },  // Inst #1126 = LXSDX
+  { 1127,	3,	1,	4,	173,	0|(1ULL<<MCID::MayLoad), 0x40ULL, nullptr, nullptr, OperandInfo50 },  // Inst #1127 = LXSIBZX
+  { 1128,	3,	1,	4,	173,	0|(1ULL<<MCID::MayLoad), 0x40ULL, nullptr, nullptr, OperandInfo50 },  // Inst #1128 = LXSIHZX
+  { 1129,	3,	1,	4,	207,	0|(1ULL<<MCID::MayLoad), 0x40ULL, nullptr, nullptr, OperandInfo50 },  // Inst #1129 = LXSIWAX
+  { 1130,	3,	1,	4,	173,	0|(1ULL<<MCID::MayLoad), 0x40ULL, nullptr, nullptr, OperandInfo50 },  // Inst #1130 = LXSIWZX
+  { 1131,	3,	1,	4,	210,	0|(1ULL<<MCID::MayLoad), 0x0ULL, nullptr, nullptr, OperandInfo148 },  // Inst #1131 = LXSSP
+  { 1132,	3,	1,	4,	210,	0|(1ULL<<MCID::MayLoad), 0x40ULL, nullptr, nullptr, OperandInfo55 },  // Inst #1132 = LXSSPX
+  { 1133,	3,	1,	4,	173,	0|(1ULL<<MCID::MayLoad), 0x0ULL, nullptr, nullptr, OperandInfo149 },  // Inst #1133 = LXV
+  { 1134,	3,	1,	4,	173,	0|(1ULL<<MCID::MayLoad), 0x40ULL, nullptr, nullptr, OperandInfo150 },  // Inst #1134 = LXVB16X
+  { 1135,	3,	1,	4,	173,	0|(1ULL<<MCID::MayLoad), 0x40ULL, nullptr, nullptr, OperandInfo150 },  // Inst #1135 = LXVD2X
+  { 1136,	3,	1,	4,	214,	0|(1ULL<<MCID::MayLoad), 0x40ULL, nullptr, nullptr, OperandInfo150 },  // Inst #1136 = LXVDSX
+  { 1137,	3,	1,	4,	214,	0|(1ULL<<MCID::MayLoad), 0x40ULL, nullptr, nullptr, OperandInfo150 },  // Inst #1137 = LXVH8X
+  { 1138,	3,	1,	4,	171,	0|(1ULL<<MCID::MayLoad), 0x40ULL, nullptr, nullptr, OperandInfo151 },  // Inst #1138 = LXVL
+  { 1139,	3,	1,	4,	171,	0|(1ULL<<MCID::MayLoad), 0x40ULL, nullptr, nullptr, OperandInfo151 },  // Inst #1139 = LXVLL
+  { 1140,	3,	1,	4,	214,	0|(1ULL<<MCID::MayLoad), 0x40ULL, nullptr, nullptr, OperandInfo150 },  // Inst #1140 = LXVW4X
+  { 1141,	3,	1,	4,	173,	0|(1ULL<<MCID::MayLoad), 0x40ULL, nullptr, nullptr, OperandInfo150 },  // Inst #1141 = LXVWSX
+  { 1142,	3,	1,	4,	173,	0|(1ULL<<MCID::MayLoad), 0x40ULL, nullptr, nullptr, OperandInfo150 },  // Inst #1142 = LXVX
+  { 1143,	4,	1,	4,	144,	0, 0x8ULL, nullptr, nullptr, OperandInfo152 },  // Inst #1143 = MADDHD
+  { 1144,	4,	1,	4,	144,	0, 0x8ULL, nullptr, nullptr, OperandInfo152 },  // Inst #1144 = MADDHDU
+  { 1145,	4,	1,	4,	144,	0, 0x8ULL, nullptr, nullptr, OperandInfo153 },  // Inst #1145 = MADDLD
+  { 1146,	4,	1,	4,	144,	0, 0x8ULL, nullptr, nullptr, OperandInfo152 },  // Inst #1146 = MADDLD8
+  { 1147,	1,	0,	4,	299,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo2 },  // Inst #1147 = MBAR
+  { 1148,	2,	1,	4,	118,	0, 0x21ULL, nullptr, nullptr, OperandInfo154 },  // Inst #1148 = MCRF
+  { 1149,	2,	1,	4,	247,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo154 },  // Inst #1149 = MCRFS
+  { 1150,	1,	1,	4,	119,	0, 0x0ULL, nullptr, nullptr, OperandInfo155 },  // Inst #1150 = MCRXRX
+  { 1151,	3,	1,	4,	296,	0, 0x1ULL, nullptr, nullptr, OperandInfo156 },  // Inst #1151 = MFBHRBE
+  { 1152,	1,	1,	4,	256,	0|(1ULL<<MCID::ExtraSrcRegAllocReq), 0x20ULL, nullptr, nullptr, OperandInfo157 },  // Inst #1152 = MFCR
+  { 1153,	1,	1,	4,	256,	0|(1ULL<<MCID::ExtraSrcRegAllocReq), 0x20ULL, nullptr, nullptr, OperandInfo39 },  // Inst #1153 = MFCR8
+  { 1154,	1,	1,	4,	231,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x9ULL, ImplicitList12, nullptr, OperandInfo157 },  // Inst #1154 = MFCTR
+  { 1155,	1,	1,	4,	231,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x9ULL, ImplicitList13, nullptr, OperandInfo39 },  // Inst #1155 = MFCTR8
+  { 1156,	2,	1,	4,	305,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo158 },  // Inst #1156 = MFDCR
+  { 1157,	1,	1,	4,	255,	0, 0x1aULL, ImplicitList18, nullptr, OperandInfo159 },  // Inst #1157 = MFFS
+  { 1158,	2,	1,	4,	102,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x1aULL, ImplicitList18, nullptr, OperandInfo110 },  // Inst #1158 = MFFSCDRN
+  { 1159,	2,	1,	4,	102,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x1aULL, ImplicitList18, nullptr, OperandInfo160 },  // Inst #1159 = MFFSCDRNI
+  { 1160,	1,	1,	4,	255,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x1aULL, ImplicitList18, nullptr, OperandInfo159 },  // Inst #1160 = MFFSCE
+  { 1161,	2,	1,	4,	102,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x1aULL, ImplicitList18, nullptr, OperandInfo110 },  // Inst #1161 = MFFSCRN
+  { 1162,	2,	1,	4,	102,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x1aULL, ImplicitList18, nullptr, OperandInfo160 },  // Inst #1162 = MFFSCRNI
+  { 1163,	1,	1,	4,	255,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x1aULL, ImplicitList18, nullptr, OperandInfo159 },  // Inst #1163 = MFFSL
+  { 1164,	1,	1,	4,	255,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, ImplicitList18, ImplicitList28, OperandInfo159 },  // Inst #1164 = MFFS_rec
+  { 1165,	1,	1,	4,	231,	0, 0x9ULL, ImplicitList15, nullptr, OperandInfo157 },  // Inst #1165 = MFLR
+  { 1166,	1,	1,	4,	231,	0, 0x9ULL, ImplicitList17, nullptr, OperandInfo39 },  // Inst #1166 = MFLR8
+  { 1167,	1,	1,	4,	232,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo157 },  // Inst #1167 = MFMSR
+  { 1168,	2,	1,	4,	127,	0|(1ULL<<MCID::ExtraSrcRegAllocReq), 0x21ULL, nullptr, nullptr, OperandInfo144 },  // Inst #1168 = MFOCRF
+  { 1169,	2,	1,	4,	127,	0|(1ULL<<MCID::ExtraSrcRegAllocReq), 0x21ULL, nullptr, nullptr, OperandInfo54 },  // Inst #1169 = MFOCRF8
+  { 1170,	2,	1,	4,	228,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo158 },  // Inst #1170 = MFPMR
+  { 1171,	2,	1,	4,	231,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo158 },  // Inst #1171 = MFSPR
+  { 1172,	2,	1,	4,	231,	0|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::MayStore)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo63 },  // Inst #1172 = MFSPR8
+  { 1173,	2,	1,	4,	303,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo144 },  // Inst #1173 = MFSR
+  { 1174,	2,	1,	4,	303,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo44 },  // Inst #1174 = MFSRIN
+  { 1175,	2,	1,	4,	230,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo158 },  // Inst #1175 = MFTB
+  { 1176,	1,	1,	4,	230,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x9ULL, nullptr, nullptr, OperandInfo39 },  // Inst #1176 = MFTB8
+  { 1177,	2,	1,	4,	113,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo161 },  // Inst #1177 = MFVRD
+  { 1178,	1,	1,	4,	227,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x9ULL, nullptr, nullptr, OperandInfo157 },  // Inst #1178 = MFVRSAVE
+  { 1179,	2,	1,	4,	227,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x9ULL, nullptr, nullptr, OperandInfo162 },  // Inst #1179 = MFVRSAVEv
+  { 1180,	2,	1,	4,	113,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo163 },  // Inst #1180 = MFVRWZ
+  { 1181,	1,	1,	4,	136,	0|(1ULL<<MCID::MayLoad), 0x0ULL, nullptr, nullptr, OperandInfo164 },  // Inst #1181 = MFVSCR
+  { 1182,	2,	1,	4,	113,	0, 0x0ULL, nullptr, nullptr, OperandInfo165 },  // Inst #1182 = MFVSRD
+  { 1183,	2,	1,	4,	163,	0, 0x0ULL, nullptr, nullptr, OperandInfo161 },  // Inst #1183 = MFVSRLD
+  { 1184,	2,	1,	4,	113,	0, 0x0ULL, nullptr, nullptr, OperandInfo166 },  // Inst #1184 = MFVSRWZ
+  { 1185,	3,	1,	4,	237,	0, 0x8ULL, nullptr, nullptr, OperandInfo57 },  // Inst #1185 = MODSD
+  { 1186,	3,	1,	4,	236,	0, 0x0ULL, nullptr, nullptr, OperandInfo56 },  // Inst #1186 = MODSW
+  { 1187,	3,	1,	4,	237,	0, 0x8ULL, nullptr, nullptr, OperandInfo57 },  // Inst #1187 = MODUD
+  { 1188,	3,	1,	4,	237,	0, 0x0ULL, nullptr, nullptr, OperandInfo56 },  // Inst #1188 = MODUW
+  { 1189,	0,	0,	4,	185,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, nullptr },  // Inst #1189 = MSGSYNC
+  { 1190,	0,	0,	4,	310,	0|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::MayStore)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, nullptr },  // Inst #1190 = MSYNC
+  { 1191,	2,	0,	4,	244,	0|(1ULL<<MCID::ExtraDefRegAllocReq), 0x20ULL, nullptr, nullptr, OperandInfo167 },  // Inst #1191 = MTCRF
+  { 1192,	2,	0,	4,	244,	0|(1ULL<<MCID::ExtraDefRegAllocReq), 0x20ULL, nullptr, nullptr, OperandInfo168 },  // Inst #1192 = MTCRF8
+  { 1193,	1,	0,	4,	226,	0, 0x9ULL, nullptr, ImplicitList12, OperandInfo157 },  // Inst #1193 = MTCTR
+  { 1194,	1,	0,	4,	226,	0, 0x9ULL, nullptr, ImplicitList13, OperandInfo39 },  // Inst #1194 = MTCTR8
+  { 1195,	1,	0,	4,	226,	0|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::MayStore)|(1ULL<<MCID::UnmodeledSideEffects), 0x9ULL, nullptr, ImplicitList13, OperandInfo39 },  // Inst #1195 = MTCTR8loop
+  { 1196,	1,	0,	4,	226,	0|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::MayStore)|(1ULL<<MCID::UnmodeledSideEffects), 0x9ULL, nullptr, ImplicitList12, OperandInfo157 },  // Inst #1196 = MTCTRloop
+  { 1197,	2,	0,	4,	306,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo158 },  // Inst #1197 = MTDCR
+  { 1198,	1,	0,	4,	101,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x1aULL, ImplicitList18, ImplicitList18, OperandInfo2 },  // Inst #1198 = MTFSB0
+  { 1199,	1,	0,	4,	101,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x1aULL, ImplicitList18, ImplicitList18, OperandInfo2 },  // Inst #1199 = MTFSB1
+  { 1200,	4,	0,	4,	248,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo169 },  // Inst #1200 = MTFSF
+  { 1201,	3,	1,	4,	248,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo170 },  // Inst #1201 = MTFSFI
+  { 1202,	3,	1,	4,	248,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo170 },  // Inst #1202 = MTFSFI_rec
+  { 1203,	4,	0,	4,	248,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo169 },  // Inst #1203 = MTFSF_rec
+  { 1204,	2,	0,	4,	249,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x1aULL, ImplicitList18, ImplicitList18, OperandInfo171 },  // Inst #1204 = MTFSFb
+  { 1205,	1,	0,	4,	226,	0, 0x9ULL, nullptr, ImplicitList15, OperandInfo157 },  // Inst #1205 = MTLR
+  { 1206,	1,	0,	4,	226,	0, 0x9ULL, nullptr, ImplicitList17, OperandInfo39 },  // Inst #1206 = MTLR8
+  { 1207,	2,	0,	4,	233,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo158 },  // Inst #1207 = MTMSR
+  { 1208,	2,	0,	4,	234,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo158 },  // Inst #1208 = MTMSRD
+  { 1209,	2,	1,	4,	128,	0|(1ULL<<MCID::ExtraDefRegAllocReq), 0x21ULL, nullptr, nullptr, OperandInfo172 },  // Inst #1209 = MTOCRF
+  { 1210,	2,	1,	4,	128,	0|(1ULL<<MCID::ExtraDefRegAllocReq), 0x21ULL, nullptr, nullptr, OperandInfo173 },  // Inst #1210 = MTOCRF8
+  { 1211,	2,	0,	4,	229,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo167 },  // Inst #1211 = MTPMR
+  { 1212,	2,	0,	4,	235,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo167 },  // Inst #1212 = MTSPR
+  { 1213,	2,	0,	4,	235,	0|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::MayStore)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo168 },  // Inst #1213 = MTSPR8
+  { 1214,	2,	0,	4,	304,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo144 },  // Inst #1214 = MTSR
+  { 1215,	2,	0,	4,	304,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo44 },  // Inst #1215 = MTSRIN
+  { 1216,	2,	1,	4,	113,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo174 },  // Inst #1216 = MTVRD
+  { 1217,	1,	0,	4,	227,	0|(1ULL<<MCID::UnmodeledSideEffects), 0xaULL, nullptr, nullptr, OperandInfo157 },  // Inst #1217 = MTVRSAVE
+  { 1218,	2,	1,	4,	227,	0|(1ULL<<MCID::UnmodeledSideEffects), 0xaULL, nullptr, nullptr, OperandInfo175 },  // Inst #1218 = MTVRSAVEv
+  { 1219,	2,	1,	4,	113,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo176 },  // Inst #1219 = MTVRWA
+  { 1220,	2,	1,	4,	113,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo176 },  // Inst #1220 = MTVRWZ
+  { 1221,	1,	0,	4,	137,	0|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::MayStore)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo164 },  // Inst #1221 = MTVSCR
+  { 1222,	2,	1,	4,	113,	0, 0x0ULL, nullptr, nullptr, OperandInfo177 },  // Inst #1222 = MTVSRD
+  { 1223,	3,	1,	4,	97,	0, 0x0ULL, nullptr, nullptr, OperandInfo178 },  // Inst #1223 = MTVSRDD
+  { 1224,	2,	1,	4,	113,	0, 0x0ULL, nullptr, nullptr, OperandInfo179 },  // Inst #1224 = MTVSRWA
+  { 1225,	2,	1,	4,	163,	0, 0x0ULL, nullptr, nullptr, OperandInfo176 },  // Inst #1225 = MTVSRWS
+  { 1226,	2,	1,	4,	113,	0, 0x0ULL, nullptr, nullptr, OperandInfo179 },  // Inst #1226 = MTVSRWZ
+  { 1227,	3,	1,	4,	145,	0|(1ULL<<MCID::Commutable), 0x8ULL, nullptr, nullptr, OperandInfo57 },  // Inst #1227 = MULHD
+  { 1228,	3,	1,	4,	146,	0|(1ULL<<MCID::Commutable), 0x8ULL, nullptr, nullptr, OperandInfo57 },  // Inst #1228 = MULHDU
+  { 1229,	3,	1,	4,	153,	0|(1ULL<<MCID::Commutable), 0x8ULL, nullptr, ImplicitList4, OperandInfo57 },  // Inst #1229 = MULHDU_rec
+  { 1230,	3,	1,	4,	154,	0|(1ULL<<MCID::Commutable), 0x8ULL, nullptr, ImplicitList4, OperandInfo57 },  // Inst #1230 = MULHD_rec
+  { 1231,	3,	1,	4,	145,	0|(1ULL<<MCID::Commutable), 0x8ULL, nullptr, nullptr, OperandInfo56 },  // Inst #1231 = MULHW
+  { 1232,	3,	1,	4,	146,	0|(1ULL<<MCID::Commutable), 0x8ULL, nullptr, nullptr, OperandInfo56 },  // Inst #1232 = MULHWU
+  { 1233,	3,	1,	4,	153,	0|(1ULL<<MCID::Commutable), 0x8ULL, nullptr, ImplicitList4, OperandInfo56 },  // Inst #1233 = MULHWU_rec
+  { 1234,	3,	1,	4,	154,	0|(1ULL<<MCID::Commutable), 0x8ULL, nullptr, ImplicitList4, OperandInfo56 },  // Inst #1234 = MULHW_rec
+  { 1235,	3,	1,	4,	144,	0|(1ULL<<MCID::Commutable), 0x8ULL, nullptr, nullptr, OperandInfo57 },  // Inst #1235 = MULLD
+  { 1236,	3,	1,	4,	144,	0|(1ULL<<MCID::Commutable), 0x8ULL, nullptr, ImplicitList2, OperandInfo57 },  // Inst #1236 = MULLDO
+  { 1237,	3,	1,	4,	155,	0|(1ULL<<MCID::Commutable), 0x8ULL, nullptr, ImplicitList3, OperandInfo57 },  // Inst #1237 = MULLDO_rec
+  { 1238,	3,	1,	4,	155,	0|(1ULL<<MCID::Commutable), 0x8ULL, nullptr, ImplicitList4, OperandInfo57 },  // Inst #1238 = MULLD_rec
+  { 1239,	3,	1,	4,	147,	0, 0x8ULL, nullptr, nullptr, OperandInfo43 },  // Inst #1239 = MULLI
+  { 1240,	3,	1,	4,	147,	0, 0x8ULL, nullptr, nullptr, OperandInfo42 },  // Inst #1240 = MULLI8
+  { 1241,	3,	1,	4,	145,	0|(1ULL<<MCID::Commutable), 0x8ULL, nullptr, nullptr, OperandInfo56 },  // Inst #1241 = MULLW
+  { 1242,	3,	1,	4,	145,	0|(1ULL<<MCID::Commutable), 0x8ULL, nullptr, ImplicitList2, OperandInfo56 },  // Inst #1242 = MULLWO
+  { 1243,	3,	1,	4,	154,	0|(1ULL<<MCID::Commutable), 0x8ULL, nullptr, ImplicitList3, OperandInfo56 },  // Inst #1243 = MULLWO_rec
+  { 1244,	3,	1,	4,	154,	0|(1ULL<<MCID::Commutable), 0x8ULL, nullptr, ImplicitList4, OperandInfo56 },  // Inst #1244 = MULLW_rec
+  { 1245,	0,	0,	4,	0,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x38ULL, nullptr, ImplicitList15, nullptr },  // Inst #1245 = MoveGOTtoLR
+  { 1246,	0,	0,	4,	0,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x38ULL, nullptr, ImplicitList15, nullptr },  // Inst #1246 = MovePCtoLR
+  { 1247,	0,	0,	4,	0,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x38ULL, nullptr, ImplicitList17, nullptr },  // Inst #1247 = MovePCtoLR8
+  { 1248,	3,	1,	4,	116,	0|(1ULL<<MCID::Commutable), 0x8ULL, nullptr, nullptr, OperandInfo56 },  // Inst #1248 = NAND
+  { 1249,	3,	1,	4,	116,	0|(1ULL<<MCID::Commutable), 0x8ULL, nullptr, nullptr, OperandInfo57 },  // Inst #1249 = NAND8
+  { 1250,	3,	1,	4,	116,	0|(1ULL<<MCID::Commutable), 0x8ULL, nullptr, ImplicitList4, OperandInfo57 },  // Inst #1250 = NAND8_rec
+  { 1251,	3,	1,	4,	116,	0|(1ULL<<MCID::Commutable), 0x8ULL, nullptr, ImplicitList4, OperandInfo56 },  // Inst #1251 = NAND_rec
+  { 1252,	0,	0,	4,	296,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, nullptr },  // Inst #1252 = NAP
+  { 1253,	2,	1,	4,	116,	0, 0x8ULL, nullptr, nullptr, OperandInfo44 },  // Inst #1253 = NEG
+  { 1254,	2,	1,	4,	116,	0, 0x8ULL, nullptr, nullptr, OperandInfo62 },  // Inst #1254 = NEG8
+  { 1255,	2,	1,	4,	116,	0, 0x8ULL, nullptr, ImplicitList2, OperandInfo62 },  // Inst #1255 = NEG8O
+  { 1256,	2,	1,	4,	116,	0, 0x8ULL, nullptr, ImplicitList3, OperandInfo62 },  // Inst #1256 = NEG8O_rec
+  { 1257,	2,	1,	4,	116,	0, 0x8ULL, nullptr, ImplicitList4, OperandInfo62 },  // Inst #1257 = NEG8_rec
+  { 1258,	2,	1,	4,	116,	0, 0x8ULL, nullptr, ImplicitList2, OperandInfo44 },  // Inst #1258 = NEGO
+  { 1259,	2,	1,	4,	116,	0, 0x8ULL, nullptr, ImplicitList3, OperandInfo44 },  // Inst #1259 = NEGO_rec
+  { 1260,	2,	1,	4,	116,	0, 0x8ULL, nullptr, ImplicitList4, OperandInfo44 },  // Inst #1260 = NEG_rec
+  { 1261,	0,	0,	4,	116,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x8ULL, nullptr, nullptr, nullptr },  // Inst #1261 = NOP
+  { 1262,	0,	0,	4,	307,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x8ULL, nullptr, nullptr, nullptr },  // Inst #1262 = NOP_GT_PWR6
+  { 1263,	0,	0,	4,	307,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x8ULL, nullptr, nullptr, nullptr },  // Inst #1263 = NOP_GT_PWR7
+  { 1264,	3,	1,	4,	116,	0|(1ULL<<MCID::Commutable), 0x8ULL, nullptr, nullptr, OperandInfo56 },  // Inst #1264 = NOR
+  { 1265,	3,	1,	4,	116,	0|(1ULL<<MCID::Commutable), 0x8ULL, nullptr, nullptr, OperandInfo57 },  // Inst #1265 = NOR8
+  { 1266,	3,	1,	4,	116,	0|(1ULL<<MCID::Commutable), 0x8ULL, nullptr, ImplicitList4, OperandInfo57 },  // Inst #1266 = NOR8_rec
+  { 1267,	3,	1,	4,	116,	0|(1ULL<<MCID::Commutable), 0x8ULL, nullptr, ImplicitList4, OperandInfo56 },  // Inst #1267 = NOR_rec
+  { 1268,	3,	1,	4,	116,	0|(1ULL<<MCID::Commutable), 0x8ULL, nullptr, nullptr, OperandInfo56 },  // Inst #1268 = OR
+  { 1269,	3,	1,	4,	116,	0|(1ULL<<MCID::Commutable), 0x8ULL, nullptr, nullptr, OperandInfo57 },  // Inst #1269 = OR8
+  { 1270,	3,	1,	4,	116,	0|(1ULL<<MCID::Commutable), 0x8ULL, nullptr, ImplicitList4, OperandInfo57 },  // Inst #1270 = OR8_rec
+  { 1271,	3,	1,	4,	116,	0, 0x8ULL, nullptr, nullptr, OperandInfo56 },  // Inst #1271 = ORC
+  { 1272,	3,	1,	4,	116,	0, 0x8ULL, nullptr, nullptr, OperandInfo57 },  // Inst #1272 = ORC8
+  { 1273,	3,	1,	4,	116,	0, 0x8ULL, nullptr, ImplicitList4, OperandInfo57 },  // Inst #1273 = ORC8_rec
+  { 1274,	3,	1,	4,	116,	0, 0x8ULL, nullptr, ImplicitList4, OperandInfo56 },  // Inst #1274 = ORC_rec
+  { 1275,	3,	1,	4,	116,	0, 0x8ULL, nullptr, nullptr, OperandInfo43 },  // Inst #1275 = ORI
+  { 1276,	3,	1,	4,	116,	0, 0x8ULL, nullptr, nullptr, OperandInfo42 },  // Inst #1276 = ORI8
+  { 1277,	3,	1,	4,	116,	0, 0x8ULL, nullptr, nullptr, OperandInfo43 },  // Inst #1277 = ORIS
+  { 1278,	3,	1,	4,	116,	0, 0x8ULL, nullptr, nullptr, OperandInfo42 },  // Inst #1278 = ORIS8
+  { 1279,	3,	1,	4,	116,	0|(1ULL<<MCID::Commutable), 0x8ULL, nullptr, ImplicitList4, OperandInfo56 },  // Inst #1279 = OR_rec
+  { 1280,	3,	1,	8,	39,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x80ULL, nullptr, nullptr, OperandInfo43 },  // Inst #1280 = PADDI
+  { 1281,	3,	1,	8,	39,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x80ULL, nullptr, nullptr, OperandInfo42 },  // Inst #1281 = PADDI8
+  { 1282,	3,	1,	8,	39,	0, 0x80ULL, nullptr, nullptr, OperandInfo180 },  // Inst #1282 = PADDI8pc
+  { 1283,	3,	1,	8,	39,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x80ULL, nullptr, nullptr, OperandInfo156 },  // Inst #1283 = PADDIpc
+  { 1284,	3,	1,	8,	39,	0|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::UnmodeledSideEffects), 0x80ULL, nullptr, nullptr, OperandInfo49 },  // Inst #1284 = PLBZ
+  { 1285,	3,	1,	8,	39,	0|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::UnmodeledSideEffects), 0x80ULL, nullptr, nullptr, OperandInfo124 },  // Inst #1285 = PLBZ8
+  { 1286,	3,	1,	8,	39,	0|(1ULL<<MCID::MayLoad), 0x80ULL, nullptr, nullptr, OperandInfo180 },  // Inst #1286 = PLBZ8pc
+  { 1287,	3,	1,	8,	39,	0|(1ULL<<MCID::MayLoad), 0x80ULL, nullptr, nullptr, OperandInfo156 },  // Inst #1287 = PLBZpc
+  { 1288,	3,	1,	8,	39,	0|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::UnmodeledSideEffects), 0x80ULL, nullptr, nullptr, OperandInfo124 },  // Inst #1288 = PLD
+  { 1289,	3,	1,	8,	39,	0|(1ULL<<MCID::MayLoad), 0x80ULL, nullptr, nullptr, OperandInfo180 },  // Inst #1289 = PLDpc
+  { 1290,	3,	1,	8,	39,	0|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::UnmodeledSideEffects), 0x80ULL, nullptr, nullptr, OperandInfo136 },  // Inst #1290 = PLFD
+  { 1291,	3,	1,	8,	39,	0|(1ULL<<MCID::MayLoad), 0x80ULL, nullptr, nullptr, OperandInfo181 },  // Inst #1291 = PLFDpc
+  { 1292,	3,	1,	8,	39,	0|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::UnmodeledSideEffects), 0x80ULL, nullptr, nullptr, OperandInfo140 },  // Inst #1292 = PLFS
+  { 1293,	3,	1,	8,	39,	0|(1ULL<<MCID::MayLoad), 0x80ULL, nullptr, nullptr, OperandInfo182 },  // Inst #1293 = PLFSpc
+  { 1294,	3,	1,	8,	39,	0|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::UnmodeledSideEffects), 0x80ULL, nullptr, nullptr, OperandInfo49 },  // Inst #1294 = PLHA
+  { 1295,	3,	1,	8,	39,	0|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::UnmodeledSideEffects), 0x80ULL, nullptr, nullptr, OperandInfo124 },  // Inst #1295 = PLHA8
+  { 1296,	3,	1,	8,	39,	0|(1ULL<<MCID::MayLoad), 0x80ULL, nullptr, nullptr, OperandInfo180 },  // Inst #1296 = PLHA8pc
+  { 1297,	3,	1,	8,	39,	0|(1ULL<<MCID::MayLoad), 0x80ULL, nullptr, nullptr, OperandInfo156 },  // Inst #1297 = PLHApc
+  { 1298,	3,	1,	8,	39,	0|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::UnmodeledSideEffects), 0x80ULL, nullptr, nullptr, OperandInfo49 },  // Inst #1298 = PLHZ
+  { 1299,	3,	1,	8,	39,	0|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::UnmodeledSideEffects), 0x80ULL, nullptr, nullptr, OperandInfo124 },  // Inst #1299 = PLHZ8
+  { 1300,	3,	1,	8,	39,	0|(1ULL<<MCID::MayLoad), 0x80ULL, nullptr, nullptr, OperandInfo180 },  // Inst #1300 = PLHZ8pc
+  { 1301,	3,	1,	8,	39,	0|(1ULL<<MCID::MayLoad), 0x80ULL, nullptr, nullptr, OperandInfo156 },  // Inst #1301 = PLHZpc
+  { 1302,	2,	1,	8,	2,	0|(1ULL<<MCID::MoveImm)|(1ULL<<MCID::Rematerializable)|(1ULL<<MCID::UnmodeledSideEffects)|(1ULL<<MCID::CheapAsAMove), 0x80ULL, nullptr, nullptr, OperandInfo144 },  // Inst #1302 = PLI
+  { 1303,	2,	1,	8,	2,	0|(1ULL<<MCID::MoveImm)|(1ULL<<MCID::Rematerializable)|(1ULL<<MCID::UnmodeledSideEffects)|(1ULL<<MCID::CheapAsAMove), 0x80ULL, nullptr, nullptr, OperandInfo54 },  // Inst #1303 = PLI8
+  { 1304,	3,	1,	8,	39,	0|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::UnmodeledSideEffects), 0x80ULL, nullptr, nullptr, OperandInfo49 },  // Inst #1304 = PLWA
+  { 1305,	3,	1,	8,	39,	0|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::UnmodeledSideEffects), 0x80ULL, nullptr, nullptr, OperandInfo124 },  // Inst #1305 = PLWA8
+  { 1306,	3,	1,	8,	39,	0|(1ULL<<MCID::MayLoad), 0x80ULL, nullptr, nullptr, OperandInfo180 },  // Inst #1306 = PLWA8pc
+  { 1307,	3,	1,	8,	39,	0|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::UnmodeledSideEffects), 0x80ULL, nullptr, nullptr, OperandInfo156 },  // Inst #1307 = PLWApc
+  { 1308,	3,	1,	8,	39,	0|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::UnmodeledSideEffects), 0x80ULL, nullptr, nullptr, OperandInfo49 },  // Inst #1308 = PLWZ
+  { 1309,	3,	1,	8,	39,	0|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::UnmodeledSideEffects), 0x80ULL, nullptr, nullptr, OperandInfo124 },  // Inst #1309 = PLWZ8
+  { 1310,	3,	1,	8,	39,	0|(1ULL<<MCID::MayLoad), 0x80ULL, nullptr, nullptr, OperandInfo180 },  // Inst #1310 = PLWZ8pc
+  { 1311,	3,	1,	8,	39,	0|(1ULL<<MCID::MayLoad), 0x80ULL, nullptr, nullptr, OperandInfo156 },  // Inst #1311 = PLWZpc
+  { 1312,	3,	1,	8,	39,	0|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::UnmodeledSideEffects), 0x80ULL, nullptr, nullptr, OperandInfo148 },  // Inst #1312 = PLXSD
+  { 1313,	3,	1,	8,	39,	0|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::UnmodeledSideEffects), 0x80ULL, nullptr, nullptr, OperandInfo183 },  // Inst #1313 = PLXSDpc
+  { 1314,	3,	1,	8,	39,	0|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::UnmodeledSideEffects), 0x80ULL, nullptr, nullptr, OperandInfo148 },  // Inst #1314 = PLXSSP
+  { 1315,	3,	1,	8,	39,	0|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::UnmodeledSideEffects), 0x80ULL, nullptr, nullptr, OperandInfo183 },  // Inst #1315 = PLXSSPpc
+  { 1316,	3,	1,	8,	39,	0|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::UnmodeledSideEffects), 0x80ULL, nullptr, nullptr, OperandInfo149 },  // Inst #1316 = PLXV
+  { 1317,	3,	1,	8,	39,	0|(1ULL<<MCID::MayLoad), 0x80ULL, nullptr, nullptr, OperandInfo184 },  // Inst #1317 = PLXVpc
+  { 1318,	2,	1,	4,	115,	0, 0x8ULL, nullptr, nullptr, OperandInfo62 },  // Inst #1318 = POPCNTB
+  { 1319,	2,	1,	4,	110,	0, 0x8ULL, nullptr, nullptr, OperandInfo62 },  // Inst #1319 = POPCNTD
+  { 1320,	2,	1,	4,	110,	0, 0x8ULL, nullptr, nullptr, OperandInfo44 },  // Inst #1320 = POPCNTW
+  { 1321,	1,	1,	4,	0,	0, 0x0ULL, nullptr, nullptr, OperandInfo157 },  // Inst #1321 = PPC32GOT
+  { 1322,	2,	2,	4,	0,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo44 },  // Inst #1322 = PPC32PICGOT
+  { 1323,	3,	0,	8,	39,	0|(1ULL<<MCID::MayStore)|(1ULL<<MCID::UnmodeledSideEffects), 0x80ULL, nullptr, nullptr, OperandInfo49 },  // Inst #1323 = PSTB
+  { 1324,	3,	0,	8,	39,	0|(1ULL<<MCID::MayStore)|(1ULL<<MCID::UnmodeledSideEffects), 0x80ULL, nullptr, nullptr, OperandInfo124 },  // Inst #1324 = PSTB8
+  { 1325,	3,	0,	8,	39,	0|(1ULL<<MCID::MayStore), 0x80ULL, nullptr, nullptr, OperandInfo180 },  // Inst #1325 = PSTB8pc
+  { 1326,	3,	0,	8,	39,	0|(1ULL<<MCID::MayStore), 0x80ULL, nullptr, nullptr, OperandInfo156 },  // Inst #1326 = PSTBpc
+  { 1327,	3,	0,	8,	39,	0|(1ULL<<MCID::MayStore)|(1ULL<<MCID::UnmodeledSideEffects), 0x80ULL, nullptr, nullptr, OperandInfo124 },  // Inst #1327 = PSTD
+  { 1328,	3,	0,	8,	39,	0|(1ULL<<MCID::MayStore), 0x80ULL, nullptr, nullptr, OperandInfo180 },  // Inst #1328 = PSTDpc
+  { 1329,	3,	0,	8,	39,	0|(1ULL<<MCID::MayStore)|(1ULL<<MCID::UnmodeledSideEffects), 0x80ULL, nullptr, nullptr, OperandInfo136 },  // Inst #1329 = PSTFD
+  { 1330,	3,	0,	8,	39,	0|(1ULL<<MCID::MayStore), 0x80ULL, nullptr, nullptr, OperandInfo181 },  // Inst #1330 = PSTFDpc
+  { 1331,	3,	0,	8,	39,	0|(1ULL<<MCID::MayStore)|(1ULL<<MCID::UnmodeledSideEffects), 0x80ULL, nullptr, nullptr, OperandInfo140 },  // Inst #1331 = PSTFS
+  { 1332,	3,	0,	8,	39,	0|(1ULL<<MCID::MayStore), 0x80ULL, nullptr, nullptr, OperandInfo182 },  // Inst #1332 = PSTFSpc
+  { 1333,	3,	0,	8,	39,	0|(1ULL<<MCID::MayStore)|(1ULL<<MCID::UnmodeledSideEffects), 0x80ULL, nullptr, nullptr, OperandInfo49 },  // Inst #1333 = PSTH
+  { 1334,	3,	0,	8,	39,	0|(1ULL<<MCID::MayStore)|(1ULL<<MCID::UnmodeledSideEffects), 0x80ULL, nullptr, nullptr, OperandInfo124 },  // Inst #1334 = PSTH8
+  { 1335,	3,	0,	8,	39,	0|(1ULL<<MCID::MayStore), 0x80ULL, nullptr, nullptr, OperandInfo180 },  // Inst #1335 = PSTH8pc
+  { 1336,	3,	0,	8,	39,	0|(1ULL<<MCID::MayStore), 0x80ULL, nullptr, nullptr, OperandInfo156 },  // Inst #1336 = PSTHpc
+  { 1337,	3,	0,	8,	39,	0|(1ULL<<MCID::MayStore)|(1ULL<<MCID::UnmodeledSideEffects), 0x80ULL, nullptr, nullptr, OperandInfo49 },  // Inst #1337 = PSTW
+  { 1338,	3,	0,	8,	39,	0|(1ULL<<MCID::MayStore)|(1ULL<<MCID::UnmodeledSideEffects), 0x80ULL, nullptr, nullptr, OperandInfo124 },  // Inst #1338 = PSTW8
+  { 1339,	3,	0,	8,	39,	0|(1ULL<<MCID::MayStore), 0x80ULL, nullptr, nullptr, OperandInfo180 },  // Inst #1339 = PSTW8pc
+  { 1340,	3,	0,	8,	39,	0|(1ULL<<MCID::MayStore), 0x80ULL, nullptr, nullptr, OperandInfo156 },  // Inst #1340 = PSTWpc
+  { 1341,	3,	0,	8,	39,	0|(1ULL<<MCID::MayStore)|(1ULL<<MCID::UnmodeledSideEffects), 0x80ULL, nullptr, nullptr, OperandInfo148 },  // Inst #1341 = PSTXSD
+  { 1342,	3,	0,	8,	39,	0|(1ULL<<MCID::MayStore)|(1ULL<<MCID::UnmodeledSideEffects), 0x80ULL, nullptr, nullptr, OperandInfo183 },  // Inst #1342 = PSTXSDpc
+  { 1343,	3,	0,	8,	39,	0|(1ULL<<MCID::MayStore)|(1ULL<<MCID::UnmodeledSideEffects), 0x80ULL, nullptr, nullptr, OperandInfo148 },  // Inst #1343 = PSTXSSP
+  { 1344,	3,	0,	8,	39,	0|(1ULL<<MCID::MayStore)|(1ULL<<MCID::UnmodeledSideEffects), 0x80ULL, nullptr, nullptr, OperandInfo183 },  // Inst #1344 = PSTXSSPpc
+  { 1345,	3,	0,	8,	39,	0|(1ULL<<MCID::MayStore)|(1ULL<<MCID::UnmodeledSideEffects), 0x80ULL, nullptr, nullptr, OperandInfo149 },  // Inst #1345 = PSTXV
+  { 1346,	3,	0,	8,	39,	0|(1ULL<<MCID::MayStore), 0x80ULL, nullptr, nullptr, OperandInfo184 },  // Inst #1346 = PSTXVpc
+  { 1347,	4,	1,	4,	68,	0, 0x0ULL, ImplicitList18, nullptr, OperandInfo185 },  // Inst #1347 = QVALIGNI
+  { 1348,	4,	1,	4,	68,	0, 0x0ULL, ImplicitList18, nullptr, OperandInfo186 },  // Inst #1348 = QVALIGNIb
+  { 1349,	4,	1,	4,	68,	0, 0x0ULL, ImplicitList18, nullptr, OperandInfo187 },  // Inst #1349 = QVALIGNIs
+  { 1350,	3,	1,	4,	68,	0, 0x0ULL, ImplicitList18, nullptr, OperandInfo188 },  // Inst #1350 = QVESPLATI
+  { 1351,	3,	1,	4,	68,	0, 0x0ULL, ImplicitList18, nullptr, OperandInfo189 },  // Inst #1351 = QVESPLATIb
+  { 1352,	3,	1,	4,	68,	0, 0x0ULL, ImplicitList18, nullptr, OperandInfo190 },  // Inst #1352 = QVESPLATIs
+  { 1353,	2,	1,	4,	68,	0, 0x0ULL, ImplicitList18, nullptr, OperandInfo191 },  // Inst #1353 = QVFABS
+  { 1354,	2,	1,	4,	68,	0, 0x0ULL, ImplicitList18, nullptr, OperandInfo192 },  // Inst #1354 = QVFABSs
+  { 1355,	3,	1,	4,	21,	0|(1ULL<<MCID::Commutable), 0x0ULL, ImplicitList18, nullptr, OperandInfo193 },  // Inst #1355 = QVFADD
+  { 1356,	3,	1,	4,	21,	0|(1ULL<<MCID::Commutable), 0x0ULL, ImplicitList18, nullptr, OperandInfo193 },  // Inst #1356 = QVFADDS
+  { 1357,	3,	1,	4,	21,	0|(1ULL<<MCID::Commutable), 0x0ULL, ImplicitList18, nullptr, OperandInfo194 },  // Inst #1357 = QVFADDSs
+  { 1358,	2,	1,	4,	21,	0, 0x0ULL, ImplicitList18, nullptr, OperandInfo191 },  // Inst #1358 = QVFCFID
+  { 1359,	2,	1,	4,	21,	0, 0x0ULL, ImplicitList18, nullptr, OperandInfo191 },  // Inst #1359 = QVFCFIDS
+  { 1360,	2,	1,	4,	21,	0, 0x0ULL, ImplicitList18, nullptr, OperandInfo191 },  // Inst #1360 = QVFCFIDU
+  { 1361,	2,	1,	4,	21,	0, 0x0ULL, ImplicitList18, nullptr, OperandInfo191 },  // Inst #1361 = QVFCFIDUS
+  { 1362,	2,	1,	4,	21,	0, 0x0ULL, ImplicitList18, nullptr, OperandInfo195 },  // Inst #1362 = QVFCFIDb
+  { 1363,	3,	1,	4,	20,	0, 0x0ULL, ImplicitList18, nullptr, OperandInfo193 },  // Inst #1363 = QVFCMPEQ
+  { 1364,	3,	1,	4,	20,	0, 0x0ULL, ImplicitList18, nullptr, OperandInfo196 },  // Inst #1364 = QVFCMPEQb
+  { 1365,	3,	1,	4,	20,	0, 0x0ULL, ImplicitList18, nullptr, OperandInfo197 },  // Inst #1365 = QVFCMPEQbs
+  { 1366,	3,	1,	4,	20,	0, 0x0ULL, ImplicitList18, nullptr, OperandInfo193 },  // Inst #1366 = QVFCMPGT
+  { 1367,	3,	1,	4,	20,	0, 0x0ULL, ImplicitList18, nullptr, OperandInfo196 },  // Inst #1367 = QVFCMPGTb
+  { 1368,	3,	1,	4,	20,	0, 0x0ULL, ImplicitList18, nullptr, OperandInfo197 },  // Inst #1368 = QVFCMPGTbs
+  { 1369,	3,	1,	4,	20,	0, 0x0ULL, ImplicitList18, nullptr, OperandInfo193 },  // Inst #1369 = QVFCMPLT
+  { 1370,	3,	1,	4,	20,	0, 0x0ULL, ImplicitList18, nullptr, OperandInfo196 },  // Inst #1370 = QVFCMPLTb
+  { 1371,	3,	1,	4,	20,	0, 0x0ULL, ImplicitList18, nullptr, OperandInfo197 },  // Inst #1371 = QVFCMPLTbs
+  { 1372,	3,	1,	4,	68,	0, 0x0ULL, ImplicitList18, nullptr, OperandInfo193 },  // Inst #1372 = QVFCPSGN
+  { 1373,	3,	1,	4,	68,	0, 0x0ULL, ImplicitList18, nullptr, OperandInfo194 },  // Inst #1373 = QVFCPSGNs
+  { 1374,	2,	1,	4,	21,	0, 0x0ULL, ImplicitList18, nullptr, OperandInfo191 },  // Inst #1374 = QVFCTID
+  { 1375,	2,	1,	4,	21,	0, 0x0ULL, ImplicitList18, nullptr, OperandInfo191 },  // Inst #1375 = QVFCTIDU
+  { 1376,	2,	1,	4,	21,	0, 0x0ULL, ImplicitList18, nullptr, OperandInfo191 },  // Inst #1376 = QVFCTIDUZ
+  { 1377,	2,	1,	4,	21,	0, 0x0ULL, ImplicitList18, nullptr, OperandInfo191 },  // Inst #1377 = QVFCTIDZ
+  { 1378,	2,	1,	4,	21,	0, 0x0ULL, ImplicitList18, nullptr, OperandInfo195 },  // Inst #1378 = QVFCTIDb
+  { 1379,	2,	1,	4,	21,	0, 0x0ULL, ImplicitList18, nullptr, OperandInfo191 },  // Inst #1379 = QVFCTIW
+  { 1380,	2,	1,	4,	21,	0, 0x0ULL, ImplicitList18, nullptr, OperandInfo191 },  // Inst #1380 = QVFCTIWU
+  { 1381,	2,	1,	4,	21,	0, 0x0ULL, ImplicitList18, nullptr, OperandInfo191 },  // Inst #1381 = QVFCTIWUZ
+  { 1382,	2,	1,	4,	21,	0, 0x0ULL, ImplicitList18, nullptr, OperandInfo191 },  // Inst #1382 = QVFCTIWZ
+  { 1383,	4,	1,	4,	68,	0, 0x0ULL, ImplicitList18, nullptr, OperandInfo185 },  // Inst #1383 = QVFLOGICAL
+  { 1384,	4,	1,	4,	68,	0, 0x0ULL, ImplicitList18, nullptr, OperandInfo186 },  // Inst #1384 = QVFLOGICALb
+  { 1385,	4,	1,	4,	68,	0, 0x0ULL, ImplicitList18, nullptr, OperandInfo186 },  // Inst #1385 = QVFLOGICALs
+  { 1386,	4,	1,	4,	27,	0, 0x0ULL, ImplicitList18, nullptr, OperandInfo198 },  // Inst #1386 = QVFMADD
+  { 1387,	4,	1,	4,	27,	0, 0x0ULL, ImplicitList18, nullptr, OperandInfo198 },  // Inst #1387 = QVFMADDS
+  { 1388,	4,	1,	4,	27,	0, 0x0ULL, ImplicitList18, nullptr, OperandInfo199 },  // Inst #1388 = QVFMADDSs
+  { 1389,	2,	1,	4,	68,	0, 0x0ULL, ImplicitList18, nullptr, OperandInfo191 },  // Inst #1389 = QVFMR
+  { 1390,	2,	1,	4,	68,	0, 0x0ULL, ImplicitList18, nullptr, OperandInfo195 },  // Inst #1390 = QVFMRb
+  { 1391,	2,	1,	4,	68,	0, 0x0ULL, ImplicitList18, nullptr, OperandInfo192 },  // Inst #1391 = QVFMRs
+  { 1392,	4,	1,	4,	27,	0, 0x0ULL, ImplicitList18, nullptr, OperandInfo198 },  // Inst #1392 = QVFMSUB
+  { 1393,	4,	1,	4,	27,	0, 0x0ULL, ImplicitList18, nullptr, OperandInfo198 },  // Inst #1393 = QVFMSUBS
+  { 1394,	4,	1,	4,	27,	0, 0x0ULL, ImplicitList18, nullptr, OperandInfo199 },  // Inst #1394 = QVFMSUBSs
+  { 1395,	3,	1,	4,	21,	0|(1ULL<<MCID::Commutable), 0x0ULL, ImplicitList18, nullptr, OperandInfo193 },  // Inst #1395 = QVFMUL
+  { 1396,	3,	1,	4,	21,	0|(1ULL<<MCID::Commutable), 0x0ULL, ImplicitList18, nullptr, OperandInfo193 },  // Inst #1396 = QVFMULS
+  { 1397,	3,	1,	4,	21,	0|(1ULL<<MCID::Commutable), 0x0ULL, ImplicitList18, nullptr, OperandInfo194 },  // Inst #1397 = QVFMULSs
+  { 1398,	2,	1,	4,	68,	0, 0x0ULL, ImplicitList18, nullptr, OperandInfo191 },  // Inst #1398 = QVFNABS
+  { 1399,	2,	1,	4,	68,	0, 0x0ULL, ImplicitList18, nullptr, OperandInfo192 },  // Inst #1399 = QVFNABSs
+  { 1400,	2,	1,	4,	68,	0, 0x0ULL, ImplicitList18, nullptr, OperandInfo191 },  // Inst #1400 = QVFNEG
+  { 1401,	2,	1,	4,	68,	0, 0x0ULL, ImplicitList18, nullptr, OperandInfo192 },  // Inst #1401 = QVFNEGs
+  { 1402,	4,	1,	4,	27,	0, 0x0ULL, ImplicitList18, nullptr, OperandInfo198 },  // Inst #1402 = QVFNMADD
+  { 1403,	4,	1,	4,	27,	0, 0x0ULL, ImplicitList18, nullptr, OperandInfo198 },  // Inst #1403 = QVFNMADDS
+  { 1404,	4,	1,	4,	27,	0, 0x0ULL, ImplicitList18, nullptr, OperandInfo199 },  // Inst #1404 = QVFNMADDSs
+  { 1405,	4,	1,	4,	27,	0, 0x0ULL, ImplicitList18, nullptr, OperandInfo198 },  // Inst #1405 = QVFNMSUB
+  { 1406,	4,	1,	4,	27,	0, 0x0ULL, ImplicitList18, nullptr, OperandInfo198 },  // Inst #1406 = QVFNMSUBS
+  { 1407,	4,	1,	4,	27,	0, 0x0ULL, ImplicitList18, nullptr, OperandInfo199 },  // Inst #1407 = QVFNMSUBSs
+  { 1408,	4,	1,	4,	68,	0, 0x0ULL, ImplicitList18, nullptr, OperandInfo198 },  // Inst #1408 = QVFPERM
+  { 1409,	4,	1,	4,	68,	0, 0x0ULL, ImplicitList18, nullptr, OperandInfo200 },  // Inst #1409 = QVFPERMs
+  { 1410,	2,	1,	4,	21,	0, 0x0ULL, ImplicitList18, nullptr, OperandInfo191 },  // Inst #1410 = QVFRE
+  { 1411,	2,	1,	4,	21,	0, 0x0ULL, ImplicitList18, nullptr, OperandInfo191 },  // Inst #1411 = QVFRES
+  { 1412,	2,	1,	4,	21,	0, 0x0ULL, ImplicitList18, nullptr, OperandInfo192 },  // Inst #1412 = QVFRESs
+  { 1413,	2,	1,	4,	21,	0, 0x0ULL, ImplicitList18, nullptr, OperandInfo191 },  // Inst #1413 = QVFRIM
+  { 1414,	2,	1,	4,	21,	0, 0x0ULL, ImplicitList18, nullptr, OperandInfo192 },  // Inst #1414 = QVFRIMs
+  { 1415,	2,	1,	4,	21,	0, 0x0ULL, ImplicitList18, nullptr, OperandInfo191 },  // Inst #1415 = QVFRIN
+  { 1416,	2,	1,	4,	21,	0, 0x0ULL, ImplicitList18, nullptr, OperandInfo192 },  // Inst #1416 = QVFRINs
+  { 1417,	2,	1,	4,	21,	0, 0x0ULL, ImplicitList18, nullptr, OperandInfo191 },  // Inst #1417 = QVFRIP
+  { 1418,	2,	1,	4,	21,	0, 0x0ULL, ImplicitList18, nullptr, OperandInfo192 },  // Inst #1418 = QVFRIPs
+  { 1419,	2,	1,	4,	21,	0, 0x0ULL, ImplicitList18, nullptr, OperandInfo191 },  // Inst #1419 = QVFRIZ
+  { 1420,	2,	1,	4,	21,	0, 0x0ULL, ImplicitList18, nullptr, OperandInfo192 },  // Inst #1420 = QVFRIZs
+  { 1421,	2,	1,	4,	21,	0, 0x0ULL, ImplicitList18, nullptr, OperandInfo191 },  // Inst #1421 = QVFRSP
+  { 1422,	2,	1,	4,	21,	0, 0x0ULL, ImplicitList18, nullptr, OperandInfo201 },  // Inst #1422 = QVFRSPs
+  { 1423,	2,	1,	4,	21,	0, 0x0ULL, ImplicitList18, nullptr, OperandInfo191 },  // Inst #1423 = QVFRSQRTE
+  { 1424,	2,	1,	4,	21,	0, 0x0ULL, ImplicitList18, nullptr, OperandInfo191 },  // Inst #1424 = QVFRSQRTES
+  { 1425,	2,	1,	4,	21,	0, 0x0ULL, ImplicitList18, nullptr, OperandInfo192 },  // Inst #1425 = QVFRSQRTESs
+  { 1426,	4,	1,	4,	68,	0, 0x0ULL, ImplicitList18, nullptr, OperandInfo198 },  // Inst #1426 = QVFSEL
+  { 1427,	4,	1,	4,	68,	0, 0x0ULL, ImplicitList18, nullptr, OperandInfo202 },  // Inst #1427 = QVFSELb
+  { 1428,	4,	1,	4,	68,	0, 0x0ULL, ImplicitList18, nullptr, OperandInfo203 },  // Inst #1428 = QVFSELbb
+  { 1429,	4,	1,	4,	68,	0, 0x0ULL, ImplicitList18, nullptr, OperandInfo204 },  // Inst #1429 = QVFSELbs
+  { 1430,	3,	1,	4,	21,	0, 0x0ULL, ImplicitList18, nullptr, OperandInfo193 },  // Inst #1430 = QVFSUB
+  { 1431,	3,	1,	4,	21,	0, 0x0ULL, ImplicitList18, nullptr, OperandInfo193 },  // Inst #1431 = QVFSUBS
+  { 1432,	3,	1,	4,	21,	0, 0x0ULL, ImplicitList18, nullptr, OperandInfo194 },  // Inst #1432 = QVFSUBSs
+  { 1433,	3,	1,	4,	20,	0, 0x0ULL, ImplicitList18, nullptr, OperandInfo193 },  // Inst #1433 = QVFTSTNAN
+  { 1434,	3,	1,	4,	20,	0, 0x0ULL, ImplicitList18, nullptr, OperandInfo196 },  // Inst #1434 = QVFTSTNANb
+  { 1435,	3,	1,	4,	20,	0, 0x0ULL, ImplicitList18, nullptr, OperandInfo197 },  // Inst #1435 = QVFTSTNANbs
+  { 1436,	4,	1,	4,	27,	0, 0x0ULL, ImplicitList18, nullptr, OperandInfo198 },  // Inst #1436 = QVFXMADD
+  { 1437,	4,	1,	4,	27,	0, 0x0ULL, ImplicitList18, nullptr, OperandInfo198 },  // Inst #1437 = QVFXMADDS
+  { 1438,	3,	1,	4,	21,	0, 0x0ULL, ImplicitList18, nullptr, OperandInfo193 },  // Inst #1438 = QVFXMUL
+  { 1439,	3,	1,	4,	21,	0, 0x0ULL, ImplicitList18, nullptr, OperandInfo193 },  // Inst #1439 = QVFXMULS
+  { 1440,	4,	1,	4,	27,	0, 0x0ULL, ImplicitList18, nullptr, OperandInfo198 },  // Inst #1440 = QVFXXCPNMADD
+  { 1441,	4,	1,	4,	27,	0, 0x0ULL, ImplicitList18, nullptr, OperandInfo198 },  // Inst #1441 = QVFXXCPNMADDS
+  { 1442,	4,	1,	4,	27,	0, 0x0ULL, ImplicitList18, nullptr, OperandInfo198 },  // Inst #1442 = QVFXXMADD
+  { 1443,	4,	1,	4,	27,	0, 0x0ULL, ImplicitList18, nullptr, OperandInfo198 },  // Inst #1443 = QVFXXMADDS
+  { 1444,	4,	1,	4,	27,	0, 0x0ULL, ImplicitList18, nullptr, OperandInfo198 },  // Inst #1444 = QVFXXNPMADD
+  { 1445,	4,	1,	4,	27,	0, 0x0ULL, ImplicitList18, nullptr, OperandInfo198 },  // Inst #1445 = QVFXXNPMADDS
+  { 1446,	2,	1,	4,	68,	0|(1ULL<<MCID::Rematerializable)|(1ULL<<MCID::CheapAsAMove), 0x0ULL, ImplicitList18, nullptr, OperandInfo205 },  // Inst #1446 = QVGPCI
+  { 1447,	3,	1,	4,	39,	0|(1ULL<<MCID::MayLoad), 0x0ULL, ImplicitList18, nullptr, OperandInfo206 },  // Inst #1447 = QVLFCDUX
+  { 1448,	3,	1,	4,	39,	0|(1ULL<<MCID::MayLoad), 0x0ULL, ImplicitList18, nullptr, OperandInfo206 },  // Inst #1448 = QVLFCDUXA
+  { 1449,	3,	1,	4,	39,	0|(1ULL<<MCID::MayLoad), 0x0ULL, ImplicitList18, nullptr, OperandInfo206 },  // Inst #1449 = QVLFCDX
+  { 1450,	3,	1,	4,	39,	0|(1ULL<<MCID::MayLoad), 0x0ULL, ImplicitList18, nullptr, OperandInfo206 },  // Inst #1450 = QVLFCDXA
+  { 1451,	3,	1,	4,	39,	0|(1ULL<<MCID::MayLoad), 0x0ULL, ImplicitList18, nullptr, OperandInfo206 },  // Inst #1451 = QVLFCSUX
+  { 1452,	3,	1,	4,	39,	0|(1ULL<<MCID::MayLoad), 0x0ULL, ImplicitList18, nullptr, OperandInfo206 },  // Inst #1452 = QVLFCSUXA
+  { 1453,	3,	1,	4,	39,	0|(1ULL<<MCID::MayLoad), 0x0ULL, ImplicitList18, nullptr, OperandInfo206 },  // Inst #1453 = QVLFCSX
+  { 1454,	3,	1,	4,	39,	0|(1ULL<<MCID::MayLoad), 0x0ULL, ImplicitList18, nullptr, OperandInfo206 },  // Inst #1454 = QVLFCSXA
+  { 1455,	3,	1,	4,	39,	0|(1ULL<<MCID::MayLoad), 0x0ULL, ImplicitList18, nullptr, OperandInfo207 },  // Inst #1455 = QVLFCSXs
+  { 1456,	4,	2,	4,	40,	0|(1ULL<<MCID::MayLoad), 0x0ULL, ImplicitList18, nullptr, OperandInfo208 },  // Inst #1456 = QVLFDUX
+  { 1457,	3,	1,	4,	39,	0|(1ULL<<MCID::MayLoad), 0x0ULL, ImplicitList18, nullptr, OperandInfo206 },  // Inst #1457 = QVLFDUXA
+  { 1458,	3,	1,	4,	39,	0|(1ULL<<MCID::MayLoad), 0x40ULL, ImplicitList18, nullptr, OperandInfo206 },  // Inst #1458 = QVLFDX
+  { 1459,	3,	1,	4,	39,	0|(1ULL<<MCID::MayLoad), 0x0ULL, ImplicitList18, nullptr, OperandInfo206 },  // Inst #1459 = QVLFDXA
+  { 1460,	3,	1,	4,	39,	0|(1ULL<<MCID::MayLoad), 0x40ULL, ImplicitList18, nullptr, OperandInfo209 },  // Inst #1460 = QVLFDXb
+  { 1461,	3,	1,	4,	39,	0|(1ULL<<MCID::MayLoad), 0x0ULL, ImplicitList18, nullptr, OperandInfo206 },  // Inst #1461 = QVLFIWAX
+  { 1462,	3,	1,	4,	39,	0|(1ULL<<MCID::MayLoad), 0x0ULL, ImplicitList18, nullptr, OperandInfo206 },  // Inst #1462 = QVLFIWAXA
+  { 1463,	3,	1,	4,	39,	0|(1ULL<<MCID::MayLoad), 0x0ULL, ImplicitList18, nullptr, OperandInfo206 },  // Inst #1463 = QVLFIWZX
+  { 1464,	3,	1,	4,	39,	0|(1ULL<<MCID::MayLoad), 0x0ULL, ImplicitList18, nullptr, OperandInfo206 },  // Inst #1464 = QVLFIWZXA
+  { 1465,	4,	2,	4,	40,	0|(1ULL<<MCID::MayLoad), 0x0ULL, ImplicitList18, nullptr, OperandInfo210 },  // Inst #1465 = QVLFSUX
+  { 1466,	3,	1,	4,	39,	0|(1ULL<<MCID::MayLoad), 0x0ULL, ImplicitList18, nullptr, OperandInfo206 },  // Inst #1466 = QVLFSUXA
+  { 1467,	3,	1,	4,	39,	0|(1ULL<<MCID::MayLoad), 0x40ULL, ImplicitList18, nullptr, OperandInfo206 },  // Inst #1467 = QVLFSX
+  { 1468,	3,	1,	4,	39,	0|(1ULL<<MCID::MayLoad), 0x0ULL, ImplicitList18, nullptr, OperandInfo206 },  // Inst #1468 = QVLFSXA
+  { 1469,	3,	1,	4,	39,	0|(1ULL<<MCID::MayLoad), 0x0ULL, ImplicitList18, nullptr, OperandInfo209 },  // Inst #1469 = QVLFSXb
+  { 1470,	3,	1,	4,	39,	0|(1ULL<<MCID::MayLoad), 0x40ULL, ImplicitList18, nullptr, OperandInfo207 },  // Inst #1470 = QVLFSXs
+  { 1471,	3,	1,	4,	39,	0, 0x0ULL, ImplicitList18, nullptr, OperandInfo206 },  // Inst #1471 = QVLPCLDX
+  { 1472,	3,	1,	4,	39,	0, 0x0ULL, ImplicitList18, nullptr, OperandInfo206 },  // Inst #1472 = QVLPCLSX
+  { 1473,	2,	1,	4,	39,	0, 0x0ULL, ImplicitList18, nullptr, OperandInfo211 },  // Inst #1473 = QVLPCLSXint
+  { 1474,	3,	1,	4,	39,	0, 0x0ULL, ImplicitList18, nullptr, OperandInfo206 },  // Inst #1474 = QVLPCRDX
+  { 1475,	3,	1,	4,	39,	0, 0x0ULL, ImplicitList18, nullptr, OperandInfo206 },  // Inst #1475 = QVLPCRSX
+  { 1476,	3,	0,	4,	69,	0|(1ULL<<MCID::MayStore), 0x0ULL, ImplicitList18, nullptr, OperandInfo206 },  // Inst #1476 = QVSTFCDUX
+  { 1477,	3,	0,	4,	69,	0|(1ULL<<MCID::MayStore), 0x0ULL, ImplicitList18, nullptr, OperandInfo206 },  // Inst #1477 = QVSTFCDUXA
+  { 1478,	3,	0,	4,	69,	0|(1ULL<<MCID::MayStore), 0x0ULL, ImplicitList18, nullptr, OperandInfo206 },  // Inst #1478 = QVSTFCDUXI
+  { 1479,	3,	0,	4,	69,	0|(1ULL<<MCID::MayStore), 0x0ULL, ImplicitList18, nullptr, OperandInfo206 },  // Inst #1479 = QVSTFCDUXIA
+  { 1480,	3,	0,	4,	69,	0|(1ULL<<MCID::MayStore), 0x0ULL, ImplicitList18, nullptr, OperandInfo206 },  // Inst #1480 = QVSTFCDX
+  { 1481,	3,	0,	4,	69,	0|(1ULL<<MCID::MayStore), 0x0ULL, ImplicitList18, nullptr, OperandInfo206 },  // Inst #1481 = QVSTFCDXA
+  { 1482,	3,	0,	4,	69,	0|(1ULL<<MCID::MayStore), 0x0ULL, ImplicitList18, nullptr, OperandInfo206 },  // Inst #1482 = QVSTFCDXI
+  { 1483,	3,	0,	4,	69,	0|(1ULL<<MCID::MayStore), 0x0ULL, ImplicitList18, nullptr, OperandInfo206 },  // Inst #1483 = QVSTFCDXIA
+  { 1484,	3,	0,	4,	69,	0|(1ULL<<MCID::MayStore), 0x0ULL, ImplicitList18, nullptr, OperandInfo206 },  // Inst #1484 = QVSTFCSUX
+  { 1485,	3,	0,	4,	69,	0|(1ULL<<MCID::MayStore), 0x0ULL, ImplicitList18, nullptr, OperandInfo206 },  // Inst #1485 = QVSTFCSUXA
+  { 1486,	3,	0,	4,	69,	0|(1ULL<<MCID::MayStore), 0x0ULL, ImplicitList18, nullptr, OperandInfo206 },  // Inst #1486 = QVSTFCSUXI
+  { 1487,	3,	0,	4,	69,	0|(1ULL<<MCID::MayStore), 0x0ULL, ImplicitList18, nullptr, OperandInfo206 },  // Inst #1487 = QVSTFCSUXIA
+  { 1488,	3,	0,	4,	69,	0|(1ULL<<MCID::MayStore), 0x0ULL, ImplicitList18, nullptr, OperandInfo206 },  // Inst #1488 = QVSTFCSX
+  { 1489,	3,	0,	4,	69,	0|(1ULL<<MCID::MayStore), 0x0ULL, ImplicitList18, nullptr, OperandInfo206 },  // Inst #1489 = QVSTFCSXA
+  { 1490,	3,	0,	4,	69,	0|(1ULL<<MCID::MayStore), 0x0ULL, ImplicitList18, nullptr, OperandInfo206 },  // Inst #1490 = QVSTFCSXI
+  { 1491,	3,	0,	4,	69,	0|(1ULL<<MCID::MayStore), 0x0ULL, ImplicitList18, nullptr, OperandInfo206 },  // Inst #1491 = QVSTFCSXIA
+  { 1492,	3,	0,	4,	69,	0|(1ULL<<MCID::MayStore), 0x0ULL, ImplicitList18, nullptr, OperandInfo207 },  // Inst #1492 = QVSTFCSXs
+  { 1493,	4,	1,	4,	70,	0|(1ULL<<MCID::MayStore), 0x0ULL, ImplicitList18, nullptr, OperandInfo212 },  // Inst #1493 = QVSTFDUX
+  { 1494,	3,	0,	4,	69,	0|(1ULL<<MCID::MayStore), 0x0ULL, ImplicitList18, nullptr, OperandInfo206 },  // Inst #1494 = QVSTFDUXA
+  { 1495,	3,	0,	4,	69,	0|(1ULL<<MCID::MayStore), 0x0ULL, ImplicitList18, nullptr, OperandInfo206 },  // Inst #1495 = QVSTFDUXI
+  { 1496,	3,	0,	4,	69,	0|(1ULL<<MCID::MayStore), 0x0ULL, ImplicitList18, nullptr, OperandInfo206 },  // Inst #1496 = QVSTFDUXIA
+  { 1497,	3,	0,	4,	69,	0|(1ULL<<MCID::MayStore), 0x40ULL, ImplicitList18, nullptr, OperandInfo206 },  // Inst #1497 = QVSTFDX
+  { 1498,	3,	0,	4,	69,	0|(1ULL<<MCID::MayStore), 0x0ULL, ImplicitList18, nullptr, OperandInfo206 },  // Inst #1498 = QVSTFDXA
+  { 1499,	3,	0,	4,	69,	0|(1ULL<<MCID::MayStore), 0x0ULL, ImplicitList18, nullptr, OperandInfo206 },  // Inst #1499 = QVSTFDXI
+  { 1500,	3,	0,	4,	69,	0|(1ULL<<MCID::MayStore), 0x0ULL, ImplicitList18, nullptr, OperandInfo206 },  // Inst #1500 = QVSTFDXIA
+  { 1501,	3,	0,	4,	69,	0|(1ULL<<MCID::MayStore), 0x40ULL, ImplicitList18, nullptr, OperandInfo209 },  // Inst #1501 = QVSTFDXb
+  { 1502,	3,	0,	4,	69,	0|(1ULL<<MCID::MayStore), 0x0ULL, ImplicitList18, nullptr, OperandInfo206 },  // Inst #1502 = QVSTFIWX
+  { 1503,	3,	0,	4,	69,	0|(1ULL<<MCID::MayStore), 0x0ULL, ImplicitList18, nullptr, OperandInfo206 },  // Inst #1503 = QVSTFIWXA
+  { 1504,	4,	1,	4,	70,	0|(1ULL<<MCID::MayStore), 0x0ULL, ImplicitList18, nullptr, OperandInfo213 },  // Inst #1504 = QVSTFSUX
+  { 1505,	3,	0,	4,	69,	0|(1ULL<<MCID::MayStore), 0x0ULL, ImplicitList18, nullptr, OperandInfo206 },  // Inst #1505 = QVSTFSUXA
+  { 1506,	3,	0,	4,	69,	0|(1ULL<<MCID::MayStore), 0x0ULL, ImplicitList18, nullptr, OperandInfo206 },  // Inst #1506 = QVSTFSUXI
+  { 1507,	3,	0,	4,	69,	0|(1ULL<<MCID::MayStore), 0x0ULL, ImplicitList18, nullptr, OperandInfo206 },  // Inst #1507 = QVSTFSUXIA
+  { 1508,	4,	1,	4,	70,	0|(1ULL<<MCID::MayStore), 0x0ULL, ImplicitList18, nullptr, OperandInfo212 },  // Inst #1508 = QVSTFSUXs
+  { 1509,	3,	0,	4,	69,	0|(1ULL<<MCID::MayStore), 0x40ULL, ImplicitList18, nullptr, OperandInfo206 },  // Inst #1509 = QVSTFSX
+  { 1510,	3,	0,	4,	69,	0|(1ULL<<MCID::MayStore), 0x0ULL, ImplicitList18, nullptr, OperandInfo206 },  // Inst #1510 = QVSTFSXA
+  { 1511,	3,	0,	4,	69,	0|(1ULL<<MCID::MayStore), 0x0ULL, ImplicitList18, nullptr, OperandInfo206 },  // Inst #1511 = QVSTFSXI
+  { 1512,	3,	0,	4,	69,	0|(1ULL<<MCID::MayStore), 0x0ULL, ImplicitList18, nullptr, OperandInfo206 },  // Inst #1512 = QVSTFSXIA
+  { 1513,	3,	0,	4,	69,	0|(1ULL<<MCID::MayStore), 0x40ULL, ImplicitList18, nullptr, OperandInfo207 },  // Inst #1513 = QVSTFSXs
+  { 1514,	3,	1,	4,	0,	0|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo214 },  // Inst #1514 = RESTORE_CR
+  { 1515,	3,	1,	4,	0,	0|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo215 },  // Inst #1515 = RESTORE_CRBIT
+  { 1516,	3,	1,	4,	0,	0|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo216 },  // Inst #1516 = RESTORE_VRSAVE
+  { 1517,	0,	0,	4,	296,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, nullptr },  // Inst #1517 = RFCI
+  { 1518,	0,	0,	4,	296,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, nullptr },  // Inst #1518 = RFDI
+  { 1519,	1,	0,	4,	121,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x2ULL, nullptr, nullptr, OperandInfo2 },  // Inst #1519 = RFEBB
+  { 1520,	0,	0,	4,	297,	0, 0x0ULL, nullptr, nullptr, nullptr },  // Inst #1520 = RFI
+  { 1521,	0,	0,	4,	298,	0|(1ULL<<MCID::Return)|(1ULL<<MCID::Barrier)|(1ULL<<MCID::Terminator), 0x38ULL, nullptr, nullptr, nullptr },  // Inst #1521 = RFID
+  { 1522,	0,	0,	4,	296,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, nullptr },  // Inst #1522 = RFMCI
+  { 1523,	4,	1,	4,	124,	0, 0x8ULL, nullptr, nullptr, OperandInfo217 },  // Inst #1523 = RLDCL
+  { 1524,	4,	1,	4,	250,	0, 0x8ULL, nullptr, ImplicitList4, OperandInfo217 },  // Inst #1524 = RLDCL_rec
+  { 1525,	4,	1,	4,	124,	0, 0x8ULL, nullptr, nullptr, OperandInfo217 },  // Inst #1525 = RLDCR
+  { 1526,	4,	1,	4,	250,	0, 0x8ULL, nullptr, ImplicitList4, OperandInfo217 },  // Inst #1526 = RLDCR_rec
+  { 1527,	4,	1,	4,	112,	0, 0x8ULL, nullptr, nullptr, OperandInfo40 },  // Inst #1527 = RLDIC
+  { 1528,	4,	1,	4,	126,	0, 0x8ULL, nullptr, nullptr, OperandInfo40 },  // Inst #1528 = RLDICL
+  { 1529,	4,	1,	4,	126,	0, 0x8ULL, nullptr, nullptr, OperandInfo41 },  // Inst #1529 = RLDICL_32
+  { 1530,	4,	1,	4,	126,	0, 0x8ULL, nullptr, nullptr, OperandInfo218 },  // Inst #1530 = RLDICL_32_64
+  { 1531,	4,	1,	4,	251,	0, 0x8ULL, nullptr, ImplicitList4, OperandInfo41 },  // Inst #1531 = RLDICL_32_rec
+  { 1532,	4,	1,	4,	251,	0, 0x8ULL, nullptr, ImplicitList4, OperandInfo40 },  // Inst #1532 = RLDICL_rec
+  { 1533,	4,	1,	4,	126,	0, 0x8ULL, nullptr, nullptr, OperandInfo40 },  // Inst #1533 = RLDICR
+  { 1534,	4,	1,	4,	126,	0, 0x8ULL, nullptr, nullptr, OperandInfo41 },  // Inst #1534 = RLDICR_32
+  { 1535,	4,	1,	4,	251,	0, 0x8ULL, nullptr, ImplicitList4, OperandInfo40 },  // Inst #1535 = RLDICR_rec
+  { 1536,	4,	1,	4,	257,	0, 0x8ULL, nullptr, ImplicitList4, OperandInfo40 },  // Inst #1536 = RLDIC_rec
+  { 1537,	5,	1,	4,	126,	0, 0x8ULL, nullptr, nullptr, OperandInfo219 },  // Inst #1537 = RLDIMI
+  { 1538,	5,	1,	4,	251,	0, 0x8ULL, nullptr, ImplicitList4, OperandInfo219 },  // Inst #1538 = RLDIMI_rec
+  { 1539,	6,	1,	4,	125,	0|(1ULL<<MCID::Commutable), 0xcULL, nullptr, nullptr, OperandInfo220 },  // Inst #1539 = RLWIMI
+  { 1540,	6,	1,	4,	125,	0, 0xcULL, nullptr, nullptr, OperandInfo221 },  // Inst #1540 = RLWIMI8
+  { 1541,	6,	1,	4,	252,	0, 0xcULL, nullptr, ImplicitList4, OperandInfo221 },  // Inst #1541 = RLWIMI8_rec
+  { 1542,	6,	1,	4,	252,	0|(1ULL<<MCID::Commutable), 0xcULL, nullptr, ImplicitList4, OperandInfo220 },  // Inst #1542 = RLWIMI_rec
+  { 1543,	5,	1,	4,	130,	0, 0x8ULL, nullptr, nullptr, OperandInfo222 },  // Inst #1543 = RLWINM
+  { 1544,	5,	1,	4,	130,	0, 0x8ULL, nullptr, nullptr, OperandInfo223 },  // Inst #1544 = RLWINM8
+  { 1545,	5,	1,	4,	253,	0, 0x8ULL, nullptr, ImplicitList4, OperandInfo223 },  // Inst #1545 = RLWINM8_rec
+  { 1546,	5,	1,	4,	253,	0, 0xcULL, nullptr, ImplicitList4, OperandInfo222 },  // Inst #1546 = RLWINM_rec
+  { 1547,	5,	1,	4,	130,	0, 0x8ULL, nullptr, nullptr, OperandInfo224 },  // Inst #1547 = RLWNM
+  { 1548,	5,	1,	4,	130,	0, 0x8ULL, nullptr, nullptr, OperandInfo225 },  // Inst #1548 = RLWNM8
+  { 1549,	5,	1,	4,	253,	0, 0x8ULL, nullptr, ImplicitList4, OperandInfo225 },  // Inst #1549 = RLWNM8_rec
+  { 1550,	5,	1,	4,	253,	0, 0x8ULL, nullptr, ImplicitList4, OperandInfo224 },  // Inst #1550 = RLWNM_rec
+  { 1551,	2,	2,	4,	0,	0|(1ULL<<MCID::UsesCustomInserter)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo44 },  // Inst #1551 = ReadTB
+  { 1552,	1,	0,	4,	296,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x38ULL, nullptr, nullptr, OperandInfo3 },  // Inst #1552 = SC
+  { 1553,	5,	1,	4,	0,	0|(1ULL<<MCID::UsesCustomInserter)|(1ULL<<MCID::UnmodeledSideEffects), 0x2ULL, nullptr, nullptr, OperandInfo226 },  // Inst #1553 = SELECT_CC_F16
+  { 1554,	5,	1,	4,	0,	0|(1ULL<<MCID::UsesCustomInserter)|(1ULL<<MCID::UnmodeledSideEffects), 0x2ULL, nullptr, nullptr, OperandInfo227 },  // Inst #1554 = SELECT_CC_F4
+  { 1555,	5,	1,	4,	0,	0|(1ULL<<MCID::UsesCustomInserter)|(1ULL<<MCID::UnmodeledSideEffects), 0x2ULL, nullptr, nullptr, OperandInfo228 },  // Inst #1555 = SELECT_CC_F8
+  { 1556,	5,	1,	4,	0,	0|(1ULL<<MCID::UsesCustomInserter)|(1ULL<<MCID::UnmodeledSideEffects), 0x2ULL, nullptr, nullptr, OperandInfo229 },  // Inst #1556 = SELECT_CC_I4
+  { 1557,	5,	1,	4,	0,	0|(1ULL<<MCID::UsesCustomInserter)|(1ULL<<MCID::UnmodeledSideEffects), 0x2ULL, nullptr, nullptr, OperandInfo230 },  // Inst #1557 = SELECT_CC_I8
+  { 1558,	5,	1,	4,	0,	0|(1ULL<<MCID::UsesCustomInserter), 0x0ULL, ImplicitList18, nullptr, OperandInfo231 },  // Inst #1558 = SELECT_CC_QBRC
+  { 1559,	5,	1,	4,	0,	0|(1ULL<<MCID::UsesCustomInserter), 0x0ULL, ImplicitList18, nullptr, OperandInfo232 },  // Inst #1559 = SELECT_CC_QFRC
+  { 1560,	5,	1,	4,	0,	0|(1ULL<<MCID::UsesCustomInserter), 0x0ULL, ImplicitList18, nullptr, OperandInfo233 },  // Inst #1560 = SELECT_CC_QSRC
+  { 1561,	5,	1,	4,	0,	0|(1ULL<<MCID::UsesCustomInserter)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo234 },  // Inst #1561 = SELECT_CC_SPE
+  { 1562,	5,	1,	4,	0,	0|(1ULL<<MCID::UsesCustomInserter)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo235 },  // Inst #1562 = SELECT_CC_SPE4
+  { 1563,	5,	1,	4,	0,	0|(1ULL<<MCID::UsesCustomInserter)|(1ULL<<MCID::UnmodeledSideEffects), 0x2ULL, nullptr, nullptr, OperandInfo226 },  // Inst #1563 = SELECT_CC_VRRC
+  { 1564,	5,	1,	4,	0,	0|(1ULL<<MCID::UsesCustomInserter)|(1ULL<<MCID::UnmodeledSideEffects), 0x2ULL, nullptr, nullptr, OperandInfo228 },  // Inst #1564 = SELECT_CC_VSFRC
+  { 1565,	5,	1,	4,	0,	0|(1ULL<<MCID::UsesCustomInserter)|(1ULL<<MCID::UnmodeledSideEffects), 0x2ULL, nullptr, nullptr, OperandInfo236 },  // Inst #1565 = SELECT_CC_VSRC
+  { 1566,	5,	1,	4,	0,	0|(1ULL<<MCID::UsesCustomInserter)|(1ULL<<MCID::UnmodeledSideEffects), 0x2ULL, nullptr, nullptr, OperandInfo227 },  // Inst #1566 = SELECT_CC_VSSRC
+  { 1567,	4,	1,	4,	0,	0|(1ULL<<MCID::UsesCustomInserter), 0x2ULL, nullptr, nullptr, OperandInfo237 },  // Inst #1567 = SELECT_F16
+  { 1568,	4,	1,	4,	0,	0|(1ULL<<MCID::UsesCustomInserter), 0x2ULL, nullptr, nullptr, OperandInfo238 },  // Inst #1568 = SELECT_F4
+  { 1569,	4,	1,	4,	0,	0|(1ULL<<MCID::UsesCustomInserter), 0x2ULL, nullptr, nullptr, OperandInfo239 },  // Inst #1569 = SELECT_F8
+  { 1570,	4,	1,	4,	0,	0|(1ULL<<MCID::UsesCustomInserter), 0x2ULL, nullptr, nullptr, OperandInfo240 },  // Inst #1570 = SELECT_I4
+  { 1571,	4,	1,	4,	0,	0|(1ULL<<MCID::UsesCustomInserter), 0x2ULL, nullptr, nullptr, OperandInfo241 },  // Inst #1571 = SELECT_I8
+  { 1572,	4,	1,	4,	0,	0|(1ULL<<MCID::UsesCustomInserter), 0x0ULL, ImplicitList18, nullptr, OperandInfo242 },  // Inst #1572 = SELECT_QBRC
+  { 1573,	4,	1,	4,	0,	0|(1ULL<<MCID::UsesCustomInserter), 0x0ULL, ImplicitList18, nullptr, OperandInfo243 },  // Inst #1573 = SELECT_QFRC
+  { 1574,	4,	1,	4,	0,	0|(1ULL<<MCID::UsesCustomInserter), 0x0ULL, ImplicitList18, nullptr, OperandInfo244 },  // Inst #1574 = SELECT_QSRC
+  { 1575,	4,	1,	4,	0,	0|(1ULL<<MCID::UsesCustomInserter), 0x0ULL, nullptr, nullptr, OperandInfo245 },  // Inst #1575 = SELECT_SPE
+  { 1576,	4,	1,	4,	0,	0|(1ULL<<MCID::UsesCustomInserter), 0x0ULL, nullptr, nullptr, OperandInfo246 },  // Inst #1576 = SELECT_SPE4
+  { 1577,	4,	1,	4,	0,	0|(1ULL<<MCID::UsesCustomInserter), 0x2ULL, nullptr, nullptr, OperandInfo237 },  // Inst #1577 = SELECT_VRRC
+  { 1578,	4,	1,	4,	0,	0|(1ULL<<MCID::UsesCustomInserter), 0x2ULL, nullptr, nullptr, OperandInfo239 },  // Inst #1578 = SELECT_VSFRC
+  { 1579,	4,	1,	4,	0,	0|(1ULL<<MCID::UsesCustomInserter), 0x2ULL, nullptr, nullptr, OperandInfo247 },  // Inst #1579 = SELECT_VSRC
+  { 1580,	4,	1,	4,	0,	0|(1ULL<<MCID::UsesCustomInserter), 0x2ULL, nullptr, nullptr, OperandInfo238 },  // Inst #1580 = SELECT_VSSRC
+  { 1581,	2,	1,	4,	110,	0, 0x8ULL, nullptr, nullptr, OperandInfo248 },  // Inst #1581 = SETB
+  { 1582,	2,	1,	4,	110,	0, 0x8ULL, nullptr, nullptr, OperandInfo249 },  // Inst #1582 = SETB8
+  { 1583,	2,	1,	4,	0,	0|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::MayStore)|(1ULL<<MCID::UsesCustomInserter)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, ImplicitList18, ImplicitList18, OperandInfo250 },  // Inst #1583 = SETRND
+  { 1584,	2,	1,	4,	0,	0|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::MayStore)|(1ULL<<MCID::UsesCustomInserter)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, ImplicitList18, ImplicitList18, OperandInfo160 },  // Inst #1584 = SETRNDi
+  { 1585,	2,	1,	4,	312,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, ImplicitList4, OperandInfo44 },  // Inst #1585 = SLBFEE_rec
+  { 1586,	0,	0,	4,	190,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, nullptr },  // Inst #1586 = SLBIA
+  { 1587,	1,	0,	4,	191,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo157 },  // Inst #1587 = SLBIE
+  { 1588,	2,	0,	4,	220,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo44 },  // Inst #1588 = SLBIEG
+  { 1589,	2,	1,	4,	192,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo44 },  // Inst #1589 = SLBMFEE
+  { 1590,	2,	1,	4,	193,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo44 },  // Inst #1590 = SLBMFEV
+  { 1591,	2,	0,	4,	194,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo44 },  // Inst #1591 = SLBMTE
+  { 1592,	0,	0,	4,	311,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, nullptr },  // Inst #1592 = SLBSYNC
+  { 1593,	3,	1,	4,	111,	0, 0x8ULL, nullptr, nullptr, OperandInfo251 },  // Inst #1593 = SLD
+  { 1594,	3,	1,	4,	258,	0, 0x8ULL, nullptr, ImplicitList4, OperandInfo251 },  // Inst #1594 = SLD_rec
+  { 1595,	3,	1,	4,	130,	0, 0x8ULL, nullptr, nullptr, OperandInfo56 },  // Inst #1595 = SLW
+  { 1596,	3,	1,	4,	130,	0, 0x8ULL, nullptr, nullptr, OperandInfo57 },  // Inst #1596 = SLW8
+  { 1597,	3,	1,	4,	253,	0, 0x8ULL, nullptr, ImplicitList4, OperandInfo57 },  // Inst #1597 = SLW8_rec
+  { 1598,	3,	1,	4,	253,	0, 0x8ULL, nullptr, ImplicitList4, OperandInfo56 },  // Inst #1598 = SLW_rec
+  { 1599,	3,	1,	4,	13,	0|(1ULL<<MCID::MayLoad), 0x0ULL, nullptr, nullptr, OperandInfo49 },  // Inst #1599 = SPELWZ
+  { 1600,	3,	1,	4,	13,	0|(1ULL<<MCID::MayLoad), 0x0ULL, nullptr, nullptr, OperandInfo123 },  // Inst #1600 = SPELWZX
+  { 1601,	3,	0,	4,	24,	0|(1ULL<<MCID::MayStore), 0x0ULL, nullptr, nullptr, OperandInfo49 },  // Inst #1601 = SPESTW
+  { 1602,	3,	0,	4,	24,	0|(1ULL<<MCID::MayStore), 0x0ULL, nullptr, nullptr, OperandInfo123 },  // Inst #1602 = SPESTWX
+  { 1603,	3,	0,	4,	0,	0|(1ULL<<MCID::MayStore)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo214 },  // Inst #1603 = SPILL_CR
+  { 1604,	3,	0,	4,	0,	0|(1ULL<<MCID::MayStore)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo215 },  // Inst #1604 = SPILL_CRBIT
+  { 1605,	3,	0,	4,	0,	0|(1ULL<<MCID::MayStore)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo216 },  // Inst #1605 = SPILL_VRSAVE
+  { 1606,	3,	1,	4,	111,	0, 0x8ULL, nullptr, ImplicitList5, OperandInfo251 },  // Inst #1606 = SRAD
+  { 1607,	3,	1,	4,	112,	0, 0x8ULL, nullptr, ImplicitList5, OperandInfo42 },  // Inst #1607 = SRADI
+  { 1608,	3,	1,	4,	112,	0, 0x8ULL, nullptr, ImplicitList5, OperandInfo43 },  // Inst #1608 = SRADI_32
+  { 1609,	3,	1,	4,	257,	0, 0x8ULL, nullptr, ImplicitList8, OperandInfo42 },  // Inst #1609 = SRADI_rec
+  { 1610,	3,	1,	4,	258,	0, 0x8ULL, nullptr, ImplicitList8, OperandInfo251 },  // Inst #1610 = SRAD_rec
+  { 1611,	3,	1,	4,	132,	0, 0x8ULL, nullptr, ImplicitList5, OperandInfo56 },  // Inst #1611 = SRAW
+  { 1612,	3,	1,	4,	132,	0, 0x8ULL, nullptr, ImplicitList5, OperandInfo43 },  // Inst #1612 = SRAWI
+  { 1613,	3,	1,	4,	254,	0, 0x8ULL, nullptr, ImplicitList8, OperandInfo43 },  // Inst #1613 = SRAWI_rec
+  { 1614,	3,	1,	4,	254,	0, 0x8ULL, nullptr, ImplicitList8, OperandInfo56 },  // Inst #1614 = SRAW_rec
+  { 1615,	3,	1,	4,	111,	0, 0x8ULL, nullptr, nullptr, OperandInfo251 },  // Inst #1615 = SRD
+  { 1616,	3,	1,	4,	258,	0, 0x8ULL, nullptr, ImplicitList4, OperandInfo251 },  // Inst #1616 = SRD_rec
+  { 1617,	3,	1,	4,	130,	0, 0x8ULL, nullptr, nullptr, OperandInfo56 },  // Inst #1617 = SRW
+  { 1618,	3,	1,	4,	130,	0, 0x8ULL, nullptr, nullptr, OperandInfo57 },  // Inst #1618 = SRW8
+  { 1619,	3,	1,	4,	253,	0, 0x8ULL, nullptr, ImplicitList4, OperandInfo57 },  // Inst #1619 = SRW8_rec
+  { 1620,	3,	1,	4,	253,	0, 0x8ULL, nullptr, ImplicitList4, OperandInfo56 },  // Inst #1620 = SRW_rec
+  { 1621,	3,	0,	4,	216,	0|(1ULL<<MCID::MayStore), 0x10ULL, nullptr, nullptr, OperandInfo49 },  // Inst #1621 = STB
+  { 1622,	3,	0,	4,	216,	0|(1ULL<<MCID::MayStore), 0x10ULL, nullptr, nullptr, OperandInfo124 },  // Inst #1622 = STB8
+  { 1623,	3,	0,	4,	219,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x40ULL, nullptr, nullptr, OperandInfo56 },  // Inst #1623 = STBCIX
+  { 1624,	3,	0,	4,	199,	0|(1ULL<<MCID::MayStore), 0x40ULL, nullptr, ImplicitList4, OperandInfo123 },  // Inst #1624 = STBCX
+  { 1625,	3,	0,	4,	300,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo123 },  // Inst #1625 = STBEPX
+  { 1626,	4,	1,	4,	278,	0|(1ULL<<MCID::MayStore), 0x10ULL, nullptr, nullptr, OperandInfo252 },  // Inst #1626 = STBU
+  { 1627,	4,	1,	4,	278,	0|(1ULL<<MCID::MayStore), 0x10ULL, nullptr, nullptr, OperandInfo253 },  // Inst #1627 = STBU8
+  { 1628,	4,	1,	4,	279,	0|(1ULL<<MCID::MayStore), 0x54ULL, nullptr, nullptr, OperandInfo254 },  // Inst #1628 = STBUX
+  { 1629,	4,	1,	4,	279,	0|(1ULL<<MCID::MayStore), 0x54ULL, nullptr, nullptr, OperandInfo255 },  // Inst #1629 = STBUX8
+  { 1630,	3,	0,	4,	216,	0|(1ULL<<MCID::MayStore), 0x54ULL, nullptr, nullptr, OperandInfo123 },  // Inst #1630 = STBX
+  { 1631,	3,	0,	4,	216,	0|(1ULL<<MCID::MayStore), 0x54ULL, nullptr, nullptr, OperandInfo129 },  // Inst #1631 = STBX8
+  { 1632,	3,	0,	4,	216,	0|(1ULL<<MCID::MayStore), 0xcULL, nullptr, nullptr, OperandInfo130 },  // Inst #1632 = STBXTLS
+  { 1633,	3,	0,	4,	216,	0|(1ULL<<MCID::MayStore), 0xcULL, nullptr, nullptr, OperandInfo130 },  // Inst #1633 = STBXTLS_
+  { 1634,	3,	0,	4,	216,	0|(1ULL<<MCID::MayStore), 0xcULL, nullptr, nullptr, OperandInfo131 },  // Inst #1634 = STBXTLS_32
+  { 1635,	3,	0,	4,	218,	0|(1ULL<<MCID::MayStore), 0x10ULL, nullptr, nullptr, OperandInfo124 },  // Inst #1635 = STD
+  { 1636,	3,	0,	4,	290,	0|(1ULL<<MCID::MayStore), 0x40ULL, nullptr, nullptr, OperandInfo42 },  // Inst #1636 = STDAT
+  { 1637,	3,	0,	4,	216,	0|(1ULL<<MCID::MayStore), 0x54ULL, nullptr, nullptr, OperandInfo129 },  // Inst #1637 = STDBRX
+  { 1638,	3,	0,	4,	219,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x40ULL, nullptr, nullptr, OperandInfo56 },  // Inst #1638 = STDCIX
+  { 1639,	3,	0,	4,	200,	0|(1ULL<<MCID::MayStore), 0x40ULL, nullptr, ImplicitList4, OperandInfo129 },  // Inst #1639 = STDCX
+  { 1640,	4,	1,	4,	278,	0|(1ULL<<MCID::MayStore), 0x10ULL, nullptr, nullptr, OperandInfo253 },  // Inst #1640 = STDU
+  { 1641,	4,	1,	4,	279,	0|(1ULL<<MCID::MayStore), 0x54ULL, nullptr, nullptr, OperandInfo255 },  // Inst #1641 = STDUX
+  { 1642,	3,	0,	4,	218,	0|(1ULL<<MCID::MayStore), 0x54ULL, nullptr, nullptr, OperandInfo129 },  // Inst #1642 = STDX
+  { 1643,	3,	0,	4,	218,	0|(1ULL<<MCID::MayStore), 0xcULL, nullptr, nullptr, OperandInfo130 },  // Inst #1643 = STDXTLS
+  { 1644,	3,	0,	4,	218,	0|(1ULL<<MCID::MayStore), 0xcULL, nullptr, nullptr, OperandInfo130 },  // Inst #1644 = STDXTLS_
+  { 1645,	3,	0,	4,	215,	0|(1ULL<<MCID::MayStore), 0x10ULL, nullptr, nullptr, OperandInfo136 },  // Inst #1645 = STFD
+  { 1646,	3,	0,	4,	302,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x40ULL, nullptr, nullptr, OperandInfo137 },  // Inst #1646 = STFDEPX
+  { 1647,	4,	1,	4,	277,	0|(1ULL<<MCID::MayStore), 0x10ULL, nullptr, nullptr, OperandInfo256 },  // Inst #1647 = STFDU
+  { 1648,	4,	1,	4,	277,	0|(1ULL<<MCID::MayStore), 0x54ULL, nullptr, nullptr, OperandInfo257 },  // Inst #1648 = STFDUX
+  { 1649,	3,	0,	4,	215,	0|(1ULL<<MCID::MayStore), 0x50ULL, nullptr, nullptr, OperandInfo137 },  // Inst #1649 = STFDX
+  { 1650,	3,	0,	4,	215,	0|(1ULL<<MCID::MayStore), 0x50ULL, nullptr, nullptr, OperandInfo137 },  // Inst #1650 = STFIWX
+  { 1651,	3,	0,	4,	215,	0|(1ULL<<MCID::MayStore), 0x10ULL, nullptr, nullptr, OperandInfo140 },  // Inst #1651 = STFS
+  { 1652,	4,	1,	4,	277,	0|(1ULL<<MCID::MayStore), 0x10ULL, nullptr, nullptr, OperandInfo258 },  // Inst #1652 = STFSU
+  { 1653,	4,	1,	4,	277,	0|(1ULL<<MCID::MayStore), 0x54ULL, nullptr, nullptr, OperandInfo259 },  // Inst #1653 = STFSUX
+  { 1654,	3,	0,	4,	215,	0|(1ULL<<MCID::MayStore), 0x50ULL, nullptr, nullptr, OperandInfo143 },  // Inst #1654 = STFSX
+  { 1655,	3,	0,	4,	216,	0|(1ULL<<MCID::MayStore), 0x10ULL, nullptr, nullptr, OperandInfo49 },  // Inst #1655 = STH
+  { 1656,	3,	0,	4,	216,	0|(1ULL<<MCID::MayStore), 0x10ULL, nullptr, nullptr, OperandInfo124 },  // Inst #1656 = STH8
+  { 1657,	3,	0,	4,	216,	0|(1ULL<<MCID::MayStore), 0x54ULL, nullptr, nullptr, OperandInfo123 },  // Inst #1657 = STHBRX
+  { 1658,	3,	0,	4,	219,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x40ULL, nullptr, nullptr, OperandInfo56 },  // Inst #1658 = STHCIX
+  { 1659,	3,	0,	4,	199,	0|(1ULL<<MCID::MayStore), 0x40ULL, nullptr, ImplicitList4, OperandInfo123 },  // Inst #1659 = STHCX
+  { 1660,	3,	0,	4,	300,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo123 },  // Inst #1660 = STHEPX
+  { 1661,	4,	1,	4,	278,	0|(1ULL<<MCID::MayStore), 0x10ULL, nullptr, nullptr, OperandInfo252 },  // Inst #1661 = STHU
+  { 1662,	4,	1,	4,	278,	0|(1ULL<<MCID::MayStore), 0x10ULL, nullptr, nullptr, OperandInfo253 },  // Inst #1662 = STHU8
+  { 1663,	4,	1,	4,	279,	0|(1ULL<<MCID::MayStore), 0x54ULL, nullptr, nullptr, OperandInfo254 },  // Inst #1663 = STHUX
+  { 1664,	4,	1,	4,	279,	0|(1ULL<<MCID::MayStore), 0x54ULL, nullptr, nullptr, OperandInfo255 },  // Inst #1664 = STHUX8
+  { 1665,	3,	0,	4,	216,	0|(1ULL<<MCID::MayStore), 0x54ULL, nullptr, nullptr, OperandInfo123 },  // Inst #1665 = STHX
+  { 1666,	3,	0,	4,	216,	0|(1ULL<<MCID::MayStore), 0x54ULL, nullptr, nullptr, OperandInfo129 },  // Inst #1666 = STHX8
+  { 1667,	3,	0,	4,	216,	0|(1ULL<<MCID::MayStore), 0xcULL, nullptr, nullptr, OperandInfo130 },  // Inst #1667 = STHXTLS
+  { 1668,	3,	0,	4,	216,	0|(1ULL<<MCID::MayStore), 0xcULL, nullptr, nullptr, OperandInfo130 },  // Inst #1668 = STHXTLS_
+  { 1669,	3,	0,	4,	216,	0|(1ULL<<MCID::MayStore), 0xcULL, nullptr, nullptr, OperandInfo131 },  // Inst #1669 = STHXTLS_32
+  { 1670,	3,	0,	4,	221,	0|(1ULL<<MCID::MayStore), 0x0ULL, nullptr, nullptr, OperandInfo49 },  // Inst #1670 = STMW
+  { 1671,	0,	0,	4,	313,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, nullptr },  // Inst #1671 = STOP
+  { 1672,	3,	0,	4,	219,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x40ULL, nullptr, nullptr, OperandInfo43 },  // Inst #1672 = STSWI
+  { 1673,	3,	0,	4,	223,	0|(1ULL<<MCID::MayStore), 0x50ULL, nullptr, nullptr, OperandInfo145 },  // Inst #1673 = STVEBX
+  { 1674,	3,	0,	4,	223,	0|(1ULL<<MCID::MayStore), 0x50ULL, nullptr, nullptr, OperandInfo145 },  // Inst #1674 = STVEHX
+  { 1675,	3,	0,	4,	223,	0|(1ULL<<MCID::MayStore), 0x50ULL, nullptr, nullptr, OperandInfo145 },  // Inst #1675 = STVEWX
+  { 1676,	3,	0,	4,	223,	0|(1ULL<<MCID::MayStore), 0x50ULL, nullptr, nullptr, OperandInfo145 },  // Inst #1676 = STVX
+  { 1677,	3,	0,	4,	223,	0|(1ULL<<MCID::MayStore), 0x50ULL, nullptr, nullptr, OperandInfo145 },  // Inst #1677 = STVXL
+  { 1678,	3,	0,	4,	216,	0|(1ULL<<MCID::MayStore), 0x10ULL, nullptr, nullptr, OperandInfo49 },  // Inst #1678 = STW
+  { 1679,	3,	0,	4,	216,	0|(1ULL<<MCID::MayStore), 0x10ULL, nullptr, nullptr, OperandInfo124 },  // Inst #1679 = STW8
+  { 1680,	3,	0,	4,	290,	0|(1ULL<<MCID::MayStore), 0x40ULL, nullptr, nullptr, OperandInfo43 },  // Inst #1680 = STWAT
+  { 1681,	3,	0,	4,	216,	0|(1ULL<<MCID::MayStore), 0x54ULL, nullptr, nullptr, OperandInfo123 },  // Inst #1681 = STWBRX
+  { 1682,	3,	0,	4,	219,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x40ULL, nullptr, nullptr, OperandInfo56 },  // Inst #1682 = STWCIX
+  { 1683,	3,	0,	4,	199,	0|(1ULL<<MCID::MayStore), 0x40ULL, nullptr, ImplicitList4, OperandInfo123 },  // Inst #1683 = STWCX
+  { 1684,	3,	0,	4,	300,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo123 },  // Inst #1684 = STWEPX
+  { 1685,	4,	1,	4,	278,	0|(1ULL<<MCID::MayStore), 0x10ULL, nullptr, nullptr, OperandInfo252 },  // Inst #1685 = STWU
+  { 1686,	4,	1,	4,	278,	0|(1ULL<<MCID::MayStore), 0x10ULL, nullptr, nullptr, OperandInfo253 },  // Inst #1686 = STWU8
+  { 1687,	4,	1,	4,	279,	0|(1ULL<<MCID::MayStore), 0x54ULL, nullptr, nullptr, OperandInfo254 },  // Inst #1687 = STWUX
+  { 1688,	4,	1,	4,	279,	0|(1ULL<<MCID::MayStore), 0x54ULL, nullptr, nullptr, OperandInfo255 },  // Inst #1688 = STWUX8
+  { 1689,	3,	0,	4,	216,	0|(1ULL<<MCID::MayStore), 0x54ULL, nullptr, nullptr, OperandInfo123 },  // Inst #1689 = STWX
+  { 1690,	3,	0,	4,	216,	0|(1ULL<<MCID::MayStore), 0x54ULL, nullptr, nullptr, OperandInfo129 },  // Inst #1690 = STWX8
+  { 1691,	3,	0,	4,	216,	0|(1ULL<<MCID::MayStore), 0xcULL, nullptr, nullptr, OperandInfo130 },  // Inst #1691 = STWXTLS
+  { 1692,	3,	0,	4,	216,	0|(1ULL<<MCID::MayStore), 0xcULL, nullptr, nullptr, OperandInfo130 },  // Inst #1692 = STWXTLS_
+  { 1693,	3,	0,	4,	216,	0|(1ULL<<MCID::MayStore), 0xcULL, nullptr, nullptr, OperandInfo131 },  // Inst #1693 = STWXTLS_32
+  { 1694,	3,	0,	4,	215,	0|(1ULL<<MCID::MayStore), 0x0ULL, nullptr, nullptr, OperandInfo148 },  // Inst #1694 = STXSD
+  { 1695,	3,	0,	4,	215,	0|(1ULL<<MCID::MayStore), 0x40ULL, nullptr, nullptr, OperandInfo50 },  // Inst #1695 = STXSDX
+  { 1696,	3,	0,	4,	215,	0|(1ULL<<MCID::MayStore), 0x40ULL, nullptr, nullptr, OperandInfo50 },  // Inst #1696 = STXSIBX
+  { 1697,	3,	0,	4,	215,	0|(1ULL<<MCID::MayStore), 0x40ULL, nullptr, nullptr, OperandInfo150 },  // Inst #1697 = STXSIBXv
+  { 1698,	3,	0,	4,	215,	0|(1ULL<<MCID::MayStore), 0x40ULL, nullptr, nullptr, OperandInfo50 },  // Inst #1698 = STXSIHX
+  { 1699,	3,	0,	4,	215,	0|(1ULL<<MCID::MayStore), 0x40ULL, nullptr, nullptr, OperandInfo150 },  // Inst #1699 = STXSIHXv
+  { 1700,	3,	0,	4,	215,	0|(1ULL<<MCID::MayStore), 0x40ULL, nullptr, nullptr, OperandInfo50 },  // Inst #1700 = STXSIWX
+  { 1701,	3,	0,	4,	215,	0|(1ULL<<MCID::MayStore), 0x0ULL, nullptr, nullptr, OperandInfo148 },  // Inst #1701 = STXSSP
+  { 1702,	3,	0,	4,	215,	0|(1ULL<<MCID::MayStore), 0x40ULL, nullptr, nullptr, OperandInfo55 },  // Inst #1702 = STXSSPX
+  { 1703,	3,	0,	4,	224,	0|(1ULL<<MCID::MayStore), 0x0ULL, nullptr, nullptr, OperandInfo149 },  // Inst #1703 = STXV
+  { 1704,	3,	0,	4,	224,	0|(1ULL<<MCID::MayStore), 0x40ULL, nullptr, nullptr, OperandInfo150 },  // Inst #1704 = STXVB16X
+  { 1705,	3,	0,	4,	224,	0|(1ULL<<MCID::MayStore), 0x40ULL, nullptr, nullptr, OperandInfo150 },  // Inst #1705 = STXVD2X
+  { 1706,	3,	0,	4,	224,	0|(1ULL<<MCID::MayStore), 0x40ULL, nullptr, nullptr, OperandInfo150 },  // Inst #1706 = STXVH8X
+  { 1707,	3,	0,	4,	225,	0|(1ULL<<MCID::MayStore), 0x40ULL, nullptr, nullptr, OperandInfo151 },  // Inst #1707 = STXVL
+  { 1708,	3,	0,	4,	225,	0|(1ULL<<MCID::MayStore), 0x40ULL, nullptr, nullptr, OperandInfo151 },  // Inst #1708 = STXVLL
+  { 1709,	3,	0,	4,	224,	0|(1ULL<<MCID::MayStore), 0x40ULL, nullptr, nullptr, OperandInfo150 },  // Inst #1709 = STXVW4X
+  { 1710,	3,	0,	4,	224,	0|(1ULL<<MCID::MayStore), 0x40ULL, nullptr, nullptr, OperandInfo150 },  // Inst #1710 = STXVX
+  { 1711,	3,	1,	4,	115,	0, 0x8ULL, nullptr, nullptr, OperandInfo56 },  // Inst #1711 = SUBF
+  { 1712,	3,	1,	4,	115,	0, 0x8ULL, nullptr, nullptr, OperandInfo57 },  // Inst #1712 = SUBF8
+  { 1713,	3,	1,	4,	115,	0, 0x8ULL, nullptr, ImplicitList2, OperandInfo57 },  // Inst #1713 = SUBF8O
+  { 1714,	3,	1,	4,	115,	0, 0x8ULL, nullptr, ImplicitList3, OperandInfo57 },  // Inst #1714 = SUBF8O_rec
+  { 1715,	3,	1,	4,	115,	0, 0x8ULL, nullptr, ImplicitList4, OperandInfo57 },  // Inst #1715 = SUBF8_rec
+  { 1716,	3,	1,	4,	115,	0, 0xcULL, nullptr, ImplicitList5, OperandInfo56 },  // Inst #1716 = SUBFC
+  { 1717,	3,	1,	4,	115,	0, 0xcULL, nullptr, ImplicitList5, OperandInfo57 },  // Inst #1717 = SUBFC8
+  { 1718,	3,	1,	4,	115,	0, 0xcULL, nullptr, ImplicitList6, OperandInfo57 },  // Inst #1718 = SUBFC8O
+  { 1719,	3,	1,	4,	245,	0, 0xcULL, nullptr, ImplicitList7, OperandInfo57 },  // Inst #1719 = SUBFC8O_rec
+  { 1720,	3,	1,	4,	245,	0, 0xcULL, nullptr, ImplicitList8, OperandInfo57 },  // Inst #1720 = SUBFC8_rec
+  { 1721,	3,	1,	4,	115,	0, 0xcULL, nullptr, ImplicitList6, OperandInfo56 },  // Inst #1721 = SUBFCO
+  { 1722,	3,	1,	4,	245,	0, 0xcULL, nullptr, ImplicitList7, OperandInfo56 },  // Inst #1722 = SUBFCO_rec
+  { 1723,	3,	1,	4,	245,	0, 0xcULL, nullptr, ImplicitList8, OperandInfo56 },  // Inst #1723 = SUBFC_rec
+  { 1724,	3,	1,	4,	115,	0, 0x8ULL, ImplicitList5, ImplicitList5, OperandInfo56 },  // Inst #1724 = SUBFE
+  { 1725,	3,	1,	4,	115,	0, 0x8ULL, ImplicitList5, ImplicitList5, OperandInfo57 },  // Inst #1725 = SUBFE8
+  { 1726,	3,	1,	4,	115,	0, 0x8ULL, ImplicitList5, ImplicitList6, OperandInfo57 },  // Inst #1726 = SUBFE8O
+  { 1727,	3,	1,	4,	115,	0, 0x8ULL, ImplicitList5, ImplicitList7, OperandInfo57 },  // Inst #1727 = SUBFE8O_rec
+  { 1728,	3,	1,	4,	115,	0, 0x8ULL, ImplicitList5, ImplicitList8, OperandInfo57 },  // Inst #1728 = SUBFE8_rec
+  { 1729,	3,	1,	4,	115,	0, 0x8ULL, ImplicitList5, ImplicitList6, OperandInfo56 },  // Inst #1729 = SUBFEO
+  { 1730,	3,	1,	4,	115,	0, 0x8ULL, ImplicitList5, ImplicitList7, OperandInfo56 },  // Inst #1730 = SUBFEO_rec
+  { 1731,	3,	1,	4,	115,	0, 0x8ULL, ImplicitList5, ImplicitList8, OperandInfo56 },  // Inst #1731 = SUBFE_rec
+  { 1732,	3,	1,	4,	115,	0, 0x8ULL, nullptr, ImplicitList5, OperandInfo43 },  // Inst #1732 = SUBFIC
+  { 1733,	3,	1,	4,	115,	0, 0x8ULL, nullptr, ImplicitList5, OperandInfo42 },  // Inst #1733 = SUBFIC8
+  { 1734,	2,	1,	4,	115,	0, 0x8ULL, ImplicitList5, ImplicitList5, OperandInfo44 },  // Inst #1734 = SUBFME
+  { 1735,	2,	1,	4,	115,	0, 0x8ULL, ImplicitList5, ImplicitList5, OperandInfo62 },  // Inst #1735 = SUBFME8
+  { 1736,	2,	1,	4,	115,	0, 0x8ULL, ImplicitList5, ImplicitList6, OperandInfo62 },  // Inst #1736 = SUBFME8O
+  { 1737,	2,	1,	4,	115,	0, 0x8ULL, ImplicitList5, ImplicitList7, OperandInfo62 },  // Inst #1737 = SUBFME8O_rec
+  { 1738,	2,	1,	4,	115,	0, 0x8ULL, ImplicitList5, ImplicitList8, OperandInfo62 },  // Inst #1738 = SUBFME8_rec
+  { 1739,	2,	1,	4,	115,	0, 0x8ULL, ImplicitList5, ImplicitList6, OperandInfo44 },  // Inst #1739 = SUBFMEO
+  { 1740,	2,	1,	4,	115,	0, 0x8ULL, ImplicitList5, ImplicitList7, OperandInfo44 },  // Inst #1740 = SUBFMEO_rec
+  { 1741,	2,	1,	4,	115,	0, 0x8ULL, ImplicitList5, ImplicitList8, OperandInfo44 },  // Inst #1741 = SUBFME_rec
+  { 1742,	3,	1,	4,	115,	0, 0x8ULL, nullptr, ImplicitList2, OperandInfo56 },  // Inst #1742 = SUBFO
+  { 1743,	3,	1,	4,	115,	0, 0x8ULL, nullptr, ImplicitList3, OperandInfo56 },  // Inst #1743 = SUBFO_rec
+  { 1744,	2,	1,	4,	115,	0, 0x8ULL, ImplicitList5, ImplicitList5, OperandInfo44 },  // Inst #1744 = SUBFZE
+  { 1745,	2,	1,	4,	115,	0, 0x8ULL, ImplicitList5, ImplicitList5, OperandInfo62 },  // Inst #1745 = SUBFZE8
+  { 1746,	2,	1,	4,	115,	0, 0x8ULL, ImplicitList5, ImplicitList6, OperandInfo62 },  // Inst #1746 = SUBFZE8O
+  { 1747,	2,	1,	4,	115,	0, 0x8ULL, ImplicitList5, ImplicitList7, OperandInfo62 },  // Inst #1747 = SUBFZE8O_rec
+  { 1748,	2,	1,	4,	115,	0, 0x8ULL, ImplicitList5, ImplicitList8, OperandInfo62 },  // Inst #1748 = SUBFZE8_rec
+  { 1749,	2,	1,	4,	115,	0, 0x8ULL, ImplicitList5, ImplicitList6, OperandInfo44 },  // Inst #1749 = SUBFZEO
+  { 1750,	2,	1,	4,	115,	0, 0x8ULL, ImplicitList5, ImplicitList7, OperandInfo44 },  // Inst #1750 = SUBFZEO_rec
+  { 1751,	2,	1,	4,	115,	0, 0x8ULL, ImplicitList5, ImplicitList8, OperandInfo44 },  // Inst #1751 = SUBFZE_rec
+  { 1752,	3,	1,	4,	115,	0, 0x8ULL, nullptr, ImplicitList4, OperandInfo56 },  // Inst #1752 = SUBF_rec
+  { 1753,	1,	0,	4,	187,	0|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::MayStore)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo3 },  // Inst #1753 = SYNC
+  { 1754,	1,	0,	4,	135,	0|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::MayStore)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, ImplicitList4, OperandInfo157 },  // Inst #1754 = TABORT
+  { 1755,	3,	0,	4,	100,	0|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::MayStore)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, ImplicitList4, OperandInfo89 },  // Inst #1755 = TABORTDC
+  { 1756,	3,	0,	4,	100,	0|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::MayStore)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, ImplicitList4, OperandInfo260 },  // Inst #1756 = TABORTDCI
+  { 1757,	3,	0,	4,	100,	0|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::MayStore)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, ImplicitList4, OperandInfo89 },  // Inst #1757 = TABORTWC
+  { 1758,	3,	0,	4,	100,	0|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::MayStore)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, ImplicitList4, OperandInfo260 },  // Inst #1758 = TABORTWCI
+  { 1759,	1,	0,	4,	287,	0|(1ULL<<MCID::Return)|(1ULL<<MCID::Branch)|(1ULL<<MCID::Barrier)|(1ULL<<MCID::Call)|(1ULL<<MCID::Terminator)|(1ULL<<MCID::UnmodeledSideEffects), 0x38ULL, ImplicitList18, nullptr, OperandInfo70 },  // Inst #1759 = TAILB
+  { 1760,	1,	0,	4,	287,	0|(1ULL<<MCID::Return)|(1ULL<<MCID::Branch)|(1ULL<<MCID::Barrier)|(1ULL<<MCID::Call)|(1ULL<<MCID::Terminator)|(1ULL<<MCID::UnmodeledSideEffects), 0x38ULL, ImplicitList18, nullptr, OperandInfo70 },  // Inst #1760 = TAILB8
+  { 1761,	1,	0,	4,	287,	0|(1ULL<<MCID::Return)|(1ULL<<MCID::Branch)|(1ULL<<MCID::Barrier)|(1ULL<<MCID::Call)|(1ULL<<MCID::Terminator)|(1ULL<<MCID::UnmodeledSideEffects), 0x38ULL, ImplicitList18, nullptr, OperandInfo2 },  // Inst #1761 = TAILBA
+  { 1762,	1,	0,	4,	287,	0|(1ULL<<MCID::Return)|(1ULL<<MCID::Branch)|(1ULL<<MCID::Barrier)|(1ULL<<MCID::Call)|(1ULL<<MCID::Terminator)|(1ULL<<MCID::UnmodeledSideEffects), 0x38ULL, ImplicitList18, nullptr, OperandInfo2 },  // Inst #1762 = TAILBA8
+  { 1763,	0,	0,	4,	287,	0|(1ULL<<MCID::Return)|(1ULL<<MCID::Branch)|(1ULL<<MCID::IndirectBranch)|(1ULL<<MCID::Barrier)|(1ULL<<MCID::Call)|(1ULL<<MCID::Terminator)|(1ULL<<MCID::UnmodeledSideEffects), 0x38ULL, ImplicitList14, nullptr, nullptr },  // Inst #1763 = TAILBCTR
+  { 1764,	0,	0,	4,	287,	0|(1ULL<<MCID::Return)|(1ULL<<MCID::Branch)|(1ULL<<MCID::IndirectBranch)|(1ULL<<MCID::Barrier)|(1ULL<<MCID::Call)|(1ULL<<MCID::Terminator)|(1ULL<<MCID::UnmodeledSideEffects), 0x38ULL, ImplicitList16, nullptr, nullptr },  // Inst #1764 = TAILBCTR8
+  { 1765,	1,	0,	4,	122,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, ImplicitList4, OperandInfo2 },  // Inst #1765 = TBEGIN
+  { 1766,	2,	1,	4,	0,	0|(1ULL<<MCID::UsesCustomInserter)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo144 },  // Inst #1766 = TBEGIN_RET
+  { 1767,	1,	1,	4,	205,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo155 },  // Inst #1767 = TCHECK
+  { 1768,	1,	1,	4,	0,	0|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::MayStore)|(1ULL<<MCID::UsesCustomInserter)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo157 },  // Inst #1768 = TCHECK_RET
+  { 1769,	2,	0,	4,	0,	0|(1ULL<<MCID::Return)|(1ULL<<MCID::Barrier)|(1ULL<<MCID::Call)|(1ULL<<MCID::Terminator), 0x0ULL, ImplicitList18, nullptr, OperandInfo261 },  // Inst #1769 = TCRETURNai
+  { 1770,	2,	0,	4,	0,	0|(1ULL<<MCID::Return)|(1ULL<<MCID::Barrier)|(1ULL<<MCID::Call)|(1ULL<<MCID::Terminator), 0x0ULL, ImplicitList18, nullptr, OperandInfo261 },  // Inst #1770 = TCRETURNai8
+  { 1771,	2,	0,	4,	0,	0|(1ULL<<MCID::Return)|(1ULL<<MCID::Barrier)|(1ULL<<MCID::Call)|(1ULL<<MCID::Terminator), 0x0ULL, ImplicitList18, nullptr, OperandInfo262 },  // Inst #1771 = TCRETURNdi
+  { 1772,	2,	0,	4,	0,	0|(1ULL<<MCID::Return)|(1ULL<<MCID::Barrier)|(1ULL<<MCID::Call)|(1ULL<<MCID::Terminator), 0x0ULL, ImplicitList18, nullptr, OperandInfo262 },  // Inst #1772 = TCRETURNdi8
+  { 1773,	2,	0,	4,	0,	0|(1ULL<<MCID::Return)|(1ULL<<MCID::Barrier)|(1ULL<<MCID::Call)|(1ULL<<MCID::Terminator), 0x0ULL, ImplicitList18, nullptr, OperandInfo263 },  // Inst #1773 = TCRETURNri
+  { 1774,	2,	0,	4,	0,	0|(1ULL<<MCID::Return)|(1ULL<<MCID::Barrier)|(1ULL<<MCID::Call)|(1ULL<<MCID::Terminator), 0x0ULL, ImplicitList18, nullptr, OperandInfo264 },  // Inst #1774 = TCRETURNri8
+  { 1775,	3,	0,	4,	104,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo265 },  // Inst #1775 = TD
+  { 1776,	3,	0,	4,	104,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo266 },  // Inst #1776 = TDI
+  { 1777,	1,	0,	4,	198,	0|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::MayStore)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, ImplicitList4, OperandInfo2 },  // Inst #1777 = TEND
+  { 1778,	0,	0,	4,	308,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, nullptr },  // Inst #1778 = TLBIA
+  { 1779,	2,	0,	4,	222,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo44 },  // Inst #1779 = TLBIE
+  { 1780,	1,	0,	4,	195,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo157 },  // Inst #1780 = TLBIEL
+  { 1781,	2,	0,	4,	299,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo44 },  // Inst #1781 = TLBIVAX
+  { 1782,	1,	0,	4,	299,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo157 },  // Inst #1782 = TLBLD
+  { 1783,	1,	0,	4,	299,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo157 },  // Inst #1783 = TLBLI
+  { 1784,	0,	0,	4,	299,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, nullptr },  // Inst #1784 = TLBRE
+  { 1785,	3,	1,	4,	299,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo267 },  // Inst #1785 = TLBRE2
+  { 1786,	2,	0,	4,	299,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo44 },  // Inst #1786 = TLBSX
+  { 1787,	3,	0,	4,	299,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo56 },  // Inst #1787 = TLBSX2
+  { 1788,	3,	0,	4,	299,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo56 },  // Inst #1788 = TLBSX2D
+  { 1789,	0,	0,	4,	186,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, nullptr },  // Inst #1789 = TLBSYNC
+  { 1790,	0,	0,	4,	299,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, nullptr },  // Inst #1790 = TLBWE
+  { 1791,	3,	0,	4,	299,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo267 },  // Inst #1791 = TLBWE2
+  { 1792,	0,	0,	4,	299,	0|(1ULL<<MCID::Barrier)|(1ULL<<MCID::Terminator)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, nullptr },  // Inst #1792 = TRAP
+  { 1793,	0,	0,	4,	122,	0|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::MayStore)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, ImplicitList4, nullptr },  // Inst #1793 = TRECHKPT
+  { 1794,	1,	0,	4,	135,	0|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::MayStore)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, ImplicitList4, OperandInfo157 },  // Inst #1794 = TRECLAIM
+  { 1795,	1,	0,	4,	135,	0|(1ULL<<MCID::MayLoad)|(1ULL<<MCID::MayStore)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, ImplicitList4, OperandInfo2 },  // Inst #1795 = TSR
+  { 1796,	3,	0,	4,	105,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo89 },  // Inst #1796 = TW
+  { 1797,	3,	0,	4,	105,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo260 },  // Inst #1797 = TWI
+  { 1798,	0,	0,	4,	0,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, nullptr },  // Inst #1798 = UNENCODED_NOP
+  { 1799,	2,	1,	4,	0,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo44 },  // Inst #1799 = UPDATE_VRSAVE
+  { 1800,	3,	2,	4,	0,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo56 },  // Inst #1800 = UpdateGBR
+  { 1801,	3,	1,	4,	139,	0, 0x0ULL, nullptr, nullptr, OperandInfo77 },  // Inst #1801 = VABSDUB
+  { 1802,	3,	1,	4,	139,	0, 0x0ULL, nullptr, nullptr, OperandInfo77 },  // Inst #1802 = VABSDUH
+  { 1803,	3,	1,	4,	139,	0, 0x0ULL, nullptr, nullptr, OperandInfo77 },  // Inst #1803 = VABSDUW
+  { 1804,	3,	1,	4,	162,	0, 0x0ULL, nullptr, nullptr, OperandInfo77 },  // Inst #1804 = VADDCUQ
+  { 1805,	3,	1,	4,	140,	0|(1ULL<<MCID::Commutable), 0x28ULL, nullptr, nullptr, OperandInfo77 },  // Inst #1805 = VADDCUW
+  { 1806,	4,	1,	4,	162,	0, 0x0ULL, nullptr, nullptr, OperandInfo268 },  // Inst #1806 = VADDECUQ
+  { 1807,	4,	1,	4,	162,	0, 0x0ULL, nullptr, nullptr, OperandInfo268 },  // Inst #1807 = VADDEUQM
+  { 1808,	3,	1,	4,	142,	0|(1ULL<<MCID::Commutable), 0x28ULL, nullptr, nullptr, OperandInfo77 },  // Inst #1808 = VADDFP
+  { 1809,	3,	1,	4,	140,	0|(1ULL<<MCID::Commutable), 0x28ULL, nullptr, nullptr, OperandInfo77 },  // Inst #1809 = VADDSBS
+  { 1810,	3,	1,	4,	140,	0|(1ULL<<MCID::Commutable), 0x28ULL, nullptr, nullptr, OperandInfo77 },  // Inst #1810 = VADDSHS
+  { 1811,	3,	1,	4,	140,	0|(1ULL<<MCID::Commutable), 0x28ULL, nullptr, nullptr, OperandInfo77 },  // Inst #1811 = VADDSWS
+  { 1812,	3,	1,	4,	97,	0|(1ULL<<MCID::Commutable), 0x28ULL, nullptr, nullptr, OperandInfo77 },  // Inst #1812 = VADDUBM
+  { 1813,	3,	1,	4,	140,	0|(1ULL<<MCID::Commutable), 0x28ULL, nullptr, nullptr, OperandInfo77 },  // Inst #1813 = VADDUBS
+  { 1814,	3,	1,	4,	97,	0|(1ULL<<MCID::Commutable), 0x0ULL, nullptr, nullptr, OperandInfo77 },  // Inst #1814 = VADDUDM
+  { 1815,	3,	1,	4,	97,	0|(1ULL<<MCID::Commutable), 0x28ULL, nullptr, nullptr, OperandInfo77 },  // Inst #1815 = VADDUHM
+  { 1816,	3,	1,	4,	140,	0|(1ULL<<MCID::Commutable), 0x28ULL, nullptr, nullptr, OperandInfo77 },  // Inst #1816 = VADDUHS
+  { 1817,	3,	1,	4,	163,	0|(1ULL<<MCID::Commutable), 0x0ULL, nullptr, nullptr, OperandInfo77 },  // Inst #1817 = VADDUQM
+  { 1818,	3,	1,	4,	97,	0|(1ULL<<MCID::Commutable), 0x28ULL, nullptr, nullptr, OperandInfo77 },  // Inst #1818 = VADDUWM
+  { 1819,	3,	1,	4,	140,	0|(1ULL<<MCID::Commutable), 0x28ULL, nullptr, nullptr, OperandInfo77 },  // Inst #1819 = VADDUWS
+  { 1820,	3,	1,	4,	98,	0|(1ULL<<MCID::Commutable), 0x28ULL, nullptr, nullptr, OperandInfo77 },  // Inst #1820 = VAND
+  { 1821,	3,	1,	4,	98,	0, 0x28ULL, nullptr, nullptr, OperandInfo77 },  // Inst #1821 = VANDC
+  { 1822,	3,	1,	4,	140,	0|(1ULL<<MCID::Commutable), 0x28ULL, nullptr, nullptr, OperandInfo77 },  // Inst #1822 = VAVGSB
+  { 1823,	3,	1,	4,	140,	0|(1ULL<<MCID::Commutable), 0x28ULL, nullptr, nullptr, OperandInfo77 },  // Inst #1823 = VAVGSH
+  { 1824,	3,	1,	4,	140,	0|(1ULL<<MCID::Commutable), 0x28ULL, nullptr, nullptr, OperandInfo77 },  // Inst #1824 = VAVGSW
+  { 1825,	3,	1,	4,	140,	0|(1ULL<<MCID::Commutable), 0x28ULL, nullptr, nullptr, OperandInfo77 },  // Inst #1825 = VAVGUB
+  { 1826,	3,	1,	4,	140,	0|(1ULL<<MCID::Commutable), 0x28ULL, nullptr, nullptr, OperandInfo77 },  // Inst #1826 = VAVGUH
+  { 1827,	3,	1,	4,	140,	0|(1ULL<<MCID::Commutable), 0x28ULL, nullptr, nullptr, OperandInfo77 },  // Inst #1827 = VAVGUW
+  { 1828,	3,	1,	4,	140,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo77 },  // Inst #1828 = VBPERMD
+  { 1829,	3,	1,	4,	162,	0, 0x0ULL, nullptr, nullptr, OperandInfo77 },  // Inst #1829 = VBPERMQ
+  { 1830,	3,	1,	4,	142,	0, 0x28ULL, nullptr, nullptr, OperandInfo269 },  // Inst #1830 = VCFSX
+  { 1831,	2,	1,	4,	142,	0, 0x28ULL, nullptr, nullptr, OperandInfo78 },  // Inst #1831 = VCFSX_0
+  { 1832,	3,	1,	4,	142,	0, 0x28ULL, nullptr, nullptr, OperandInfo269 },  // Inst #1832 = VCFUX
+  { 1833,	2,	1,	4,	142,	0, 0x28ULL, nullptr, nullptr, OperandInfo78 },  // Inst #1833 = VCFUX_0
+  { 1834,	3,	1,	4,	286,	0, 0x0ULL, nullptr, nullptr, OperandInfo77 },  // Inst #1834 = VCIPHER
+  { 1835,	3,	1,	4,	286,	0, 0x0ULL, nullptr, nullptr, OperandInfo77 },  // Inst #1835 = VCIPHERLAST
+  { 1836,	2,	1,	4,	139,	0, 0x0ULL, nullptr, nullptr, OperandInfo78 },  // Inst #1836 = VCLZB
+  { 1837,	2,	1,	4,	139,	0, 0x0ULL, nullptr, nullptr, OperandInfo78 },  // Inst #1837 = VCLZD
+  { 1838,	2,	1,	4,	139,	0, 0x0ULL, nullptr, nullptr, OperandInfo78 },  // Inst #1838 = VCLZH
+  { 1839,	2,	1,	4,	163,	0, 0x0ULL, nullptr, nullptr, OperandInfo270 },  // Inst #1839 = VCLZLSBB
+  { 1840,	2,	1,	4,	139,	0, 0x0ULL, nullptr, nullptr, OperandInfo78 },  // Inst #1840 = VCLZW
+  { 1841,	3,	1,	4,	138,	0, 0x28ULL, nullptr, nullptr, OperandInfo77 },  // Inst #1841 = VCMPBFP
+  { 1842,	3,	1,	4,	138,	0, 0x28ULL, nullptr, ImplicitList20, OperandInfo77 },  // Inst #1842 = VCMPBFP_rec
+  { 1843,	3,	1,	4,	138,	0, 0x28ULL, nullptr, nullptr, OperandInfo77 },  // Inst #1843 = VCMPEQFP
+  { 1844,	3,	1,	4,	138,	0, 0x28ULL, nullptr, ImplicitList20, OperandInfo77 },  // Inst #1844 = VCMPEQFP_rec
+  { 1845,	3,	1,	4,	138,	0, 0x28ULL, nullptr, nullptr, OperandInfo77 },  // Inst #1845 = VCMPEQUB
+  { 1846,	3,	1,	4,	138,	0, 0x28ULL, nullptr, ImplicitList20, OperandInfo77 },  // Inst #1846 = VCMPEQUB_rec
+  { 1847,	3,	1,	4,	138,	0, 0x28ULL, nullptr, nullptr, OperandInfo77 },  // Inst #1847 = VCMPEQUD
+  { 1848,	3,	1,	4,	138,	0, 0x28ULL, nullptr, ImplicitList20, OperandInfo77 },  // Inst #1848 = VCMPEQUD_rec
+  { 1849,	3,	1,	4,	138,	0, 0x28ULL, nullptr, nullptr, OperandInfo77 },  // Inst #1849 = VCMPEQUH
+  { 1850,	3,	1,	4,	138,	0, 0x28ULL, nullptr, ImplicitList20, OperandInfo77 },  // Inst #1850 = VCMPEQUH_rec
+  { 1851,	3,	1,	4,	138,	0, 0x28ULL, nullptr, nullptr, OperandInfo77 },  // Inst #1851 = VCMPEQUW
+  { 1852,	3,	1,	4,	138,	0, 0x28ULL, nullptr, ImplicitList20, OperandInfo77 },  // Inst #1852 = VCMPEQUW_rec
+  { 1853,	3,	1,	4,	138,	0, 0x28ULL, nullptr, nullptr, OperandInfo77 },  // Inst #1853 = VCMPGEFP
+  { 1854,	3,	1,	4,	138,	0, 0x28ULL, nullptr, ImplicitList20, OperandInfo77 },  // Inst #1854 = VCMPGEFP_rec
+  { 1855,	3,	1,	4,	138,	0, 0x28ULL, nullptr, nullptr, OperandInfo77 },  // Inst #1855 = VCMPGTFP
+  { 1856,	3,	1,	4,	138,	0, 0x28ULL, nullptr, ImplicitList20, OperandInfo77 },  // Inst #1856 = VCMPGTFP_rec
+  { 1857,	3,	1,	4,	138,	0, 0x28ULL, nullptr, nullptr, OperandInfo77 },  // Inst #1857 = VCMPGTSB
+  { 1858,	3,	1,	4,	138,	0, 0x28ULL, nullptr, ImplicitList20, OperandInfo77 },  // Inst #1858 = VCMPGTSB_rec
+  { 1859,	3,	1,	4,	138,	0, 0x28ULL, nullptr, nullptr, OperandInfo77 },  // Inst #1859 = VCMPGTSD
+  { 1860,	3,	1,	4,	138,	0, 0x28ULL, nullptr, ImplicitList20, OperandInfo77 },  // Inst #1860 = VCMPGTSD_rec
+  { 1861,	3,	1,	4,	138,	0, 0x28ULL, nullptr, nullptr, OperandInfo77 },  // Inst #1861 = VCMPGTSH
+  { 1862,	3,	1,	4,	138,	0, 0x28ULL, nullptr, ImplicitList20, OperandInfo77 },  // Inst #1862 = VCMPGTSH_rec
+  { 1863,	3,	1,	4,	138,	0, 0x28ULL, nullptr, nullptr, OperandInfo77 },  // Inst #1863 = VCMPGTSW
+  { 1864,	3,	1,	4,	138,	0, 0x28ULL, nullptr, ImplicitList20, OperandInfo77 },  // Inst #1864 = VCMPGTSW_rec
+  { 1865,	3,	1,	4,	138,	0, 0x28ULL, nullptr, nullptr, OperandInfo77 },  // Inst #1865 = VCMPGTUB
+  { 1866,	3,	1,	4,	138,	0, 0x28ULL, nullptr, ImplicitList20, OperandInfo77 },  // Inst #1866 = VCMPGTUB_rec
+  { 1867,	3,	1,	4,	138,	0, 0x28ULL, nullptr, nullptr, OperandInfo77 },  // Inst #1867 = VCMPGTUD
+  { 1868,	3,	1,	4,	138,	0, 0x28ULL, nullptr, ImplicitList20, OperandInfo77 },  // Inst #1868 = VCMPGTUD_rec
+  { 1869,	3,	1,	4,	138,	0, 0x28ULL, nullptr, nullptr, OperandInfo77 },  // Inst #1869 = VCMPGTUH
+  { 1870,	3,	1,	4,	138,	0, 0x28ULL, nullptr, ImplicitList20, OperandInfo77 },  // Inst #1870 = VCMPGTUH_rec
+  { 1871,	3,	1,	4,	138,	0, 0x28ULL, nullptr, nullptr, OperandInfo77 },  // Inst #1871 = VCMPGTUW
+  { 1872,	3,	1,	4,	138,	0, 0x28ULL, nullptr, ImplicitList20, OperandInfo77 },  // Inst #1872 = VCMPGTUW_rec
+  { 1873,	3,	1,	4,	138,	0, 0x28ULL, nullptr, nullptr, OperandInfo77 },  // Inst #1873 = VCMPNEB
+  { 1874,	3,	1,	4,	138,	0, 0x28ULL, nullptr, ImplicitList20, OperandInfo77 },  // Inst #1874 = VCMPNEB_rec
+  { 1875,	3,	1,	4,	138,	0, 0x28ULL, nullptr, nullptr, OperandInfo77 },  // Inst #1875 = VCMPNEH
+  { 1876,	3,	1,	4,	138,	0, 0x28ULL, nullptr, ImplicitList20, OperandInfo77 },  // Inst #1876 = VCMPNEH_rec
+  { 1877,	3,	1,	4,	138,	0, 0x28ULL, nullptr, nullptr, OperandInfo77 },  // Inst #1877 = VCMPNEW
+  { 1878,	3,	1,	4,	138,	0, 0x28ULL, nullptr, ImplicitList20, OperandInfo77 },  // Inst #1878 = VCMPNEW_rec
+  { 1879,	3,	1,	4,	138,	0, 0x28ULL, nullptr, nullptr, OperandInfo77 },  // Inst #1879 = VCMPNEZB
+  { 1880,	3,	1,	4,	138,	0, 0x28ULL, nullptr, ImplicitList20, OperandInfo77 },  // Inst #1880 = VCMPNEZB_rec
+  { 1881,	3,	1,	4,	138,	0, 0x28ULL, nullptr, nullptr, OperandInfo77 },  // Inst #1881 = VCMPNEZH
+  { 1882,	3,	1,	4,	138,	0, 0x28ULL, nullptr, ImplicitList20, OperandInfo77 },  // Inst #1882 = VCMPNEZH_rec
+  { 1883,	3,	1,	4,	138,	0, 0x28ULL, nullptr, nullptr, OperandInfo77 },  // Inst #1883 = VCMPNEZW
+  { 1884,	3,	1,	4,	138,	0, 0x28ULL, nullptr, ImplicitList20, OperandInfo77 },  // Inst #1884 = VCMPNEZW_rec
+  { 1885,	3,	1,	4,	142,	0, 0x28ULL, nullptr, nullptr, OperandInfo269 },  // Inst #1885 = VCTSXS
+  { 1886,	2,	1,	4,	142,	0, 0x28ULL, nullptr, nullptr, OperandInfo78 },  // Inst #1886 = VCTSXS_0
+  { 1887,	3,	1,	4,	142,	0, 0x28ULL, nullptr, nullptr, OperandInfo269 },  // Inst #1887 = VCTUXS
+  { 1888,	2,	1,	4,	142,	0, 0x28ULL, nullptr, nullptr, OperandInfo78 },  // Inst #1888 = VCTUXS_0
+  { 1889,	2,	1,	4,	139,	0, 0x0ULL, nullptr, nullptr, OperandInfo78 },  // Inst #1889 = VCTZB
+  { 1890,	2,	1,	4,	139,	0, 0x0ULL, nullptr, nullptr, OperandInfo78 },  // Inst #1890 = VCTZD
+  { 1891,	2,	1,	4,	139,	0, 0x0ULL, nullptr, nullptr, OperandInfo78 },  // Inst #1891 = VCTZH
+  { 1892,	2,	1,	4,	163,	0, 0x0ULL, nullptr, nullptr, OperandInfo270 },  // Inst #1892 = VCTZLSBB
+  { 1893,	2,	1,	4,	139,	0, 0x0ULL, nullptr, nullptr, OperandInfo78 },  // Inst #1893 = VCTZW
+  { 1894,	3,	1,	4,	97,	0|(1ULL<<MCID::Commutable), 0x0ULL, nullptr, nullptr, OperandInfo77 },  // Inst #1894 = VEQV
+  { 1895,	2,	1,	4,	142,	0, 0x28ULL, nullptr, nullptr, OperandInfo78 },  // Inst #1895 = VEXPTEFP
+  { 1896,	3,	1,	4,	163,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo269 },  // Inst #1896 = VEXTRACTD
+  { 1897,	3,	1,	4,	163,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo269 },  // Inst #1897 = VEXTRACTUB
+  { 1898,	3,	1,	4,	163,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo269 },  // Inst #1898 = VEXTRACTUH
+  { 1899,	3,	1,	4,	163,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo269 },  // Inst #1899 = VEXTRACTUW
+  { 1900,	2,	1,	4,	97,	0, 0x0ULL, nullptr, nullptr, OperandInfo78 },  // Inst #1900 = VEXTSB2D
+  { 1901,	2,	1,	4,	97,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo271 },  // Inst #1901 = VEXTSB2Ds
+  { 1902,	2,	1,	4,	97,	0, 0x0ULL, nullptr, nullptr, OperandInfo78 },  // Inst #1902 = VEXTSB2W
+  { 1903,	2,	1,	4,	97,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo271 },  // Inst #1903 = VEXTSB2Ws
+  { 1904,	2,	1,	4,	97,	0, 0x0ULL, nullptr, nullptr, OperandInfo78 },  // Inst #1904 = VEXTSH2D
+  { 1905,	2,	1,	4,	97,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo271 },  // Inst #1905 = VEXTSH2Ds
+  { 1906,	2,	1,	4,	97,	0, 0x0ULL, nullptr, nullptr, OperandInfo78 },  // Inst #1906 = VEXTSH2W
+  { 1907,	2,	1,	4,	97,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo271 },  // Inst #1907 = VEXTSH2Ws
+  { 1908,	2,	1,	4,	97,	0, 0x0ULL, nullptr, nullptr, OperandInfo78 },  // Inst #1908 = VEXTSW2D
+  { 1909,	2,	1,	4,	97,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo271 },  // Inst #1909 = VEXTSW2Ds
+  { 1910,	3,	1,	4,	163,	0, 0x0ULL, nullptr, nullptr, OperandInfo272 },  // Inst #1910 = VEXTUBLX
+  { 1911,	3,	1,	4,	163,	0, 0x0ULL, nullptr, nullptr, OperandInfo272 },  // Inst #1911 = VEXTUBRX
+  { 1912,	3,	1,	4,	163,	0, 0x0ULL, nullptr, nullptr, OperandInfo272 },  // Inst #1912 = VEXTUHLX
+  { 1913,	3,	1,	4,	163,	0, 0x0ULL, nullptr, nullptr, OperandInfo272 },  // Inst #1913 = VEXTUHRX
+  { 1914,	3,	1,	4,	163,	0, 0x0ULL, nullptr, nullptr, OperandInfo272 },  // Inst #1914 = VEXTUWLX
+  { 1915,	3,	1,	4,	163,	0, 0x0ULL, nullptr, nullptr, OperandInfo272 },  // Inst #1915 = VEXTUWRX
+  { 1916,	2,	1,	4,	162,	0, 0x0ULL, nullptr, nullptr, OperandInfo78 },  // Inst #1916 = VGBBD
+  { 1917,	4,	1,	4,	163,	0, 0x0ULL, nullptr, nullptr, OperandInfo273 },  // Inst #1917 = VINSERTB
+  { 1918,	3,	1,	4,	163,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo269 },  // Inst #1918 = VINSERTD
+  { 1919,	4,	1,	4,	163,	0, 0x0ULL, nullptr, nullptr, OperandInfo273 },  // Inst #1919 = VINSERTH
+  { 1920,	3,	1,	4,	163,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo269 },  // Inst #1920 = VINSERTW
+  { 1921,	2,	1,	4,	142,	0, 0x28ULL, nullptr, nullptr, OperandInfo78 },  // Inst #1921 = VLOGEFP
+  { 1922,	4,	1,	4,	142,	0|(1ULL<<MCID::Commutable), 0x28ULL, nullptr, nullptr, OperandInfo268 },  // Inst #1922 = VMADDFP
+  { 1923,	3,	1,	4,	140,	0|(1ULL<<MCID::Commutable), 0x28ULL, nullptr, nullptr, OperandInfo77 },  // Inst #1923 = VMAXFP
+  { 1924,	3,	1,	4,	140,	0|(1ULL<<MCID::Commutable), 0x28ULL, nullptr, nullptr, OperandInfo77 },  // Inst #1924 = VMAXSB
+  { 1925,	3,	1,	4,	140,	0|(1ULL<<MCID::Commutable), 0x0ULL, nullptr, nullptr, OperandInfo77 },  // Inst #1925 = VMAXSD
+  { 1926,	3,	1,	4,	140,	0|(1ULL<<MCID::Commutable), 0x28ULL, nullptr, nullptr, OperandInfo77 },  // Inst #1926 = VMAXSH
+  { 1927,	3,	1,	4,	140,	0|(1ULL<<MCID::Commutable), 0x28ULL, nullptr, nullptr, OperandInfo77 },  // Inst #1927 = VMAXSW
+  { 1928,	3,	1,	4,	140,	0|(1ULL<<MCID::Commutable), 0x28ULL, nullptr, nullptr, OperandInfo77 },  // Inst #1928 = VMAXUB
+  { 1929,	3,	1,	4,	140,	0|(1ULL<<MCID::Commutable), 0x0ULL, nullptr, nullptr, OperandInfo77 },  // Inst #1929 = VMAXUD
+  { 1930,	3,	1,	4,	140,	0|(1ULL<<MCID::Commutable), 0x28ULL, nullptr, nullptr, OperandInfo77 },  // Inst #1930 = VMAXUH
+  { 1931,	3,	1,	4,	140,	0|(1ULL<<MCID::Commutable), 0x28ULL, nullptr, nullptr, OperandInfo77 },  // Inst #1931 = VMAXUW
+  { 1932,	4,	1,	4,	142,	0|(1ULL<<MCID::Commutable), 0x28ULL, nullptr, nullptr, OperandInfo268 },  // Inst #1932 = VMHADDSHS
+  { 1933,	4,	1,	4,	142,	0|(1ULL<<MCID::Commutable), 0x28ULL, nullptr, nullptr, OperandInfo268 },  // Inst #1933 = VMHRADDSHS
+  { 1934,	3,	1,	4,	140,	0|(1ULL<<MCID::Commutable), 0x28ULL, nullptr, nullptr, OperandInfo77 },  // Inst #1934 = VMINFP
+  { 1935,	3,	1,	4,	140,	0|(1ULL<<MCID::Commutable), 0x28ULL, nullptr, nullptr, OperandInfo77 },  // Inst #1935 = VMINSB
+  { 1936,	3,	1,	4,	140,	0|(1ULL<<MCID::Commutable), 0x0ULL, nullptr, nullptr, OperandInfo77 },  // Inst #1936 = VMINSD
+  { 1937,	3,	1,	4,	140,	0|(1ULL<<MCID::Commutable), 0x28ULL, nullptr, nullptr, OperandInfo77 },  // Inst #1937 = VMINSH
+  { 1938,	3,	1,	4,	140,	0|(1ULL<<MCID::Commutable), 0x28ULL, nullptr, nullptr, OperandInfo77 },  // Inst #1938 = VMINSW
+  { 1939,	3,	1,	4,	140,	0|(1ULL<<MCID::Commutable), 0x28ULL, nullptr, nullptr, OperandInfo77 },  // Inst #1939 = VMINUB
+  { 1940,	3,	1,	4,	140,	0|(1ULL<<MCID::Commutable), 0x0ULL, nullptr, nullptr, OperandInfo77 },  // Inst #1940 = VMINUD
+  { 1941,	3,	1,	4,	140,	0|(1ULL<<MCID::Commutable), 0x28ULL, nullptr, nullptr, OperandInfo77 },  // Inst #1941 = VMINUH
+  { 1942,	3,	1,	4,	140,	0|(1ULL<<MCID::Commutable), 0x28ULL, nullptr, nullptr, OperandInfo77 },  // Inst #1942 = VMINUW
+  { 1943,	4,	1,	4,	142,	0|(1ULL<<MCID::Commutable), 0x28ULL, nullptr, nullptr, OperandInfo268 },  // Inst #1943 = VMLADDUHM
+  { 1944,	3,	1,	4,	98,	0, 0x0ULL, nullptr, nullptr, OperandInfo77 },  // Inst #1944 = VMRGEW
+  { 1945,	3,	1,	4,	162,	0, 0x28ULL, nullptr, nullptr, OperandInfo77 },  // Inst #1945 = VMRGHB
+  { 1946,	3,	1,	4,	162,	0, 0x28ULL, nullptr, nullptr, OperandInfo77 },  // Inst #1946 = VMRGHH
+  { 1947,	3,	1,	4,	162,	0, 0x28ULL, nullptr, nullptr, OperandInfo77 },  // Inst #1947 = VMRGHW
+  { 1948,	3,	1,	4,	162,	0, 0x28ULL, nullptr, nullptr, OperandInfo77 },  // Inst #1948 = VMRGLB
+  { 1949,	3,	1,	4,	162,	0, 0x28ULL, nullptr, nullptr, OperandInfo77 },  // Inst #1949 = VMRGLH
+  { 1950,	3,	1,	4,	162,	0, 0x28ULL, nullptr, nullptr, OperandInfo77 },  // Inst #1950 = VMRGLW
+  { 1951,	3,	1,	4,	98,	0, 0x0ULL, nullptr, nullptr, OperandInfo77 },  // Inst #1951 = VMRGOW
+  { 1952,	4,	1,	4,	142,	0, 0x28ULL, nullptr, nullptr, OperandInfo268 },  // Inst #1952 = VMSUMMBM
+  { 1953,	4,	1,	4,	142,	0, 0x28ULL, nullptr, nullptr, OperandInfo268 },  // Inst #1953 = VMSUMSHM
+  { 1954,	4,	1,	4,	142,	0, 0x28ULL, nullptr, nullptr, OperandInfo268 },  // Inst #1954 = VMSUMSHS
+  { 1955,	4,	1,	4,	142,	0, 0x28ULL, nullptr, nullptr, OperandInfo268 },  // Inst #1955 = VMSUMUBM
+  { 1956,	4,	1,	4,	142,	0, 0x0ULL, nullptr, nullptr, OperandInfo268 },  // Inst #1956 = VMSUMUDM
+  { 1957,	4,	1,	4,	142,	0, 0x28ULL, nullptr, nullptr, OperandInfo268 },  // Inst #1957 = VMSUMUHM
+  { 1958,	4,	1,	4,	142,	0, 0x28ULL, nullptr, nullptr, OperandInfo268 },  // Inst #1958 = VMSUMUHS
+  { 1959,	2,	1,	4,	162,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo78 },  // Inst #1959 = VMUL10CUQ
+  { 1960,	3,	1,	4,	162,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo77 },  // Inst #1960 = VMUL10ECUQ
+  { 1961,	3,	1,	4,	162,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo77 },  // Inst #1961 = VMUL10EUQ
+  { 1962,	2,	1,	4,	162,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo78 },  // Inst #1962 = VMUL10UQ
+  { 1963,	3,	1,	4,	142,	0|(1ULL<<MCID::Commutable), 0x28ULL, nullptr, nullptr, OperandInfo77 },  // Inst #1963 = VMULESB
+  { 1964,	3,	1,	4,	142,	0|(1ULL<<MCID::Commutable), 0x28ULL, nullptr, nullptr, OperandInfo77 },  // Inst #1964 = VMULESH
+  { 1965,	3,	1,	4,	142,	0|(1ULL<<MCID::Commutable), 0x0ULL, nullptr, nullptr, OperandInfo77 },  // Inst #1965 = VMULESW
+  { 1966,	3,	1,	4,	142,	0|(1ULL<<MCID::Commutable), 0x28ULL, nullptr, nullptr, OperandInfo77 },  // Inst #1966 = VMULEUB
+  { 1967,	3,	1,	4,	142,	0|(1ULL<<MCID::Commutable), 0x28ULL, nullptr, nullptr, OperandInfo77 },  // Inst #1967 = VMULEUH
+  { 1968,	3,	1,	4,	142,	0|(1ULL<<MCID::Commutable), 0x0ULL, nullptr, nullptr, OperandInfo77 },  // Inst #1968 = VMULEUW
+  { 1969,	3,	1,	4,	142,	0|(1ULL<<MCID::Commutable), 0x28ULL, nullptr, nullptr, OperandInfo77 },  // Inst #1969 = VMULOSB
+  { 1970,	3,	1,	4,	142,	0|(1ULL<<MCID::Commutable), 0x28ULL, nullptr, nullptr, OperandInfo77 },  // Inst #1970 = VMULOSH
+  { 1971,	3,	1,	4,	142,	0|(1ULL<<MCID::Commutable), 0x0ULL, nullptr, nullptr, OperandInfo77 },  // Inst #1971 = VMULOSW
+  { 1972,	3,	1,	4,	142,	0|(1ULL<<MCID::Commutable), 0x28ULL, nullptr, nullptr, OperandInfo77 },  // Inst #1972 = VMULOUB
+  { 1973,	3,	1,	4,	142,	0|(1ULL<<MCID::Commutable), 0x28ULL, nullptr, nullptr, OperandInfo77 },  // Inst #1973 = VMULOUH
+  { 1974,	3,	1,	4,	142,	0|(1ULL<<MCID::Commutable), 0x0ULL, nullptr, nullptr, OperandInfo77 },  // Inst #1974 = VMULOUW
+  { 1975,	3,	1,	4,	143,	0|(1ULL<<MCID::Commutable), 0x0ULL, nullptr, nullptr, OperandInfo77 },  // Inst #1975 = VMULUWM
+  { 1976,	3,	1,	4,	97,	0|(1ULL<<MCID::Commutable), 0x0ULL, nullptr, nullptr, OperandInfo77 },  // Inst #1976 = VNAND
+  { 1977,	3,	1,	4,	286,	0, 0x0ULL, nullptr, nullptr, OperandInfo77 },  // Inst #1977 = VNCIPHER
+  { 1978,	3,	1,	4,	286,	0, 0x0ULL, nullptr, nullptr, OperandInfo77 },  // Inst #1978 = VNCIPHERLAST
+  { 1979,	2,	1,	4,	97,	0, 0x0ULL, nullptr, nullptr, OperandInfo78 },  // Inst #1979 = VNEGD
+  { 1980,	2,	1,	4,	97,	0, 0x0ULL, nullptr, nullptr, OperandInfo78 },  // Inst #1980 = VNEGW
+  { 1981,	4,	1,	4,	142,	0|(1ULL<<MCID::Commutable), 0x28ULL, nullptr, nullptr, OperandInfo268 },  // Inst #1981 = VNMSUBFP
+  { 1982,	3,	1,	4,	98,	0, 0x28ULL, nullptr, nullptr, OperandInfo77 },  // Inst #1982 = VNOR
+  { 1983,	3,	1,	4,	98,	0|(1ULL<<MCID::Commutable), 0x28ULL, nullptr, nullptr, OperandInfo77 },  // Inst #1983 = VOR
+  { 1984,	3,	1,	4,	97,	0, 0x0ULL, nullptr, nullptr, OperandInfo77 },  // Inst #1984 = VORC
+  { 1985,	4,	1,	4,	162,	0, 0x28ULL, nullptr, nullptr, OperandInfo268 },  // Inst #1985 = VPERM
+  { 1986,	4,	1,	4,	162,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo268 },  // Inst #1986 = VPERMR
+  { 1987,	4,	1,	4,	162,	0, 0x0ULL, nullptr, nullptr, OperandInfo268 },  // Inst #1987 = VPERMXOR
+  { 1988,	3,	1,	4,	162,	0, 0x28ULL, nullptr, nullptr, OperandInfo77 },  // Inst #1988 = VPKPX
+  { 1989,	3,	1,	4,	162,	0, 0x0ULL, nullptr, nullptr, OperandInfo77 },  // Inst #1989 = VPKSDSS
+  { 1990,	3,	1,	4,	162,	0, 0x0ULL, nullptr, nullptr, OperandInfo77 },  // Inst #1990 = VPKSDUS
+  { 1991,	3,	1,	4,	162,	0, 0x28ULL, nullptr, nullptr, OperandInfo77 },  // Inst #1991 = VPKSHSS
+  { 1992,	3,	1,	4,	162,	0, 0x28ULL, nullptr, nullptr, OperandInfo77 },  // Inst #1992 = VPKSHUS
+  { 1993,	3,	1,	4,	162,	0, 0x28ULL, nullptr, nullptr, OperandInfo77 },  // Inst #1993 = VPKSWSS
+  { 1994,	3,	1,	4,	162,	0, 0x28ULL, nullptr, nullptr, OperandInfo77 },  // Inst #1994 = VPKSWUS
+  { 1995,	3,	1,	4,	162,	0, 0x0ULL, nullptr, nullptr, OperandInfo77 },  // Inst #1995 = VPKUDUM
+  { 1996,	3,	1,	4,	162,	0, 0x0ULL, nullptr, nullptr, OperandInfo77 },  // Inst #1996 = VPKUDUS
+  { 1997,	3,	1,	4,	162,	0, 0x28ULL, nullptr, nullptr, OperandInfo77 },  // Inst #1997 = VPKUHUM
+  { 1998,	3,	1,	4,	162,	0, 0x28ULL, nullptr, nullptr, OperandInfo77 },  // Inst #1998 = VPKUHUS
+  { 1999,	3,	1,	4,	162,	0, 0x28ULL, nullptr, nullptr, OperandInfo77 },  // Inst #1999 = VPKUWUM
+  { 2000,	3,	1,	4,	162,	0, 0x28ULL, nullptr, nullptr, OperandInfo77 },  // Inst #2000 = VPKUWUS
+  { 2001,	3,	1,	4,	286,	0, 0x0ULL, nullptr, nullptr, OperandInfo77 },  // Inst #2001 = VPMSUMB
+  { 2002,	3,	1,	4,	286,	0, 0x0ULL, nullptr, nullptr, OperandInfo77 },  // Inst #2002 = VPMSUMD
+  { 2003,	3,	1,	4,	286,	0, 0x0ULL, nullptr, nullptr, OperandInfo77 },  // Inst #2003 = VPMSUMH
+  { 2004,	3,	1,	4,	286,	0, 0x0ULL, nullptr, nullptr, OperandInfo77 },  // Inst #2004 = VPMSUMW
+  { 2005,	2,	1,	4,	97,	0, 0x0ULL, nullptr, nullptr, OperandInfo78 },  // Inst #2005 = VPOPCNTB
+  { 2006,	2,	1,	4,	139,	0, 0x0ULL, nullptr, nullptr, OperandInfo78 },  // Inst #2006 = VPOPCNTD
+  { 2007,	2,	1,	4,	97,	0, 0x0ULL, nullptr, nullptr, OperandInfo78 },  // Inst #2007 = VPOPCNTH
+  { 2008,	2,	1,	4,	139,	0, 0x0ULL, nullptr, nullptr, OperandInfo78 },  // Inst #2008 = VPOPCNTW
+  { 2009,	2,	1,	4,	139,	0, 0x0ULL, nullptr, nullptr, OperandInfo78 },  // Inst #2009 = VPRTYBD
+  { 2010,	2,	1,	4,	163,	0, 0x0ULL, nullptr, nullptr, OperandInfo78 },  // Inst #2010 = VPRTYBQ
+  { 2011,	2,	1,	4,	139,	0, 0x0ULL, nullptr, nullptr, OperandInfo78 },  // Inst #2011 = VPRTYBW
+  { 2012,	2,	1,	4,	142,	0, 0x28ULL, nullptr, nullptr, OperandInfo78 },  // Inst #2012 = VREFP
+  { 2013,	2,	1,	4,	142,	0, 0x28ULL, nullptr, nullptr, OperandInfo78 },  // Inst #2013 = VRFIM
+  { 2014,	2,	1,	4,	142,	0, 0x28ULL, nullptr, nullptr, OperandInfo78 },  // Inst #2014 = VRFIN
+  { 2015,	2,	1,	4,	142,	0, 0x28ULL, nullptr, nullptr, OperandInfo78 },  // Inst #2015 = VRFIP
+  { 2016,	2,	1,	4,	142,	0, 0x28ULL, nullptr, nullptr, OperandInfo78 },  // Inst #2016 = VRFIZ
+  { 2017,	3,	1,	4,	98,	0, 0x28ULL, nullptr, nullptr, OperandInfo77 },  // Inst #2017 = VRLB
+  { 2018,	3,	1,	4,	98,	0, 0x0ULL, nullptr, nullptr, OperandInfo77 },  // Inst #2018 = VRLD
+  { 2019,	4,	1,	4,	98,	0, 0x0ULL, nullptr, nullptr, OperandInfo274 },  // Inst #2019 = VRLDMI
+  { 2020,	3,	1,	4,	98,	0, 0x0ULL, nullptr, nullptr, OperandInfo77 },  // Inst #2020 = VRLDNM
+  { 2021,	3,	1,	4,	98,	0, 0x28ULL, nullptr, nullptr, OperandInfo77 },  // Inst #2021 = VRLH
+  { 2022,	3,	1,	4,	98,	0, 0x28ULL, nullptr, nullptr, OperandInfo77 },  // Inst #2022 = VRLW
+  { 2023,	4,	1,	4,	98,	0, 0x0ULL, nullptr, nullptr, OperandInfo274 },  // Inst #2023 = VRLWMI
+  { 2024,	3,	1,	4,	98,	0, 0x0ULL, nullptr, nullptr, OperandInfo77 },  // Inst #2024 = VRLWNM
+  { 2025,	2,	1,	4,	142,	0, 0x28ULL, nullptr, nullptr, OperandInfo78 },  // Inst #2025 = VRSQRTEFP
+  { 2026,	2,	1,	4,	286,	0, 0x0ULL, nullptr, nullptr, OperandInfo78 },  // Inst #2026 = VSBOX
+  { 2027,	4,	1,	4,	98,	0, 0x28ULL, nullptr, nullptr, OperandInfo268 },  // Inst #2027 = VSEL
+  { 2028,	4,	1,	4,	140,	0, 0x0ULL, nullptr, nullptr, OperandInfo275 },  // Inst #2028 = VSHASIGMAD
+  { 2029,	4,	1,	4,	140,	0, 0x0ULL, nullptr, nullptr, OperandInfo275 },  // Inst #2029 = VSHASIGMAW
+  { 2030,	3,	1,	4,	162,	0, 0x28ULL, nullptr, nullptr, OperandInfo77 },  // Inst #2030 = VSL
+  { 2031,	3,	1,	4,	98,	0, 0x28ULL, nullptr, nullptr, OperandInfo77 },  // Inst #2031 = VSLB
+  { 2032,	3,	1,	4,	97,	0, 0x0ULL, nullptr, nullptr, OperandInfo77 },  // Inst #2032 = VSLD
+  { 2033,	4,	1,	4,	162,	0, 0x28ULL, nullptr, nullptr, OperandInfo79 },  // Inst #2033 = VSLDOI
+  { 2034,	3,	1,	4,	98,	0, 0x28ULL, nullptr, nullptr, OperandInfo77 },  // Inst #2034 = VSLH
+  { 2035,	3,	1,	4,	162,	0, 0x28ULL, nullptr, nullptr, OperandInfo77 },  // Inst #2035 = VSLO
+  { 2036,	3,	1,	4,	162,	0, 0x0ULL, nullptr, nullptr, OperandInfo77 },  // Inst #2036 = VSLV
+  { 2037,	3,	1,	4,	98,	0, 0x28ULL, nullptr, nullptr, OperandInfo77 },  // Inst #2037 = VSLW
+  { 2038,	3,	1,	4,	161,	0, 0x28ULL, nullptr, nullptr, OperandInfo269 },  // Inst #2038 = VSPLTB
+  { 2039,	3,	1,	4,	161,	0, 0x28ULL, nullptr, nullptr, OperandInfo276 },  // Inst #2039 = VSPLTBs
+  { 2040,	3,	1,	4,	161,	0, 0x28ULL, nullptr, nullptr, OperandInfo269 },  // Inst #2040 = VSPLTH
+  { 2041,	3,	1,	4,	161,	0, 0x28ULL, nullptr, nullptr, OperandInfo276 },  // Inst #2041 = VSPLTHs
+  { 2042,	2,	1,	4,	161,	0, 0x28ULL, nullptr, nullptr, OperandInfo277 },  // Inst #2042 = VSPLTISB
+  { 2043,	2,	1,	4,	161,	0, 0x28ULL, nullptr, nullptr, OperandInfo277 },  // Inst #2043 = VSPLTISH
+  { 2044,	2,	1,	4,	161,	0, 0x28ULL, nullptr, nullptr, OperandInfo277 },  // Inst #2044 = VSPLTISW
+  { 2045,	3,	1,	4,	161,	0, 0x28ULL, nullptr, nullptr, OperandInfo269 },  // Inst #2045 = VSPLTW
+  { 2046,	3,	1,	4,	162,	0, 0x28ULL, nullptr, nullptr, OperandInfo77 },  // Inst #2046 = VSR
+  { 2047,	3,	1,	4,	98,	0, 0x28ULL, nullptr, nullptr, OperandInfo77 },  // Inst #2047 = VSRAB
+  { 2048,	3,	1,	4,	97,	0, 0x0ULL, nullptr, nullptr, OperandInfo77 },  // Inst #2048 = VSRAD
+  { 2049,	3,	1,	4,	98,	0, 0x28ULL, nullptr, nullptr, OperandInfo77 },  // Inst #2049 = VSRAH
+  { 2050,	3,	1,	4,	98,	0, 0x28ULL, nullptr, nullptr, OperandInfo77 },  // Inst #2050 = VSRAW
+  { 2051,	3,	1,	4,	98,	0, 0x28ULL, nullptr, nullptr, OperandInfo77 },  // Inst #2051 = VSRB
+  { 2052,	3,	1,	4,	97,	0, 0x0ULL, nullptr, nullptr, OperandInfo77 },  // Inst #2052 = VSRD
+  { 2053,	3,	1,	4,	98,	0, 0x28ULL, nullptr, nullptr, OperandInfo77 },  // Inst #2053 = VSRH
+  { 2054,	3,	1,	4,	162,	0, 0x28ULL, nullptr, nullptr, OperandInfo77 },  // Inst #2054 = VSRO
+  { 2055,	3,	1,	4,	162,	0, 0x0ULL, nullptr, nullptr, OperandInfo77 },  // Inst #2055 = VSRV
+  { 2056,	3,	1,	4,	98,	0, 0x28ULL, nullptr, nullptr, OperandInfo77 },  // Inst #2056 = VSRW
+  { 2057,	3,	1,	4,	162,	0, 0x0ULL, nullptr, nullptr, OperandInfo77 },  // Inst #2057 = VSUBCUQ
+  { 2058,	3,	1,	4,	140,	0, 0x28ULL, nullptr, nullptr, OperandInfo77 },  // Inst #2058 = VSUBCUW
+  { 2059,	4,	1,	4,	162,	0, 0x0ULL, nullptr, nullptr, OperandInfo268 },  // Inst #2059 = VSUBECUQ
+  { 2060,	4,	1,	4,	162,	0, 0x0ULL, nullptr, nullptr, OperandInfo268 },  // Inst #2060 = VSUBEUQM
+  { 2061,	3,	1,	4,	143,	0, 0x28ULL, nullptr, nullptr, OperandInfo77 },  // Inst #2061 = VSUBFP
+  { 2062,	3,	1,	4,	140,	0, 0x28ULL, nullptr, nullptr, OperandInfo77 },  // Inst #2062 = VSUBSBS
+  { 2063,	3,	1,	4,	140,	0, 0x28ULL, nullptr, nullptr, OperandInfo77 },  // Inst #2063 = VSUBSHS
+  { 2064,	3,	1,	4,	140,	0, 0x28ULL, nullptr, nullptr, OperandInfo77 },  // Inst #2064 = VSUBSWS
+  { 2065,	3,	1,	4,	97,	0, 0x28ULL, nullptr, nullptr, OperandInfo77 },  // Inst #2065 = VSUBUBM
+  { 2066,	3,	1,	4,	140,	0, 0x28ULL, nullptr, nullptr, OperandInfo77 },  // Inst #2066 = VSUBUBS
+  { 2067,	3,	1,	4,	97,	0, 0x0ULL, nullptr, nullptr, OperandInfo77 },  // Inst #2067 = VSUBUDM
+  { 2068,	3,	1,	4,	97,	0, 0x28ULL, nullptr, nullptr, OperandInfo77 },  // Inst #2068 = VSUBUHM
+  { 2069,	3,	1,	4,	140,	0, 0x28ULL, nullptr, nullptr, OperandInfo77 },  // Inst #2069 = VSUBUHS
+  { 2070,	3,	1,	4,	163,	0, 0x0ULL, nullptr, nullptr, OperandInfo77 },  // Inst #2070 = VSUBUQM
+  { 2071,	3,	1,	4,	97,	0, 0x28ULL, nullptr, nullptr, OperandInfo77 },  // Inst #2071 = VSUBUWM
+  { 2072,	3,	1,	4,	140,	0, 0x28ULL, nullptr, nullptr, OperandInfo77 },  // Inst #2072 = VSUBUWS
+  { 2073,	3,	1,	4,	142,	0, 0x28ULL, nullptr, nullptr, OperandInfo77 },  // Inst #2073 = VSUM2SWS
+  { 2074,	3,	1,	4,	142,	0, 0x28ULL, nullptr, nullptr, OperandInfo77 },  // Inst #2074 = VSUM4SBS
+  { 2075,	3,	1,	4,	142,	0, 0x28ULL, nullptr, nullptr, OperandInfo77 },  // Inst #2075 = VSUM4SHS
+  { 2076,	3,	1,	4,	142,	0, 0x28ULL, nullptr, nullptr, OperandInfo77 },  // Inst #2076 = VSUM4UBS
+  { 2077,	3,	1,	4,	142,	0, 0x28ULL, nullptr, nullptr, OperandInfo77 },  // Inst #2077 = VSUMSWS
+  { 2078,	2,	1,	4,	162,	0, 0x28ULL, nullptr, nullptr, OperandInfo78 },  // Inst #2078 = VUPKHPX
+  { 2079,	2,	1,	4,	162,	0, 0x28ULL, nullptr, nullptr, OperandInfo78 },  // Inst #2079 = VUPKHSB
+  { 2080,	2,	1,	4,	162,	0, 0x28ULL, nullptr, nullptr, OperandInfo78 },  // Inst #2080 = VUPKHSH
+  { 2081,	2,	1,	4,	162,	0, 0x0ULL, nullptr, nullptr, OperandInfo78 },  // Inst #2081 = VUPKHSW
+  { 2082,	2,	1,	4,	162,	0, 0x28ULL, nullptr, nullptr, OperandInfo78 },  // Inst #2082 = VUPKLPX
+  { 2083,	2,	1,	4,	162,	0, 0x28ULL, nullptr, nullptr, OperandInfo78 },  // Inst #2083 = VUPKLSB
+  { 2084,	2,	1,	4,	162,	0, 0x28ULL, nullptr, nullptr, OperandInfo78 },  // Inst #2084 = VUPKLSH
+  { 2085,	2,	1,	4,	162,	0, 0x0ULL, nullptr, nullptr, OperandInfo78 },  // Inst #2085 = VUPKLSW
+  { 2086,	3,	1,	4,	98,	0|(1ULL<<MCID::Commutable), 0x28ULL, nullptr, nullptr, OperandInfo77 },  // Inst #2086 = VXOR
+  { 2087,	1,	1,	4,	98,	0|(1ULL<<MCID::MoveImm)|(1ULL<<MCID::Rematerializable)|(1ULL<<MCID::CheapAsAMove), 0x28ULL, nullptr, nullptr, OperandInfo164 },  // Inst #2087 = V_SET0
+  { 2088,	1,	1,	4,	98,	0|(1ULL<<MCID::MoveImm)|(1ULL<<MCID::Rematerializable)|(1ULL<<MCID::CheapAsAMove), 0x28ULL, nullptr, nullptr, OperandInfo164 },  // Inst #2088 = V_SET0B
+  { 2089,	1,	1,	4,	98,	0|(1ULL<<MCID::MoveImm)|(1ULL<<MCID::Rematerializable)|(1ULL<<MCID::CheapAsAMove), 0x28ULL, nullptr, nullptr, OperandInfo164 },  // Inst #2089 = V_SET0H
+  { 2090,	1,	1,	4,	162,	0|(1ULL<<MCID::MoveImm)|(1ULL<<MCID::Rematerializable)|(1ULL<<MCID::CheapAsAMove), 0x28ULL, nullptr, nullptr, OperandInfo164 },  // Inst #2090 = V_SETALLONES
+  { 2091,	1,	1,	4,	162,	0|(1ULL<<MCID::MoveImm)|(1ULL<<MCID::Rematerializable)|(1ULL<<MCID::CheapAsAMove), 0x28ULL, nullptr, nullptr, OperandInfo164 },  // Inst #2091 = V_SETALLONESB
+  { 2092,	1,	1,	4,	162,	0|(1ULL<<MCID::MoveImm)|(1ULL<<MCID::Rematerializable)|(1ULL<<MCID::CheapAsAMove), 0x28ULL, nullptr, nullptr, OperandInfo164 },  // Inst #2092 = V_SETALLONESH
+  { 2093,	1,	0,	4,	123,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo3 },  // Inst #2093 = WAIT
+  { 2094,	1,	0,	4,	309,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo157 },  // Inst #2094 = WRTEE
+  { 2095,	1,	0,	4,	309,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo3 },  // Inst #2095 = WRTEEI
+  { 2096,	3,	1,	4,	116,	0|(1ULL<<MCID::Commutable), 0x8ULL, nullptr, nullptr, OperandInfo56 },  // Inst #2096 = XOR
+  { 2097,	3,	1,	4,	116,	0|(1ULL<<MCID::Commutable), 0x8ULL, nullptr, nullptr, OperandInfo57 },  // Inst #2097 = XOR8
+  { 2098,	3,	1,	4,	116,	0|(1ULL<<MCID::Commutable), 0x8ULL, nullptr, ImplicitList4, OperandInfo57 },  // Inst #2098 = XOR8_rec
+  { 2099,	3,	1,	4,	116,	0, 0x8ULL, nullptr, nullptr, OperandInfo43 },  // Inst #2099 = XORI
+  { 2100,	3,	1,	4,	116,	0, 0x8ULL, nullptr, nullptr, OperandInfo42 },  // Inst #2100 = XORI8
+  { 2101,	3,	1,	4,	116,	0, 0x8ULL, nullptr, nullptr, OperandInfo43 },  // Inst #2101 = XORIS
+  { 2102,	3,	1,	4,	116,	0, 0x8ULL, nullptr, nullptr, OperandInfo42 },  // Inst #2102 = XORIS8
+  { 2103,	3,	1,	4,	116,	0|(1ULL<<MCID::Commutable), 0x8ULL, nullptr, ImplicitList4, OperandInfo56 },  // Inst #2103 = XOR_rec
+  { 2104,	2,	1,	4,	120,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, ImplicitList18, nullptr, OperandInfo278 },  // Inst #2104 = XSABSDP
+  { 2105,	2,	1,	4,	98,	0, 0x0ULL, nullptr, nullptr, OperandInfo78 },  // Inst #2105 = XSABSQP
+  { 2106,	3,	1,	4,	159,	0|(1ULL<<MCID::MayRaiseFPException)|(1ULL<<MCID::Commutable), 0x0ULL, ImplicitList18, nullptr, OperandInfo279 },  // Inst #2106 = XSADDDP
+  { 2107,	3,	1,	4,	165,	0|(1ULL<<MCID::MayRaiseFPException)|(1ULL<<MCID::Commutable), 0x0ULL, nullptr, nullptr, OperandInfo77 },  // Inst #2107 = XSADDQP
+  { 2108,	3,	1,	4,	165,	0|(1ULL<<MCID::MayRaiseFPException)|(1ULL<<MCID::Commutable), 0x0ULL, nullptr, nullptr, OperandInfo77 },  // Inst #2108 = XSADDQPO
+  { 2109,	3,	1,	4,	159,	0|(1ULL<<MCID::MayRaiseFPException)|(1ULL<<MCID::Commutable), 0x0ULL, nullptr, nullptr, OperandInfo280 },  // Inst #2109 = XSADDSP
+  { 2110,	3,	1,	4,	109,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo281 },  // Inst #2110 = XSCMPEQDP
+  { 2111,	3,	1,	4,	109,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo282 },  // Inst #2111 = XSCMPEXPDP
+  { 2112,	3,	1,	4,	164,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo283 },  // Inst #2112 = XSCMPEXPQP
+  { 2113,	3,	1,	4,	109,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo281 },  // Inst #2113 = XSCMPGEDP
+  { 2114,	3,	1,	4,	109,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo281 },  // Inst #2114 = XSCMPGTDP
+  { 2115,	3,	1,	4,	109,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, ImplicitList18, nullptr, OperandInfo282 },  // Inst #2115 = XSCMPODP
+  { 2116,	3,	1,	4,	164,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo283 },  // Inst #2116 = XSCMPOQP
+  { 2117,	3,	1,	4,	109,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, ImplicitList18, nullptr, OperandInfo282 },  // Inst #2117 = XSCMPUDP
+  { 2118,	3,	1,	4,	164,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo283 },  // Inst #2118 = XSCMPUQP
+  { 2119,	3,	1,	4,	120,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, ImplicitList18, nullptr, OperandInfo279 },  // Inst #2119 = XSCPSGNDP
+  { 2120,	3,	1,	4,	98,	0, 0x0ULL, nullptr, nullptr, OperandInfo77 },  // Inst #2120 = XSCPSGNQP
+  { 2121,	2,	1,	4,	159,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo278 },  // Inst #2121 = XSCVDPHP
+  { 2122,	2,	1,	4,	165,	0, 0x0ULL, nullptr, nullptr, OperandInfo284 },  // Inst #2122 = XSCVDPQP
+  { 2123,	2,	1,	4,	159,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, ImplicitList18, nullptr, OperandInfo278 },  // Inst #2123 = XSCVDPSP
+  { 2124,	2,	1,	4,	159,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, nullptr, nullptr, OperandInfo285 },  // Inst #2124 = XSCVDPSPN
+  { 2125,	2,	1,	4,	159,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, ImplicitList18, nullptr, OperandInfo278 },  // Inst #2125 = XSCVDPSXDS
+  { 2126,	2,	1,	4,	159,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, ImplicitList18, nullptr, OperandInfo286 },  // Inst #2126 = XSCVDPSXDSs
+  { 2127,	2,	1,	4,	159,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, ImplicitList18, nullptr, OperandInfo278 },  // Inst #2127 = XSCVDPSXWS
+  { 2128,	2,	1,	4,	159,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, ImplicitList18, nullptr, OperandInfo286 },  // Inst #2128 = XSCVDPSXWSs
+  { 2129,	2,	1,	4,	159,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, ImplicitList18, nullptr, OperandInfo278 },  // Inst #2129 = XSCVDPUXDS
+  { 2130,	2,	1,	4,	159,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, ImplicitList18, nullptr, OperandInfo286 },  // Inst #2130 = XSCVDPUXDSs
+  { 2131,	2,	1,	4,	159,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, ImplicitList18, nullptr, OperandInfo278 },  // Inst #2131 = XSCVDPUXWS
+  { 2132,	2,	1,	4,	159,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, ImplicitList18, nullptr, OperandInfo286 },  // Inst #2132 = XSCVDPUXWSs
+  { 2133,	2,	1,	4,	159,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo278 },  // Inst #2133 = XSCVHPDP
+  { 2134,	2,	1,	4,	165,	0, 0x0ULL, nullptr, nullptr, OperandInfo287 },  // Inst #2134 = XSCVQPDP
+  { 2135,	2,	1,	4,	165,	0, 0x0ULL, nullptr, nullptr, OperandInfo287 },  // Inst #2135 = XSCVQPDPO
+  { 2136,	2,	1,	4,	165,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo78 },  // Inst #2136 = XSCVQPSDZ
+  { 2137,	2,	1,	4,	165,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo78 },  // Inst #2137 = XSCVQPSWZ
+  { 2138,	2,	1,	4,	165,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo78 },  // Inst #2138 = XSCVQPUDZ
+  { 2139,	2,	1,	4,	165,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo78 },  // Inst #2139 = XSCVQPUWZ
+  { 2140,	2,	1,	4,	165,	0, 0x0ULL, nullptr, nullptr, OperandInfo284 },  // Inst #2140 = XSCVSDQP
+  { 2141,	2,	1,	4,	159,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, ImplicitList18, nullptr, OperandInfo278 },  // Inst #2141 = XSCVSPDP
+  { 2142,	2,	1,	4,	108,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, nullptr, nullptr, OperandInfo288 },  // Inst #2142 = XSCVSPDPN
+  { 2143,	2,	1,	4,	159,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, ImplicitList18, nullptr, OperandInfo278 },  // Inst #2143 = XSCVSXDDP
+  { 2144,	2,	1,	4,	159,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, nullptr, nullptr, OperandInfo289 },  // Inst #2144 = XSCVSXDSP
+  { 2145,	2,	1,	4,	165,	0, 0x0ULL, nullptr, nullptr, OperandInfo284 },  // Inst #2145 = XSCVUDQP
+  { 2146,	2,	1,	4,	159,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, ImplicitList18, nullptr, OperandInfo278 },  // Inst #2146 = XSCVUXDDP
+  { 2147,	2,	1,	4,	159,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, nullptr, nullptr, OperandInfo289 },  // Inst #2147 = XSCVUXDSP
+  { 2148,	3,	1,	4,	269,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, ImplicitList18, nullptr, OperandInfo279 },  // Inst #2148 = XSDIVDP
+  { 2149,	3,	1,	4,	169,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, nullptr, nullptr, OperandInfo77 },  // Inst #2149 = XSDIVQP
+  { 2150,	3,	1,	4,	169,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, nullptr, nullptr, OperandInfo77 },  // Inst #2150 = XSDIVQPO
+  { 2151,	3,	1,	4,	272,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, nullptr, nullptr, OperandInfo280 },  // Inst #2151 = XSDIVSP
+  { 2152,	3,	1,	4,	134,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo290 },  // Inst #2152 = XSIEXPDP
+  { 2153,	3,	1,	4,	98,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo291 },  // Inst #2153 = XSIEXPQP
+  { 2154,	4,	1,	4,	151,	0|(1ULL<<MCID::MayRaiseFPException)|(1ULL<<MCID::Commutable), 0x0ULL, ImplicitList18, nullptr, OperandInfo292 },  // Inst #2154 = XSMADDADP
+  { 2155,	4,	1,	4,	151,	0|(1ULL<<MCID::MayRaiseFPException)|(1ULL<<MCID::Commutable), 0x0ULL, nullptr, nullptr, OperandInfo293 },  // Inst #2155 = XSMADDASP
+  { 2156,	4,	1,	4,	151,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, ImplicitList18, nullptr, OperandInfo292 },  // Inst #2156 = XSMADDMDP
+  { 2157,	4,	1,	4,	151,	0|(1ULL<<MCID::MayRaiseFPException)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo293 },  // Inst #2157 = XSMADDMSP
+  { 2158,	4,	1,	4,	167,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, nullptr, nullptr, OperandInfo294 },  // Inst #2158 = XSMADDQP
+  { 2159,	4,	1,	4,	167,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, nullptr, nullptr, OperandInfo294 },  // Inst #2159 = XSMADDQPO
+  { 2160,	3,	1,	4,	108,	0, 0x0ULL, nullptr, nullptr, OperandInfo279 },  // Inst #2160 = XSMAXCDP
+  { 2161,	3,	1,	4,	108,	0|(1ULL<<MCID::MayRaiseFPException)|(1ULL<<MCID::Commutable), 0x0ULL, ImplicitList18, nullptr, OperandInfo279 },  // Inst #2161 = XSMAXDP
+  { 2162,	3,	1,	4,	108,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo281 },  // Inst #2162 = XSMAXJDP
+  { 2163,	3,	1,	4,	108,	0, 0x0ULL, nullptr, nullptr, OperandInfo279 },  // Inst #2163 = XSMINCDP
+  { 2164,	3,	1,	4,	108,	0|(1ULL<<MCID::MayRaiseFPException)|(1ULL<<MCID::Commutable), 0x0ULL, ImplicitList18, nullptr, OperandInfo279 },  // Inst #2164 = XSMINDP
+  { 2165,	3,	1,	4,	108,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo281 },  // Inst #2165 = XSMINJDP
+  { 2166,	4,	1,	4,	151,	0|(1ULL<<MCID::MayRaiseFPException)|(1ULL<<MCID::Commutable), 0x0ULL, ImplicitList18, nullptr, OperandInfo292 },  // Inst #2166 = XSMSUBADP
+  { 2167,	4,	1,	4,	151,	0|(1ULL<<MCID::MayRaiseFPException)|(1ULL<<MCID::Commutable), 0x0ULL, nullptr, nullptr, OperandInfo293 },  // Inst #2167 = XSMSUBASP
+  { 2168,	4,	1,	4,	151,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, ImplicitList18, nullptr, OperandInfo292 },  // Inst #2168 = XSMSUBMDP
+  { 2169,	4,	1,	4,	151,	0|(1ULL<<MCID::MayRaiseFPException)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo293 },  // Inst #2169 = XSMSUBMSP
+  { 2170,	4,	1,	4,	167,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, nullptr, nullptr, OperandInfo294 },  // Inst #2170 = XSMSUBQP
+  { 2171,	4,	1,	4,	167,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, nullptr, nullptr, OperandInfo294 },  // Inst #2171 = XSMSUBQPO
+  { 2172,	3,	1,	4,	151,	0|(1ULL<<MCID::MayRaiseFPException)|(1ULL<<MCID::Commutable), 0x0ULL, ImplicitList18, nullptr, OperandInfo279 },  // Inst #2172 = XSMULDP
+  { 2173,	3,	1,	4,	167,	0|(1ULL<<MCID::MayRaiseFPException)|(1ULL<<MCID::Commutable), 0x0ULL, nullptr, nullptr, OperandInfo77 },  // Inst #2173 = XSMULQP
+  { 2174,	3,	1,	4,	167,	0|(1ULL<<MCID::MayRaiseFPException)|(1ULL<<MCID::Commutable), 0x0ULL, nullptr, nullptr, OperandInfo77 },  // Inst #2174 = XSMULQPO
+  { 2175,	3,	1,	4,	151,	0|(1ULL<<MCID::MayRaiseFPException)|(1ULL<<MCID::Commutable), 0x0ULL, nullptr, nullptr, OperandInfo280 },  // Inst #2175 = XSMULSP
+  { 2176,	2,	1,	4,	120,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, ImplicitList18, nullptr, OperandInfo278 },  // Inst #2176 = XSNABSDP
+  { 2177,	2,	1,	4,	98,	0, 0x0ULL, nullptr, nullptr, OperandInfo78 },  // Inst #2177 = XSNABSQP
+  { 2178,	2,	1,	4,	120,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, ImplicitList18, nullptr, OperandInfo278 },  // Inst #2178 = XSNEGDP
+  { 2179,	2,	1,	4,	98,	0, 0x0ULL, nullptr, nullptr, OperandInfo78 },  // Inst #2179 = XSNEGQP
+  { 2180,	4,	1,	4,	151,	0|(1ULL<<MCID::MayRaiseFPException)|(1ULL<<MCID::Commutable), 0x0ULL, ImplicitList18, nullptr, OperandInfo292 },  // Inst #2180 = XSNMADDADP
+  { 2181,	4,	1,	4,	151,	0|(1ULL<<MCID::MayRaiseFPException)|(1ULL<<MCID::Commutable), 0x0ULL, nullptr, nullptr, OperandInfo293 },  // Inst #2181 = XSNMADDASP
+  { 2182,	4,	1,	4,	151,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, ImplicitList18, nullptr, OperandInfo292 },  // Inst #2182 = XSNMADDMDP
+  { 2183,	4,	1,	4,	151,	0|(1ULL<<MCID::MayRaiseFPException)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo293 },  // Inst #2183 = XSNMADDMSP
+  { 2184,	4,	1,	4,	167,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, nullptr, nullptr, OperandInfo294 },  // Inst #2184 = XSNMADDQP
+  { 2185,	4,	1,	4,	167,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, nullptr, nullptr, OperandInfo294 },  // Inst #2185 = XSNMADDQPO
+  { 2186,	4,	1,	4,	151,	0|(1ULL<<MCID::MayRaiseFPException)|(1ULL<<MCID::Commutable), 0x0ULL, ImplicitList18, nullptr, OperandInfo292 },  // Inst #2186 = XSNMSUBADP
+  { 2187,	4,	1,	4,	151,	0|(1ULL<<MCID::MayRaiseFPException)|(1ULL<<MCID::Commutable), 0x0ULL, nullptr, nullptr, OperandInfo293 },  // Inst #2187 = XSNMSUBASP
+  { 2188,	4,	1,	4,	151,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, ImplicitList18, nullptr, OperandInfo292 },  // Inst #2188 = XSNMSUBMDP
+  { 2189,	4,	1,	4,	151,	0|(1ULL<<MCID::MayRaiseFPException)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo293 },  // Inst #2189 = XSNMSUBMSP
+  { 2190,	4,	1,	4,	167,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, nullptr, nullptr, OperandInfo294 },  // Inst #2190 = XSNMSUBQP
+  { 2191,	4,	1,	4,	167,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, nullptr, nullptr, OperandInfo294 },  // Inst #2191 = XSNMSUBQPO
+  { 2192,	2,	1,	4,	159,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, ImplicitList18, nullptr, OperandInfo278 },  // Inst #2192 = XSRDPI
+  { 2193,	2,	1,	4,	159,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, ImplicitList18, nullptr, OperandInfo278 },  // Inst #2193 = XSRDPIC
+  { 2194,	2,	1,	4,	159,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, ImplicitList18, nullptr, OperandInfo278 },  // Inst #2194 = XSRDPIM
+  { 2195,	2,	1,	4,	159,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, ImplicitList18, nullptr, OperandInfo278 },  // Inst #2195 = XSRDPIP
+  { 2196,	2,	1,	4,	159,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, ImplicitList18, nullptr, OperandInfo278 },  // Inst #2196 = XSRDPIZ
+  { 2197,	2,	1,	4,	159,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, ImplicitList18, nullptr, OperandInfo278 },  // Inst #2197 = XSREDP
+  { 2198,	2,	1,	4,	159,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, nullptr, nullptr, OperandInfo286 },  // Inst #2198 = XSRESP
+  { 2199,	4,	1,	4,	165,	0, 0x0ULL, nullptr, nullptr, OperandInfo295 },  // Inst #2199 = XSRQPI
+  { 2200,	4,	1,	4,	165,	0, 0x0ULL, nullptr, nullptr, OperandInfo295 },  // Inst #2200 = XSRQPIX
+  { 2201,	4,	1,	4,	165,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo295 },  // Inst #2201 = XSRQPXP
+  { 2202,	2,	1,	4,	159,	0|(1ULL<<MCID::MayRaiseFPException)|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo289 },  // Inst #2202 = XSRSP
+  { 2203,	2,	1,	4,	159,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, ImplicitList18, nullptr, OperandInfo278 },  // Inst #2203 = XSRSQRTEDP
+  { 2204,	2,	1,	4,	159,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, nullptr, nullptr, OperandInfo286 },  // Inst #2204 = XSRSQRTESP
+  { 2205,	2,	1,	4,	261,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, ImplicitList18, nullptr, OperandInfo278 },  // Inst #2205 = XSSQRTDP
+  { 2206,	2,	1,	4,	170,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, nullptr, nullptr, OperandInfo78 },  // Inst #2206 = XSSQRTQP
+  { 2207,	2,	1,	4,	170,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, nullptr, nullptr, OperandInfo78 },  // Inst #2207 = XSSQRTQPO
+  { 2208,	2,	1,	4,	266,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, nullptr, nullptr, OperandInfo286 },  // Inst #2208 = XSSQRTSP
+  { 2209,	3,	1,	4,	159,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, ImplicitList18, nullptr, OperandInfo279 },  // Inst #2209 = XSSUBDP
+  { 2210,	3,	1,	4,	165,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, nullptr, nullptr, OperandInfo77 },  // Inst #2210 = XSSUBQP
+  { 2211,	3,	1,	4,	165,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, nullptr, nullptr, OperandInfo77 },  // Inst #2211 = XSSUBQPO
+  { 2212,	3,	1,	4,	159,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, nullptr, nullptr, OperandInfo280 },  // Inst #2212 = XSSUBSP
+  { 2213,	3,	1,	4,	109,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, ImplicitList18, nullptr, OperandInfo282 },  // Inst #2213 = XSTDIVDP
+  { 2214,	2,	1,	4,	109,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, ImplicitList18, nullptr, OperandInfo296 },  // Inst #2214 = XSTSQRTDP
+  { 2215,	3,	1,	4,	107,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo297 },  // Inst #2215 = XSTSTDCDP
+  { 2216,	3,	1,	4,	162,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo298 },  // Inst #2216 = XSTSTDCQP
+  { 2217,	3,	1,	4,	107,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo297 },  // Inst #2217 = XSTSTDCSP
+  { 2218,	2,	1,	4,	120,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo165 },  // Inst #2218 = XSXEXPDP
+  { 2219,	2,	1,	4,	98,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo78 },  // Inst #2219 = XSXEXPQP
+  { 2220,	2,	1,	4,	108,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo165 },  // Inst #2220 = XSXSIGDP
+  { 2221,	2,	1,	4,	162,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo78 },  // Inst #2221 = XSXSIGQP
+  { 2222,	2,	1,	4,	98,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, ImplicitList18, nullptr, OperandInfo299 },  // Inst #2222 = XVABSDP
+  { 2223,	2,	1,	4,	98,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, ImplicitList18, nullptr, OperandInfo299 },  // Inst #2223 = XVABSSP
+  { 2224,	3,	1,	4,	142,	0|(1ULL<<MCID::MayRaiseFPException)|(1ULL<<MCID::Commutable), 0x0ULL, ImplicitList18, nullptr, OperandInfo300 },  // Inst #2224 = XVADDDP
+  { 2225,	3,	1,	4,	142,	0|(1ULL<<MCID::MayRaiseFPException)|(1ULL<<MCID::Commutable), 0x0ULL, ImplicitList18, nullptr, OperandInfo300 },  // Inst #2225 = XVADDSP
+  { 2226,	3,	1,	4,	138,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, ImplicitList18, nullptr, OperandInfo300 },  // Inst #2226 = XVCMPEQDP
+  { 2227,	3,	1,	4,	138,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, ImplicitList18, ImplicitList20, OperandInfo300 },  // Inst #2227 = XVCMPEQDP_rec
+  { 2228,	3,	1,	4,	138,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, ImplicitList18, nullptr, OperandInfo300 },  // Inst #2228 = XVCMPEQSP
+  { 2229,	3,	1,	4,	138,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, ImplicitList18, ImplicitList20, OperandInfo300 },  // Inst #2229 = XVCMPEQSP_rec
+  { 2230,	3,	1,	4,	138,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, ImplicitList18, nullptr, OperandInfo300 },  // Inst #2230 = XVCMPGEDP
+  { 2231,	3,	1,	4,	138,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, ImplicitList18, ImplicitList20, OperandInfo300 },  // Inst #2231 = XVCMPGEDP_rec
+  { 2232,	3,	1,	4,	138,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, ImplicitList18, nullptr, OperandInfo300 },  // Inst #2232 = XVCMPGESP
+  { 2233,	3,	1,	4,	138,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, ImplicitList18, ImplicitList20, OperandInfo300 },  // Inst #2233 = XVCMPGESP_rec
+  { 2234,	3,	1,	4,	138,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, ImplicitList18, nullptr, OperandInfo300 },  // Inst #2234 = XVCMPGTDP
+  { 2235,	3,	1,	4,	138,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, ImplicitList18, ImplicitList20, OperandInfo300 },  // Inst #2235 = XVCMPGTDP_rec
+  { 2236,	3,	1,	4,	138,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, ImplicitList18, nullptr, OperandInfo300 },  // Inst #2236 = XVCMPGTSP
+  { 2237,	3,	1,	4,	138,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, ImplicitList18, ImplicitList20, OperandInfo300 },  // Inst #2237 = XVCMPGTSP_rec
+  { 2238,	3,	1,	4,	98,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, ImplicitList18, nullptr, OperandInfo300 },  // Inst #2238 = XVCPSGNDP
+  { 2239,	3,	1,	4,	98,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, ImplicitList18, nullptr, OperandInfo300 },  // Inst #2239 = XVCPSGNSP
+  { 2240,	2,	1,	4,	142,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, ImplicitList18, nullptr, OperandInfo299 },  // Inst #2240 = XVCVDPSP
+  { 2241,	2,	1,	4,	142,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, ImplicitList18, nullptr, OperandInfo299 },  // Inst #2241 = XVCVDPSXDS
+  { 2242,	2,	1,	4,	142,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, ImplicitList18, nullptr, OperandInfo299 },  // Inst #2242 = XVCVDPSXWS
+  { 2243,	2,	1,	4,	142,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, ImplicitList18, nullptr, OperandInfo299 },  // Inst #2243 = XVCVDPUXDS
+  { 2244,	2,	1,	4,	142,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, ImplicitList18, nullptr, OperandInfo299 },  // Inst #2244 = XVCVDPUXWS
+  { 2245,	2,	1,	4,	142,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo299 },  // Inst #2245 = XVCVHPSP
+  { 2246,	2,	1,	4,	142,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, ImplicitList18, nullptr, OperandInfo299 },  // Inst #2246 = XVCVSPDP
+  { 2247,	2,	1,	4,	142,	0, 0x0ULL, nullptr, nullptr, OperandInfo299 },  // Inst #2247 = XVCVSPHP
+  { 2248,	2,	1,	4,	142,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, ImplicitList18, nullptr, OperandInfo299 },  // Inst #2248 = XVCVSPSXDS
+  { 2249,	2,	1,	4,	142,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, ImplicitList18, nullptr, OperandInfo299 },  // Inst #2249 = XVCVSPSXWS
+  { 2250,	2,	1,	4,	142,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, ImplicitList18, nullptr, OperandInfo299 },  // Inst #2250 = XVCVSPUXDS
+  { 2251,	2,	1,	4,	142,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, ImplicitList18, nullptr, OperandInfo299 },  // Inst #2251 = XVCVSPUXWS
+  { 2252,	2,	1,	4,	142,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, ImplicitList18, nullptr, OperandInfo299 },  // Inst #2252 = XVCVSXDDP
+  { 2253,	2,	1,	4,	142,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, ImplicitList18, nullptr, OperandInfo299 },  // Inst #2253 = XVCVSXDSP
+  { 2254,	2,	1,	4,	142,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, ImplicitList18, nullptr, OperandInfo299 },  // Inst #2254 = XVCVSXWDP
+  { 2255,	2,	1,	4,	142,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, ImplicitList18, nullptr, OperandInfo299 },  // Inst #2255 = XVCVSXWSP
+  { 2256,	2,	1,	4,	142,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, ImplicitList18, nullptr, OperandInfo299 },  // Inst #2256 = XVCVUXDDP
+  { 2257,	2,	1,	4,	142,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, ImplicitList18, nullptr, OperandInfo299 },  // Inst #2257 = XVCVUXDSP
+  { 2258,	2,	1,	4,	142,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, ImplicitList18, nullptr, OperandInfo299 },  // Inst #2258 = XVCVUXWDP
+  { 2259,	2,	1,	4,	142,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, ImplicitList18, nullptr, OperandInfo299 },  // Inst #2259 = XVCVUXWSP
+  { 2260,	3,	1,	4,	274,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, ImplicitList18, nullptr, OperandInfo300 },  // Inst #2260 = XVDIVDP
+  { 2261,	3,	1,	4,	273,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, ImplicitList18, nullptr, OperandInfo300 },  // Inst #2261 = XVDIVSP
+  { 2262,	3,	1,	4,	98,	0, 0x0ULL, nullptr, nullptr, OperandInfo300 },  // Inst #2262 = XVIEXPDP
+  { 2263,	3,	1,	4,	98,	0, 0x0ULL, nullptr, nullptr, OperandInfo300 },  // Inst #2263 = XVIEXPSP
+  { 2264,	4,	1,	4,	142,	0|(1ULL<<MCID::MayRaiseFPException)|(1ULL<<MCID::Commutable), 0x0ULL, ImplicitList18, nullptr, OperandInfo301 },  // Inst #2264 = XVMADDADP
+  { 2265,	4,	1,	4,	142,	0|(1ULL<<MCID::MayRaiseFPException)|(1ULL<<MCID::Commutable), 0x0ULL, ImplicitList18, nullptr, OperandInfo301 },  // Inst #2265 = XVMADDASP
+  { 2266,	4,	1,	4,	142,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, ImplicitList18, nullptr, OperandInfo301 },  // Inst #2266 = XVMADDMDP
+  { 2267,	4,	1,	4,	142,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, ImplicitList18, nullptr, OperandInfo301 },  // Inst #2267 = XVMADDMSP
+  { 2268,	3,	1,	4,	140,	0|(1ULL<<MCID::MayRaiseFPException)|(1ULL<<MCID::Commutable), 0x0ULL, ImplicitList18, nullptr, OperandInfo300 },  // Inst #2268 = XVMAXDP
+  { 2269,	3,	1,	4,	140,	0|(1ULL<<MCID::MayRaiseFPException)|(1ULL<<MCID::Commutable), 0x0ULL, ImplicitList18, nullptr, OperandInfo300 },  // Inst #2269 = XVMAXSP
+  { 2270,	3,	1,	4,	140,	0|(1ULL<<MCID::MayRaiseFPException)|(1ULL<<MCID::Commutable), 0x0ULL, ImplicitList18, nullptr, OperandInfo300 },  // Inst #2270 = XVMINDP
+  { 2271,	3,	1,	4,	140,	0|(1ULL<<MCID::MayRaiseFPException)|(1ULL<<MCID::Commutable), 0x0ULL, ImplicitList18, nullptr, OperandInfo300 },  // Inst #2271 = XVMINSP
+  { 2272,	4,	1,	4,	142,	0|(1ULL<<MCID::MayRaiseFPException)|(1ULL<<MCID::Commutable), 0x0ULL, ImplicitList18, nullptr, OperandInfo301 },  // Inst #2272 = XVMSUBADP
+  { 2273,	4,	1,	4,	142,	0|(1ULL<<MCID::MayRaiseFPException)|(1ULL<<MCID::Commutable), 0x0ULL, ImplicitList18, nullptr, OperandInfo301 },  // Inst #2273 = XVMSUBASP
+  { 2274,	4,	1,	4,	142,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, ImplicitList18, nullptr, OperandInfo301 },  // Inst #2274 = XVMSUBMDP
+  { 2275,	4,	1,	4,	142,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, ImplicitList18, nullptr, OperandInfo301 },  // Inst #2275 = XVMSUBMSP
+  { 2276,	3,	1,	4,	142,	0|(1ULL<<MCID::MayRaiseFPException)|(1ULL<<MCID::Commutable), 0x0ULL, ImplicitList18, nullptr, OperandInfo300 },  // Inst #2276 = XVMULDP
+  { 2277,	3,	1,	4,	142,	0|(1ULL<<MCID::MayRaiseFPException)|(1ULL<<MCID::Commutable), 0x0ULL, ImplicitList18, nullptr, OperandInfo300 },  // Inst #2277 = XVMULSP
+  { 2278,	2,	1,	4,	98,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, ImplicitList18, nullptr, OperandInfo299 },  // Inst #2278 = XVNABSDP
+  { 2279,	2,	1,	4,	98,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, ImplicitList18, nullptr, OperandInfo299 },  // Inst #2279 = XVNABSSP
+  { 2280,	2,	1,	4,	98,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, ImplicitList18, nullptr, OperandInfo299 },  // Inst #2280 = XVNEGDP
+  { 2281,	2,	1,	4,	98,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, ImplicitList18, nullptr, OperandInfo299 },  // Inst #2281 = XVNEGSP
+  { 2282,	4,	1,	4,	142,	0|(1ULL<<MCID::MayRaiseFPException)|(1ULL<<MCID::Commutable), 0x0ULL, ImplicitList18, nullptr, OperandInfo301 },  // Inst #2282 = XVNMADDADP
+  { 2283,	4,	1,	4,	142,	0|(1ULL<<MCID::MayRaiseFPException)|(1ULL<<MCID::Commutable), 0x0ULL, ImplicitList18, nullptr, OperandInfo301 },  // Inst #2283 = XVNMADDASP
+  { 2284,	4,	1,	4,	142,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, ImplicitList18, nullptr, OperandInfo301 },  // Inst #2284 = XVNMADDMDP
+  { 2285,	4,	1,	4,	142,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, ImplicitList18, nullptr, OperandInfo301 },  // Inst #2285 = XVNMADDMSP
+  { 2286,	4,	1,	4,	142,	0|(1ULL<<MCID::MayRaiseFPException)|(1ULL<<MCID::Commutable), 0x0ULL, ImplicitList18, nullptr, OperandInfo301 },  // Inst #2286 = XVNMSUBADP
+  { 2287,	4,	1,	4,	142,	0|(1ULL<<MCID::MayRaiseFPException)|(1ULL<<MCID::Commutable), 0x0ULL, ImplicitList18, nullptr, OperandInfo301 },  // Inst #2287 = XVNMSUBASP
+  { 2288,	4,	1,	4,	142,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, ImplicitList18, nullptr, OperandInfo301 },  // Inst #2288 = XVNMSUBMDP
+  { 2289,	4,	1,	4,	142,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, ImplicitList18, nullptr, OperandInfo301 },  // Inst #2289 = XVNMSUBMSP
+  { 2290,	2,	1,	4,	142,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, ImplicitList18, nullptr, OperandInfo299 },  // Inst #2290 = XVRDPI
+  { 2291,	2,	1,	4,	142,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, ImplicitList18, nullptr, OperandInfo299 },  // Inst #2291 = XVRDPIC
+  { 2292,	2,	1,	4,	142,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, ImplicitList18, nullptr, OperandInfo299 },  // Inst #2292 = XVRDPIM
+  { 2293,	2,	1,	4,	142,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, ImplicitList18, nullptr, OperandInfo299 },  // Inst #2293 = XVRDPIP
+  { 2294,	2,	1,	4,	142,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, ImplicitList18, nullptr, OperandInfo299 },  // Inst #2294 = XVRDPIZ
+  { 2295,	2,	1,	4,	142,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, ImplicitList18, nullptr, OperandInfo299 },  // Inst #2295 = XVREDP
+  { 2296,	2,	1,	4,	142,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, ImplicitList18, nullptr, OperandInfo299 },  // Inst #2296 = XVRESP
+  { 2297,	2,	1,	4,	142,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, ImplicitList18, nullptr, OperandInfo299 },  // Inst #2297 = XVRSPI
+  { 2298,	2,	1,	4,	142,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, ImplicitList18, nullptr, OperandInfo299 },  // Inst #2298 = XVRSPIC
+  { 2299,	2,	1,	4,	142,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, ImplicitList18, nullptr, OperandInfo299 },  // Inst #2299 = XVRSPIM
+  { 2300,	2,	1,	4,	142,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, ImplicitList18, nullptr, OperandInfo299 },  // Inst #2300 = XVRSPIP
+  { 2301,	2,	1,	4,	142,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, ImplicitList18, nullptr, OperandInfo299 },  // Inst #2301 = XVRSPIZ
+  { 2302,	2,	1,	4,	142,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, ImplicitList18, nullptr, OperandInfo299 },  // Inst #2302 = XVRSQRTEDP
+  { 2303,	2,	1,	4,	142,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, ImplicitList18, nullptr, OperandInfo299 },  // Inst #2303 = XVRSQRTESP
+  { 2304,	2,	1,	4,	263,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, ImplicitList18, nullptr, OperandInfo299 },  // Inst #2304 = XVSQRTDP
+  { 2305,	2,	1,	4,	264,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, ImplicitList18, nullptr, OperandInfo299 },  // Inst #2305 = XVSQRTSP
+  { 2306,	3,	1,	4,	142,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, ImplicitList18, nullptr, OperandInfo300 },  // Inst #2306 = XVSUBDP
+  { 2307,	3,	1,	4,	142,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, ImplicitList18, nullptr, OperandInfo300 },  // Inst #2307 = XVSUBSP
+  { 2308,	3,	1,	4,	141,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, ImplicitList18, nullptr, OperandInfo302 },  // Inst #2308 = XVTDIVDP
+  { 2309,	3,	1,	4,	141,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, ImplicitList18, nullptr, OperandInfo302 },  // Inst #2309 = XVTDIVSP
+  { 2310,	2,	1,	4,	141,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, ImplicitList18, nullptr, OperandInfo303 },  // Inst #2310 = XVTSQRTDP
+  { 2311,	2,	1,	4,	141,	0|(1ULL<<MCID::MayRaiseFPException), 0x0ULL, ImplicitList18, nullptr, OperandInfo303 },  // Inst #2311 = XVTSQRTSP
+  { 2312,	3,	1,	4,	140,	0, 0x0ULL, nullptr, nullptr, OperandInfo304 },  // Inst #2312 = XVTSTDCDP
+  { 2313,	3,	1,	4,	140,	0, 0x0ULL, nullptr, nullptr, OperandInfo304 },  // Inst #2313 = XVTSTDCSP
+  { 2314,	2,	1,	4,	98,	0, 0x0ULL, nullptr, nullptr, OperandInfo299 },  // Inst #2314 = XVXEXPDP
+  { 2315,	2,	1,	4,	98,	0, 0x0ULL, nullptr, nullptr, OperandInfo299 },  // Inst #2315 = XVXEXPSP
+  { 2316,	2,	1,	4,	140,	0, 0x0ULL, nullptr, nullptr, OperandInfo299 },  // Inst #2316 = XVXSIGDP
+  { 2317,	2,	1,	4,	140,	0, 0x0ULL, nullptr, nullptr, OperandInfo299 },  // Inst #2317 = XVXSIGSP
+  { 2318,	2,	1,	4,	162,	0, 0x0ULL, nullptr, nullptr, OperandInfo299 },  // Inst #2318 = XXBRD
+  { 2319,	2,	1,	4,	162,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo299 },  // Inst #2319 = XXBRH
+  { 2320,	2,	1,	4,	162,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo299 },  // Inst #2320 = XXBRQ
+  { 2321,	2,	1,	4,	162,	0, 0x0ULL, nullptr, nullptr, OperandInfo299 },  // Inst #2321 = XXBRW
+  { 2322,	3,	1,	4,	162,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo305 },  // Inst #2322 = XXEXTRACTUW
+  { 2323,	4,	1,	4,	162,	0, 0x0ULL, nullptr, nullptr, OperandInfo306 },  // Inst #2323 = XXINSERTW
+  { 2324,	3,	1,	4,	97,	0|(1ULL<<MCID::Commutable), 0x0ULL, nullptr, nullptr, OperandInfo300 },  // Inst #2324 = XXLAND
+  { 2325,	3,	1,	4,	97,	0, 0x0ULL, nullptr, nullptr, OperandInfo300 },  // Inst #2325 = XXLANDC
+  { 2326,	3,	1,	4,	97,	0|(1ULL<<MCID::Commutable), 0x0ULL, nullptr, nullptr, OperandInfo300 },  // Inst #2326 = XXLEQV
+  { 2327,	1,	1,	4,	97,	0|(1ULL<<MCID::MoveImm)|(1ULL<<MCID::Bitcast)|(1ULL<<MCID::Rematerializable)|(1ULL<<MCID::CheapAsAMove), 0x0ULL, nullptr, nullptr, OperandInfo307 },  // Inst #2327 = XXLEQVOnes
+  { 2328,	3,	1,	4,	97,	0|(1ULL<<MCID::Commutable), 0x0ULL, nullptr, nullptr, OperandInfo300 },  // Inst #2328 = XXLNAND
+  { 2329,	3,	1,	4,	97,	0|(1ULL<<MCID::Commutable), 0x0ULL, nullptr, nullptr, OperandInfo300 },  // Inst #2329 = XXLNOR
+  { 2330,	3,	1,	4,	97,	0|(1ULL<<MCID::Commutable), 0x0ULL, nullptr, nullptr, OperandInfo300 },  // Inst #2330 = XXLOR
+  { 2331,	3,	1,	4,	97,	0, 0x0ULL, nullptr, nullptr, OperandInfo300 },  // Inst #2331 = XXLORC
+  { 2332,	3,	1,	4,	97,	0|(1ULL<<MCID::Commutable), 0x0ULL, nullptr, nullptr, OperandInfo279 },  // Inst #2332 = XXLORf
+  { 2333,	3,	1,	4,	97,	0|(1ULL<<MCID::Commutable), 0x0ULL, nullptr, nullptr, OperandInfo300 },  // Inst #2333 = XXLXOR
+  { 2334,	1,	1,	4,	97,	0|(1ULL<<MCID::MoveImm)|(1ULL<<MCID::Rematerializable)|(1ULL<<MCID::CheapAsAMove), 0x0ULL, nullptr, nullptr, OperandInfo308 },  // Inst #2334 = XXLXORdpz
+  { 2335,	1,	1,	4,	97,	0|(1ULL<<MCID::MoveImm)|(1ULL<<MCID::Rematerializable)|(1ULL<<MCID::CheapAsAMove), 0x0ULL, nullptr, nullptr, OperandInfo309 },  // Inst #2335 = XXLXORspz
+  { 2336,	1,	1,	4,	97,	0|(1ULL<<MCID::MoveImm)|(1ULL<<MCID::Rematerializable)|(1ULL<<MCID::CheapAsAMove), 0x0ULL, nullptr, nullptr, OperandInfo307 },  // Inst #2336 = XXLXORz
+  { 2337,	3,	1,	4,	161,	0, 0x0ULL, nullptr, nullptr, OperandInfo300 },  // Inst #2337 = XXMRGHW
+  { 2338,	3,	1,	4,	161,	0, 0x0ULL, nullptr, nullptr, OperandInfo300 },  // Inst #2338 = XXMRGLW
+  { 2339,	3,	1,	4,	161,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo300 },  // Inst #2339 = XXPERM
+  { 2340,	4,	1,	4,	161,	0, 0x0ULL, nullptr, nullptr, OperandInfo310 },  // Inst #2340 = XXPERMDI
+  { 2341,	3,	1,	4,	161,	0, 0x0ULL, nullptr, nullptr, OperandInfo311 },  // Inst #2341 = XXPERMDIs
+  { 2342,	3,	1,	4,	161,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo300 },  // Inst #2342 = XXPERMR
+  { 2343,	4,	1,	4,	99,	0, 0x0ULL, nullptr, nullptr, OperandInfo312 },  // Inst #2343 = XXSEL
+  { 2344,	4,	1,	4,	161,	0, 0x0ULL, nullptr, nullptr, OperandInfo310 },  // Inst #2344 = XXSLDWI
+  { 2345,	3,	1,	4,	161,	0, 0x0ULL, nullptr, nullptr, OperandInfo311 },  // Inst #2345 = XXSLDWIs
+  { 2346,	2,	1,	4,	161,	0|(1ULL<<MCID::UnmodeledSideEffects), 0x0ULL, nullptr, nullptr, OperandInfo313 },  // Inst #2346 = XXSPLTIB
+  { 2347,	3,	1,	4,	161,	0, 0x0ULL, nullptr, nullptr, OperandInfo314 },  // Inst #2347 = XXSPLTW
+  { 2348,	3,	1,	4,	161,	0, 0x0ULL, nullptr, nullptr, OperandInfo311 },  // Inst #2348 = XXSPLTWs
+  { 2349,	3,	0,	4,	287,	0|(1ULL<<MCID::Branch)|(1ULL<<MCID::UnmodeledSideEffects), 0x38ULL, ImplicitList14, ImplicitList12, OperandInfo315 },  // Inst #2349 = gBC
+  { 2350,	3,	0,	4,	287,	0|(1ULL<<MCID::Branch)|(1ULL<<MCID::UnmodeledSideEffects), 0x38ULL, ImplicitList14, ImplicitList12, OperandInfo316 },  // Inst #2350 = gBCA
+  { 2351,	4,	0,	4,	287,	0|(1ULL<<MCID::Branch)|(1ULL<<MCID::UnmodeledSideEffects), 0x38ULL, ImplicitList14, ImplicitList12, OperandInfo317 },  // Inst #2351 = gBCAat
+  { 2352,	3,	0,	4,	287,	0|(1ULL<<MCID::Branch)|(1ULL<<MCID::UnmodeledSideEffects), 0x38ULL, ImplicitList23, ImplicitList12, OperandInfo318 },  // Inst #2352 = gBCCTR
+  { 2353,	3,	0,	4,	287,	0|(1ULL<<MCID::Branch)|(1ULL<<MCID::UnmodeledSideEffects), 0x38ULL, ImplicitList23, ImplicitList31, OperandInfo318 },  // Inst #2353 = gBCCTRL
+  { 2354,	3,	0,	4,	287,	0|(1ULL<<MCID::Branch)|(1ULL<<MCID::UnmodeledSideEffects), 0x38ULL, ImplicitList14, ImplicitList31, OperandInfo315 },  // Inst #2354 = gBCL
+  { 2355,	3,	0,	4,	287,	0|(1ULL<<MCID::Branch)|(1ULL<<MCID::UnmodeledSideEffects), 0x38ULL, ImplicitList14, ImplicitList31, OperandInfo316 },  // Inst #2355 = gBCLA
+  { 2356,	4,	0,	4,	287,	0|(1ULL<<MCID::Branch)|(1ULL<<MCID::UnmodeledSideEffects), 0x38ULL, ImplicitList14, ImplicitList31, OperandInfo317 },  // Inst #2356 = gBCLAat
+  { 2357,	3,	0,	4,	287,	0|(1ULL<<MCID::Branch)|(1ULL<<MCID::UnmodeledSideEffects), 0x38ULL, ImplicitList23, ImplicitList12, OperandInfo318 },  // Inst #2357 = gBCLR
+  { 2358,	3,	0,	4,	287,	0|(1ULL<<MCID::Branch)|(1ULL<<MCID::UnmodeledSideEffects), 0x38ULL, ImplicitList23, ImplicitList31, OperandInfo318 },  // Inst #2358 = gBCLRL
+  { 2359,	4,	0,	4,	287,	0|(1ULL<<MCID::Branch)|(1ULL<<MCID::UnmodeledSideEffects), 0x38ULL, ImplicitList14, ImplicitList31, OperandInfo319 },  // Inst #2359 = gBCLat
+  { 2360,	4,	0,	4,	287,	0|(1ULL<<MCID::Branch)|(1ULL<<MCID::UnmodeledSideEffects), 0x38ULL, ImplicitList14, ImplicitList12, OperandInfo319 },  // Inst #2360 = gBCat
+};
+
+
+#ifdef __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Woverlength-strings"
+#endif
+extern const char PPCInstrNameData[] = {
+  /* 0 */ "G_FLOG10\0"
+  /* 9 */ "MTFSB0\0"
+  /* 16 */ "V_SET0\0"
+  /* 23 */ "VCTSXS_0\0"
+  /* 32 */ "VCTUXS_0\0"
+  /* 41 */ "VCFSX_0\0"
+  /* 49 */ "VCFUX_0\0"
+  /* 57 */ "MTFSB1\0"
+  /* 64 */ "ADDISdtprelHA32\0"
+  /* 80 */ "ATOMIC_LOAD_SUB_I32\0"
+  /* 100 */ "ATOMIC_LOAD_ADD_I32\0"
+  /* 120 */ "ATOMIC_LOAD_NAND_I32\0"
+  /* 141 */ "ATOMIC_LOAD_AND_I32\0"
+  /* 161 */ "ATOMIC_LOAD_UMIN_I32\0"
+  /* 182 */ "ATOMIC_LOAD_MIN_I32\0"
+  /* 202 */ "ATOMIC_SWAP_I32\0"
+  /* 218 */ "ATOMIC_CMP_SWAP_I32\0"
+  /* 238 */ "ATOMIC_LOAD_XOR_I32\0"
+  /* 258 */ "ATOMIC_LOAD_OR_I32\0"
+  /* 277 */ "ATOMIC_LOAD_UMAX_I32\0"
+  /* 298 */ "ATOMIC_LOAD_MAX_I32\0"
+  /* 318 */ "ADDItlsgdL32\0"
+  /* 331 */ "ADDItlsldL32\0"
+  /* 344 */ "LDgotTprelL32\0"
+  /* 358 */ "ADDIdtprelL32\0"
+  /* 372 */ "ADDItlsgdLADDR32\0"
+  /* 389 */ "ADDItlsldLADDR32\0"
+  /* 406 */ "GETtlsldADDR32\0"
+  /* 421 */ "GETtlsADDR32\0"
+  /* 434 */ "LWA_32\0"
+  /* 441 */ "SRADI_32\0"
+  /* 450 */ "RLDICL_32\0"
+  /* 460 */ "RLDICR_32\0"
+  /* 470 */ "STBXTLS_32\0"
+  /* 481 */ "STHXTLS_32\0"
+  /* 492 */ "STWXTLS_32\0"
+  /* 503 */ "LBZXTLS_32\0"
+  /* 514 */ "LHZXTLS_32\0"
+  /* 525 */ "LWZXTLS_32\0"
+  /* 536 */ "EXTSW_32\0"
+  /* 545 */ "LWAX_32\0"
+  /* 553 */ "DFLOADf32\0"
+  /* 563 */ "XFLOADf32\0"
+  /* 573 */ "DFSTOREf32\0"
+  /* 584 */ "XFSTOREf32\0"
+  /* 595 */ "EH_SjLj_LongJmp32\0"
+  /* 613 */ "EH_SjLj_SetJmp32\0"
+  /* 630 */ "TLBRE2\0"
+  /* 637 */ "TLBWE2\0"
+  /* 644 */ "G_FLOG2\0"
+  /* 652 */ "G_FEXP2\0"
+  /* 660 */ "TLBSX2\0"
+  /* 667 */ "ATOMIC_LOAD_SUB_I64\0"
+  /* 687 */ "ATOMIC_LOAD_ADD_I64\0"
+  /* 707 */ "ATOMIC_LOAD_NAND_I64\0"
+  /* 728 */ "ATOMIC_LOAD_AND_I64\0"
+  /* 748 */ "ATOMIC_LOAD_UMIN_I64\0"
+  /* 769 */ "ATOMIC_LOAD_MIN_I64\0"
+  /* 789 */ "ATOMIC_SWAP_I64\0"
+  /* 805 */ "ATOMIC_CMP_SWAP_I64\0"
+  /* 825 */ "ATOMIC_LOAD_XOR_I64\0"
+  /* 845 */ "ATOMIC_LOAD_OR_I64\0"
+  /* 864 */ "ATOMIC_LOAD_UMAX_I64\0"
+  /* 885 */ "ATOMIC_LOAD_MAX_I64\0"
+  /* 905 */ "DST64\0"
+  /* 911 */ "DSTST64\0"
+  /* 919 */ "DSTT64\0"
+  /* 926 */ "DSTSTT64\0"
+  /* 935 */ "EXTSB8_32_64\0"
+  /* 948 */ "EXTSH8_32_64\0"
+  /* 961 */ "EXTSWSLI_32_64\0"
+  /* 976 */ "RLDICL_32_64\0"
+  /* 989 */ "EXTSW_32_64\0"
+  /* 1001 */ "DFLOADf64\0"
+  /* 1011 */ "XFLOADf64\0"
+  /* 1021 */ "DFSTOREf64\0"
+  /* 1032 */ "XFSTOREf64\0"
+  /* 1043 */ "EH_SjLj_LongJmp64\0"
+  /* 1061 */ "EH_SjLj_SetJmp64\0"
+  /* 1078 */ "ADD4\0"
+  /* 1083 */ "SELECT_CC_SPE4\0"
+  /* 1098 */ "SELECT_SPE4\0"
+  /* 1110 */ "SELECT_CC_F4\0"
+  /* 1123 */ "SELECT_F4\0"
+  /* 1133 */ "SELECT_CC_I4\0"
+  /* 1146 */ "SELECT_I4\0"
+  /* 1156 */ "SELECT_CC_F16\0"
+  /* 1170 */ "SELECT_F16\0"
+  /* 1181 */ "ATOMIC_LOAD_SUB_I16\0"
+  /* 1201 */ "ATOMIC_LOAD_ADD_I16\0"
+  /* 1221 */ "ATOMIC_LOAD_NAND_I16\0"
+  /* 1242 */ "ATOMIC_LOAD_AND_I16\0"
+  /* 1262 */ "ATOMIC_LOAD_UMIN_I16\0"
+  /* 1283 */ "ATOMIC_LOAD_MIN_I16\0"
+  /* 1303 */ "ATOMIC_SWAP_I16\0"
+  /* 1319 */ "ATOMIC_CMP_SWAP_I16\0"
+  /* 1339 */ "ATOMIC_LOAD_XOR_I16\0"
+  /* 1359 */ "ATOMIC_LOAD_OR_I16\0"
+  /* 1378 */ "ATOMIC_LOAD_UMAX_I16\0"
+  /* 1399 */ "ATOMIC_LOAD_MAX_I16\0"
+  /* 1419 */ "NOP_GT_PWR6\0"
+  /* 1431 */ "NOP_GT_PWR7\0"
+  /* 1443 */ "TAILBA8\0"
+  /* 1451 */ "PLHA8\0"
+  /* 1457 */ "ADDIStocHA8\0"
+  /* 1469 */ "BLA8\0"
+  /* 1474 */ "PLWA8\0"
+  /* 1480 */ "TAILB8\0"
+  /* 1487 */ "CMPB8\0"
+  /* 1493 */ "CMPRB8\0"
+  /* 1500 */ "EXTSB8\0"
+  /* 1507 */ "SETB8\0"
+  /* 1513 */ "MFTB8\0"
+  /* 1519 */ "PSTB8\0"
+  /* 1525 */ "ADDC8\0"
+  /* 1531 */ "ANDC8\0"
+  /* 1537 */ "SUBFC8\0"
+  /* 1544 */ "ADDIC8\0"
+  /* 1551 */ "SUBFIC8\0"
+  /* 1559 */ "DYNALLOC8\0"
+  /* 1569 */ "ORC8\0"
+  /* 1574 */ "ADD8\0"
+  /* 1579 */ "MADDLD8\0"
+  /* 1587 */ "NAND8\0"
+  /* 1593 */ "CFENCE8\0"
+  /* 1601 */ "ADDE8\0"
+  /* 1607 */ "SUBFE8\0"
+  /* 1614 */ "ADDME8\0"
+  /* 1621 */ "SUBFME8\0"
+  /* 1629 */ "CP_PASTE8\0"
+  /* 1639 */ "ADDZE8\0"
+  /* 1646 */ "SUBFZE8\0"
+  /* 1654 */ "SUBF8\0"
+  /* 1660 */ "MFOCRF8\0"
+  /* 1668 */ "MTOCRF8\0"
+  /* 1676 */ "MTCRF8\0"
+  /* 1683 */ "SELECT_CC_F8\0"
+  /* 1696 */ "SELECT_F8\0"
+  /* 1706 */ "NEG8\0"
+  /* 1711 */ "EXTSH8\0"
+  /* 1718 */ "PSTH8\0"
+  /* 1724 */ "PADDI8\0"
+  /* 1731 */ "MULLI8\0"
+  /* 1738 */ "PLI8\0"
+  /* 1743 */ "RLWIMI8\0"
+  /* 1751 */ "XORI8\0"
+  /* 1757 */ "ATOMIC_LOAD_SUB_I8\0"
+  /* 1776 */ "SELECT_CC_I8\0"
+  /* 1789 */ "ATOMIC_LOAD_ADD_I8\0"
+  /* 1808 */ "ATOMIC_LOAD_NAND_I8\0"
+  /* 1828 */ "ATOMIC_LOAD_AND_I8\0"
+  /* 1847 */ "ATOMIC_LOAD_UMIN_I8\0"
+  /* 1867 */ "ATOMIC_LOAD_MIN_I8\0"
+  /* 1886 */ "ATOMIC_SWAP_I8\0"
+  /* 1901 */ "ATOMIC_CMP_SWAP_I8\0"
+  /* 1920 */ "ATOMIC_LOAD_XOR_I8\0"
+  /* 1939 */ "ATOMIC_LOAD_OR_I8\0"
+  /* 1957 */ "SELECT_I8\0"
+  /* 1967 */ "ATOMIC_LOAD_UMAX_I8\0"
+  /* 1987 */ "ATOMIC_LOAD_MAX_I8\0"
+  /* 2006 */ "BL8\0"
+  /* 2010 */ "ISEL8\0"
+  /* 2016 */ "BCTRL8\0"
+  /* 2023 */ "BCCTRL8\0"
+  /* 2031 */ "BCCCTRL8\0"
+  /* 2040 */ "RLWINM8\0"
+  /* 2048 */ "RLWNM8\0"
+  /* 2055 */ "MFCR8\0"
+  /* 2061 */ "BLR8\0"
+  /* 2066 */ "MFLR8\0"
+  /* 2072 */ "MTLR8\0"
+  /* 2078 */ "BDZLR8\0"
+  /* 2085 */ "BDNZLR8\0"
+  /* 2093 */ "MovePCtoLR8\0"
+  /* 2105 */ "NOR8\0"
+  /* 2110 */ "XOR8\0"
+  /* 2115 */ "MFSPR8\0"
+  /* 2122 */ "MTSPR8\0"
+  /* 2129 */ "TAILBCTR8\0"
+  /* 2139 */ "BCCTR8\0"
+  /* 2146 */ "BCCCTR8\0"
+  /* 2154 */ "MFCTR8\0"
+  /* 2161 */ "MTCTR8\0"
+  /* 2168 */ "ADDIS8\0"
+  /* 2175 */ "LIS8\0"
+  /* 2180 */ "XORIS8\0"
+  /* 2187 */ "DYNAREAOFFSET8\0"
+  /* 2202 */ "ANDI_rec_1_EQ_BIT8\0"
+  /* 2221 */ "ANDI_rec_1_GT_BIT8\0"
+  /* 2240 */ "LHAU8\0"
+  /* 2246 */ "STBU8\0"
+  /* 2252 */ "STHU8\0"
+  /* 2258 */ "STWU8\0"
+  /* 2264 */ "LBZU8\0"
+  /* 2270 */ "LHZU8\0"
+  /* 2276 */ "LWZU8\0"
+  /* 2282 */ "EQV8\0"
+  /* 2287 */ "SLW8\0"
+  /* 2292 */ "SRW8\0"
+  /* 2297 */ "PSTW8\0"
+  /* 2303 */ "CNTLZW8\0"
+  /* 2311 */ "CNTTZW8\0"
+  /* 2319 */ "LHAX8\0"
+  /* 2325 */ "STBX8\0"
+  /* 2331 */ "STHX8\0"
+  /* 2337 */ "LHBRX8\0"
+  /* 2344 */ "LWBRX8\0"
+  /* 2351 */ "LHAUX8\0"
+  /* 2358 */ "STBUX8\0"
+  /* 2365 */ "STHUX8\0"
+  /* 2372 */ "STWUX8\0"
+  /* 2379 */ "LBZUX8\0"
+  /* 2386 */ "LHZUX8\0"
+  /* 2393 */ "LWZUX8\0"
+  /* 2400 */ "STWX8\0"
+  /* 2406 */ "LBZX8\0"
+  /* 2412 */ "LHZX8\0"
+  /* 2418 */ "LWZX8\0"
+  /* 2424 */ "CP_COPY8\0"
+  /* 2433 */ "PLBZ8\0"
+  /* 2439 */ "BDZ8\0"
+  /* 2444 */ "PLHZ8\0"
+  /* 2450 */ "BDNZ8\0"
+  /* 2456 */ "PLWZ8\0"
+  /* 2462 */ "TCRETURNai8\0"
+  /* 2474 */ "TCRETURNdi8\0"
+  /* 2486 */ "TCRETURNri8\0"
+  /* 2498 */ "EVMHEGSMFAA\0"
+  /* 2510 */ "EVMHOGSMFAA\0"
+  /* 2522 */ "EVMWSMFAA\0"
+  /* 2532 */ "EVMWSSFAA\0"
+  /* 2542 */ "EVMHEGSMIAA\0"
+  /* 2554 */ "EVMHOGSMIAA\0"
+  /* 2566 */ "EVMWSMIAA\0"
+  /* 2576 */ "EVMHEGUMIAA\0"
+  /* 2588 */ "EVMHOGUMIAA\0"
+  /* 2600 */ "EVMWUMIAA\0"
+  /* 2610 */ "DCBA\0"
+  /* 2615 */ "TAILBA\0"
+  /* 2622 */ "LDtocBA\0"
+  /* 2630 */ "gBCA\0"
+  /* 2635 */ "BCCA\0"
+  /* 2640 */ "EVMHESMFA\0"
+  /* 2650 */ "EVMWHSMFA\0"
+  /* 2660 */ "EVMHOSMFA\0"
+  /* 2670 */ "EVMWSMFA\0"
+  /* 2679 */ "EVMHESSFA\0"
+  /* 2689 */ "EVMWHSSFA\0"
+  /* 2699 */ "EVMHOSSFA\0"
+  /* 2709 */ "EVMWSSFA\0"
+  /* 2718 */ "PLHA\0"
+  /* 2723 */ "ADDIStocHA\0"
+  /* 2734 */ "ADDIStlsgdHA\0"
+  /* 2747 */ "ADDIStlsldHA\0"
+  /* 2760 */ "ADDISgotTprelHA\0"
+  /* 2776 */ "ADDISdtprelHA\0"
+  /* 2790 */ "SLBIA\0"
+  /* 2796 */ "TLBIA\0"
+  /* 2802 */ "EVMHESMIA\0"
+  /* 2812 */ "EVMWHSMIA\0"
+  /* 2822 */ "EVMHOSMIA\0"
+  /* 2832 */ "EVMWSMIA\0"
+  /* 2841 */ "EVMHEUMIA\0"
+  /* 2851 */ "EVMWHUMIA\0"
+  /* 2861 */ "EVMWLUMIA\0"
+  /* 2871 */ "EVMHOUMIA\0"
+  /* 2881 */ "EVMWUMIA\0"
+  /* 2890 */ "QVSTFCDXIA\0"
+  /* 2901 */ "QVSTFDXIA\0"
+  /* 2911 */ "QVSTFCSXIA\0"
+  /* 2922 */ "QVSTFSXIA\0"
+  /* 2932 */ "QVSTFCDUXIA\0"
+  /* 2944 */ "QVSTFDUXIA\0"
+  /* 2955 */ "QVSTFCSUXIA\0"
+  /* 2967 */ "QVSTFSUXIA\0"
+  /* 2978 */ "BLA\0"
+  /* 2982 */ "gBCLA\0"
+  /* 2988 */ "BCCLA\0"
+  /* 2994 */ "BDZLA\0"
+  /* 3000 */ "BDNZLA\0"
+  /* 3007 */ "G_FMA\0"
+  /* 3013 */ "EVMRA\0"
+  /* 3019 */ "PLWA\0"
+  /* 3024 */ "MTVSRWA\0"
+  /* 3032 */ "MTVRWA\0"
+  /* 3039 */ "QVLFIWAXA\0"
+  /* 3049 */ "QVLFCDXA\0"
+  /* 3058 */ "QVSTFCDXA\0"
+  /* 3068 */ "QVLFDXA\0"
+  /* 3076 */ "QVSTFDXA\0"
+  /* 3085 */ "QVLFCSXA\0"
+  /* 3094 */ "QVSTFCSXA\0"
+  /* 3104 */ "QVLFSXA\0"
+  /* 3112 */ "QVSTFSXA\0"
+  /* 3121 */ "QVLFCDUXA\0"
+  /* 3131 */ "QVSTFCDUXA\0"
+  /* 3142 */ "QVLFDUXA\0"
+  /* 3151 */ "QVSTFDUXA\0"
+  /* 3161 */ "QVLFCSUXA\0"
+  /* 3171 */ "QVSTFCSUXA\0"
+  /* 3182 */ "QVLFSUXA\0"
+  /* 3191 */ "QVSTFSUXA\0"
+  /* 3201 */ "QVSTFIWXA\0"
+  /* 3211 */ "QVLFIWZXA\0"
+  /* 3221 */ "BDZA\0"
+  /* 3226 */ "BDNZA\0"
+  /* 3232 */ "V_SET0B\0"
+  /* 3240 */ "VSRAB\0"
+  /* 3246 */ "RFEBB\0"
+  /* 3252 */ "VCLZLSBB\0"
+  /* 3261 */ "VCTZLSBB\0"
+  /* 3270 */ "VCMPNEB\0"
+  /* 3278 */ "VMRGHB\0"
+  /* 3285 */ "XXSPLTIB\0"
+  /* 3294 */ "VMRGLB\0"
+  /* 3301 */ "TAILB\0"
+  /* 3307 */ "VRLB\0"
+  /* 3312 */ "VSLB\0"
+  /* 3317 */ "VPMSUMB\0"
+  /* 3325 */ "CMPB\0"
+  /* 3330 */ "CMPEQB\0"
+  /* 3337 */ "CLRBHRB\0"
+  /* 3345 */ "CMPRB\0"
+  /* 3351 */ "VSRB\0"
+  /* 3356 */ "VMULESB\0"
+  /* 3364 */ "V_SETALLONESB\0"
+  /* 3378 */ "VAVGSB\0"
+  /* 3385 */ "VUPKHSB\0"
+  /* 3393 */ "VSPLTISB\0"
+  /* 3402 */ "VUPKLSB\0"
+  /* 3410 */ "VMINSB\0"
+  /* 3417 */ "VMULOSB\0"
+  /* 3425 */ "VCMPGTSB\0"
+  /* 3434 */ "EVEXTSB\0"
+  /* 3442 */ "VMAXSB\0"
+  /* 3449 */ "SETB\0"
+  /* 3454 */ "MFTB\0"
+  /* 3459 */ "VSPLTB\0"
+  /* 3466 */ "VPOPCNTB\0"
+  /* 3475 */ "VINSERTB\0"
+  /* 3484 */ "PSTB\0"
+  /* 3489 */ "ReadTB\0"
+  /* 3496 */ "VABSDUB\0"
+  /* 3504 */ "VMULEUB\0"
+  /* 3512 */ "VAVGUB\0"
+  /* 3519 */ "VMINUB\0"
+  /* 3526 */ "VMULOUB\0"
+  /* 3534 */ "VCMPEQUB\0"
+  /* 3543 */ "EFDSUB\0"
+  /* 3550 */ "QVFSUB\0"
+  /* 3557 */ "G_FSUB\0"
+  /* 3564 */ "G_ATOMICRMW_FSUB\0"
+  /* 3581 */ "QVFMSUB\0"
+  /* 3589 */ "QVFNMSUB\0"
+  /* 3598 */ "EFSSUB\0"
+  /* 3605 */ "EVFSSUB\0"
+  /* 3613 */ "G_SUB\0"
+  /* 3619 */ "G_ATOMICRMW_SUB\0"
+  /* 3635 */ "VEXTRACTUB\0"
+  /* 3646 */ "VCMPGTUB\0"
+  /* 3655 */ "VMAXUB\0"
+  /* 3662 */ "VCMPNEZB\0"
+  /* 3671 */ "VCLZB\0"
+  /* 3677 */ "VCTZB\0"
+  /* 3683 */ "gBC\0"
+  /* 3687 */ "BCC\0"
+  /* 3691 */ "ADDC\0"
+  /* 3696 */ "XXLANDC\0"
+  /* 3704 */ "CRANDC\0"
+  /* 3711 */ "EVANDC\0"
+  /* 3718 */ "TABORTDC\0"
+  /* 3727 */ "SUBFC\0"
+  /* 3733 */ "SUBIC\0"
+  /* 3739 */ "ADDIC\0"
+  /* 3745 */ "RLDIC\0"
+  /* 3751 */ "SUBFIC\0"
+  /* 3758 */ "XSRDPIC\0"
+  /* 3766 */ "XVRDPIC\0"
+  /* 3774 */ "XVRSPIC\0"
+  /* 3782 */ "G_INTRINSIC\0"
+  /* 3794 */ "ICBLC\0"
+  /* 3800 */ "BRINC\0"
+  /* 3806 */ "G_FPTRUNC\0"
+  /* 3816 */ "G_INTRINSIC_TRUNC\0"
+  /* 3834 */ "G_TRUNC\0"
+  /* 3842 */ "G_BUILD_VECTOR_TRUNC\0"
+  /* 3863 */ "SLBSYNC\0"
+  /* 3871 */ "TLBSYNC\0"
+  /* 3879 */ "MSGSYNC\0"
+  /* 3887 */ "ISYNC\0"
+  /* 3893 */ "MSYNC\0"
+  /* 3899 */ "G_DYN_STACKALLOC\0"
+  /* 3916 */ "DYNALLOC\0"
+  /* 3925 */ "BL8_NOTOC\0"
+  /* 3935 */ "SELECT_CC_QBRC\0"
+  /* 3950 */ "SELECT_QBRC\0"
+  /* 3962 */ "SELECT_CC_QFRC\0"
+  /* 3977 */ "SELECT_QFRC\0"
+  /* 3989 */ "SELECT_CC_VSFRC\0"
+  /* 4005 */ "SELECT_VSFRC\0"
+  /* 4018 */ "XXLORC\0"
+  /* 4025 */ "CRORC\0"
+  /* 4031 */ "EVORC\0"
+  /* 4037 */ "SELECT_CC_VRRC\0"
+  /* 4052 */ "SELECT_VRRC\0"
+  /* 4064 */ "SELECT_CC_QSRC\0"
+  /* 4079 */ "SELECT_QSRC\0"
+  /* 4091 */ "SELECT_CC_VSSRC\0"
+  /* 4107 */ "SELECT_VSSRC\0"
+  /* 4120 */ "SELECT_CC_VSRC\0"
+  /* 4135 */ "SELECT_VSRC\0"
+  /* 4147 */ "SC\0"
+  /* 4150 */ "TABORTWC\0"
+  /* 4159 */ "VEXTSB2D\0"
+  /* 4168 */ "VEXTSH2D\0"
+  /* 4177 */ "VEXTSW2D\0"
+  /* 4186 */ "TLBSX2D\0"
+  /* 4194 */ "G_FMAD\0"
+  /* 4201 */ "VSHASIGMAD\0"
+  /* 4212 */ "G_INDEXED_SEXTLOAD\0"
+  /* 4231 */ "G_SEXTLOAD\0"
+  /* 4242 */ "G_INDEXED_ZEXTLOAD\0"
+  /* 4261 */ "G_ZEXTLOAD\0"
+  /* 4272 */ "G_INDEXED_LOAD\0"
+  /* 4287 */ "G_LOAD\0"
+  /* 4294 */ "VSRAD\0"
+  /* 4300 */ "VGBBD\0"
+  /* 4306 */ "VPRTYBD\0"
+  /* 4314 */ "EFDADD\0"
+  /* 4321 */ "QVFADD\0"
+  /* 4328 */ "G_FADD\0"
+  /* 4335 */ "G_ATOMICRMW_FADD\0"
+  /* 4352 */ "QVFMADD\0"
+  /* 4360 */ "QVFNMADD\0"
+  /* 4369 */ "QVFXXCPNMADD\0"
+  /* 4382 */ "QVFXXNPMADD\0"
+  /* 4394 */ "QVFXMADD\0"
+  /* 4403 */ "QVFXXMADD\0"
+  /* 4413 */ "EFSADD\0"
+  /* 4420 */ "EVFSADD\0"
+  /* 4428 */ "G_ADD\0"
+  /* 4434 */ "G_PTR_ADD\0"
+  /* 4444 */ "G_ATOMICRMW_ADD\0"
+  /* 4460 */ "EVLDD\0"
+  /* 4466 */ "MTVSRDD\0"
+  /* 4474 */ "EVSTDD\0"
+  /* 4481 */ "EFSCFD\0"
+  /* 4488 */ "PLFD\0"
+  /* 4493 */ "PSTFD\0"
+  /* 4499 */ "FNEGD\0"
+  /* 4505 */ "VNEGD\0"
+  /* 4511 */ "MADDHD\0"
+  /* 4518 */ "MULHD\0"
+  /* 4524 */ "QVFCFID\0"
+  /* 4532 */ "HRFID\0"
+  /* 4538 */ "EFDCFSID\0"
+  /* 4547 */ "QVFCTID\0"
+  /* 4555 */ "EFDCFUID\0"
+  /* 4564 */ "TLBLD\0"
+  /* 4570 */ "MADDLD\0"
+  /* 4577 */ "FSELD\0"
+  /* 4583 */ "MULLD\0"
+  /* 4589 */ "CMPLD\0"
+  /* 4595 */ "MFVSRLD\0"
+  /* 4603 */ "VRLD\0"
+  /* 4608 */ "VSLD\0"
+  /* 4613 */ "SPILLTOVSR_LD\0"
+  /* 4627 */ "FRIMD\0"
+  /* 4633 */ "VBPERMD\0"
+  /* 4641 */ "VPMSUMD\0"
+  /* 4649 */ "XXLAND\0"
+  /* 4656 */ "XXLNAND\0"
+  /* 4664 */ "CRNAND\0"
+  /* 4671 */ "EVNAND\0"
+  /* 4678 */ "G_ATOMICRMW_NAND\0"
+  /* 4695 */ "CRAND\0"
+  /* 4701 */ "EVAND\0"
+  /* 4707 */ "G_AND\0"
+  /* 4713 */ "G_ATOMICRMW_AND\0"
+  /* 4729 */ "TEND\0"
+  /* 4734 */ "LIFETIME_END\0"
+  /* 4747 */ "FCPSGND\0"
+  /* 4755 */ "FRIND\0"
+  /* 4761 */ "G_BRCOND\0"
+  /* 4770 */ "SETRND\0"
+  /* 4777 */ "G_INTRINSIC_ROUND\0"
+  /* 4795 */ "FRIPD\0"
+  /* 4801 */ "CMPD\0"
+  /* 4806 */ "LOAD_STACK_GUARD\0"
+  /* 4823 */ "XXBRD\0"
+  /* 4829 */ "MTMSRD\0"
+  /* 4836 */ "MFVSRD\0"
+  /* 4843 */ "MTVSRD\0"
+  /* 4850 */ "MFVRD\0"
+  /* 4856 */ "MTVRD\0"
+  /* 4862 */ "FABSD\0"
+  /* 4868 */ "FNABSD\0"
+  /* 4875 */ "MODSD\0"
+  /* 4881 */ "VMINSD\0"
+  /* 4888 */ "VCMPGTSD\0"
+  /* 4897 */ "VMAXSD\0"
+  /* 4904 */ "PLXSD\0"
+  /* 4910 */ "PSTXSD\0"
+  /* 4917 */ "VEXTRACTD\0"
+  /* 4927 */ "VPOPCNTD\0"
+  /* 4936 */ "VINSERTD\0"
+  /* 4945 */ "PSTD\0"
+  /* 4950 */ "MODUD\0"
+  /* 4956 */ "VMINUD\0"
+  /* 4963 */ "FCMPUD\0"
+  /* 4970 */ "VCMPEQUD\0"
+  /* 4979 */ "VCMPGTUD\0"
+  /* 4988 */ "VMAXUD\0"
+  /* 4995 */ "DIVD\0"
+  /* 5000 */ "FRIZD\0"
+  /* 5006 */ "VCLZD\0"
+  /* 5012 */ "CNTLZD\0"
+  /* 5019 */ "VCTZD\0"
+  /* 5025 */ "CNTTZD\0"
+  /* 5032 */ "MFBHRBE\0"
+  /* 5040 */ "G_SSUBE\0"
+  /* 5048 */ "G_USUBE\0"
+  /* 5056 */ "G_FENCE\0"
+  /* 5064 */ "REG_SEQUENCE\0"
+  /* 5077 */ "MFFSCE\0"
+  /* 5084 */ "G_SADDE\0"
+  /* 5092 */ "G_UADDE\0"
+  /* 5100 */ "DIVDE\0"
+  /* 5106 */ "G_FMINNUM_IEEE\0"
+  /* 5121 */ "G_FMAXNUM_IEEE\0"
+  /* 5136 */ "SLBMFEE\0"
+  /* 5144 */ "WRTEE\0"
+  /* 5150 */ "SUBFE\0"
+  /* 5156 */ "EVLWHE\0"
+  /* 5163 */ "EVSTWHE\0"
+  /* 5171 */ "SLBIE\0"
+  /* 5177 */ "TLBIE\0"
+  /* 5183 */ "G_JUMP_TABLE\0"
+  /* 5196 */ "BUNDLE\0"
+  /* 5203 */ "ADDME\0"
+  /* 5209 */ "SUBFME\0"
+  /* 5216 */ "LOCAL_ESCAPE\0"
+  /* 5229 */ "SELECT_CC_SPE\0"
+  /* 5243 */ "SELECT_SPE\0"
+  /* 5254 */ "TLBRE\0"
+  /* 5260 */ "QVFRE\0"
+  /* 5266 */ "G_INDEXED_STORE\0"
+  /* 5282 */ "G_STORE\0"
+  /* 5290 */ "G_BITREVERSE\0"
+  /* 5303 */ "SLBMTE\0"
+  /* 5310 */ "QVFRSQRTE\0"
+  /* 5320 */ "CP_PASTE\0"
+  /* 5329 */ "DBG_VALUE\0"
+  /* 5339 */ "G_GLOBAL_VALUE\0"
+  /* 5354 */ "MFVRSAVE\0"
+  /* 5363 */ "MTVRSAVE\0"
+  /* 5372 */ "RESTORE_VRSAVE\0"
+  /* 5387 */ "UPDATE_VRSAVE\0"
+  /* 5401 */ "SPILL_VRSAVE\0"
+  /* 5414 */ "TLBWE\0"
+  /* 5420 */ "DIVWE\0"
+  /* 5426 */ "EVSTWWE\0"
+  /* 5434 */ "ADDZE\0"
+  /* 5440 */ "G_FREEZE\0"
+  /* 5449 */ "SUBFZE\0"
+  /* 5456 */ "G_FCANONICALIZE\0"
+  /* 5472 */ "DCBF\0"
+  /* 5477 */ "SUBF\0"
+  /* 5482 */ "G_CTLZ_ZERO_UNDEF\0"
+  /* 5500 */ "G_CTTZ_ZERO_UNDEF\0"
+  /* 5518 */ "G_IMPLICIT_DEF\0"
+  /* 5533 */ "EVMHESMF\0"
+  /* 5542 */ "EVMWHSMF\0"
+  /* 5551 */ "EVMHOSMF\0"
+  /* 5560 */ "EVMWSMF\0"
+  /* 5568 */ "MCRF\0"
+  /* 5573 */ "MFOCRF\0"
+  /* 5580 */ "MTOCRF\0"
+  /* 5587 */ "MTCRF\0"
+  /* 5593 */ "EFDCFSF\0"
+  /* 5601 */ "EFSCFSF\0"
+  /* 5609 */ "EVFSCFSF\0"
+  /* 5618 */ "MTFSF\0"
+  /* 5624 */ "EVMHESSF\0"
+  /* 5633 */ "EVMWHSSF\0"
+  /* 5642 */ "EVMHOSSF\0"
+  /* 5651 */ "EVMWSSF\0"
+  /* 5659 */ "EFDCTSF\0"
+  /* 5667 */ "EFSCTSF\0"
+  /* 5675 */ "EVFSCTSF\0"
+  /* 5684 */ "EFDCFUF\0"
+  /* 5692 */ "EFSCFUF\0"
+  /* 5700 */ "EVFSCFUF\0"
+  /* 5709 */ "EFDCTUF\0"
+  /* 5717 */ "EFSCTUF\0"
+  /* 5725 */ "EVFSCTUF\0"
+  /* 5734 */ "SLBIEG\0"
+  /* 5741 */ "EFDNEG\0"
+  /* 5748 */ "QVFNEG\0"
+  /* 5755 */ "G_FNEG\0"
+  /* 5762 */ "EFSNEG\0"
+  /* 5769 */ "EVFSNEG\0"
+  /* 5777 */ "EVNEG\0"
+  /* 5783 */ "EXTRACT_SUBREG\0"
+  /* 5798 */ "INSERT_SUBREG\0"
+  /* 5812 */ "G_SEXT_INREG\0"
+  /* 5825 */ "SUBREG_TO_REG\0"
+  /* 5839 */ "G_ATOMIC_CMPXCHG\0"
+  /* 5856 */ "G_ATOMICRMW_XCHG\0"
+  /* 5873 */ "G_FLOG\0"
+  /* 5880 */ "G_VAARG\0"
+  /* 5888 */ "PREALLOCATED_ARG\0"
+  /* 5905 */ "V_SET0H\0"
+  /* 5913 */ "VSRAH\0"
+  /* 5919 */ "EVLDH\0"
+  /* 5925 */ "EVSTDH\0"
+  /* 5932 */ "VCMPNEH\0"
+  /* 5940 */ "VMRGHH\0"
+  /* 5947 */ "VMRGLH\0"
+  /* 5954 */ "VRLH\0"
+  /* 5959 */ "VSLH\0"
+  /* 5964 */ "G_SMULH\0"
+  /* 5972 */ "G_UMULH\0"
+  /* 5980 */ "VPMSUMH\0"
+  /* 5988 */ "XXBRH\0"
+  /* 5994 */ "VSRH\0"
+  /* 5999 */ "VMULESH\0"
+  /* 6007 */ "V_SETALLONESH\0"
+  /* 6021 */ "VAVGSH\0"
+  /* 6028 */ "VUPKHSH\0"
+  /* 6036 */ "VSPLTISH\0"
+  /* 6045 */ "VUPKLSH\0"
+  /* 6053 */ "VMINSH\0"
+  /* 6060 */ "VMULOSH\0"
+  /* 6068 */ "VCMPGTSH\0"
+  /* 6077 */ "EVEXTSH\0"
+  /* 6085 */ "VMAXSH\0"
+  /* 6092 */ "VSPLTH\0"
+  /* 6099 */ "VPOPCNTH\0"
+  /* 6108 */ "VINSERTH\0"
+  /* 6117 */ "PSTH\0"
+  /* 6122 */ "VABSDUH\0"
+  /* 6130 */ "VMULEUH\0"
+  /* 6138 */ "VAVGUH\0"
+  /* 6145 */ "VMINUH\0"
+  /* 6152 */ "VMULOUH\0"
+  /* 6160 */ "VCMPEQUH\0"
+  /* 6169 */ "VEXTRACTUH\0"
+  /* 6180 */ "VCMPGTUH\0"
+  /* 6189 */ "VMAXUH\0"
+  /* 6196 */ "VCMPNEZH\0"
+  /* 6205 */ "VCLZH\0"
+  /* 6211 */ "VCTZH\0"
+  /* 6217 */ "DCBI\0"
+  /* 6222 */ "ICBI\0"
+  /* 6227 */ "SUBI\0"
+  /* 6232 */ "DCCCI\0"
+  /* 6238 */ "ICCCI\0"
+  /* 6244 */ "TABORTDCI\0"
+  /* 6254 */ "RFCI\0"
+  /* 6259 */ "RFMCI\0"
+  /* 6265 */ "QVGPCI\0"
+  /* 6272 */ "TABORTWCI\0"
+  /* 6282 */ "SRADI\0"
+  /* 6288 */ "PADDI\0"
+  /* 6294 */ "RFDI\0"
+  /* 6299 */ "CMPLDI\0"
+  /* 6306 */ "CLRLSLDI\0"
+  /* 6315 */ "EXTLDI\0"
+  /* 6322 */ "XXPERMDI\0"
+  /* 6331 */ "CMPDI\0"
+  /* 6337 */ "CLRRDI\0"
+  /* 6344 */ "INSRDI\0"
+  /* 6351 */ "ROTRDI\0"
+  /* 6358 */ "EXTRDI\0"
+  /* 6365 */ "TDI\0"
+  /* 6369 */ "WRTEEI\0"
+  /* 6376 */ "RFI\0"
+  /* 6380 */ "MTFSFI\0"
+  /* 6387 */ "EVSPLATFI\0"
+  /* 6397 */ "EVMERGEHI\0"
+  /* 6407 */ "EVMERGELOHI\0"
+  /* 6419 */ "G_PHI\0"
+  /* 6425 */ "TLBLI\0"
+  /* 6431 */ "MULLI\0"
+  /* 6437 */ "PLI\0"
+  /* 6441 */ "EXTSWSLI\0"
+  /* 6450 */ "VRLDMI\0"
+  /* 6457 */ "RLDIMI\0"
+  /* 6464 */ "RLWIMI\0"
+  /* 6471 */ "EVMHESMI\0"
+  /* 6480 */ "EVMWHSMI\0"
+  /* 6489 */ "EVMHOSMI\0"
+  /* 6498 */ "EVMWSMI\0"
+  /* 6506 */ "EVMHEUMI\0"
+  /* 6515 */ "EVMWHUMI\0"
+  /* 6524 */ "EVMWLUMI\0"
+  /* 6533 */ "EVMHOUMI\0"
+  /* 6542 */ "EVMWUMI\0"
+  /* 6550 */ "VRLWMI\0"
+  /* 6557 */ "QVALIGNI\0"
+  /* 6566 */ "MFFSCRNI\0"
+  /* 6575 */ "MFFSCDRNI\0"
+  /* 6585 */ "VSLDOI\0"
+  /* 6592 */ "XSRDPI\0"
+  /* 6599 */ "XVRDPI\0"
+  /* 6606 */ "XSRQPI\0"
+  /* 6613 */ "XVRSPI\0"
+  /* 6620 */ "XORI\0"
+  /* 6625 */ "EFDCFSI\0"
+  /* 6633 */ "EFSCFSI\0"
+  /* 6641 */ "EVFSCFSI\0"
+  /* 6650 */ "G_FPTOSI\0"
+  /* 6659 */ "EFDCTSI\0"
+  /* 6667 */ "EFSCTSI\0"
+  /* 6675 */ "EVFSCTSI\0"
+  /* 6684 */ "QVESPLATI\0"
+  /* 6694 */ "EVSPLATI\0"
+  /* 6703 */ "LDtocJTI\0"
+  /* 6712 */ "EFDCFUI\0"
+  /* 6720 */ "EFSCFUI\0"
+  /* 6728 */ "EVFSCFUI\0"
+  /* 6737 */ "G_FPTOUI\0"
+  /* 6746 */ "EFDCTUI\0"
+  /* 6754 */ "EFSCTUI\0"
+  /* 6762 */ "EVFSCTUI\0"
+  /* 6771 */ "SRAWI\0"
+  /* 6777 */ "XXSLDWI\0"
+  /* 6785 */ "CMPLWI\0"
+  /* 6792 */ "EVRLWI\0"
+  /* 6799 */ "CLRLSLWI\0"
+  /* 6808 */ "INSLWI\0"
+  /* 6815 */ "EVSLWI\0"
+  /* 6822 */ "EXTLWI\0"
+  /* 6829 */ "CMPWI\0"
+  /* 6835 */ "CLRRWI\0"
+  /* 6842 */ "INSRWI\0"
+  /* 6849 */ "ROTRWI\0"
+  /* 6856 */ "EXTRWI\0"
+  /* 6863 */ "LSWI\0"
+  /* 6868 */ "STSWI\0"
+  /* 6874 */ "TWI\0"
+  /* 6878 */ "QVSTFCDXI\0"
+  /* 6888 */ "QVSTFDXI\0"
+  /* 6897 */ "QVSTFCSXI\0"
+  /* 6907 */ "QVSTFSXI\0"
+  /* 6916 */ "QVSTFCDUXI\0"
+  /* 6927 */ "QVSTFDUXI\0"
+  /* 6937 */ "QVSTFCSUXI\0"
+  /* 6948 */ "QVSTFSUXI\0"
+  /* 6958 */ "TCHECK\0"
+  /* 6965 */ "G_PTRMASK\0"
+  /* 6975 */ "QVFLOGICAL\0"
+  /* 6986 */ "BL\0"
+  /* 6989 */ "gBCL\0"
+  /* 6994 */ "BCCL\0"
+  /* 6999 */ "RLDCL\0"
+  /* 7005 */ "RLDICL\0"
+  /* 7012 */ "GC_LABEL\0"
+  /* 7021 */ "DBG_LABEL\0"
+  /* 7031 */ "EH_LABEL\0"
+  /* 7040 */ "ANNOTATION_LABEL\0"
+  /* 7057 */ "TLBIEL\0"
+  /* 7064 */ "ICALL_BRANCH_FUNNEL\0"
+  /* 7084 */ "QVFSEL\0"
+  /* 7091 */ "ISEL\0"
+  /* 7096 */ "EVSEL\0"
+  /* 7102 */ "XXSEL\0"
+  /* 7108 */ "DCBFL\0"
+  /* 7114 */ "G_FSHL\0"
+  /* 7121 */ "G_SHL\0"
+  /* 7127 */ "G_FCEIL\0"
+  /* 7135 */ "PATCHABLE_TAIL_CALL\0"
+  /* 7155 */ "PATCHABLE_TYPED_EVENT_CALL\0"
+  /* 7182 */ "PATCHABLE_EVENT_CALL\0"
+  /* 7203 */ "FENTRY_CALL\0"
+  /* 7215 */ "DSSALL\0"
+  /* 7222 */ "KILL\0"
+  /* 7227 */ "LXVLL\0"
+  /* 7233 */ "STXVLL\0"
+  /* 7240 */ "BLRL\0"
+  /* 7245 */ "gBCLRL\0"
+  /* 7252 */ "BCCLRL\0"
+  /* 7259 */ "BDZLRL\0"
+  /* 7266 */ "BDNZLRL\0"
+  /* 7274 */ "BCTRL\0"
+  /* 7280 */ "gBCCTRL\0"
+  /* 7288 */ "BCCCTRL\0"
+  /* 7296 */ "MFFSL\0"
+  /* 7302 */ "LVSL\0"
+  /* 7307 */ "EFDMUL\0"
+  /* 7314 */ "QVFMUL\0"
+  /* 7321 */ "G_FMUL\0"
+  /* 7328 */ "EFSMUL\0"
+  /* 7335 */ "EVFSMUL\0"
+  /* 7343 */ "QVFXMUL\0"
+  /* 7351 */ "G_MUL\0"
+  /* 7357 */ "LXVL\0"
+  /* 7362 */ "STXVL\0"
+  /* 7368 */ "LBARXL\0"
+  /* 7375 */ "LDARXL\0"
+  /* 7382 */ "LHARXL\0"
+  /* 7389 */ "LWARXL\0"
+  /* 7396 */ "LVXL\0"
+  /* 7401 */ "STVXL\0"
+  /* 7407 */ "DCBZL\0"
+  /* 7413 */ "BDZL\0"
+  /* 7418 */ "BDNZL\0"
+  /* 7424 */ "LDtocL\0"
+  /* 7431 */ "ADDItocL\0"
+  /* 7440 */ "LWZtocL\0"
+  /* 7448 */ "ADDItlsgdL\0"
+  /* 7459 */ "ADDItlsldL\0"
+  /* 7470 */ "LDgotTprelL\0"
+  /* 7482 */ "ADDIdtprelL\0"
+  /* 7494 */ "VMSUMMBM\0"
+  /* 7503 */ "VSUBUBM\0"
+  /* 7511 */ "VADDUBM\0"
+  /* 7519 */ "VMSUMUBM\0"
+  /* 7528 */ "VSUBUDM\0"
+  /* 7536 */ "VADDUDM\0"
+  /* 7544 */ "VMSUMUDM\0"
+  /* 7553 */ "G_FREM\0"
+  /* 7560 */ "G_SREM\0"
+  /* 7567 */ "G_UREM\0"
+  /* 7574 */ "VMSUMSHM\0"
+  /* 7583 */ "VSUBUHM\0"
+  /* 7591 */ "VMLADDUHM\0"
+  /* 7601 */ "VADDUHM\0"
+  /* 7609 */ "VMSUMUHM\0"
+  /* 7618 */ "TRECLAIM\0"
+  /* 7627 */ "VRFIM\0"
+  /* 7633 */ "XSRDPIM\0"
+  /* 7641 */ "XVRDPIM\0"
+  /* 7649 */ "XVRSPIM\0"
+  /* 7657 */ "QVFRIM\0"
+  /* 7664 */ "VRLDNM\0"
+  /* 7671 */ "RLWINM\0"
+  /* 7678 */ "VRLWNM\0"
+  /* 7685 */ "VSUBUQM\0"
+  /* 7693 */ "VADDUQM\0"
+  /* 7701 */ "VSUBEUQM\0"
+  /* 7710 */ "VADDEUQM\0"
+  /* 7719 */ "QVFPERM\0"
+  /* 7727 */ "VPERM\0"
+  /* 7733 */ "XXPERM\0"
+  /* 7740 */ "INLINEASM\0"
+  /* 7750 */ "VPKUDUM\0"
+  /* 7758 */ "VPKUHUM\0"
+  /* 7766 */ "G_FMINIMUM\0"
+  /* 7777 */ "G_FMAXIMUM\0"
+  /* 7788 */ "G_FMINNUM\0"
+  /* 7798 */ "G_FMAXNUM\0"
+  /* 7808 */ "VPKUWUM\0"
+  /* 7816 */ "VSUBUWM\0"
+  /* 7824 */ "VADDUWM\0"
+  /* 7832 */ "VMULUWM\0"
+  /* 7840 */ "EVMHEGSMFAN\0"
+  /* 7852 */ "EVMHOGSMFAN\0"
+  /* 7864 */ "EVMWSMFAN\0"
+  /* 7874 */ "EVMWSSFAN\0"
+  /* 7884 */ "EVMHEGSMIAN\0"
+  /* 7896 */ "EVMHOGSMIAN\0"
+  /* 7908 */ "EVMWSMIAN\0"
+  /* 7918 */ "EVMHEGUMIAN\0"
+  /* 7930 */ "EVMHOGUMIAN\0"
+  /* 7942 */ "EVMWUMIAN\0"
+  /* 7952 */ "QVFTSTNAN\0"
+  /* 7962 */ "G_FCOPYSIGN\0"
+  /* 7974 */ "QVFCPSGN\0"
+  /* 7983 */ "VRFIN\0"
+  /* 7989 */ "TBEGIN\0"
+  /* 7996 */ "G_SMIN\0"
+  /* 8003 */ "G_UMIN\0"
+  /* 8010 */ "G_ATOMICRMW_UMIN\0"
+  /* 8027 */ "G_ATOMICRMW_MIN\0"
+  /* 8043 */ "QVFRIN\0"
+  /* 8050 */ "MFSRIN\0"
+  /* 8057 */ "MTSRIN\0"
+  /* 8064 */ "G_FSIN\0"
+  /* 8071 */ "CFI_INSTRUCTION\0"
+  /* 8087 */ "XSCVSPDPN\0"
+  /* 8097 */ "XSCVDPSPN\0"
+  /* 8107 */ "DARN\0"
+  /* 8112 */ "MFFSCRN\0"
+  /* 8120 */ "MFFSCDRN\0"
+  /* 8129 */ "ATTN\0"
+  /* 8134 */ "ADJCALLSTACKDOWN\0"
+  /* 8151 */ "ADD4O\0"
+  /* 8157 */ "ADDC8O\0"
+  /* 8164 */ "SUBFC8O\0"
+  /* 8172 */ "ADD8O\0"
+  /* 8178 */ "ADDE8O\0"
+  /* 8185 */ "SUBFE8O\0"
+  /* 8193 */ "ADDME8O\0"
+  /* 8201 */ "SUBFME8O\0"
+  /* 8210 */ "ADDZE8O\0"
+  /* 8218 */ "SUBFZE8O\0"
+  /* 8227 */ "SUBF8O\0"
+  /* 8234 */ "NEG8O\0"
+  /* 8240 */ "G_SSUBO\0"
+  /* 8248 */ "G_USUBO\0"
+  /* 8256 */ "ADDCO\0"
+  /* 8262 */ "SUBFCO\0"
+  /* 8269 */ "G_SADDO\0"
+  /* 8277 */ "G_UADDO\0"
+  /* 8285 */ "MULLDO\0"
+  /* 8292 */ "DIVDO\0"
+  /* 8298 */ "ADDEO\0"
+  /* 8304 */ "DIVDEO\0"
+  /* 8311 */ "SUBFEO\0"
+  /* 8318 */ "ADDMEO\0"
+  /* 8325 */ "SUBFMEO\0"
+  /* 8333 */ "DIVWEO\0"
+  /* 8340 */ "ADDZEO\0"
+  /* 8347 */ "SUBFZEO\0"
+  /* 8355 */ "SUBFO\0"
+  /* 8361 */ "NEGO\0"
+  /* 8366 */ "EVSTWHO\0"
+  /* 8374 */ "EnforceIEIO\0"
+  /* 8386 */ "EVMERGELO\0"
+  /* 8396 */ "EVMERGEHILO\0"
+  /* 8408 */ "VSLO\0"
+  /* 8413 */ "G_SMULO\0"
+  /* 8421 */ "G_UMULO\0"
+  /* 8429 */ "XSCVQPDPO\0"
+  /* 8439 */ "XSNMSUBQPO\0"
+  /* 8450 */ "XSMSUBQPO\0"
+  /* 8460 */ "XSSUBQPO\0"
+  /* 8469 */ "XSNMADDQPO\0"
+  /* 8480 */ "XSMADDQPO\0"
+  /* 8490 */ "XSADDQPO\0"
+  /* 8499 */ "XSMULQPO\0"
+  /* 8508 */ "XSSQRTQPO\0"
+  /* 8518 */ "XSDIVQPO\0"
+  /* 8527 */ "VSRO\0"
+  /* 8532 */ "DIVDUO\0"
+  /* 8539 */ "DIVDEUO\0"
+  /* 8547 */ "DIVWEUO\0"
+  /* 8555 */ "DIVWUO\0"
+  /* 8562 */ "MULLWO\0"
+  /* 8569 */ "DIVWO\0"
+  /* 8575 */ "EVSTWWO\0"
+  /* 8583 */ "STACKMAP\0"
+  /* 8592 */ "NAP\0"
+  /* 8596 */ "TRAP\0"
+  /* 8601 */ "G_BSWAP\0"
+  /* 8609 */ "XSNMSUBADP\0"
+  /* 8620 */ "XVNMSUBADP\0"
+  /* 8631 */ "XSMSUBADP\0"
+  /* 8641 */ "XVMSUBADP\0"
+  /* 8651 */ "XSNMADDADP\0"
+  /* 8662 */ "XVNMADDADP\0"
+  /* 8673 */ "XSMADDADP\0"
+  /* 8683 */ "XVMADDADP\0"
+  /* 8693 */ "XSSUBDP\0"
+  /* 8701 */ "XVSUBDP\0"
+  /* 8709 */ "XSTSTDCDP\0"
+  /* 8719 */ "XVTSTDCDP\0"
+  /* 8729 */ "XSMINCDP\0"
+  /* 8738 */ "XSMAXCDP\0"
+  /* 8747 */ "XSADDDP\0"
+  /* 8755 */ "XVADDDP\0"
+  /* 8763 */ "XSCVSXDDP\0"
+  /* 8773 */ "XVCVSXDDP\0"
+  /* 8783 */ "XSCVUXDDP\0"
+  /* 8793 */ "XVCVUXDDP\0"
+  /* 8803 */ "XSCMPGEDP\0"
+  /* 8813 */ "XVCMPGEDP\0"
+  /* 8823 */ "XSREDP\0"
+  /* 8830 */ "XVREDP\0"
+  /* 8837 */ "XSRSQRTEDP\0"
+  /* 8848 */ "XVRSQRTEDP\0"
+  /* 8859 */ "XSNEGDP\0"
+  /* 8867 */ "XVNEGDP\0"
+  /* 8875 */ "XSXSIGDP\0"
+  /* 8884 */ "XVXSIGDP\0"
+  /* 8893 */ "XSMINJDP\0"
+  /* 8902 */ "XSMAXJDP\0"
+  /* 8911 */ "XSMULDP\0"
+  /* 8919 */ "XVMULDP\0"
+  /* 8927 */ "XSNMSUBMDP\0"
+  /* 8938 */ "XVNMSUBMDP\0"
+  /* 8949 */ "XSMSUBMDP\0"
+  /* 8959 */ "XVMSUBMDP\0"
+  /* 8969 */ "XSNMADDMDP\0"
+  /* 8980 */ "XVNMADDMDP\0"
+  /* 8991 */ "XSMADDMDP\0"
+  /* 9001 */ "XVMADDMDP\0"
+  /* 9011 */ "XSCPSGNDP\0"
+  /* 9021 */ "XVCPSGNDP\0"
+  /* 9031 */ "XSMINDP\0"
+  /* 9039 */ "XVMINDP\0"
+  /* 9047 */ "XSCMPODP\0"
+  /* 9056 */ "XSCVHPDP\0"
+  /* 9065 */ "XSCVQPDP\0"
+  /* 9074 */ "XSCVSPDP\0"
+  /* 9083 */ "XVCVSPDP\0"
+  /* 9092 */ "XSIEXPDP\0"
+  /* 9101 */ "XVIEXPDP\0"
+  /* 9110 */ "XSCMPEXPDP\0"
+  /* 9121 */ "XSXEXPDP\0"
+  /* 9130 */ "XVXEXPDP\0"
+  /* 9139 */ "XSCMPEQDP\0"
+  /* 9149 */ "XVCMPEQDP\0"
+  /* 9159 */ "XSNABSDP\0"
+  /* 9168 */ "XVNABSDP\0"
+  /* 9177 */ "XSABSDP\0"
+  /* 9185 */ "XVABSDP\0"
+  /* 9193 */ "XSCMPGTDP\0"
+  /* 9203 */ "XVCMPGTDP\0"
+  /* 9213 */ "XSSQRTDP\0"
+  /* 9222 */ "XSTSQRTDP\0"
+  /* 9232 */ "XVTSQRTDP\0"
+  /* 9242 */ "XVSQRTDP\0"
+  /* 9251 */ "XSCMPUDP\0"
+  /* 9260 */ "XSDIVDP\0"
+  /* 9268 */ "XSTDIVDP\0"
+  /* 9277 */ "XVTDIVDP\0"
+  /* 9286 */ "XVDIVDP\0"
+  /* 9294 */ "XVCVSXWDP\0"
+  /* 9304 */ "XVCVUXWDP\0"
+  /* 9314 */ "XSMAXDP\0"
+  /* 9322 */ "XVMAXDP\0"
+  /* 9330 */ "CTRL_DEP\0"
+  /* 9339 */ "DCBFEP\0"
+  /* 9346 */ "ICBIEP\0"
+  /* 9353 */ "DCBZLEP\0"
+  /* 9361 */ "DCBTEP\0"
+  /* 9368 */ "DCBSTEP\0"
+  /* 9376 */ "DCBTSTEP\0"
+  /* 9385 */ "DCBZEP\0"
+  /* 9392 */ "VCMPBFP\0"
+  /* 9400 */ "VNMSUBFP\0"
+  /* 9409 */ "VSUBFP\0"
+  /* 9416 */ "VMADDFP\0"
+  /* 9424 */ "VADDFP\0"
+  /* 9431 */ "VLOGEFP\0"
+  /* 9439 */ "VCMPGEFP\0"
+  /* 9448 */ "VREFP\0"
+  /* 9454 */ "VEXPTEFP\0"
+  /* 9463 */ "VRSQRTEFP\0"
+  /* 9473 */ "VMINFP\0"
+  /* 9480 */ "G_SITOFP\0"
+  /* 9489 */ "G_UITOFP\0"
+  /* 9498 */ "VCMPEQFP\0"
+  /* 9507 */ "VCMPGTFP\0"
+  /* 9516 */ "VMAXFP\0"
+  /* 9523 */ "XSCVDPHP\0"
+  /* 9532 */ "XVCVSPHP\0"
+  /* 9541 */ "VRFIP\0"
+  /* 9547 */ "XSRDPIP\0"
+  /* 9555 */ "XVRDPIP\0"
+  /* 9563 */ "XVRSPIP\0"
+  /* 9571 */ "QVFRIP\0"
+  /* 9578 */ "DCBFLP\0"
+  /* 9585 */ "G_FCMP\0"
+  /* 9592 */ "G_ICMP\0"
+  /* 9599 */ "BLA8_NOP\0"
+  /* 9608 */ "BL8_NOP\0"
+  /* 9616 */ "UNENCODED_NOP\0"
+  /* 9630 */ "BL_NOP\0"
+  /* 9637 */ "G_CTPOP\0"
+  /* 9645 */ "STOP\0"
+  /* 9650 */ "PATCHABLE_OP\0"
+  /* 9663 */ "FAULTING_OP\0"
+  /* 9675 */ "XSNMSUBQP\0"
+  /* 9685 */ "XSMSUBQP\0"
+  /* 9694 */ "XSSUBQP\0"
+  /* 9702 */ "XSTSTDCQP\0"
+  /* 9712 */ "XSNMADDQP\0"
+  /* 9722 */ "XSMADDQP\0"
+  /* 9731 */ "XSADDQP\0"
+  /* 9739 */ "XSCVSDQP\0"
+  /* 9748 */ "XSCVUDQP\0"
+  /* 9757 */ "XSNEGQP\0"
+  /* 9765 */ "XSXSIGQP\0"
+  /* 9774 */ "XSMULQP\0"
+  /* 9782 */ "XSCPSGNQP\0"
+  /* 9792 */ "XSCMPOQP\0"
+  /* 9801 */ "XSCVDPQP\0"
+  /* 9810 */ "XSIEXPQP\0"
+  /* 9819 */ "XSCMPEXPQP\0"
+  /* 9830 */ "XSXEXPQP\0"
+  /* 9839 */ "XSNABSQP\0"
+  /* 9848 */ "XSABSQP\0"
+  /* 9856 */ "XSSQRTQP\0"
+  /* 9865 */ "XSCMPUQP\0"
+  /* 9874 */ "XSDIVQP\0"
+  /* 9882 */ "XSNMSUBASP\0"
+  /* 9893 */ "XVNMSUBASP\0"
+  /* 9904 */ "XSMSUBASP\0"
+  /* 9914 */ "XVMSUBASP\0"
+  /* 9924 */ "XSNMADDASP\0"
+  /* 9935 */ "XVNMADDASP\0"
+  /* 9946 */ "XSMADDASP\0"
+  /* 9956 */ "XVMADDASP\0"
+  /* 9966 */ "XSSUBSP\0"
+  /* 9974 */ "XVSUBSP\0"
+  /* 9982 */ "XSTSTDCSP\0"
+  /* 9992 */ "XVTSTDCSP\0"
+  /* 10002 */ "XSADDSP\0"
+  /* 10010 */ "XVADDSP\0"
+  /* 10018 */ "XSCVSXDSP\0"
+  /* 10028 */ "XVCVSXDSP\0"
+  /* 10038 */ "XSCVUXDSP\0"
+  /* 10048 */ "XVCVUXDSP\0"
+  /* 10058 */ "XVCMPGESP\0"
+  /* 10068 */ "XSRESP\0"
+  /* 10075 */ "XVRESP\0"
+  /* 10082 */ "XSRSQRTESP\0"
+  /* 10093 */ "XVRSQRTESP\0"
+  /* 10104 */ "XVNEGSP\0"
+  /* 10112 */ "XVXSIGSP\0"
+  /* 10121 */ "XSMULSP\0"
+  /* 10129 */ "XVMULSP\0"
+  /* 10137 */ "XSNMSUBMSP\0"
+  /* 10148 */ "XVNMSUBMSP\0"
+  /* 10159 */ "XSMSUBMSP\0"
+  /* 10169 */ "XVMSUBMSP\0"
+  /* 10179 */ "XSNMADDMSP\0"
+  /* 10190 */ "XVNMADDMSP\0"
+  /* 10201 */ "XSMADDMSP\0"
+  /* 10211 */ "XVMADDMSP\0"
+  /* 10221 */ "XVCPSGNSP\0"
+  /* 10231 */ "XVMINSP\0"
+  /* 10239 */ "XSCVDPSP\0"
+  /* 10248 */ "XVCVDPSP\0"
+  /* 10257 */ "XVCVHPSP\0"
+  /* 10266 */ "XVIEXPSP\0"
+  /* 10275 */ "XVXEXPSP\0"
+  /* 10284 */ "XVCMPEQSP\0"
+  /* 10294 */ "QVFRSP\0"
+  /* 10301 */ "XSRSP\0"
+  /* 10307 */ "XVNABSSP\0"
+  /* 10316 */ "XVABSSP\0"
+  /* 10324 */ "PLXSSP\0"
+  /* 10331 */ "PSTXSSP\0"
+  /* 10339 */ "XVCMPGTSP\0"
+  /* 10349 */ "XSSQRTSP\0"
+  /* 10358 */ "XVTSQRTSP\0"
+  /* 10368 */ "XVSQRTSP\0"
+  /* 10377 */ "XSDIVSP\0"
+  /* 10385 */ "XVTDIVSP\0"
+  /* 10394 */ "XVDIVSP\0"
+  /* 10402 */ "XVCVSXWSP\0"
+  /* 10412 */ "XVCVUXWSP\0"
+  /* 10422 */ "XVMAXSP\0"
+  /* 10430 */ "ADJCALLSTACKUP\0"
+  /* 10445 */ "PREALLOCATED_SETUP\0"
+  /* 10464 */ "G_FEXP\0"
+  /* 10471 */ "XSRQPXP\0"
+  /* 10479 */ "VPRTYBQ\0"
+  /* 10487 */ "EFDCMPEQ\0"
+  /* 10496 */ "QVFCMPEQ\0"
+  /* 10505 */ "EFSCMPEQ\0"
+  /* 10514 */ "EVFSCMPEQ\0"
+  /* 10524 */ "EVCMPEQ\0"
+  /* 10532 */ "EFDTSTEQ\0"
+  /* 10541 */ "EFSTSTEQ\0"
+  /* 10550 */ "EVFSTSTEQ\0"
+  /* 10560 */ "ICBLQ\0"
+  /* 10566 */ "VBPERMQ\0"
+  /* 10574 */ "XXBRQ\0"
+  /* 10580 */ "VMUL10UQ\0"
+  /* 10589 */ "VMUL10CUQ\0"
+  /* 10599 */ "VSUBCUQ\0"
+  /* 10607 */ "VADDCUQ\0"
+  /* 10615 */ "VMUL10ECUQ\0"
+  /* 10626 */ "VSUBECUQ\0"
+  /* 10635 */ "VADDECUQ\0"
+  /* 10644 */ "VMUL10EUQ\0"
+  /* 10654 */ "MBAR\0"
+  /* 10659 */ "UpdateGBR\0"
+  /* 10669 */ "G_BR\0"
+  /* 10674 */ "INLINEASM_BR\0"
+  /* 10687 */ "MFDCR\0"
+  /* 10693 */ "RLDCR\0"
+  /* 10699 */ "MTDCR\0"
+  /* 10705 */ "MFCR\0"
+  /* 10710 */ "RLDICR\0"
+  /* 10717 */ "MFVSCR\0"
+  /* 10724 */ "MTVSCR\0"
+  /* 10731 */ "RESTORE_CR\0"
+  /* 10742 */ "SPILL_CR\0"
+  /* 10751 */ "ADDItlsgdLADDR\0"
+  /* 10766 */ "ADDItlsldLADDR\0"
+  /* 10781 */ "G_BLOCK_ADDR\0"
+  /* 10794 */ "GETtlsldADDR\0"
+  /* 10807 */ "GETtlsADDR\0"
+  /* 10818 */ "VNCIPHER\0"
+  /* 10827 */ "VCIPHER\0"
+  /* 10835 */ "PATCHABLE_FUNCTION_ENTER\0"
+  /* 10860 */ "G_READCYCLECOUNTER\0"
+  /* 10879 */ "G_READ_REGISTER\0"
+  /* 10895 */ "G_WRITE_REGISTER\0"
+  /* 10912 */ "G_ASHR\0"
+  /* 10919 */ "G_FSHR\0"
+  /* 10926 */ "G_LSHR\0"
+  /* 10933 */ "BLR\0"
+  /* 10937 */ "gBCLR\0"
+  /* 10943 */ "BCCLR\0"
+  /* 10949 */ "MFLR\0"
+  /* 10954 */ "MTLR\0"
+  /* 10959 */ "BDZLR\0"
+  /* 10965 */ "BDNZLR\0"
+  /* 10972 */ "MovePCtoLR\0"
+  /* 10983 */ "MoveGOTtoLR\0"
+  /* 10995 */ "QVFMR\0"
+  /* 11001 */ "MFPMR\0"
+  /* 11007 */ "MTPMR\0"
+  /* 11013 */ "VPERMR\0"
+  /* 11020 */ "XXPERMR\0"
+  /* 11028 */ "XXLOR\0"
+  /* 11034 */ "XXLNOR\0"
+  /* 11041 */ "CRNOR\0"
+  /* 11047 */ "EVNOR\0"
+  /* 11053 */ "G_FFLOOR\0"
+  /* 11062 */ "CROR\0"
+  /* 11067 */ "G_BUILD_VECTOR\0"
+  /* 11082 */ "G_SHUFFLE_VECTOR\0"
+  /* 11099 */ "EVOR\0"
+  /* 11104 */ "XXLXOR\0"
+  /* 11111 */ "VPERMXOR\0"
+  /* 11120 */ "CRXOR\0"
+  /* 11126 */ "EVXOR\0"
+  /* 11132 */ "G_XOR\0"
+  /* 11138 */ "G_ATOMICRMW_XOR\0"
+  /* 11154 */ "G_OR\0"
+  /* 11159 */ "G_ATOMICRMW_OR\0"
+  /* 11174 */ "MFSPR\0"
+  /* 11180 */ "MTSPR\0"
+  /* 11186 */ "MFSR\0"
+  /* 11191 */ "MFMSR\0"
+  /* 11197 */ "MTMSR\0"
+  /* 11203 */ "MTSR\0"
+  /* 11208 */ "LVSR\0"
+  /* 11213 */ "TAILBCTR\0"
+  /* 11222 */ "gBCCTR\0"
+  /* 11229 */ "BCCCTR\0"
+  /* 11236 */ "MFCTR\0"
+  /* 11242 */ "MTCTR\0"
+  /* 11248 */ "G_INTTOPTR\0"
+  /* 11259 */ "EFDABS\0"
+  /* 11266 */ "QVFABS\0"
+  /* 11273 */ "G_FABS\0"
+  /* 11280 */ "EFDNABS\0"
+  /* 11288 */ "QVFNABS\0"
+  /* 11296 */ "EFSNABS\0"
+  /* 11304 */ "EVFSNABS\0"
+  /* 11313 */ "EFSABS\0"
+  /* 11320 */ "EVFSABS\0"
+  /* 11328 */ "EVABS\0"
+  /* 11334 */ "VSUM4SBS\0"
+  /* 11343 */ "VSUBSBS\0"
+  /* 11351 */ "VADDSBS\0"
+  /* 11359 */ "VSUM4UBS\0"
+  /* 11368 */ "VSUBUBS\0"
+  /* 11376 */ "VADDUBS\0"
+  /* 11384 */ "QVFSUBS\0"
+  /* 11392 */ "QVFMSUBS\0"
+  /* 11401 */ "QVFNMSUBS\0"
+  /* 11411 */ "QVFADDS\0"
+  /* 11419 */ "QVFMADDS\0"
+  /* 11428 */ "QVFNMADDS\0"
+  /* 11438 */ "QVFXXCPNMADDS\0"
+  /* 11452 */ "QVFXXNPMADDS\0"
+  /* 11465 */ "QVFXMADDS\0"
+  /* 11475 */ "QVFXXMADDS\0"
+  /* 11486 */ "QVFCFIDS\0"
+  /* 11495 */ "DCBTDS\0"
+  /* 11502 */ "DCBTSTDS\0"
+  /* 11511 */ "XSCVDPSXDS\0"
+  /* 11522 */ "XVCVDPSXDS\0"
+  /* 11533 */ "XVCVSPSXDS\0"
+  /* 11544 */ "XSCVDPUXDS\0"
+  /* 11555 */ "XVCVDPUXDS\0"
+  /* 11566 */ "XVCVSPUXDS\0"
+  /* 11577 */ "V_SETALLONES\0"
+  /* 11590 */ "QVFRES\0"
+  /* 11597 */ "QVFRSQRTES\0"
+  /* 11608 */ "G_UNMERGE_VALUES\0"
+  /* 11625 */ "G_MERGE_VALUES\0"
+  /* 11640 */ "EFDCFS\0"
+  /* 11647 */ "MFFS\0"
+  /* 11652 */ "PLFS\0"
+  /* 11657 */ "MCRFS\0"
+  /* 11663 */ "PSTFS\0"
+  /* 11669 */ "FNEGS\0"
+  /* 11675 */ "VSUM4SHS\0"
+  /* 11684 */ "VSUBSHS\0"
+  /* 11692 */ "VMHADDSHS\0"
+  /* 11702 */ "VMHRADDSHS\0"
+  /* 11713 */ "VADDSHS\0"
+  /* 11721 */ "VMSUMSHS\0"
+  /* 11730 */ "VSUBUHS\0"
+  /* 11738 */ "VADDUHS\0"
+  /* 11746 */ "VMSUMUHS\0"
+  /* 11755 */ "SUBIS\0"
+  /* 11761 */ "SUBPCIS\0"
+  /* 11769 */ "ADDPCIS\0"
+  /* 11777 */ "ADDIS\0"
+  /* 11783 */ "LIS\0"
+  /* 11787 */ "XORIS\0"
+  /* 11793 */ "EVSRWIS\0"
+  /* 11801 */ "FSELS\0"
+  /* 11807 */ "ADD4TLS\0"
+  /* 11815 */ "ADD8TLS\0"
+  /* 11823 */ "ICBTLS\0"
+  /* 11830 */ "STBXTLS\0"
+  /* 11838 */ "LDXTLS\0"
+  /* 11845 */ "STDXTLS\0"
+  /* 11853 */ "STHXTLS\0"
+  /* 11861 */ "STWXTLS\0"
+  /* 11869 */ "LBZXTLS\0"
+  /* 11877 */ "LHZXTLS\0"
+  /* 11885 */ "LWZXTLS\0"
+  /* 11893 */ "BL8_TLS\0"
+  /* 11901 */ "BL_TLS\0"
+  /* 11908 */ "BL8_NOP_TLS\0"
+  /* 11920 */ "QVFMULS\0"
+  /* 11928 */ "QVFXMULS\0"
+  /* 11937 */ "FRIMS\0"
+  /* 11943 */ "FCPSGNS\0"
+  /* 11951 */ "FRINS\0"
+  /* 11957 */ "G_FCOS\0"
+  /* 11964 */ "EVLWHOS\0"
+  /* 11972 */ "FRIPS\0"
+  /* 11978 */ "G_CONCAT_VECTORS\0"
+  /* 11995 */ "COPY_TO_REGCLASS\0"
+  /* 12012 */ "FABSS\0"
+  /* 12018 */ "FNABSS\0"
+  /* 12025 */ "VPKSDSS\0"
+  /* 12033 */ "G_ATOMIC_CMPXCHG_WITH_SUCCESS\0"
+  /* 12063 */ "VPKSHSS\0"
+  /* 12071 */ "VPKSWSS\0"
+  /* 12079 */ "G_INTRINSIC_W_SIDE_EFFECTS\0"
+  /* 12106 */ "EVCMPGTS\0"
+  /* 12115 */ "EVCMPLTS\0"
+  /* 12124 */ "FSQRTS\0"
+  /* 12131 */ "QVFCFIDUS\0"
+  /* 12141 */ "VPKSDUS\0"
+  /* 12149 */ "VPKUDUS\0"
+  /* 12157 */ "VPKSHUS\0"
+  /* 12165 */ "VPKUHUS\0"
+  /* 12173 */ "FCMPUS\0"
+  /* 12180 */ "VPKSWUS\0"
+  /* 12188 */ "VPKUWUS\0"
+  /* 12196 */ "FDIVS\0"
+  /* 12202 */ "EVSRWS\0"
+  /* 12209 */ "MTVSRWS\0"
+  /* 12217 */ "VSUM2SWS\0"
+  /* 12226 */ "VSUBSWS\0"
+  /* 12234 */ "VADDSWS\0"
+  /* 12242 */ "VSUMSWS\0"
+  /* 12250 */ "VSUBUWS\0"
+  /* 12258 */ "VADDUWS\0"
+  /* 12266 */ "EVDIVWS\0"
+  /* 12274 */ "XSCVDPSXWS\0"
+  /* 12285 */ "XVCVDPSXWS\0"
+  /* 12296 */ "XVCVSPSXWS\0"
+  /* 12307 */ "XSCVDPUXWS\0"
+  /* 12318 */ "XVCVDPUXWS\0"
+  /* 12329 */ "XVCVSPUXWS\0"
+  /* 12340 */ "VCTSXS\0"
+  /* 12347 */ "VCTUXS\0"
+  /* 12354 */ "FRIZS\0"
+  /* 12360 */ "LDAT\0"
+  /* 12365 */ "STDAT\0"
+  /* 12371 */ "EVLHHESPLAT\0"
+  /* 12383 */ "EVLWHSPLAT\0"
+  /* 12394 */ "EVLHHOSSPLAT\0"
+  /* 12407 */ "EVLHHOUSPLAT\0"
+  /* 12420 */ "EVLWWSPLAT\0"
+  /* 12431 */ "G_SSUBSAT\0"
+  /* 12441 */ "G_USUBSAT\0"
+  /* 12451 */ "G_SADDSAT\0"
+  /* 12461 */ "G_UADDSAT\0"
+  /* 12471 */ "LWAT\0"
+  /* 12476 */ "STWAT\0"
+  /* 12482 */ "DCBT\0"
+  /* 12487 */ "ICBT\0"
+  /* 12492 */ "G_EXTRACT\0"
+  /* 12502 */ "G_SELECT\0"
+  /* 12511 */ "G_BRINDIRECT\0"
+  /* 12524 */ "DCBTCT\0"
+  /* 12531 */ "DCBTSTCT\0"
+  /* 12540 */ "PATCHABLE_RET\0"
+  /* 12554 */ "TCHECK_RET\0"
+  /* 12565 */ "TBEGIN_RET\0"
+  /* 12576 */ "CR6SET\0"
+  /* 12583 */ "DYNAREAOFFSET\0"
+  /* 12597 */ "CR6UNSET\0"
+  /* 12606 */ "CRUNSET\0"
+  /* 12614 */ "CRSET\0"
+  /* 12620 */ "EFDCMPGT\0"
+  /* 12629 */ "QVFCMPGT\0"
+  /* 12638 */ "EFSCMPGT\0"
+  /* 12647 */ "EVFSCMPGT\0"
+  /* 12657 */ "EFDTSTGT\0"
+  /* 12666 */ "EFSTSTGT\0"
+  /* 12675 */ "EVFSTSTGT\0"
+  /* 12685 */ "WAIT\0"
+  /* 12690 */ "RESTORE_CRBIT\0"
+  /* 12704 */ "SPILL_CRBIT\0"
+  /* 12716 */ "ANDI_rec_1_EQ_BIT\0"
+  /* 12734 */ "ANDI_rec_1_GT_BIT\0"
+  /* 12752 */ "PATCHABLE_FUNCTION_EXIT\0"
+  /* 12776 */ "G_BRJT\0"
+  /* 12783 */ "G_EXTRACT_VECTOR_ELT\0"
+  /* 12804 */ "G_INSERT_VECTOR_ELT\0"
+  /* 12824 */ "EFDCMPLT\0"
+  /* 12833 */ "QVFCMPLT\0"
+  /* 12842 */ "EFSCMPLT\0"
+  /* 12851 */ "EVFSCMPLT\0"
+  /* 12861 */ "EFDTSTLT\0"
+  /* 12870 */ "EFSTSTLT\0"
+  /* 12879 */ "EVFSTSTLT\0"
+  /* 12889 */ "G_FCONSTANT\0"
+  /* 12901 */ "G_CONSTANT\0"
+  /* 12912 */ "STATEPOINT\0"
+  /* 12923 */ "PATCHPOINT\0"
+  /* 12934 */ "G_PTRTOINT\0"
+  /* 12945 */ "G_FRINT\0"
+  /* 12953 */ "G_FNEARBYINT\0"
+  /* 12966 */ "PPC32GOT\0"
+  /* 12975 */ "PPC32PICGOT\0"
+  /* 12987 */ "LDtocCPT\0"
+  /* 12996 */ "TRECHKPT\0"
+  /* 13005 */ "G_VASTART\0"
+  /* 13015 */ "LIFETIME_START\0"
+  /* 13030 */ "G_INSERT\0"
+  /* 13039 */ "TABORT\0"
+  /* 13046 */ "CP_ABORT\0"
+  /* 13055 */ "G_FSQRT\0"
+  /* 13063 */ "FTSQRT\0"
+  /* 13070 */ "G_BITCAST\0"
+  /* 13080 */ "G_ADDRSPACE_CAST\0"
+  /* 13097 */ "VNCIPHERLAST\0"
+  /* 13110 */ "VCIPHERLAST\0"
+  /* 13122 */ "CP_PASTE_LAST\0"
+  /* 13136 */ "DCBST\0"
+  /* 13142 */ "DST\0"
+  /* 13146 */ "CP_COPY_FIRST\0"
+  /* 13160 */ "DCBTST\0"
+  /* 13167 */ "DSTST\0"
+  /* 13173 */ "SPILLTOVSR_ST\0"
+  /* 13187 */ "DCBTT\0"
+  /* 13193 */ "DSTT\0"
+  /* 13198 */ "DCBTSTT\0"
+  /* 13206 */ "DSTSTT\0"
+  /* 13213 */ "G_FPEXT\0"
+  /* 13221 */ "G_SEXT\0"
+  /* 13228 */ "G_ANYEXT\0"
+  /* 13237 */ "G_ZEXT\0"
+  /* 13244 */ "LHAU\0"
+  /* 13249 */ "STBU\0"
+  /* 13254 */ "LFDU\0"
+  /* 13259 */ "STFDU\0"
+  /* 13265 */ "MADDHDU\0"
+  /* 13273 */ "MULHDU\0"
+  /* 13280 */ "QVFCFIDU\0"
+  /* 13289 */ "QVFCTIDU\0"
+  /* 13298 */ "LDU\0"
+  /* 13302 */ "STDU\0"
+  /* 13307 */ "DIVDU\0"
+  /* 13313 */ "DIVDEU\0"
+  /* 13320 */ "DIVWEU\0"
+  /* 13327 */ "STHU\0"
+  /* 13332 */ "EVSRWIU\0"
+  /* 13340 */ "EVLWHOU\0"
+  /* 13348 */ "LFSU\0"
+  /* 13353 */ "STFSU\0"
+  /* 13359 */ "EVCMPGTU\0"
+  /* 13368 */ "EVCMPLTU\0"
+  /* 13377 */ "MULHWU\0"
+  /* 13384 */ "QVFCTIWU\0"
+  /* 13393 */ "EVSRWU\0"
+  /* 13400 */ "STWU\0"
+  /* 13405 */ "EVDIVWU\0"
+  /* 13413 */ "LBZU\0"
+  /* 13418 */ "LHZU\0"
+  /* 13423 */ "LWZU\0"
+  /* 13428 */ "SLBMFEV\0"
+  /* 13436 */ "EFDDIV\0"
+  /* 13443 */ "G_FDIV\0"
+  /* 13450 */ "EFSDIV\0"
+  /* 13457 */ "EVFSDIV\0"
+  /* 13465 */ "G_SDIV\0"
+  /* 13472 */ "FTDIV\0"
+  /* 13478 */ "G_UDIV\0"
+  /* 13485 */ "VSLV\0"
+  /* 13490 */ "XXLEQV\0"
+  /* 13497 */ "CREQV\0"
+  /* 13503 */ "EVEQV\0"
+  /* 13509 */ "VSRV\0"
+  /* 13514 */ "PLXV\0"
+  /* 13519 */ "PSTXV\0"
+  /* 13525 */ "VEXTSB2W\0"
+  /* 13534 */ "VEXTSH2W\0"
+  /* 13543 */ "EVMHESMFAAW\0"
+  /* 13555 */ "EVMHOSMFAAW\0"
+  /* 13567 */ "EVMHESSFAAW\0"
+  /* 13579 */ "EVMHOSSFAAW\0"
+  /* 13591 */ "EVADDSMIAAW\0"
+  /* 13603 */ "EVMHESMIAAW\0"
+  /* 13615 */ "EVSUBFSMIAAW\0"
+  /* 13628 */ "EVMWLSMIAAW\0"
+  /* 13640 */ "EVMHOSMIAAW\0"
+  /* 13652 */ "EVADDUMIAAW\0"
+  /* 13664 */ "EVMHEUMIAAW\0"
+  /* 13676 */ "EVSUBFUMIAAW\0"
+  /* 13689 */ "EVMWLUMIAAW\0"
+  /* 13701 */ "EVMHOUMIAAW\0"
+  /* 13713 */ "EVADDSSIAAW\0"
+  /* 13725 */ "EVMHESSIAAW\0"
+  /* 13737 */ "EVSUBFSSIAAW\0"
+  /* 13750 */ "EVMWLSSIAAW\0"
+  /* 13762 */ "EVMHOSSIAAW\0"
+  /* 13774 */ "EVADDUSIAAW\0"
+  /* 13786 */ "EVMHEUSIAAW\0"
+  /* 13798 */ "EVSUBFUSIAAW\0"
+  /* 13811 */ "EVMWLUSIAAW\0"
+  /* 13823 */ "EVMHOUSIAAW\0"
+  /* 13835 */ "VSHASIGMAW\0"
+  /* 13846 */ "VSRAW\0"
+  /* 13852 */ "VPRTYBW\0"
+  /* 13860 */ "EVADDW\0"
+  /* 13867 */ "EVLDW\0"
+  /* 13873 */ "EVRNDW\0"
+  /* 13880 */ "EVSTDW\0"
+  /* 13887 */ "VMRGEW\0"
+  /* 13894 */ "VCMPNEW\0"
+  /* 13902 */ "EVSUBFW\0"
+  /* 13910 */ "EVSUBIFW\0"
+  /* 13919 */ "VNEGW\0"
+  /* 13925 */ "VMRGHW\0"
+  /* 13932 */ "XXMRGHW\0"
+  /* 13940 */ "MULHW\0"
+  /* 13946 */ "EVADDIW\0"
+  /* 13954 */ "QVFCTIW\0"
+  /* 13962 */ "VMRGLW\0"
+  /* 13969 */ "XXMRGLW\0"
+  /* 13977 */ "MULLW\0"
+  /* 13983 */ "CMPLW\0"
+  /* 13989 */ "EVRLW\0"
+  /* 13995 */ "EVSLW\0"
+  /* 14001 */ "LMW\0"
+  /* 14005 */ "STMW\0"
+  /* 14010 */ "VPMSUMW\0"
+  /* 14018 */ "EVMHESMFANW\0"
+  /* 14030 */ "EVMHOSMFANW\0"
+  /* 14042 */ "EVMHESSFANW\0"
+  /* 14054 */ "EVMHOSSFANW\0"
+  /* 14066 */ "EVMHESMIANW\0"
+  /* 14078 */ "EVMWLSMIANW\0"
+  /* 14090 */ "EVMHOSMIANW\0"
+  /* 14102 */ "EVMHEUMIANW\0"
+  /* 14114 */ "EVMWLUMIANW\0"
+  /* 14126 */ "EVMHOUMIANW\0"
+  /* 14138 */ "EVMHESSIANW\0"
+  /* 14150 */ "EVMWLSSIANW\0"
+  /* 14162 */ "EVMHOSSIANW\0"
+  /* 14174 */ "EVMHEUSIANW\0"
+  /* 14186 */ "EVMWLUSIANW\0"
+  /* 14198 */ "EVMHOUSIANW\0"
+  /* 14210 */ "VMRGOW\0"
+  /* 14217 */ "G_FPOW\0"
+  /* 14224 */ "CMPW\0"
+  /* 14229 */ "XXBRW\0"
+  /* 14235 */ "VSRW\0"
+  /* 14240 */ "MODSW\0"
+  /* 14246 */ "VMULESW\0"
+  /* 14254 */ "VAVGSW\0"
+  /* 14261 */ "VUPKHSW\0"
+  /* 14269 */ "VSPLTISW\0"
+  /* 14278 */ "VUPKLSW\0"
+  /* 14286 */ "EVCNTLSW\0"
+  /* 14295 */ "VMINSW\0"
+  /* 14302 */ "VMULOSW\0"
+  /* 14310 */ "VCMPGTSW\0"
+  /* 14319 */ "EXTSW\0"
+  /* 14325 */ "VMAXSW\0"
+  /* 14332 */ "VSPLTW\0"
+  /* 14339 */ "XXSPLTW\0"
+  /* 14347 */ "VPOPCNTW\0"
+  /* 14356 */ "VINSERTW\0"
+  /* 14365 */ "XXINSERTW\0"
+  /* 14375 */ "SPESTW\0"
+  /* 14382 */ "PSTW\0"
+  /* 14387 */ "VSUBCUW\0"
+  /* 14395 */ "VADDCUW\0"
+  /* 14403 */ "MODUW\0"
+  /* 14409 */ "VABSDUW\0"
+  /* 14417 */ "VMULEUW\0"
+  /* 14425 */ "VAVGUW\0"
+  /* 14432 */ "VMINUW\0"
+  /* 14439 */ "VMULOUW\0"
+  /* 14447 */ "VCMPEQUW\0"
+  /* 14456 */ "VEXTRACTUW\0"
+  /* 14467 */ "XXEXTRACTUW\0"
+  /* 14479 */ "VCMPGTUW\0"
+  /* 14488 */ "VMAXUW\0"
+  /* 14495 */ "DIVW\0"
+  /* 14500 */ "VCMPNEZW\0"
+  /* 14509 */ "VCLZW\0"
+  /* 14515 */ "EVCNTLZW\0"
+  /* 14524 */ "VCTZW\0"
+  /* 14530 */ "CNTTZW\0"
+  /* 14537 */ "LXVD2X\0"
+  /* 14544 */ "STXVD2X\0"
+  /* 14552 */ "LXVW4X\0"
+  /* 14559 */ "STXVW4X\0"
+  /* 14567 */ "LXVB16X\0"
+  /* 14575 */ "STXVB16X\0"
+  /* 14584 */ "LXVH8X\0"
+  /* 14591 */ "STXVH8X\0"
+  /* 14599 */ "LHAX\0"
+  /* 14604 */ "G_SMAX\0"
+  /* 14611 */ "G_UMAX\0"
+  /* 14618 */ "G_ATOMICRMW_UMAX\0"
+  /* 14635 */ "G_ATOMICRMW_MAX\0"
+  /* 14651 */ "TLBIVAX\0"
+  /* 14659 */ "QVLFIWAX\0"
+  /* 14668 */ "LIWAX\0"
+  /* 14674 */ "LXSIWAX\0"
+  /* 14682 */ "LWAX\0"
+  /* 14687 */ "LVEBX\0"
+  /* 14693 */ "STVEBX\0"
+  /* 14700 */ "STXSIBX\0"
+  /* 14708 */ "STBX\0"
+  /* 14713 */ "STBCX\0"
+  /* 14719 */ "STDCX\0"
+  /* 14725 */ "STHCX\0"
+  /* 14731 */ "STWCX\0"
+  /* 14737 */ "QVLFCDX\0"
+  /* 14745 */ "QVSTFCDX\0"
+  /* 14754 */ "EVLDDX\0"
+  /* 14761 */ "EVSTDDX\0"
+  /* 14769 */ "QVLFDX\0"
+  /* 14776 */ "QVSTFDX\0"
+  /* 14784 */ "QVLPCLDX\0"
+  /* 14793 */ "SPILLTOVSR_LDX\0"
+  /* 14808 */ "QVLPCRDX\0"
+  /* 14817 */ "LXSDX\0"
+  /* 14823 */ "STXSDX\0"
+  /* 14830 */ "STDX\0"
+  /* 14835 */ "G_FRAME_INDEX\0"
+  /* 14849 */ "EVLWHEX\0"
+  /* 14857 */ "EVSTWHEX\0"
+  /* 14866 */ "EVSTWWEX\0"
+  /* 14875 */ "EVLDHX\0"
+  /* 14882 */ "EVSTDHX\0"
+  /* 14890 */ "LVEHX\0"
+  /* 14896 */ "STVEHX\0"
+  /* 14903 */ "STXSIHX\0"
+  /* 14911 */ "STHX\0"
+  /* 14916 */ "STBCIX\0"
+  /* 14923 */ "LDCIX\0"
+  /* 14929 */ "STDCIX\0"
+  /* 14936 */ "STHCIX\0"
+  /* 14943 */ "STWCIX\0"
+  /* 14950 */ "LBZCIX\0"
+  /* 14957 */ "LHZCIX\0"
+  /* 14964 */ "LWZCIX\0"
+  /* 14971 */ "XSRQPIX\0"
+  /* 14979 */ "VEXTUBLX\0"
+  /* 14988 */ "VEXTUHLX\0"
+  /* 14997 */ "VEXTUWLX\0"
+  /* 15006 */ "LDMX\0"
+  /* 15011 */ "VSBOX\0"
+  /* 15017 */ "EVSTWHOX\0"
+  /* 15026 */ "EVSTWWOX\0"
+  /* 15035 */ "LBEPX\0"
+  /* 15041 */ "STBEPX\0"
+  /* 15048 */ "LFDEPX\0"
+  /* 15055 */ "STFDEPX\0"
+  /* 15063 */ "LHEPX\0"
+  /* 15069 */ "STHEPX\0"
+  /* 15076 */ "LWEPX\0"
+  /* 15082 */ "STWEPX\0"
+  /* 15089 */ "VUPKHPX\0"
+  /* 15097 */ "VPKPX\0"
+  /* 15103 */ "VUPKLPX\0"
+  /* 15111 */ "LXSSPX\0"
+  /* 15118 */ "STXSSPX\0"
+  /* 15126 */ "LBARX\0"
+  /* 15132 */ "LDARX\0"
+  /* 15138 */ "LHARX\0"
+  /* 15144 */ "LWARX\0"
+  /* 15150 */ "LDBRX\0"
+  /* 15156 */ "STDBRX\0"
+  /* 15163 */ "LHBRX\0"
+  /* 15169 */ "STHBRX\0"
+  /* 15176 */ "VEXTUBRX\0"
+  /* 15185 */ "LWBRX\0"
+  /* 15191 */ "STWBRX\0"
+  /* 15198 */ "VEXTUHRX\0"
+  /* 15207 */ "VEXTUWRX\0"
+  /* 15216 */ "MCRXRX\0"
+  /* 15223 */ "TLBSX\0"
+  /* 15229 */ "QVLFCSX\0"
+  /* 15237 */ "QVSTFCSX\0"
+  /* 15246 */ "LXVDSX\0"
+  /* 15253 */ "VCFSX\0"
+  /* 15259 */ "QVLFSX\0"
+  /* 15266 */ "QVSTFSX\0"
+  /* 15274 */ "QVLPCLSX\0"
+  /* 15283 */ "EVLWHOSX\0"
+  /* 15292 */ "QVLPCRSX\0"
+  /* 15301 */ "LXVWSX\0"
+  /* 15308 */ "EVLHHESPLATX\0"
+  /* 15321 */ "EVLWHSPLATX\0"
+  /* 15333 */ "EVLHHOSSPLATX\0"
+  /* 15347 */ "EVLHHOUSPLATX\0"
+  /* 15361 */ "EVLWWSPLATX\0"
+  /* 15373 */ "SPILLTOVSR_STX\0"
+  /* 15388 */ "LHAUX\0"
+  /* 15394 */ "LWAUX\0"
+  /* 15400 */ "STBUX\0"
+  /* 15406 */ "QVLFCDUX\0"
+  /* 15415 */ "QVSTFCDUX\0"
+  /* 15425 */ "QVLFDUX\0"
+  /* 15433 */ "QVSTFDUX\0"
+  /* 15442 */ "LDUX\0"
+  /* 15447 */ "STDUX\0"
+  /* 15453 */ "VCFUX\0"
+  /* 15459 */ "STHUX\0"
+  /* 15465 */ "EVLWHOUX\0"
+  /* 15474 */ "QVLFCSUX\0"
+  /* 15483 */ "QVSTFCSUX\0"
+  /* 15493 */ "QVLFSUX\0"
+  /* 15501 */ "QVSTFSUX\0"
+  /* 15510 */ "STWUX\0"
+  /* 15516 */ "LBZUX\0"
+  /* 15522 */ "LHZUX\0"
+  /* 15528 */ "LWZUX\0"
+  /* 15534 */ "LVX\0"
+  /* 15538 */ "STVX\0"
+  /* 15543 */ "LXVX\0"
+  /* 15548 */ "STXVX\0"
+  /* 15554 */ "EVLDWX\0"
+  /* 15561 */ "EVSTDWX\0"
+  /* 15569 */ "LVEWX\0"
+  /* 15575 */ "STVEWX\0"
+  /* 15582 */ "QVSTFIWX\0"
+  /* 15591 */ "STXSIWX\0"
+  /* 15599 */ "STIWX\0"
+  /* 15605 */ "SPESTWX\0"
+  /* 15613 */ "LXSIBZX\0"
+  /* 15621 */ "LBZX\0"
+  /* 15626 */ "LXSIHZX\0"
+  /* 15634 */ "LHZX\0"
+  /* 15639 */ "QVLFIWZX\0"
+  /* 15648 */ "LIWZX\0"
+  /* 15654 */ "LXSIWZX\0"
+  /* 15662 */ "SPELWZX\0"
+  /* 15670 */ "CP_COPY\0"
+  /* 15678 */ "DCBZ\0"
+  /* 15683 */ "PLBZ\0"
+  /* 15688 */ "BDZ\0"
+  /* 15692 */ "EFDCTSIDZ\0"
+  /* 15702 */ "QVFCTIDZ\0"
+  /* 15711 */ "EFDCTUIDZ\0"
+  /* 15721 */ "XSCVQPSDZ\0"
+  /* 15731 */ "XSCVQPUDZ\0"
+  /* 15741 */ "PLHZ\0"
+  /* 15746 */ "VRFIZ\0"
+  /* 15752 */ "XSRDPIZ\0"
+  /* 15760 */ "XVRDPIZ\0"
+  /* 15768 */ "XVRSPIZ\0"
+  /* 15776 */ "QVFRIZ\0"
+  /* 15783 */ "EFDCTSIZ\0"
+  /* 15792 */ "EFSCTSIZ\0"
+  /* 15801 */ "EVFSCTSIZ\0"
+  /* 15811 */ "EFDCTUIZ\0"
+  /* 15820 */ "EFSCTUIZ\0"
+  /* 15829 */ "EVFSCTUIZ\0"
+  /* 15839 */ "G_CTLZ\0"
+  /* 15846 */ "BDNZ\0"
+  /* 15851 */ "G_CTTZ\0"
+  /* 15858 */ "QVFCTIDUZ\0"
+  /* 15868 */ "QVFCTIWUZ\0"
+  /* 15878 */ "QVFCTIWZ\0"
+  /* 15887 */ "SPELWZ\0"
+  /* 15894 */ "PLWZ\0"
+  /* 15899 */ "MFVSRWZ\0"
+  /* 15907 */ "MTVSRWZ\0"
+  /* 15915 */ "MFVRWZ\0"
+  /* 15922 */ "MTVRWZ\0"
+  /* 15929 */ "XSCVQPSWZ\0"
+  /* 15939 */ "XSCVQPUWZ\0"
+  /* 15949 */ "ADD8TLS_\0"
+  /* 15958 */ "STBXTLS_\0"
+  /* 15967 */ "LDXTLS_\0"
+  /* 15975 */ "STDXTLS_\0"
+  /* 15984 */ "STHXTLS_\0"
+  /* 15993 */ "STWXTLS_\0"
+  /* 16002 */ "LBZXTLS_\0"
+  /* 16011 */ "LHZXTLS_\0"
+  /* 16020 */ "LWZXTLS_\0"
+  /* 16029 */ "BL8_TLS_\0"
+  /* 16038 */ "QVFCFIDb\0"
+  /* 16047 */ "QVFCTIDb\0"
+  /* 16056 */ "MTFSFb\0"
+  /* 16063 */ "QVALIGNIb\0"
+  /* 16073 */ "QVESPLATIb\0"
+  /* 16084 */ "QVFLOGICALb\0"
+  /* 16096 */ "QVFSELb\0"
+  /* 16104 */ "QVFTSTNANb\0"
+  /* 16115 */ "QVFCMPEQb\0"
+  /* 16125 */ "QVFMRb\0"
+  /* 16132 */ "QVFCMPGTb\0"
+  /* 16142 */ "QVFCMPLTb\0"
+  /* 16152 */ "QVLFDXb\0"
+  /* 16160 */ "QVSTFDXb\0"
+  /* 16169 */ "QVLFSXb\0"
+  /* 16177 */ "QVFSELbb\0"
+  /* 16186 */ "RLDICL_32_rec\0"
+  /* 16200 */ "EXTSWSLI_32_64_rec\0"
+  /* 16219 */ "EXTSW_32_64_rec\0"
+  /* 16235 */ "ADD4_rec\0"
+  /* 16244 */ "EXTSB8_rec\0"
+  /* 16255 */ "ADDC8_rec\0"
+  /* 16265 */ "ANDC8_rec\0"
+  /* 16275 */ "SUBFC8_rec\0"
+  /* 16286 */ "ORC8_rec\0"
+  /* 16295 */ "ADD8_rec\0"
+  /* 16304 */ "NAND8_rec\0"
+  /* 16314 */ "ADDE8_rec\0"
+  /* 16324 */ "SUBFE8_rec\0"
+  /* 16335 */ "ADDME8_rec\0"
+  /* 16346 */ "SUBFME8_rec\0"
+  /* 16358 */ "CP_PASTE8_rec\0"
+  /* 16372 */ "ADDZE8_rec\0"
+  /* 16383 */ "SUBFZE8_rec\0"
+  /* 16395 */ "SUBF8_rec\0"
+  /* 16405 */ "NEG8_rec\0"
+  /* 16414 */ "EXTSH8_rec\0"
+  /* 16425 */ "ANDI8_rec\0"
+  /* 16435 */ "RLWIMI8_rec\0"
+  /* 16447 */ "RLWINM8_rec\0"
+  /* 16459 */ "RLWNM8_rec\0"
+  /* 16470 */ "NOR8_rec\0"
+  /* 16479 */ "XOR8_rec\0"
+  /* 16488 */ "ANDIS8_rec\0"
+  /* 16499 */ "EQV8_rec\0"
+  /* 16508 */ "SLW8_rec\0"
+  /* 16517 */ "SRW8_rec\0"
+  /* 16526 */ "CNTLZW8_rec\0"
+  /* 16538 */ "CNTTZW8_rec\0"
+  /* 16550 */ "VCMPNEB_rec\0"
+  /* 16562 */ "VCMPGTSB_rec\0"
+  /* 16575 */ "EXTSB_rec\0"
+  /* 16585 */ "VCMPEQUB_rec\0"
+  /* 16598 */ "FSUB_rec\0"
+  /* 16607 */ "FMSUB_rec\0"
+  /* 16617 */ "FNMSUB_rec\0"
+  /* 16628 */ "VCMPGTUB_rec\0"
+  /* 16641 */ "VCMPNEZB_rec\0"
+  /* 16654 */ "ADDC_rec\0"
+  /* 16663 */ "ANDC_rec\0"
+  /* 16672 */ "SUBFC_rec\0"
+  /* 16682 */ "SUBIC_rec\0"
+  /* 16692 */ "ADDIC_rec\0"
+  /* 16702 */ "RLDIC_rec\0"
+  /* 16712 */ "BCDTRUNC_rec\0"
+  /* 16725 */ "BCDUTRUNC_rec\0"
+  /* 16739 */ "ORC_rec\0"
+  /* 16747 */ "SRAD_rec\0"
+  /* 16756 */ "FADD_rec\0"
+  /* 16765 */ "FMADD_rec\0"
+  /* 16775 */ "FNMADD_rec\0"
+  /* 16786 */ "FNEGD_rec\0"
+  /* 16796 */ "MULHD_rec\0"
+  /* 16806 */ "FCFID_rec\0"
+  /* 16816 */ "FCTID_rec\0"
+  /* 16826 */ "FSELD_rec\0"
+  /* 16836 */ "MULLD_rec\0"
+  /* 16846 */ "SLD_rec\0"
+  /* 16854 */ "FRIMD_rec\0"
+  /* 16864 */ "NAND_rec\0"
+  /* 16873 */ "FCPSGND_rec\0"
+  /* 16885 */ "FRIND_rec\0"
+  /* 16895 */ "FRIPD_rec\0"
+  /* 16905 */ "SRD_rec\0"
+  /* 16913 */ "FABSD_rec\0"
+  /* 16923 */ "FNABSD_rec\0"
+  /* 16934 */ "VCMPGTSD_rec\0"
+  /* 16947 */ "VCMPEQUD_rec\0"
+  /* 16960 */ "VCMPGTUD_rec\0"
+  /* 16973 */ "DIVD_rec\0"
+  /* 16982 */ "FRIZD_rec\0"
+  /* 16992 */ "CNTLZD_rec\0"
+  /* 17003 */ "CNTTZD_rec\0"
+  /* 17014 */ "ADDE_rec\0"
+  /* 17023 */ "DIVDE_rec\0"
+  /* 17033 */ "SLBFEE_rec\0"
+  /* 17044 */ "SUBFE_rec\0"
+  /* 17054 */ "ADDME_rec\0"
+  /* 17064 */ "SUBFME_rec\0"
+  /* 17075 */ "FRE_rec\0"
+  /* 17083 */ "FRSQRTE_rec\0"
+  /* 17095 */ "CP_PASTE_rec\0"
+  /* 17108 */ "DIVWE_rec\0"
+  /* 17118 */ "ADDZE_rec\0"
+  /* 17128 */ "SUBFZE_rec\0"
+  /* 17139 */ "SUBF_rec\0"
+  /* 17148 */ "MTFSF_rec\0"
+  /* 17158 */ "NEG_rec\0"
+  /* 17166 */ "VCMPNEH_rec\0"
+  /* 17178 */ "VCMPGTSH_rec\0"
+  /* 17191 */ "EXTSH_rec\0"
+  /* 17201 */ "VCMPEQUH_rec\0"
+  /* 17214 */ "VCMPGTUH_rec\0"
+  /* 17227 */ "VCMPNEZH_rec\0"
+  /* 17240 */ "SRADI_rec\0"
+  /* 17250 */ "CLRLSLDI_rec\0"
+  /* 17263 */ "EXTLDI_rec\0"
+  /* 17274 */ "ANDI_rec\0"
+  /* 17283 */ "CLRRDI_rec\0"
+  /* 17294 */ "INSRDI_rec\0"
+  /* 17305 */ "ROTRDI_rec\0"
+  /* 17316 */ "EXTRDI_rec\0"
+  /* 17327 */ "MTFSFI_rec\0"
+  /* 17338 */ "EXTSWSLI_rec\0"
+  /* 17351 */ "RLDIMI_rec\0"
+  /* 17362 */ "RLWIMI_rec\0"
+  /* 17373 */ "SRAWI_rec\0"
+  /* 17383 */ "CLRLSLWI_rec\0"
+  /* 17396 */ "INSLWI_rec\0"
+  /* 17407 */ "EXTLWI_rec\0"
+  /* 17418 */ "CLRRWI_rec\0"
+  /* 17429 */ "INSRWI_rec\0"
+  /* 17440 */ "ROTRWI_rec\0"
+  /* 17451 */ "EXTRWI_rec\0"
+  /* 17462 */ "RLDCL_rec\0"
+  /* 17472 */ "RLDICL_rec\0"
+  /* 17483 */ "FMUL_rec\0"
+  /* 17492 */ "RLWINM_rec\0"
+  /* 17503 */ "RLWNM_rec\0"
+  /* 17513 */ "BCDCFN_rec\0"
+  /* 17524 */ "BCDCPSGN_rec\0"
+  /* 17537 */ "BCDSETSGN_rec\0"
+  /* 17551 */ "BCDCTN_rec\0"
+  /* 17562 */ "ADD4O_rec\0"
+  /* 17572 */ "ADDC8O_rec\0"
+  /* 17583 */ "SUBFC8O_rec\0"
+  /* 17595 */ "ADD8O_rec\0"
+  /* 17605 */ "ADDE8O_rec\0"
+  /* 17616 */ "SUBFE8O_rec\0"
+  /* 17628 */ "ADDME8O_rec\0"
+  /* 17640 */ "SUBFME8O_rec\0"
+  /* 17653 */ "ADDZE8O_rec\0"
+  /* 17665 */ "SUBFZE8O_rec\0"
+  /* 17678 */ "SUBF8O_rec\0"
+  /* 17689 */ "NEG8O_rec\0"
+  /* 17699 */ "ADDCO_rec\0"
+  /* 17709 */ "SUBFCO_rec\0"
+  /* 17720 */ "MULLDO_rec\0"
+  /* 17731 */ "DIVDO_rec\0"
+  /* 17741 */ "ADDEO_rec\0"
+  /* 17751 */ "DIVDEO_rec\0"
+  /* 17762 */ "SUBFEO_rec\0"
+  /* 17773 */ "ADDMEO_rec\0"
+  /* 17784 */ "SUBFMEO_rec\0"
+  /* 17796 */ "DIVWEO_rec\0"
+  /* 17807 */ "ADDZEO_rec\0"
+  /* 17818 */ "SUBFZEO_rec\0"
+  /* 17830 */ "SUBFO_rec\0"
+  /* 17840 */ "NEGO_rec\0"
+  /* 17849 */ "DIVDUO_rec\0"
+  /* 17860 */ "DIVDEUO_rec\0"
+  /* 17872 */ "DIVWEUO_rec\0"
+  /* 17884 */ "DIVWUO_rec\0"
+  /* 17895 */ "MULLWO_rec\0"
+  /* 17906 */ "DIVWO_rec\0"
+  /* 17916 */ "XVCMPGEDP_rec\0"
+  /* 17930 */ "XVCMPEQDP_rec\0"
+  /* 17944 */ "XVCMPGTDP_rec\0"
+  /* 17958 */ "VCMPBFP_rec\0"
+  /* 17970 */ "VCMPGEFP_rec\0"
+  /* 17983 */ "VCMPEQFP_rec\0"
+  /* 17996 */ "VCMPGTFP_rec\0"
+  /* 18009 */ "XVCMPGESP_rec\0"
+  /* 18023 */ "XVCMPEQSP_rec\0"
+  /* 18037 */ "FRSP_rec\0"
+  /* 18046 */ "XVCMPGTSP_rec\0"
+  /* 18060 */ "BCDCFSQ_rec\0"
+  /* 18072 */ "BCDCTSQ_rec\0"
+  /* 18084 */ "RLDCR_rec\0"
+  /* 18094 */ "RLDICR_rec\0"
+  /* 18105 */ "FMR_rec\0"
+  /* 18113 */ "NOR_rec\0"
+  /* 18121 */ "XOR_rec\0"
+  /* 18129 */ "BCDSR_rec\0"
+  /* 18139 */ "FSUBS_rec\0"
+  /* 18149 */ "FMSUBS_rec\0"
+  /* 18160 */ "FNMSUBS_rec\0"
+  /* 18172 */ "BCDS_rec\0"
+  /* 18181 */ "FADDS_rec\0"
+  /* 18191 */ "FMADDS_rec\0"
+  /* 18202 */ "FNMADDS_rec\0"
+  /* 18214 */ "FCFIDS_rec\0"
+  /* 18225 */ "FRES_rec\0"
+  /* 18234 */ "FRSQRTES_rec\0"
+  /* 18247 */ "MFFS_rec\0"
+  /* 18256 */ "FNEGS_rec\0"
+  /* 18266 */ "ANDIS_rec\0"
+  /* 18276 */ "FSELS_rec\0"
+  /* 18286 */ "FMULS_rec\0"
+  /* 18296 */ "FRIMS_rec\0"
+  /* 18306 */ "FCPSGNS_rec\0"
+  /* 18318 */ "FRINS_rec\0"
+  /* 18328 */ "FRIPS_rec\0"
+  /* 18338 */ "FABSS_rec\0"
+  /* 18348 */ "FNABSS_rec\0"
+  /* 18359 */ "FSQRTS_rec\0"
+  /* 18370 */ "BCDUS_rec\0"
+  /* 18380 */ "FCFIDUS_rec\0"
+  /* 18392 */ "FDIVS_rec\0"
+  /* 18402 */ "FRIZS_rec\0"
+  /* 18412 */ "FSQRT_rec\0"
+  /* 18422 */ "MULHDU_rec\0"
+  /* 18433 */ "FCFIDU_rec\0"
+  /* 18444 */ "FCTIDU_rec\0"
+  /* 18455 */ "DIVDU_rec\0"
+  /* 18465 */ "DIVDEU_rec\0"
+  /* 18476 */ "DIVWEU_rec\0"
+  /* 18487 */ "MULHWU_rec\0"
+  /* 18498 */ "FCTIWU_rec\0"
+  /* 18509 */ "DIVWU_rec\0"
+  /* 18519 */ "FDIV_rec\0"
+  /* 18528 */ "EQV_rec\0"
+  /* 18536 */ "SRAW_rec\0"
+  /* 18545 */ "VCMPNEW_rec\0"
+  /* 18557 */ "MULHW_rec\0"
+  /* 18567 */ "FCTIW_rec\0"
+  /* 18577 */ "MULLW_rec\0"
+  /* 18587 */ "SLW_rec\0"
+  /* 18595 */ "SRW_rec\0"
+  /* 18603 */ "VCMPGTSW_rec\0"
+  /* 18616 */ "EXTSW_rec\0"
+  /* 18626 */ "VCMPEQUW_rec\0"
+  /* 18639 */ "VCMPGTUW_rec\0"
+  /* 18652 */ "DIVW_rec\0"
+  /* 18661 */ "VCMPNEZW_rec\0"
+  /* 18674 */ "CNTLZW_rec\0"
+  /* 18685 */ "CNTTZW_rec\0"
+  /* 18696 */ "FCTIDZ_rec\0"
+  /* 18707 */ "BCDCFZ_rec\0"
+  /* 18718 */ "BCDCTZ_rec\0"
+  /* 18729 */ "FCTIDUZ_rec\0"
+  /* 18741 */ "FCTIWUZ_rec\0"
+  /* 18753 */ "FCTIWZ_rec\0"
+  /* 18764 */ "RLWIMIbm_rec\0"
+  /* 18777 */ "RLWINMbm_rec\0"
+  /* 18790 */ "RLWNMbm_rec\0"
+  /* 18802 */ "LDtoc\0"
+  /* 18808 */ "LWZtoc\0"
+  /* 18815 */ "BCTRL8_LDinto_toc\0"
+  /* 18833 */ "BCTRL_LWZinto_toc\0"
+  /* 18851 */ "PLHA8pc\0"
+  /* 18859 */ "PLWA8pc\0"
+  /* 18867 */ "PSTB8pc\0"
+  /* 18875 */ "PSTH8pc\0"
+  /* 18883 */ "PADDI8pc\0"
+  /* 18892 */ "PSTW8pc\0"
+  /* 18900 */ "PLBZ8pc\0"
+  /* 18908 */ "PLHZ8pc\0"
+  /* 18916 */ "PLWZ8pc\0"
+  /* 18924 */ "PLHApc\0"
+  /* 18931 */ "PLWApc\0"
+  /* 18938 */ "PSTBpc\0"
+  /* 18945 */ "PLFDpc\0"
+  /* 18952 */ "PSTFDpc\0"
+  /* 18960 */ "PLDpc\0"
+  /* 18966 */ "PLXSDpc\0"
+  /* 18974 */ "PSTXSDpc\0"
+  /* 18983 */ "PSTDpc\0"
+  /* 18990 */ "PSTHpc\0"
+  /* 18997 */ "PADDIpc\0"
+  /* 19005 */ "PLXSSPpc\0"
+  /* 19014 */ "PSTXSSPpc\0"
+  /* 19024 */ "PLFSpc\0"
+  /* 19031 */ "PSTFSpc\0"
+  /* 19039 */ "PLXVpc\0"
+  /* 19046 */ "PSTXVpc\0"
+  /* 19054 */ "PSTWpc\0"
+  /* 19061 */ "PLBZpc\0"
+  /* 19068 */ "PLHZpc\0"
+  /* 19075 */ "PLWZpc\0"
+  /* 19082 */ "XXLORf\0"
+  /* 19089 */ "SETRNDi\0"
+  /* 19097 */ "TCRETURNai\0"
+  /* 19108 */ "TCRETURNdi\0"
+  /* 19119 */ "TCRETURNri\0"
+  /* 19130 */ "BDZLAm\0"
+  /* 19137 */ "BDNZLAm\0"
+  /* 19145 */ "BDZAm\0"
+  /* 19151 */ "BDNZAm\0"
+  /* 19158 */ "BDZLRLm\0"
+  /* 19166 */ "BDNZLRLm\0"
+  /* 19175 */ "BDZLm\0"
+  /* 19181 */ "BDNZLm\0"
+  /* 19188 */ "BDZLRm\0"
+  /* 19195 */ "BDNZLRm\0"
+  /* 19203 */ "BDZm\0"
+  /* 19208 */ "BDNZm\0"
+  /* 19214 */ "RLWIMIbm\0"
+  /* 19223 */ "RLWINMbm\0"
+  /* 19232 */ "RLWNMbm\0"
+  /* 19240 */ "BCCTRL8n\0"
+  /* 19249 */ "BCCTR8n\0"
+  /* 19257 */ "BCn\0"
+  /* 19261 */ "BCLn\0"
+  /* 19266 */ "BCLRLn\0"
+  /* 19273 */ "BCCTRLn\0"
+  /* 19281 */ "BCLRn\0"
+  /* 19287 */ "BCCTRn\0"
+  /* 19294 */ "BDZLAp\0"
+  /* 19301 */ "BDNZLAp\0"
+  /* 19309 */ "BDZAp\0"
+  /* 19315 */ "BDNZAp\0"
+  /* 19322 */ "BDZLRLp\0"
+  /* 19330 */ "BDNZLRLp\0"
+  /* 19339 */ "BDZLp\0"
+  /* 19345 */ "BDNZLp\0"
+  /* 19352 */ "BDZLRp\0"
+  /* 19359 */ "BDNZLRp\0"
+  /* 19367 */ "BDZp\0"
+  /* 19372 */ "BDNZp\0"
+  /* 19378 */ "MTCTR8loop\0"
+  /* 19389 */ "MTCTRloop\0"
+  /* 19399 */ "EH_SjLj_Setup\0"
+  /* 19413 */ "VSPLTBs\0"
+  /* 19421 */ "VEXTSB2Ds\0"
+  /* 19431 */ "VEXTSH2Ds\0"
+  /* 19441 */ "VEXTSW2Ds\0"
+  /* 19451 */ "QVFNEGs\0"
+  /* 19459 */ "VSPLTHs\0"
+  /* 19467 */ "XXPERMDIs\0"
+  /* 19477 */ "QVALIGNIs\0"
+  /* 19487 */ "QVESPLATIs\0"
+  /* 19498 */ "XXSLDWIs\0"
+  /* 19507 */ "QVFLOGICALs\0"
+  /* 19519 */ "QVFRIMs\0"
+  /* 19527 */ "QVFPERMs\0"
+  /* 19536 */ "QVFCPSGNs\0"
+  /* 19546 */ "QVFRINs\0"
+  /* 19554 */ "QVFRIPs\0"
+  /* 19562 */ "QVFRSPs\0"
+  /* 19570 */ "QVFMRs\0"
+  /* 19577 */ "QVFABSs\0"
+  /* 19585 */ "QVFNABSs\0"
+  /* 19594 */ "QVFSUBSs\0"
+  /* 19603 */ "QVFMSUBSs\0"
+  /* 19613 */ "QVFNMSUBSs\0"
+  /* 19624 */ "QVFADDSs\0"
+  /* 19633 */ "QVFMADDSs\0"
+  /* 19643 */ "QVFNMADDSs\0"
+  /* 19654 */ "XSCVDPSXDSs\0"
+  /* 19666 */ "XSCVDPUXDSs\0"
+  /* 19678 */ "QVFRESs\0"
+  /* 19686 */ "QVFRSQRTESs\0"
+  /* 19698 */ "QVFMULSs\0"
+  /* 19707 */ "XSCVDPSXWSs\0"
+  /* 19719 */ "XSCVDPUXWSs\0"
+  /* 19731 */ "VEXTSB2Ws\0"
+  /* 19741 */ "VEXTSH2Ws\0"
+  /* 19751 */ "XXSPLTWs\0"
+  /* 19760 */ "QVLFCSXs\0"
+  /* 19769 */ "QVSTFCSXs\0"
+  /* 19779 */ "QVLFSXs\0"
+  /* 19787 */ "QVSTFSXs\0"
+  /* 19796 */ "QVSTFSUXs\0"
+  /* 19806 */ "QVFRIZs\0"
+  /* 19814 */ "QVFSELbs\0"
+  /* 19823 */ "QVFTSTNANbs\0"
+  /* 19835 */ "QVFCMPEQbs\0"
+  /* 19846 */ "QVFCMPGTbs\0"
+  /* 19857 */ "QVFCMPLTbs\0"
+  /* 19868 */ "XXLEQVOnes\0"
+  /* 19879 */ "BCLalways\0"
+  /* 19889 */ "gBCAat\0"
+  /* 19896 */ "gBCLAat\0"
+  /* 19904 */ "gBCat\0"
+  /* 19910 */ "gBCLat\0"
+  /* 19917 */ "QVLPCLSXint\0"
+  /* 19929 */ "MFVRSAVEv\0"
+  /* 19939 */ "MTVRSAVEv\0"
+  /* 19949 */ "STXSIBXv\0"
+  /* 19958 */ "STXSIHXv\0"
+  /* 19967 */ "LAx\0"
+  /* 19971 */ "CP_PASTEx\0"
+  /* 19981 */ "DCBFx\0"
+  /* 19987 */ "DCBTx\0"
+  /* 19993 */ "DCBTSTx\0"
+  /* 20001 */ "CP_COPYx\0"
+  /* 20010 */ "XXLXORz\0"
+  /* 20018 */ "XXLXORdpz\0"
+  /* 20028 */ "XXLXORspz\0"
+  /* 20038 */ "FADDrtz\0"
+};
+#ifdef __GNUC__
+#pragma GCC diagnostic pop
+#endif
+
+extern const unsigned PPCInstrNameIndices[] = {
+    6421U, 7740U, 10674U, 8071U, 7031U, 7012U, 7040U, 7222U, 
+    5783U, 5798U, 5520U, 5825U, 11995U, 5329U, 7021U, 5064U, 
+    15673U, 5196U, 13015U, 4734U, 8583U, 7203U, 12923U, 4806U, 
+    10445U, 5888U, 12912U, 5216U, 9663U, 9650U, 10835U, 12540U, 
+    12752U, 7135U, 7182U, 7155U, 7064U, 4428U, 3613U, 7351U, 
+    13465U, 13478U, 7560U, 7567U, 4707U, 11154U, 11132U, 5518U, 
+    6419U, 14835U, 5339U, 12492U, 11608U, 13030U, 11625U, 11067U, 
+    3842U, 11978U, 12934U, 11248U, 13070U, 5440U, 3816U, 4777U, 
+    10860U, 4287U, 4231U, 4261U, 4272U, 4212U, 4242U, 5282U, 
+    5266U, 12033U, 5839U, 5856U, 4444U, 3619U, 4713U, 4678U, 
+    11159U, 11138U, 14635U, 8027U, 14618U, 8010U, 4335U, 3564U, 
+    5056U, 4761U, 12511U, 3782U, 12079U, 13228U, 3834U, 12901U, 
+    12889U, 13005U, 5880U, 13221U, 5812U, 13237U, 7121U, 10926U, 
+    10912U, 7114U, 10919U, 9592U, 9585U, 12502U, 8277U, 5092U, 
+    8248U, 5048U, 8269U, 5084U, 8240U, 5040U, 8421U, 8413U, 
+    5972U, 5964U, 12461U, 12451U, 12441U, 12431U, 4328U, 3557U, 
+    7321U, 3007U, 4194U, 13443U, 7553U, 14217U, 10464U, 652U, 
+    5873U, 644U, 0U, 5755U, 13213U, 3806U, 6650U, 6737U, 
+    9480U, 9489U, 11273U, 7962U, 5456U, 7788U, 7798U, 5106U, 
+    5121U, 7766U, 7777U, 4434U, 6965U, 7996U, 14604U, 8003U, 
+    14611U, 10669U, 12776U, 12804U, 12783U, 11082U, 15851U, 5500U, 
+    15839U, 5482U, 9637U, 8601U, 5290U, 7127U, 11957U, 8064U, 
+    13055U, 11053U, 12945U, 12953U, 13080U, 10781U, 5183U, 3899U, 
+    10879U, 10895U, 1593U, 6306U, 17250U, 6799U, 17383U, 6337U, 
+    17283U, 6835U, 17418U, 13146U, 20001U, 13122U, 19971U, 7108U, 
+    9578U, 19981U, 12524U, 11495U, 12531U, 11502U, 13198U, 19993U, 
+    13187U, 19987U, 553U, 1001U, 573U, 1021U, 6315U, 17263U, 
+    6822U, 17407U, 6358U, 17316U, 6856U, 17451U, 6808U, 17396U, 
+    6344U, 17294U, 6842U, 17429U, 19967U, 14668U, 15648U, 19214U, 
+    18764U, 19223U, 18777U, 19232U, 18790U, 6351U, 17305U, 6849U, 
+    17440U, 6310U, 17254U, 6803U, 17387U, 4613U, 14793U, 13173U, 
+    15373U, 6346U, 17296U, 6844U, 17431U, 15599U, 6227U, 3733U, 
+    16682U, 11755U, 11761U, 563U, 1011U, 584U, 1032U, 1078U, 
+    8151U, 17562U, 11807U, 16235U, 1574U, 8172U, 17595U, 11815U, 
+    15949U, 16295U, 3691U, 1525U, 8157U, 17572U, 16255U, 8256U, 
+    17699U, 16654U, 5087U, 1601U, 8178U, 17605U, 16314U, 8298U, 
+    17741U, 17014U, 6289U, 1725U, 3739U, 1544U, 16692U, 11777U, 
+    2168U, 2776U, 64U, 2760U, 2734U, 2747U, 2723U, 1457U, 
+    7482U, 358U, 7448U, 318U, 10751U, 372U, 7459U, 331U, 
+    10766U, 389U, 7431U, 5203U, 1614U, 8193U, 17628U, 16335U, 
+    8318U, 17773U, 17054U, 11769U, 5434U, 1639U, 8210U, 17653U, 
+    16372U, 8340U, 17807U, 17118U, 8134U, 10430U, 4652U, 1588U, 
+    16305U, 3699U, 1531U, 16265U, 16663U, 16425U, 16488U, 18266U, 
+    17274U, 12716U, 2202U, 12734U, 2221U, 16865U, 1319U, 218U, 
+    805U, 1901U, 1201U, 100U, 687U, 1789U, 1242U, 141U, 
+    728U, 1828U, 1399U, 298U, 885U, 1987U, 1283U, 182U, 
+    769U, 1867U, 1221U, 120U, 707U, 1808U, 1359U, 258U, 
+    845U, 1939U, 1181U, 80U, 667U, 1757U, 1378U, 277U, 
+    864U, 1967U, 1262U, 161U, 748U, 1847U, 1339U, 238U, 
+    825U, 1920U, 1303U, 202U, 789U, 1886U, 8129U, 3238U, 
+    2612U, 3684U, 3687U, 2635U, 11229U, 2146U, 7288U, 2031U, 
+    6994U, 2988U, 10943U, 7252U, 11223U, 2139U, 19249U, 7281U, 
+    2023U, 19240U, 19273U, 19287U, 17513U, 18060U, 18707U, 17524U, 
+    17551U, 18072U, 18718U, 17537U, 18129U, 18172U, 16712U, 18370U, 
+    16725U, 6990U, 10938U, 7246U, 19266U, 19281U, 19879U, 19261U, 
+    11217U, 2133U, 7274U, 2016U, 18815U, 18833U, 19257U, 15846U, 
+    2450U, 3226U, 19151U, 19315U, 7418U, 3000U, 19137U, 19301U, 
+    10965U, 2085U, 7266U, 19166U, 19330U, 19195U, 19359U, 19181U, 
+    19345U, 19208U, 19372U, 15688U, 2439U, 3221U, 19145U, 19309U, 
+    7413U, 2994U, 19130U, 19294U, 10959U, 2078U, 7259U, 19158U, 
+    19322U, 19188U, 19352U, 19175U, 19339U, 19203U, 19367U, 6986U, 
+    2006U, 9608U, 11908U, 3925U, 11893U, 16029U, 2978U, 1469U, 
+    9599U, 10933U, 2061U, 7240U, 9630U, 11901U, 4634U, 3800U, 
+    3337U, 3325U, 1487U, 4801U, 6331U, 3330U, 4589U, 6299U, 
+    13983U, 6785U, 3345U, 1493U, 14224U, 6829U, 5012U, 16992U, 
+    14517U, 2303U, 16526U, 18674U, 5025U, 17003U, 14530U, 2311U, 
+    16538U, 18685U, 13046U, 15670U, 2424U, 5320U, 1629U, 16358U, 
+    17095U, 12576U, 12597U, 4695U, 3704U, 13497U, 4664U, 11041U, 
+    11062U, 4025U, 12614U, 12606U, 11120U, 9330U, 8107U, 2610U, 
+    5472U, 9339U, 6217U, 13136U, 9368U, 12482U, 9361U, 13160U, 
+    9376U, 15678U, 9385U, 7407U, 9353U, 6232U, 4995U, 5100U, 
+    8304U, 17751U, 13313U, 8539U, 17860U, 18465U, 17023U, 8292U, 
+    17731U, 13307U, 8532U, 17849U, 18455U, 16973U, 14495U, 5420U, 
+    8333U, 17796U, 13320U, 8547U, 17872U, 18476U, 17108U, 8569U, 
+    17906U, 13407U, 8555U, 17884U, 18509U, 18652U, 12029U, 7215U, 
+    13142U, 905U, 13167U, 911U, 13206U, 926U, 13193U, 919U, 
+    3916U, 1559U, 12583U, 2187U, 11259U, 4314U, 11640U, 5593U, 
+    6625U, 4538U, 5684U, 6712U, 4555U, 10487U, 12620U, 12824U, 
+    5659U, 6659U, 15692U, 15783U, 5709U, 6746U, 15711U, 15811U, 
+    13436U, 7307U, 11280U, 5741U, 3543U, 10532U, 12657U, 12861U, 
+    11313U, 4413U, 4481U, 5601U, 6633U, 5692U, 6720U, 10505U, 
+    12638U, 12842U, 5667U, 6667U, 15792U, 5717U, 6754U, 15820U, 
+    13450U, 7328U, 11296U, 5762U, 3598U, 10541U, 12666U, 12870U, 
+    595U, 1043U, 613U, 1061U, 19399U, 13493U, 2282U, 16499U, 
+    18528U, 11328U, 13946U, 13591U, 13713U, 13652U, 13774U, 13860U, 
+    4701U, 3711U, 10524U, 12106U, 13359U, 12115U, 13368U, 14286U, 
+    14515U, 12266U, 13405U, 13503U, 3434U, 6077U, 11320U, 4420U, 
+    5609U, 6641U, 5700U, 6728U, 10514U, 12647U, 12851U, 5675U, 
+    6675U, 15801U, 5725U, 6762U, 15829U, 13457U, 7335U, 11304U, 
+    5769U, 3605U, 10550U, 12675U, 12879U, 4460U, 14754U, 5919U, 
+    14875U, 13867U, 15554U, 12371U, 15308U, 12394U, 15333U, 12407U, 
+    15347U, 5156U, 14849U, 11964U, 15283U, 13340U, 15465U, 12383U, 
+    15321U, 12420U, 15361U, 6397U, 8396U, 8386U, 6407U, 2498U, 
+    7840U, 2542U, 7884U, 2576U, 7918U, 5533U, 2640U, 13543U, 
+    14018U, 6471U, 2802U, 13603U, 14066U, 5624U, 2679U, 13567U, 
+    14042U, 13725U, 14138U, 6506U, 2841U, 13664U, 14102U, 13786U, 
+    14174U, 2510U, 7852U, 2554U, 7896U, 2588U, 7930U, 5551U, 
+    2660U, 13555U, 14030U, 6489U, 2822U, 13640U, 14090U, 5642U, 
+    2699U, 13579U, 14054U, 13762U, 14162U, 6533U, 2871U, 13701U, 
+    14126U, 13823U, 14198U, 3013U, 5542U, 2650U, 6480U, 2812U, 
+    5633U, 2689U, 6515U, 2851U, 13628U, 14078U, 13750U, 14150U, 
+    6524U, 2861U, 13689U, 14114U, 13811U, 14186U, 5560U, 2670U, 
+    2522U, 7864U, 6498U, 2832U, 2566U, 7908U, 5651U, 2709U, 
+    2532U, 7874U, 6542U, 2881U, 2600U, 7942U, 4671U, 5777U, 
+    11047U, 11099U, 4031U, 13989U, 6792U, 13873U, 7096U, 13995U, 
+    6815U, 6387U, 6694U, 11793U, 13332U, 12202U, 13393U, 4474U, 
+    14761U, 5925U, 14882U, 13880U, 15561U, 5163U, 14857U, 8366U, 
+    15017U, 5426U, 14866U, 8575U, 15026U, 13615U, 13737U, 13676U, 
+    13798U, 13902U, 13910U, 11126U, 3436U, 1500U, 935U, 16244U, 
+    16575U, 6079U, 1711U, 948U, 16414U, 17191U, 14319U, 6441U, 
+    961U, 16200U, 17338U, 536U, 989U, 16219U, 18616U, 8374U, 
+    4862U, 16913U, 12012U, 18338U, 4323U, 11413U, 18181U, 16756U, 
+    20038U, 4526U, 11488U, 18214U, 13282U, 12133U, 18380U, 18433U, 
+    16806U, 4963U, 12173U, 4747U, 16873U, 11943U, 18306U, 4549U, 
+    13291U, 15860U, 18729U, 18444U, 15704U, 18696U, 16816U, 13956U, 
+    13386U, 15870U, 18741U, 18498U, 15880U, 18753U, 18567U, 13445U, 
+    12196U, 18392U, 18519U, 4354U, 11421U, 18191U, 16765U, 10997U, 
+    18105U, 3583U, 11394U, 18149U, 16607U, 7316U, 11922U, 18286U, 
+    17483U, 4868U, 16923U, 12018U, 18348U, 4499U, 16786U, 11669U, 
+    18256U, 4362U, 11430U, 18202U, 16775U, 3591U, 11403U, 18160U, 
+    16617U, 5262U, 11592U, 18225U, 17075U, 4627U, 16854U, 11937U, 
+    18296U, 4755U, 16885U, 11951U, 18318U, 4795U, 16895U, 11972U, 
+    18328U, 5000U, 16982U, 12354U, 18402U, 10296U, 18037U, 5312U, 
+    11599U, 18234U, 17083U, 4577U, 16826U, 11801U, 18276U, 13057U, 
+    12124U, 18359U, 18412U, 3552U, 11386U, 18139U, 16598U, 13472U, 
+    13063U, 10807U, 421U, 10794U, 406U, 4532U, 6222U, 9346U, 
+    3794U, 10560U, 12487U, 11823U, 6238U, 7091U, 2010U, 3887U, 
+    2979U, 15126U, 7368U, 15035U, 15684U, 2434U, 14950U, 13413U, 
+    2264U, 15516U, 2379U, 15621U, 2406U, 11869U, 16002U, 503U, 
+    4567U, 15132U, 7375U, 12360U, 15150U, 14923U, 15006U, 13298U, 
+    15442U, 14789U, 11838U, 15967U, 7470U, 344U, 18802U, 2622U, 
+    12987U, 6703U, 7424U, 4489U, 15048U, 13254U, 15427U, 14771U, 
+    14661U, 15641U, 11653U, 13348U, 15495U, 15261U, 2719U, 1452U, 
+    15138U, 7382U, 13244U, 2240U, 15388U, 2351U, 14599U, 2319U, 
+    15163U, 2337U, 15063U, 15742U, 2445U, 14957U, 13418U, 2270U, 
+    15522U, 2386U, 15634U, 2412U, 11877U, 16011U, 514U, 6428U, 
+    1734U, 11783U, 2175U, 14001U, 6863U, 14687U, 14890U, 15569U, 
+    7302U, 11208U, 15534U, 7396U, 3020U, 15144U, 7389U, 12471U, 
+    15394U, 14682U, 545U, 434U, 15185U, 2344U, 15076U, 15890U, 
+    2457U, 14964U, 13423U, 2276U, 15528U, 2393U, 15665U, 2418U, 
+    11885U, 16020U, 525U, 18808U, 7440U, 4905U, 14817U, 15613U, 
+    15626U, 14674U, 15654U, 10325U, 15111U, 13515U, 14567U, 14537U, 
+    15246U, 14584U, 7357U, 7227U, 14552U, 15301U, 15543U, 4511U, 
+    13265U, 4570U, 1579U, 10654U, 5568U, 11657U, 15216U, 5032U, 
+    10705U, 2055U, 11236U, 2154U, 10687U, 11647U, 8120U, 6575U, 
+    5077U, 8112U, 6566U, 7296U, 18247U, 10949U, 2066U, 11191U, 
+    5573U, 1660U, 11001U, 11174U, 2115U, 11186U, 8050U, 3454U, 
+    1513U, 4850U, 5354U, 19929U, 15915U, 10717U, 4836U, 4595U, 
+    15899U, 4875U, 14240U, 4950U, 14403U, 3879U, 3893U, 5587U, 
+    1676U, 11242U, 2161U, 19378U, 19389U, 10699U, 9U, 57U, 
+    5618U, 6380U, 17327U, 17148U, 16056U, 10954U, 2072U, 11197U, 
+    4829U, 5580U, 1668U, 11007U, 11180U, 2122U, 11203U, 8057U, 
+    4856U, 5363U, 19939U, 3032U, 15922U, 10724U, 4843U, 4466U, 
+    3024U, 12209U, 15907U, 4518U, 13273U, 18422U, 16796U, 13940U, 
+    13377U, 18487U, 18557U, 4583U, 8285U, 17720U, 16836U, 6431U, 
+    1731U, 13977U, 8562U, 17895U, 18577U, 10983U, 10972U, 2093U, 
+    4659U, 1587U, 16304U, 16864U, 8592U, 5744U, 1706U, 8234U, 
+    17689U, 16405U, 8361U, 17840U, 17158U, 9604U, 1419U, 1431U, 
+    11037U, 2105U, 16470U, 18113U, 11031U, 2106U, 16471U, 4021U, 
+    1569U, 16286U, 16739U, 6621U, 1752U, 11788U, 2181U, 18114U, 
+    6288U, 1724U, 18883U, 18997U, 15683U, 2433U, 18900U, 19061U, 
+    4591U, 18960U, 4488U, 18945U, 11652U, 19024U, 2718U, 1451U, 
+    18851U, 18924U, 15741U, 2444U, 18908U, 19068U, 6437U, 1738U, 
+    3019U, 1474U, 18859U, 18931U, 15894U, 2456U, 18916U, 19075U, 
+    4904U, 18966U, 10324U, 19005U, 13514U, 19039U, 3467U, 4928U, 
+    14348U, 12966U, 12975U, 3484U, 1519U, 18867U, 18938U, 4945U, 
+    18983U, 4493U, 18952U, 11663U, 19031U, 6117U, 1718U, 18875U, 
+    18990U, 14382U, 2297U, 18892U, 19054U, 4910U, 18974U, 10331U, 
+    19014U, 13519U, 19046U, 6557U, 16063U, 19477U, 6684U, 16073U, 
+    19487U, 11266U, 19577U, 4321U, 11411U, 19624U, 4524U, 11486U, 
+    13280U, 12131U, 16038U, 10496U, 16115U, 19835U, 12629U, 16132U, 
+    19846U, 12833U, 16142U, 19857U, 7974U, 19536U, 4547U, 13289U, 
+    15858U, 15702U, 16047U, 13954U, 13384U, 15868U, 15878U, 6975U, 
+    16084U, 19507U, 4352U, 11419U, 19633U, 10995U, 16125U, 19570U, 
+    3581U, 11392U, 19603U, 7314U, 11920U, 19698U, 11288U, 19585U, 
+    5748U, 19451U, 4360U, 11428U, 19643U, 3589U, 11401U, 19613U, 
+    7719U, 19527U, 5260U, 11590U, 19678U, 7657U, 19519U, 8043U, 
+    19546U, 9571U, 19554U, 15776U, 19806U, 10294U, 19562U, 5310U, 
+    11597U, 19686U, 7084U, 16096U, 16177U, 19814U, 3550U, 11384U, 
+    19594U, 7952U, 16104U, 19823U, 4394U, 11465U, 7343U, 11928U, 
+    4369U, 11438U, 4403U, 11475U, 4382U, 11452U, 6265U, 15406U, 
+    3121U, 14737U, 3049U, 15474U, 3161U, 15229U, 3085U, 19760U, 
+    15425U, 3142U, 14769U, 3068U, 16152U, 14659U, 3039U, 15639U, 
+    3211U, 15493U, 3182U, 15259U, 3104U, 16169U, 19779U, 14784U, 
+    15274U, 19917U, 14808U, 15292U, 15415U, 3131U, 6916U, 2932U, 
+    14745U, 3058U, 6878U, 2890U, 15483U, 3171U, 6937U, 2955U, 
+    15237U, 3094U, 6897U, 2911U, 19769U, 15433U, 3151U, 6927U, 
+    2944U, 14776U, 3076U, 6888U, 2901U, 16160U, 15582U, 3201U, 
+    15501U, 3191U, 6948U, 2967U, 19796U, 15266U, 3112U, 6907U, 
+    2922U, 19787U, 10731U, 12690U, 5372U, 6254U, 6294U, 3246U, 
+    6376U, 4533U, 6259U, 6999U, 17462U, 10693U, 18084U, 3745U, 
+    7005U, 450U, 976U, 16186U, 17472U, 10710U, 460U, 18094U, 
+    16702U, 6457U, 17351U, 6464U, 1743U, 16435U, 17362U, 7671U, 
+    2040U, 16447U, 17492U, 7679U, 2048U, 16459U, 17503U, 3489U, 
+    4147U, 1156U, 1110U, 1683U, 1133U, 1776U, 3935U, 3962U, 
+    4064U, 5229U, 1083U, 4037U, 3989U, 4120U, 4091U, 1170U, 
+    1123U, 1696U, 1146U, 1957U, 3950U, 3977U, 4079U, 5243U, 
+    1098U, 4052U, 4005U, 4135U, 4107U, 3449U, 1507U, 4770U, 
+    19089U, 17033U, 2790U, 5171U, 5734U, 5136U, 13428U, 5303U, 
+    3863U, 4609U, 16846U, 13997U, 2287U, 16508U, 18587U, 15887U, 
+    15662U, 14375U, 15605U, 10742U, 12704U, 5401U, 4295U, 6282U, 
+    441U, 17240U, 16747U, 13847U, 6771U, 17373U, 18536U, 4832U, 
+    16905U, 14236U, 2292U, 16517U, 18595U, 3485U, 1520U, 14916U, 
+    14713U, 15041U, 13249U, 2246U, 15400U, 2358U, 14708U, 2325U, 
+    11830U, 15958U, 470U, 4946U, 12365U, 15156U, 14929U, 14719U, 
+    13302U, 15447U, 14830U, 11845U, 15975U, 4494U, 15055U, 13259U, 
+    15435U, 14778U, 15584U, 11664U, 13353U, 15503U, 15268U, 6118U, 
+    1719U, 15169U, 14936U, 14725U, 15069U, 13327U, 2252U, 15459U, 
+    2365U, 14911U, 2331U, 11853U, 15984U, 481U, 14005U, 9645U, 
+    6868U, 14693U, 14896U, 15575U, 15538U, 7401U, 14378U, 2298U, 
+    12476U, 15191U, 14943U, 14731U, 15082U, 13400U, 2258U, 15510U, 
+    2372U, 15608U, 2400U, 11861U, 15993U, 492U, 4911U, 14823U, 
+    14700U, 19949U, 14903U, 19958U, 15591U, 10332U, 15118U, 13520U, 
+    14575U, 14544U, 14591U, 7362U, 7233U, 14559U, 15548U, 5477U, 
+    1654U, 8227U, 17678U, 16395U, 3727U, 1537U, 8164U, 17583U, 
+    16275U, 8262U, 17709U, 16672U, 5150U, 1607U, 8185U, 17616U, 
+    16324U, 8311U, 17762U, 17044U, 3751U, 1551U, 5209U, 1621U, 
+    8201U, 17640U, 16346U, 8325U, 17784U, 17064U, 8355U, 17830U, 
+    5449U, 1646U, 8218U, 17665U, 16383U, 8347U, 17818U, 17128U, 
+    17139U, 3866U, 13039U, 3718U, 6244U, 4150U, 6272U, 3301U, 
+    1480U, 2615U, 1443U, 11213U, 2129U, 7989U, 12565U, 6958U, 
+    12554U, 19097U, 2462U, 19108U, 2474U, 19119U, 2486U, 4924U, 
+    6365U, 4729U, 2796U, 5177U, 7057U, 14651U, 4564U, 6425U, 
+    5254U, 630U, 15223U, 660U, 4186U, 3871U, 5414U, 637U, 
+    8596U, 12996U, 7618U, 11204U, 14336U, 6874U, 9616U, 5387U, 
+    10659U, 3496U, 6122U, 14409U, 10607U, 14395U, 10635U, 7710U, 
+    9424U, 11351U, 11713U, 12234U, 7511U, 11376U, 7536U, 7601U, 
+    11738U, 7693U, 7824U, 12258U, 4702U, 3712U, 3378U, 6021U, 
+    14254U, 3512U, 6138U, 14425U, 4633U, 10566U, 15253U, 41U, 
+    15453U, 49U, 10827U, 13110U, 3671U, 5006U, 6205U, 3252U, 
+    14509U, 9392U, 17958U, 9498U, 17983U, 3534U, 16585U, 4970U, 
+    16947U, 6160U, 17201U, 14447U, 18626U, 9439U, 17970U, 9507U, 
+    17996U, 3425U, 16562U, 4888U, 16934U, 6068U, 17178U, 14310U, 
+    18603U, 3646U, 16628U, 4979U, 16960U, 6180U, 17214U, 14479U, 
+    18639U, 3270U, 16550U, 5932U, 17166U, 13894U, 18545U, 3662U, 
+    16641U, 6196U, 17227U, 14500U, 18661U, 12340U, 23U, 12347U, 
+    32U, 3677U, 5019U, 6211U, 3261U, 14524U, 13504U, 9454U, 
+    4917U, 3635U, 6169U, 14456U, 4159U, 19421U, 13525U, 19731U, 
+    4168U, 19431U, 13534U, 19741U, 4177U, 19441U, 14979U, 15176U, 
+    14988U, 15198U, 14997U, 15207U, 4300U, 3475U, 4936U, 6108U, 
+    14356U, 9431U, 9416U, 9516U, 3442U, 4897U, 6085U, 14325U, 
+    3655U, 4988U, 6189U, 14488U, 11692U, 11702U, 9473U, 3410U, 
+    4881U, 6053U, 14295U, 3519U, 4956U, 6145U, 14432U, 7591U, 
+    13887U, 3278U, 5940U, 13925U, 3294U, 5947U, 13962U, 14210U, 
+    7494U, 7574U, 11721U, 7519U, 7544U, 7609U, 11746U, 10589U, 
+    10615U, 10644U, 10580U, 3356U, 5999U, 14246U, 3504U, 6130U, 
+    14417U, 3417U, 6060U, 14302U, 3526U, 6152U, 14439U, 7832U, 
+    4672U, 10818U, 13097U, 4505U, 13919U, 9400U, 11048U, 11100U, 
+    4032U, 7727U, 11013U, 11111U, 15097U, 12025U, 12141U, 12063U, 
+    12157U, 12071U, 12180U, 7750U, 12149U, 7758U, 12165U, 7808U, 
+    12188U, 3317U, 4641U, 5980U, 14010U, 3466U, 4927U, 6099U, 
+    14347U, 4306U, 10479U, 13852U, 9448U, 7627U, 7983U, 9541U, 
+    15746U, 3307U, 4603U, 6450U, 7664U, 5954U, 13990U, 6550U, 
+    7678U, 9463U, 15011U, 7097U, 4201U, 13835U, 7303U, 3312U, 
+    4608U, 6585U, 5959U, 8408U, 13485U, 13996U, 3459U, 19413U, 
+    6092U, 19459U, 3393U, 6036U, 14269U, 14332U, 11209U, 3240U, 
+    4294U, 5913U, 13846U, 3351U, 4838U, 5994U, 8527U, 13509U, 
+    14235U, 10599U, 14387U, 10626U, 7701U, 9409U, 11343U, 11684U, 
+    12226U, 7503U, 11368U, 7528U, 7583U, 11730U, 7685U, 7816U, 
+    12250U, 12217U, 11334U, 11675U, 11359U, 12242U, 15089U, 3385U, 
+    6028U, 14261U, 15103U, 3402U, 6045U, 14278U, 11127U, 16U, 
+    3232U, 5905U, 11577U, 3364U, 6007U, 12685U, 5144U, 6369U, 
+    11107U, 2110U, 16479U, 6620U, 1751U, 11787U, 2180U, 18121U, 
+    9177U, 9848U, 8747U, 9731U, 8490U, 10002U, 9139U, 9110U, 
+    9819U, 8803U, 9193U, 9047U, 9792U, 9251U, 9865U, 9011U, 
+    9782U, 9523U, 9801U, 10239U, 8097U, 11511U, 19654U, 12274U, 
+    19707U, 11544U, 19666U, 12307U, 19719U, 9056U, 9065U, 8429U, 
+    15721U, 15929U, 15731U, 15939U, 9739U, 9074U, 8087U, 8763U, 
+    10018U, 9748U, 8783U, 10038U, 9260U, 9874U, 8518U, 10377U, 
+    9092U, 9810U, 8673U, 9946U, 8991U, 10201U, 9722U, 8480U, 
+    8738U, 9314U, 8902U, 8729U, 9031U, 8893U, 8631U, 9904U, 
+    8949U, 10159U, 9685U, 8450U, 8911U, 9774U, 8499U, 10121U, 
+    9159U, 9839U, 8859U, 9757U, 8651U, 9924U, 8969U, 10179U, 
+    9712U, 8469U, 8609U, 9882U, 8927U, 10137U, 9675U, 8439U, 
+    6592U, 3758U, 7633U, 9547U, 15752U, 8823U, 10068U, 6606U, 
+    14971U, 10471U, 10301U, 8837U, 10082U, 9213U, 9856U, 8508U, 
+    10349U, 8693U, 9694U, 8460U, 9966U, 9268U, 9222U, 8709U, 
+    9702U, 9982U, 9121U, 9830U, 8875U, 9765U, 9185U, 10316U, 
+    8755U, 10010U, 9149U, 17930U, 10284U, 18023U, 8813U, 17916U, 
+    10058U, 18009U, 9203U, 17944U, 10339U, 18046U, 9021U, 10221U, 
+    10248U, 11522U, 12285U, 11555U, 12318U, 10257U, 9083U, 9532U, 
+    11533U, 12296U, 11566U, 12329U, 8773U, 10028U, 9294U, 10402U, 
+    8793U, 10048U, 9304U, 10412U, 9286U, 10394U, 9101U, 10266U, 
+    8683U, 9956U, 9001U, 10211U, 9322U, 10422U, 9039U, 10231U, 
+    8641U, 9914U, 8959U, 10169U, 8919U, 10129U, 9168U, 10307U, 
+    8867U, 10104U, 8662U, 9935U, 8980U, 10190U, 8620U, 9893U, 
+    8938U, 10148U, 6599U, 3766U, 7641U, 9555U, 15760U, 8830U, 
+    10075U, 6613U, 3774U, 7649U, 9563U, 15768U, 8848U, 10093U, 
+    9242U, 10368U, 8701U, 9974U, 9277U, 10385U, 9232U, 10358U, 
+    8719U, 9992U, 9130U, 10275U, 8884U, 10112U, 4823U, 5988U, 
+    10574U, 14229U, 14467U, 14365U, 4649U, 3696U, 13490U, 19868U, 
+    4656U, 11034U, 11028U, 4018U, 19082U, 11104U, 20018U, 20028U, 
+    20010U, 13932U, 13969U, 7733U, 6322U, 19467U, 11020U, 7102U, 
+    6777U, 19498U, 3285U, 14339U, 19751U, 3683U, 2630U, 19889U, 
+    11222U, 7280U, 6989U, 2982U, 19896U, 10937U, 7245U, 19910U, 
+    19904U, 
+};
+
+extern const uint8_t PPCInstrDeprecationFeatures[] = {
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), PPC::DeprecatedDST, PPC::DeprecatedDST, 
+    PPC::DeprecatedDST, PPC::DeprecatedDST, PPC::DeprecatedDST, PPC::DeprecatedDST, PPC::DeprecatedDST, PPC::DeprecatedDST, PPC::DeprecatedDST, PPC::DeprecatedDST, 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), uint8_t(-1), 
+    uint8_t(-1), 
+};
+
+static inline void InitPPCMCInstrInfo(MCInstrInfo *II) {
+  II->InitMCInstrInfo(PPCInsts, PPCInstrNameIndices, PPCInstrNameData, PPCInstrDeprecationFeatures, nullptr, 2361);
+}
+
+} // end namespace llvm
+#endif // GET_INSTRINFO_MC_DESC
+
+#ifdef GET_INSTRINFO_HEADER
+#undef GET_INSTRINFO_HEADER
+namespace llvm {
+struct PPCGenInstrInfo : public TargetInstrInfo {
+  explicit PPCGenInstrInfo(int CFSetupOpcode = -1, int CFDestroyOpcode = -1, int CatchRetOpcode = -1, int ReturnOpcode = -1);
+  ~PPCGenInstrInfo() override = default;
+
+};
+} // end namespace llvm
+#endif // GET_INSTRINFO_HEADER
+
+#ifdef GET_INSTRINFO_HELPER_DECLS
+#undef GET_INSTRINFO_HELPER_DECLS
+
+
+#endif // GET_INSTRINFO_HELPER_DECLS
+
+#ifdef GET_INSTRINFO_HELPERS
+#undef GET_INSTRINFO_HELPERS
+
+#endif // GET_INSTRINFO_HELPERS
+
+#ifdef GET_INSTRINFO_CTOR_DTOR
+#undef GET_INSTRINFO_CTOR_DTOR
+namespace llvm {
+extern const MCInstrDesc PPCInsts[];
+extern const unsigned PPCInstrNameIndices[];
+extern const char PPCInstrNameData[];
+extern const uint8_t PPCInstrDeprecationFeatures[];
+PPCGenInstrInfo::PPCGenInstrInfo(int CFSetupOpcode, int CFDestroyOpcode, int CatchRetOpcode, int ReturnOpcode)
+  : TargetInstrInfo(CFSetupOpcode, CFDestroyOpcode, CatchRetOpcode, ReturnOpcode) {
+  InitMCInstrInfo(PPCInsts, PPCInstrNameIndices, PPCInstrNameData, PPCInstrDeprecationFeatures, nullptr, 2361);
+}
+} // end namespace llvm
+#endif // GET_INSTRINFO_CTOR_DTOR
+
+#ifdef GET_INSTRINFO_OPERAND_ENUM
+#undef GET_INSTRINFO_OPERAND_ENUM
+namespace llvm {
+namespace PPC {
+namespace OpName {
+enum {
+OPERAND_LAST
+};
+} // end namespace OpName
+} // end namespace PPC
+} // end namespace llvm
+#endif //GET_INSTRINFO_OPERAND_ENUM
+
+#ifdef GET_INSTRINFO_NAMED_OPS
+#undef GET_INSTRINFO_NAMED_OPS
+namespace llvm {
+namespace PPC {
+LLVM_READONLY
+int16_t getNamedOperandIdx(uint16_t Opcode, uint16_t NamedIdx) {
+  return -1;
+}
+} // end namespace PPC
+} // end namespace llvm
+#endif //GET_INSTRINFO_NAMED_OPS
+
+#ifdef GET_INSTRINFO_OPERAND_TYPES_ENUM
+#undef GET_INSTRINFO_OPERAND_TYPES_ENUM
+namespace llvm {
+namespace PPC {
+namespace OpTypes {
+enum OperandType {
+  abscalltarget = 0,
+  abscondbrtarget = 1,
+  absdirectbrtarget = 2,
+  atimm = 3,
+  calltarget = 4,
+  condbrtarget = 5,
+  crbitm = 6,
+  directbrtarget = 7,
+  dispRI = 8,
+  dispRI34 = 9,
+  dispRIX = 10,
+  dispRIX16 = 11,
+  dispSPE2 = 12,
+  dispSPE4 = 13,
+  dispSPE8 = 14,
+  f32imm = 15,
+  f64imm = 16,
+  i16imm = 17,
+  i1imm = 18,
+  i32imm = 19,
+  i64imm = 20,
+  i8imm = 21,
+  imm32SExt16 = 22,
+  imm64SExt16 = 23,
+  imm64ZExt32 = 24,
+  immZero = 25,
+  memr = 26,
+  memri = 27,
+  memri34 = 28,
+  memri34_pcrel = 29,
+  memrix = 30,
+  memrix16 = 31,
+  memrr = 32,
+  pred = 33,
+  ptr_rc_idx = 34,
+  ptr_rc_nor0 = 35,
+  ptype0 = 36,
+  ptype1 = 37,
+  ptype2 = 38,
+  ptype3 = 39,
+  ptype4 = 40,
+  ptype5 = 41,
+  s16imm = 42,
+  s16imm64 = 43,
+  s17imm = 44,
+  s17imm64 = 45,
+  s34imm = 46,
+  s5imm = 47,
+  s6imm = 48,
+  spe2dis = 49,
+  spe4dis = 50,
+  spe8dis = 51,
+  tlscall = 52,
+  tlscall32 = 53,
+  tlsgd = 54,
+  tlsgd32 = 55,
+  tlsreg = 56,
+  tlsreg32 = 57,
+  tocentry = 58,
+  tocentry32 = 59,
+  type0 = 60,
+  type1 = 61,
+  type2 = 62,
+  type3 = 63,
+  type4 = 64,
+  type5 = 65,
+  u10imm = 66,
+  u12imm = 67,
+  u16imm = 68,
+  u16imm64 = 69,
+  u1imm = 70,
+  u2imm = 71,
+  u3imm = 72,
+  u4imm = 73,
+  u5imm = 74,
+  u6imm = 75,
+  u7imm = 76,
+  u8imm = 77,
+  untyped_imm_0 = 78,
+  crbitrc = 79,
+  crrc = 80,
+  f4rc = 81,
+  f8rc = 82,
+  g8rc = 83,
+  g8rc_nox0 = 84,
+  gprc = 85,
+  gprc_nor0 = 86,
+  qbrc = 87,
+  qfrc = 88,
+  qsrc = 89,
+  spe4rc = 90,
+  sperc = 91,
+  spilltovsrrc = 92,
+  vfrc = 93,
+  vrrc = 94,
+  vsfrc = 95,
+  vsrc = 96,
+  vssrc = 97,
+  CARRYRC = 98,
+  CRBITRC = 99,
+  CRRC = 100,
+  CTRRC = 101,
+  CTRRC8 = 102,
+  F4RC = 103,
+  F8RC = 104,
+  G8RC = 105,
+  G8RC_NOX0 = 106,
+  GPRC = 107,
+  GPRC_NOR0 = 108,
+  GPRC_VLE_R0_R7 = 109,
+  QBRC = 110,
+  QFRC = 111,
+  QSRC = 112,
+  SPERC = 113,
+  SPILLTOVSRRC = 114,
+  VFRC = 115,
+  VRRC = 116,
+  VRSAVERC = 117,
+  VSFRC = 118,
+  VSLRC = 119,
+  VSRC = 120,
+  VSSRC = 121,
+  OPERAND_TYPE_LIST_END
+};
+} // end namespace OpTypes
+} // end namespace PPC
+} // end namespace llvm
+#endif // GET_INSTRINFO_OPERAND_TYPES_ENUM
+
+#ifdef GET_INSTRINFO_OPERAND_TYPE
+#undef GET_INSTRINFO_OPERAND_TYPE
+namespace llvm {
+namespace PPC {
+LLVM_READONLY
+static int getOperandType(uint16_t Opcode, uint16_t OpIdx) {
+  const int Offsets[] = {
+    0,
+    1,
+    1,
+    1,
+    2,
+    3,
+    4,
+    5,
+    5,
+    8,
+    12,
+    13,
+    17,
+    20,
+    20,
+    21,
+    23,
+    25,
+    25,
+    26,
+    27,
+    29,
+    29,
+    35,
+    36,
+    37,
+    40,
+    40,
+    42,
+    43,
+    43,
+    43,
+    43,
+    43,
+    43,
+    45,
+    48,
+    48,
+    51,
+    54,
+    57,
+    60,
+    63,
+    66,
+    69,
+    72,
+    75,
+    78,
+    79,
+    80,
+    82,
+    84,
+    87,
+    89,
+    93,
+    95,
+    97,
+    99,
+    101,
+    103,
+    105,
+    107,
+    109,
+    111,
+    113,
+    114,
+    116,
+    118,
+    120,
+    125,
+    130,
+    135,
+    137,
+    142,
+    147,
+    151,
+    154,
+    157,
+    160,
+    163,
+    166,
+    169,
+    172,
+    175,
+    178,
+    181,
+    184,
+    187,
+    190,
+    192,
+    194,
+    195,
+    196,
+    197,
+    199,
+    201,
+    203,
+    205,
+    206,
+    209,
+    211,
+    214,
+    216,
+    219,
+    222,
+    225,
+    229,
+    233,
+    237,
+    241,
+    245,
+    249,
+    254,
+    258,
+    263,
+    267,
+    272,
+    276,
+    281,
+    285,
+    289,
+    292,
+    295,
+    298,
+    301,
+    304,
+    307,
+    310,
+    313,
+    316,
+    320,
+    324,
+    327,
+    330,
+    333,
+    335,
+    337,
+    339,
+    341,
+    343,
+    345,
+    347,
+    349,
+    351,
+    353,
+    355,
+    357,
+    359,
+    362,
+    364,
+    367,
+    370,
+    373,
+    376,
+    379,
+    382,
+    385,
+    388,
+    391,
+    394,
+    397,
+    400,
+    401,
+    404,
+    408,
+    411,
+    415,
+    417,
+    419,
+    421,
+    423,
+    425,
+    427,
+    429,
+    431,
+    433,
+    435,
+    437,
+    439,
+    441,
+    443,
+    445,
+    447,
+    449,
+    452,
+    454,
+    456,
+    457,
+    461,
+    465,
+    469,
+    473,
+    476,
+    479,
+    482,
+    485,
+    487,
+    489,
+    491,
+    493,
+    495,
+    497,
+    499,
+    502,
+    505,
+    508,
+    511,
+    513,
+    515,
+    517,
+    519,
+    522,
+    525,
+    528,
+    531,
+    535,
+    539,
+    543,
+    547,
+    551,
+    555,
+    559,
+    563,
+    567,
+    571,
+    575,
+    579,
+    583,
+    587,
+    590,
+    593,
+    596,
+    600,
+    604,
+    608,
+    612,
+    616,
+    620,
+    623,
+    626,
+    629,
+    632,
+    635,
+    638,
+    641,
+    644,
+    647,
+    650,
+    653,
+    656,
+    659,
+    662,
+    665,
+    668,
+    671,
+    674,
+    677,
+    680,
+    683,
+    685,
+    688,
+    691,
+    694,
+    697,
+    700,
+    703,
+    706,
+    709,
+    712,
+    715,
+    718,
+    721,
+    724,
+    727,
+    730,
+    733,
+    736,
+    739,
+    742,
+    745,
+    748,
+    751,
+    754,
+    757,
+    760,
+    763,
+    766,
+    769,
+    772,
+    775,
+    778,
+    781,
+    784,
+    787,
+    790,
+    793,
+    796,
+    799,
+    802,
+    805,
+    808,
+    811,
+    814,
+    817,
+    820,
+    823,
+    826,
+    829,
+    832,
+    836,
+    840,
+    843,
+    846,
+    850,
+    854,
+    857,
+    859,
+    861,
+    863,
+    865,
+    867,
+    869,
+    871,
+    873,
+    875,
+    877,
+    879,
+    881,
+    883,
+    885,
+    887,
+    889,
+    891,
+    893,
+    895,
+    898,
+    901,
+    904,
+    907,
+    910,
+    913,
+    916,
+    919,
+    922,
+    925,
+    928,
+    930,
+    932,
+    934,
+    936,
+    939,
+    944,
+    949,
+    954,
+    959,
+    963,
+    967,
+    971,
+    975,
+    979,
+    983,
+    987,
+    991,
+    995,
+    999,
+    1003,
+    1007,
+    1011,
+    1015,
+    1019,
+    1023,
+    1027,
+    1031,
+    1035,
+    1039,
+    1043,
+    1047,
+    1051,
+    1055,
+    1059,
+    1063,
+    1067,
+    1071,
+    1075,
+    1079,
+    1083,
+    1087,
+    1091,
+    1095,
+    1099,
+    1103,
+    1107,
+    1111,
+    1115,
+    1119,
+    1123,
+    1127,
+    1131,
+    1135,
+    1135,
+    1136,
+    1137,
+    1139,
+    1142,
+    1145,
+    1147,
+    1149,
+    1151,
+    1153,
+    1156,
+    1159,
+    1161,
+    1163,
+    1164,
+    1165,
+    1166,
+    1167,
+    1168,
+    1169,
+    1170,
+    1171,
+    1174,
+    1177,
+    1180,
+    1183,
+    1185,
+    1187,
+    1190,
+    1193,
+    1197,
+    1201,
+    1205,
+    1208,
+    1211,
+    1213,
+    1214,
+    1215,
+    1216,
+    1217,
+    1218,
+    1220,
+    1220,
+    1220,
+    1220,
+    1220,
+    1222,
+    1224,
+    1226,
+    1227,
+    1228,
+    1229,
+    1230,
+    1231,
+    1232,
+    1233,
+    1234,
+    1235,
+    1235,
+    1235,
+    1235,
+    1235,
+    1235,
+    1235,
+    1235,
+    1236,
+    1237,
+    1238,
+    1239,
+    1240,
+    1241,
+    1242,
+    1243,
+    1244,
+    1245,
+    1246,
+    1247,
+    1248,
+    1248,
+    1248,
+    1248,
+    1248,
+    1248,
+    1248,
+    1248,
+    1249,
+    1250,
+    1251,
+    1252,
+    1253,
+    1254,
+    1255,
+    1257,
+    1258,
+    1260,
+    1262,
+    1263,
+    1264,
+    1265,
+    1265,
+    1265,
+    1265,
+    1266,
+    1268,
+    1271,
+    1274,
+    1274,
+    1277,
+    1280,
+    1283,
+    1286,
+    1289,
+    1292,
+    1295,
+    1298,
+    1301,
+    1305,
+    1309,
+    1312,
+    1315,
+    1317,
+    1319,
+    1321,
+    1323,
+    1325,
+    1327,
+    1329,
+    1331,
+    1333,
+    1335,
+    1337,
+    1339,
+    1339,
+    1342,
+    1345,
+    1348,
+    1351,
+    1354,
+    1357,
+    1357,
+    1357,
+    1360,
+    1363,
+    1366,
+    1369,
+    1372,
+    1375,
+    1378,
+    1379,
+    1380,
+    1383,
+    1386,
+    1388,
+    1390,
+    1393,
+    1395,
+    1397,
+    1399,
+    1401,
+    1404,
+    1407,
+    1410,
+    1413,
+    1415,
+    1417,
+    1419,
+    1421,
+    1423,
+    1426,
+    1429,
+    1432,
+    1435,
+    1438,
+    1441,
+    1444,
+    1447,
+    1450,
+    1453,
+    1456,
+    1459,
+    1462,
+    1465,
+    1468,
+    1471,
+    1474,
+    1477,
+    1480,
+    1483,
+    1486,
+    1489,
+    1492,
+    1495,
+    1498,
+    1501,
+    1504,
+    1507,
+    1510,
+    1513,
+    1516,
+    1519,
+    1520,
+    1520,
+    1523,
+    1526,
+    1529,
+    1532,
+    1535,
+    1538,
+    1541,
+    1544,
+    1548,
+    1552,
+    1555,
+    1558,
+    1560,
+    1563,
+    1565,
+    1567,
+    1569,
+    1571,
+    1573,
+    1575,
+    1577,
+    1580,
+    1583,
+    1586,
+    1588,
+    1590,
+    1592,
+    1594,
+    1596,
+    1598,
+    1600,
+    1602,
+    1605,
+    1608,
+    1610,
+    1612,
+    1615,
+    1618,
+    1621,
+    1624,
+    1626,
+    1629,
+    1631,
+    1633,
+    1635,
+    1637,
+    1639,
+    1642,
+    1645,
+    1648,
+    1650,
+    1652,
+    1654,
+    1656,
+    1658,
+    1660,
+    1663,
+    1666,
+    1668,
+    1670,
+    1673,
+    1676,
+    1679,
+    1682,
+    1683,
+    1684,
+    1686,
+    1688,
+    1689,
+    1692,
+    1695,
+    1698,
+    1701,
+    1703,
+    1706,
+    1708,
+    1710,
+    1712,
+    1714,
+    1717,
+    1720,
+    1723,
+    1726,
+    1729,
+    1732,
+    1735,
+    1738,
+    1740,
+    1742,
+    1745,
+    1748,
+    1751,
+    1753,
+    1755,
+    1757,
+    1760,
+    1762,
+    1764,
+    1766,
+    1768,
+    1771,
+    1774,
+    1777,
+    1779,
+    1781,
+    1783,
+    1785,
+    1787,
+    1789,
+    1792,
+    1795,
+    1797,
+    1799,
+    1802,
+    1805,
+    1808,
+    1811,
+    1814,
+    1817,
+    1820,
+    1823,
+    1826,
+    1829,
+    1832,
+    1835,
+    1838,
+    1841,
+    1844,
+    1847,
+    1850,
+    1853,
+    1856,
+    1859,
+    1862,
+    1865,
+    1868,
+    1871,
+    1874,
+    1877,
+    1880,
+    1883,
+    1886,
+    1889,
+    1892,
+    1895,
+    1898,
+    1901,
+    1904,
+    1907,
+    1910,
+    1913,
+    1916,
+    1919,
+    1922,
+    1925,
+    1928,
+    1931,
+    1934,
+    1937,
+    1940,
+    1943,
+    1946,
+    1949,
+    1952,
+    1955,
+    1958,
+    1961,
+    1964,
+    1967,
+    1970,
+    1973,
+    1976,
+    1979,
+    1982,
+    1985,
+    1988,
+    1991,
+    1994,
+    1997,
+    2000,
+    2003,
+    2006,
+    2009,
+    2012,
+    2015,
+    2018,
+    2021,
+    2024,
+    2027,
+    2030,
+    2033,
+    2036,
+    2039,
+    2042,
+    2045,
+    2047,
+    2050,
+    2053,
+    2056,
+    2059,
+    2062,
+    2065,
+    2068,
+    2071,
+    2074,
+    2077,
+    2080,
+    2083,
+    2086,
+    2089,
+    2092,
+    2095,
+    2098,
+    2101,
+    2104,
+    2107,
+    2110,
+    2113,
+    2116,
+    2119,
+    2122,
+    2125,
+    2128,
+    2131,
+    2134,
+    2137,
+    2140,
+    2143,
+    2146,
+    2149,
+    2152,
+    2154,
+    2157,
+    2160,
+    2163,
+    2166,
+    2169,
+    2171,
+    2175,
+    2178,
+    2181,
+    2183,
+    2185,
+    2188,
+    2191,
+    2194,
+    2197,
+    2200,
+    2203,
+    2206,
+    2209,
+    2212,
+    2215,
+    2218,
+    2221,
+    2224,
+    2227,
+    2230,
+    2233,
+    2236,
+    2239,
+    2241,
+    2243,
+    2245,
+    2247,
+    2250,
+    2253,
+    2256,
+    2258,
+    2260,
+    2262,
+    2264,
+    2266,
+    2268,
+    2270,
+    2272,
+    2274,
+    2276,
+    2278,
+    2281,
+    2284,
+    2287,
+    2290,
+    2292,
+    2294,
+    2296,
+    2298,
+    2298,
+    2300,
+    2302,
+    2304,
+    2306,
+    2309,
+    2312,
+    2315,
+    2318,
+    2321,
+    2323,
+    2325,
+    2327,
+    2329,
+    2331,
+    2333,
+    2335,
+    2337,
+    2340,
+    2343,
+    2346,
+    2349,
+    2352,
+    2355,
+    2357,
+    2359,
+    2361,
+    2363,
+    2365,
+    2367,
+    2369,
+    2371,
+    2373,
+    2375,
+    2377,
+    2379,
+    2381,
+    2383,
+    2385,
+    2387,
+    2390,
+    2393,
+    2396,
+    2399,
+    2403,
+    2407,
+    2411,
+    2415,
+    2417,
+    2419,
+    2423,
+    2427,
+    2431,
+    2435,
+    2438,
+    2441,
+    2444,
+    2447,
+    2449,
+    2451,
+    2453,
+    2455,
+    2457,
+    2459,
+    2461,
+    2463,
+    2467,
+    2471,
+    2475,
+    2479,
+    2483,
+    2487,
+    2491,
+    2495,
+    2497,
+    2499,
+    2501,
+    2503,
+    2505,
+    2507,
+    2509,
+    2511,
+    2513,
+    2515,
+    2517,
+    2519,
+    2521,
+    2523,
+    2525,
+    2527,
+    2529,
+    2531,
+    2533,
+    2535,
+    2537,
+    2539,
+    2541,
+    2543,
+    2545,
+    2547,
+    2551,
+    2555,
+    2559,
+    2563,
+    2565,
+    2567,
+    2569,
+    2571,
+    2574,
+    2577,
+    2580,
+    2583,
+    2586,
+    2588,
+    2591,
+    2594,
+    2597,
+    2600,
+    2600,
+    2602,
+    2604,
+    2607,
+    2610,
+    2613,
+    2616,
+    2618,
+    2622,
+    2626,
+    2626,
+    2629,
+    2632,
+    2635,
+    2638,
+    2641,
+    2644,
+    2647,
+    2651,
+    2655,
+    2659,
+    2663,
+    2666,
+    2669,
+    2672,
+    2675,
+    2678,
+    2681,
+    2684,
+    2687,
+    2690,
+    2693,
+    2696,
+    2699,
+    2703,
+    2707,
+    2710,
+    2713,
+    2716,
+    2719,
+    2722,
+    2725,
+    2728,
+    2731,
+    2734,
+    2737,
+    2740,
+    2743,
+    2747,
+    2751,
+    2754,
+    2757,
+    2760,
+    2763,
+    2767,
+    2771,
+    2774,
+    2777,
+    2780,
+    2783,
+    2786,
+    2790,
+    2794,
+    2798,
+    2802,
+    2805,
+    2808,
+    2811,
+    2814,
+    2817,
+    2820,
+    2823,
+    2826,
+    2830,
+    2834,
+    2838,
+    2842,
+    2845,
+    2848,
+    2851,
+    2854,
+    2857,
+    2859,
+    2861,
+    2863,
+    2865,
+    2868,
+    2871,
+    2874,
+    2877,
+    2880,
+    2883,
+    2886,
+    2889,
+    2892,
+    2895,
+    2898,
+    2901,
+    2904,
+    2908,
+    2911,
+    2914,
+    2917,
+    2920,
+    2923,
+    2926,
+    2929,
+    2932,
+    2935,
+    2939,
+    2943,
+    2947,
+    2951,
+    2954,
+    2957,
+    2960,
+    2963,
+    2966,
+    2969,
+    2972,
+    2975,
+    2978,
+    2981,
+    2984,
+    2987,
+    2990,
+    2993,
+    2996,
+    2999,
+    3002,
+    3005,
+    3008,
+    3011,
+    3014,
+    3017,
+    3020,
+    3023,
+    3026,
+    3030,
+    3034,
+    3038,
+    3042,
+    3043,
+    3045,
+    3047,
+    3048,
+    3051,
+    3052,
+    3053,
+    3054,
+    3055,
+    3057,
+    3058,
+    3060,
+    3062,
+    3063,
+    3065,
+    3067,
+    3068,
+    3069,
+    3070,
+    3071,
+    3072,
+    3074,
+    3076,
+    3078,
+    3080,
+    3082,
+    3084,
+    3086,
+    3088,
+    3089,
+    3091,
+    3092,
+    3094,
+    3096,
+    3097,
+    3099,
+    3101,
+    3103,
+    3106,
+    3109,
+    3112,
+    3115,
+    3115,
+    3115,
+    3117,
+    3119,
+    3120,
+    3121,
+    3122,
+    3123,
+    3125,
+    3126,
+    3127,
+    3131,
+    3134,
+    3137,
+    3141,
+    3143,
+    3144,
+    3145,
+    3147,
+    3149,
+    3151,
+    3153,
+    3155,
+    3157,
+    3159,
+    3161,
+    3163,
+    3165,
+    3166,
+    3168,
+    3170,
+    3172,
+    3173,
+    3175,
+    3178,
+    3180,
+    3182,
+    3184,
+    3187,
+    3190,
+    3193,
+    3196,
+    3199,
+    3202,
+    3205,
+    3208,
+    3211,
+    3214,
+    3217,
+    3220,
+    3223,
+    3226,
+    3229,
+    3232,
+    3235,
+    3238,
+    3238,
+    3238,
+    3238,
+    3241,
+    3244,
+    3247,
+    3250,
+    3250,
+    3252,
+    3254,
+    3256,
+    3258,
+    3260,
+    3262,
+    3264,
+    3266,
+    3266,
+    3266,
+    3266,
+    3269,
+    3272,
+    3275,
+    3278,
+    3281,
+    3284,
+    3287,
+    3290,
+    3293,
+    3296,
+    3299,
+    3302,
+    3305,
+    3308,
+    3311,
+    3314,
+    3317,
+    3320,
+    3323,
+    3326,
+    3329,
+    3332,
+    3335,
+    3338,
+    3341,
+    3344,
+    3347,
+    3350,
+    3353,
+    3356,
+    3359,
+    3362,
+    3365,
+    3368,
+    3371,
+    3374,
+    3377,
+    3380,
+    3382,
+    3384,
+    3387,
+    3390,
+    3393,
+    3396,
+    3399,
+    3402,
+    3405,
+    3408,
+    3411,
+    3414,
+    3417,
+    3420,
+    3423,
+    3426,
+    3428,
+    3430,
+    3432,
+    3433,
+    3435,
+    3438,
+    3441,
+    3444,
+    3447,
+    3450,
+    3453,
+    3456,
+    3459,
+    3462,
+    3465,
+    3468,
+    3471,
+    3474,
+    3477,
+    3480,
+    3483,
+    3486,
+    3489,
+    3492,
+    3495,
+    3498,
+    3501,
+    3504,
+    3507,
+    3511,
+    3515,
+    3519,
+    3522,
+    3525,
+    3528,
+    3530,
+    3532,
+    3535,
+    3538,
+    3541,
+    3543,
+    3545,
+    3547,
+    3549,
+    3551,
+    3554,
+    3557,
+    3560,
+    3563,
+    3566,
+    3569,
+    3572,
+    3575,
+    3578,
+    3581,
+    3584,
+    3586,
+    3588,
+    3590,
+    3592,
+    3594,
+    3596,
+    3598,
+    3600,
+    3602,
+    3606,
+    3610,
+    3614,
+    3618,
+    3622,
+    3626,
+    3628,
+    3630,
+    3632,
+    3636,
+    3640,
+    3644,
+    3647,
+    3650,
+    3653,
+    3655,
+    3657,
+    3659,
+    3661,
+    3665,
+    3669,
+    3673,
+    3677,
+    3681,
+    3685,
+    3689,
+    3693,
+    3695,
+    3697,
+    3699,
+    3701,
+    3703,
+    3705,
+    3707,
+    3709,
+    3711,
+    3713,
+    3715,
+    3717,
+    3719,
+    3721,
+    3723,
+    3725,
+    3729,
+    3733,
+    3737,
+    3741,
+    3744,
+    3747,
+    3750,
+    3753,
+    3756,
+    3759,
+    3763,
+    3767,
+    3770,
+    3773,
+    3777,
+    3781,
+    3785,
+    3789,
+    3793,
+    3797,
+    3799,
+    3802,
+    3805,
+    3808,
+    3811,
+    3814,
+    3817,
+    3820,
+    3823,
+    3826,
+    3830,
+    3833,
+    3836,
+    3839,
+    3842,
+    3845,
+    3848,
+    3851,
+    3854,
+    3858,
+    3861,
+    3864,
+    3867,
+    3870,
+    3873,
+    3876,
+    3879,
+    3881,
+    3884,
+    3887,
+    3890,
+    3893,
+    3896,
+    3899,
+    3902,
+    3905,
+    3908,
+    3911,
+    3914,
+    3917,
+    3920,
+    3923,
+    3926,
+    3929,
+    3932,
+    3935,
+    3938,
+    3942,
+    3945,
+    3948,
+    3951,
+    3954,
+    3957,
+    3960,
+    3963,
+    3966,
+    3969,
+    3972,
+    3976,
+    3979,
+    3982,
+    3985,
+    3989,
+    3992,
+    3995,
+    3998,
+    4001,
+    4004,
+    4007,
+    4010,
+    4013,
+    4013,
+    4013,
+    4014,
+    4014,
+    4014,
+    4014,
+    4018,
+    4022,
+    4026,
+    4030,
+    4034,
+    4038,
+    4042,
+    4046,
+    4050,
+    4054,
+    4058,
+    4062,
+    4066,
+    4070,
+    4075,
+    4080,
+    4086,
+    4092,
+    4098,
+    4104,
+    4109,
+    4114,
+    4119,
+    4124,
+    4129,
+    4134,
+    4139,
+    4144,
+    4146,
+    4147,
+    4152,
+    4157,
+    4162,
+    4167,
+    4172,
+    4177,
+    4182,
+    4187,
+    4192,
+    4197,
+    4202,
+    4207,
+    4212,
+    4217,
+    4221,
+    4225,
+    4229,
+    4233,
+    4237,
+    4241,
+    4245,
+    4249,
+    4253,
+    4257,
+    4261,
+    4265,
+    4269,
+    4273,
+    4275,
+    4277,
+    4279,
+    4281,
+    4283,
+    4283,
+    4284,
+    4286,
+    4288,
+    4290,
+    4292,
+    4292,
+    4295,
+    4298,
+    4301,
+    4304,
+    4307,
+    4310,
+    4313,
+    4316,
+    4319,
+    4322,
+    4325,
+    4328,
+    4331,
+    4334,
+    4337,
+    4340,
+    4343,
+    4346,
+    4349,
+    4352,
+    4355,
+    4358,
+    4361,
+    4364,
+    4367,
+    4370,
+    4373,
+    4376,
+    4379,
+    4382,
+    4385,
+    4388,
+    4391,
+    4395,
+    4399,
+    4403,
+    4407,
+    4410,
+    4413,
+    4416,
+    4419,
+    4422,
+    4425,
+    4428,
+    4431,
+    4434,
+    4437,
+    4441,
+    4445,
+    4448,
+    4451,
+    4454,
+    4457,
+    4460,
+    4464,
+    4468,
+    4471,
+    4474,
+    4477,
+    4481,
+    4485,
+    4488,
+    4491,
+    4494,
+    4497,
+    4500,
+    4503,
+    4506,
+    4510,
+    4514,
+    4518,
+    4522,
+    4525,
+    4528,
+    4531,
+    4534,
+    4537,
+    4540,
+    4540,
+    4543,
+    4546,
+    4549,
+    4552,
+    4555,
+    4558,
+    4561,
+    4564,
+    4567,
+    4570,
+    4573,
+    4576,
+    4579,
+    4583,
+    4587,
+    4591,
+    4595,
+    4598,
+    4601,
+    4604,
+    4607,
+    4610,
+    4613,
+    4616,
+    4619,
+    4622,
+    4625,
+    4628,
+    4631,
+    4634,
+    4637,
+    4640,
+    4643,
+    4646,
+    4649,
+    4652,
+    4655,
+    4658,
+    4661,
+    4664,
+    4667,
+    4670,
+    4673,
+    4676,
+    4679,
+    4682,
+    4685,
+    4688,
+    4691,
+    4694,
+    4697,
+    4700,
+    4703,
+    4706,
+    4709,
+    4712,
+    4715,
+    4718,
+    4721,
+    4724,
+    4727,
+    4730,
+    4732,
+    4734,
+    4736,
+    4738,
+    4740,
+    4742,
+    4744,
+    4746,
+    4749,
+    4752,
+    4754,
+    4756,
+    4758,
+    4760,
+    4762,
+    4764,
+    4766,
+    4768,
+    4771,
+    4772,
+    4773,
+    4776,
+    4779,
+    4782,
+    4785,
+    4786,
+    4787,
+    4788,
+    4789,
+    4789,
+    4789,
+    4790,
+    4792,
+    4793,
+    4794,
+    4796,
+    4798,
+    4800,
+    4802,
+    4804,
+    4806,
+    4809,
+    4812,
+    4813,
+    4813,
+    4815,
+    4816,
+    4818,
+    4819,
+    4820,
+    4820,
+    4823,
+    4825,
+    4828,
+    4831,
+    4831,
+    4831,
+    4834,
+    4834,
+    4834,
+    4835,
+    4836,
+    4839,
+    4842,
+    4842,
+    4844,
+    4847,
+    4850,
+    4853,
+    4856,
+    4859,
+    4862,
+    4866,
+    4870,
+    4873,
+    4876,
+    4879,
+    4882,
+    4885,
+    4888,
+    4891,
+    4894,
+    4897,
+    4900,
+    4903,
+    4906,
+    4909,
+    4912,
+    4915,
+    4918,
+    4921,
+    4924,
+    4927,
+    4930,
+    4933,
+    4936,
+    4939,
+    4941,
+    4944,
+    4946,
+    4949,
+    4952,
+    4954,
+    4956,
+    4958,
+    4960,
+    4962,
+    4965,
+    4968,
+    4971,
+    4974,
+    4977,
+    4980,
+    4983,
+    4986,
+    4989,
+    4992,
+    4995,
+    4998,
+    5001,
+    5004,
+    5007,
+    5010,
+    5013,
+    5016,
+    5019,
+    5022,
+    5025,
+    5028,
+    5031,
+    5034,
+    5037,
+    5040,
+    5043,
+    5046,
+    5049,
+    5052,
+    5055,
+    5058,
+    5061,
+    5064,
+    5067,
+    5070,
+    5073,
+    5076,
+    5079,
+    5082,
+    5085,
+    5088,
+    5091,
+    5094,
+    5097,
+    5099,
+    5102,
+    5104,
+    5106,
+    5108,
+    5110,
+    5112,
+    5114,
+    5117,
+    5119,
+    5122,
+    5125,
+    5128,
+    5131,
+    5133,
+    5135,
+    5137,
+    5139,
+    5141,
+    5143,
+    5145,
+    5147,
+    5149,
+    5151,
+    5154,
+    5157,
+    5160,
+    5163,
+    5166,
+    5169,
+    5171,
+    5175,
+    5178,
+    5182,
+    5185,
+    5187,
+    5191,
+    5194,
+    5197,
+    5200,
+    5203,
+    5206,
+    5209,
+    5212,
+    5215,
+    5218,
+    5222,
+    5226,
+    5229,
+    5232,
+    5235,
+    5238,
+    5241,
+    5244,
+    5247,
+    5250,
+    5253,
+    5257,
+    5260,
+    5263,
+    5266,
+    5269,
+    5272,
+    5275,
+    5278,
+    5281,
+    5285,
+    5289,
+    5293,
+    5297,
+    5301,
+    5305,
+    5309,
+    5311,
+    5314,
+    5317,
+    5319,
+    5322,
+    5325,
+    5328,
+    5331,
+    5334,
+    5337,
+    5340,
+    5343,
+    5346,
+    5349,
+    5352,
+    5355,
+    5358,
+    5361,
+    5364,
+    5367,
+    5369,
+    5371,
+    5375,
+    5378,
+    5381,
+    5384,
+    5388,
+    5392,
+    5396,
+    5399,
+    5402,
+    5405,
+    5408,
+    5411,
+    5414,
+    5417,
+    5420,
+    5423,
+    5426,
+    5429,
+    5432,
+    5435,
+    5438,
+    5441,
+    5444,
+    5447,
+    5449,
+    5451,
+    5453,
+    5455,
+    5457,
+    5459,
+    5461,
+    5463,
+    5465,
+    5467,
+    5469,
+    5471,
+    5474,
+    5477,
+    5481,
+    5484,
+    5487,
+    5490,
+    5494,
+    5497,
+    5499,
+    5501,
+    5505,
+    5509,
+    5513,
+    5516,
+    5519,
+    5522,
+    5526,
+    5529,
+    5532,
+    5535,
+    5538,
+    5541,
+    5544,
+    5547,
+    5550,
+    5552,
+    5554,
+    5556,
+    5559,
+    5562,
+    5565,
+    5568,
+    5571,
+    5574,
+    5577,
+    5580,
+    5583,
+    5586,
+    5589,
+    5592,
+    5595,
+    5598,
+    5602,
+    5606,
+    5609,
+    5612,
+    5615,
+    5618,
+    5621,
+    5624,
+    5627,
+    5630,
+    5633,
+    5636,
+    5639,
+    5642,
+    5645,
+    5648,
+    5651,
+    5654,
+    5657,
+    5659,
+    5661,
+    5663,
+    5665,
+    5667,
+    5669,
+    5671,
+    5673,
+    5676,
+    5677,
+    5678,
+    5679,
+    5680,
+    5681,
+    5682,
+    5683,
+    5684,
+    5685,
+    5688,
+    5691,
+    5694,
+    5697,
+    5700,
+    5703,
+    5706,
+    5709,
+    5711,
+    5713,
+    5716,
+    5719,
+    5722,
+    5725,
+    5728,
+    5731,
+    5734,
+    5737,
+    5740,
+    5743,
+    5746,
+    5749,
+    5752,
+    5755,
+    5758,
+    5760,
+    5762,
+    5764,
+    5766,
+    5768,
+    5770,
+    5772,
+    5774,
+    5776,
+    5778,
+    5780,
+    5782,
+    5784,
+    5786,
+    5788,
+    5790,
+    5792,
+    5794,
+    5796,
+    5798,
+    5800,
+    5802,
+    5804,
+    5806,
+    5808,
+    5810,
+    5812,
+    5815,
+    5818,
+    5821,
+    5824,
+    5827,
+    5830,
+    5834,
+    5838,
+    5842,
+    5846,
+    5850,
+    5854,
+    5857,
+    5860,
+    5863,
+    5866,
+    5869,
+    5872,
+    5876,
+    5880,
+    5884,
+    5888,
+    5892,
+    5896,
+    5899,
+    5902,
+    5905,
+    5908,
+    5910,
+    5912,
+    5914,
+    5916,
+    5920,
+    5924,
+    5928,
+    5932,
+    5936,
+    5940,
+    5944,
+    5948,
+    5952,
+    5956,
+    5960,
+    5964,
+    5966,
+    5968,
+    5970,
+    5972,
+    5974,
+    5976,
+    5978,
+    5982,
+    5986,
+    5990,
+    5992,
+    5994,
+    5996,
+    5998,
+    6000,
+    6002,
+    6004,
+    6007,
+    6010,
+    6013,
+    6016,
+    6019,
+    6021,
+    6024,
+    6027,
+    6030,
+    6032,
+    6034,
+    6036,
+    6038,
+    6040,
+    6042,
+    6045,
+    6048,
+    6051,
+    6054,
+    6057,
+    6060,
+    6063,
+    6066,
+    6069,
+    6072,
+    6075,
+    6078,
+    6081,
+    6084,
+    6087,
+    6090,
+    6092,
+    6094,
+    6096,
+    6098,
+    6100,
+    6102,
+    6104,
+    6106,
+    6108,
+    6110,
+    6112,
+    6114,
+    6116,
+    6118,
+    6120,
+    6122,
+    6124,
+    6126,
+    6128,
+    6130,
+    6133,
+    6136,
+    6139,
+    6142,
+    6146,
+    6150,
+    6154,
+    6158,
+    6161,
+    6164,
+    6167,
+    6170,
+    6174,
+    6178,
+    6182,
+    6186,
+    6189,
+    6192,
+    6194,
+    6196,
+    6198,
+    6200,
+    6204,
+    6208,
+    6212,
+    6216,
+    6220,
+    6224,
+    6228,
+    6232,
+    6234,
+    6236,
+    6238,
+    6240,
+    6242,
+    6244,
+    6246,
+    6248,
+    6250,
+    6252,
+    6254,
+    6256,
+    6258,
+    6260,
+    6262,
+    6264,
+    6267,
+    6270,
+    6273,
+    6276,
+    6278,
+    6280,
+    6283,
+    6286,
+    6288,
+    6290,
+    6292,
+    6294,
+    6296,
+    6298,
+    6300,
+    6302,
+    6305,
+    6309,
+    6312,
+    6315,
+    6318,
+    6319,
+    6322,
+    6325,
+    6328,
+    6331,
+    6334,
+    6337,
+    6338,
+    6339,
+    6340,
+    6343,
+    6346,
+    6349,
+    6353,
+    6356,
+    6359,
+    6363,
+    6367,
+    6370,
+    6372,
+    6375,
+    6378,
+    6381,
+    6384,
+    6388,
+    6391,
+    6394,
+    6397,
+    6400,
+    6404,
+    6407,
+    6410,
+    6414,
+  };
+  const int OpcodeOperandTypes[] = {
+    -1, 
+    /**/
+    /**/
+    OpTypes::i32imm, 
+    OpTypes::i32imm, 
+    OpTypes::i32imm, 
+    OpTypes::i32imm, 
+    /**/
+    -1, -1, OpTypes::i32imm, 
+    -1, -1, -1, OpTypes::i32imm, 
+    -1, 
+    -1, -1, -1, OpTypes::i32imm, 
+    -1, -1, OpTypes::i32imm, 
+    /**/
+    -1, 
+    -1, -1, 
+    -1, -1, 
+    /**/
+    OpTypes::i32imm, 
+    OpTypes::i32imm, 
+    OpTypes::i64imm, OpTypes::i32imm, 
+    /**/
+    -1, OpTypes::i64imm, OpTypes::i32imm, -1, OpTypes::i32imm, OpTypes::i32imm, 
+    -1, 
+    OpTypes::i32imm, 
+    -1, OpTypes::i32imm, OpTypes::i32imm, 
+    /**/
+    -1, OpTypes::i32imm, 
+    -1, 
+    /**/
+    /**/
+    /**/
+    /**/
+    /**/
+    -1, -1, 
+    -1, -1, -1, 
+    /**/
+    OpTypes::type0, OpTypes::type0, OpTypes::type0, 
+    OpTypes::type0, OpTypes::type0, OpTypes::type0, 
+    OpTypes::type0, OpTypes::type0, OpTypes::type0, 
+    OpTypes::type0, OpTypes::type0, OpTypes::type0, 
+    OpTypes::type0, OpTypes::type0, OpTypes::type0, 
+    OpTypes::type0, OpTypes::type0, OpTypes::type0, 
+    OpTypes::type0, OpTypes::type0, OpTypes::type0, 
+    OpTypes::type0, OpTypes::type0, OpTypes::type0, 
+    OpTypes::type0, OpTypes::type0, OpTypes::type0, 
+    OpTypes::type0, OpTypes::type0, OpTypes::type0, 
+    OpTypes::type0, 
+    OpTypes::type0, 
+    OpTypes::type0, -1, 
+    OpTypes::type0, -1, 
+    OpTypes::type0, OpTypes::type1, -1, 
+    OpTypes::type0, OpTypes::type1, 
+    OpTypes::type0, OpTypes::type0, OpTypes::type1, -1, 
+    OpTypes::type0, OpTypes::type1, 
+    OpTypes::type0, OpTypes::type1, 
+    OpTypes::type0, OpTypes::type1, 
+    OpTypes::type0, OpTypes::type1, 
+    OpTypes::type0, OpTypes::type1, 
+    OpTypes::type0, OpTypes::type1, 
+    OpTypes::type0, OpTypes::type1, 
+    OpTypes::type0, OpTypes::type0, 
+    OpTypes::type0, OpTypes::type0, 
+    OpTypes::type0, OpTypes::type0, 
+    OpTypes::type0, 
+    OpTypes::type0, OpTypes::ptype1, 
+    OpTypes::type0, OpTypes::ptype1, 
+    OpTypes::type0, OpTypes::ptype1, 
+    OpTypes::type0, OpTypes::ptype1, OpTypes::ptype1, OpTypes::type2, -1, 
+    OpTypes::type0, OpTypes::ptype1, OpTypes::ptype1, OpTypes::type2, -1, 
+    OpTypes::type0, OpTypes::ptype1, OpTypes::ptype1, OpTypes::type2, -1, 
+    OpTypes::type0, OpTypes::ptype1, 
+    OpTypes::ptype0, OpTypes::type1, OpTypes::ptype0, OpTypes::ptype2, -1, 
+    OpTypes::type0, OpTypes::type1, OpTypes::type2, OpTypes::type0, OpTypes::type0, 
+    OpTypes::type0, OpTypes::ptype1, OpTypes::type0, OpTypes::type0, 
+    OpTypes::type0, OpTypes::ptype1, OpTypes::type0, 
+    OpTypes::type0, OpTypes::ptype1, OpTypes::type0, 
+    OpTypes::type0, OpTypes::ptype1, OpTypes::type0, 
+    OpTypes::type0, OpTypes::ptype1, OpTypes::type0, 
+    OpTypes::type0, OpTypes::ptype1, OpTypes::type0, 
+    OpTypes::type0, OpTypes::ptype1, OpTypes::type0, 
+    OpTypes::type0, OpTypes::ptype1, OpTypes::type0, 
+    OpTypes::type0, OpTypes::ptype1, OpTypes::type0, 
+    OpTypes::type0, OpTypes::ptype1, OpTypes::type0, 
+    OpTypes::type0, OpTypes::ptype1, OpTypes::type0, 
+    OpTypes::type0, OpTypes::ptype1, OpTypes::type0, 
+    OpTypes::type0, OpTypes::ptype1, OpTypes::type0, 
+    OpTypes::type0, OpTypes::ptype1, OpTypes::type0, 
+    OpTypes::i32imm, OpTypes::i32imm, 
+    OpTypes::type0, -1, 
+    OpTypes::type0, 
+    -1, 
+    -1, 
+    OpTypes::type0, OpTypes::type1, 
+    OpTypes::type0, OpTypes::type1, 
+    OpTypes::type0, -1, 
+    OpTypes::type0, -1, 
+    OpTypes::type0, 
+    OpTypes::type0, OpTypes::type1, -1, 
+    OpTypes::type0, OpTypes::type1, 
+    OpTypes::type0, OpTypes::type0, OpTypes::untyped_imm_0, 
+    OpTypes::type0, OpTypes::type1, 
+    OpTypes::type0, OpTypes::type0, OpTypes::type1, 
+    OpTypes::type0, OpTypes::type0, OpTypes::type1, 
+    OpTypes::type0, OpTypes::type0, OpTypes::type1, 
+    OpTypes::type0, OpTypes::type0, OpTypes::type0, OpTypes::type1, 
+    OpTypes::type0, OpTypes::type0, OpTypes::type0, OpTypes::type1, 
+    OpTypes::type0, -1, OpTypes::type1, OpTypes::type1, 
+    OpTypes::type0, -1, OpTypes::type1, OpTypes::type1, 
+    OpTypes::type0, OpTypes::type1, OpTypes::type0, OpTypes::type0, 
+    OpTypes::type0, OpTypes::type1, OpTypes::type0, OpTypes::type0, 
+    OpTypes::type0, OpTypes::type1, OpTypes::type0, OpTypes::type0, OpTypes::type1, 
+    OpTypes::type0, OpTypes::type1, OpTypes::type0, OpTypes::type0, 
+    OpTypes::type0, OpTypes::type1, OpTypes::type0, OpTypes::type0, OpTypes::type1, 
+    OpTypes::type0, OpTypes::type1, OpTypes::type0, OpTypes::type0, 
+    OpTypes::type0, OpTypes::type1, OpTypes::type0, OpTypes::type0, OpTypes::type1, 
+    OpTypes::type0, OpTypes::type1, OpTypes::type0, OpTypes::type0, 
+    OpTypes::type0, OpTypes::type1, OpTypes::type0, OpTypes::type0, OpTypes::type1, 
+    OpTypes::type0, OpTypes::type1, OpTypes::type0, OpTypes::type0, 
+    OpTypes::type0, OpTypes::type1, OpTypes::type0, OpTypes::type0, 
+    OpTypes::type0, OpTypes::type0, OpTypes::type0, 
+    OpTypes::type0, OpTypes::type0, OpTypes::type0, 
+    OpTypes::type0, OpTypes::type0, OpTypes::type0, 
+    OpTypes::type0, OpTypes::type0, OpTypes::type0, 
+    OpTypes::type0, OpTypes::type0, OpTypes::type0, 
+    OpTypes::type0, OpTypes::type0, OpTypes::type0, 
+    OpTypes::type0, OpTypes::type0, OpTypes::type0, 
+    OpTypes::type0, OpTypes::type0, OpTypes::type0, 
+    OpTypes::type0, OpTypes::type0, OpTypes::type0, 
+    OpTypes::type0, OpTypes::type0, OpTypes::type0, OpTypes::type0, 
+    OpTypes::type0, OpTypes::type0, OpTypes::type0, OpTypes::type0, 
+    OpTypes::type0, OpTypes::type0, OpTypes::type0, 
+    OpTypes::type0, OpTypes::type0, OpTypes::type0, 
+    OpTypes::type0, OpTypes::type0, OpTypes::type0, 
+    OpTypes::type0, OpTypes::type0, 
+    OpTypes::type0, OpTypes::type0, 
+    OpTypes::type0, OpTypes::type0, 
+    OpTypes::type0, OpTypes::type0, 
+    OpTypes::type0, OpTypes::type0, 
+    OpTypes::type0, OpTypes::type0, 
+    OpTypes::type0, OpTypes::type1, 
+    OpTypes::type0, OpTypes::type1, 
+    OpTypes::type0, OpTypes::type1, 
+    OpTypes::type0, OpTypes::type1, 
+    OpTypes::type0, OpTypes::type1, 
+    OpTypes::type0, OpTypes::type1, 
+    OpTypes::type0, OpTypes::type0, 
+    OpTypes::type0, OpTypes::type0, OpTypes::type1, 
+    OpTypes::type0, OpTypes::type0, 
+    OpTypes::type0, OpTypes::type0, OpTypes::type0, 
+    OpTypes::type0, OpTypes::type0, OpTypes::type0, 
+    OpTypes::type0, OpTypes::type0, OpTypes::type0, 
+    OpTypes::type0, OpTypes::type0, OpTypes::type0, 
+    OpTypes::type0, OpTypes::type0, OpTypes::type0, 
+    OpTypes::type0, OpTypes::type0, OpTypes::type0, 
+    OpTypes::type0, OpTypes::type0, OpTypes::type1, 
+    OpTypes::ptype0, OpTypes::ptype0, OpTypes::type1, 
+    OpTypes::type0, OpTypes::type0, OpTypes::type0, 
+    OpTypes::type0, OpTypes::type0, OpTypes::type0, 
+    OpTypes::type0, OpTypes::type0, OpTypes::type0, 
+    OpTypes::type0, OpTypes::type0, OpTypes::type0, 
+    -1, 
+    OpTypes::ptype0, -1, OpTypes::type1, 
+    OpTypes::type0, OpTypes::type0, OpTypes::type1, OpTypes::type2, 
+    OpTypes::type0, OpTypes::type1, OpTypes::type2, 
+    OpTypes::type0, OpTypes::type1, OpTypes::type1, -1, 
+    OpTypes::type0, OpTypes::type1, 
+    OpTypes::type0, OpTypes::type1, 
+    OpTypes::type0, OpTypes::type1, 
+    OpTypes::type0, OpTypes::type1, 
+    OpTypes::type0, OpTypes::type1, 
+    OpTypes::type0, OpTypes::type0, 
+    OpTypes::type0, OpTypes::type0, 
+    OpTypes::type0, OpTypes::type0, 
+    OpTypes::type0, OpTypes::type0, 
+    OpTypes::type0, OpTypes::type0, 
+    OpTypes::type0, OpTypes::type0, 
+    OpTypes::type0, OpTypes::type0, 
+    OpTypes::type0, OpTypes::type0, 
+    OpTypes::type0, OpTypes::type0, 
+    OpTypes::type0, OpTypes::type1, 
+    OpTypes::type0, -1, 
+    OpTypes::type0, -1, 
+    OpTypes::ptype0, OpTypes::type1, OpTypes::i32imm, 
+    OpTypes::type0, -1, 
+    -1, OpTypes::type0, 
+    OpTypes::g8rc, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::u6imm, OpTypes::u6imm, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::u6imm, OpTypes::u6imm, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::u5imm, OpTypes::u5imm, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::u5imm, OpTypes::u5imm, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::u6imm, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::u6imm, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::u5imm, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::u5imm, 
+    OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, OpTypes::u5imm, 
+    OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, OpTypes::u5imm, 
+    OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, OpTypes::u5imm, 
+    OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, OpTypes::u5imm, 
+    OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::vssrc, OpTypes::dispRIX, OpTypes::ptr_rc_nor0, 
+    OpTypes::vsfrc, OpTypes::dispRIX, OpTypes::ptr_rc_nor0, 
+    OpTypes::vssrc, OpTypes::dispRIX, OpTypes::ptr_rc_nor0, 
+    OpTypes::vsfrc, OpTypes::dispRIX, OpTypes::ptr_rc_nor0, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::u6imm, OpTypes::u6imm, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::u6imm, OpTypes::u6imm, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::u5imm, OpTypes::u5imm, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::u5imm, OpTypes::u5imm, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::u6imm, OpTypes::u6imm, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::u6imm, OpTypes::u6imm, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::u5imm, OpTypes::u5imm, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::u5imm, OpTypes::u5imm, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::u5imm, OpTypes::u5imm, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::u5imm, OpTypes::u5imm, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::u6imm, OpTypes::u6imm, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::u6imm, OpTypes::u6imm, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::u5imm, OpTypes::u5imm, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::u5imm, OpTypes::u5imm, 
+    OpTypes::gprc, OpTypes::dispRI, OpTypes::ptr_rc_nor0, 
+    OpTypes::vsfrc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::vsfrc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::u5imm, OpTypes::i32imm, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::u5imm, OpTypes::i32imm, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::u5imm, OpTypes::i32imm, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::u5imm, OpTypes::i32imm, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::u5imm, OpTypes::i32imm, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::u5imm, OpTypes::i32imm, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::u6imm, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::u6imm, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::u5imm, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::u5imm, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::u6imm, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::u6imm, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::u5imm, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::u5imm, 
+    OpTypes::spilltovsrrc, OpTypes::dispRIX, OpTypes::ptr_rc_nor0, 
+    OpTypes::spilltovsrrc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::spilltovsrrc, OpTypes::dispRIX, OpTypes::ptr_rc_nor0, 
+    OpTypes::spilltovsrrc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::u6imm, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::u6imm, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::u5imm, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::u5imm, 
+    OpTypes::vsfrc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::s16imm, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::s16imm, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::s16imm, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::s16imm, 
+    OpTypes::g8rc, OpTypes::s16imm, 
+    OpTypes::vssrc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::vsfrc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::vssrc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::vsfrc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::tlsreg32, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::g8rc, OpTypes::g8rc_nox0, OpTypes::tlsreg, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::tlsreg, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::gprc, OpTypes::gprc_nor0, OpTypes::s16imm, 
+    OpTypes::g8rc, OpTypes::g8rc_nox0, OpTypes::s16imm64, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::s16imm, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::s16imm64, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::s16imm, 
+    OpTypes::gprc, OpTypes::gprc_nor0, OpTypes::s17imm, 
+    OpTypes::g8rc, OpTypes::g8rc_nox0, OpTypes::s17imm64, 
+    OpTypes::g8rc, OpTypes::g8rc_nox0, OpTypes::s16imm64, 
+    OpTypes::gprc, OpTypes::gprc_nor0, OpTypes::s16imm, 
+    OpTypes::g8rc, OpTypes::g8rc_nox0, OpTypes::s16imm64, 
+    OpTypes::g8rc, OpTypes::g8rc_nox0, OpTypes::s16imm64, 
+    OpTypes::g8rc, OpTypes::g8rc_nox0, OpTypes::s16imm64, 
+    OpTypes::gprc, OpTypes::gprc_nor0, OpTypes::i32imm, 
+    OpTypes::g8rc, OpTypes::g8rc_nox0, OpTypes::i64imm, 
+    OpTypes::g8rc, OpTypes::g8rc_nox0, OpTypes::s16imm64, 
+    OpTypes::gprc, OpTypes::gprc_nor0, OpTypes::s16imm, 
+    OpTypes::g8rc, OpTypes::g8rc_nox0, OpTypes::s16imm64, 
+    OpTypes::gprc, OpTypes::gprc_nor0, OpTypes::s16imm, 
+    OpTypes::g8rc, OpTypes::g8rc_nox0, OpTypes::s16imm64, OpTypes::tlsgd, 
+    OpTypes::gprc, OpTypes::gprc_nor0, OpTypes::s16imm, OpTypes::tlsgd32, 
+    OpTypes::g8rc, OpTypes::g8rc_nox0, OpTypes::s16imm64, 
+    OpTypes::gprc, OpTypes::gprc_nor0, OpTypes::s16imm, 
+    OpTypes::g8rc, OpTypes::g8rc_nox0, OpTypes::s16imm64, OpTypes::tlsgd, 
+    OpTypes::gprc, OpTypes::gprc_nor0, OpTypes::s16imm, OpTypes::tlsgd32, 
+    OpTypes::g8rc, OpTypes::g8rc_nox0, OpTypes::i64imm, 
+    OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::g8rc, OpTypes::i32imm, 
+    OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::u16imm, OpTypes::u16imm, 
+    OpTypes::u16imm, OpTypes::u16imm, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::u16imm64, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::u16imm64, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::u16imm, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::u16imm, 
+    OpTypes::crbitrc, OpTypes::gprc, 
+    OpTypes::crbitrc, OpTypes::g8rc, 
+    OpTypes::crbitrc, OpTypes::gprc, 
+    OpTypes::crbitrc, OpTypes::g8rc, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::gprc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::gprc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::g8rc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::gprc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::gprc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, OpTypes::gprc, 
+    OpTypes::gprc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, OpTypes::gprc, 
+    OpTypes::g8rc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, OpTypes::g8rc, 
+    OpTypes::gprc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, OpTypes::gprc, 
+    OpTypes::gprc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, OpTypes::gprc, 
+    OpTypes::gprc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, OpTypes::gprc, 
+    OpTypes::g8rc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, OpTypes::g8rc, 
+    OpTypes::gprc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, OpTypes::gprc, 
+    OpTypes::gprc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, OpTypes::gprc, 
+    OpTypes::gprc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, OpTypes::gprc, 
+    OpTypes::g8rc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, OpTypes::g8rc, 
+    OpTypes::gprc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, OpTypes::gprc, 
+    OpTypes::gprc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, OpTypes::gprc, 
+    OpTypes::gprc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, OpTypes::gprc, 
+    OpTypes::g8rc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, OpTypes::g8rc, 
+    OpTypes::gprc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, OpTypes::gprc, 
+    OpTypes::gprc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, OpTypes::gprc, 
+    OpTypes::gprc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, OpTypes::gprc, 
+    OpTypes::g8rc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, OpTypes::g8rc, 
+    OpTypes::gprc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, OpTypes::gprc, 
+    OpTypes::gprc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, OpTypes::gprc, 
+    OpTypes::gprc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, OpTypes::gprc, 
+    OpTypes::g8rc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, OpTypes::g8rc, 
+    OpTypes::gprc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, OpTypes::gprc, 
+    OpTypes::gprc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, OpTypes::gprc, 
+    OpTypes::gprc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, OpTypes::gprc, 
+    OpTypes::g8rc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, OpTypes::g8rc, 
+    OpTypes::gprc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, OpTypes::gprc, 
+    OpTypes::gprc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, OpTypes::gprc, 
+    OpTypes::gprc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, OpTypes::gprc, 
+    OpTypes::g8rc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, OpTypes::g8rc, 
+    OpTypes::gprc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, OpTypes::gprc, 
+    OpTypes::gprc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, OpTypes::gprc, 
+    OpTypes::gprc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, OpTypes::gprc, 
+    OpTypes::g8rc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, OpTypes::g8rc, 
+    OpTypes::gprc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, OpTypes::gprc, 
+    OpTypes::gprc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, OpTypes::gprc, 
+    OpTypes::gprc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, OpTypes::gprc, 
+    OpTypes::g8rc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, OpTypes::g8rc, 
+    OpTypes::gprc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, OpTypes::gprc, 
+    OpTypes::gprc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, OpTypes::gprc, 
+    OpTypes::gprc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, OpTypes::gprc, 
+    OpTypes::g8rc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, OpTypes::g8rc, 
+    OpTypes::gprc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, OpTypes::gprc, 
+    /**/
+    OpTypes::directbrtarget, 
+    OpTypes::absdirectbrtarget, 
+    OpTypes::crbitrc, OpTypes::condbrtarget, 
+    OpTypes::i32imm, OpTypes::crrc, OpTypes::condbrtarget, 
+    OpTypes::i32imm, OpTypes::crrc, OpTypes::abscondbrtarget, 
+    OpTypes::i32imm, OpTypes::crrc, 
+    OpTypes::i32imm, OpTypes::crrc, 
+    OpTypes::i32imm, OpTypes::crrc, 
+    OpTypes::i32imm, OpTypes::crrc, 
+    OpTypes::i32imm, OpTypes::crrc, OpTypes::condbrtarget, 
+    OpTypes::i32imm, OpTypes::crrc, OpTypes::abscondbrtarget, 
+    OpTypes::i32imm, OpTypes::crrc, 
+    OpTypes::i32imm, OpTypes::crrc, 
+    OpTypes::crbitrc, 
+    OpTypes::crbitrc, 
+    OpTypes::crbitrc, 
+    OpTypes::crbitrc, 
+    OpTypes::crbitrc, 
+    OpTypes::crbitrc, 
+    OpTypes::crbitrc, 
+    OpTypes::crbitrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::u1imm, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::u1imm, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::u1imm, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::u1imm, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::u1imm, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, OpTypes::u1imm, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, OpTypes::u1imm, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, OpTypes::u1imm, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::crbitrc, OpTypes::condbrtarget, 
+    OpTypes::crbitrc, 
+    OpTypes::crbitrc, 
+    OpTypes::crbitrc, 
+    OpTypes::crbitrc, 
+    OpTypes::condbrtarget, 
+    OpTypes::crbitrc, OpTypes::condbrtarget, 
+    /**/
+    /**/
+    /**/
+    /**/
+    OpTypes::dispRIX, OpTypes::ptr_rc_nor0, 
+    OpTypes::dispRI, OpTypes::ptr_rc_nor0, 
+    OpTypes::crbitrc, OpTypes::condbrtarget, 
+    OpTypes::condbrtarget, 
+    OpTypes::condbrtarget, 
+    OpTypes::abscondbrtarget, 
+    OpTypes::abscondbrtarget, 
+    OpTypes::abscondbrtarget, 
+    OpTypes::condbrtarget, 
+    OpTypes::abscondbrtarget, 
+    OpTypes::abscondbrtarget, 
+    OpTypes::abscondbrtarget, 
+    /**/
+    /**/
+    /**/
+    /**/
+    /**/
+    /**/
+    /**/
+    OpTypes::condbrtarget, 
+    OpTypes::condbrtarget, 
+    OpTypes::condbrtarget, 
+    OpTypes::condbrtarget, 
+    OpTypes::condbrtarget, 
+    OpTypes::condbrtarget, 
+    OpTypes::abscondbrtarget, 
+    OpTypes::abscondbrtarget, 
+    OpTypes::abscondbrtarget, 
+    OpTypes::condbrtarget, 
+    OpTypes::abscondbrtarget, 
+    OpTypes::abscondbrtarget, 
+    OpTypes::abscondbrtarget, 
+    /**/
+    /**/
+    /**/
+    /**/
+    /**/
+    /**/
+    /**/
+    OpTypes::condbrtarget, 
+    OpTypes::condbrtarget, 
+    OpTypes::condbrtarget, 
+    OpTypes::condbrtarget, 
+    OpTypes::calltarget, 
+    OpTypes::calltarget, 
+    OpTypes::calltarget, 
+    OpTypes::calltarget, OpTypes::tlsgd, 
+    OpTypes::calltarget, 
+    OpTypes::calltarget, OpTypes::tlsgd, 
+    OpTypes::calltarget, OpTypes::tlsgd, 
+    OpTypes::abscalltarget, 
+    OpTypes::abscalltarget, 
+    OpTypes::abscalltarget, 
+    /**/
+    /**/
+    /**/
+    OpTypes::calltarget, 
+    OpTypes::calltarget, OpTypes::tlsgd32, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::gprc, 
+    /**/
+    OpTypes::gprc, OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::crrc, OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::crrc, OpTypes::g8rc, OpTypes::s16imm64, 
+    OpTypes::crbitrc, OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::crrc, OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::crrc, OpTypes::g8rc, OpTypes::u16imm64, 
+    OpTypes::crrc, OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::crrc, OpTypes::gprc, OpTypes::u16imm, 
+    OpTypes::crbitrc, OpTypes::u1imm, OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::crbitrc, OpTypes::u1imm, OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::crrc, OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::crrc, OpTypes::gprc, OpTypes::s16imm, 
+    OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::gprc, OpTypes::gprc, 
+    /**/
+    OpTypes::gprc, OpTypes::gprc, OpTypes::u1imm, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::u1imm, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::u1imm, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::u1imm, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::u1imm, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::u1imm, 
+    /**/
+    /**/
+    OpTypes::crbitrc, OpTypes::crbitrc, OpTypes::crbitrc, 
+    OpTypes::crbitrc, OpTypes::crbitrc, OpTypes::crbitrc, 
+    OpTypes::crbitrc, OpTypes::crbitrc, OpTypes::crbitrc, 
+    OpTypes::crbitrc, OpTypes::crbitrc, OpTypes::crbitrc, 
+    OpTypes::crbitrc, OpTypes::crbitrc, OpTypes::crbitrc, 
+    OpTypes::crbitrc, OpTypes::crbitrc, OpTypes::crbitrc, 
+    OpTypes::crbitrc, OpTypes::crbitrc, OpTypes::crbitrc, 
+    OpTypes::crbitrc, 
+    OpTypes::crbitrc, 
+    OpTypes::crbitrc, OpTypes::crbitrc, OpTypes::crbitrc, 
+    OpTypes::i32imm, OpTypes::crrc, OpTypes::condbrtarget, 
+    OpTypes::g8rc, OpTypes::i32imm, 
+    OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::u5imm, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::u5imm, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, OpTypes::u5imm, 
+    OpTypes::u5imm, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, OpTypes::u5imm, 
+    OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::u5imm, 
+    /**/
+    OpTypes::u5imm, OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::u5imm, OpTypes::g8rc, OpTypes::gprc, 
+    OpTypes::u5imm, OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::u5imm, OpTypes::g8rc, OpTypes::gprc, 
+    OpTypes::u5imm, OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::u5imm, OpTypes::g8rc, OpTypes::gprc, 
+    OpTypes::u5imm, OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::u5imm, OpTypes::g8rc, OpTypes::gprc, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::dispRI, OpTypes::ptr_rc_nor0, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::dispRI, OpTypes::ptr_rc_nor0, 
+    OpTypes::i32imm, OpTypes::dispRI, OpTypes::ptr_rc_nor0, 
+    OpTypes::i64imm, OpTypes::dispRI, OpTypes::ptr_rc_nor0, 
+    OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::spe4rc, 
+    OpTypes::sperc, OpTypes::spe4rc, 
+    OpTypes::sperc, OpTypes::gprc, 
+    OpTypes::sperc, OpTypes::gprc, 
+    OpTypes::sperc, OpTypes::spe4rc, 
+    OpTypes::sperc, OpTypes::gprc, 
+    OpTypes::sperc, OpTypes::gprc, 
+    OpTypes::crrc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::crrc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::crrc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::spe4rc, 
+    OpTypes::gprc, OpTypes::sperc, 
+    OpTypes::gprc, OpTypes::sperc, 
+    OpTypes::gprc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::spe4rc, 
+    OpTypes::gprc, OpTypes::sperc, 
+    OpTypes::gprc, OpTypes::sperc, 
+    OpTypes::gprc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::crrc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::crrc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::crrc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::spe4rc, OpTypes::spe4rc, 
+    OpTypes::spe4rc, OpTypes::spe4rc, OpTypes::spe4rc, 
+    OpTypes::spe4rc, OpTypes::sperc, 
+    OpTypes::spe4rc, OpTypes::spe4rc, 
+    OpTypes::spe4rc, OpTypes::gprc, 
+    OpTypes::spe4rc, OpTypes::spe4rc, 
+    OpTypes::spe4rc, OpTypes::gprc, 
+    OpTypes::crrc, OpTypes::spe4rc, OpTypes::spe4rc, 
+    OpTypes::crrc, OpTypes::spe4rc, OpTypes::spe4rc, 
+    OpTypes::crrc, OpTypes::spe4rc, OpTypes::spe4rc, 
+    OpTypes::spe4rc, OpTypes::spe4rc, 
+    OpTypes::gprc, OpTypes::spe4rc, 
+    OpTypes::gprc, OpTypes::spe4rc, 
+    OpTypes::sperc, OpTypes::spe4rc, 
+    OpTypes::gprc, OpTypes::spe4rc, 
+    OpTypes::gprc, OpTypes::spe4rc, 
+    OpTypes::spe4rc, OpTypes::spe4rc, OpTypes::spe4rc, 
+    OpTypes::spe4rc, OpTypes::spe4rc, OpTypes::spe4rc, 
+    OpTypes::spe4rc, OpTypes::spe4rc, 
+    OpTypes::spe4rc, OpTypes::spe4rc, 
+    OpTypes::spe4rc, OpTypes::spe4rc, OpTypes::spe4rc, 
+    OpTypes::crrc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::crrc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::crrc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::ptr_rc_nor0, 
+    OpTypes::ptr_rc_nor0, 
+    OpTypes::gprc, OpTypes::ptr_rc_nor0, 
+    OpTypes::gprc, OpTypes::ptr_rc_nor0, 
+    OpTypes::directbrtarget, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::u5imm, 
+    OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::crrc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::crrc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::crrc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::crrc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::crrc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::crrc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::crrc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::crrc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::crrc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::crrc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::crrc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::dispSPE8, OpTypes::ptr_rc_nor0, 
+    OpTypes::sperc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::sperc, OpTypes::dispSPE8, OpTypes::ptr_rc_nor0, 
+    OpTypes::sperc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::sperc, OpTypes::dispSPE8, OpTypes::ptr_rc_nor0, 
+    OpTypes::sperc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::sperc, OpTypes::dispSPE2, OpTypes::ptr_rc_nor0, 
+    OpTypes::sperc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::sperc, OpTypes::dispSPE2, OpTypes::ptr_rc_nor0, 
+    OpTypes::sperc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::sperc, OpTypes::dispSPE2, OpTypes::ptr_rc_nor0, 
+    OpTypes::sperc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::sperc, OpTypes::dispSPE4, OpTypes::ptr_rc_nor0, 
+    OpTypes::sperc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::sperc, OpTypes::dispSPE4, OpTypes::ptr_rc_nor0, 
+    OpTypes::sperc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::sperc, OpTypes::dispSPE4, OpTypes::ptr_rc_nor0, 
+    OpTypes::sperc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::sperc, OpTypes::dispSPE4, OpTypes::ptr_rc_nor0, 
+    OpTypes::sperc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::sperc, OpTypes::dispSPE4, OpTypes::ptr_rc_nor0, 
+    OpTypes::sperc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::u5imm, 
+    OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::sperc, OpTypes::crrc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::u5imm, 
+    OpTypes::sperc, OpTypes::s5imm, 
+    OpTypes::sperc, OpTypes::s5imm, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::u5imm, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::u5imm, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::dispSPE8, OpTypes::ptr_rc_nor0, 
+    OpTypes::sperc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::sperc, OpTypes::dispSPE8, OpTypes::ptr_rc_nor0, 
+    OpTypes::sperc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::sperc, OpTypes::dispSPE8, OpTypes::ptr_rc_nor0, 
+    OpTypes::sperc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::sperc, OpTypes::dispSPE4, OpTypes::ptr_rc_nor0, 
+    OpTypes::sperc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::sperc, OpTypes::dispSPE4, OpTypes::ptr_rc_nor0, 
+    OpTypes::sperc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::sperc, OpTypes::dispSPE4, OpTypes::ptr_rc_nor0, 
+    OpTypes::sperc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::sperc, OpTypes::dispSPE4, OpTypes::ptr_rc_nor0, 
+    OpTypes::sperc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::u5imm, OpTypes::sperc, 
+    OpTypes::sperc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::g8rc, OpTypes::gprc, 
+    OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::g8rc, OpTypes::gprc, 
+    OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::u6imm, 
+    OpTypes::g8rc, OpTypes::gprc, OpTypes::u6imm, 
+    OpTypes::g8rc, OpTypes::gprc, OpTypes::u6imm, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::u6imm, 
+    OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::g8rc, OpTypes::gprc, 
+    OpTypes::g8rc, OpTypes::gprc, 
+    OpTypes::g8rc, OpTypes::g8rc, 
+    /**/
+    OpTypes::f8rc, OpTypes::f8rc, 
+    OpTypes::f8rc, OpTypes::f8rc, 
+    OpTypes::f4rc, OpTypes::f4rc, 
+    OpTypes::f4rc, OpTypes::f4rc, 
+    OpTypes::f8rc, OpTypes::f8rc, OpTypes::f8rc, 
+    OpTypes::f4rc, OpTypes::f4rc, OpTypes::f4rc, 
+    OpTypes::f4rc, OpTypes::f4rc, OpTypes::f4rc, 
+    OpTypes::f8rc, OpTypes::f8rc, OpTypes::f8rc, 
+    OpTypes::f8rc, OpTypes::f8rc, OpTypes::f8rc, 
+    OpTypes::f8rc, OpTypes::f8rc, 
+    OpTypes::f4rc, OpTypes::f8rc, 
+    OpTypes::f4rc, OpTypes::f8rc, 
+    OpTypes::f8rc, OpTypes::f8rc, 
+    OpTypes::f4rc, OpTypes::f8rc, 
+    OpTypes::f4rc, OpTypes::f8rc, 
+    OpTypes::f8rc, OpTypes::f8rc, 
+    OpTypes::f8rc, OpTypes::f8rc, 
+    OpTypes::crrc, OpTypes::f8rc, OpTypes::f8rc, 
+    OpTypes::crrc, OpTypes::f4rc, OpTypes::f4rc, 
+    OpTypes::f8rc, OpTypes::f8rc, OpTypes::f8rc, 
+    OpTypes::f8rc, OpTypes::f8rc, OpTypes::f8rc, 
+    OpTypes::f4rc, OpTypes::f4rc, OpTypes::f4rc, 
+    OpTypes::f4rc, OpTypes::f4rc, OpTypes::f4rc, 
+    OpTypes::f8rc, OpTypes::f8rc, 
+    OpTypes::f8rc, OpTypes::f8rc, 
+    OpTypes::f8rc, OpTypes::f8rc, 
+    OpTypes::f8rc, OpTypes::f8rc, 
+    OpTypes::f8rc, OpTypes::f8rc, 
+    OpTypes::f8rc, OpTypes::f8rc, 
+    OpTypes::f8rc, OpTypes::f8rc, 
+    OpTypes::f8rc, OpTypes::f8rc, 
+    OpTypes::f8rc, OpTypes::f8rc, 
+    OpTypes::f8rc, OpTypes::f8rc, 
+    OpTypes::f8rc, OpTypes::f8rc, 
+    OpTypes::f8rc, OpTypes::f8rc, 
+    OpTypes::f8rc, OpTypes::f8rc, 
+    OpTypes::f8rc, OpTypes::f8rc, 
+    OpTypes::f8rc, OpTypes::f8rc, 
+    OpTypes::f8rc, OpTypes::f8rc, 
+    OpTypes::f8rc, OpTypes::f8rc, OpTypes::f8rc, 
+    OpTypes::f4rc, OpTypes::f4rc, OpTypes::f4rc, 
+    OpTypes::f4rc, OpTypes::f4rc, OpTypes::f4rc, 
+    OpTypes::f8rc, OpTypes::f8rc, OpTypes::f8rc, 
+    OpTypes::f8rc, OpTypes::f8rc, OpTypes::f8rc, OpTypes::f8rc, 
+    OpTypes::f4rc, OpTypes::f4rc, OpTypes::f4rc, OpTypes::f4rc, 
+    OpTypes::f4rc, OpTypes::f4rc, OpTypes::f4rc, OpTypes::f4rc, 
+    OpTypes::f8rc, OpTypes::f8rc, OpTypes::f8rc, OpTypes::f8rc, 
+    OpTypes::f4rc, OpTypes::f4rc, 
+    OpTypes::f4rc, OpTypes::f4rc, 
+    OpTypes::f8rc, OpTypes::f8rc, OpTypes::f8rc, OpTypes::f8rc, 
+    OpTypes::f4rc, OpTypes::f4rc, OpTypes::f4rc, OpTypes::f4rc, 
+    OpTypes::f4rc, OpTypes::f4rc, OpTypes::f4rc, OpTypes::f4rc, 
+    OpTypes::f8rc, OpTypes::f8rc, OpTypes::f8rc, OpTypes::f8rc, 
+    OpTypes::f8rc, OpTypes::f8rc, OpTypes::f8rc, 
+    OpTypes::f4rc, OpTypes::f4rc, OpTypes::f4rc, 
+    OpTypes::f4rc, OpTypes::f4rc, OpTypes::f4rc, 
+    OpTypes::f8rc, OpTypes::f8rc, OpTypes::f8rc, 
+    OpTypes::f8rc, OpTypes::f8rc, 
+    OpTypes::f8rc, OpTypes::f8rc, 
+    OpTypes::f4rc, OpTypes::f4rc, 
+    OpTypes::f4rc, OpTypes::f4rc, 
+    OpTypes::f8rc, OpTypes::f8rc, 
+    OpTypes::f8rc, OpTypes::f8rc, 
+    OpTypes::f4rc, OpTypes::f4rc, 
+    OpTypes::f4rc, OpTypes::f4rc, 
+    OpTypes::f8rc, OpTypes::f8rc, OpTypes::f8rc, OpTypes::f8rc, 
+    OpTypes::f4rc, OpTypes::f4rc, OpTypes::f4rc, OpTypes::f4rc, 
+    OpTypes::f4rc, OpTypes::f4rc, OpTypes::f4rc, OpTypes::f4rc, 
+    OpTypes::f8rc, OpTypes::f8rc, OpTypes::f8rc, OpTypes::f8rc, 
+    OpTypes::f8rc, OpTypes::f8rc, OpTypes::f8rc, OpTypes::f8rc, 
+    OpTypes::f4rc, OpTypes::f4rc, OpTypes::f4rc, OpTypes::f4rc, 
+    OpTypes::f4rc, OpTypes::f4rc, OpTypes::f4rc, OpTypes::f4rc, 
+    OpTypes::f8rc, OpTypes::f8rc, OpTypes::f8rc, OpTypes::f8rc, 
+    OpTypes::f8rc, OpTypes::f8rc, 
+    OpTypes::f4rc, OpTypes::f4rc, 
+    OpTypes::f4rc, OpTypes::f4rc, 
+    OpTypes::f8rc, OpTypes::f8rc, 
+    OpTypes::f8rc, OpTypes::f8rc, 
+    OpTypes::f8rc, OpTypes::f8rc, 
+    OpTypes::f4rc, OpTypes::f4rc, 
+    OpTypes::f4rc, OpTypes::f4rc, 
+    OpTypes::f8rc, OpTypes::f8rc, 
+    OpTypes::f8rc, OpTypes::f8rc, 
+    OpTypes::f4rc, OpTypes::f4rc, 
+    OpTypes::f4rc, OpTypes::f4rc, 
+    OpTypes::f8rc, OpTypes::f8rc, 
+    OpTypes::f8rc, OpTypes::f8rc, 
+    OpTypes::f4rc, OpTypes::f4rc, 
+    OpTypes::f4rc, OpTypes::f4rc, 
+    OpTypes::f8rc, OpTypes::f8rc, 
+    OpTypes::f8rc, OpTypes::f8rc, 
+    OpTypes::f4rc, OpTypes::f4rc, 
+    OpTypes::f4rc, OpTypes::f4rc, 
+    OpTypes::f4rc, OpTypes::f8rc, 
+    OpTypes::f4rc, OpTypes::f8rc, 
+    OpTypes::f8rc, OpTypes::f8rc, 
+    OpTypes::f4rc, OpTypes::f4rc, 
+    OpTypes::f4rc, OpTypes::f4rc, 
+    OpTypes::f8rc, OpTypes::f8rc, 
+    OpTypes::f8rc, OpTypes::f8rc, OpTypes::f8rc, OpTypes::f8rc, 
+    OpTypes::f8rc, OpTypes::f8rc, OpTypes::f8rc, OpTypes::f8rc, 
+    OpTypes::f4rc, OpTypes::f8rc, OpTypes::f4rc, OpTypes::f4rc, 
+    OpTypes::f4rc, OpTypes::f8rc, OpTypes::f4rc, OpTypes::f4rc, 
+    OpTypes::f8rc, OpTypes::f8rc, 
+    OpTypes::f4rc, OpTypes::f4rc, 
+    OpTypes::f4rc, OpTypes::f4rc, 
+    OpTypes::f8rc, OpTypes::f8rc, 
+    OpTypes::f8rc, OpTypes::f8rc, OpTypes::f8rc, 
+    OpTypes::f4rc, OpTypes::f4rc, OpTypes::f4rc, 
+    OpTypes::f4rc, OpTypes::f4rc, OpTypes::f4rc, 
+    OpTypes::f8rc, OpTypes::f8rc, OpTypes::f8rc, 
+    OpTypes::crrc, OpTypes::f8rc, OpTypes::f8rc, 
+    OpTypes::crrc, OpTypes::f8rc, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::tlsgd, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::tlsgd32, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::tlsgd, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::tlsgd32, 
+    /**/
+    OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::u4imm, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::u4imm, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::u4imm, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::u4imm, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::gprc, OpTypes::gprc_nor0, OpTypes::gprc, OpTypes::crbitrc, 
+    OpTypes::g8rc, OpTypes::g8rc_nox0, OpTypes::g8rc, OpTypes::crbitrc, 
+    /**/
+    OpTypes::gprc, OpTypes::gprc_nor0, OpTypes::s16imm, 
+    OpTypes::gprc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::gprc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::gprc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::gprc, OpTypes::dispRI, OpTypes::ptr_rc_nor0, 
+    OpTypes::g8rc, OpTypes::dispRI, OpTypes::ptr_rc_nor0, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::gprc, OpTypes::ptr_rc_nor0, OpTypes::dispRI, OpTypes::ptr_rc_nor0, 
+    OpTypes::g8rc, OpTypes::ptr_rc_nor0, OpTypes::dispRI, OpTypes::ptr_rc_nor0, 
+    OpTypes::gprc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::g8rc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::gprc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::g8rc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::g8rc, OpTypes::ptr_rc_nor0, OpTypes::tlsreg, 
+    OpTypes::g8rc, OpTypes::ptr_rc_nor0, OpTypes::tlsreg, 
+    OpTypes::gprc, OpTypes::ptr_rc_nor0, OpTypes::tlsreg, 
+    OpTypes::g8rc, OpTypes::dispRIX, OpTypes::ptr_rc_nor0, 
+    OpTypes::g8rc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::g8rc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::u5imm, 
+    OpTypes::g8rc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::g8rc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::g8rc, OpTypes::ptr_rc_nor0, OpTypes::dispRIX, OpTypes::ptr_rc_nor0, 
+    OpTypes::g8rc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::g8rc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::g8rc, OpTypes::ptr_rc_nor0, OpTypes::tlsreg, 
+    OpTypes::g8rc, OpTypes::ptr_rc_nor0, OpTypes::tlsreg, 
+    OpTypes::g8rc_nox0, OpTypes::s16imm64, OpTypes::g8rc_nox0, 
+    OpTypes::gprc_nor0, OpTypes::s16imm, OpTypes::gprc_nor0, 
+    OpTypes::g8rc, OpTypes::i64imm, OpTypes::g8rc, 
+    OpTypes::g8rc, OpTypes::i64imm, OpTypes::g8rc, 
+    OpTypes::g8rc, OpTypes::i64imm, OpTypes::g8rc, 
+    OpTypes::g8rc, OpTypes::i64imm, OpTypes::g8rc, 
+    OpTypes::g8rc, OpTypes::i64imm, OpTypes::g8rc_nox0, 
+    OpTypes::f8rc, OpTypes::dispRI, OpTypes::ptr_rc_nor0, 
+    OpTypes::f8rc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::f8rc, OpTypes::ptr_rc_nor0, OpTypes::dispRI, OpTypes::ptr_rc_nor0, 
+    OpTypes::f8rc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::f8rc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::f8rc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::f8rc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::f4rc, OpTypes::dispRI, OpTypes::ptr_rc_nor0, 
+    OpTypes::f4rc, OpTypes::ptr_rc_nor0, OpTypes::dispRI, OpTypes::ptr_rc_nor0, 
+    OpTypes::f4rc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::f4rc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::gprc, OpTypes::dispRI, OpTypes::ptr_rc_nor0, 
+    OpTypes::g8rc, OpTypes::dispRI, OpTypes::ptr_rc_nor0, 
+    OpTypes::gprc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::gprc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::gprc, OpTypes::ptr_rc_nor0, OpTypes::dispRI, OpTypes::ptr_rc_nor0, 
+    OpTypes::g8rc, OpTypes::ptr_rc_nor0, OpTypes::dispRI, OpTypes::ptr_rc_nor0, 
+    OpTypes::gprc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::g8rc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::gprc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::g8rc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::gprc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::g8rc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::gprc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::gprc, OpTypes::dispRI, OpTypes::ptr_rc_nor0, 
+    OpTypes::g8rc, OpTypes::dispRI, OpTypes::ptr_rc_nor0, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::gprc, OpTypes::ptr_rc_nor0, OpTypes::dispRI, OpTypes::ptr_rc_nor0, 
+    OpTypes::g8rc, OpTypes::ptr_rc_nor0, OpTypes::dispRI, OpTypes::ptr_rc_nor0, 
+    OpTypes::gprc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::g8rc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::gprc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::g8rc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::g8rc, OpTypes::ptr_rc_nor0, OpTypes::tlsreg, 
+    OpTypes::g8rc, OpTypes::ptr_rc_nor0, OpTypes::tlsreg, 
+    OpTypes::gprc, OpTypes::ptr_rc_nor0, OpTypes::tlsreg, 
+    OpTypes::gprc, OpTypes::s16imm, 
+    OpTypes::g8rc, OpTypes::s16imm64, 
+    OpTypes::gprc, OpTypes::s17imm, 
+    OpTypes::g8rc, OpTypes::s17imm64, 
+    OpTypes::gprc, OpTypes::dispRI, OpTypes::ptr_rc_nor0, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::u5imm, 
+    OpTypes::vrrc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::vrrc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::vrrc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::vrrc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::vrrc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::vrrc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::vrrc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::g8rc, OpTypes::dispRIX, OpTypes::ptr_rc_nor0, 
+    OpTypes::gprc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::gprc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::u5imm, 
+    OpTypes::g8rc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::g8rc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::gprc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::gprc, OpTypes::dispRIX, OpTypes::ptr_rc_nor0, 
+    OpTypes::gprc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::g8rc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::gprc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::gprc, OpTypes::dispRI, OpTypes::ptr_rc_nor0, 
+    OpTypes::g8rc, OpTypes::dispRI, OpTypes::ptr_rc_nor0, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::gprc, OpTypes::ptr_rc_nor0, OpTypes::dispRI, OpTypes::ptr_rc_nor0, 
+    OpTypes::g8rc, OpTypes::ptr_rc_nor0, OpTypes::dispRI, OpTypes::ptr_rc_nor0, 
+    OpTypes::gprc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::g8rc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::gprc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::g8rc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::g8rc, OpTypes::ptr_rc_nor0, OpTypes::tlsreg, 
+    OpTypes::g8rc, OpTypes::ptr_rc_nor0, OpTypes::tlsreg, 
+    OpTypes::gprc, OpTypes::ptr_rc_nor0, OpTypes::tlsreg, 
+    OpTypes::gprc, OpTypes::i32imm, OpTypes::gprc, 
+    OpTypes::gprc, OpTypes::i32imm, OpTypes::gprc_nor0, 
+    OpTypes::vfrc, OpTypes::dispRIX, OpTypes::ptr_rc_nor0, 
+    OpTypes::vsfrc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::vsfrc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::vsfrc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::vsfrc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::vsfrc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::vfrc, OpTypes::dispRIX, OpTypes::ptr_rc_nor0, 
+    OpTypes::vssrc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::vsrc, OpTypes::dispRIX16, OpTypes::ptr_rc_nor0, 
+    OpTypes::vsrc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::vsrc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::vsrc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::vsrc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::vsrc, OpTypes::ptr_rc_nor0, OpTypes::g8rc, 
+    OpTypes::vsrc, OpTypes::ptr_rc_nor0, OpTypes::g8rc, 
+    OpTypes::vsrc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::vsrc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::vsrc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::u5imm, 
+    OpTypes::crrc, OpTypes::crrc, 
+    OpTypes::crrc, OpTypes::crrc, 
+    OpTypes::crrc, 
+    OpTypes::gprc, OpTypes::u10imm, OpTypes::u10imm, 
+    OpTypes::gprc, 
+    OpTypes::g8rc, 
+    OpTypes::gprc, 
+    OpTypes::g8rc, 
+    OpTypes::gprc, OpTypes::i32imm, 
+    OpTypes::f8rc, 
+    OpTypes::f8rc, OpTypes::f8rc, 
+    OpTypes::f8rc, OpTypes::u3imm, 
+    OpTypes::f8rc, 
+    OpTypes::f8rc, OpTypes::f8rc, 
+    OpTypes::f8rc, OpTypes::u2imm, 
+    OpTypes::f8rc, 
+    OpTypes::f8rc, 
+    OpTypes::gprc, 
+    OpTypes::g8rc, 
+    OpTypes::gprc, 
+    OpTypes::gprc, OpTypes::crbitm, 
+    OpTypes::g8rc, OpTypes::crbitm, 
+    OpTypes::gprc, OpTypes::i32imm, 
+    OpTypes::gprc, OpTypes::i32imm, 
+    OpTypes::g8rc, OpTypes::i32imm, 
+    OpTypes::gprc, OpTypes::u4imm, 
+    OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::gprc, OpTypes::i32imm, 
+    OpTypes::g8rc, 
+    OpTypes::g8rc, OpTypes::vsrc, 
+    OpTypes::gprc, 
+    OpTypes::gprc, OpTypes::VRSAVERC, 
+    OpTypes::gprc, OpTypes::vsrc, 
+    OpTypes::vrrc, 
+    OpTypes::g8rc, OpTypes::vsfrc, 
+    OpTypes::g8rc, OpTypes::vsrc, 
+    OpTypes::gprc, OpTypes::vsfrc, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::gprc, 
+    /**/
+    /**/
+    OpTypes::i32imm, OpTypes::gprc, 
+    OpTypes::i32imm, OpTypes::g8rc, 
+    OpTypes::gprc, 
+    OpTypes::g8rc, 
+    OpTypes::g8rc, 
+    OpTypes::gprc, 
+    OpTypes::gprc, OpTypes::i32imm, 
+    OpTypes::u5imm, 
+    OpTypes::u5imm, 
+    OpTypes::i32imm, OpTypes::f8rc, OpTypes::i32imm, OpTypes::i32imm, 
+    OpTypes::crrc, OpTypes::i32imm, OpTypes::i32imm, 
+    OpTypes::crrc, OpTypes::i32imm, OpTypes::i32imm, 
+    OpTypes::i32imm, OpTypes::f8rc, OpTypes::i32imm, OpTypes::i32imm, 
+    OpTypes::i32imm, OpTypes::f8rc, 
+    OpTypes::gprc, 
+    OpTypes::g8rc, 
+    OpTypes::gprc, OpTypes::i32imm, 
+    OpTypes::gprc, OpTypes::i32imm, 
+    OpTypes::crbitm, OpTypes::gprc, 
+    OpTypes::crbitm, OpTypes::g8rc, 
+    OpTypes::i32imm, OpTypes::gprc, 
+    OpTypes::i32imm, OpTypes::gprc, 
+    OpTypes::i32imm, OpTypes::g8rc, 
+    OpTypes::gprc, OpTypes::u4imm, 
+    OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::vsrc, OpTypes::g8rc, 
+    OpTypes::gprc, 
+    OpTypes::VRSAVERC, OpTypes::gprc, 
+    OpTypes::vsrc, OpTypes::gprc, 
+    OpTypes::vsrc, OpTypes::gprc, 
+    OpTypes::vrrc, 
+    OpTypes::vsfrc, OpTypes::g8rc, 
+    OpTypes::vsrc, OpTypes::g8rc_nox0, OpTypes::g8rc, 
+    OpTypes::vsfrc, OpTypes::gprc, 
+    OpTypes::vsrc, OpTypes::gprc, 
+    OpTypes::vsfrc, OpTypes::gprc, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::s16imm, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::s16imm64, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::gprc, 
+    /**/
+    /**/
+    /**/
+    OpTypes::gprc, OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::gprc, 
+    /**/
+    OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::gprc, OpTypes::gprc, 
+    /**/
+    /**/
+    /**/
+    OpTypes::gprc, OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::u16imm, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::u16imm64, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::u16imm, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::u16imm64, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::s34imm, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::s34imm, 
+    OpTypes::g8rc, OpTypes::immZero, OpTypes::s34imm, 
+    OpTypes::gprc, OpTypes::immZero, OpTypes::s34imm, 
+    OpTypes::gprc, OpTypes::dispRI34, OpTypes::ptr_rc_nor0, 
+    OpTypes::g8rc, OpTypes::dispRI34, OpTypes::ptr_rc_nor0, 
+    OpTypes::g8rc, OpTypes::dispRI34, OpTypes::immZero, 
+    OpTypes::gprc, OpTypes::dispRI34, OpTypes::immZero, 
+    OpTypes::g8rc, OpTypes::dispRI34, OpTypes::ptr_rc_nor0, 
+    OpTypes::g8rc, OpTypes::dispRI34, OpTypes::immZero, 
+    OpTypes::f8rc, OpTypes::dispRI34, OpTypes::ptr_rc_nor0, 
+    OpTypes::f8rc, OpTypes::dispRI34, OpTypes::immZero, 
+    OpTypes::f4rc, OpTypes::dispRI34, OpTypes::ptr_rc_nor0, 
+    OpTypes::f4rc, OpTypes::dispRI34, OpTypes::immZero, 
+    OpTypes::gprc, OpTypes::dispRI34, OpTypes::ptr_rc_nor0, 
+    OpTypes::g8rc, OpTypes::dispRI34, OpTypes::ptr_rc_nor0, 
+    OpTypes::g8rc, OpTypes::dispRI34, OpTypes::immZero, 
+    OpTypes::gprc, OpTypes::dispRI34, OpTypes::immZero, 
+    OpTypes::gprc, OpTypes::dispRI34, OpTypes::ptr_rc_nor0, 
+    OpTypes::g8rc, OpTypes::dispRI34, OpTypes::ptr_rc_nor0, 
+    OpTypes::g8rc, OpTypes::dispRI34, OpTypes::immZero, 
+    OpTypes::gprc, OpTypes::dispRI34, OpTypes::immZero, 
+    OpTypes::gprc, OpTypes::s34imm, 
+    OpTypes::g8rc, OpTypes::s34imm, 
+    OpTypes::gprc, OpTypes::dispRI34, OpTypes::ptr_rc_nor0, 
+    OpTypes::g8rc, OpTypes::dispRI34, OpTypes::ptr_rc_nor0, 
+    OpTypes::g8rc, OpTypes::dispRI34, OpTypes::immZero, 
+    OpTypes::gprc, OpTypes::dispRI34, OpTypes::immZero, 
+    OpTypes::gprc, OpTypes::dispRI34, OpTypes::ptr_rc_nor0, 
+    OpTypes::g8rc, OpTypes::dispRI34, OpTypes::ptr_rc_nor0, 
+    OpTypes::g8rc, OpTypes::dispRI34, OpTypes::immZero, 
+    OpTypes::gprc, OpTypes::dispRI34, OpTypes::immZero, 
+    OpTypes::vfrc, OpTypes::dispRI34, OpTypes::ptr_rc_nor0, 
+    OpTypes::vfrc, OpTypes::dispRI34, OpTypes::immZero, 
+    OpTypes::vfrc, OpTypes::dispRI34, OpTypes::ptr_rc_nor0, 
+    OpTypes::vfrc, OpTypes::dispRI34, OpTypes::immZero, 
+    OpTypes::vsrc, OpTypes::dispRI34, OpTypes::ptr_rc_nor0, 
+    OpTypes::vsrc, OpTypes::dispRI34, OpTypes::immZero, 
+    OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::gprc, 
+    OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::gprc, OpTypes::dispRI34, OpTypes::ptr_rc_nor0, 
+    OpTypes::g8rc, OpTypes::dispRI34, OpTypes::ptr_rc_nor0, 
+    OpTypes::g8rc, OpTypes::dispRI34, OpTypes::immZero, 
+    OpTypes::gprc, OpTypes::dispRI34, OpTypes::immZero, 
+    OpTypes::g8rc, OpTypes::dispRI34, OpTypes::ptr_rc_nor0, 
+    OpTypes::g8rc, OpTypes::dispRI34, OpTypes::immZero, 
+    OpTypes::f8rc, OpTypes::dispRI34, OpTypes::ptr_rc_nor0, 
+    OpTypes::f8rc, OpTypes::dispRI34, OpTypes::immZero, 
+    OpTypes::f4rc, OpTypes::dispRI34, OpTypes::ptr_rc_nor0, 
+    OpTypes::f4rc, OpTypes::dispRI34, OpTypes::immZero, 
+    OpTypes::gprc, OpTypes::dispRI34, OpTypes::ptr_rc_nor0, 
+    OpTypes::g8rc, OpTypes::dispRI34, OpTypes::ptr_rc_nor0, 
+    OpTypes::g8rc, OpTypes::dispRI34, OpTypes::immZero, 
+    OpTypes::gprc, OpTypes::dispRI34, OpTypes::immZero, 
+    OpTypes::gprc, OpTypes::dispRI34, OpTypes::ptr_rc_nor0, 
+    OpTypes::g8rc, OpTypes::dispRI34, OpTypes::ptr_rc_nor0, 
+    OpTypes::g8rc, OpTypes::dispRI34, OpTypes::immZero, 
+    OpTypes::gprc, OpTypes::dispRI34, OpTypes::immZero, 
+    OpTypes::vfrc, OpTypes::dispRI34, OpTypes::ptr_rc_nor0, 
+    OpTypes::vfrc, OpTypes::dispRI34, OpTypes::immZero, 
+    OpTypes::vfrc, OpTypes::dispRI34, OpTypes::ptr_rc_nor0, 
+    OpTypes::vfrc, OpTypes::dispRI34, OpTypes::immZero, 
+    OpTypes::vsrc, OpTypes::dispRI34, OpTypes::ptr_rc_nor0, 
+    OpTypes::vsrc, OpTypes::dispRI34, OpTypes::immZero, 
+    OpTypes::qfrc, OpTypes::qfrc, OpTypes::qfrc, OpTypes::u2imm, 
+    OpTypes::qbrc, OpTypes::qbrc, OpTypes::qbrc, OpTypes::u2imm, 
+    OpTypes::qsrc, OpTypes::qsrc, OpTypes::qsrc, OpTypes::u2imm, 
+    OpTypes::qfrc, OpTypes::qfrc, OpTypes::u2imm, 
+    OpTypes::qbrc, OpTypes::qbrc, OpTypes::u2imm, 
+    OpTypes::qsrc, OpTypes::qsrc, OpTypes::u2imm, 
+    OpTypes::qfrc, OpTypes::qfrc, 
+    OpTypes::qsrc, OpTypes::qsrc, 
+    OpTypes::qfrc, OpTypes::qfrc, OpTypes::qfrc, 
+    OpTypes::qfrc, OpTypes::qfrc, OpTypes::qfrc, 
+    OpTypes::qsrc, OpTypes::qsrc, OpTypes::qsrc, 
+    OpTypes::qfrc, OpTypes::qfrc, 
+    OpTypes::qfrc, OpTypes::qfrc, 
+    OpTypes::qfrc, OpTypes::qfrc, 
+    OpTypes::qfrc, OpTypes::qfrc, 
+    OpTypes::qbrc, OpTypes::qbrc, 
+    OpTypes::qfrc, OpTypes::qfrc, OpTypes::qfrc, 
+    OpTypes::qbrc, OpTypes::qfrc, OpTypes::qfrc, 
+    OpTypes::qbrc, OpTypes::qsrc, OpTypes::qsrc, 
+    OpTypes::qfrc, OpTypes::qfrc, OpTypes::qfrc, 
+    OpTypes::qbrc, OpTypes::qfrc, OpTypes::qfrc, 
+    OpTypes::qbrc, OpTypes::qsrc, OpTypes::qsrc, 
+    OpTypes::qfrc, OpTypes::qfrc, OpTypes::qfrc, 
+    OpTypes::qbrc, OpTypes::qfrc, OpTypes::qfrc, 
+    OpTypes::qbrc, OpTypes::qsrc, OpTypes::qsrc, 
+    OpTypes::qfrc, OpTypes::qfrc, OpTypes::qfrc, 
+    OpTypes::qsrc, OpTypes::qsrc, OpTypes::qsrc, 
+    OpTypes::qfrc, OpTypes::qfrc, 
+    OpTypes::qfrc, OpTypes::qfrc, 
+    OpTypes::qfrc, OpTypes::qfrc, 
+    OpTypes::qfrc, OpTypes::qfrc, 
+    OpTypes::qbrc, OpTypes::qbrc, 
+    OpTypes::qfrc, OpTypes::qfrc, 
+    OpTypes::qfrc, OpTypes::qfrc, 
+    OpTypes::qfrc, OpTypes::qfrc, 
+    OpTypes::qfrc, OpTypes::qfrc, 
+    OpTypes::qfrc, OpTypes::qfrc, OpTypes::qfrc, OpTypes::u12imm, 
+    OpTypes::qbrc, OpTypes::qbrc, OpTypes::qbrc, OpTypes::u12imm, 
+    OpTypes::qbrc, OpTypes::qbrc, OpTypes::qbrc, OpTypes::u12imm, 
+    OpTypes::qfrc, OpTypes::qfrc, OpTypes::qfrc, OpTypes::qfrc, 
+    OpTypes::qfrc, OpTypes::qfrc, OpTypes::qfrc, OpTypes::qfrc, 
+    OpTypes::qsrc, OpTypes::qsrc, OpTypes::qsrc, OpTypes::qsrc, 
+    OpTypes::qfrc, OpTypes::qfrc, 
+    OpTypes::qbrc, OpTypes::qbrc, 
+    OpTypes::qsrc, OpTypes::qsrc, 
+    OpTypes::qfrc, OpTypes::qfrc, OpTypes::qfrc, OpTypes::qfrc, 
+    OpTypes::qfrc, OpTypes::qfrc, OpTypes::qfrc, OpTypes::qfrc, 
+    OpTypes::qsrc, OpTypes::qsrc, OpTypes::qsrc, OpTypes::qsrc, 
+    OpTypes::qfrc, OpTypes::qfrc, OpTypes::qfrc, 
+    OpTypes::qfrc, OpTypes::qfrc, OpTypes::qfrc, 
+    OpTypes::qsrc, OpTypes::qsrc, OpTypes::qsrc, 
+    OpTypes::qfrc, OpTypes::qfrc, 
+    OpTypes::qsrc, OpTypes::qsrc, 
+    OpTypes::qfrc, OpTypes::qfrc, 
+    OpTypes::qsrc, OpTypes::qsrc, 
+    OpTypes::qfrc, OpTypes::qfrc, OpTypes::qfrc, OpTypes::qfrc, 
+    OpTypes::qfrc, OpTypes::qfrc, OpTypes::qfrc, OpTypes::qfrc, 
+    OpTypes::qsrc, OpTypes::qsrc, OpTypes::qsrc, OpTypes::qsrc, 
+    OpTypes::qfrc, OpTypes::qfrc, OpTypes::qfrc, OpTypes::qfrc, 
+    OpTypes::qfrc, OpTypes::qfrc, OpTypes::qfrc, OpTypes::qfrc, 
+    OpTypes::qsrc, OpTypes::qsrc, OpTypes::qsrc, OpTypes::qsrc, 
+    OpTypes::qfrc, OpTypes::qfrc, OpTypes::qfrc, OpTypes::qfrc, 
+    OpTypes::qsrc, OpTypes::qsrc, OpTypes::qsrc, OpTypes::qfrc, 
+    OpTypes::qfrc, OpTypes::qfrc, 
+    OpTypes::qfrc, OpTypes::qfrc, 
+    OpTypes::qsrc, OpTypes::qsrc, 
+    OpTypes::qfrc, OpTypes::qfrc, 
+    OpTypes::qsrc, OpTypes::qsrc, 
+    OpTypes::qfrc, OpTypes::qfrc, 
+    OpTypes::qsrc, OpTypes::qsrc, 
+    OpTypes::qfrc, OpTypes::qfrc, 
+    OpTypes::qsrc, OpTypes::qsrc, 
+    OpTypes::qfrc, OpTypes::qfrc, 
+    OpTypes::qsrc, OpTypes::qsrc, 
+    OpTypes::qfrc, OpTypes::qfrc, 
+    OpTypes::qsrc, OpTypes::qfrc, 
+    OpTypes::qfrc, OpTypes::qfrc, 
+    OpTypes::qfrc, OpTypes::qfrc, 
+    OpTypes::qsrc, OpTypes::qsrc, 
+    OpTypes::qfrc, OpTypes::qfrc, OpTypes::qfrc, OpTypes::qfrc, 
+    OpTypes::qfrc, OpTypes::qbrc, OpTypes::qfrc, OpTypes::qfrc, 
+    OpTypes::qbrc, OpTypes::qbrc, OpTypes::qbrc, OpTypes::qbrc, 
+    OpTypes::qsrc, OpTypes::qbrc, OpTypes::qsrc, OpTypes::qsrc, 
+    OpTypes::qfrc, OpTypes::qfrc, OpTypes::qfrc, 
+    OpTypes::qfrc, OpTypes::qfrc, OpTypes::qfrc, 
+    OpTypes::qsrc, OpTypes::qsrc, OpTypes::qsrc, 
+    OpTypes::qfrc, OpTypes::qfrc, OpTypes::qfrc, 
+    OpTypes::qbrc, OpTypes::qfrc, OpTypes::qfrc, 
+    OpTypes::qbrc, OpTypes::qsrc, OpTypes::qsrc, 
+    OpTypes::qfrc, OpTypes::qfrc, OpTypes::qfrc, OpTypes::qfrc, 
+    OpTypes::qfrc, OpTypes::qfrc, OpTypes::qfrc, OpTypes::qfrc, 
+    OpTypes::qfrc, OpTypes::qfrc, OpTypes::qfrc, 
+    OpTypes::qfrc, OpTypes::qfrc, OpTypes::qfrc, 
+    OpTypes::qfrc, OpTypes::qfrc, OpTypes::qfrc, OpTypes::qfrc, 
+    OpTypes::qfrc, OpTypes::qfrc, OpTypes::qfrc, OpTypes::qfrc, 
+    OpTypes::qfrc, OpTypes::qfrc, OpTypes::qfrc, OpTypes::qfrc, 
+    OpTypes::qfrc, OpTypes::qfrc, OpTypes::qfrc, OpTypes::qfrc, 
+    OpTypes::qfrc, OpTypes::qfrc, OpTypes::qfrc, OpTypes::qfrc, 
+    OpTypes::qfrc, OpTypes::qfrc, OpTypes::qfrc, OpTypes::qfrc, 
+    OpTypes::qfrc, OpTypes::u12imm, 
+    OpTypes::qfrc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::qfrc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::qfrc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::qfrc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::qfrc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::qfrc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::qfrc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::qfrc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::qsrc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::qfrc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::qfrc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::qfrc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::qfrc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::qbrc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::qfrc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::qfrc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::qfrc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::qfrc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::qsrc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::qfrc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::qfrc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::qfrc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::qbrc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::qsrc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::qfrc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::qfrc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::qfrc, OpTypes::G8RC, 
+    OpTypes::qfrc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::qfrc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::qfrc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::qfrc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::qfrc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::qfrc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::qfrc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::qfrc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::qfrc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::qfrc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::qfrc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::qfrc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::qfrc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::qfrc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::qfrc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::qfrc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::qfrc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::qfrc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::qsrc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::ptr_rc_nor0, OpTypes::qfrc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::qfrc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::qfrc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::qfrc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::qfrc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::qfrc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::qfrc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::qfrc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::qbrc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::qfrc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::qfrc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::ptr_rc_nor0, OpTypes::qsrc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::qfrc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::qfrc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::qfrc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::ptr_rc_nor0, OpTypes::qfrc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::qfrc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::qfrc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::qfrc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::qfrc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::qsrc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::crrc, OpTypes::dispRI, OpTypes::ptr_rc_nor0, 
+    OpTypes::crbitrc, OpTypes::dispRI, OpTypes::ptr_rc_nor0, 
+    OpTypes::VRSAVERC, OpTypes::dispRI, OpTypes::ptr_rc_nor0, 
+    /**/
+    /**/
+    OpTypes::u1imm, 
+    /**/
+    /**/
+    /**/
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::gprc, OpTypes::u6imm, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::gprc, OpTypes::u6imm, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::gprc, OpTypes::u6imm, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::gprc, OpTypes::u6imm, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::u6imm, OpTypes::u6imm, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::u6imm, OpTypes::u6imm, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::u6imm, OpTypes::u6imm, 
+    OpTypes::g8rc, OpTypes::gprc, OpTypes::u6imm, OpTypes::u6imm, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::u6imm, OpTypes::u6imm, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::u6imm, OpTypes::u6imm, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::u6imm, OpTypes::u6imm, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::u6imm, OpTypes::u6imm, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::u6imm, OpTypes::u6imm, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::u6imm, OpTypes::u6imm, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::g8rc, OpTypes::u6imm, OpTypes::u6imm, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::g8rc, OpTypes::u6imm, OpTypes::u6imm, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::gprc, OpTypes::u5imm, OpTypes::u5imm, OpTypes::u5imm, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::g8rc, OpTypes::u5imm, OpTypes::u5imm, OpTypes::u5imm, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::g8rc, OpTypes::u5imm, OpTypes::u5imm, OpTypes::u5imm, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::gprc, OpTypes::u5imm, OpTypes::u5imm, OpTypes::u5imm, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::u5imm, OpTypes::u5imm, OpTypes::u5imm, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::u5imm, OpTypes::u5imm, OpTypes::u5imm, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::u5imm, OpTypes::u5imm, OpTypes::u5imm, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::u5imm, OpTypes::u5imm, OpTypes::u5imm, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::gprc, OpTypes::u5imm, OpTypes::u5imm, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::g8rc, OpTypes::u5imm, OpTypes::u5imm, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::g8rc, OpTypes::u5imm, OpTypes::u5imm, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::gprc, OpTypes::u5imm, OpTypes::u5imm, 
+    OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::i32imm, 
+    OpTypes::vrrc, OpTypes::crrc, OpTypes::vrrc, OpTypes::vrrc, OpTypes::i32imm, 
+    OpTypes::f4rc, OpTypes::crrc, OpTypes::f4rc, OpTypes::f4rc, OpTypes::i32imm, 
+    OpTypes::f8rc, OpTypes::crrc, OpTypes::f8rc, OpTypes::f8rc, OpTypes::i32imm, 
+    OpTypes::gprc, OpTypes::crrc, OpTypes::gprc_nor0, OpTypes::gprc_nor0, OpTypes::i32imm, 
+    OpTypes::g8rc, OpTypes::crrc, OpTypes::g8rc_nox0, OpTypes::g8rc_nox0, OpTypes::i32imm, 
+    OpTypes::qbrc, OpTypes::crrc, OpTypes::qbrc, OpTypes::qbrc, OpTypes::i32imm, 
+    OpTypes::qfrc, OpTypes::crrc, OpTypes::qfrc, OpTypes::qfrc, OpTypes::i32imm, 
+    OpTypes::qsrc, OpTypes::crrc, OpTypes::qsrc, OpTypes::qsrc, OpTypes::i32imm, 
+    OpTypes::sperc, OpTypes::crrc, OpTypes::sperc, OpTypes::sperc, OpTypes::i32imm, 
+    OpTypes::spe4rc, OpTypes::crrc, OpTypes::spe4rc, OpTypes::spe4rc, OpTypes::i32imm, 
+    OpTypes::vrrc, OpTypes::crrc, OpTypes::vrrc, OpTypes::vrrc, OpTypes::i32imm, 
+    OpTypes::f8rc, OpTypes::crrc, OpTypes::f8rc, OpTypes::f8rc, OpTypes::i32imm, 
+    OpTypes::vsrc, OpTypes::crrc, OpTypes::vsrc, OpTypes::vsrc, OpTypes::i32imm, 
+    OpTypes::f4rc, OpTypes::crrc, OpTypes::f4rc, OpTypes::f4rc, OpTypes::i32imm, 
+    OpTypes::vrrc, OpTypes::crbitrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::f4rc, OpTypes::crbitrc, OpTypes::f4rc, OpTypes::f4rc, 
+    OpTypes::f8rc, OpTypes::crbitrc, OpTypes::f8rc, OpTypes::f8rc, 
+    OpTypes::gprc, OpTypes::crbitrc, OpTypes::gprc_nor0, OpTypes::gprc_nor0, 
+    OpTypes::g8rc, OpTypes::crbitrc, OpTypes::g8rc_nox0, OpTypes::g8rc_nox0, 
+    OpTypes::qbrc, OpTypes::crbitrc, OpTypes::qbrc, OpTypes::qbrc, 
+    OpTypes::qfrc, OpTypes::crbitrc, OpTypes::qfrc, OpTypes::qfrc, 
+    OpTypes::qsrc, OpTypes::crbitrc, OpTypes::qsrc, OpTypes::qsrc, 
+    OpTypes::sperc, OpTypes::crbitrc, OpTypes::sperc, OpTypes::sperc, 
+    OpTypes::spe4rc, OpTypes::crbitrc, OpTypes::spe4rc, OpTypes::spe4rc, 
+    OpTypes::vrrc, OpTypes::crbitrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::f8rc, OpTypes::crbitrc, OpTypes::f8rc, OpTypes::f8rc, 
+    OpTypes::vsrc, OpTypes::crbitrc, OpTypes::vsrc, OpTypes::vsrc, 
+    OpTypes::f4rc, OpTypes::crbitrc, OpTypes::f4rc, OpTypes::f4rc, 
+    OpTypes::gprc, OpTypes::crrc, 
+    OpTypes::g8rc, OpTypes::crrc, 
+    OpTypes::f8rc, OpTypes::gprc, 
+    OpTypes::f8rc, OpTypes::u2imm, 
+    OpTypes::gprc, OpTypes::gprc, 
+    /**/
+    OpTypes::gprc, 
+    OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::gprc, OpTypes::gprc, 
+    /**/
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::gprc, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::gprc, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::spe4rc, OpTypes::dispRI, OpTypes::ptr_rc_nor0, 
+    OpTypes::spe4rc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::spe4rc, OpTypes::dispRI, OpTypes::ptr_rc_nor0, 
+    OpTypes::spe4rc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::crrc, OpTypes::dispRI, OpTypes::ptr_rc_nor0, 
+    OpTypes::crbitrc, OpTypes::dispRI, OpTypes::ptr_rc_nor0, 
+    OpTypes::VRSAVERC, OpTypes::dispRI, OpTypes::ptr_rc_nor0, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::gprc, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::u6imm, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::u6imm, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::u6imm, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::gprc, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::u5imm, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::u5imm, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::gprc, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::gprc, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::gprc, OpTypes::dispRI, OpTypes::ptr_rc_nor0, 
+    OpTypes::g8rc, OpTypes::dispRI, OpTypes::ptr_rc_nor0, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::gprc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::gprc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::ptr_rc_nor0, OpTypes::gprc, OpTypes::dispRI, OpTypes::ptr_rc_nor0, 
+    OpTypes::ptr_rc_nor0, OpTypes::g8rc, OpTypes::dispRI, OpTypes::ptr_rc_nor0, 
+    OpTypes::ptr_rc_nor0, OpTypes::gprc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::ptr_rc_nor0, OpTypes::g8rc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::gprc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::g8rc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::g8rc, OpTypes::ptr_rc_nor0, OpTypes::tlsreg, 
+    OpTypes::g8rc, OpTypes::ptr_rc_nor0, OpTypes::tlsreg, 
+    OpTypes::gprc, OpTypes::ptr_rc_nor0, OpTypes::tlsreg, 
+    OpTypes::g8rc, OpTypes::dispRIX, OpTypes::ptr_rc_nor0, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::u5imm, 
+    OpTypes::g8rc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::g8rc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::ptr_rc_nor0, OpTypes::g8rc, OpTypes::dispRIX, OpTypes::ptr_rc_nor0, 
+    OpTypes::ptr_rc_nor0, OpTypes::g8rc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::g8rc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::g8rc, OpTypes::ptr_rc_nor0, OpTypes::tlsreg, 
+    OpTypes::g8rc, OpTypes::ptr_rc_nor0, OpTypes::tlsreg, 
+    OpTypes::f8rc, OpTypes::dispRI, OpTypes::ptr_rc_nor0, 
+    OpTypes::f8rc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::ptr_rc_nor0, OpTypes::f8rc, OpTypes::dispRI, OpTypes::ptr_rc_nor0, 
+    OpTypes::ptr_rc_nor0, OpTypes::f8rc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::f8rc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::f8rc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::f4rc, OpTypes::dispRI, OpTypes::ptr_rc_nor0, 
+    OpTypes::ptr_rc_nor0, OpTypes::f4rc, OpTypes::dispRI, OpTypes::ptr_rc_nor0, 
+    OpTypes::ptr_rc_nor0, OpTypes::f4rc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::f4rc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::gprc, OpTypes::dispRI, OpTypes::ptr_rc_nor0, 
+    OpTypes::g8rc, OpTypes::dispRI, OpTypes::ptr_rc_nor0, 
+    OpTypes::gprc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::gprc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::gprc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::ptr_rc_nor0, OpTypes::gprc, OpTypes::dispRI, OpTypes::ptr_rc_nor0, 
+    OpTypes::ptr_rc_nor0, OpTypes::g8rc, OpTypes::dispRI, OpTypes::ptr_rc_nor0, 
+    OpTypes::ptr_rc_nor0, OpTypes::gprc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::ptr_rc_nor0, OpTypes::g8rc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::gprc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::g8rc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::g8rc, OpTypes::ptr_rc_nor0, OpTypes::tlsreg, 
+    OpTypes::g8rc, OpTypes::ptr_rc_nor0, OpTypes::tlsreg, 
+    OpTypes::gprc, OpTypes::ptr_rc_nor0, OpTypes::tlsreg, 
+    OpTypes::gprc, OpTypes::dispRI, OpTypes::ptr_rc_nor0, 
+    /**/
+    OpTypes::gprc, OpTypes::gprc, OpTypes::u5imm, 
+    OpTypes::vrrc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::vrrc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::vrrc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::vrrc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::vrrc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::gprc, OpTypes::dispRI, OpTypes::ptr_rc_nor0, 
+    OpTypes::g8rc, OpTypes::dispRI, OpTypes::ptr_rc_nor0, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::u5imm, 
+    OpTypes::gprc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::gprc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::gprc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::ptr_rc_nor0, OpTypes::gprc, OpTypes::dispRI, OpTypes::ptr_rc_nor0, 
+    OpTypes::ptr_rc_nor0, OpTypes::g8rc, OpTypes::dispRI, OpTypes::ptr_rc_nor0, 
+    OpTypes::ptr_rc_nor0, OpTypes::gprc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::ptr_rc_nor0, OpTypes::g8rc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::gprc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::g8rc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::g8rc, OpTypes::ptr_rc_nor0, OpTypes::tlsreg, 
+    OpTypes::g8rc, OpTypes::ptr_rc_nor0, OpTypes::tlsreg, 
+    OpTypes::gprc, OpTypes::ptr_rc_nor0, OpTypes::tlsreg, 
+    OpTypes::vfrc, OpTypes::dispRIX, OpTypes::ptr_rc_nor0, 
+    OpTypes::vsfrc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::vsfrc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::vsrc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::vsfrc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::vsrc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::vsfrc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::vfrc, OpTypes::dispRIX, OpTypes::ptr_rc_nor0, 
+    OpTypes::vssrc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::vsrc, OpTypes::dispRIX16, OpTypes::ptr_rc_nor0, 
+    OpTypes::vsrc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::vsrc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::vsrc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::vsrc, OpTypes::ptr_rc_nor0, OpTypes::g8rc, 
+    OpTypes::vsrc, OpTypes::ptr_rc_nor0, OpTypes::g8rc, 
+    OpTypes::vsrc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::vsrc, OpTypes::ptr_rc_nor0, OpTypes::ptr_rc_idx, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::s16imm, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::s16imm64, 
+    OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::i32imm, 
+    OpTypes::gprc, 
+    OpTypes::u5imm, OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::u5imm, OpTypes::gprc, OpTypes::u5imm, 
+    OpTypes::u5imm, OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::u5imm, OpTypes::gprc, OpTypes::u5imm, 
+    OpTypes::calltarget, 
+    OpTypes::calltarget, 
+    OpTypes::abscalltarget, 
+    OpTypes::abscalltarget, 
+    /**/
+    /**/
+    OpTypes::u1imm, 
+    OpTypes::gprc, OpTypes::u1imm, 
+    OpTypes::crrc, 
+    OpTypes::gprc, 
+    OpTypes::abscalltarget, OpTypes::i32imm, 
+    OpTypes::abscalltarget, OpTypes::i32imm, 
+    OpTypes::calltarget, OpTypes::i32imm, 
+    OpTypes::calltarget, OpTypes::i32imm, 
+    OpTypes::CTRRC, OpTypes::i32imm, 
+    OpTypes::CTRRC8, OpTypes::i32imm, 
+    OpTypes::u5imm, OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::u5imm, OpTypes::g8rc, OpTypes::s16imm, 
+    OpTypes::u1imm, 
+    /**/
+    OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::gprc, 
+    OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::gprc, 
+    OpTypes::gprc, 
+    /**/
+    OpTypes::gprc, OpTypes::gprc, OpTypes::i1imm, 
+    OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::gprc, 
+    /**/
+    /**/
+    OpTypes::gprc, OpTypes::gprc, OpTypes::i1imm, 
+    /**/
+    /**/
+    OpTypes::gprc, 
+    OpTypes::u1imm, 
+    OpTypes::u5imm, OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::u5imm, OpTypes::gprc, OpTypes::s16imm, 
+    /**/
+    OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::u5imm, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::u5imm, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::gprc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::u5imm, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::u5imm, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::gprc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::u4imm, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::u4imm, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::u4imm, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::u4imm, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vfrc, OpTypes::vfrc, 
+    OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vfrc, OpTypes::vfrc, 
+    OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vfrc, OpTypes::vfrc, 
+    OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vfrc, OpTypes::vfrc, 
+    OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vfrc, OpTypes::vfrc, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::vrrc, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::vrrc, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::vrrc, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::vrrc, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::vrrc, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::u4imm, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::u4imm, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::u4imm, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::u4imm, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::u1imm, OpTypes::u4imm, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::u1imm, OpTypes::u4imm, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, OpTypes::u4imm, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::u5imm, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::u5imm, OpTypes::vfrc, 
+    OpTypes::vrrc, OpTypes::u5imm, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::u5imm, OpTypes::vfrc, 
+    OpTypes::vrrc, OpTypes::s5imm, 
+    OpTypes::vrrc, OpTypes::s5imm, 
+    OpTypes::vrrc, OpTypes::s5imm, 
+    OpTypes::vrrc, OpTypes::u5imm, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, 
+    OpTypes::vrrc, 
+    OpTypes::vrrc, 
+    OpTypes::vrrc, 
+    OpTypes::vrrc, 
+    OpTypes::vrrc, 
+    OpTypes::i32imm, 
+    OpTypes::gprc, 
+    OpTypes::i1imm, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::u16imm, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::u16imm64, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::u16imm, 
+    OpTypes::g8rc, OpTypes::g8rc, OpTypes::u16imm64, 
+    OpTypes::gprc, OpTypes::gprc, OpTypes::gprc, 
+    OpTypes::vsfrc, OpTypes::vsfrc, 
+    OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vsfrc, OpTypes::vsfrc, OpTypes::vsfrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vssrc, OpTypes::vssrc, OpTypes::vssrc, 
+    OpTypes::vsrc, OpTypes::vsfrc, OpTypes::vsfrc, 
+    OpTypes::crrc, OpTypes::vsfrc, OpTypes::vsfrc, 
+    OpTypes::crrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vsrc, OpTypes::vsfrc, OpTypes::vsfrc, 
+    OpTypes::vsrc, OpTypes::vsfrc, OpTypes::vsfrc, 
+    OpTypes::crrc, OpTypes::vsfrc, OpTypes::vsfrc, 
+    OpTypes::crrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::crrc, OpTypes::vsfrc, OpTypes::vsfrc, 
+    OpTypes::crrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vsfrc, OpTypes::vsfrc, OpTypes::vsfrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vsfrc, OpTypes::vsfrc, 
+    OpTypes::vrrc, OpTypes::vfrc, 
+    OpTypes::vsfrc, OpTypes::vsfrc, 
+    OpTypes::vsrc, OpTypes::vssrc, 
+    OpTypes::vsfrc, OpTypes::vsfrc, 
+    OpTypes::vssrc, OpTypes::vssrc, 
+    OpTypes::vsfrc, OpTypes::vsfrc, 
+    OpTypes::vssrc, OpTypes::vssrc, 
+    OpTypes::vsfrc, OpTypes::vsfrc, 
+    OpTypes::vssrc, OpTypes::vssrc, 
+    OpTypes::vsfrc, OpTypes::vsfrc, 
+    OpTypes::vssrc, OpTypes::vssrc, 
+    OpTypes::vsfrc, OpTypes::vsfrc, 
+    OpTypes::vfrc, OpTypes::vrrc, 
+    OpTypes::vfrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vfrc, 
+    OpTypes::vsfrc, OpTypes::vsfrc, 
+    OpTypes::vssrc, OpTypes::vsrc, 
+    OpTypes::vsfrc, OpTypes::vsfrc, 
+    OpTypes::vssrc, OpTypes::vsfrc, 
+    OpTypes::vrrc, OpTypes::vfrc, 
+    OpTypes::vsfrc, OpTypes::vsfrc, 
+    OpTypes::vssrc, OpTypes::vsfrc, 
+    OpTypes::vsfrc, OpTypes::vsfrc, OpTypes::vsfrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vssrc, OpTypes::vssrc, OpTypes::vssrc, 
+    OpTypes::vsrc, OpTypes::g8rc, OpTypes::g8rc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vsfrc, 
+    OpTypes::vsfrc, OpTypes::vsfrc, OpTypes::vsfrc, OpTypes::vsfrc, 
+    OpTypes::vssrc, OpTypes::vssrc, OpTypes::vssrc, OpTypes::vssrc, 
+    OpTypes::vsfrc, OpTypes::vsfrc, OpTypes::vsfrc, OpTypes::vsfrc, 
+    OpTypes::vssrc, OpTypes::vssrc, OpTypes::vssrc, OpTypes::vssrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vsfrc, OpTypes::vsfrc, OpTypes::vsfrc, 
+    OpTypes::vsfrc, OpTypes::vsfrc, OpTypes::vsfrc, 
+    OpTypes::vsrc, OpTypes::vsfrc, OpTypes::vsfrc, 
+    OpTypes::vsfrc, OpTypes::vsfrc, OpTypes::vsfrc, 
+    OpTypes::vsfrc, OpTypes::vsfrc, OpTypes::vsfrc, 
+    OpTypes::vsrc, OpTypes::vsfrc, OpTypes::vsfrc, 
+    OpTypes::vsfrc, OpTypes::vsfrc, OpTypes::vsfrc, OpTypes::vsfrc, 
+    OpTypes::vssrc, OpTypes::vssrc, OpTypes::vssrc, OpTypes::vssrc, 
+    OpTypes::vsfrc, OpTypes::vsfrc, OpTypes::vsfrc, OpTypes::vsfrc, 
+    OpTypes::vssrc, OpTypes::vssrc, OpTypes::vssrc, OpTypes::vssrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vsfrc, OpTypes::vsfrc, OpTypes::vsfrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vssrc, OpTypes::vssrc, OpTypes::vssrc, 
+    OpTypes::vsfrc, OpTypes::vsfrc, 
+    OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vsfrc, OpTypes::vsfrc, 
+    OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vsfrc, OpTypes::vsfrc, OpTypes::vsfrc, OpTypes::vsfrc, 
+    OpTypes::vssrc, OpTypes::vssrc, OpTypes::vssrc, OpTypes::vssrc, 
+    OpTypes::vsfrc, OpTypes::vsfrc, OpTypes::vsfrc, OpTypes::vsfrc, 
+    OpTypes::vssrc, OpTypes::vssrc, OpTypes::vssrc, OpTypes::vssrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vsfrc, OpTypes::vsfrc, OpTypes::vsfrc, OpTypes::vsfrc, 
+    OpTypes::vssrc, OpTypes::vssrc, OpTypes::vssrc, OpTypes::vssrc, 
+    OpTypes::vsfrc, OpTypes::vsfrc, OpTypes::vsfrc, OpTypes::vsfrc, 
+    OpTypes::vssrc, OpTypes::vssrc, OpTypes::vssrc, OpTypes::vssrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vsfrc, OpTypes::vsfrc, 
+    OpTypes::vsfrc, OpTypes::vsfrc, 
+    OpTypes::vsfrc, OpTypes::vsfrc, 
+    OpTypes::vsfrc, OpTypes::vsfrc, 
+    OpTypes::vsfrc, OpTypes::vsfrc, 
+    OpTypes::vsfrc, OpTypes::vsfrc, 
+    OpTypes::vssrc, OpTypes::vssrc, 
+    OpTypes::vrrc, OpTypes::u1imm, OpTypes::vrrc, OpTypes::u2imm, 
+    OpTypes::vrrc, OpTypes::u1imm, OpTypes::vrrc, OpTypes::u2imm, 
+    OpTypes::vrrc, OpTypes::u1imm, OpTypes::vrrc, OpTypes::u2imm, 
+    OpTypes::vssrc, OpTypes::vsfrc, 
+    OpTypes::vsfrc, OpTypes::vsfrc, 
+    OpTypes::vssrc, OpTypes::vssrc, 
+    OpTypes::vsfrc, OpTypes::vsfrc, 
+    OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vssrc, OpTypes::vssrc, 
+    OpTypes::vsfrc, OpTypes::vsfrc, OpTypes::vsfrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vrrc, OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vssrc, OpTypes::vssrc, OpTypes::vssrc, 
+    OpTypes::crrc, OpTypes::vsfrc, OpTypes::vsfrc, 
+    OpTypes::crrc, OpTypes::vsfrc, 
+    OpTypes::crrc, OpTypes::u7imm, OpTypes::vsfrc, 
+    OpTypes::crrc, OpTypes::u7imm, OpTypes::vrrc, 
+    OpTypes::crrc, OpTypes::u7imm, OpTypes::vsfrc, 
+    OpTypes::g8rc, OpTypes::vsfrc, 
+    OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::g8rc, OpTypes::vsfrc, 
+    OpTypes::vrrc, OpTypes::vrrc, 
+    OpTypes::vsrc, OpTypes::vsrc, 
+    OpTypes::vsrc, OpTypes::vsrc, 
+    OpTypes::vsrc, OpTypes::vsrc, OpTypes::vsrc, 
+    OpTypes::vsrc, OpTypes::vsrc, OpTypes::vsrc, 
+    OpTypes::vsrc, OpTypes::vsrc, OpTypes::vsrc, 
+    OpTypes::vsrc, OpTypes::vsrc, OpTypes::vsrc, 
+    OpTypes::vsrc, OpTypes::vsrc, OpTypes::vsrc, 
+    OpTypes::vsrc, OpTypes::vsrc, OpTypes::vsrc, 
+    OpTypes::vsrc, OpTypes::vsrc, OpTypes::vsrc, 
+    OpTypes::vsrc, OpTypes::vsrc, OpTypes::vsrc, 
+    OpTypes::vsrc, OpTypes::vsrc, OpTypes::vsrc, 
+    OpTypes::vsrc, OpTypes::vsrc, OpTypes::vsrc, 
+    OpTypes::vsrc, OpTypes::vsrc, OpTypes::vsrc, 
+    OpTypes::vsrc, OpTypes::vsrc, OpTypes::vsrc, 
+    OpTypes::vsrc, OpTypes::vsrc, OpTypes::vsrc, 
+    OpTypes::vsrc, OpTypes::vsrc, OpTypes::vsrc, 
+    OpTypes::vsrc, OpTypes::vsrc, OpTypes::vsrc, 
+    OpTypes::vsrc, OpTypes::vsrc, OpTypes::vsrc, 
+    OpTypes::vsrc, OpTypes::vsrc, 
+    OpTypes::vsrc, OpTypes::vsrc, 
+    OpTypes::vsrc, OpTypes::vsrc, 
+    OpTypes::vsrc, OpTypes::vsrc, 
+    OpTypes::vsrc, OpTypes::vsrc, 
+    OpTypes::vsrc, OpTypes::vsrc, 
+    OpTypes::vsrc, OpTypes::vsrc, 
+    OpTypes::vsrc, OpTypes::vsrc, 
+    OpTypes::vsrc, OpTypes::vsrc, 
+    OpTypes::vsrc, OpTypes::vsrc, 
+    OpTypes::vsrc, OpTypes::vsrc, 
+    OpTypes::vsrc, OpTypes::vsrc, 
+    OpTypes::vsrc, OpTypes::vsrc, 
+    OpTypes::vsrc, OpTypes::vsrc, 
+    OpTypes::vsrc, OpTypes::vsrc, 
+    OpTypes::vsrc, OpTypes::vsrc, 
+    OpTypes::vsrc, OpTypes::vsrc, 
+    OpTypes::vsrc, OpTypes::vsrc, 
+    OpTypes::vsrc, OpTypes::vsrc, 
+    OpTypes::vsrc, OpTypes::vsrc, 
+    OpTypes::vsrc, OpTypes::vsrc, OpTypes::vsrc, 
+    OpTypes::vsrc, OpTypes::vsrc, OpTypes::vsrc, 
+    OpTypes::vsrc, OpTypes::vsrc, OpTypes::vsrc, 
+    OpTypes::vsrc, OpTypes::vsrc, OpTypes::vsrc, 
+    OpTypes::vsrc, OpTypes::vsrc, OpTypes::vsrc, OpTypes::vsrc, 
+    OpTypes::vsrc, OpTypes::vsrc, OpTypes::vsrc, OpTypes::vsrc, 
+    OpTypes::vsrc, OpTypes::vsrc, OpTypes::vsrc, OpTypes::vsrc, 
+    OpTypes::vsrc, OpTypes::vsrc, OpTypes::vsrc, OpTypes::vsrc, 
+    OpTypes::vsrc, OpTypes::vsrc, OpTypes::vsrc, 
+    OpTypes::vsrc, OpTypes::vsrc, OpTypes::vsrc, 
+    OpTypes::vsrc, OpTypes::vsrc, OpTypes::vsrc, 
+    OpTypes::vsrc, OpTypes::vsrc, OpTypes::vsrc, 
+    OpTypes::vsrc, OpTypes::vsrc, OpTypes::vsrc, OpTypes::vsrc, 
+    OpTypes::vsrc, OpTypes::vsrc, OpTypes::vsrc, OpTypes::vsrc, 
+    OpTypes::vsrc, OpTypes::vsrc, OpTypes::vsrc, OpTypes::vsrc, 
+    OpTypes::vsrc, OpTypes::vsrc, OpTypes::vsrc, OpTypes::vsrc, 
+    OpTypes::vsrc, OpTypes::vsrc, OpTypes::vsrc, 
+    OpTypes::vsrc, OpTypes::vsrc, OpTypes::vsrc, 
+    OpTypes::vsrc, OpTypes::vsrc, 
+    OpTypes::vsrc, OpTypes::vsrc, 
+    OpTypes::vsrc, OpTypes::vsrc, 
+    OpTypes::vsrc, OpTypes::vsrc, 
+    OpTypes::vsrc, OpTypes::vsrc, OpTypes::vsrc, OpTypes::vsrc, 
+    OpTypes::vsrc, OpTypes::vsrc, OpTypes::vsrc, OpTypes::vsrc, 
+    OpTypes::vsrc, OpTypes::vsrc, OpTypes::vsrc, OpTypes::vsrc, 
+    OpTypes::vsrc, OpTypes::vsrc, OpTypes::vsrc, OpTypes::vsrc, 
+    OpTypes::vsrc, OpTypes::vsrc, OpTypes::vsrc, OpTypes::vsrc, 
+    OpTypes::vsrc, OpTypes::vsrc, OpTypes::vsrc, OpTypes::vsrc, 
+    OpTypes::vsrc, OpTypes::vsrc, OpTypes::vsrc, OpTypes::vsrc, 
+    OpTypes::vsrc, OpTypes::vsrc, OpTypes::vsrc, OpTypes::vsrc, 
+    OpTypes::vsrc, OpTypes::vsrc, 
+    OpTypes::vsrc, OpTypes::vsrc, 
+    OpTypes::vsrc, OpTypes::vsrc, 
+    OpTypes::vsrc, OpTypes::vsrc, 
+    OpTypes::vsrc, OpTypes::vsrc, 
+    OpTypes::vsrc, OpTypes::vsrc, 
+    OpTypes::vsrc, OpTypes::vsrc, 
+    OpTypes::vsrc, OpTypes::vsrc, 
+    OpTypes::vsrc, OpTypes::vsrc, 
+    OpTypes::vsrc, OpTypes::vsrc, 
+    OpTypes::vsrc, OpTypes::vsrc, 
+    OpTypes::vsrc, OpTypes::vsrc, 
+    OpTypes::vsrc, OpTypes::vsrc, 
+    OpTypes::vsrc, OpTypes::vsrc, 
+    OpTypes::vsrc, OpTypes::vsrc, 
+    OpTypes::vsrc, OpTypes::vsrc, 
+    OpTypes::vsrc, OpTypes::vsrc, OpTypes::vsrc, 
+    OpTypes::vsrc, OpTypes::vsrc, OpTypes::vsrc, 
+    OpTypes::crrc, OpTypes::vsrc, OpTypes::vsrc, 
+    OpTypes::crrc, OpTypes::vsrc, OpTypes::vsrc, 
+    OpTypes::crrc, OpTypes::vsrc, 
+    OpTypes::crrc, OpTypes::vsrc, 
+    OpTypes::vsrc, OpTypes::u7imm, OpTypes::vsrc, 
+    OpTypes::vsrc, OpTypes::u7imm, OpTypes::vsrc, 
+    OpTypes::vsrc, OpTypes::vsrc, 
+    OpTypes::vsrc, OpTypes::vsrc, 
+    OpTypes::vsrc, OpTypes::vsrc, 
+    OpTypes::vsrc, OpTypes::vsrc, 
+    OpTypes::vsrc, OpTypes::vsrc, 
+    OpTypes::vsrc, OpTypes::vsrc, 
+    OpTypes::vsrc, OpTypes::vsrc, 
+    OpTypes::vsrc, OpTypes::vsrc, 
+    OpTypes::vsfrc, OpTypes::vsrc, OpTypes::u4imm, 
+    OpTypes::vsrc, OpTypes::vsrc, OpTypes::vsrc, OpTypes::u4imm, 
+    OpTypes::vsrc, OpTypes::vsrc, OpTypes::vsrc, 
+    OpTypes::vsrc, OpTypes::vsrc, OpTypes::vsrc, 
+    OpTypes::vsrc, OpTypes::vsrc, OpTypes::vsrc, 
+    OpTypes::vsrc, 
+    OpTypes::vsrc, OpTypes::vsrc, OpTypes::vsrc, 
+    OpTypes::vsrc, OpTypes::vsrc, OpTypes::vsrc, 
+    OpTypes::vsrc, OpTypes::vsrc, OpTypes::vsrc, 
+    OpTypes::vsrc, OpTypes::vsrc, OpTypes::vsrc, 
+    OpTypes::vsfrc, OpTypes::vsfrc, OpTypes::vsfrc, 
+    OpTypes::vsrc, OpTypes::vsrc, OpTypes::vsrc, 
+    OpTypes::vsfrc, 
+    OpTypes::vssrc, 
+    OpTypes::vsrc, 
+    OpTypes::vsrc, OpTypes::vsrc, OpTypes::vsrc, 
+    OpTypes::vsrc, OpTypes::vsrc, OpTypes::vsrc, 
+    OpTypes::vsrc, OpTypes::vsrc, OpTypes::vsrc, 
+    OpTypes::vsrc, OpTypes::vsrc, OpTypes::vsrc, OpTypes::u2imm, 
+    OpTypes::vsrc, OpTypes::vsfrc, OpTypes::u2imm, 
+    OpTypes::vsrc, OpTypes::vsrc, OpTypes::vsrc, 
+    OpTypes::vsrc, OpTypes::vsrc, OpTypes::vsrc, OpTypes::vsrc, 
+    OpTypes::vsrc, OpTypes::vsrc, OpTypes::vsrc, OpTypes::u2imm, 
+    OpTypes::vsrc, OpTypes::vsfrc, OpTypes::u2imm, 
+    OpTypes::vsrc, OpTypes::u8imm, 
+    OpTypes::vsrc, OpTypes::vsrc, OpTypes::u2imm, 
+    OpTypes::vsrc, OpTypes::vsfrc, OpTypes::u2imm, 
+    OpTypes::u5imm, OpTypes::crbitrc, OpTypes::condbrtarget, 
+    OpTypes::u5imm, OpTypes::crbitrc, OpTypes::abscondbrtarget, 
+    OpTypes::u5imm, OpTypes::atimm, OpTypes::crbitrc, OpTypes::abscondbrtarget, 
+    OpTypes::u5imm, OpTypes::crbitrc, OpTypes::i32imm, 
+    OpTypes::u5imm, OpTypes::crbitrc, OpTypes::i32imm, 
+    OpTypes::u5imm, OpTypes::crbitrc, OpTypes::condbrtarget, 
+    OpTypes::u5imm, OpTypes::crbitrc, OpTypes::abscondbrtarget, 
+    OpTypes::u5imm, OpTypes::atimm, OpTypes::crbitrc, OpTypes::abscondbrtarget, 
+    OpTypes::u5imm, OpTypes::crbitrc, OpTypes::i32imm, 
+    OpTypes::u5imm, OpTypes::crbitrc, OpTypes::i32imm, 
+    OpTypes::u5imm, OpTypes::atimm, OpTypes::crbitrc, OpTypes::condbrtarget, 
+    OpTypes::u5imm, OpTypes::atimm, OpTypes::crbitrc, OpTypes::condbrtarget, 
+  };
+  return OpcodeOperandTypes[Offsets[Opcode] + OpIdx];
+}
+} // end namespace PPC
+} // end namespace llvm
+#endif // GET_INSTRINFO_OPERAND_TYPE
+
+#ifdef GET_INSTRMAP_INFO
+#undef GET_INSTRMAP_INFO
+namespace llvm {
+
+namespace PPC {
+
+enum IsVSXFMAAlt {
+	IsVSXFMAAlt_1
+};
+
+enum RC {
+	RC_0,
+	RC_1
+};
+
+// getAltVSXFMAOpcode
+LLVM_READONLY
+int getAltVSXFMAOpcode(uint16_t Opcode) {
+static const uint16_t getAltVSXFMAOpcodeTable[][2] = {
+  { PPC::XSMADDADP, PPC::XSMADDMDP },
+  { PPC::XSMADDASP, PPC::XSMADDMSP },
+  { PPC::XSMSUBADP, PPC::XSMSUBMDP },
+  { PPC::XSMSUBASP, PPC::XSMSUBMSP },
+  { PPC::XSNMADDADP, PPC::XSNMADDMDP },
+  { PPC::XSNMADDASP, PPC::XSNMADDMSP },
+  { PPC::XSNMSUBADP, PPC::XSNMSUBMDP },
+  { PPC::XSNMSUBASP, PPC::XSNMSUBMSP },
+  { PPC::XVMADDADP, PPC::XVMADDMDP },
+  { PPC::XVMADDASP, PPC::XVMADDMSP },
+  { PPC::XVMSUBADP, PPC::XVMSUBMDP },
+  { PPC::XVMSUBASP, PPC::XVMSUBMSP },
+  { PPC::XVNMADDADP, PPC::XVNMADDMDP },
+  { PPC::XVNMADDASP, PPC::XVNMADDMSP },
+  { PPC::XVNMSUBADP, PPC::XVNMSUBMDP },
+  { PPC::XVNMSUBASP, PPC::XVNMSUBMSP },
+}; // End of getAltVSXFMAOpcodeTable
+
+  unsigned mid;
+  unsigned start = 0;
+  unsigned end = 16;
+  while (start < end) {
+    mid = start + (end - start)/2;
+    if (Opcode == getAltVSXFMAOpcodeTable[mid][0]) {
+      break;
+    }
+    if (Opcode < getAltVSXFMAOpcodeTable[mid][0])
+      end = mid;
+    else
+      start = mid + 1;
+  }
+  if (start == end)
+    return -1; // Instruction doesn't exist in this table.
+
+  return getAltVSXFMAOpcodeTable[mid][1];
+}
+
+// getNonRecordFormOpcode
+LLVM_READONLY
+int getNonRecordFormOpcode(uint16_t Opcode) {
+static const uint16_t getNonRecordFormOpcodeTable[][2] = {
+  { PPC::ADD4O_rec, PPC::ADD4O },
+  { PPC::ADD4_rec, PPC::ADD4 },
+  { PPC::ADD8O_rec, PPC::ADD8O },
+  { PPC::ADD8_rec, PPC::ADD8 },
+  { PPC::ADDC8O_rec, PPC::ADDC8O },
+  { PPC::ADDC8_rec, PPC::ADDC8 },
+  { PPC::ADDCO_rec, PPC::ADDCO },
+  { PPC::ADDC_rec, PPC::ADDC },
+  { PPC::ADDE8O_rec, PPC::ADDE8O },
+  { PPC::ADDE8_rec, PPC::ADDE8 },
+  { PPC::ADDEO_rec, PPC::ADDEO },
+  { PPC::ADDE_rec, PPC::ADDE },
+  { PPC::ADDIC_rec, PPC::ADDIC },
+  { PPC::ADDME8O_rec, PPC::ADDME8O },
+  { PPC::ADDME8_rec, PPC::ADDME8 },
+  { PPC::ADDMEO_rec, PPC::ADDMEO },
+  { PPC::ADDME_rec, PPC::ADDME },
+  { PPC::ADDZE8O_rec, PPC::ADDZE8O },
+  { PPC::ADDZE8_rec, PPC::ADDZE8 },
+  { PPC::ADDZEO_rec, PPC::ADDZEO },
+  { PPC::ADDZE_rec, PPC::ADDZE },
+  { PPC::AND8_rec, PPC::AND8 },
+  { PPC::ANDC8_rec, PPC::ANDC8 },
+  { PPC::ANDC_rec, PPC::ANDC },
+  { PPC::AND_rec, PPC::AND },
+  { PPC::CNTLZD_rec, PPC::CNTLZD },
+  { PPC::CNTLZW8_rec, PPC::CNTLZW8 },
+  { PPC::CNTLZW_rec, PPC::CNTLZW },
+  { PPC::CNTTZD_rec, PPC::CNTTZD },
+  { PPC::CNTTZW8_rec, PPC::CNTTZW8 },
+  { PPC::CNTTZW_rec, PPC::CNTTZW },
+  { PPC::DIVDEO_rec, PPC::DIVDEO },
+  { PPC::DIVDEUO_rec, PPC::DIVDEUO },
+  { PPC::DIVDEU_rec, PPC::DIVDEU },
+  { PPC::DIVDE_rec, PPC::DIVDE },
+  { PPC::DIVDO_rec, PPC::DIVDO },
+  { PPC::DIVDUO_rec, PPC::DIVDUO },
+  { PPC::DIVDU_rec, PPC::DIVDU },
+  { PPC::DIVD_rec, PPC::DIVD },
+  { PPC::DIVWEO_rec, PPC::DIVWEO },
+  { PPC::DIVWEUO_rec, PPC::DIVWEUO },
+  { PPC::DIVWEU_rec, PPC::DIVWEU },
+  { PPC::DIVWE_rec, PPC::DIVWE },
+  { PPC::DIVWO_rec, PPC::DIVWO },
+  { PPC::DIVWUO_rec, PPC::DIVWUO },
+  { PPC::DIVWU_rec, PPC::DIVWU },
+  { PPC::DIVW_rec, PPC::DIVW },
+  { PPC::EQV8_rec, PPC::EQV8 },
+  { PPC::EQV_rec, PPC::EQV },
+  { PPC::EXTSB8_rec, PPC::EXTSB8 },
+  { PPC::EXTSB_rec, PPC::EXTSB },
+  { PPC::EXTSH8_rec, PPC::EXTSH8 },
+  { PPC::EXTSH_rec, PPC::EXTSH },
+  { PPC::EXTSWSLI_32_64_rec, PPC::EXTSWSLI_32_64 },
+  { PPC::EXTSWSLI_rec, PPC::EXTSWSLI },
+  { PPC::EXTSW_32_64_rec, PPC::EXTSW_32_64 },
+  { PPC::EXTSW_rec, PPC::EXTSW },
+  { PPC::FABSD_rec, PPC::FABSD },
+  { PPC::FABSS_rec, PPC::FABSS },
+  { PPC::FADDS_rec, PPC::FADDS },
+  { PPC::FADD_rec, PPC::FADD },
+  { PPC::FCFIDS_rec, PPC::FCFIDS },
+  { PPC::FCFIDUS_rec, PPC::FCFIDUS },
+  { PPC::FCFIDU_rec, PPC::FCFIDU },
+  { PPC::FCFID_rec, PPC::FCFID },
+  { PPC::FCPSGND_rec, PPC::FCPSGND },
+  { PPC::FCPSGNS_rec, PPC::FCPSGNS },
+  { PPC::FCTIDUZ_rec, PPC::FCTIDUZ },
+  { PPC::FCTIDU_rec, PPC::FCTIDU },
+  { PPC::FCTIDZ_rec, PPC::FCTIDZ },
+  { PPC::FCTID_rec, PPC::FCTID },
+  { PPC::FCTIWUZ_rec, PPC::FCTIWUZ },
+  { PPC::FCTIWU_rec, PPC::FCTIWU },
+  { PPC::FCTIWZ_rec, PPC::FCTIWZ },
+  { PPC::FCTIW_rec, PPC::FCTIW },
+  { PPC::FDIVS_rec, PPC::FDIVS },
+  { PPC::FDIV_rec, PPC::FDIV },
+  { PPC::FMADDS_rec, PPC::FMADDS },
+  { PPC::FMADD_rec, PPC::FMADD },
+  { PPC::FMR_rec, PPC::FMR },
+  { PPC::FMSUBS_rec, PPC::FMSUBS },
+  { PPC::FMSUB_rec, PPC::FMSUB },
+  { PPC::FMULS_rec, PPC::FMULS },
+  { PPC::FMUL_rec, PPC::FMUL },
+  { PPC::FNABSD_rec, PPC::FNABSD },
+  { PPC::FNABSS_rec, PPC::FNABSS },
+  { PPC::FNEGD_rec, PPC::FNEGD },
+  { PPC::FNEGS_rec, PPC::FNEGS },
+  { PPC::FNMADDS_rec, PPC::FNMADDS },
+  { PPC::FNMADD_rec, PPC::FNMADD },
+  { PPC::FNMSUBS_rec, PPC::FNMSUBS },
+  { PPC::FNMSUB_rec, PPC::FNMSUB },
+  { PPC::FRES_rec, PPC::FRES },
+  { PPC::FRE_rec, PPC::FRE },
+  { PPC::FRIMD_rec, PPC::FRIMD },
+  { PPC::FRIMS_rec, PPC::FRIMS },
+  { PPC::FRIND_rec, PPC::FRIND },
+  { PPC::FRINS_rec, PPC::FRINS },
+  { PPC::FRIPD_rec, PPC::FRIPD },
+  { PPC::FRIPS_rec, PPC::FRIPS },
+  { PPC::FRIZD_rec, PPC::FRIZD },
+  { PPC::FRIZS_rec, PPC::FRIZS },
+  { PPC::FRSP_rec, PPC::FRSP },
+  { PPC::FRSQRTES_rec, PPC::FRSQRTES },
+  { PPC::FRSQRTE_rec, PPC::FRSQRTE },
+  { PPC::FSELD_rec, PPC::FSELD },
+  { PPC::FSELS_rec, PPC::FSELS },
+  { PPC::FSQRTS_rec, PPC::FSQRTS },
+  { PPC::FSQRT_rec, PPC::FSQRT },
+  { PPC::FSUBS_rec, PPC::FSUBS },
+  { PPC::FSUB_rec, PPC::FSUB },
+  { PPC::MULHDU_rec, PPC::MULHDU },
+  { PPC::MULHD_rec, PPC::MULHD },
+  { PPC::MULHWU_rec, PPC::MULHWU },
+  { PPC::MULHW_rec, PPC::MULHW },
+  { PPC::MULLDO_rec, PPC::MULLDO },
+  { PPC::MULLD_rec, PPC::MULLD },
+  { PPC::MULLWO_rec, PPC::MULLWO },
+  { PPC::MULLW_rec, PPC::MULLW },
+  { PPC::NAND8_rec, PPC::NAND8 },
+  { PPC::NAND_rec, PPC::NAND },
+  { PPC::NEG8O_rec, PPC::NEG8O },
+  { PPC::NEG8_rec, PPC::NEG8 },
+  { PPC::NEGO_rec, PPC::NEGO },
+  { PPC::NEG_rec, PPC::NEG },
+  { PPC::NOR8_rec, PPC::NOR8 },
+  { PPC::NOR_rec, PPC::NOR },
+  { PPC::OR8_rec, PPC::OR8 },
+  { PPC::ORC8_rec, PPC::ORC8 },
+  { PPC::ORC_rec, PPC::ORC },
+  { PPC::OR_rec, PPC::OR },
+  { PPC::RLDCL_rec, PPC::RLDCL },
+  { PPC::RLDCR_rec, PPC::RLDCR },
+  { PPC::RLDICL_32_rec, PPC::RLDICL_32 },
+  { PPC::RLDICL_rec, PPC::RLDICL },
+  { PPC::RLDICR_rec, PPC::RLDICR },
+  { PPC::RLDIC_rec, PPC::RLDIC },
+  { PPC::RLDIMI_rec, PPC::RLDIMI },
+  { PPC::RLWIMI8_rec, PPC::RLWIMI8 },
+  { PPC::RLWIMI_rec, PPC::RLWIMI },
+  { PPC::RLWINM8_rec, PPC::RLWINM8 },
+  { PPC::RLWINM_rec, PPC::RLWINM },
+  { PPC::RLWNM8_rec, PPC::RLWNM8 },
+  { PPC::RLWNM_rec, PPC::RLWNM },
+  { PPC::SLD_rec, PPC::SLD },
+  { PPC::SLW8_rec, PPC::SLW8 },
+  { PPC::SLW_rec, PPC::SLW },
+  { PPC::SRADI_rec, PPC::SRADI },
+  { PPC::SRAD_rec, PPC::SRAD },
+  { PPC::SRAWI_rec, PPC::SRAWI },
+  { PPC::SRAW_rec, PPC::SRAW },
+  { PPC::SRD_rec, PPC::SRD },
+  { PPC::SRW8_rec, PPC::SRW8 },
+  { PPC::SRW_rec, PPC::SRW },
+  { PPC::SUBF8O_rec, PPC::SUBF8O },
+  { PPC::SUBF8_rec, PPC::SUBF8 },
+  { PPC::SUBFC8O_rec, PPC::SUBFC8O },
+  { PPC::SUBFC8_rec, PPC::SUBFC8 },
+  { PPC::SUBFCO_rec, PPC::SUBFCO },
+  { PPC::SUBFC_rec, PPC::SUBFC },
+  { PPC::SUBFE8O_rec, PPC::SUBFE8O },
+  { PPC::SUBFE8_rec, PPC::SUBFE8 },
+  { PPC::SUBFEO_rec, PPC::SUBFEO },
+  { PPC::SUBFE_rec, PPC::SUBFE },
+  { PPC::SUBFME8O_rec, PPC::SUBFME8O },
+  { PPC::SUBFME8_rec, PPC::SUBFME8 },
+  { PPC::SUBFMEO_rec, PPC::SUBFMEO },
+  { PPC::SUBFME_rec, PPC::SUBFME },
+  { PPC::SUBFO_rec, PPC::SUBFO },
+  { PPC::SUBFZE8O_rec, PPC::SUBFZE8O },
+  { PPC::SUBFZE8_rec, PPC::SUBFZE8 },
+  { PPC::SUBFZEO_rec, PPC::SUBFZEO },
+  { PPC::SUBFZE_rec, PPC::SUBFZE },
+  { PPC::SUBF_rec, PPC::SUBF },
+  { PPC::XOR8_rec, PPC::XOR8 },
+  { PPC::XOR_rec, PPC::XOR },
+}; // End of getNonRecordFormOpcodeTable
+
+  unsigned mid;
+  unsigned start = 0;
+  unsigned end = 176;
+  while (start < end) {
+    mid = start + (end - start)/2;
+    if (Opcode == getNonRecordFormOpcodeTable[mid][0]) {
+      break;
+    }
+    if (Opcode < getNonRecordFormOpcodeTable[mid][0])
+      end = mid;
+    else
+      start = mid + 1;
+  }
+  if (start == end)
+    return -1; // Instruction doesn't exist in this table.
+
+  return getNonRecordFormOpcodeTable[mid][1];
+}
+
+// getRecordFormOpcode
+LLVM_READONLY
+int getRecordFormOpcode(uint16_t Opcode) {
+static const uint16_t getRecordFormOpcodeTable[][2] = {
+  { PPC::ADD4, PPC::ADD4_rec },
+  { PPC::ADD4O, PPC::ADD4O_rec },
+  { PPC::ADD8, PPC::ADD8_rec },
+  { PPC::ADD8O, PPC::ADD8O_rec },
+  { PPC::ADDC, PPC::ADDC_rec },
+  { PPC::ADDC8, PPC::ADDC8_rec },
+  { PPC::ADDC8O, PPC::ADDC8O_rec },
+  { PPC::ADDCO, PPC::ADDCO_rec },
+  { PPC::ADDE, PPC::ADDE_rec },
+  { PPC::ADDE8, PPC::ADDE8_rec },
+  { PPC::ADDE8O, PPC::ADDE8O_rec },
+  { PPC::ADDEO, PPC::ADDEO_rec },
+  { PPC::ADDIC, PPC::ADDIC_rec },
+  { PPC::ADDME, PPC::ADDME_rec },
+  { PPC::ADDME8, PPC::ADDME8_rec },
+  { PPC::ADDME8O, PPC::ADDME8O_rec },
+  { PPC::ADDMEO, PPC::ADDMEO_rec },
+  { PPC::ADDZE, PPC::ADDZE_rec },
+  { PPC::ADDZE8, PPC::ADDZE8_rec },
+  { PPC::ADDZE8O, PPC::ADDZE8O_rec },
+  { PPC::ADDZEO, PPC::ADDZEO_rec },
+  { PPC::AND, PPC::AND_rec },
+  { PPC::AND8, PPC::AND8_rec },
+  { PPC::ANDC, PPC::ANDC_rec },
+  { PPC::ANDC8, PPC::ANDC8_rec },
+  { PPC::CNTLZD, PPC::CNTLZD_rec },
+  { PPC::CNTLZW, PPC::CNTLZW_rec },
+  { PPC::CNTLZW8, PPC::CNTLZW8_rec },
+  { PPC::CNTTZD, PPC::CNTTZD_rec },
+  { PPC::CNTTZW, PPC::CNTTZW_rec },
+  { PPC::CNTTZW8, PPC::CNTTZW8_rec },
+  { PPC::DIVD, PPC::DIVD_rec },
+  { PPC::DIVDE, PPC::DIVDE_rec },
+  { PPC::DIVDEO, PPC::DIVDEO_rec },
+  { PPC::DIVDEU, PPC::DIVDEU_rec },
+  { PPC::DIVDEUO, PPC::DIVDEUO_rec },
+  { PPC::DIVDO, PPC::DIVDO_rec },
+  { PPC::DIVDU, PPC::DIVDU_rec },
+  { PPC::DIVDUO, PPC::DIVDUO_rec },
+  { PPC::DIVW, PPC::DIVW_rec },
+  { PPC::DIVWE, PPC::DIVWE_rec },
+  { PPC::DIVWEO, PPC::DIVWEO_rec },
+  { PPC::DIVWEU, PPC::DIVWEU_rec },
+  { PPC::DIVWEUO, PPC::DIVWEUO_rec },
+  { PPC::DIVWO, PPC::DIVWO_rec },
+  { PPC::DIVWU, PPC::DIVWU_rec },
+  { PPC::DIVWUO, PPC::DIVWUO_rec },
+  { PPC::EQV, PPC::EQV_rec },
+  { PPC::EQV8, PPC::EQV8_rec },
+  { PPC::EXTSB, PPC::EXTSB_rec },
+  { PPC::EXTSB8, PPC::EXTSB8_rec },
+  { PPC::EXTSH, PPC::EXTSH_rec },
+  { PPC::EXTSH8, PPC::EXTSH8_rec },
+  { PPC::EXTSW, PPC::EXTSW_rec },
+  { PPC::EXTSWSLI, PPC::EXTSWSLI_rec },
+  { PPC::EXTSWSLI_32_64, PPC::EXTSWSLI_32_64_rec },
+  { PPC::EXTSW_32_64, PPC::EXTSW_32_64_rec },
+  { PPC::FABSD, PPC::FABSD_rec },
+  { PPC::FABSS, PPC::FABSS_rec },
+  { PPC::FADD, PPC::FADD_rec },
+  { PPC::FADDS, PPC::FADDS_rec },
+  { PPC::FCFID, PPC::FCFID_rec },
+  { PPC::FCFIDS, PPC::FCFIDS_rec },
+  { PPC::FCFIDU, PPC::FCFIDU_rec },
+  { PPC::FCFIDUS, PPC::FCFIDUS_rec },
+  { PPC::FCPSGND, PPC::FCPSGND_rec },
+  { PPC::FCPSGNS, PPC::FCPSGNS_rec },
+  { PPC::FCTID, PPC::FCTID_rec },
+  { PPC::FCTIDU, PPC::FCTIDU_rec },
+  { PPC::FCTIDUZ, PPC::FCTIDUZ_rec },
+  { PPC::FCTIDZ, PPC::FCTIDZ_rec },
+  { PPC::FCTIW, PPC::FCTIW_rec },
+  { PPC::FCTIWU, PPC::FCTIWU_rec },
+  { PPC::FCTIWUZ, PPC::FCTIWUZ_rec },
+  { PPC::FCTIWZ, PPC::FCTIWZ_rec },
+  { PPC::FDIV, PPC::FDIV_rec },
+  { PPC::FDIVS, PPC::FDIVS_rec },
+  { PPC::FMADD, PPC::FMADD_rec },
+  { PPC::FMADDS, PPC::FMADDS_rec },
+  { PPC::FMR, PPC::FMR_rec },
+  { PPC::FMSUB, PPC::FMSUB_rec },
+  { PPC::FMSUBS, PPC::FMSUBS_rec },
+  { PPC::FMUL, PPC::FMUL_rec },
+  { PPC::FMULS, PPC::FMULS_rec },
+  { PPC::FNABSD, PPC::FNABSD_rec },
+  { PPC::FNABSS, PPC::FNABSS_rec },
+  { PPC::FNEGD, PPC::FNEGD_rec },
+  { PPC::FNEGS, PPC::FNEGS_rec },
+  { PPC::FNMADD, PPC::FNMADD_rec },
+  { PPC::FNMADDS, PPC::FNMADDS_rec },
+  { PPC::FNMSUB, PPC::FNMSUB_rec },
+  { PPC::FNMSUBS, PPC::FNMSUBS_rec },
+  { PPC::FRE, PPC::FRE_rec },
+  { PPC::FRES, PPC::FRES_rec },
+  { PPC::FRIMD, PPC::FRIMD_rec },
+  { PPC::FRIMS, PPC::FRIMS_rec },
+  { PPC::FRIND, PPC::FRIND_rec },
+  { PPC::FRINS, PPC::FRINS_rec },
+  { PPC::FRIPD, PPC::FRIPD_rec },
+  { PPC::FRIPS, PPC::FRIPS_rec },
+  { PPC::FRIZD, PPC::FRIZD_rec },
+  { PPC::FRIZS, PPC::FRIZS_rec },
+  { PPC::FRSP, PPC::FRSP_rec },
+  { PPC::FRSQRTE, PPC::FRSQRTE_rec },
+  { PPC::FRSQRTES, PPC::FRSQRTES_rec },
+  { PPC::FSELD, PPC::FSELD_rec },
+  { PPC::FSELS, PPC::FSELS_rec },
+  { PPC::FSQRT, PPC::FSQRT_rec },
+  { PPC::FSQRTS, PPC::FSQRTS_rec },
+  { PPC::FSUB, PPC::FSUB_rec },
+  { PPC::FSUBS, PPC::FSUBS_rec },
+  { PPC::MULHD, PPC::MULHD_rec },
+  { PPC::MULHDU, PPC::MULHDU_rec },
+  { PPC::MULHW, PPC::MULHW_rec },
+  { PPC::MULHWU, PPC::MULHWU_rec },
+  { PPC::MULLD, PPC::MULLD_rec },
+  { PPC::MULLDO, PPC::MULLDO_rec },
+  { PPC::MULLW, PPC::MULLW_rec },
+  { PPC::MULLWO, PPC::MULLWO_rec },
+  { PPC::NAND, PPC::NAND_rec },
+  { PPC::NAND8, PPC::NAND8_rec },
+  { PPC::NEG, PPC::NEG_rec },
+  { PPC::NEG8, PPC::NEG8_rec },
+  { PPC::NEG8O, PPC::NEG8O_rec },
+  { PPC::NEGO, PPC::NEGO_rec },
+  { PPC::NOR, PPC::NOR_rec },
+  { PPC::NOR8, PPC::NOR8_rec },
+  { PPC::OR, PPC::OR_rec },
+  { PPC::OR8, PPC::OR8_rec },
+  { PPC::ORC, PPC::ORC_rec },
+  { PPC::ORC8, PPC::ORC8_rec },
+  { PPC::RLDCL, PPC::RLDCL_rec },
+  { PPC::RLDCR, PPC::RLDCR_rec },
+  { PPC::RLDIC, PPC::RLDIC_rec },
+  { PPC::RLDICL, PPC::RLDICL_rec },
+  { PPC::RLDICL_32, PPC::RLDICL_32_rec },
+  { PPC::RLDICR, PPC::RLDICR_rec },
+  { PPC::RLDIMI, PPC::RLDIMI_rec },
+  { PPC::RLWIMI, PPC::RLWIMI_rec },
+  { PPC::RLWIMI8, PPC::RLWIMI8_rec },
+  { PPC::RLWINM, PPC::RLWINM_rec },
+  { PPC::RLWINM8, PPC::RLWINM8_rec },
+  { PPC::RLWNM, PPC::RLWNM_rec },
+  { PPC::RLWNM8, PPC::RLWNM8_rec },
+  { PPC::SLD, PPC::SLD_rec },
+  { PPC::SLW, PPC::SLW_rec },
+  { PPC::SLW8, PPC::SLW8_rec },
+  { PPC::SRAD, PPC::SRAD_rec },
+  { PPC::SRADI, PPC::SRADI_rec },
+  { PPC::SRAW, PPC::SRAW_rec },
+  { PPC::SRAWI, PPC::SRAWI_rec },
+  { PPC::SRD, PPC::SRD_rec },
+  { PPC::SRW, PPC::SRW_rec },
+  { PPC::SRW8, PPC::SRW8_rec },
+  { PPC::SUBF, PPC::SUBF_rec },
+  { PPC::SUBF8, PPC::SUBF8_rec },
+  { PPC::SUBF8O, PPC::SUBF8O_rec },
+  { PPC::SUBFC, PPC::SUBFC_rec },
+  { PPC::SUBFC8, PPC::SUBFC8_rec },
+  { PPC::SUBFC8O, PPC::SUBFC8O_rec },
+  { PPC::SUBFCO, PPC::SUBFCO_rec },
+  { PPC::SUBFE, PPC::SUBFE_rec },
+  { PPC::SUBFE8, PPC::SUBFE8_rec },
+  { PPC::SUBFE8O, PPC::SUBFE8O_rec },
+  { PPC::SUBFEO, PPC::SUBFEO_rec },
+  { PPC::SUBFME, PPC::SUBFME_rec },
+  { PPC::SUBFME8, PPC::SUBFME8_rec },
+  { PPC::SUBFME8O, PPC::SUBFME8O_rec },
+  { PPC::SUBFMEO, PPC::SUBFMEO_rec },
+  { PPC::SUBFO, PPC::SUBFO_rec },
+  { PPC::SUBFZE, PPC::SUBFZE_rec },
+  { PPC::SUBFZE8, PPC::SUBFZE8_rec },
+  { PPC::SUBFZE8O, PPC::SUBFZE8O_rec },
+  { PPC::SUBFZEO, PPC::SUBFZEO_rec },
+  { PPC::XOR, PPC::XOR_rec },
+  { PPC::XOR8, PPC::XOR8_rec },
+}; // End of getRecordFormOpcodeTable
+
+  unsigned mid;
+  unsigned start = 0;
+  unsigned end = 176;
+  while (start < end) {
+    mid = start + (end - start)/2;
+    if (Opcode == getRecordFormOpcodeTable[mid][0]) {
+      break;
+    }
+    if (Opcode < getRecordFormOpcodeTable[mid][0])
+      end = mid;
+    else
+      start = mid + 1;
+  }
+  if (start == end)
+    return -1; // Instruction doesn't exist in this table.
+
+  return getRecordFormOpcodeTable[mid][1];
+}
+
+} // end namespace PPC
+} // end namespace llvm
+#endif // GET_INSTRMAP_INFO
+

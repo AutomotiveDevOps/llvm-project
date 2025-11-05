@@ -264,6 +264,7 @@ public:
     CODE16,
     EABI,
     EABIHF,
+    EABIVLE,
     Android,
     Musl,
     MuslABIN32,

@@ -1,0 +1,65 @@
+        Chapter 7. Interrupts and Exceptions . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 143
+                         7.1         Overview . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 143
+                         7.2         Interrupt Registers . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 144
+                         7.2.1           Save/Restore Register 0 . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 144
+                         7.2.2           Save/Restore Register 1 . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 144
+                         7.2.3           Critical Save/Restore Register 0 . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 144
+                         7.2.4           Critical Save/Restore Register 1 . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 145
+                         7.2.5           Data Exception Address Register . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 145
+                         7.2.6           Interrupt Vector Prefix Register . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 145
+                         7.2.7           Exception Syndrome Register . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 146
+                         7.2.8           Interrupt Vector Offset Registers . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 147
+                         7.3         Exceptions. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 148
+                         7.4         Interrupt Classes . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 149
+                         7.4.1           Asynchronous Interrupts . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 149
+                         7.4.2           Synchronous Interrupts . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 149
+                         7.4.2.1             Synchronous, Precise Interrupts. . . . . . . . . . . . . . . . . . . . . . . . . . . . 149
+                         7.4.2.2             Synchronous, Imprecise Interrupts. . . . . . . . . . . . . . . . . . . . . . . . . . 150
+                         7.4.3           Critical/Non-Critical Interrupts . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 150
+                         7.4.4           Machine Check Interrupts . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 151
+                         7.5         Interrupt Processing . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 151
+                         7.6         Interrupt Definitions . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 153
+                         7.6.1           Critical Input Interrupt . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 155
+                         7.6.2           Machine Check Interrupt . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 156
+                         7.6.3           Data Storage Interrupt . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 157
+                         7.6.4           Instruction Storage Interrupt . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 159
+                         7.6.5           External Input Interrupt . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 160
+                         7.6.6           Alignment Interrupt . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 161
+                         7.6.7           Program Interrupt . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 163
+                         7.6.8           Floating-Point Unavailable Interrupt . . . . . . . . . . . . . . . . . . . . . . . . . . . 165
+                         7.6.9           System Call Interrupt. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 166
+                         7.6.10          Auxiliary Processor Unavailable Interrupt . . . . . . . . . . . . . . . . . . . . . . . 166
+                         7.6.11          Decrementer Interrupt . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 167
+                         7.6.12          Fixed-Interval Timer Interrupt . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 168
+                         7.6.13          Watchdog Timer Interrupt . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 169
+                         7.6.14          Data TLB Error Interrupt . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 170
+                         7.6.15          Instruction TLB Error Interrupt . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 171
+                         7.6.16          Debug Interrupt . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 172
+                         7.7         Partially Executed Instructions . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 173
+                         7.8         Interrupt Ordering and Masking . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 174
+                         7.8.1           Guidelines for System Software . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 175
+                         7.8.2           Interrupt Order . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 176
+                         7.9         Exception Priorities . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 178
+                         7.9.1           Exception Priorities for Defined Instructions . . . . . . . . . . . . . . . . . . . . . 179
+                         7.9.1.1             Exception Priorities for Defined Floating-Point Load and Store
+                                                 Instructions . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 179
+                         7.9.1.2             Exception Priorities for Other Defined Load and Store Instructions
+                                                 and Defined Cache Management Instructions . . . . . . . . . . . . . . . 179
+                         7.9.1.3             Exception Priorities for Other Defined Floating-Point Instructions. . . 180
+                         7.9.1.4             Exception Priorities for Defined Privileged Instructions . . . . . . . . . . . 180
+                         7.9.1.5             Exception Priorities for Defined Trap Instructions. . . . . . . . . . . . . . . 180
+                         7.9.1.6             Exception Priorities for Defined System Call Instruction . . . . . . . . . . 181
+                         7.9.1.7             Exception Priorities for Defined Branch Instructions. . . . . . . . . . . . . 181
+                         7.9.1.8             Exception Priorities for Defined Return From Interrupt Instructions . 181
+
+
+07 May 02                Table of Contents                                                                                                         vii
+                            7.9.1.9              Exception Priorities for Other Defined Instructions . . . . . . . . . . . . . . 182
+                            7.9.2             Exception Priorities for Allocated Instructions . . . . . . . . . . . . . . . . . . . . 182
+                            7.9.2.1              Exception Priorities for Allocated Load and Store Instructions . . . . . 182
+                            7.9.2.2              Exception Priorities for Other Allocated Instructions . . . . . . . . . . . . . 182
+                            7.9.3             Exception Priorities for Preserved Instructions . . . . . . . . . . . . . . . . . . . . 183
+                            7.9.3.1              Exception Priorities for Preserved Load, Store, Cache Management,
+                                                     and TLB Management Instructions . . . . . . . . . . . . . . . . . . . . . . . 183
+                            7.9.3.2              Exception Priorities for Other Preserved Instructions . . . . . . . . . . . . 183
+                            7.9.4             Exception Priorities for Reserved Instructions . . . . . . . . . . . . . . . . . . . . 183

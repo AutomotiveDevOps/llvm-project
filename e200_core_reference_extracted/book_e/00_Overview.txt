@@ -1,0 +1,100 @@
+Book E:
+Enhanced PowerPC Architecture
+
+
+
+
+Version 1.0
+
+
+
+May 7, 2002
+Third Edition (Dec 2001)
+The following paragraph does not apply to the United Kingdom or any country where such provisions are inconsistent
+with local law: INTERNATIONAL BUSINESS MACHINES CORPORATION PROVIDES THIS DOCUMENT “AS IS”
+WITHOUT WARRANTY OF ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING, BUT NOT LIMITED TO,
+THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE. Some
+states do not allow disclaimer of express or implied warranties in certain transactions; therefore, this statement may
+not apply to you. IBM does not warrant that the use of the information herein shall be free from third party intellectual
+property claims.
+IBM does not warrant that the contents of this document will meet your requirements or that the document is error-free.
+Changes are periodically made to the information herein; these changes will be incorporated in new editions of the
+document. IBM may make improvements and or changes in the product(s) and/or program(s) described in this
+document at any time. This document does not imply a commitment by IBM to supply or make generally available the
+product(s) described herein.
+No part of this document may be reproduced or distributed in any form or by any means, or stored in a data base or
+retrieval system, without the written permission of IBM.
+Address comments about this document to:
+IBM Corporation
+Department B5H / Building 667
+3039 Cornwallis Road P.O. Box 12195
+Research Triangle Park, NC 27709
+Portions of the information in this document may have been published previously in the following related documents:
+The PowerPC Architecture: A Specification for a New Family of RISC Processors, Second Edition (1994)
+The IBM PowerPC Embedded Environment: Architectural Specifications for IBM PowerPC Embedded Controllers,
+Second Edition (1998)
+IBM may have patents or pending patent applications covering the subject matter in this document. The furnishing of
+this document does not give you any license to these patents. You can send license inquiries, in writing, to the IBM
+Director of Licensing, North Castle Drive, Armonk, NY 10504, United States of America.
+ Copyright International Business Machines Corporation 1993, 2000. All rights reserved.
+Printed in the United States of America.
+The following terms are trademarks of IBM Corporation:
+     IBM   PowerPC
+Other terms which are trademarks are the property of their respective owners.
+
+
+
+
+ii                         Book E: Enhanced PowerPC Architecture Version 1.0                                07 May 02
+            Preface
+
+
+
+            This release represents the initial release of the Book E architecture specification.
+
+            Many thanks to those in Motorola and IBM who have reviewed this document and
+            contributed so much to cleaning up after my carelessness.
+
+                                                                                The Editor
+
+
+
+
+07 May 02   Preface                                                                                 iii
+iv   Book E: Enhanced PowerPC Architecture Version 1.0   07 May 02
+                           Table of Contents
+
+
+
+        Chapter 1. Introduction . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 1
+                           1.1           Overview . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 1
+                           1.2           Compatibility with the PowerPC Architecture . . . . . . . . . . . . . . . . . . . . . . . . . . 1
+                           1.3           32-bit Book E Implementations . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 1
+                           1.4           Instruction Mnemonics and Operands . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 2
+                           1.5           Document Conventions . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 2
+                           1.5.1             Notes . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 2
+                           1.5.2             Notation. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 3
+                           1.5.3             Definitions . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 4
+                           1.5.4             Reserved Fields . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 8
+                           1.5.5             Preserved Fields . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 9
+                           1.5.6             Allocated Fields . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 9
+                           1.5.7             Description of Instruction Operation . . . . . . . . . . . . . . . . . . . . . . . . . . . . 10
+                           1.6           Book E Overview . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 13
+                           1.7           Instruction Formats. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 18
+                           1.7.1             Instruction Fields. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 22
+                           1.8           Classes of Instructions . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 25
+                           1.8.1             Defined Instruction Class. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 25
+                           1.8.2             Allocated Instruction Class . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 26
+                           1.8.3             Preserved Instruction Class . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 27
+                           1.8.4             Reserved Instruction Class. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 27
+                           1.9           Forms of Defined Instructions . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 28
+                           1.9.1             Preferred Instruction Forms . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 28
+                           1.9.2             Invalid Instruction Forms. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 28
+                           1.10          Optionality . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 29
+                           1.11          Storage Addressing . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 29
+                           1.11.1            Storage Operands . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 30
+                           1.11.2            Effective Address Calculation . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 31
+                           1.11.2.1              Data Storage Addressing Modes . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 31
+                           1.11.2.2              Instruction Storage Addressing Modes . . . . . . . . . . . . . . . . . . . . . . . . 32
+                           1.11.3            Byte Ordering . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 33
+                           1.11.3.1              Structure Mapping Examples . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 33

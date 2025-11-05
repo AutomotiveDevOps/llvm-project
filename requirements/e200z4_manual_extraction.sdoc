@@ -1,0 +1,364 @@
+[TITLE:e200z4 Manual Extraction - Key Information for Certification]
+
+[INTRO]
+This document extracts key information from the e200z4 Core Reference Manual
+for validation against LLVM implementation. Manual is available at:
+https://www.elektronikjk.com/elementy_czynne/IC/E200Z4.pdf
+
+MANUAL_INFO:
+- Document: e200z4 Power Architecture™ Core Reference Manual
+- Document Number: e200z4RM
+- Revision: Rev. 0, 10/2009
+- Publisher: Freescale Semiconductor (now NXP)
+
+[MANUAL-STRUCTURE]
+UID: MAN-STRUCT
+
+CHAPTER_1: e200z4 Core Complex Overview
+- Section 1.1: Overview
+- Section 1.2: Features
+  - 1.2.1: Execution Unit Features
+    - 1.2.1.1: Instruction Unit Features
+    - 1.2.1.2: Integer Unit Features
+    - 1.2.1.3: Load/Store Unit Features
+  - 1.2.2: L1 Cache Features
+  - 1.2.3: Memory Management Unit Features
+  - 1.2.4: System Bus Features
+  - 1.2.5: Nexus 3+ Features
+- Section 1.3: Programming Model
+  - 1.3.1: Register Set
+  - 1.3.2: Instruction Set
+  - 1.3.3: Interrupts and Exception Handling
+- Section 1.4: Microarchitecture Summary
+
+CHAPTER_2: Register Model
+- Section 2.1: Power ISA Embedded Category Registers
+- Section 2.2: e200-Specific Special Purpose Registers
+
+CHAPTER_3: Instruction Model
+- (Need to extract instruction specifications)
+
+CHAPTER_4: Instruction Pipeline and Execution Timing
+- (CRITICAL for CERT-001 - need to extract timing tables)
+
+CHAPTER_5: Interrupts and Exceptions
+- (CRITICAL for CERT-003 - need IVOR table and context save requirements)
+
+[EXTRACTION-CERT-001-DUAL-ISSUE]
+UID: EXTRACT-001
+TITLE: e200z4 Dual-Issue Pairing Rules Extraction
+
+MANUAL_LOCATION: Chapter 1 (Microarchitecture Summary), Chapter 4 (Pipeline)
+
+CURRENT_LLVM_IMPLEMENTATION:
+Code_Location: llvm/lib/Target/PowerPC/PPCScheduleE200Z4.td
+Model_Structure:
+- 5-stage pipeline: IF, ID, EX, MEM, WB
+- Dispatch ports: DIS0, DIS1
+- Execution units: SU0, SU1, BU, LSU, MU, FPU/SPE
+- IssueWidth = 2 (dual-issue)
+
+DUAL_ISSUE_UNITS:
+- SU0 (Simple Unit 0): Primary integer ALU
+- SU1 (Simple Unit 1): Limited instructions (some can only use SU0)
+- BU (Branch Unit)
+- LSU (Load/Store Unit)
+- MU (Multiply Unit)
+- FPU/SPE (Floating-Point Unit / Signal Processing Extension)
+
+MANUAL_EXTRACTION_REQUIRED:
+1. Exact pairing rules from Chapter 4:
+   - Which instruction types can pair?
+   - What combinations are allowed?
+   - Which instructions are restricted to SU0 only?
+   - Pairing restrictions and conflicts
+
+2. Dispatch port behavior:
+   - DIS0 vs DIS1 usage rules
+   - When can two instructions dispatch together?
+   - Resource conflict resolution
+
+3. Execution unit restrictions:
+   - SU0-only instructions list
+   - SU1 capability limitations
+   - Resource sharing constraints
+
+VALIDATION_CHECKLIST:
+- [ ] Extract pairing rules table from manual
+- [ ] Verify SU0-only restrictions match LLVM model
+- [ ] Check DIS0/DIS1 usage matches manual
+- [ ] Validate resource conflict rules
+- [ ] Compare against PPCScheduleE200Z4.td itineraries
+
+[EXTRACTION-CERT-001-TIMING]
+UID: EXTRACT-002
+TITLE: e200z4 Instruction Timing and Latency Extraction
+
+MANUAL_LOCATION: Chapter 4 - Instruction Pipeline and Execution Timing
+
+CURRENT_LLVM_LATENCIES:
+From PPCScheduleE200Z4.td:
+- Integer simple: 1 cycle (lines 61-68)
+- Integer compare: 1-2 cycles (lines 86-93)
+- Multiply: 4 cycles (lines 101-108)
+- Divide: 34 cycles (lines 94-100)
+- Load: 3 cycles (lines 169-175)
+- Store: 3 cycles (lines 192-197)
+- Branch: 1 cycle (lines 148-152)
+- SPR ops: 1 cycle (lines 212-225)
+
+MANUAL_EXTRACTION_REQUIRED:
+1. Instruction timing tables from Chapter 4:
+   - Base latency for each instruction class
+   - Pipeline stage breakdown
+   - Bypass path latencies
+   - Load-to-use latency specifications
+
+2. Dual-issue timing:
+   - Latency when instructions pair vs unpaired
+   - Resource conflict penalties
+   - Dispatch timing constraints
+
+3. Cache timing:
+   - L1 cache hit latency
+   - Cache miss penalty
+   - Instruction cache (ICache) timing mentioned in code
+
+VALIDATION_CHECKLIST:
+- [ ] Extract instruction latency table from manual
+- [ ] Verify each instruction class latency
+- [ ] Check dual-issue vs single-issue timing differences
+- [ ] Validate bypass path specifications
+- [ ] Compare load-to-use latency (currently 4 cycles)
+
+[EXTRACTION-CERT-004-VLE]
+UID: EXTRACT-003
+TITLE: e200z4 VLE (Variable Length Encoding) Specification
+
+MANUAL_LOCATION: Chapter 3 (Instruction Model), VLE sections
+
+CURRENT_LLVM_IMPLEMENTATION:
+Code_Location: llvm/lib/Target/PowerPC/PPCInstrVLE.td
+Register_Constraint: R0-R7 for 16-bit instructions (3-bit encoding)
+Immediate_Predicates:
+- s6imm: -32 to 31 (6-bit signed)
+- u5imm: 0 to 31 (5-bit unsigned)
+- u7imm: 0 to 127 (7-bit unsigned)
+- u4imm: 0 to 15 (4-bit unsigned)
+
+MANUAL_EXTRACTION_REQUIRED:
+1. VLE encoding rules:
+   - 16-bit vs 32-bit instruction selection
+   - Register encoding constraints (3-bit = R0-R7)
+   - Immediate value encoding limits
+   - Boundary value handling
+
+2. Instruction alignment:
+   - 16-bit instruction alignment (2-byte)
+   - 32-bit instruction alignment (4-byte)
+   - Mixed-mode code boundaries
+   - Instruction stream decoding
+
+3. Register constraints:
+   - Which instructions require R0-R7?
+   - When can R8-R31 be used?
+   - Register allocation implications
+
+VALIDATION_CHECKLIST:
+- [ ] Extract VLE encoding specification from manual
+- [ ] Verify immediate value ranges
+- [ ] Check register constraint rules
+- [ ] Validate alignment requirements
+- [ ] Compare with PPCInstrVLE.td implementation
+
+[EXTRACTION-CERT-003-INTERRUPTS]
+UID: EXTRACT-004
+TITLE: e200z4 Interrupt Handling Extraction
+
+MANUAL_LOCATION: Chapter 5 - Interrupts and Exceptions, Chapter 1.3.3
+
+CURRENT_LLVM_IMPLEMENTATION:
+Code_Location: llvm/lib/Target/PowerPC/PPCFrameLowering.cpp:1843-1913
+Saves:
+- LR (Link Register): ✓ Saved
+- CR (Condition Register): ✓ Saved if used
+- GPRs: ✓ Saved based on usage
+- SPRs: ✗ Not saved (MISSING)
+- FPRs: ? Need to check (e200z4 has SPE/FPU)
+- FPSCR/SPEFSCR: ? Need to check
+
+MANUAL_EXTRACTION_REQUIRED:
+1. IVOR (Interrupt Vector Offset Register) table:
+   - IVOR0: Critical interrupt
+   - IVOR4: External interrupt
+   - All other IVOR entries
+   - Context save requirements per interrupt type
+
+2. Exception handling:
+   - Exception entry sequence
+   - Automatic hardware saves (SRR0/SRR1)
+   - Software-saved register requirements
+   - Exception exit sequence (RFI/e_rfi)
+
+3. Register save requirements:
+   - Which SPRs must be saved?
+   - FPR save requirements (e200z4 has SPE/FPU)
+   - SPEFSCR save requirements
+   - Differentiation by interrupt type
+
+VALIDATION_CHECKLIST:
+- [ ] Extract IVOR table from Chapter 5
+- [ ] List register save requirements per interrupt type
+- [ ] Identify which SPRs must be saved
+- [ ] Check FPR/SPEFSCR save requirements for e200z4
+- [ ] Verify RFI/e_rfi usage for VLE mode
+- [ ] Compare with PPCFrameLowering.cpp implementation
+
+[EXTRACTION-CERT-006-MEMORY]
+UID: EXTRACT-005
+TITLE: e200z4 Memory Barrier and Cache Coherency
+
+MANUAL_LOCATION: Chapter 3 (Instruction Model), Chapter 1.2.2 (L1 Cache)
+
+CURRENT_LLVM_IMPLEMENTATION:
+Code_Location: llvm/lib/Target/PowerPC/PPCInstrInfo.td:2341-2358
+Memory_Barriers: MSYNC, SYNC (may use MSYNC for both)
+Cache_Model: L1 instruction cache mentioned (ICache functional unit)
+
+MANUAL_EXTRACTION_REQUIRED:
+1. Memory barrier semantics:
+   - MSYNC instruction exact semantics
+   - SYNC vs MSYNC usage
+   - Memory ordering guarantees
+   - Cache coherency requirements
+
+2. Cache architecture:
+   - L1 cache organization (from Chapter 1.2.2)
+   - Cache line size
+   - Cache coherency protocols
+   - Instruction cache vs data cache structure
+
+VALIDATION_CHECKLIST:
+- [ ] Extract memory barrier specifications from manual
+- [ ] Verify MSYNC vs SYNC semantics
+- [ ] Check cache architecture details
+- [ ] Validate cache coherency requirements
+- [ ] Compare with PPCInstrInfo.td implementation
+
+[EXTRACTION-CERT-005-EXCEPTIONS]
+UID: EXTRACT-006
+TITLE: e200z4 Exception Handling Extraction
+
+MANUAL_LOCATION: Chapter 5 - Interrupts and Exceptions
+
+CURRENT_LLVM_IMPLEMENTATION:
+Code_Location: llvm/lib/Target/PowerPC/PPCScheduleE200Z4.td:94-100
+Division_Latency: 34 cycles (modeled)
+Exception_Path: Not modeled
+
+MANUAL_EXTRACTION_REQUIRED:
+1. Division exceptions:
+   - Division by zero behavior
+   - Exception type and priority
+   - Exception latency
+   - Software check requirements
+
+2. Arithmetic exceptions:
+   - Overflow detection
+   - Exception generation
+   - XER register behavior
+
+3. Floating-point exceptions (e200z4 has FPU/SPE):
+   - SPEFSCR (SPE Floating-Point Status and Control Register)
+   - FPU exception types
+   - Exception handling requirements
+
+VALIDATION_CHECKLIST:
+- [ ] Extract exception specifications from Chapter 5
+- [ ] Verify division exception behavior
+- [ ] Check FPU/SPE exception handling
+- [ ] Identify exception latency specifications
+- [ ] Compare with current implementation
+
+[EXTRACTION-SPE-FPU]
+UID: EXTRACT-007
+TITLE: e200z4 SPE/FPU Instruction Timing
+
+MANUAL_LOCATION: Chapter 4 (Pipeline Timing), SPE sections
+
+CURRENT_LLVM_IMPLEMENTATION:
+Code_Location: llvm/lib/Target/PowerPC/PPCScheduleE200Z4.td:226-268
+SPE_Instructions:
+- IIC_VecGeneral: 1 cycle latency (lines 228-232)
+- IIC_VecComplex: 4 cycle latency (lines 233-239)
+- IIC_FPGeneral: 3 cycle latency (lines 240-247)
+- IIC_FPAddSub: 4 cycle latency (lines 248-254)
+- IIC_FPCompare: 3 cycle latency (lines 255-261)
+- IIC_FPDivS: 25 cycle latency (lines 262-268)
+
+MANUAL_EXTRACTION_REQUIRED:
+1. SPE instruction timing:
+   - Vector operation latencies
+   - FPU operation latencies
+   - Bypass paths (SPE_Bypass mentioned in code)
+   - Pairing restrictions (cannot pair, must use DIS0)
+
+2. FPU registers:
+   - FPR (Floating-Point Registers) save requirements
+   - SPEFSCR save/restore requirements
+   - Exception handling
+
+VALIDATION_CHECKLIST:
+- [ ] Extract SPE/FPU timing tables from manual
+- [ ] Verify instruction latencies match model
+- [ ] Check bypass path specifications
+- [ ] Validate pairing restrictions
+- [ ] Compare with PPCScheduleE200Z4.td
+
+[EXTRACTION-PRIORITY]
+UID: PRIORITY
+
+HIGHEST_PRIORITY:
+1. Chapter 4: Instruction Pipeline and Execution Timing
+   - Dual-issue pairing rules (CERT-001, CERT-007)
+   - Instruction latencies (CERT-001)
+   - Load-to-use latency (CERT-010)
+   - Bypass paths (CERT-001)
+
+2. Chapter 5: Interrupts and Exceptions
+   - IVOR table (CERT-003)
+   - Register save requirements (CERT-003)
+   - Exception handling (CERT-005)
+   - RFI/e_rfi semantics (CERT-003)
+
+MEDIUM_PRIORITY:
+3. Chapter 3: Instruction Model
+   - Memory barrier semantics (CERT-006)
+   - VLE encoding rules (CERT-004, CERT-008, CERT-009)
+   - Exception specifications (CERT-005)
+
+4. Chapter 1: Microarchitecture Summary
+   - Functional unit descriptions
+   - Cache architecture (CERT-006)
+   - Pipeline structure confirmation
+
+[EXTRACTION-METHOD]
+UID: METHOD
+
+APPROACH:
+1. Read relevant manual chapters directly
+2. Extract tables and specifications
+3. Compare with LLVM implementation
+4. Document discrepancies
+5. Create fixes based on manual specifications
+
+MANUAL_ACCESS:
+- e200z4: https://www.elektronikjk.com/elementy_czynne/IC/E200Z4.pdf
+- Need to extract from PDF sections manually
+
+VALIDATION_OUTPUT:
+- Extract to e200z4_validation_findings.sdoc
+- Create discrepancy report
+- Propose fixes for each discrepancy
+- Update validation_results.sdoc with findings
+

@@ -1,0 +1,14 @@
+     Chapter 4. Integer Operations . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 53
+                         4.1           Integer Operations Overview . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 53
+                         4.2           Registers for Integer Operations . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 53
+                         4.2.1             General Purpose Registers . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 53
+                         4.2.2             Integer Exception Register . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 53
+                         4.3           Integer Instructions . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 55
+                         4.3.1             Integer Load Instructions . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 55
+                         4.3.2             Integer Store Instructions . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 57
+                         4.3.3             Integer Arithmetic Instructions . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 59
+                         4.3.4             Integer Logical Instructions . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 61
+                         4.3.5             Integer Compare Instructions. . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 62
+                         4.3.6             Integer Trap Instructions . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 62
+                         4.3.7             Integer Rotate and Shift Instructions . . . . . . . . . . . . . . . . . . . . . . . . . . . . 63
+                         4.3.8             Integer Exception Register Instructions . . . . . . . . . . . . . . . . . . . . . . . . . . 65

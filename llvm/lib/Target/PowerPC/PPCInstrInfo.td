@@ -3469,6 +3469,7 @@ def : Pat<(int_ppc_fnabss f32:$A), (FNABSS $A)>;
 
 include "PPCInstrAltivec.td"
 include "PPCInstrSPE.td"
+include "PPCInstrVLE.td"
 include "PPCInstr64Bit.td"
 include "PPCInstrVSX.td"
 include "PPCInstrHTM.td"

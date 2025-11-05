@@ -58,6 +58,7 @@ StringRef normalizeCPUName(StringRef CPUName) {
       .Case("ppc970", "970")
       .Case("G5", "g5")
       .Case("ppca2", "a2")
+      .Cases("e200z0", "e200z1", "e200z2", "e200z3", "e200z4", "e200z5", "e200z6", "e200z7", CPUName)
       .Case("power4", "pwr4")
       .Case("power5", "pwr5")
       .Case("power5x", "pwr5x")

@@ -1,0 +1,45 @@
+Chapter 1
+Overview
+This document defines a programming model for use with the variable-length encoding (VLE) instruction
+set extension. Three types of programming interfaces are described herein:
+    • An application binary interface (ABI) defining low-level coding conventions
+    • An assembly language interface
+    • A simplified mnemonic assembly language interface
+
+1.1       Application Binary Interface (ABI)
+The VLE programming model extends the existing PowerPC™ ABIs. This extension is independent of the
+endian mode with regard to data; however, VLE instructions are supported only in big-endian mode. The
+ABI reviews instruction and data representations for memory management and distinguishes between
+PowerPC Book E and VLE instructions. The ABI also discusses VLE section identification and relocation
+types used by the executable and linking format (ELF).
+                                                     NOTE
+                Use this chapter in conjunction with the PowerPC e500 Application Binary
+                Interface (e500 ABI). Except for the sections discussed in this chapter, the
+                VLE ABI follows the e500 ABI standard. For information on register usage
+                and availability, function calling sequence, parameter passing, stack frames,
+                and other topics, refer to the e500 ABI.
+
+1.2       Assembly Language Interface
+The assembly language interface provides an overview of the VLE instructions. The description of each
+instruction along with the instruction mnemonic and operands can be found in the VLE section of the
+EREF.
+
+1.3       Simplified Mnemonics Assembly Language Interface
+Simplified mnemonics are provided for easier coding of assembly language programs. They are defined
+for the most frequently used forms of branch conditional, compare, trap, rotate and shift, and certain other
+instructions defined by the VLE extension. Some assemblers may define additional simplified mnemonics
+not listed in this document; however, all assemblers should support the VLE simplified mnemonics listed
+in Appendix A.
+
+
+
+
+                 Variable-Length Encoding (VLE) Extension Programming Interface Manual, Rev. 1
+Freescale Semiconductor                                                                                  1-1
+Overview
+
+
+
+
+           Variable-Length Encoding (VLE) Extension Programming Interface Manual, Rev. 1
+1-2                                                                               Freescale Semiconductor

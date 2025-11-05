@@ -1,0 +1,140 @@
+Chapter 7
+Power Management
+7.1 Power Management
+Power management is supported by e200 cores to minimize overall system power consumption. The e200
+core provides the ability to initiate power management from external sources as well as through software
+techniques. The power states on the e200 core are described below.
+
+7.1.1 Active State
+The Active state is the default state for the e200 core in which all of its internal units are operating at full
+processor clock speed. In this state, the e200 core still provides dynamic power management in which
+individual internal functional units may stop clocking automatically whenever they are idle.
+
+7.1.2 Waiting State
+The e200 core enters the Waiting state as a result of executing a wait instruction. Following entry into the
+waiting state, instruction execution and bus activity is suspended. Most internal clocks are gated off in this
+state. The e200 core asserts p_waiting to indicate it is in the waiting state. Prior to entering the waiting
+state, all outstanding instructions and bus transactions are completed. The m_clk input should remain
+running while in the waiting state to allow for interrupt sampling, and to allow further transitions into the
+Halted or Stopped state if requested.
+In the waiting state, the core is waiting for a valid unmasked pending interrupt request. Once a pending
+interrupt request is received, the core exits the waiting state and begin interrupt processing. The return
+program counter value points to the next instruction after the wait instruction. The interrupt can be an
+external input interrupt, various critical interrupts, a debug interrupt (based on ICMP), a non-maskable
+interrupt (on e200z0h), or a machine check interrupt (p_mcp_b assertion, etc.). Once the interrupt
+processing begins, the core does not return to the waiting state until another wait instruction is executed.
+The waiting state can be temporarily exited and returned to if a request is made to enter hardware debug
+mode (various mechanisms), the Halted state, or the Stopped state. After exiting one of these states, the
+processor returns to the waiting state. While temporarily exited, the p_waiting output negates, and is
+re-asserted once the CPU returns to the waiting state.
+
+7.1.3 Halted State
+Instruction execution and bus activity is suspended in the Halted state. However, none of the internal
+clocks are gated off in this state. The e200 core asserts p_halted to indicate it is in the halted state. Prior to
+entering the halted state, all outstanding bus transactions are completed. The m_clk input should remain
+running while in the Halted state to allow further transitions into the Stopped state if requested.
+
+
+                             e200z0 Power Architecture Core Reference Manual, Rev. 0
+Freescale Semiconductor                                                                                        7-1
+Power Management
+
+
+7.1.4 Stopped State
+The Stopped state is characterized as having all internal functional units of the e200 core stopped except
+the clock control state machine logic. The internal m_clk may be kept running to allow quick recovery to
+the full on state. Clocks are not running to functional units in this state. The Stopped state is reached after
+transitioning through the Halted state with the p_stop input asserted. The p_stopped output signal is
+asserted once the Powerdown state is reached.
+While in the Stopped state, further power savings may be achieved by stopping the m_clk input. This is
+done externally by the system after the e200 core is safely in the Stopped state and has asserted the
+p_stopped output signal. To exit from the Stopped state, the system must first restart the m_clk input.
+
+7.1.5 Power Management Pins
+p_waiting—output pin asserted when the e200 core is in the Waiting state.
+p_halt—input pin is asserted by system logic to request the core to go into the Halted state. Negating this
+pin causes the e200 core to transition back into the Active or Waiting state if p_stop is also negated.
+p_halted—output pin asserted when the e200 core is in the Halted state.
+p_stop—input pin is asserted by system logic to request that the e200 core go into the Powerdown state.
+Negating this pin causes the e200 core to transition back into the Halted state from the Stopped state.
+p_stopped—output pin asserted when the e200 core is in the Stopped state.
+p_doze, p_nap, and p_sleep output pins that reflects the state of HID0[DOZE]. HID0[NAP]., and
+HID0[SLEEP] respectively. These pins are qualified with MSR[WE] = 1. Interpretation of these signals is
+done by the system logic.
+p_wakeup—output pin asserted when an interrupt is pending or other condition which requires the clock
+to be running.
+
+7.1.6 Power Management Control Bits
+The following bits are used by software to generate a request to enter a power-saving state and to choose
+the state to be entered:
+    • MSR[WE]—The WE bit is used to qualify assertion of the p_doze, p_nap, and p_sleep output
+        pins to the system logic. When MSR[WE] is negated, these pins are negated. When MSR[WE] is
+        set, these pins reflect the state of their respective control bits in the HID0 register.
+    • HID0[DOZE]—The interpretation of the doze mode bit is done by the external system logic. Doze
+        mode on the e200 core is intended to be the halted state with the clocks running.
+    • HID0[NAP]—The interpretation of the nap mode bit is done by the external system logic. Nap
+        mode on the e200 core may be used for a powerdown state with the Time Base enabled.
+    • HID0[SLEEP]—The interpretation of the sleep mode bit is done by the external system logic.
+        Sleep mode on the e200 core may be used for a powerdown state with the Time Base disabled.
+
+
+
+
+                            e200z0 Power Architecture Core Reference Manual, Rev. 0
+7-2                                                                                      Freescale Semiconductor
+                                                                                           Power Management
+
+
+7.1.7 Software Considerations for Power Management Using Wait
+      Instructions
+Executing a wait instruction causes the e200 core to complete instruction fetch and execution activity and
+await an interrupt. The p_waiting output is asserted once the Waiting state is entered. External system
+hardware may interpret the state of this signal and activate the p_halt and/or p_stop inputs to cause the
+e200 core to enter a quiescent state in which clocks may be disabled for low power operation.
+Alternatively, system hardware may utilize some other clock control mechanism while the processor is in
+the Waiting state, and p_wakeup remains negated.
+
+7.1.8 Software Considerations for Power Management Using Doze, Nap
+      or Sleep
+Setting MSR[WE] generates a request to enter a power saving state. The power saving state (doze, nap, or
+sleep) must be previously determined by setting the appropriate HID0 bit. Setting MSR[WE] has no direct
+effect on instruction execution, but it simply reflected on p_doze, p_nap, and p_sleep depending on the
+setting of HID0[DOZE], HID0[NAP], and HID0[SLEEP] respectively. Note that the e200 core is not
+affected by assertion of these pins directly. External system hardware may interpret the state of these
+signals and activate the p_halt and/or p_stop inputs to cause the e200 core to enter a quiescent state in
+which clocks may be disabled for low power operation.
+To ensure a clean transition into and out of a power saving mode, the following program sequence is
+recommended:
+                     sync
+                     mtmsr (WE)
+                     isync
+                     loop:br loop     (optionally use a wait instruction)
+An interrupt is typically used to exit a power saving state. The p_wakeup output is used to indicate to the
+system logic that an interrupt (or a debug request) has become pending. System logic uses this output to
+re-enable the clocks and exit a low power state. The interrupt handler is responsible for determining how
+to exit the low power branching loop if one is used. Wait instructions are exited automatically. The
+vectored interrupt capability provided by the core may be useful in assisting the determination if an
+external hardware interrupt is used to perform the wake-up.
+
+7.1.9 Debug Considerations for Power Management
+When a debug request is presented to the e200 core while in either the Waiting, Halted or Stopped state,
+the p_wakeup signal is asserted, and when m_clk is provided to the CPU, it temporarily exits the Waiting,
+Halted or Stopped state and enters Debug mode regardless of the assertion of p_halt or p_stop. The
+p_waiting, p_halted or p_stopped outputs are negated for the duration of the time the CPU remains in a
+debug session (jd_debug_b asserted). When the debug session is exited, the CPU re-samples the p_halt
+and p_stop inputs and re-enters the Halted or Stopped state as appropriate. If the CPU was previously
+waiting, and no interrupt was received while in the debug session, it re-enters the Waiting state and
+re-asserts p_waiting.
+
+
+
+
+                           e200z0 Power Architecture Core Reference Manual, Rev. 0
+Freescale Semiconductor                                                                                 7-3
+Power Management
+
+
+
+
+                   e200z0 Power Architecture Core Reference Manual, Rev. 0
+7-4                                                                          Freescale Semiconductor

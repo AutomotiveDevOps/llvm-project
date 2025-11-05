@@ -1,0 +1,11 @@
+                                                              Chapter 8. Reset and Initialization   1195
+Version 2.07
+
+
+
+
+1196   Power ISA™ - Book III-E
+                                                                                                 Version 2.07
+
+
+

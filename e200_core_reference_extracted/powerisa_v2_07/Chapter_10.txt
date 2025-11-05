@@ -1,0 +1,63 @@
+                                                               Chapter 10. Debug Facilities               1227
+Version 2.07
+
+
+10.6 Debugger Notify Halt Instruction
+The dnh instruction provides the means for the transfer
+of information between the thread and an implementa-
+tion-dependent external debug facility. dnh also causes
+the thread to stop fetching and executing instructions.
+
+Debugger Notify Halt                          XFX-form
+dnh              DUI,DUIS
+
+
+      19         DUI        DUIS               198            /
+0            6         11               21                    31
+
+
+
+if enabled by implementation-dependent means
+then
+   implementation-dependent register   DUI
+   halt thread
+else
+   illegal instruction exception
+Execution of the dnh instruction causes the thread to
+stop fetching instructions and taking interrupts if execu-
+tion of the instruction has been enabled. The contents
+of the DUI field are sent to the external debug facility to
+identify the reason for the halt.
+If execution of the dnh instruction has not been previ-
+ously enabled, executing the dnh instruction produces
+an Illegal Instruction exception. The means by which
+execution of the dnh instruction is enabled is imple-
+mentation-dependent.
+The current state of the debug facility, whether the
+thread is in IDM or EDM mode has no effect on the exe-
+cution of the dnh instruction.
+The instruction is context synchronizing.
+
+       Programming Note
+    The DUIS field in the instruction may be used to
+    pass information to an external debug facility. After
+    the dnh instruction has executed, the instruction
+    itself can be read back by the Illegal Instruction
+    Interrupt handler or the external debug facility if the
+    contents of the DUIS field are of interest. If the
+    thread entered the Illegal Instruction Interrupt han-
+    dler, software can use SRR0 to obtain the address
+    of the dnh instruction which caused the handler to
+    be invoked.
+
+Special Registers Altered:
+    None
+
+
+
+
+1228         Power ISA™ - Book III-E
+                                                                                                   Version 2.07
+
+
+

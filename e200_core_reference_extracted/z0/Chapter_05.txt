@@ -1,0 +1,1678 @@
+Chapter 5
+Interrupts and Exceptions
+The Power Architecture Book E document defines the mechanisms by which the e200 core implements
+interrupts and exceptions. The document uses the terminology ‘interrupt’ as the action in which the
+processor saves its old context and begins execution at a pre-determined interrupt handler address.
+‘Exceptions’ are referred to as events which, when enabled, cause the processor to take an interrupt. This
+section uses the same terminology.
+The Power Architecture exception mechanism allows the processor to change to supervisor state as a result
+of unusual conditions arising in the execution of instructions, and from external signals, bus errors, or
+various internal conditions. When interrupts occur, information about the state of the processor is saved to
+machine state save/restore registers (SRR0/SRR1, CSRR0/CSRR1, or DSRR0/DSRR1) and the processor
+begins execution at an address (interrupt vector) determined by the Interrupt Vector Prefix register (IVPR),
+and one of the hardwired Interrupt Vector Offset values. Processing of instructions within the interrupt
+handler begins in supervisor mode.
+Multiple exception conditions can map to a single interrupt vector, and may be distinguished by examining
+registers associated with the interrupt. The Exception Syndrome register (ESR) is updated with
+information specific to the exception type when an interrupt occurs.
+To prevent loss of state information, interrupt handlers must save the information stored in the machine
+state save/restore registers, soon after the interrupt has been taken. Three sets of these registers are
+implemented; SRR0 and SRR1 for non-critical interrupts, CSRR0 and CSRR1 for critical interrupts, and
+DSRR0 and DSRR1 for debug interrupts (when the Debug APU is enabled). Hardware supports nesting
+of critical interrupts within non-critical interrupts, and debug interrupts within both critical and non-critical
+interrupts. It is up to the interrupt handler to save necessary state information if interrupts of a given class
+are re-enabled within the handler.
+The following terms are used to describe the stages of exception processing:
+Recognition            Exception recognition occurs when the condition that can cause an exception is
+                       identified by the processor. This is also referred to as an exception event.
+Taken                  An interrupt is said to be taken when control of instruction execution is passed to
+                       the interrupt handler; that is, the context is saved and the instruction at the
+                       appropriate vector offset is fetched and the interrupt handler routine begins.
+Handling               Interrupt handling is performed by the software linked to the appropriate vector
+                       offset. Interrupt handling is begun in supervisor mode.
+Returning from an interrupt is performed by executing an se_rfi, se_rfci, or se_rfdi instruction to restore
+state information from the respective machine state save/restore register pair.
+
+
+
+
+                            e200z0 Power Architecture Core Reference Manual, Rev. 0
+Freescale Semiconductor                                                                                       5-1
+Interrupts and Exceptions
+
+
+5.1           e200 Interrupts
+As specified by the Power Architecture Book E specification, interrupts can be either precise or imprecise,
+synchronous or asynchronous, and critical or non-critical. Asynchronous exceptions are caused by events
+external to the processor’s instruction execution; synchronous exceptions are directly caused by
+instructions or an event somehow synchronous to the program flow, such as a context switch. A precise
+interrupt architecturally guarantees that no instruction beyond the instruction causing the exception has
+(visibly) executed. Critical interrupts are provided with a separate save/restore register pair
+(CSRR0/CSRR1) to allow certain critical exceptions to be handled within a non-critical interrupt handler.
+The types of interrupts handled are shown in Table 5-1.
+                                                Table 5-1. Interrupt Classifications
+
+              Interrupt Types               Synchronous/Asynchronous            Precise/Imprecise     Critical/Non-Critical/Debug
+
+System Reset                              Asynchronous, non-maskable           Imprecise                            —
+
+Machine Check                                              —                             —           Critical
+
+Critical Input Interrupt                  Asynchronous, maskable               Imprecise             Critical
+
+External Input Interrupt                  Asynchronous, maskable               Imprecise             Non-critical
+
+Instruction-based Debug Interrupts        Synchronous                          Precise               Critical / Debug
+
+Debug Interrupt (UDE)                     Asynchronous                         Imprecise             Critical / Debug
+Debug Imprecise Interrupt
+
+Data Storage / Alignment Interrupts       Synchronous                          Precise               Non-critical
+Instruction Storage Interrupts
+
+These classifications are discussed in greater detail in Section 5.7, “Interrupt Definitions.” Interrupts
+implemented in e200 and the exception conditions that cause them are listed in Table 5-2.
+                                            Table 5-2. Exceptions and Conditions
+
+                    Corresponding Interrupt
+Interrupt Type                                                                   Causing Conditions
+                         Vector Offset
+
+System reset       none, vector to                 Reset by assertion of p_reset_b
+                   [p_rstbase[0:29]] || 2’b00      Debug Reset Control
+
+Critical Input     IVOR 01                         p_critint_b is asserted and MSR[CE]=1
+Machine check IVOR 1                               p_mcp_b is asserted and MSR[ME] =1
+                                                     1. Bus error (XTE) with MSR[EE]=0 and current MSR[ME]=1
+                                                   Non-maskable interrupt (p_nmi_b recognized asserted) regardless of MSR[ME]
+
+Data Storage       IVOR 2                          Access control. (unused on Zen Z0n2p and Zen Z0Hn2p)
+                                                   Precise external termination error (p_tea_b assertion and precise recognition)
+                                                   and MSR[EE]=1
+
+Instruction        IVOR 3                          Access control. (unused on Zen Z0n2p and Zen Z0Hn2p)
+Storage                                            Precise external termination error (p_tea_b assertion and precise recognition)
+                                                   and MSR[EE]=1. See Section 6.2, “Internal Interface Signals,” for a definition of
+                                                   internal signals.
+
+External Input     IVOR 41                         p_extint_b is asserted and MSR[EE]=1.
+
+
+
+                                   e200z0 Power Architecture Core Reference Manual, Rev. 0
+5-2                                                                                                        Freescale Semiconductor
+                                                                                                                              Interrupts and Exceptions
+
+
+                                                    Table 5-2. Exceptions and Conditions (continued)
+
+                           Corresponding Interrupt
+Interrupt Type                                                                                   Causing Conditions
+                                Vector Offset
+
+Alignment              IVOR 5                                       lmw, stmw not word aligned.
+                                                                    lwarx or stwcx. not word aligned.
+
+Program                IVOR 6                                       Illegal, Privileged, Trap, Unimplemented Operation.
+
+Floating-point         IVOR 7                                       Unused
+unavailable
+
+System call            IVOR 8                                       Execution of the System Call (se_sc) instruction
+
+AP unavailable IVOR 9                                               Unused
+
+Decrementer            IVOR 10                                      Unused
+
+Fixed Interval         IVOR 11                                      Unused
+Timer
+
+Watchdog               IVOR 12                                      Unused
+Timer
+
+Data TLB Error IVOR 13                                              Unused
+
+Instruction TLB IVOR 14                                             Unused
+Error
+
+Debug                  IVOR 15                                      Trap, Instruction Address Compare, Data Address Compare, Instruction
+                                                                    Complete, Branch Taken, Return from Interrupt, Interrupt Taken, External Debug
+                                                                    Event, Unconditional Debug Event
+
+Reserved               IVOR 16-31                                                                         —
+1
+    Autovectored External and Critical Input interrupts use this IVOR. Vectored interrupts supply an interrupt vector offset directly.
+
+
+5.2            Exception Syndrome Register
+The Exception Syndrome Register (ESR) provides a syndrome to differentiate between exceptions that can
+generate the same interrupt type. e200 adds some implementation specific bits to this register, as seen in
+Figure 5-1.
+                                                                                                                              VLEMI
+                                                                               PUO
+                                   PPR
+                                         PTR
+
+
+
+
+                                                              DLK
+
+
+
+
+                                                                                                                                                  XTE
+                                                                                                                                            MIF
+                                                                                          PIE
+                                                                    ILK
+                             PIL
+
+
+
+
+                                                                                     BO
+                                                                          AP
+                                               FP
+                                                     ST
+
+
+
+
+                                                                                                                   —
+
+
+
+
+               0                                          0                                        0                      0           0
+
+       0   1       2   3     4     5     6     7    8     9   10    11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31
+
+                                                                    SPR—62; Read/Write; Reset—0x0
+
+                                                    Figure 5-1. Exception Syndrome Register (ESR)
+
+
+
+
+                                               e200z0 Power Architecture Core Reference Manual, Rev. 0
+Freescale Semiconductor                                                                                                                                 5-3
+Interrupts and Exceptions
+
+
+The ESR bits are defined in Table 5-3.
+                                                Table 5-3. ESR Bit Settings
+
+      Bit(s)      Name                                 Description                   Associated Interrupt Type
+
+        0:3         —       Allocated1                                                            —
+      (32:35)
+
+        4          PIL      Illegal Instruction exception                          Program
+       (36)
+
+        5          PPR      Privileged Instruction exception                       Program
+       (37)
+
+        6          PTR      Trap exception                                         Program
+       (38)
+
+        7          FP2      Floating-point operation                                              —
+       (39)
+
+        8          ST       Store operation                                        Alignment
+       (40)                                                                        Data Storage
+
+        9           —       Reserved3                                                             —
+       (41)
+
+        10        DLK4      Data Cache Locking                                     Data Storage
+       (42)
+
+        11         ILK3     Instruction Cache Locking                              Data Storage
+       (43)
+
+        12         AP       Auxiliary Processor operation                          Alignment (not on e200)
+       (44)                 (Not used by e200)                                     Data Storage (not on e200)
+                                                                                   Data TLB (not on e200)
+                                                                                   Program (not on e200)
+
+        13         PUO      Unimplemented Operation exception                      Program
+       (45)
+
+        14         BO       Byte Ordering exception                                               —
+       (46)                 Mismatched Instruction Storage exception
+
+        15         PIE      Program Imprecise exception                            Currently unused by e200
+       (47)                 (Reserved)
+
+       16:23        —       Reserved3                                                             —
+      (48:55)
+
+        24          —       Reserved                                               Allocated, is not set by
+       (56)                                                                        hardware
+
+        25          —       Allocated1                                                            —
+       (57)
+
+        26        VLEMI     VLE Mode Instruction                                   Data Storage
+       (58)                                                                        Instruction Storage
+                                                                                   Alignment
+                                                                                   Program
+                                                                                   System Call
+
+       27:29        —       Allocated1                                                            —
+      (59:61)
+
+
+                                e200z0 Power Architecture Core Reference Manual, Rev. 0
+5-4                                                                                          Freescale Semiconductor
+                                                                                                                                                     Interrupts and Exceptions
+
+
+                                                                    Table 5-3. ESR Bit Settings (continued)
+
+       Bit(s)        Name                                                            Description                                       Associated Interrupt Type
+
+         30              MIF       Misaligned Instruction Fetch                                                                       Instruction Storage
+        (62)                                                                                                                          Instruction TLB
+
+         31              XTE       External Termination Error (Precise)                                                               Data Storage
+        (63)                                                                                                                          Instruction Storage
+   1
+     These bits are not implemented and should be written with zero for future compatibility.
+   2
+     Unused
+   3
+     These bits are not implemented, and should be written with zero for future compatibility.
+   4
+     Unused
+
+
+5.3            Machine State Register
+The Machine State Register defines the state of the processor. The e200 MSR is shown in Figure 5-2.
+                                          AllocatedAllocated
+                                   UCLE
+
+
+
+
+                                                                                                                            FE0
+
+
+
+                                                                                                                                           FE1
+                                                                                          WE
+
+
+
+
+                                                                                                                       ME
+                                                                                               CE
+
+
+
+                                                                                                             PR
+
+
+
+
+                                                                                                                                      DE
+
+
+
+
+                                                                                                                                                              DS
+                                                                                                        EE
+
+
+                                                                                                                  FP
+
+
+
+
+                                                                                                                                                                           RI
+                                                                                                                                                         IS
+e200z0h              0                                                     0                        0                             0              0                 0            0
+                                   UCLE
+
+
+
+
+                                                                                                                            FE0
+
+
+
+                                                                                                                                           FE1
+                                                                                          WE
+
+
+
+
+                                                                                                                       ME
+                                                                                               CE
+
+
+
+                                                                                                             PR
+
+
+
+
+                                                                                                                                      DE
+
+
+
+
+                                                                                                                                                              DS
+                                                                                                        EE
+
+
+                                                                                                                  FP
+
+
+
+
+                                                                                                                                                         IS
+e200z0               0                                                     0                        0                             0              0                     0
+
+
+          0      1   2    3    4   5      6                    7   8   9       10   11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31
+
+                                                                                       Read/ Write; Reset —0x0
+
+                                                                   Figure 5-2. Machine State Register (MSR)
+
+The MSR bits are defined in Table 5-4.
+                                                                               Table 5-4. MSR Bit Settings
+
+       Bit(s)            Name                                                                           Description
+
+         0:4              —            Reserved1
+       (32:36)
+
+          5              UCLE2         User Cache Lock Enable
+        (37)                           0 Execution of the cache locking instructions in user mode (MSR[PR]=1) disabled; DSI
+                                         exception taken instead, and ILK or DLK set in ESR.
+                                       1 Execution of the cache lock instructions in user mode enabled.
+
+          6               —            Reserved1
+        (38)
+
+         7:12             —            Reserved1
+       (39:44)
+
+
+
+
+                                          e200z0 Power Architecture Core Reference Manual, Rev. 0
+Freescale Semiconductor                                                                                                                                                         5-5
+Interrupts and Exceptions
+
+
+                                      Table 5-4. MSR Bit Settings (continued)
+
+       Bit(s)      Name                                                 Description
+
+         13         WE      Wait State (Power management) enable. This bit is defined as optional in the Power
+        (45)                Architecture Book E architecture.
+                            0 Power management is disabled.
+                            1 Power management is enabled. The processor can enter a power-saving mode when
+                              additional conditions are present. The mode chosen is determined by the DOZE, NAP, and
+                              SLEEP bits in the HID0 register, described in Section 2.3.9, “Hardware Implementation
+                              Dependent Register 0 (HID0).”
+
+         14         CE      Critical Interrupt Enable
+        (46)                0 Critical Input interrupts are disabled.
+                            1 Critical Input interrupts are enabled.
+
+         15          —      Preserved1
+        (47)
+
+         16         EE      External Interrupt Enable
+        (48)                0 External Input interrupts are disabled.
+                            1 External Input interrupts are enabled.
+
+         17         PR      Problem State
+        (49)                0 The processor is in supervisor mode, can execute any instruction, and can access any
+                              resource (for example, GPRs, SPRs, MSR, etc.).
+                            1 The processor is in user mode, cannot execute any privileged instruction, and cannot
+                              access any privileged resource.
+
+         19         ME      Machine Check Enable
+        (51)                0 Machine Check interrupts are disabled. Checkstop mode is entered when the p_mcp_b
+                              input is recognized asserted or an ISI exception occurs on a fetch of the first instruction of
+                              an exception handler.
+                            1 Machine Check interrupts are enabled.
+
+         20         FE0     Floating-point exception mode 0 (not used by e200)
+        (52)
+
+         21          —      Reserved1
+        (53)
+
+         22         DE      Debug Interrupt Enable
+        (54)                0 Debug interrupts are disabled.
+                            1 Debug interrupts are enabled.
+
+         23         FE1     Floating-point exception mode 1 (not used by e200)
+        (55)
+
+         24          —      Reserved1
+        (56)
+
+         25          —      Preserved1
+        (57)
+
+         26          IS     Instruction Address Space
+        (58)                0 The processor directs all instruction fetches to address space 0.
+                            1 The processor directs all instruction fetches to address space 1.
+
+         27         DS      Data Address Space
+        (59)                0 The processor directs all data storage accesses to address space 0.
+                            1 The processor directs all data storage accesses to address space 1.
+
+
+
+
+                              e200z0 Power Architecture Core Reference Manual, Rev. 0
+5-6                                                                                                    Freescale Semiconductor
+                                                                                                                                   Interrupts and Exceptions
+
+
+                                                                     Table 5-4. MSR Bit Settings (continued)
+
+        Bit(s)            Name                                                                      Description
+
+         28:29                  —                      Reserved1
+        (60:61)
+
+                                                       Recoverable Interrupt
+                                                       0 Machine Check interrupt is not recoverable.
+                                                       1 Machine Check interrupt may be recoverable.
+          30
+                                RI                     This bit is cleared when a Machine check or critical class interrupt which uses CSRR0/1 is
+         (62)
+                                                       taken (see Table 5-1). It is not set by hardware, and does not affect processor operation. It is
+                                                       provided as a software assist to determine if machine check interrupts may possibly be
+                                                       recoverable.
+
+         30:31                  —                      Preserved1
+        (62:63)
+    1
+        These bits are not implemented, are read as zero, and writes are ignored.
+    2   This bit is implemented, but ignored
+
+
+5.4            Machine Check Syndrome Register (MCSR)
+When the core complex takes a machine check interrupt, it updates the Machine Check Syndrome register
+(MCSR) to differentiate between machine check conditions. The MCSR is shown in Figure 5-3.
+
+
+
+
+                                                                                                                                                                                       BUS_WRERR BUS_WRERR
+                                                                                                                                                                 BUS_DRERR BUS_DRERR
+                                                                                                                                           BUS_IRERR BUS_IRERR
+                                        EXCP_ERR
+                      CP_PERR
+                                CPERR
+           MCP
+
+
+
+
+                                                                                   NMI
+
+
+
+
+e200z0h           0                                              0                                            0                                                                                              0
+                                        EXCP_ERR
+                      CP_PERR
+                                CPERR
+           MCP
+
+
+
+
+e200z0            0                                                                             0                                                                                                            0
+
+
+
+           0      1   2         3       4          5     6   7       8   9   10    11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31
+
+                                                                                  SPR—572; Read/Write; Reset—0x0
+
+                                                        Figure 5-3. Machine Check Syndrome Register (MCSR)
+
+Table 5-5 describes MCSR fields. The MCSR indicates the source of a machine check condition is
+recoverable. When a syndrome bit in the MCSR is set, the core complex asserts p_mcp_out for system
+information.
+                                                        Table 5-5. Machine Check Syndrome Register (MCSR)
+
+            Bit                          Name                                     Description                        Recoverable
+
+            0                               MCP                      Machine check input pin          Maybe
+           (32)
+
+            1                                      —                 Reserved, should be cleared.                          —
+           (33)
+
+
+
+                                                         e200z0 Power Architecture Core Reference Manual, Rev. 0
+Freescale Semiconductor                                                                                                                                                                                      5-7
+Interrupts and Exceptions
+
+
+                              Table 5-5. Machine Check Syndrome Register (MCSR) (continued)
+
+               Bit                Name                       Description                        Recoverable
+
+             2               CP_PERR1               Cache push parity error          Unlikely
+            (34)
+
+             3                CPERR1                Cache parity error               Precise
+            (35)
+
+             4               EXCP_ERR               Bus Error on first instruction   Precise
+            (36)                                    fetch for an exception handler
+
+          e200z0:                  —                Reserved, should be cleared.                    —
+           5:26
+            (37:
+           (58))
+
+          e200z0h:
+          5:10(37:
+             42)
+
+             11                   NMI               Non-maskable interrupt input     Maybe
+            (43)                                    pin
+
+           12:26                   —                Reserved, should be cleared.                    —
+          (44:58)
+
+             27              BUS_IRERR               Read bus error on Instruction Unlikely
+            (59)                                    fetch
+
+             28              BUS_DRERR              Read bus error on data load      Unlikely
+            (60)
+
+             29          BUS_WRERR                  Write bus error on data store    Unlikely
+            (61)
+
+           30:31                   —                Reserved, should be cleared.                    —
+          (62:63)
+      1    This bit is implemented, but is never set by hardware.
+
+
+5.5            Interrupt Vector Prefix Register (IVPR)
+The Interrupt Vector Prefix Register is used during interrupt processing for determining the starting
+address of a software handler used to handle an interrupt. The hardwired Interrupt Vector Offset value for
+a particular interrupt type is concatenated with the value held in the Interrupt Vector Prefix register (IVPR)
+to form an instruction address from which execution is to begin. Note that for Zen Z0n2p and Zen Z0Hn2p
+the IVPR has been extended from 16 to 20 bits, allowing the vector table to reside on any 4-Kbyte
+boundary. The format of IVPR is shown in Figure 5-4.
+
+                                            Vector Base                                                 0
+
+      0    1     2   3   4    5    6    7   8   9     10   11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31
+
+                                                                SPR—63; Read/Write
+
+                                        Figure 5-4. e200 Interrupt Vector Prefix Register (IVPR)
+
+
+                                         e200z0 Power Architecture Core Reference Manual, Rev. 0
+5-8                                                                                                         Freescale Semiconductor
+                                                                                                               Interrupts and Exceptions
+
+
+The IVPR fields are defined in Table 5-6.
+                                                               Table 5-6. IVPR Register Fields
+
+    Bit(s)         Name                                                              Description
+
+     0:19         Vec Base Vector Base
+    (32:51)                This field is used to define the base location of the vector table, aligned to a 4Kbyte boundary. This field
+                           provides the high-order 20 bits of the location of all interrupt handlers. The IVORxx value appropriate for
+                           the type of exception being processed are concatenated with the IVPR Vector Base to form the address
+                           of the handler in memory.
+
+     20:31             —          Reserved1
+    (52:63)
+1
+    These bits are not implemented, are read as zero, and writes are ignored.
+
+
+5.6               Interrupt Vector Offset Values (IVORxx)
+Interrupt Vector Offset Registers are not implemented in Zen Z0n2p and Zen Z0Hn2p. Instead, hardwired
+values are used for interrupt offsets to the IVPR contents during interrupt processing for determining the
+starting address of a software handler used to handle an interrupt. The associated hardwired value of the
+Interrupt Vector Offset selected for a particular interrupt type is concatenated with the value held in the
+Interrupt Vector Prefix register (IVPR) to form an instruction address from which execution is to begin as
+shown in Figure 5-5.
+
+
+                                                     IVPR0:19                                          Vector Offset
+
+        0     1    2    3     4   5   6      7   8    9   10    11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31
+
+                                                     Figure 5-5. e200 Interrupt Vector Addresses
+
+The hardwired Vector Offsets are listed in Table 5-7.
+                                                      Table 5-7. Hardwired Vector Offset Values
+
+                        Interrupt Type                Corresponding Interrupt Vector Offset Register   12-Bit Hex Offset
+
+                            Critical Input                                 IVOR 01                           0x000
+
+                        Machine check                                       IVOR 1                           0x010
+
+                            Data Storage                                    IVOR 2                           0x020
+
+                       Instruction Storage                                  IVOR 3                           0x030
+
+                         External Input                                    IVOR 41                           0x040
+
+                             Alignment                                      IVOR 5                           0x050
+
+                              Program                                       IVOR 6                           0x060
+
+                  Floating-point unavailable                                IVOR 7                          Unused
+
+                            System call                                     IVOR 8                           0x080
+
+                         AP unavailable                                     IVOR 9                          Unused
+
+                            Decrementer                                    IVOR 10                          Unused
+
+
+                                             e200z0 Power Architecture Core Reference Manual, Rev. 0
+Freescale Semiconductor                                                                                                             5-9
+Interrupts and Exceptions
+
+
+                                   Table 5-7. Hardwired Vector Offset Values (continued)
+
+                    Interrupt Type         Corresponding Interrupt Vector Offset Register           12-Bit Hex Offset
+
+                  Fixed Interval Timer                           IVOR 11                                  Unused
+
+                   Watchdog Timer                                IVOR 12                                  Unused
+
+                    Data TLB Error                               IVOR 13                                  Unused
+
+                 Instruction TLB Error                           IVOR 14                                  Unused
+
+                         Debug                                   IVOR 15                                  0x0F0
+             1
+                 Autovectored External and Critical Input interrupts use this IVOR. Vectored interrupts supply an interrupt
+                 vector offset directly.
+
+
+5.7          Interrupt Definitions
+
+5.7.1            Critical Input Interrupt (IVOR0)
+A Critical Input exception is signalled to the processor by the assertion of the critical interrupt pin
+(p_critint_b). When e200 detects the exception, if the exception is enabled by MSR[CE], e200 takes the
+Critical Input interrupt. The p_critint_b input is a level-sensitive signal expected to remain asserted until
+e200 acknowledges the interrupt. If p_critint_b is negated early, recognition of the interrupt request is not
+guaranteed. After e200 begins execution of the critical interrupt handler, the system can safely negate
+p_critint_b.
+A Critical Input interrupt may be delayed by other higher priority exceptions or if MSR[CE] is cleared
+when the exception occurs.
+Table 5-8 lists register settings when a Critical Input interrupt is taken.
+                                     Table 5-8. Critical Input Interrupt—Register Settings
+
+        Register                                                Setting Description
+
+       CSRR0          Set to the effective address of the instruction that the processor would have attempted to execute next
+                      if no exception conditions were present.
+
+       CSRR1          Set to the contents of the MSR at the time of the interrupt
+
+       MSR            UCLE 0                              FP 0                                FE1 0
+                      WE 0                                ME —                                IS 0
+                      CE 0                                FE0 0                               DS 0
+                      EE 0                                DE —/01                             RI 02
+                      PR 0
+
+       ESR            Unchanged
+
+       MCSR           Unchanged
+
+       DEAR           Unchanged
+
+       Vector         IVPR0:19 || 12’h000 (autovectored)
+                      IVPR0:19 || p_voffset[0:9] || 2’b00 (non-autovectored)
+
+
+
+
+                                    e200z0 Power Architecture Core Reference Manual, Rev. 0
+5-10                                                                                                        Freescale Semiconductor
+                                                                                                        Interrupts and Exceptions
+
+
+    1
+      DE is cleared when the Debug APU is disabled. Clearing of DE is optionally supported by control in HID0 when the
+      Debug APU is enabled.
+    2
+      RI is cleared by all critical class interrupts using CSRR0/1 and the machine check interrupt. These interrupt handlers
+      should set RI to ‘1’ early in the handler after CSRR0/1 have been saved to allow for improved recoverability.
+
+
+When the Debug APU is enabled, the MSR[DE] bit is not automatically cleared by a Critical Input
+interrupt, but can be configured to be cleared via the HID0 register (HID0[CICLRDE]). Refer to
+Section 2.3.9, “Hardware Implementation Dependent Register 0 (HID0).”
+IVOR0 is the vector offset used by autovectored Critical Input interrupts to determine the interrupt handler
+location. e200 also provides the capability to directly vector Critical Input interrupts to multiple handlers
+by allowing a Critical Input interrupt request to be accompanied by a vector offset. The p_voffset[0:9] input
+signals are appended with 2’b00 and used in place of the IVOR0 value to form the interrupt vector when
+a Critical Input interrupt request is not autovectored (p_avec_b negated when p_critint_b asserted).
+
+5.7.2         Machine Check Interrupt (IVOR1)
+e200 implements the Machine Check exception as defined in Power Architecture Book E except for
+automatic clearing of the MSR[DE] bit (see later paragraph). e200 initiates a Machine Check interrupt if
+MSR[ME]=1 and any of the machine check sources listed in Table 5-2 is detected. As defined in Power
+Architecture Book E, the interrupt is not taken if MSR[ME] is cleared, in which case the processor
+generates an internal checkstop condition and enters the checkstop state. When a processor is in the
+checkstop state, instruction processing is suspended and generally cannot continue without restarting the
+processor. Note that other conditions may lead to the checkstop condition; the disabled machine check
+exception is only one of these.
+e200 implements the Machine Check Syndrome register (MCSR) to record the source(s) of machine
+checks.
+The MSR[DE] bit is not automatically cleared by a Machine Check exception, but can be configured to be
+cleared or left unchanged via the HID0 register (HID0[MCCLRDE]). Refer to Section 2.3.9, “Hardware
+Implementation Dependent Register 0 (HID0).”
+
+5.7.2.1            Machine Check Interrupt Enabled (MSR[ME]=1)
+Machine Check interrupts are enabled when MSR[ME]=1. When a Machine Check interrupt is taken,
+registers are updated as shown in Table 5-9.
+                                Table 5-9. Machine Check Interrupt—Register Settings
+
+        Register                                              Setting Description
+
+     CSRR0          On a best-effort basis e200 sets this to the address of some instruction that was executing or about to
+                    be executing when the machine check condition occurred.
+
+     CSRR1          Set to the contents of the MSR at the time of the interrupt
+
+
+
+
+                                 e200z0 Power Architecture Core Reference Manual, Rev. 0
+Freescale Semiconductor                                                                                                        5-11
+Interrupts and Exceptions
+
+
+                            Table 5-9. Machine Check Interrupt—Register Settings (continued)
+
+           Register                                            Setting Description
+
+       MSR             UCLE 0                            FP 0                               FE1 0
+                       WE 0                              ME 0                               IS 0
+                       CE 0                              FE0 0                              DS 0
+                       EE 0                              DE 0/—1                            RI 02
+                       PR 0
+
+       ESR             Unchanged
+
+       MCSR            Updated to reflect the source(s) of a machine check
+
+       DEAR            Unchanged
+
+       Vector          IVPR0:19 || 12’h010
+       1
+         DE is cleared when the Debug APU is disabled. Clearing of DE is optionally supported by control in HID0 when the
+         Debug APU is enabled.
+       2 RI is cleared by all critical class interrupts using CSRR0/1 and the machine check interrupt. These interrupt handlers
+         should set RI to ‘1’ early in the handler after CSRR0/1 have been saved to allow for improved recoverability.
+
+
+The Machine Check input pin p_mcp_b can be masked by HID0[EMCP].
+In general, most Machine Check exceptions are unrecoverable in the sense that execution cannot resume
+in the context that existed before the interrupt; however, system software can use the machine check
+interrupt handler to try to identify and recover from the machine check condition.
+The Machine Check Syndrome register is provided to identify the source(s) of a machine check and may
+be used to identify recoverable events.
+The interrupt handler should set MSR[ME] as soon as possible to avoid entering the checkstop state if
+another machine check condition were to occur.
+
+5.7.2.2               Checkstop State
+A checkstop condition can occur for several reasons. The exception related conditions are:
+   • MSR[ME]=0 and a machine check occurs (other than a non-maskable interrupt on e200z0h).
+   • First instruction in an interrupt handler can not be executed due to a bus error termination, and
+      MSR[ME]=0.
+   • Bus error termination for a buffered store and MSR[ME]=0.
+   • Precise external termination error and MSR[EE]=0 and MSR[ME]=0
+When a processor is in the checkstop state, instruction processing is suspended and generally cannot
+resume without the processor being reset. To indicate that a checkstop condition exists, the p_chkstop
+output pin is asserted whenever the CPU is in the checkstop state.
+When a debug request is presented to the e200 core while in the checkstop state, the p_wakeup signal is
+asserted, and when m_clk is provided to the CPU, it temporarily exits the checkstop state and enters Debug
+mode. The p_chkstop output is negated for the duration of the time the CPU remains in a debug session
+(p_debug_b asserted). When the debug session is exited, the CPU re-enters the checkstop state. Note that
+the external system logic may be in an undefined state following a checkstop condition, such as having an
+
+                                    e200z0 Power Architecture Core Reference Manual, Rev. 0
+5-12                                                                                                      Freescale Semiconductor
+                                                                                                      Interrupts and Exceptions
+
+
+outstanding bus transaction, or other inconsistency, thus no guarantee can be made in general about
+activities performed in debug mode while a checkstop is still outstanding. Debug logic does have the
+capability of generating assertion of the p_resetout_b signal via the DBCR0 register though.
+
+5.7.2.3        Non-Maskable Interrupts (NMI) in e200z0h
+e200 implements a non-maskable interrupt in addition to the machine check sources defined by Power
+Architecture Book E. The non-maskable interrupt is signaled via the p_nmi_b input. Non-maskable
+interrupt are not gated by MSR[ME], and a non-maskable interrupt occurring with MSR[ME]=0 does not
+result in a checkstop condition. e200 provides the MSR[RI] bit to indicate whether these non-maskable
+interrupts are potentially recoverable. Because a non-maskable interrupt overwrites the CSRR0/1
+registers, if these registers are currently holding essential state because a critical class interrupt handler has
+not yet been able to save this state away safely, and a non-maskable interrupt occurs, no recovery from the
+earlier critical class interrupt is possible. The machine check handler may use the value of CSRR1[RI] to
+determine if this has occurred. If CSRR1[RI] is cleared, then no recovery is possible, because MSR[RI]
+was 0 at the time of the non-maskable interrupt, indicating that the CSRR0/1 registers had not yet been
+saved. Critical class and machine check interrupt handlers should save the state of CSRR0/1 and then set
+MSR[RI] to ‘1’ as soon as is practical to ensure the best chance of recovery from a non-maskable interrupt.
+
+5.7.3        Data Storage Interrupt (IVOR2)
+A Data Storage interrupt (DSI) may occur if no higher priority exception exists and one of the following
+exception conditions exists:
+   • External Termination Error (precise) and MSR[EE]=1
+ Precise external termination errors occur when a load or store is terminated by assertion of p_tea_b
+(ERROR termination response). See Section 6.2, “Internal Interface Signals,” for a definition of internal
+signals.
+Table 5-10 lists register settings when a DSI is taken.
+                               Table 5-10. Data Storage Interrupt—Register Settings
+
+ Register                                                   Setting Description
+
+SRR0        Set to the effective address of the excepting load/store instruction.
+
+SRR1        Set to the contents of the MSR at the time of the interrupt
+
+MSR         UCLE 0                                      FP 0                                 FE1 0
+            WE 0                                        ME —                                 IS 0
+            CE —                                        FE0 0                                DS 0
+            EE 0                                        DE —                                 RI —
+            PR 0
+
+ESR         Access:                                     [ST], [VLEMI]. All other bits cleared.
+            External Termination Error (Precise):       [ST], [VLEMI], XTE. All other bits cleared.
+
+MCSR        Unchanged
+
+DEAR        For Access exceptions, set to the effective address of a byte within the page whose access caused the violation.
+
+Vector      IVPR0:19 || 12’h020
+
+
+
+                               e200z0 Power Architecture Core Reference Manual, Rev. 0
+Freescale Semiconductor                                                                                                   5-13
+Interrupts and Exceptions
+
+
+5.7.4           Instruction Storage Interrupt (IVOR3)
+An Instruction Storage interrupt (ISI) occurs when no higher priority exception exists and a precise
+external termination error occurs when an instruction fetch is terminated by assertion of p_tea_b (ERROR
+termination response) and MSR[EE]=1. See Section 6.2, “Internal Interface Signals,” for a definition of
+internal signals.
+Table 5-11 lists register settings when an ISI is taken.
+                            Table 5-11. Instruction Storage Interrupt—Register Settings
+
+        Register                                             Setting Description
+
+       SRR0        Set to the effective address of the excepting instruction.
+
+       SRR1        Set to the contents of the MSR at the time of the interrupt
+
+       MSR         UCLE 0                              FP 0                              FE1 0
+                   WE 0                                ME —                              IS 0
+                   CE —                                FE0 0                             DS 0
+                   EE 0                                DE —                              RI —
+                   PR 0
+
+       ESR         XTE, VLEMI. All other bits cleared.
+
+       MCSR        Unchanged
+
+       DEAR        Unchanged
+
+       Vector      IVPR0:19 || 12’h030
+
+
+5.7.5           External Input Interrupt (IVOR4)
+An External Input exception is signalled to the processor by the assertion of the external interrupt pin
+(p_extint_b). The p_extint_b input is a level-sensitive signal expected to remain asserted until e200
+acknowledges the external interrupt. If p_extint_b is negated early, recognition of the interrupt request is
+not guaranteed. When e200 detects the exception, if the exception is enabled by MSR[EE], e200 takes the
+External Input interrupt.
+An External Input interrupt may be delayed by other higher priority exceptions or if MSR[EE] is cleared
+when the exception occurs.
+Table 5-12 lists register settings when an External Input interrupt is taken.
+                                Table 5-12. External Input Interrupt—Register Settings
+
+        Register                                             Setting Description
+
+       SRR0        Set to the effective address of the instruction that the processor would have attempted to execute next
+                   if no exception conditions were present.
+
+       SRR1        Set to the contents of the MSR at the time of the interrupt
+
+       MSR         UCLE 0                              FP 0                              FE1 0
+                   WE 0                                ME —                              IS 0
+                   CE —                                FE0 0                             DS 0
+                   EE 0                                DE —                              RI —
+                   PR 0
+
+
+                                 e200z0 Power Architecture Core Reference Manual, Rev. 0
+5-14                                                                                                  Freescale Semiconductor
+                                                                                                     Interrupts and Exceptions
+
+
+                      Table 5-12. External Input Interrupt—Register Settings (continued)
+
+     ESR         Unchanged
+
+     MCSR        Unchanged
+
+     DEAR        Unchanged
+
+     Vector      IVPR0:19 || 12’h040 (autovectored)
+                 IVPR0:19 || p_voffset[0:9] || 2’b00 (non-autovectored)
+
+
+
+IVOR4 is the vector offset value used by autovectored External Input interrupts to determine the interrupt
+handler location. e200 also provides the capability to directly vector External Input interrupts to multiple
+handlers by allowing a External Input interrupt request to be accompanied by a vector offset. The
+p_voffset[0:9] input signals are appended with 2’b00 and used in place of the IVOR4 value when an
+External Input interrupt request is not autovectored (p_avec_b negated when p_extint_b asserted).
+
+5.7.6         Alignment Interrupt (IVOR5)
+e200 implements the Alignment Interrupt as defined by Power Architecture Book E. An Alignment
+exception is generated when any of the following occurs:
+   • The operand of e_lmw or e_stmw not word aligned
+   • The operand of lwarx or stwcx. not word aligned
+Execution of a dcbz instruction is attemptedTable 5-13 lists register settings when an alignment interrupt
+is taken.
+
+                                Table 5-13. Alignment Interrupt—Register Settings
+
+      Register                                             Setting Description
+
+     SRR0        Set to the effective address of the excepting load/store instruction.
+     SRR1        Set to the contents of the MSR at the time of the interrupt
+     MSR         UCLE 0                                 FP 0                             FE1 0
+                 WE 0                                   ME —                             IS 0
+                 CE —                                   FE0 0                            DS 0
+                 EE 0                                   DE —                             RI —
+                 PR 0
+     ESR         [ST], VLEMI. All other bits cleared.
+     MCSR        Unchanged
+     DEAR        Set to the effective address of a byte of the load or store whose access caused the violation.
+     Vector      IVPR 0:19 || 12’h050
+
+
+5.7.7         Program Interrupt (IVOR6)
+e200 implements the Program Interrupt as defined by Power Architecture Book E. A program interrupt
+occurs when no higher priority exception exists and one or more of the following exception conditions
+defined in Power Architecture Book E occur:
+
+                              e200z0 Power Architecture Core Reference Manual, Rev. 0
+Freescale Semiconductor                                                                                                  5-15
+Interrupts and Exceptions
+
+
+       •     Illegal Instruction exception
+       •     Privileged Instruction exception
+       •     Trap exception
+       •     Unimplemented Operation exception
+e200 invokes an Illegal Instruction program exception on attempted execution of the following
+instructions:
+    • Instruction from the illegal instruction class
+    • mtspr and mfspr instructions with an undefined SPR specified
+    • mtdcr and mfdcr instructions with an undefined DCR specified
+e200 invokes a Privileged Instruction program exception on attempted execution of the following
+instructions when MSR[PR]=1 (user mode):
+    • A privileged instruction
+    • mtspr and mfspr instructions which specify a SPRN value with SPRN5=1 (even if the SPR is
+        undefined).
+e200 invokes an Trap exception on execution of tw instructions if the trap conditions are met and the
+exception is not also enabled as a Debug interrupt.
+All other defined or allocated instructions that are not implemented by e200 cause a illegal instruction
+program exception.
+Table 5-14 lists register settings when a Program interrupt is taken.
+
+                                      Table 5-14. Program Interrupt—Register Settings
+
+           Register                                             Setting Description
+
+           SRR0       Set to the effective address of the excepting instruction.
+           SRR1       Set to the contents of the MSR at the time of the interrupt
+           MSR        UCLE 0                              FP 0                              FE1 0
+                      WE 0                                ME —                              IS 0
+                      CE —                                FE0 0                             DS 0
+                      EE 0                                DE —                              RI —
+                      PR 0
+           ESR        Illegal:                            PIL, VLEMI. All other bits cleared.
+                      Privileged:                         PPR, VLEMI. All other bits cleared.
+                      Trap:                               PTR, VLEMI. All other bits cleared.
+                      Unimplemented:                      PUO, VLEMI. All other bits cleared.
+           MCSR       Unchanged
+           DEAR       Unchanged
+           Vector     IVPR 0:19 || 12’h060
+
+
+
+
+                                   e200z0 Power Architecture Core Reference Manual, Rev. 0
+5-16                                                                                                Freescale Semiconductor
+                                                                                                  Interrupts and Exceptions
+
+
+5.7.8         System Call Interrupt (IVOR8)
+A System Call interrupt occurs when a System Call (se_sc) instruction is executed and no higher priority
+exception exists.
+Exception extensions implemented in e200 for Power Architecture VLE include modification of the
+System Call Interrupt definition to include updating the ESR.
+Table 5-15 lists register settings when a System Call interrupt is taken.
+
+                               Table 5-15. System Call Interrupt—Register Settings
+
+      Register                                              Setting Description
+
+     SRR0        Set to the effective address of the instruction following the sc instruction.
+     SRR1        Set to the contents of the MSR at the time of the interrupt
+     MSR         UCLE 0                              FP 0                                 FE1 0
+                 WE 0                                ME —                                 IS 0
+                 CE —                                FE0 0                                DS 0
+                 EE 0                                DE —                                 RI —
+                 PR 0
+     ESR         VLEMI All other bits cleared.
+     MCSR        Unchanged
+     DEAR        Unchanged
+     Vector      IVPR 0:19 || 12’h080
+
+
+
+5.7.9         Auxiliary Processor Unavailable Interrupt (IVOR9)
+An Auxiliary Processor Unavailable exception is defined by Power Architecture Book E to occur when an
+attempt is made to execute an APU instruction which is implemented but configured as unavailable, and
+no higher priority exception condition exists.
+e200 does not utilize this interrupt.
+
+5.7.10        Debug Interrupt (IVOR15)
+e200 implements the Debug Interrupt as defined in Power Architecture Book E with the following
+changes:
+   • When the Debug APU is enabled, Debug is no longer a critical interrupt, but uses DSRR0 and
+       DSRR1 for saving machine state on context switch
+   • A Return from debug interrupt instruction (se_rfdi) is implemented to support the new machine
+       state registers
+   • A Critical Interrupt Taken debug event is defined to allow critical interrupts to generate a debug
+       event
+   • A Critical Return debug event is defined to allow debug events to be generated for se_rfci
+       instructions
+
+
+                               e200z0 Power Architecture Core Reference Manual, Rev. 0
+Freescale Semiconductor                                                                                               5-17
+Interrupts and Exceptions
+
+
+There are multiple sources that can signal a Debug exception. A Debug interrupt occurs when no higher
+priority exception exists, a Debug exception exists in the Debug Status Register, and Debug interrupts are
+enabled (both DBCR0[IDM]=1 (internal debug mode) and MSR[DE]=1). Enabling debug events and
+other debug modes are discussed further in Chapter 8, “Debug Support.” With the Debug APU enabled,
+(See Section 2.3.9, “Hardware Implementation Dependent Register 0 (HID0)”) the Debug interrupt has its
+own set of machine state save/restore registers (DSRR0, DSRR1) to allow debugging of both critical and
+non-critical interrupt handlers. In addition, the capability is provided to allow interrupts to be handled
+while in a debug software handler. External and Critical interrupts are not automatically disabled when a
+Debug interrupt occurs but can be configured to be cleared via the HID0 register (HID0[DCLREE,
+DCLRCE]). Refer to Section 2.3.9, “Hardware Implementation Dependent Register 0 (HID0).” When the
+Debug APU is disabled, Debug interrupts use the CSRR0 and CSRR1 registers to save machine state.
+An Instruction Address Compare (IAC) debug exception occurs when there is an instruction address match
+as defined by the debug control registers and Instruction Address Compare events are enabled. This could
+either be a direct instruction address match or a selected set of instruction addresses. IAC has the highest
+interrupt priority of all instruction-based interrupts, even if the instruction itself may have encountered an
+Instruction Storage exception.
+A Branch Taken (BRT) debug exception is signalled when a branch instruction is considered taken by the
+branch unit and branch taken events are enabled. The Debug interrupt is taken when no higher priority
+exception is pending.
+A Data Address Compare (DAC) exception is signalled when there is a data access address match as
+defined by the debug control registers and Data Address Compare events are enabled. This could either be
+a direct data address match or a selected set of data addresses. The Debug interrupt is taken when no higher
+priority exception is pending.
+e200 does not implement the Data Value Compare debug mode, specified in Power Architecture Book E.
+The e200 implementation provides IAC linked with DAC exceptions. This results in a DAC exception
+only if one or more IAC conditions are also met. See Chapter 8, “Debug Support,” for more details.
+A Trap (TRAP) debug exception occurs when a program trap exception is generated while trap events are
+enabled. If MSR[DE] is set, the Debug exception has higher priority than the Program exception in this
+case, and is taken instead of a Trap type Program Interrupt. The Debug interrupt is taken when no higher
+priority exception is pending. If MSR[DE] is cleared when a trap debug exception occurs, a Trap exception
+type Program interrupt occurs instead.
+A Return (RET) debug exception occurs when executing an se_rfi instruction and return debug events are
+enabled. Return debug exceptions are not generated for se_rfci or se_rfdi instructions. If MSR[DE]=1 at
+the time of the execution of the se_rfi, a Debug interrupt occurs provided there exists no higher priority
+exception which is enabled to cause an interrupt. CSRR0 (Debug APU disabled) or DSRR0 (Debug APU
+enabled) is set to the address of the se_rfi instruction. If MSR[DE]=0 at the time of the execution of the
+se_rfi, a Debug interrupt does not occur immediately, but the event is recorded by setting the DBSR[RET]
+and DBSR[IDE] status bits.
+A Critical Return (CRET) debug exception occurs when executing an se_rfci instruction and critical return
+debug events are enabled. Critical return debug exceptions are only generated for se_rfci instructions. If
+MSR[DE]=1 at the time of the execution of the se_rfci, a Debug interrupt occurs provided there exists no
+
+                            e200z0 Power Architecture Core Reference Manual, Rev. 0
+5-18                                                                                    Freescale Semiconductor
+                                                                                                       Interrupts and Exceptions
+
+
+higher priority exception which is enabled to cause an interrupt. CSRR0 (Debug APU disabled) or DSRR0
+(Debug APU enabled) is set to the address of the se_rfci instruction. If MSR[DE]=0 at the time of the
+execution of the se_rfci, a Debug interrupt does not occur immediately, but the event is recorded by setting
+the DBSR[CRET] and DBSR[IDE] status bits. Note that critical return debug events should not normally
+be enabled unless the Debug APU is enabled to avoid corruption of CSRR0/1.
+An Instruction Complete (ICMP) debug exception is signalled following execution and completion of an
+instruction while this event is enabled.
+A mtmsr or mtdbcr0 which causes both MSR[DE] and DBCR0[IDM] to end up set, enabling precise
+debug mode, may cause an Imprecise (Delayed) Debug exception to be generated due to an earlier
+recorded event in the Debug Status register.
+An Interrupt Taken (IRPT) debug exception occurs when a non-critical interrupt context switch is detected.
+This exception is imprecise and unordered with respect to the program flow. Note that an IRPT Debug
+interrupt only occurs when detecting a non-critical interrupt on e200. The value saved in CSRR0/DSRR0
+is the address of the non-critical interrupt handler.
+A Critical Interrupt Taken (CIRPT) debug exception occurs when a critical interrupt context switch is
+detected. This exception is imprecise and unordered with respect to the program flow. Note that a CIRPT
+Debug interrupt only occurs when detecting a critical interrupt on e200. The value saved in
+CSRR0/DSRR0 is the address of the critical interrupt handler. Note that Critical Interrupt Taken debug
+events should not normally be enabled unless the Debug APU is enabled to avoid corruption of CSRR0/1.
+An Unconditional Debug Event (UDE) exception occurs when the Unconditional Debug Event pin
+(p_ude) transitions to the asserted state.
+External Debug exceptions occur when enabled and one of the External Debug Event pins (p_devt1,
+p_devt2) transitions to the asserted state.
+The Debug Status Register (DBSR) provides a syndrome to differentiate between debug exceptions that
+can generate the same interrupt. For more details see Chapter 8, “Debug Support.”
+Table 5-16 lists register settings when a Debug interrupt is taken.
+
+                                  Table 5-16. Debug Interrupt—Register Settings
+
+ Register                                                  Setting Description
+
+ CSRR0/     Set to the effective address of the excepting instruction for IAC, BRT, RET, CRET, and TRAP.
+ DSRR01     Set to the effective address of the next instruction to be executed following the excepting instruction for DAC and
+            ICMP.
+            For a UDE, IRPT, CIRPT, DCNT, or DEVT type exception, set to the effective address of the instruction that the
+            processor would have attempted to execute next if no exception conditions were present.
+ CSRR1/     Set to the contents of the MSR at the time of the interrupt
+ DSRR1
+ MSR        UCLE 0                                  FP 0                                   FE1 0
+            WE 0                                    ME —                                   IS 0
+            CE —/02                                 FE0 0                                  DS 0
+            EE —/02                                 DE 0                                   RI —/02,3
+            PR 0
+
+
+
+                              e200z0 Power Architecture Core Reference Manual, Rev. 0
+Freescale Semiconductor                                                                                                     5-19
+Interrupts and Exceptions
+
+
+                            Table 5-16. Debug Interrupt—Register Settings (continued)
+ DBSR4       Unconditional Debug Event:              UDE
+             Instr. Complete Debug Event:            ICMP
+             Branch Taken Debug Event:               BRT
+             Interrupt Taken Debug Event:            IRPT
+             Critical Interrupt Taken Debug Event:   CIRPT
+             Trap Instruction Debug Event:           TRAP
+             Instruction Address Compare:            {IAC1, IAC2, IAC3, IAC4}
+             Data Address Compare:                   {DAC1R, DAC1W, DAC2R, DAC2W}
+             Return Debug Event:                     RET
+             Critical Return Debug Event:            CRET
+             External Debug Event:                   {DEVT1, DEVT2}
+             and optionally, an
+             Imprecise Debug Event flag              {IDE}
+ ESR         Unchanged
+ MCSR        Unchanged
+ DEAR        Unchanged
+ Vector      IVPR 0:19 || 12’h0F0
+1
+  Assumes that the Debug interrupt is precise
+2
+  Conditional based on control bits in HID0. If HID0[DAPUEN] = 1, RI is unaffected because DSRR0/1 are used, otherwise it is
+  cleared because CSRR0/1 are updated.
+3 RI is cleared by all critical class interrupts using CSRR0/1 and the machine check interrupt. These interrupt handlers should
+
+  set RI to ‘1’ early in the handler after CSRR0/1 have been saved to allow for improved recoverability.
+4 Note that multiple DBSR bits may be set
+
+
+
+
+5.7.11        System Reset Interrupt
+e200 implements the System Reset interrupt as defined in Power Architecture Book E. The System Reset
+exception is a non-maskable, asynchronous exception signalled to the processor through the assertion of
+system-defined signals.
+A System reset may be initiated by either asserting the p_reset_b input signal, during power-on reset by
+asserting m_por, by Watchdog Timer Reset Control, or by Debug Reset Control. The m_por signal must
+be asserted during power up and must remain asserted for a period that allows internal logic to be reset.
+The p_reset_b signal must also remain asserted for a period that allows internal logic to be reset. This
+period is specified in the hardware specifications. If m_por or p_reset_b are asserted for less than the
+required interval, the results are not predictable.
+When a reset request occurs, the processor branches to the system reset exception vector (value on
+p_rstbase[0:29] concatenated with 2’b00) without attempting to reach a recoverable state. If reset occurs
+during normal operation, all operations cease and the machine state is lost. e200 internal state after a reset
+is defined in Section 2.4.4, “Reset Settings.”
+For reset initiated by Debug Reset Control, e200 implements DBSR[MRR] to aid software in determining
+the cause. Debug Reset Control provides the capability to assert the p_resetout_b signal. External logic
+may factor this signal into the p_reset_b input signal to cause a e200 reset to occur.
+
+
+
+                                e200z0 Power Architecture Core Reference Manual, Rev. 0
+5-20                                                                                                 Freescale Semiconductor
+                                                                                                    Interrupts and Exceptions
+
+
+Table 5-17 shows the DBSR register bits associated with reset status.
+                                          Table 5-17. DBSR Most Recent Reset
+
+         Bit(s)   Name                                             Function
+
+          2:3     MRR       00 No reset occurred because these bits were last cleared by software
+        (34:35)             01 A reset occurred because these bits were last cleared by software
+                            10 Reserved
+                            11 Reserved
+
+Table 5-18 lists register settings when a System Reset interrupt is taken.
+
+                                Table 5-18. System Reset Interrupt—Register Settings
+
+      Register                                             Setting Description
+
+      CSRR0       Undefined.
+      CSRR1       Undefined.
+      MSR         UCLE 0                             FP 0                              FE1 0
+                  WE 0                               ME 0                              IS 0
+                  CE 0                               FE0 0                             DS 0
+                  EE 0                               DE 0                              RI 0
+                  PR 0
+      ESR         Cleared
+      DEAR        Undefined
+      Vector      [p_rstbase[0:29]] || 2’b00
+
+
+
+5.8         Exception Recognition and Priorities
+The following list of exception categories describes how e200 handles exceptions up to the point of
+signaling the appropriate interrupt to occur. Also, instruction completion is defined as updating all
+architectural registers associated with that instruction as necessary, and then removing the instruction from
+the pipeline.
+    • Interrupts caused by asynchronous events (exceptions). These exceptions are further distinguished
+        by whether they are maskable and recoverable.
+        — Asynchronous, non-maskable, non-recoverable:
+            System reset by assertion of p_reset_b
+               Has highest priority and is taken immediately regardless of other pending exceptions or
+               recoverability. (Includes Debug Reset Control)
+        — Asynchronous, non-maskable, possibly non-recoverable:
+            Non-maskable interrupt by assertion of p_nmi_b
+               Has priority over any other pending exception except system reset conditions.
+               Recoverability is dependent on whether CSRR0/1 are holding essential state info and are
+               overwritten when the NMI occurs.
+        — Asynchronous, maskable, possibly non-recoverable:
+
+
+                                 e200z0 Power Architecture Core Reference Manual, Rev. 0
+Freescale Semiconductor                                                                                                 5-21
+Interrupts and Exceptions
+
+
+               Machine check interrupt
+                  Has priority over any other pending exception except system reset conditions.
+                  Recoverability is dependent on the source of the exception. Typically unrecoverable.
+           — Asynchronous, maskable, recoverable:
+               External Input, Critical Input, Unconditional Debug, and External Debug Event interrupts
+                  Before handling this type of exception, the processor needs to reach a recoverable state. A
+                  maskable recoverable exception remains pending until taken or cancelled by software.
+       •   Synchronous, non instruction-based interrupts. The only exception is this category is the Interrupt
+           Taken debug exception, recognized by an interrupt taken event. It is not considered
+           instruction-based but is synchronous with respect to the program flow.
+           — Synchronous, maskable, recoverable:
+               Interrupt Taken debug event.
+                  The machine is in a recoverable state due to the state of the machine at the context switch
+                  triggering this event.
+       •   Instruction-based interrupts. These interrupts are further organized by the point in instruction
+           processing in which they generate an exception.
+           — Instruction Fetch:
+               Instruction Storage and Instruction Address Compare debug exceptions.
+                  Once these types of exceptions are detected, the excepting instruction is tagged. When the
+                  excepting instruction is next to begin execution and a recoverable state has been reached,
+                  the interrupt is taken. If an event prior to the excepting instruction causes a redirection of
+                  execution, the instruction fetch exception is discarded (but may be encountered again).
+           — Instruction Dispatch/Execution:
+               Program, System Call, Data Storage, Alignment, Debug (Trap, Branch Taken, Ret) interrupts.
+                  These types of exceptions are determined during decode or execution of an instruction. The
+                  exception remains pending until all instructions before the exception causing instruction in
+                  program order complete. The interrupt is then taken without completing the
+                  exception-causing instruction. If completing previous instructions causes an exception, that
+                  exception takes priority over the pending instruction dispatch/execution exception, which is
+                  discarded (but may be encountered again when instruction processing resumes).
+           — Post-Instruction Execution
+               Debug (Data Address Compare, Instruction Complete) interrupt.
+                  These Debug exceptions are generated following execution and completion of an instruction
+                  while the event is enabled. If executing the instruction produces conditions for another type
+                  of exception with higher priority, that exception is taken and the post-instruction exception
+                  is discarded for the instruction (but may be encountered again when instruction processing
+                  resumes)
+
+
+
+
+                              e200z0 Power Architecture Core Reference Manual, Rev. 0
+5-22                                                                                      Freescale Semiconductor
+                                                                                                       Interrupts and Exceptions
+
+
+5.8.1        Exception Priorities
+Exceptions are prioritized as described in Table 5-19. Some exceptions may be masked or imprecise,
+which affect their priority. Non-maskable exceptions such as reset and machine check may occur at any
+time and are not delayed even if an interrupt is being serviced, thus state information for any interrupt may
+be lost. Reset and most machine checks are non-recoverable.
+
+                                        Table 5-19. e200 Exception Priorities
+
+ Priority       Exception                                                Cause                                           IVOR
+
+                                                Asynchronous Exceptions
+
+    0          System reset        Assertion of p_reset_b or Debug Reset Control                                         none
+              Machine check        Assertion of p_mcp_b, exception on fetch of first instruction of an interrupt
+    1                              handler, bus error on buffered store, Bus error (XTE) with MSR[EE]=0 and current       1
+                                   MSR[ME]=13, assertion of p_nmi_b
+    2               —                                                      —                                              —
+             Debug:
+             1. UDE                  1. Assertion of p_ude (Unconditional Debug Event)
+             2. DEVT1                2. Assertion of p_devt1 and event enabled (External Debug Event 1)
+             3. DEVT2                3. Assertion of p_devt2 and event enabled (External Debug Event 2)
+   31                                                                                                                     15
+             4. DCNT12               4. Debug Counter 1 exception
+             5. DCNT22               5. Debug Counter 2 exception
+             6. IDE                  6. Imprecise Debug Event (event imprecise due to previous higher priority
+                                        interrupt
+   41          Critical Input      Assertion of p_critint_b                                                               0
+   51,2      Watchdog Timer        Watchdog Timer first enabled time-out                                                  12
+   61          External Input      Assertion of p_extint_b                                                                4
+            Fixed-Interval Timer   Posting of a FIT exception in TSR due to programmer-specified bit transition in the
+   71,2                                                                                                                   11
+                                   Time Base register
+               Decrementer         Posting of a Decrementer exception in TSR due to programmer-specified
+   81,2                                                                                                                   10
+                                   Decrementer condition
+
+                                              Instruction Fetch Exceptions
+
+                 Debug:            Instruction address compare match for enabled IAC debug event and
+    9                                                                                                                     15
+              IAC (unlinked)       DBCR0[IDM] asserted
+   102          ITLB Error         Instruction translation lookup miss in the TLB                                         14
+            Instruction Storage      1. Access control. (unused on Zen Z0n2pZen Z0Hn2p)
+   11                                2. Precise external termination error (p_tea_b assertion and precise                 3
+                                        recognition) and MSR[EE]=1
+
+                                       Instruction Dispatch/Execution Interrupts
+
+                 Program:
+   12                                                                                                                     6
+                  Illegal          Attempted execution of an illegal instruction.
+                 Program:
+   13                                                                                                                     6
+                 Privileged        Attempted execution of a privileged instruction in user-mode
+
+
+
+                                e200z0 Power Architecture Core Reference Manual, Rev. 0
+Freescale Semiconductor                                                                                                    5-23
+Interrupts and Exceptions
+
+
+                                   Table 5-19. e200 Exception Priorities (continued)
+
+ Priority         Exception                                              Cause                                       IVOR
+
+                Floating-point      Any floating-point unavailable exception condition.
+   142                                                                                                                7
+                 Unavailable
+                  Program:
+    15                                                                                                                6
+               Unimplemented        Attempted execution of an unimplemented instruction.
+              Debug:
+              1. BRT                  1. Attempted execution of a taken branch instruction
+              2. Trap                 2. Condition specified in tw instruction met.
+    16        3. RET                  3. Attempted execution of a se_rfi instruction.                                 15
+              4. CRET                 4. Attempted execution of an se_rfci instruction.
+                                      Note: Exceptions requires corresponding debug event enabled, MSR[DE]=1,
+                                      and DBCR0[IDM]=1.
+                  Program:
+                                                                                                                      15
+    17              Trap            Condition specified in tw instruction met and not trap debug.
+                 System Call        Execution of the System Call (se_sc) instruction.                                 8
+                  Alignment         lmw, stmw, lwarx, or stwcx. not word aligned.
+    18                                                                                                                5
+                                    dcbz with cache disabled or not present
+              Debug with
+              concurrent DSI        Debug with concurrent DSI exception. DBSR[IDE] also set.
+              exception:
+              1. DAC/IAC linked3    Data Address Compare linked with Instruction Address Compare
+    19        2. DAC unlinked3      Data Address Compare unlinked                                                     15
+                                    Note: Exceptions requires corresponding debug event enabled, MSR[DE]=1, and
+                                    DBCR0[IDM]=1. In this case, the Debug exception is considered imprecise, and
+                                    DBSR[IDE] is set. Saved PC points to the load or store instruction causing the
+                                    DAC event.
+   202         Data TLB Error       Data translation lookup miss in the TLB.                                          13
+                Data Storage          1. Access control. (unused on Zen Z0n2pZen Z0Hn2p)
+    21                                2. Precise external termination error (p_tea_b assertion and precise            2
+                                         recognition) and MSR[EE]=1
+  222,4       Alignment             dcbz to W=1 or I=1 storage with cache enabled                                     5
+              Debug:
+              1. IRPT                 1. Interrupt taken (non-critical)
+    23        2. CIRPT                2. Critical Interrupt taken (critical only)                                     15
+                                      Note: Exceptions requires corresponding debug event enabled, MSR[DE]=1,
+                                      and DBCR0[IDM]=1.
+
+
+
+
+                                 e200z0 Power Architecture Core Reference Manual, Rev. 0
+5-24                                                                                                Freescale Semiconductor
+                                                                                                             Interrupts and Exceptions
+
+
+                                     Table 5-19. e200 Exception Priorities (continued)
+
+    Priority       Exception                                                  Cause                                             IVOR
+
+                                              Post-Instruction Execution Exceptions
+
+                Debug:
+                1. DAC/IAC linked3       1. Data Address Compare linked with Instruction Address Compare
+                2. DAC unlinked3         2. Data Address Compare unlinked
+      24                                 Notes: Exceptions requires corresponding debug event enabled, MSR[DE]=1,                 15
+                                         and DBCR0[IDM]=1. Saved PC points to the instruction following the load or
+                                         store instruction causing the DAC event.
+
+
+                Debug:
+                1. ICMP                  1. Completion of an instruction.
+      25                                                                                                                          15
+                                         Note: Exceptions requires corresponding debug event enabled, MSR[DE]=1,
+                                         and DBCR0[IDM]=1.
+1
+  These exceptions are sampled at instruction boundaries, thus may actually occur after exceptions which are due to a currently
+  executing instruction. If one of these exceptions occurs during execution of an instruction in the pipeline, it is not processed until
+  the pipeline has been flushed, and the exception associated with the excepting instruction may occur first.
+2 Unused on Zen Z0n2p and Zen Z0Hn2p
+3 When no Data Storage Interrupt or Data TLB Error occurs, e200 implements the data address compare debug exceptions as
+
+  post-instruction exceptions which differs from the Power Architecture Book E definition. When a TEA (either a DTLB error or
+  DSI, or a Machine Check (if MSR[EE]=0)) occurs in conjunction with an enabled DAC or linked DAC/IAC on a load or store class
+  instruction, the Debug Interrupt takes priority, and the saved PC value points to the load or store class instruction, rather than
+  to the next instruction. In addition, the MMU MAS registers are updated due to the DTLB event.
+4 Unused on cacheless cores
+
+
+
+
+5.9            Interrupt Processing
+When an interrupt is taken, the processor uses SRR0/SRR1 for non-critical interrupts, CSRR0/CSRR1 for
+critical and machine check interrupts, and either CSRR0/CSRR1 or DSRR0/DSRR1 for debug interrupts
+to save the contents of the MSR and to assist in identifying where instruction execution should resume after
+the interrupt is handled.
+When an interrupt occurs, one of SRR0/CSRR0/DSRR0 is set to the address of the instruction that caused
+the exception, or to the following instruction if appropriate.
+SRR1 is used to save machine state (selected MSR bits) on non-critical interrupts and to restore those
+values when an se_rfi instruction is executed. CSRR1 is used to save machine status (selected MSR bits)
+on critical interrupts and to restore those values when an se_rfci instruction is executed. DSRR1 is used
+to save machine status (selected MSR bits) on debug interrupts when the Debug APU is enabled and to
+restore those values when an se_rfdi instruction is executed.
+The Exception Syndrome register is loaded with information specific to the exception type. Some interrupt
+types can only be caused by a single exception type, and thus do not use an ESR setting to indicate the
+interrupt cause.
+
+
+
+
+                                  e200z0 Power Architecture Core Reference Manual, Rev. 0
+Freescale Semiconductor                                                                                                            5-25
+Interrupts and Exceptions
+
+
+The Machine State register is updated to preclude unrecoverable interrupts from occurring during the
+initial portion of the interrupt handler. Specific settings are described in Table 5-20.
+For Alignment or Data Storage interrupts, the Data Exception Address Register (DEAR) is loaded with the
+address which caused the interrupt to occur.
+For Machine Check interrupts, the Machine Check Syndrome register is loaded with information specific
+to the exception type.
+Instruction fetch and execution resumes, using the new MSR value, at a location specific to the exception
+type. The location is determined by the Interrupt Vector Prefix Register (IVPR), and an Interrupt Vector
+Offset Register (IVOR) value specific for each type of interrupt (see Table 5-2).
+Table 5-20 shows the MSR settings for different interrupt categories.
+                                          Table 5-20. MSR Setting Due to Interrupt
+
+                                      MSR        Reset     Non-Critical     Critical
+                         Bit(s)                                                        Debug Interrupt
+                                    Definition   Setting    Interrupt      Interrupt
+
+                         5 (37)       UCLE          0           0              0                  0
+
+                         13 (45)       WE           0           0              0                  0
+
+                         14 (46)        CE          0           —              0             —/01
+
+                         16 (48)        EE          0           0              0             —/01
+
+                         17 (49)        PR          0           0              0                  0
+
+                         18 (50)        FP          0           0              0                  0
+
+                         19 (51)        ME          0           —              —              —
+
+                         20 (52)       FE0          0           0              0                  0
+
+                         22 (54)        DE          0           —            —/01                 0
+
+                         23 (55)       FE1          0           0              0                  0
+
+                         26 (58)        IS          0           0              0                  0
+
+                         27 (59)        DS          0           0              0                  0
+
+                     30 (62)            RI          0           —              0             —/02
+
+                                   Reserved and preserved bits are unimplemented and read as 0.
+                     1
+                          Conditionally cleared based on control bits in HID0
+                     2
+                          Cleared if the Debug APU is disabled, otherwise unaffected
+
+
+5.9.1         Enabling and Disabling Exceptions
+When a condition exists that may cause an exception to be generated, it must be determined whether the
+exception is enabled for that condition.
+   • System reset exceptions cannot be masked.
+   • A machine check exception can occur only if the machine check enable bit (MSR[ME]) is set, or
+       if a non-maskable interrupt is received. If MSR[ME] is cleared, the processor goes directly into
+       checkstop state when a machine check exception condition occurs, unless the machine check is the
+
+                                   e200z0 Power Architecture Core Reference Manual, Rev. 0
+5-26                                                                                                  Freescale Semiconductor
+                                                                                       Interrupts and Exceptions
+
+
+        result of a non-maskable interrupt. Individual machine check exceptions (other than non-maskable
+        interrupts) can be enabled and disabled through bit(s) in the HID0 register.
+    •   Asynchronous, maskable non-critical exceptions (such as the External Input) are enabled by setting
+        MSR[EE]. When MSR[EE]=0, recognition of these exception conditions is delayed. MSR[EE] is
+        cleared automatically when a non-critical or critical interrupt is taken to mask further recognition
+        of conditions causing those exceptions.
+    •   Asynchronous, maskable critical exceptions (such as Critical Input) are enabled by setting
+        MSR[CE]. When MSR[CE]=0, recognition of these exception conditions is delayed. MSR[CE] is
+        cleared automatically when a critical interrupt is taken to mask further recognition of conditions
+        causing those exceptions. In addition, MSR[RI] is cleared to indicate that the CSRR0/1 registers
+        contain information essential to exception recovery.
+    •   Synchronous and asynchronous Debug exceptions are enabled by setting MSR[DE]. When
+        MSR[DE]=0, recognition of these exception conditions is masked. MSR[DE] is cleared
+        automatically when a Debug interrupt is taken to mask further recognition of conditions causing
+        those exceptions. See Chapter 8, “Debug Support,” for more details on individual control of debug
+        exceptions.
+
+5.9.2        Returning from an Interrupt Handler
+The return from interrupt (se_rfi), return from critical interrupt (se_rfci) and return from debug interrupt
+(se_rfdi) instructions perform context synchronization by allowing previously-issued instructions to
+complete before returning to the interrupted process. In general, execution of a return instruction ensures
+the following:
+    • All previous instructions have completed to a point where they can no longer cause an exception.
+        This includes post-execute type exceptions.
+    • Previous instructions complete execution in the context (privilege and protection) under which
+        they were issued.
+    • The se_rfi instruction copies SRR1 bits back into the MSR.
+    • The se_rfci instruction copies CSRR1 bits back into the MSR.
+    • The se_rfdi instruction copies DSRR1 bits back into the MSR.
+    • Instructions fetched after this instruction execute in the context established by this instruction.
+    • Program execution resumes at the instruction indicated by SRR0 for se_rfi, CSRR0 for se_rfci and
+        DSRR0 for se_rfdi.
+Note that the return instruction se_rfi may be subject to a Return type debug exception, and that the return
+from critical interrupt instruction se_rfci may be subject to a Critical Return type debug exception. For a
+complete description of context synchronization, refer to Power Architecture Book E Specification.
+
+
+
+
+                           e200z0 Power Architecture Core Reference Manual, Rev. 0
+Freescale Semiconductor                                                                                    5-27
+Interrupts and Exceptions
+
+
+5.10       Process Switching
+The following instructions are useful for restoring proper context during process switching:
+   • The msync instruction orders the effects of data memory instruction execution. All instructions
+       previously initiated appear to have completed before the msync instruction completes, and no
+       subsequent instructions appear to be initiated until the msync instruction completes.
+   • The isync instruction waits for all previous instructions to complete and then discards any fetched
+       instructions, causing subsequent instructions to be fetched (or refetched) from memory and to
+       execute in the context (privilege, translation, and protection) established by the previous
+       instructions.
+   • The stwcx. instructions clears any outstanding reservations, ensuring that a load and reserve
+       instruction in an old process is not paired with a store conditional instruction in a new one.
+
+
+
+
+                            e200z0 Power Architecture Core Reference Manual, Rev. 0
+5-28                                                                                  Freescale Semiconductor

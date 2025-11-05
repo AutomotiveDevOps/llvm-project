@@ -1,0 +1,157 @@
+[TITLE:e200z6 Manual Extracted Data - Critical Specifications]
+
+[INTRO]
+This document contains key specifications extracted directly from the e200z6 Core
+Reference Manual for validation against LLVM implementation.
+
+MANUAL_SOURCE: https://www.elektronikjk.com/elementy_czynne/IC/E200Z6.pdf
+EXTRACTION_DATE: 2025-11-02
+EXTRACTION_METHOD: pdftotext + manual review
+
+[CHAPTER-7-TIMING]
+UID: CH7-TIMING
+
+TITLE: Instruction Timing Specifications
+
+LOCATION: Chapter 7.2.3 (Execution Units)
+
+INTEGER_INSTRUCTIONS:
+- Simple integer (adds, subtracts, compares, shifts, rotates, count leading zeros): 
+  1 cycle latency, single cycle execution
+  
+- Multiply instructions: 
+  Latency: 3 cycles
+  Throughput: 1 per cycle (pipelined)
+  
+- Divide instructions:
+  Latency: Variable 6-16 cycles (data-dependent)
+  Worst case: 16 cycles
+  Throughput: Blocking (pipeline unavailable during divide)
+
+LOAD_STORE_INSTRUCTIONS:
+- Load instructions:
+  Latency: 3 cycles
+  Throughput: 1 per cycle (maximum, pipelined)
+  Note: Load followed by dependent instruction can be fed forward
+  
+- Store instructions:
+  Latency: 3 cycles
+  Throughput: 1 per cycle (maximum, pipelined)
+  Store data can be fed-forward from immediately preceding load (no stall)
+
+BRANCH_INSTRUCTIONS:
+- Conditional branches (not taken): 1 clock cycle
+- Taken branches: 3 clocks (branch target address calculated in parallel with decode)
+- Branches with successful BTB target prefetching: 1 clock cycle (if correctly predicted)
+
+FLOATING_POINT_INSTRUCTIONS (if FPU used):
+- FP operations: Similar latencies to integer operations
+- Single-cycle latencies for most computations except multiply and divide
+
+VALIDATION_STATUS:
+- ✓ Integer simple: 1 cycle - MATCHES
+- ✗ Multiply: 3 cycles - DISCREPANCY (code says 4 cycles)
+- ✗ Divide: 6-16 cycles worst case 16 - DISCREPANCY (code says 34 cycles)
+- ✗ Load: 3 cycles - DISCREPANCY (code says 4 cycles latency)
+- ✗ Store: 3 cycles - DISCREPANCY (code says 4 cycles latency)
+
+[CHAPTER-7-PIPELINE]
+UID: CH7-PIPELINE
+
+TITLE: Pipeline Stages
+
+LOCATION: Chapter 7.2, Figure 7-2
+
+STAGES:
+1. Fetch 0 - Instruction fetch stage 0
+2. Fetch 1 - Instruction fetch stage 1
+3. Decode - Instruction decode/dispatch stage
+4. Execute 0 - Instruction execution stage 0
+5. Execute 1 - Instruction execution stage 1 (feed forward)
+6. Execute 2 - Instruction execution stage 2 (feed forward)
+7. Write Back - Result write back to registers
+
+VALIDATION_STATUS: ✓ MATCHES (partially)
+- Code has: IF, ID, EX, MEM, WB (5 stages modeled)
+- Manual has: IF0, IF1, DECODE, EX0, EX1, EX2, WB (7 stages)
+- Note: Code simplifies to 5 stages, manual shows detailed 7-stage with dual fetch
+- Memory access occurs in MEM stage (e200z6 has separate MEM stage, unlike e200z0)
+
+[CHAPTER-5-INTERRUPTS]
+UID: CH5-INTERRUPTS
+
+TITLE: Interrupt Handling
+
+LOCATION: Chapter 5.6 (Interrupt Definitions)
+
+CRITICAL_INTERRUPT (IVOR0):
+- Uses CSRR0/CSRR1 (Critical Save/Restore Registers)
+- Hardware automatically saves:
+  - CSRR0: Instruction address
+  - CSRR1: MSR contents
+- Return instruction: RFCI (Return From Critical Interrupt)
+
+EXTERNAL_INTERRUPT (IVOR4):
+- Should use SRR0/SRR1 (Standard Save/Restore Registers)
+- Hardware automatically saves:
+  - SRR0: Instruction address (if external interrupt)
+  - SRR1: MSR contents (if external interrupt)
+- Return instruction: RFI (Return From Interrupt)
+
+NOTE: e200z6 manual confirms same pattern as e200z0 and e200z4:
+- Critical interrupts use CSRR0/CSRR1 → RFCI
+- External interrupts use SRR0/SRR1 → RFI
+
+VALIDATION_STATUS: ✓ ALREADY IMPLEMENTED
+LLVM_CURRENT_STATE: Interrupt type differentiation implemented in PPCFrameLowering.cpp
+(shared code for all e200 cores) - verified working for e200z6
+
+[CRITICAL-DISCREPANCIES]
+UID: DISCREPANCIES
+
+DISCREPANCY_001: Multiply Instruction Latency
+Manual: 3 cycles
+Code: 4 cycles (PPCScheduleE200Z6.td:97-102)
+Impact: WCET analysis will be pessimistic (33% slower)
+Priority: HIGH
+
+DISCREPANCY_002: Divide Instruction Latency  
+Manual: 6-16 cycles (worst case 16 cycles)
+Code: 34 cycles (PPCScheduleE200Z6.td:90-94)
+Impact: WCET analysis will be highly pessimistic (2.1x slower)
+Priority: CRITICAL
+
+DISCREPANCY_003: Load Instruction Latency
+Manual: 3 cycles
+Code: 4 cycles latency comment (PPCScheduleE200Z6.td:165-170)
+Impact: WCET analysis will be pessimistic
+Priority: HIGH
+
+DISCREPANCY_004: Store Instruction Latency
+Manual: 3 cycles
+Code: 4 cycles latency comment (PPCScheduleE200Z6.td:188-192)
+Impact: WCET analysis will be pessimistic
+Priority: HIGH
+
+[NEXT-ACTIONS]
+UID: ACTIONS
+
+IMMEDIATE:
+1. Fix instruction latencies to match manual:
+   - Multiply: 3 cycles (currently 4)
+   - Divide: 16 cycles worst case (currently 34)
+   - Load: 3 cycles (currently 4 in comment)
+   - Store: 3 cycles (currently 4 in comment)
+
+2. Verify interrupt type differentiation:
+   - Already implemented in PPCFrameLowering.cpp (shared code)
+   - Critical interrupts → RFCI (CSRR0/CSRR1)
+   - External interrupts → RFI (SRR0/SRR1)
+
+THEN:
+3. Verify pipeline stage modeling (7-stage vs 5-stage simplified model)
+4. Update LoadLatency field comment if needed
+
+FINALLY:
+5. Update WCET analysis tests with correct latencies
+

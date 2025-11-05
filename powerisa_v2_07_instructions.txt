@@ -1,0 +1,46 @@
+Power ISA 2.07 Instruction Inventory
+==================================================
+
+
+Embedded.Cache Debug (II) (2 instructions):
+  DCDBTRL
+  ICDBTRL
+
+Embedded.Cache Debug (III-E) (6 instructions):
+  DCDBTRH
+  DCDBTRL
+  ICDBDR
+  ICDBTRH
+  ICDBTRL
+  ID
+
+Embedded.Performance Monitor (III-E) (1 instructions):
+  SRR1
+
+Unknown (2 instructions):
+  DUIS
+  III
+
+Unknown (I) (2 instructions):
+  CTR
+  LR
+
+Unknown (II) (1 instructions):
+  DCDBTRL
+
+Unknown (V) (15 instructions):
+  BD15
+  BD24
+  ESC
+  EVS
+  EVX
+  I16A
+  I16L
+  IM5
+  IM7
+  LI20
+  OIM5
+  SCI8
+  SD4
+  XFX
+  XOR

@@ -1,0 +1,2 @@
+/usr/bin/ar Dqc ../../../libLLVMDebugInfoDWARFLowLevel.a CMakeFiles/LLVMDebugInfoDWARFLowLevel.dir/DWARFCFIProgram.cpp.o CMakeFiles/LLVMDebugInfoDWARFLowLevel.dir/DWARFExpression.cpp.o CMakeFiles/LLVMDebugInfoDWARFLowLevel.dir/DWARFUnwindTable.cpp.o
+/usr/bin/ranlib -D ../../../libLLVMDebugInfoDWARFLowLevel.a

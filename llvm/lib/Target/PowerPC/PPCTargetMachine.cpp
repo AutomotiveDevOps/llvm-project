@@ -234,6 +234,18 @@ static std::string computeFSAdditions(StringRef FS, CodeGenOptLevel OL,
       FullFS = "+aix";
   }
 
+  // Automatically enable VLE for powerpc-*-eabivle targets
+  if (TT.isPPC() && TT.getEnvironment() == Triple::EABIVLE) {
+    // Only add if not already present (check both +vle and -vle)
+    if (FullFS.find("+vle") == std::string::npos &&
+        FullFS.find("-vle") == std::string::npos) {
+      if (!FullFS.empty())
+        FullFS = "+vle," + FullFS;
+      else
+        FullFS = "+vle";
+    }
+  }
+
   return FullFS;
 }
 

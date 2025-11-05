@@ -1,0 +1,3350 @@
+Chapter 7
+External Core Complex Interfaces
+This chapter describes the external interfaces of the e200z3 core complex. Signal descriptions as well as
+data transfer protocols are documented in the following subsections.
+Section 7.4, “Internal Signals,” describes a number of internal signals that are not directly accessible to
+users, but they are mentioned in various chapters in this manual and aid in understanding the behavior of
+the core.
+
+7.1       Overview
+The external interfaces encompass the following:
+   • Control and data signals supporting instruction and data transfers
+   • Support for interrupts, including vectored interrupt logic
+   • Reset support
+   • Power management interface signals
+   • Debug event signals
+   • Time base control and status information
+   • Processor state information
+   • Nexus 1/3/OnCE/JTAG interface signals
+   • A test interface
+The memory interface that the BIU supports is based on the AMBA AHB-Lite subset of the AMBA 2.0
+AHB, with V6 AMBA extensions. (Ref. documents ARM IHI 0011A, ARM DVI 0044A, and ARM
+PR022-GENC-001011 0.4). Sideband signals, described in this chapter, support additional control
+functions. A 64-bit data bus is implemented. The pipelined memory interface supports read and write
+transfers of 8, 16, 24, 32, and 64 bits, misaligned transfers, burst transfers of four double words, and true
+big- and little-endian operation.
+                                                  NOTE
+                The AMBA AHB bit and byte ordering reflect a natural little-endian
+                ordering that AMBA documentation uses. The BIU automatically performs
+                byte lane conversions to support big-endian transfers. Memories and
+                peripheral devices/interfaces should be wired according to byte lane
+                addresses defined in Table 7-6.
+Single-beat and misaligned transfers are supported for cache-inhibited read and write cycles, and
+write-buffer writes. Burst transfers (double-word–aligned) of 4 double words are supported for cache
+line-fill and copyback operations.
+
+
+                            e200z3 Power Architecture Core Reference Manual, Rev. 2
+Freescale Semiconductor                                                                                   7-1
+External Core Complex Interfaces
+
+
+Misaligned accesses are supported with one or more transfers to the core interface. If an access is
+misaligned but lies within an aligned 64-bit double word, the core performs a single transfer. The memory
+interface delivers (reads) or accepts (writes) the data that corresponds to the size- and byte-enable signals
+aligned according to the 3 low-order address bits. If an access is misaligned and crosses a 64-bit boundary,
+the BIU performs a pair of transfers beginning at the effective address, requesting the original data size
+(either half word or word) for the first transfer, along with appropriate byte enables. For the second
+transfer, the address is incremented to the next 64-bit boundary, and the size and byte enable signals are
+driven to correspond to the number of remaining bytes to be transferred.
+
+7.2        Signal Index
+This section contains an index of the core signals.
+The following prefixes are used for signal mnemonics:
+   • 'm_' denotes master clock and reset signals.
+   • 'p_' denotes processor or core-related signals.
+   • 'j_' denotes JTAG mode signals.
+   • 'jd_' denotes JTAG and debug mode signals.
+   • 'ipt_' denotes scan and test mode signals.
+   • 'nex_' denotes Nexus3 signals.
+                                                     NOTE
+                  The “_b” suffix denotes an active low signal. Signals without the active-low
+                  suffix are active high.
+Figure 7-1 groups core bus and control signals by function.
+
+
+
+
+                                   e200z3 Power Architecture Core Reference Manual, Rev. 2
+7-2                                                                                          Freescale Semiconductor
+                                                                                                  External Core Complex Interfaces
+
+
+
+
+      Address Bus      p_haddr[31:0]                      p_doze, p_nap, p_sleep
+                                                             p_wakeup                         Power
+                       p_[d,i]_hmaster[3:0]
+                                                                                            Management
+                       p_htrans[1:0]                         p_halt, p_stop
+   Transfer Control
+                       p_[d,i]_ hburst[2:0]                  p_halted, p_stopped
+                       p_[d,i]_hbstrb[7:0]
+                       p_[d,i]_hwrite
+          Transfer     p_[d,i]_hprot[5:0]                 p_pstat[0:6], p_brstat[0:1]
+                                                                                            Processor Status
+         Attributes    p_[d,i]_ hsize[1:0]
+                       p_[d,i]_ hunalign
+
+                          p_d_hwdata[63:0]
+         Data Bus         p_[d,i]_hrdata[63:0]
+
+          Transfer        p_[d,i]_hresp[2:0]
+      Termination/        p_[d,i]hready
+            Status
+
+
+                       p_mcp_out
+                                                                                                  nex_evto_b
+                       p_mcp_b
+    Machine Check      p_chkstop                                                                  nex_evti_b
+
+                       p_cpuid[0:7]                                              e200z3           nex_mdo[n:0]       Dev
+                                                                                                                     Support
+     Miscellaneous    p_sysvers[0:31]                                            Nexus3
+                                                 e200z3                                           nex_mcko
+         Processor    p_pvrin[16:31]                                             Module
+            Signals                               CPU                                             nex_mseo_b[1:0]
+                       p_reset_b                                                                  nex_rdy_b
+                       m_por
+            Reset-     p_resetout_b
+           related     p_rstbase[0:19]
+           Signals
+                         p_rst_endmode
+                       p_rst_vlemode
+                       p_rsrv
+       Reservation
+          Signals      p_rsrv_clr                                                                         p_ude
+                       p_tbdisable                                                                       p_devt1
+        Time Base      p_tbclk                                                                           p_devt2
+           Signals     p_tbint
+                                                                                                  JTAG Interface
+                       p_extint_b
+                                                                                                  j_en_once_regsel
+                       p_critint_b                         dbg_dbgrq*
+        Interrupt      p_avec_b                                                                   jd_de_b
+         Signals       p_voffset[0:15]                                           e200z3
+                         p_iack                            cpu_dbgack*                            jd_de_en           Debug
+                                                                                Nexus1                               Support
+                         p_ipend                                                 Module           jd_en_once
+                                                           OnCE Control*
+                                                                              (OnCE/Debug)
+                                                                                                  jd_debug_b
+            Clock      m_clk
+                                                                                                  jd_watchpt[0:n]
+                       p_masterid[3:0]
+          MasterID                                                                                jd_mclk_on
+                      nex_masterid[3:0]
+           Config                                                                                 Test Interface
+                                                          Note:
+                                                             * These signals are internal to the core.
+                                              Figure 7-1. Core Signal Groups
+
+
+                                e200z3 Power Architecture Core Reference Manual, Rev. 2
+Freescale Semiconductor                                                                                                        7-3
+External Core Complex Interfaces
+
+
+Table 7-1 shows core signal function and type, signal definition, and reset value. Signals are presented in
+functional groups.
+                                          Table 7-1. Interface Signal Definitions
+
+        Signal Name       I/O Reset                                             Definition
+
+                                             Clock and Signals Related to Reset
+
+           m_clk           I            Global system clock
+
+           m_por           I            Power-on reset
+
+         p_reset_b         I            Processor reset input
+
+        p_resetout_b      O             Processor reset output
+
+       p_rstbase[0:19]     I            Reset exception handler base address, value to be loaded into TLB entry 0 on reset.
+
+       p_rst_endmode       I            Reset endian mode select, value to be loaded into TLB entry 0 on reset.
+
+       p_rst_vlemode       I            Reset VLE mode select, value to be loaded into TLB entry 0 on reset.
+
+                                                     Memory Interface Signals
+
+      p_i_hmaster[3:0],   O        —    Master ID
+      p_d_hmaster[3:0]
+
+      p_i_haddr[31:0],    O        —    Address bus
+      p_d_haddr[31:0]
+ p_i_hwrite, p_d_hwrite   O         0   Write signal (always driven low for p_i_hwrite)
+
+       p_i_hprot[5:0],    O        —    Protection codes
+       p_d_hprot[5:0]
+       p_i_htrans[1:0],   O        —    Transfer type
+       p_d_htrans[1:0]
+      p_i_hburst[2:0] ,   O        —    Burst type
+      p_d_hburst[2:0]
+       p_i_hsize[1:0],    O        —    Transfer size
+       p_d_hsize[1:0]
+        p_i_hunalign,     O        —    Indicates that the current data access is misaligned
+        p_d_hunalign
+      p_i_hbstrb[7:0] ,   O         0   Byte strobes
+      p_d_hbstrb[7:0]
+      p_i_hrdata[63:0],    I            Read data bus
+      p_d_hrdata[63:0]
+      p_d_hwdata[63:0]    O        —    Write data bus
+
+        p_i_hready,        I            Transfer ready
+        p_d_hready
+       p_i_hresp[2:0],     I            Transfer response
+       p_d_hresp[2:0]
+
+                                               Master ID Configuration Signals
+
+
+
+
+                                   e200z3 Power Architecture Core Reference Manual, Rev. 2
+7-4                                                                                                  Freescale Semiconductor
+                                                                                                  External Core Complex Interfaces
+
+
+                                Table 7-1. Interface Signal Definitions (continued)
+
+     Signal Name          I/O Reset                                            Definition
+
+    p_masterid[3:0]        I   —      CPU master ID configuration
+
+   nex_masterid[3:0]       I   —      Nexus3 master ID configuration
+
+                                                 Interrupt Interface Signals
+
+       p_extint_b          I          External input interrupt request
+
+       p_critint_b         I          Critical input interrupt request
+
+       p_avec_b            I          Autovector request. Use internal interrupt vector offset.
+
+     p_voffset[0:15]       I          Interrupt vector offset for vectored interrupts
+
+         p_iack           O     0     Interrupt acknowledge. Indicates an interrupt is being acknowledged.
+
+        p_ipend           O     0     Interrupt pending. Indicates an interrupt is pending internally.
+
+       p_mcp_b             I          Machine check input request
+
+                                                       Time Base Signals
+
+         p_tbint          O     0     Time base interrupt
+
+      p_tbdisable          I   —      Time base disable input
+
+        p_tbclk            I   —      Time base clock input
+
+                                                       Misc. CPU Signals
+
+      p_cpuid[0:7]         I          CPU ID input
+
+    p_sysvers[0:31]        I          System version inputs (for SVR)
+
+     p_pvrin[16:31]        I          Inputs for PVR
+
+      p_pid0[0:7]         O     0     PID0[24:31] outputs
+
+      p_pid0_updt         O     0     PID0 update status
+
+                                                  CPU Reservation Signals
+
+         p_rsrv           O     0     Reservation status
+
+       p_rsrv_clr          I          Clear reservation flag
+
+                                                       CPU State Signals
+
+      p_pstat[0:6]        O     0     Processor status
+
+      p_brstat[0:1]       O     0     Branch prediction status
+
+      p_mcp_out           O     0     Machine check occurred
+
+       p_chkstop          O     0     Checkstop occurred
+
+        p_doze            O     0     Low-power doze mode of operation
+
+         p_nap            O     0     Low-power nap mode of operation
+
+        p_sleep           O     0     Low-power sleep mode of operation
+
+       p_wakeup           O     0     Indicates to external clock control module to enable clocks and exit from low-power mode
+
+
+                               e200z3 Power Architecture Core Reference Manual, Rev. 2
+Freescale Semiconductor                                                                                                       7-5
+External Core Complex Interfaces
+
+
+                                    Table 7-1. Interface Signal Definitions (continued)
+
+       Signal Name        I/O Reset                                              Definition
+
+           p_halt          I              CPU halt request
+
+         p_halted         O         0     CPU halted
+
+          p_stop           I              CPU stop request
+
+        p_stopped         O         0     CPU stopped
+
+                                                     CPU Debug Event Signals
+
+           p_ude           I              Unconditional debug event
+
+          p_devt1          I              Debug event 1 input
+
+          p_devt2          I              Debug event 2 input
+
+                                        Debug/Emulation Support Signals (Nexus 1/OnCE)
+
+        jd_en_once         I              Enable full OnCE operation
+
+        jd_debug_b        O         1     Processor entered debug session
+
+          jd_de_b          I              Debug request
+
+         jd_de_en         O         0     Active-high output enable for DE_b open-drain IO cell
+
+        jd_mclk_on         I              System clock controller actively toggling m_clk
+
+      jd_watchpt[0:7]     O         0     Address watchpoint occurred
+
+                                             Development Support Signals (Nexus 3)
+
+         nex_mcko         O               Nexus3 clock output
+
+        nex_rdy_b         O               Nexus3 ready output
+
+        nex_evto_b        O               Nexus3 event-out output
+
+        nex_evti_b         I              Nexus3 event-in input
+
+       nex_mdo[n:0]       O               Nexus3 message data output
+
+      nex_mseo_b[1:0]     O               Nexus3 message start/end output
+
+                                                       JTAG-Related Signals
+
+          j_trst_b         I              JTAG test reset from pad
+
+           j_tclk          I              JTAG test clock from pad
+
+           j_tms           I              JTAG test mode select from pad
+
+            j_tdi          I              JTAG test data input from pad
+
+           j_tdo          O         0     JTAG test data out to master controller or pad
+
+         j_tdo_en         O         0     Enables TDO output buffer
+
+        j_tst_log_rst     O         0     Test-logic-reset state of JTAG controller
+
+        j_capture_ir      O         0     Capture_IR state of JTAG controller
+
+        j_update_ir       O         0     Update_IR state of JTAG controller
+
+
+
+                                   e200z3 Power Architecture Core Reference Manual, Rev. 2
+7-6                                                                                               Freescale Semiconductor
+                                                                                                       External Core Complex Interfaces
+
+
+                                      Table 7-1. Interface Signal Definitions (continued)
+
+      Signal Name             I/O Reset                                            Definition
+
+         j_shift_ir            O     0     Shift_IR state of JTAG controller
+
+       j_capture_dr            O     0     Parallel test data register load state of JTAG controller
+
+        j_shift_dr             O     0     TAP controller in shift DR state
+
+   j_update_gp_reg             O     0     Updates JTAG controller test data register
+
+           j_rti               O     0     JTAG controller run-test-idle state
+
+         j_key_in               I          Input for providing data to be shifted out during shift_IR state when jd_en_once is
+                                           negated
+
+   j_en_once_regsel            O     0     External enable OnCE register select
+
+      j_nexus_regsel           O     0     External Nexus register select
+
+       j_lsrl_regsel           O     0     External LSRL register select
+
+   j_gp_regsel[0:11]           O     0     General-purpose external JTAG register select
+
+   j_id_sequence[0:1]           I          JTAG ID register (2 msbs of sequence field)
+
+    j_id_version[0:3]           I          JTAG ID register version field
+
+       j_serial_data            I          Serial data from external JTAG registers
+
+
+7.3           Signal Descriptions
+Table 7-2 describes the processor clock, m_clk.
+                                         Table 7-2. Processor Clock Signal Description
+
+    Signal I/O                                                   Signal Description
+
+      m_clk        I   Processor clock. The synchronous clock source for the core. Because the core is designed for static
+                       operation, m_clk can be gated off to lower power dissipation (for example, during low-power stopped
+                       states).
+
+Table 7-3 describes signals that are related to reset. The core supports several reset input signals for the
+CPU and JTAG/OnCE control logic: m_por, p_reset_b, and j_trst_b. The reset domains are partitioned
+such that the CPU p_reset_b signal does not affect JTAG/OnCE logic and j_trst_b does not affect
+processor logic. It is possible and desirable to access OnCE registers while the processor is running or in
+reset. It is also possible and desirable to assert j_trst_b and clear the JTAG/OnCE logic without affecting
+the processor state.
+The synchronization logic between the processor and debug module requires an assertion of either j_trst_b
+or m_por during initial processor power-on reset to ensure proper operation. If the pin associated with
+j_trst_b is designed with a pull-up resistor and left floating, assertion of m_por is required during the initial
+power-on processor reset. Similarly, for those systems that do not have a power-on reset circuit and choose
+to tie m_por low, it is required to assert j_trst_b during processor power-up reset. When a power-up reset
+is achieved, the two resets can be asserted independently.
+A reset output signal, p_resetout_b, is also provided.
+
+
+                                    e200z3 Power Architecture Core Reference Manual, Rev. 2
+Freescale Semiconductor                                                                                                            7-7
+External Core Complex Interfaces
+
+
+A set of input signals (p_rstbase[0:19], p_rst_endmode) is provided to relocate the reset exception handler
+to allow for flexible placement of boot code and to select the default endian mode and VLE mode of the
+core out of reset.
+                                   Table 7-3. Descriptions of Signals Related to Reset
+
+       Signal     I/O                                             Signal Description
+
+       m_por       I    Power-on reset. Serves the following purposes:
+                        • m_por is ORed with j_trst_b and the resulting signal clears the JTAG TAP controller and associated
+                          registers as well as the OnCE state machine. This signal is an asynchronous clear with a short
+                          assertion time requirement.
+                        • m_por is ORed with the p_reset_b function, and the resulting signal clears certain CPU registers. This
+                          is an asynchronous clear with a short assertion time requirement.
+                        Reset values for other registers are listed in Section 2.18.4, “Reset Settings.”
+
+                          State Asserted—Power-on reset is requested.
+                        Meaning Negated—Power-on reset is not requested.
+
+      p_reset_b    I    Reset. Treated as an asynchronous input and is sampled by the clock control logic in the debug module.
+
+                          State Asserted—Reset is requested.
+                        Meaning Negated—Reset is not requested.
+
+  p_resetout_b    O     Reset out. Conditionally asserted by either the watchdog timer (Section 2.11.1, “Timer Control Register
+                        (TCR)”) or debug control logic. p_resetout_b is not asserted by p_reset_b.
+
+p_rstbase[0:19]    I    Reset base. Allows system integrators to specify or relocate the base address of the reset exception
+                        handler.
+
+                          State Forms the upper 20 bits of the instruction access following negation of reset, which is used to
+                        Meaning fetch the initial instruction of the reset exception handler. These bits should be driven to a
+                                value corresponding to the desired boot memory device in the system. These inputs are also
+                                used by the MMU during reset to form a default TLB entry 0 for translation of the reset vector
+                                fetch.The initial instruction fetch occurs to the location [p_rstbase[0:19]] || 0xFFC.
+
+                         Timing Must remain stable in a window beginning 2 clocks before the negation of reset and extending
+                                into the cycle in which the reset vector fetch is initiated.
+
+p_rst_endmode      I    Reset endian mode. Used by the MMU during reset to form the E bit of the default TLB entry 0 for
+                        translation of the reset vector fetch.
+
+                          State High—Causes the resultant entry E bit to be set, indicating a little-endian page.
+                        Meaning Low—causes the resultant entry E bit to be cleared, indicating a big-endian page.
+
+ p_rst_vlemode     I    Used by the MMU during reset to form the VLE bit of the default TLB entry 0 for translation of the reset
+                        vector fetch.
+
+                          State A low logic level causes the resultant entry VLE bit to be cleared, indicating a Book E page.
+                        Meaning A high logic level causes the resultant entry VLE bit to be set, indicating a VLE page.
+
+       j_trst_b    I    JTAG/OnCE reset (IEEE 1149.1 JTAG specification TRST).
+
+                          State Asynchronous reset with a short assertion time requirement. It is ORed with the m_por
+                        Meaning function, and the resulting signal clears the OnCE TAP controller and associated registers and
+                                the OnCE state machine.
+
+Table 7-4 describes signals for the address and data buses. These outputs provide the address for a bus
+transfer. According to the AHB definition, p_haddr31 is the msb and p_haddr0 is the lsb.
+
+
+
+                                   e200z3 Power Architecture Core Reference Manual, Rev. 2
+7-8                                                                                                    Freescale Semiconductor
+                                                                                                     External Core Complex Interfaces
+
+
+                            Table 7-4. Descriptions of Signals for the Address and Data Buses
+
+       Signal          I/O                                             Signal Description
+
+p_[d,i]_haddr[31:0]     O     Address bus. Provides the address for a bus transfer. According to the AHB definition,
+                              p_[d,i]_haddr[31] is the msb and p_[d,i]_haddr[0] is the lsb.
+p_[d,i]_hrdata[63:0     I     Read data bus. Provides data to the core on read transfers. The read data bus can transfer 8, 16, 24,
+]                             32, or 64 bits per transfer. According to the AHB definition, p_[d,i]_hrdata63 is the msb and
+                              p_[d,i]_hrdata0 is the lsb.
+                                     Memory Byte AddressWired to p_[d,i]_hrdata Bits
+                                     0007:0
+                                     00115:8
+                                     01023:16
+                                     01131:24
+                                     10039:32
+                                     10147:40
+                                     11055:48
+                                     11163:56
+
+p_d_hwdata[63:0]        O     Write data bus. Transfers data from the core on write transfers. The write data bus can transfer 8, 16,
+                              24, 32, or 64 bits of data per bus transfer. According to the AHB definition, p_d_hwdata[63] is the msb
+                              and p_d_hwdata[0] is the lsb.
+                                    Memory Byte AddressWired to p_d_hwdata Bits
+                                    0007:0
+                                    00115:8
+                                    01023:16
+                                    01131:24
+                                    10039:32
+                                    10147:40
+                                    11055:48
+                                    11163:56
+
+Table 7-5 describes transfer attribute signals, which provide additional information about the bus transfer
+cycle. Attributes are driven with the address at the start of a transfer.
+                                    Table 7-5. Descriptions of Transfer Attribute Signals
+
+      Signal           I/O                                             Signal Description
+
+ p_[d,i]_htrans[1:0]   O     Transfer type. The processor drives p_[d,i]_htrans[1:0] to indicate the current transfer type as follows:
+                             00 IDLE—No data transfer is required. Slaves must terminate IDLE transfers with a zero wait-state
+                                  OKAY response and ignore the (non-existent) transfer.
+                             01 BUSY—(The core does not use the BUSY encoding and does not present this type of transfer to
+                                  a bus slave.) Master is busy; burst transfer continues.
+                             10 NONSEQ—Indicates the first transfer of a burst, or a single transfer. Address and control signals
+                                  are unrelated to the previous transfer.
+                             11 SEQ—Indicates the continuation of a burst. Address and control signals are related to the previous
+                                  transfer. Control signals are the same. Address was incremented by the size of the data transferred
+                                  (optionally wrapped).
+                             If the p_[d,i]_htrans[1:0] encoding is not IDLE or BUSY, a transfer is being requested.
+
+   p_[d,i]_hwrite      O     Write. Defines the data transfer direction for the current bus cycle.
+
+                               State Asserted—The current bus cycle is a write.
+                             Meaning Negated—The current bus cycle is a read.
+
+
+
+
+                                    e200z3 Power Architecture Core Reference Manual, Rev. 2
+Freescale Semiconductor                                                                                                            7-9
+External Core Complex Interfaces
+
+
+                            Table 7-5. Descriptions of Transfer Attribute Signals (continued)
+
+       Signal         I/O                                             Signal Description
+
+ p_[d,i]_hsize[1:0]   O     Transfer size. For misaligned transfers, size may exceed the requested size to ensure that all asserted
+                            byte strobes are within the container defined by p_[d,i]_hsize[1:0]. Table 7-7 and Table 7-8 show
+                            p_[d,i]_hsize encodings for aligned and misaligned transfers.
+                            00 Byte
+                            01 Half word (2 bytes)
+                            10 Word (4 bytes)
+                            11 Double word (8 bytes)
+
+p_[d,i]_hburst[2:0]] O      Burst type. The core uses only SINGLE and WRAP4 burst types.
+                            000 SINGLE—No burst, single beat only
+                            001 INCR—Incrementing burst of unspecified length. Not used by the core.
+
+ p_[d,i]_hprot[5:0]   O     Protection control. The core drives the p_[d,i]_hprot[5:0] signals to indicate the type of access for the
+                            current bus cycle. p_[d,i]_hprot[0] indicates instruction/data, p_[d,i]_hprot[1] indicates
+                            user/supervisor. p_[d,i]_hprot[5] indicates whether the access is exclusive (that is, for an lwarx or
+                            stwcx.). p_[d,i]_hprot[4:2] (allocate, cacheable, bufferable) indicate particular cache attributes for the
+                            access. The following table shows the definitions of the p_[d,i]_hprot[5:0] signals.
+                            p_hprot5 p_hprot4 p_hprot3 p_hprot2              p_hprot1 p_hprot0         Transfer Type
+                               —            —           —           —            —           0         Instruction access
+                               —            —           —           —            —           1         Data access
+                               —            —           —           —            0           —         User mode access
+                               —            —           —           —            1           —         Supervisor mode access
+                               —            0           0           0            —           —         Cache-inhibited
+                               —            0           0           1            —           —         Guarded, not cache-inhibited
+                               —            0           1           0            —           —         Reserved
+                               —            0           1           1            —           —         Reserved
+                               —            1           0           0            —           —         Reserved
+                               —            1           0           1            —           —         Reserved
+                               —            1           1           0            —           —         Cacheable, writethrough
+                               —            1           1           1            —           —         Cacheable, writeback
+                               0            —           —           —            —           —         Not exclusive
+                               1            —           —           —            —           —         Exclusive access
+                            The core maps Book E storage attributes to the AHB hprot signals as described in the following. For
+                            buffered stores, p_[d,i]_hprot[1] is driven with the user/supervisor mode attribute associated with the
+                            store at the time it was buffered. For cache line pushes/copybacks, p_[d,i]_hprot[1] indicates
+                            supervisor access. In both of these cases, p_[d,i]_hprot0 indicates a data access.
+                            TLB[I] TLB[G] TLB[W]||!L1CSR0[CWM] p_hprot[4:2]              Transfer Type
+                              0        0                 0                   111         Cacheable, writeback
+                              0        0                 1                   110         Cacheable, writethrough
+                              0        1                —                    001         Guarded, not cache-inhibited
+                              1        —                —                    000         Cache-inhibited
+                              —        —                —                    001         Buffered store, page marked guarded
+                              —        —                —                    110         Buffered store and page marked
+                                                                                         writethrough or L1CSR0[CWM]=0, and
+                                                                                         non-guarded
+                              —        —                —                    111         Buffered store and page marked copyback
+                                                                                         and L1CSR0[CWM]=1, and non-guarded
+                              —        —                —                    111         Dirty line push
+
+
+Table 7-6 describes signals for byte lane specification. Read transactions transfer from 1–8 bytes of data
+on the p_[d,i]_hrdata[63:0] bus. The lanes involved in the transfer are determined by the starting byte
+number specified by the lower address bits with the transfer size and byte strobes. Byte lane addressing is
+shown big-endian (left to right) regardless of the core’s endian mode. The byte in memory corresponding
+
+                                   e200z3 Power Architecture Core Reference Manual, Rev. 2
+7-10                                                                                                        Freescale Semiconductor
+                                                                                                   External Core Complex Interfaces
+
+
+to address 0 is connected to B0 (p_h{r,w}data[7:0]) and the byte corresponding to address 7 is connected
+to B7 (p_h{r,w}data[63:56]). The CPU internally permutes read data as required for the endian mode of
+the current access. Assertion of p_[d,i]_hunalign indicates misaligned transfers and that byte strobes do
+not correspond exactly to size and low-order address bits.
+                             Table 7-6. Descriptions of Signals for Byte Lane Specification
+
+     Signal           I/O                                             Signal Description
+
+ p_[d,i]_hunalign     O     Unaligned access. Indicates whether the current access is misaligned.
+
+                              State Asserted—Asserted for misaligned data accesses and for misaligned instruction accesses
+                            Meaning     from VLE pages. Normal Book E instruction pages are always aligned. When
+                                        p_[d,i]_hunalign is asserted, the p_[d,i]_hbstrb[7:0] byte strobe signals indicate the
+                                        selected bytes involved in the current portion of the misaligned access, which may not
+                                        include all bytes defined by the size and low-order address signals. Aligned transfers
+                                        also assert the byte strobes, but in a manner corresponding to size and low-order
+                                        address bits.
+                                    Negated—No misaligned data access is occurring.
+
+                             Timing The timing of this signal is approximately the same as address timing.
+
+p_[d,i]_hbstrb[7:0]   O     Byte strobes. Indicate the bytes selected for the current transfer. For a misaligned access, the current
+                            transfer may not include all bytes defined by the size and low-order address signals. For aligned
+                            transfers, the byte strobe signals correspond to the bytes that size and low-order address signals
+                            define. The relationships of byte addresses to the byte strobe signals are as follows.
+                             Memory byte address          Wired to p_h{r,w}data bits      Corresponding byte strobe signal
+                                      000                            7:0                            p_[d,i]_hbstrb[0]
+                                      001                            15:8                           p_[d,i]_hbstrb[1]
+                                      010                           23:16                           p_[d,i]_hbstrb[2]
+                                      011                           31:24                           p_[d,i]_hbstrb[3]
+                                      100                           39:32                           p_[d,i]_hbstrb[4]
+                                      101                           47:40                           p_[d,i]_hbstrb[5]
+                                      110                           55:48                           p_[d,i]_hbstrb[6]
+                                      111                           63:56                           p_[d,i]_hbstrb[7]
+
+Table 7-7 lists all data transfer permutations. Note that misaligned data requests that cross a 64-bit
+boundary are broken into two bus transactions, and the address value and size encoding for the first transfer
+are not modified. The table is arranged in a big-endian fashion, but the active lanes are the same regardless
+of the endian-mode of the access. The core performs the proper byte routing internally based on
+endianness.
+                                       Table 7-7. Byte Strobe Assertion for Transfers
+
+                                                                      Data Bus Byte Strobes 1
+         Program Size                          HSIZE
+                                  A(2:0)                                                                        HUNALIGN
+        and Byte Offset                         [1:0]
+                                                           B0    B1     B2    B3     B4     B5    B6     B7
+
+      Byte @000                   000            00        X      —     —      —     —      —      —     —           0
+
+      Byte @001                   001            00        —      X     —      —     —      —      —     —           0
+
+      Byte @010                   010            00        —      —      X     —     —      —      —     —           0
+
+      Byte @011                   011            00        —      —     —      X     —      —      —     —           0
+
+      Byte @100                   100            00        —      —     —      —      X     —      —     —           0
+
+
+
+
+                                   e200z3 Power Architecture Core Reference Manual, Rev. 2
+Freescale Semiconductor                                                                                                         7-11
+External Core Complex Interfaces
+
+
+                              Table 7-7. Byte Strobe Assertion for Transfers (continued)
+
+                                                                   Data Bus Byte Strobes 1
+            Program Size                     HSIZE
+                                A(2:0)                                                                      HUNALIGN
+           and Byte Offset                    [1:0]
+                                                        B0    B1     B2    B3     B4    B5    B6     B7
+
+       Byte @101                   101         00       —      —     —      —     —      X     —     —           0
+
+       Byte @110                   110         00       —      —     —      —     —     —      X     —           0
+
+       Byte @111                   111         00       —      —     —      —     —     —      —      X          0
+
+       Half @000                   000         01        X     X     —      —     —     —      —     —           0
+
+       Half @001                   001        1 02      —      X      X     —     —     —      —     —           1
+
+       Half @010                   010         01       —      —      X     X     —     —      —     —           0
+
+       Half @011                   011        112       —      —     —      X     X     —      —     —           1
+
+       Half @100                   100         01       —      —     —      —     X      X     —     —           0
+
+       Half @101                   101        102       —      —     —      —     —      X     X     —           1
+
+       Half @110                   110         01       —      —     —      —     —     —      X      X          0
+
+       Half @111                   111        0 13      —      —     —      —     —     —      —     X           1
+       (Two bus transfers)         000        00        X      —     —      —     —     —      —     —           0
+
+       Word @000                   000         10        X     X      X     X     —     —      —     —           0
+
+       Word @001                   001        112       —      X      X     X     X     —      —     —           1
+
+       Word @010                   010        112       —      —      X     X     X      X     —     —           1
+
+       Word @011                   011        112       —      —     —      X     X      X     X     —           1
+
+       Word @100                   100         10       —      —     —      —     X      X     X      X          0
+
+       Word @101                   101         10       —      —     —      —     —     X      X     X           1
+       (Two bus transfers)         000         00       X      —     —      —     —     —      —     —           0
+
+       Word @110                   110        103       —      —     —      —     —     —      X     X           1
+       (Two bus transfers)         000        01        X      X     —      —     —     —      —     —           0
+
+       Word @111                   111        103       —      —     —      —     —     —      —     X           1
+       (Two bus transfers)         000        10        X      X     X      —     —     —      —     —           1
+
+       Double word                 000         11        X     X      X     X     X      X     X      X          0
+       1
+         X indicates byte lanes involved in the transfer. Other lanes contain driven but unused data.
+       2
+         These misaligned transfers drive size according to the size of the power of two aligned containers in which the
+         byte strobes are asserted.
+       3 These misaligned cases drive request size according to the size specified by the load or store instruction.
+
+
+
+Table 7-8 shows the final layout in memory for data transferred from a 64-bit GPR containing the bytes
+‘A B C D E F G H’ to memory. The core breaks misaligned accesses that cross a double-word boundary
+into a pair of accesses. Double-word transfers are always double-word–aligned.
+
+
+
+
+                                   e200z3 Power Architecture Core Reference Manual, Rev. 2
+7-12                                                                                                  Freescale Semiconductor
+                                                                                      External Core Complex Interfaces
+
+
+              Table 7-8. Big-and Little-Endian Storage (64-Bit GPR Contains ‘A B C D E F G H’)
+
+                                                Even Double Word— 0             0dd Double Word—1
+       Program Size                HSIZE
+                          A(3:0)
+      and Byte Offset               (1:0)
+                                            B0 B1 B2 B3 B4 B5 B6 B7 B0 B1 B2 B3 B4 B5 B6 B7
+
+        Byte @0000        0000       00     H   —   —   —   —   —   —   —   —   —     —   —    —   —    —   —
+
+        Byte @0001        0001       00     —   H   —   —   —   —   —   —   —   —     —   —    —   —    —   —
+
+        Byte @0010        0010       00     —   —   H   —   —   —   —   —   —   —     —   —    —   —    —   —
+
+        Byte @0011        0011       00     —   —   —   H   —   —   —   —   —   —     —   —    —   —    —   —
+
+        Byte @0100        0100       00     —   —   —   —   H   —   —   —   —   —     —   —    —   —    —   —
+
+        Byte @0101        0101       00     —   —   —   —   —   H   —   —   —   —     —   —    —   —    —   —
+
+        Byte @0110        0110       00     —   —   —   —   —   —   H   —   —   —     —   —    —   —    —   —
+
+        Byte @0111        0111       00     —   —   —   —   —   —   —   H   —   —     —   —    —   —    —   —
+
+        Byte @1000        1000       00     —   —   —   —   —   —   —   —   H   —     —   —    —   —    —   —
+
+        Byte @1001        1001       00     —   —   —   —   —   —   —   —   —   H     —   —    —   —    —   —
+
+        Byte @1010        1010       00     —   —   —   —   —   —   —   —   —   —     H   —    —   —    —   —
+
+        Byte @1011        1011       00     —   —   —   —   —   —   —   —   —   —     —    H   —   —    —   —
+
+        Byte @1100        1100       00     —   —   —   —   —   —   —   —   —   —     —   —    H   —    —   —
+
+        Byte @1101        1101       00     —   —   —   —   —   —   —   —   —   —     —   —    —    H   —   —
+
+        Byte @1110        1110       00     —   —   —   —   —   —   —   —   —   —     —   —    —   —    H   —
+
+        Byte @1111        1111       00     —   —   —   —   —   —   —   —   —   —     —   —    —   —    —    H
+
+      B. E. Half @0000    0000       01     G   H   —   —   —   —   —   —   —   —     —   —    —   —    —   —
+
+      B. E. Half @0001    0001      1 01    —   G   H   —   —   —   —   —   —   —     —   —    —   —    —   —
+
+      B. E. Half @0010    0010       01     —   —   G   H   —   —   —   —   —   —     —   —    —   —    —   —
+
+      B. E. Half @0011    0011      111     —   —   —   G   H   —   —   —   —   —     —   —    —   —    —   —
+
+      B. E. Half @0100    0100       01     —   —   —   —   G   H   —   —   —   —     —   —    —   —    —   —
+
+      B. E. Half @0101    0101      101     —   —   —   —   —   G   H   —   —   —     —   —    —   —    —   —
+
+      B. E. Half @0110    0110       01     —   —   —   —   —   —   G   H   —   —     —   —    —   —    —   —
+
+      B. E. Half @0111    0111       01     —   —   —   —   —   —   —   G   —   —     —   —    —   —    —   —
+
+                          1000       00     —   —   —   —   —   —   —   —   H   —     —   —    —   —    —   —
+
+      B. E. Half @1000    1000       01     —   —   —   —   —   —   —   —   G   H     —   —    —   —    —   —
+
+      B. E. Half @1001    1001      101     —   —   —   —   —   —   —   —   —   G     H   —    —   —    —   —
+
+      B. E. Half @1010    1010       01     —   —   —   —   —   —   —   —   —   —     G    H   —   —    —   —
+
+      B. E. Half @1011    1011      111     —   —   —   —   —   —   —   —   —   —     —   G    H   —    —   —
+
+      B. E. Half @1100    1100       01     —   —   —   —   —   —   —   —   —   —     —   —    G    H   —   —
+
+      B. E. Half @1101    1101      101     —   —   —   —   —   —   —   —   —   —     —   —    —    G   H   —
+
+
+
+
+                            e200z3 Power Architecture Core Reference Manual, Rev. 2
+Freescale Semiconductor                                                                                          7-13
+External Core Complex Interfaces
+
+
+        Table 7-8. Big-and Little-Endian Storage (64-Bit GPR Contains ‘A B C D E F G H’) (continued)
+
+                                                       Even Double Word— 0             0dd Double Word—1
+        Program Size                      HSIZE
+                             A(3:0)
+       and Byte Offset                     (1:0)
+                                                   B0 B1 B2 B3 B4 B5 B6 B7 B0 B1 B2 B3 B4 B5 B6 B7
+
+       B. E. Half @1110      1110           01     —   —   —   —   —   —   —   —   —   —     —   —   —   —   G   H
+
+       B. E. Half @1111      1111           01     —   —   —   —   —   —   —   —   —   —     —   —   —   —   —   G
+
+                             0000                  H   —   —   —   —   —   —   —   —   —     —   —   —   —   —   —
+                          (next dword)      00
+
+       L E. Half @0000       0000           01     H   G   —   —   —   —   —   —   —   —     —   —   —   —   —   —
+
+       L. E. Half @0001      0001          101     —   H   G   —   —   —   —   —   —   —     —   —   —   —   —   —
+
+       L. E. Half @0010      0010           01     —   —   H   G   —   —   —   —   —   —     —   —   —   —   —   —
+
+       L. E. Half @0011      0011          111     —   —   —   H   G   —   —   —   —   —     —   —   —   —   —   —
+
+       L. E. Half @0100      0100           01     —   —   —   —   H   G   —   —   —   —     —   —   —   —   —   —
+
+       L. E. Half @0101      0101          101     —   —   —   —   —   H   G   —   —   —     —   —   —   —   —   —
+
+       L. E. Half @0110      0110           01     —   —   —   —   —   —   H   G   —   —     —   —   —   —   —   —
+
+       L. E. Half @0111      0111           01     —   —   —   —   —   —   —   H   —   —     —   —   —   —   —   —
+
+                             1000           00     —   —   —   —   —   —   —   —   G   —     —   —   —   —   —   —
+
+       L. E. Half @1000      1000           01     —   —   —   —   —   —   —   —   H   G     —   —   —   —   —   —
+
+       L. E. Half @1001      1001          101     —   —   —   —   —   —   —   —   —   H     G   —   —   —   —   —
+
+       L. E. Half @1010      1010           01     —   —   —   —   —   —   —   —   —   —     H   G   —   —   —   —
+
+       L. E. Half @1011      1011          111     —   —   —   —   —   —   —   —   —   —     —   H   G   —   —   —
+
+       L. E. Half @1100      1100           01     —   —   —   —   —   —   —   —   —   —     —   —   H   G   —   —
+
+       L. E. Half @1101      1101          101     —   —   —   —   —   —   —   —   —   —     —   —   —   H   G   —
+
+       L. E. Half @1110      1110           01     —   —   —   —   —   —   —   —   —   —     —   —   —   —   H   G
+
+       L. E. Half @1111      1111           01     —   —   —   —   —   —   —   —   —   —     —   —   —   —   —   H
+
+                            +0000           00     G   —   —   —   —   —   —   —   —   —     —   —   —   —   —   —
+                          (next dword)
+
+       B. E. Word @0000      0000           10     E   F   G   H   —   —   —   —   —   —     —   —   —   —   —   —
+
+       B. E. Word @0001      0001          111     —   E   F   G   H   —   —   —   —   —     —   —   —   —   —   —
+
+       B. E. Word @0010      0010          111     —   —   E   F   G   H   —   —   —   —     —   —   —   —   —   —
+
+       B. E. Word @0011      0011          111     —   —   —   E   F   G   H   —   —   —     —   —   —   —   —   —
+
+       B. E. Word @0100      0100           10     —   —   —   —   E   F   G   H   —   —     —   —   —   —   —   —
+
+       B. E. Word @0101      0101           10     —   —   —   —   —   E   F   G   —   —     —   —   —   —   —   —
+
+                             1000           00     —   —   —   —   —   —   —   —   H   —     —   —   —   —   —   —
+
+       B. E. Word @0110      0110           10     —   —   —   —   —   —   E   F   —   —     —   —   —   —   —   —
+
+                             1000           01     —   —   —   —   —   —   —   —   G   H     —   —   —   —   —   —
+
+
+
+
+                                   e200z3 Power Architecture Core Reference Manual, Rev. 2
+7-14                                                                                             Freescale Semiconductor
+                                                                                          External Core Complex Interfaces
+
+
+       Table 7-8. Big-and Little-Endian Storage (64-Bit GPR Contains ‘A B C D E F G H’) (continued)
+
+                                                      Even Double Word— 0             0dd Double Word—1
+       Program Size                      HSIZE
+                            A(3:0)
+      and Byte Offset                     (1:0)
+                                                  B0 B1 B2 B3 B4 B5 B6 B7 B0 B1 B2 B3 B4 B5 B6 B7
+
+     B. E. Word @0111       0111          10      —   —   —   —   —   —   —   E   —   —   —   —    —   —    —   —
+
+                            1000          10      —   —   —   —   —   —   —   —   F   G   H   —    —   —    —   —
+
+     B. E. Word @1000       1000          10      —   —   —   —   —   —   —   —   E   F   G    H   —   —    —   —
+
+     B. E. Word @1001       1001         111      —   —   —   —   —   —   —   —   —   E   F   G    H   —    —   —
+
+     B. E. Word @1010       1010         111      —   —   —   —   —   —   —   —   —   —   E    F   G    H   —   —
+
+     B. E. Word @1011       1011         111      —   —   —   —   —   —   —   —   —   —   —    E   F    G   H   —
+
+     B. E. Word @1100       1100          10      —   —   —   —   —   —   —   —   —   —   —   —    E    F   G    H
+
+     B. E. Word @1101       1101          10      —   —   —   —   —   —   —   —   —   —   —   —    —    E   F    G
+
+                            +0000         00      H   —   —   —   —   —   —   —   —   —   —   —    —   —    —   —
+                          (next dword)
+
+     B. E. Word @1110       1110          10      —   —   —   —   —   —   —   —   —   —   —   —    —   —    E    F
+
+                            +0000         01      G   H   —   —   —   —   —   —   —   —   —   —    —   —    —   —
+                          (next dword)
+
+     B. E. Word @1111       1111          10      —   —   —   —   —   —   —   —   —   —   —   —    —   —    —    E
+
+                            +0000         10      F   G   H   —   —   —   —   —   —   —   —   —    —   —    —   —
+                          (next dword)
+
+      L. E. Word @0000      0000          10      H   G   F   E   —   —   —   —   —   —   —   —    —   —    —   —
+
+      L. E. Word @0001      0001         111      —   H   G   F   E   —   —   —   —   —   —   —    —   —    —   —
+
+      L. E. Word @0010      0010         111      —   —   H   G   F   E   —   —   —   —   —   —    —   —    —   —
+
+      L. E. Word @0011      0011         111      —   —   —   H   G   F   E   —   —   —   —   —    —   —    —   —
+
+      L. E. Word @0100      0100          10      —   —   —   —   H   G   F   E   —   —   —   —    —   —    —   —
+
+      L. E. Word @0101      0101          10      —   —   —   —   —   H   G   F   —   —   —   —    —   —    —   —
+
+                            1000          00      —   —   —   —   —   —   —   —   E   —   —   —    —   —    —   —
+
+      L. E. Word @0110      0110          10      —   —   —   —   —   —   H   G   —   —   —   —    —   —    —   —
+
+                            1000          01      —   —   —   —   —   —   —   —   F   E   —   —    —   —    —   —
+
+      L. E. Word @0111      0111          10      —   —   —   —   —   —   —   H   —   —   —   —    —   —    —   —
+
+                            1000          10      —   —   —   —   —   —   —   —   G   F   E   —    —   —    —   —
+
+      L. E. Word @1000      1000          10      —   —   —   —   —   —   —   —   H   G   F    E   —   —    —   —
+
+      L. E. Word @1001      1001         111      —   —   —   —   —   —   —   —   —   H   G    F   E   —    —   —
+
+      L. E. Word @1010      1010         111      —   —   —   —   —   —   —   —   —   —   H   G    F    E   —   —
+
+      L. E. Word @1011      1011         111      —   —   —   —   —   —   —   —   —   —   —    H   G    F   E   —
+
+      L. E. Word @1100      1100          10      —   —   —   —   —   —   —   —   —   —   —   —    H    G   F    E
+
+
+
+
+                               e200z3 Power Architecture Core Reference Manual, Rev. 2
+Freescale Semiconductor                                                                                              7-15
+External Core Complex Interfaces
+
+
+             Table 7-8. Big-and Little-Endian Storage (64-Bit GPR Contains ‘A B C D E F G H’) (continued)
+
+                                                            Even Double Word— 0                    0dd Double Word—1
+             Program Size                      HSIZE
+                                   A(3:0)
+            and Byte Offset                     (1:0)
+                                                        B0 B1 B2 B3 B4 B5 B6 B7 B0 B1 B2 B3 B4 B5 B6 B7
+
+        L. E. Word @1101          1101          10      —   —    —   —    —    —   —    —    —   —    —    —   —    H    G    F
+
+                                  +0000         00      E   —    —   —    —    —   —    —    —   —    —    —   —    —    —    —
+                                (next dword)
+
+        L. E. Word @1110          1110          10      —   —    —   —    —    —   —    —    —   —    —    —   —    —    H    G
+
+                                  +0000         01      F   E    —   —    —    —   —    —    —   —    —    —   —    —    —    —
+                                (next dword)
+
+        L. E. Word @1111          1111          10      —   —    —   —    —    —   —    —    —   —    —    —   —    —    —    H
+
+                                  +0000         10      G   F    E   —    —    —   —    —    —   —    —    —   —    —    —    —
+                                (next dword)
+
+            B.E. Double word       -000         11      A   B    C    D   E    F    G   H    —   —    —    —   —    —    —    —
+
+            L.E. Double word       -000         11      H   G    F    E   D    C    B   A    —   —    —    —   —    —    —    —
+        1
+             These misaligned transfers drive size according to the size of the power of two aligned containers in which the byte
+             strobes are asserted.
+
+
+Table 7-9 describes the transfer control signals.
+                               Table 7-9. Descriptions of Signals for Transfer Control Signals
+
+       Signal        I/O                                              Signal Description
+
+ p_[d,i]_hready        I   Transfer ready. Indicates whether a requested transfer operation has completed. An external device
+                           asserts p_[d,i]_hready to terminate the transfer. p_hresp[2:0] indicate the transfer status.
+
+                             State Asserted—A requested transfer operation has completed. An external device asserts
+                           Meaning     p_[d,i]_hready to terminate the transfer.
+                                   Negated—A requested transfer operation has not completed.
+
+ p_hresp[2:0]          I   Transfer response. Indicate status of a terminating transfer.
+                           000 OKAY—Transfer terminated normally.
+                           001 ERROR—Transfer terminated abnormally. See note for assertion.
+                           010 Reserved (RETRY not supported in AHB-Lite protocol)
+                           011 Reserved (SPLIT not supported in AHB-Lite protocol)
+                           100 XFAIL—Exclusive store failed (stwcx. did not complete successfully). See note for assertion.
+                                (Signaled to the CPU using the p_xfail_b internal signal. See Table 7-26.)
+                           101–111 Reserved
+
+                            Timing Assertion—ERROR and XFAIL are required to be 2-cycle responses that must be signaled one
+                                       cycle before assertion of p_[d,i]_hready and must remain unchanged during the cycle
+                                       p_[d,i]_hready is asserted. The XFAIL response is signaled to the CPU using the
+                                       p_xfail_b internal signal.
+
+
+
+
+                                     e200z3 Power Architecture Core Reference Manual, Rev. 2
+7-16                                                                                                         Freescale Semiconductor
+                                                                                                    External Core Complex Interfaces
+
+
+Table 7-10 describes the master ID configuration signals. These inputs drive the p_[d,i]_hmaster[3:0]
+outputs when a bus cycle is active.
+                                 Table 7-10. Descriptions of Master ID Configuration Signals
+
+     Signal            I/O                                            Signal Description
+
+ p_masterid[3:0]        I     CPU master. Configures the master ID for the CPU. Driven on p_[d,i]_hmaster[3:0] for a CPU-initiated
+                              bus cycle.
+
+nex_masterid[3:0]       I     Nexus3 master. Configure the master ID for the Nexus3 unit. Driven on p_[d,i]_hmaster[3:0] for a
+                              Nexus3-initiated bus cycle.
+
+Table 7-11 describes interrupt control signals. Interrupt request inputs (p_extint_b, p_critint_b, and
+p_mcp_b) to the core are level-sensitive. The interrupt controller must keep the interrupt request and any
+p_voffset or p_avec_b inputs (as appropriate) asserted until the interrupt is serviced to guarantee that the
+core recognizes the request. On the other hand, when a request is generated, the core may still not
+recognize the interrupt request, even if it is removed later. Requests must be held stable to avoid spurious
+responses.
+                                          Table 7-11. Descriptions of Interrupt Signals
+
+    Signal      I/O                                                  Signal Description
+
+  p_extint_b       I    External input interrupt request. Provides the external input interrupt request to the core. p_extint_b is
+                        masked by MSR[EE].
+
+                          State Asserted—An external input interrupt request has been signaled.
+                        Meaning Negated—An external input interrupt request has not been signaled.
+
+                             Timing Not internally synchronized by the core. It must meet setup and hold time constraints relative
+                                    to m_clk when the core clock is running.
+                                    Assertion—Level-sensitive, must remain asserted to be guaranteed recognition.
+
+  p_critint_b      I    Critical input interrupt request. Critical input interrupt request to the core. Masked by MSR[CE].
+
+                          State Asserted—Critical input interrupt is being requested.
+                        Meaning Negated—No critical input interrupt is requested.
+
+                             Timing Not internally synchronized by the core. Must meet setup and hold times relative to m_clk when
+                                    the core clock is running. See Section 7.5.6, “Interrupt Interface.”
+                                    Assertion—Level-sensitive, must remain asserted to be guaranteed to be recognized.
+
+   p_ipend         I    Interrupt pending. Indicates whether a p_extint_b or p_critint_b interrupt request or an enabled timer
+                        facility interrupt was recognized internally by the core, is enabled by the appropriate MSR bit, and is
+                        asserted in response to the interrupt request inputs.
+                        p_ipend can signal other bus masters or a bus arbiter that an interrupt is pending. External power
+                        management logic can use p_ipend to control operation of the core and other logic or may use p_wakeup
+                        similarly. Higher priority exceptions may delay handling of the interrupt.
+
+                          State Asserted—A p_extint_b or p_critint_b interrupt request or an enabled timer facility interrupt
+                        Meaning     (watchdog, fixed-Interval, or decrementer) was recognized internally by the core.
+                                    Assertion of p_ipend does not mean that exception processing for the interrupt has
+                                    begun.
+                                Negated—A p_extint_b or p_critint_b interrupt request or an enabled timer facility interrupt has
+                                    not been recognized.
+
+
+
+
+                                     e200z3 Power Architecture Core Reference Manual, Rev. 2
+Freescale Semiconductor                                                                                                          7-17
+External Core Complex Interfaces
+
+
+                                Table 7-11. Descriptions of Interrupt Signals (continued)
+
+       Signal     I/O                                              Signal Description
+
+   p_avec_b        I    Autovector. Determines how a vector is chosen for critical and external interrupt signals.
+
+                          State Asserted—Asserted with either the p_extint_b or p_critint_b interrupt request to request use of
+                        Meaning      the IVOR4 or IVOR0 for obtaining an exception vector offset.
+                                Negated—If negated when a p_extint_b or p_critint_b interrupt is requested, an external vector
+                                     offset and context selector is taken from p_voffset[0:15].
+
+                         Timing Must be driven to a valid state during each clock cycle that either p_extint_b or p_critint_b is
+                                asserted.
+                                Assertion—Level-sensitive, must remain asserted to have guaranteed recognition.
+
+ p_voffset[0:15    I    Interrupt vector offset. Vector offset and context selector used when processing begins for an incoming
+        ]               interrupt request. Ignored if multiple hardware contexts are not implemented.
+
+                          State Correspond to IVOR n[16–31]. p_voffset[0:11] are used in forming the exception handler
+                        Meaning address; p_voffset[12:15] are used to select a new operating context when multiple hardware
+                                contexts are implemented.
+
+                         Timing Sampled with the p_extint_b and p_critint_b interrupt request inputs; must be driven to a valid
+                                value when either signal is asserted unless p_avec_b is also asserted. If p_avec_b is asserted,
+                                these inputs are not used.
+                                Assertion—Level-sensitive; must remain asserted to guarantee correct recognition. Must be
+                                     asserted concurrently with p_extint_b and p_critint_b when used.
+
+       p_iack     O     Interrupt vector acknowledge. Interrupt vector acknowledge indicator to allow external interrupt controllers
+                        to be informed when a critical input or external input interrupt is being processed.
+
+                          State Asserted—An interrupt vector is being acknowledged.
+                        Meaning Negated—An interrupt vector is not being acknowledged.
+
+                         Timing Assertion—Asserted after the cycle in which p_avec_b and p_voffset[0:15] are sampled in
+                                    preparation for exception processing. See Figure 7-32 and Figure 7-33 for timing
+                                    diagrams.
+
+   p_mcp_b         I    Machine check. Machine check interrupt request to the core. Masked by HID0[EMCP].
+
+                          State Asserted—A machine check interrupt is being requested.
+                        Meaning Negated—A machine check interrupt is not being requested.
+
+                         Timing Because this signal is not internally synchronized by the core, it must meet setup and hold time
+                                constraints to m_clk when the core clock is running. p_mcp_b is not sampled while the core is
+                                in the halted or stopped power management states.
+                                Assertion—p_mcp_b is sampled on two consecutive m_clk periods to detect a transition from
+                                      the negated to the asserted state. It is internally qualified with this transition, but must
+                                      remain asserted to be guaranteed to be recognized.
+
+
+Table 7-12 describes the timer facility signals, which are associated with the time base, watchdog,
+fixed-interval, and decrementer facilities.
+
+
+
+
+                                   e200z3 Power Architecture Core Reference Manual, Rev. 2
+7-18                                                                                                      Freescale Semiconductor
+                                                                                                      External Core Complex Interfaces
+
+
+                                          Table 7-12. Descriptions of Timer Facility Signals
+
+   Signal      I/O                                                    Signal Description
+
+ p_tbdisabl        I    Timer disable. Used to disable the internal time base and decrementer counters. Used to freeze the state of
+     e                  the time base and decrementer during low power or debug operation.
+
+                          State Asserted—Time base and decrementer updates are frozen.
+                        Meaning Negated—Time base and decrementer updates are unaffected.
+
+                             Timing Not internally synchronized by the core; must meet setup and hold time constraints relative to
+                                    m_clk when the core clock is running, as well as to p_tbclk when selected as an alternate time
+                                    base clock source.
+
+  p_tbclk          I    Timer external clock. Used as an alternate clock source for the time base and decrementer counters.
+                        Selection of this clock is made using HID0[SEL_TBCLK] (see Section 2.13.1, “Hardware
+                        Implementation-Dependent Register 0 (HID0)”).
+
+                             Timing Must be synchronous to the m_clk input and cannot exceed 50% of the m_clk frequency. Must be
+                                    driven such that it changes state on the falling edge of m_clk.
+
+   p_tbint         O    Timer interrupt status. Indicates whether an internal timer facility unit is requesting an interrupt
+                        (TSR[WIS]=1 and TCR[WIE]=1, or TSR[DIS]=1 and TCR[DIE]=1, or TSR[FIS]=1 and TCR[FIE]=1). May be
+                        used to exit low power operation or for other system purposes.
+
+                          State Asserted—An internal timer facility unit is generating an interrupt request.
+                        Meaning Negated—An internal timer facility unit is not generating an interrupt request.
+
+Table 7-13 describes the processor reservation signals associated with lwarx and stwcx..
+                                    Table 7-13. Descriptions of Processor Reservation Signals
+
+  Signal      I/O                                                    Signal Description
+
+  p_rsrv      O        CPU reservation status. Indicates whether a reservation was established by the execution of an lwarx.
+
+                               State Asserted—A reservation was established by successful execution of an lwarx. Remains
+                             Meaning     asserted until the reservation is cleared.
+                                     Negated—No reservation is in effect.
+
+                               Timing Assertion—Remains asserted until the reservation is cleared.
+
+ p_rsrv_cl     I       CPU reservation clear. Used to clear a reservation. External logic may use this signal to implement reservation
+     r                 management policies outside the scope of the CPU. p_xfail_b indicates success/failure of an stwcx. as part
+                       of bus transfer termination using the XFAIL p_hresp[2:0] encoding.
+
+                               State Asserted—Signals that a reservation should be cleared. Asserted independently of any bus
+                             Meaning      transfer.
+
+                               Timing Assertion—Asserted independently of any bus transfer.
+
+Table 7-14 describes miscellaneous processor signals.
+                                   Table 7-14. Descriptions of Miscellaneous Processor Signals
+
+     Signal             I/O                                             Signal Description
+
+  p_cpuid[0:7]           I     CPU ID. Reflected in the PIR. See Section 2.4.2, “Processor ID Register (PIR).”
+
+                                 Timing Intended to remain in a static condition and are not internally synchronized.
+
+  p_pid0[0:7]           O      PID0 outputs. Reflected to PID0[56–63]. See Section 2.16.5, “Process ID Register (PID0).”
+
+
+                                        e200z3 Power Architecture Core Reference Manual, Rev. 2
+Freescale Semiconductor                                                                                                           7-19
+External Core Complex Interfaces
+
+
+                       Table 7-14. Descriptions of Miscellaneous Processor Signals (continued)
+
+       Signal         I/O                                            Signal Description
+
+  p_pid0_updt         O     PID0 update. Indicates that PID0 is being updated by an mtspr.
+
+                              State Asserted—PID0 is being updated by an mtspr.
+                            Meaning Negated—PID0 is not being updated by an mtspr.
+
+                             Timing Assertion—asserts during the clock cycle the p_pid0[0:7] outputs are changing.
+
+ p_sysvers[0:31        I    System version. Core version number reflected in the SVR. See Section 2.4.4, “System Version Register
+       ]                    (SVR).”
+
+                             Timing Intended to remain in a static condition and not internally synchronized.
+
+ p_pvrin[16:31]        I    Processor version. Provide a portion of the version number for a particular CPU. Reflected in the PVR.
+                            See Section 2.4.3, “Processor Version Register (PVR).”
+
+                             Timing Intended to remain in a static condition and are not internally synchronized.
+
+
+7.3.1           Processor State Signals
+Table 7-15 describes the processor state signals.
+                                     Table 7-15. Descriptions of Processor State Signals
+
+   Signal       I/O                                                Signal Description
+
+ p_pstat[0:6]   O      Processor status. Indicate the internal execution unit status. Any values not shown are reserved.
+                       p_pstat[0:6]     Internal Processor Status
+                       00000xx          Execution stalled
+                       00001xx          Execute exception
+                       00010xx          Instruction squashed
+                       01000xx          Processor in halted state
+                       01001xx          Processor in stopped state
+                       01010xx          Processor in debug mode1
+                       01011xx          Processor in checkstop state
+                       10000sm          Complete instruction2,3
+                       1000100          Complete lmw or stmw
+                       1000101          Complete e_lmw or e_stmw
+                       1001000          Complete isync
+                       1001011          Complete se_isync
+                       100110m          Complete lwarx or stwcx. 3
+                       1100000          Complete branch instruction bc, bcl, bca, bcla, b, bl, ba, bla resolved as not taken
+                       1100001          Complete branch instruction e_bc, e_bcl, e_b, e_bl resolved as not taken
+                       1100011          Complete branch instruction se_bc, se_bcl, se_b, se_bl resolved as not taken
+                       1100100          Complete branch instruction bc, bcl, bca, bcla, b, bl, ba, bla resolved as taken
+                       1100101          Complete branch instruction e_bc, e_bcl, e_b, e_bl resolved as taken
+                       1100111          Complete branch instruction se_bc, se_bcl, se_b, se_bl resolved as taken
+                       1101000          Complete bclr, bclrl, bcctr, bcctrl resolved as not taken
+                       1101100          Complete bclr, bclrl, bcctr, bcctrl resolved as taken
+                       1101111          Complete se_blr, se_blrl, se_bctr, se_bctrl (always taken)
+                       111000m          Complete isel with condition false
+                       111010m          Complete isel with condition true
+                       1111100          Complete rfi, rfci, or rfdi
+                       1111111          Complete se_rfi, se_rfci, or se_rfdi
+
+                            Timing Synchronous with m_clk, so the indicated status may not apply to a current bus transfer.
+
+
+
+                                     e200z3 Power Architecture Core Reference Manual, Rev. 2
+7-20                                                                                                      Freescale Semiconductor
+                                                                                                       External Core Complex Interfaces
+
+
+                                Table 7-15. Descriptions of Processor State Signals (continued)
+
+     Signal          I/O                                               Signal Description
+
+p_brstat[0:1]        O     Branch prediction status. Indicates the status of a branch prediction prefetch. Such prefetches are
+                           performed for branch target buffer (BTB) hits with predict taken status to accelerate branches.
+                           p_s1stat[0:1]S1 prefetch status
+                           0x Default (no branch-predicted taken prefetch)
+                           10 Branch-predicted taken prefetch resolved as not taken
+                           11 Branch-predicted taken prefetch resolved as taken
+
+                              Timing Synchronous with m_clk, so the indicated status may not apply to a current bus transfer.
+
+    p_mcp_out        O     Processor machine check. Indicates whether a machine check condition has caused a syndrome bit to be
+                           set in the machine check syndrome register (MCSR).
+
+                              State Asserted—A machine check condition caused an MCSR bit to be set.
+                            Meaning Negated—No machine check condition exists that would set an MCSR bit.
+
+    p_chkstop        O     Processor checkstop. Asserted by the processor when a checkstop condition has occurred and the CPU
+                           has entered the checkstop state.
+
+                              State Asserted—The processor has indicated a checkstop condition.
+                            Meaning Negated—The processor has not indicated a checkstop condition.
+1
+  As reflected on the cpu_dbgack internal state signal
+2
+  Except rfi, rfci, rfdi, lmw, stmw, lwarx, stwcx., isync, isel, se_rfi, se_rfci, se_rfdi, e_lmw, e_stmw, se_isel, and change
+  of flow instructions
+3 s: instruction size, 0 = 32 bit, 1 = 16 bit.
+
+  m: 0 for Book E page, 1 for VLE page
+
+
+Table 7-16 describes power management and other external control logic functions.
+                                 Table 7-16. Descriptions of Power Management Control Signals
+
+    Signal      I/O                                                   Signal Description
+
+     p_halt      I       Processor halt request. Used to request that the processor enter the halted state.
+
+                           State Asserted—Requests the processor to enter halted state.
+                         Meaning Negated—No request is being made for the processor to enter halted state.
+
+    p_halted    O        Processor halted. The active-high p_halted output signal indicates that the processor entered the halted state.
+
+                           State Asserted—The processor is in halted state.
+                         Meaning Negated—The processor is not in halted state.
+
+    p_stop       I       Processor stop request. The active-high p_stop input signal requests that the processor enter the stopped
+                         state.
+
+                           State Asserted—Requests the processor to enter stopped state.
+                         Meaning Negated—No request is being made for the processor to enter stopped state.
+
+p_stopped       O        Processor stopped. The active-high p_stopped output signal indicates that the processor entered the stopped
+                         state.
+
+                           State Asserted—The processor is in stopped state.
+                         Meaning Negated—The processor is not in stopped state.
+
+
+
+
+                                       e200z3 Power Architecture Core Reference Manual, Rev. 2
+Freescale Semiconductor                                                                                                             7-21
+External Core Complex Interfaces
+
+
+                          Table 7-16. Descriptions of Power Management Control Signals (continued)
+
+  Signal          I/O                                                  Signal Description
+
+  p_doze          O      Low-power mode. Asserted by the processor to reflect the settings of HID0[DOZE,NAP,SLEEP] when
+   p_nap                 MSR[WE] is set. The core can be placed in a low-power state by forcing m_clk to a quiescent state and brought
+  p_sleep                out of low-power state by re-enabling m_clk. The time base facilities may be separately enabled or disabled
+                         using combinations of the timer facility control signals. External logic can detect the asserted edge or level of
+                         these signals to determine which low-power mode has been requested and then place the core and
+                         peripherals in a low-power consumption state. p_wakeup can be monitored to determine when to end the
+                         low-power condition.
+
+                           State Asserted—MSR[WE] and the respective HID0 bit are both set.
+                         Meaning Negated—MSR[WE] and the respective HID0 bit are not both set.
+
+                           Timing Assertion—May assert for 1 or more clock cycles.
+
+ p_wakeup         O      Wake up. Used by external logic to remove the core and system logic from a low-power state. It can also
+                         indicate to the system clock controller that m_clk should be re-enabled for debug purposes.
+                         p_wakeup (or other system state) should be monitored to determine when to release the processor (and
+                         system if applicable) from a low-power state.
+
+                           State Asserted—Asserts whenever one of the following occurs:
+                         Meaning • A valid pending interrupt is detected by the core.
+                                 • A request to enter debug mode is made by setting the OCR[DR] or via the assertion of jd_de_b
+                                   or p_ude.
+                                 • The processor is in a debug session and jd_debug_b is asserted.
+                                 • A request to enable m_clk has been made by setting OCR[WKUP].
+
+                           Timing See Section 7.5.5, “Power Management.” This signal is asynchronous to the system clock and
+                                  should be synchronized to the system clock domain to avoid hazards.
+
+
+Table 7-17 describes signal debug events to the core.
+                                         Table 7-17. Descriptions of Debug Events Signals
+
+ Signal     I/O                                                      Signal Description
+
+ p_ude       I     Unconditional debug event. Used to request an unconditional debug event.
+
+                     State Asserted—An unconditional debug event has been requested. Only a transition from negated to
+                   Meaning     asserted state of p_ude causes an event to occur. However, the level on this signal causes
+                               assertion of p_wakeup.
+                           Negated—No unconditional debug event has been requested.
+
+                        Timing Not internally synchronized by the core, and must meet setup and hold time constraints relative to
+                               m_clk when the core clock is running.
+                               Assertion—Level-sensitive and must be held asserted until acknowledged by software, or, when
+                                     external debug mode is enabled, by assertion of jd_debug_b to be guaranteed recognition. Only
+                                     a transition from negated to asserted state of p_ude causes an event to occur. However, the level
+                                     on this signal causes assertion of p_wakeup.
+
+
+
+
+                                        e200z3 Power Architecture Core Reference Manual, Rev. 2
+7-22                                                                                                            Freescale Semiconductor
+                                                                                                   External Core Complex Interfaces
+
+
+                            Table 7-17. Descriptions of Debug Events Signals (continued)
+
+Signal    I/O                                                  Signal Description
+
+p_devt1    I    External debug event 1. Used to request an external debug event. If the core clock is disabled, this signal is not
+                recognized. In addition, only a transition from negated to asserted state of p_devt1 causes an event to occur. It is
+                intended to signal core-related events generated while the CPU is active.
+
+                  State Asserted—An external debug event is requested. Only a transition from negated to asserted state of
+                Meaning     p_devt1 causes an event to occur. It is intended to signal core-related events generated while the
+                            CPU is active.
+                        Negated—No external debug event is requested.
+
+                 Timing Not internally synchronized by the core, and must meet setup and hold time constraints relative to
+                        m_clk when the core clock is running.
+p_devt2    I    External debug event 2. Used to request an external debug event. If the core clock is disabled, this signal is not
+                recognized. In addition, only a transition from negated to asserted state of p_devt2 causes an event to occur. It is
+                intended to signal core-related events generated while the CPU is active.
+
+                  State Asserted—An external debug event is requested. Only a transition from negated to asserted state of
+                Meaning     p_devt2 causes an event to occur.
+                        Negated—No external debug event is requested.
+
+                 Timing Not internally synchronized by the core, and must meet setup and hold time constraints relative to
+                        m_clk when the core clock is running.
+
+Table 7-18 lists debug/emulation (Nexus 1/ OnCE) support signals. These signals assist in implementing
+an on-chip emulation capability with a controller external to the core.
+                                   Table 7-18. Core Debug/Emulation Support Signals
+
+                      Signal            Type                                 Description
+
+                   jd_en_once              I      Enable full OnCE operation
+
+                   jd_debug_b             O       Debug session indicator
+
+                     jd_de_b               I      Debug request
+
+                     jd_de_en             O       DE_b active high output enable
+                   jd_mclk_on              I      CPU clock is active indicator
+
+
+
+
+                                  e200z3 Power Architecture Core Reference Manual, Rev. 2
+Freescale Semiconductor                                                                                                         7-23
+External Core Complex Interfaces
+
+
+Table 7-19 describes debug/emulation (Nexus 1/ OnCE) support signals.
+                Table 7-19. Descriptions of Debug/Emulation (Nexus 1/ OnCE) Support Signals
+
+   Signal      I/O                                               Signal Description
+
+ jd_en_once     I    OnCE enable. Enables the OnCE controller to allow certain instructions and operations to be executed.
+                     Other systems should tie this signal asserted to enable full OnCE operation. j_en_once_regsel and j_key_in
+                     are provided to assist external logic performing security checks.
+
+                       State Asserted—Enables the full OnCE command set, as well as operation of control signals and
+                     Meaning     OnCE control register functions.
+                             Negated—Only the bypass, ID, and Enable_OnCE commands are executed by the OnCE unit;
+                                 all other commands default to a bypass command. The OnCE status register (OSR) is not
+                                 visible when OnCE operation is disabled. In addition, OCR functions and the operation of
+                                 jd_de_b are disabled. Secure systems may leave this signal negated until a security check
+                                 is performed.
+
+                      Timing Must change state only during the test-logic-reset, run-test/idle, or update_dr TAP states. A new
+                             value takes effect after one additional j_tclk cycle of synchronization.
+
+ jd_debug_b     O    Debug session. A debug session includes single-step operations (Go+NoExit OnCE commands). This
+                     signal is provided to inform system resources that access is occurring for debug purposes, thus allowing
+                     certain resource side effects to be frozen or otherwise controlled. Examples may include FIFO state change
+                     control and control of side-effects of register or memory accesses. See Section 9.5.4, “OnCE Interface
+                     Signals.”
+
+                       State Asserted—Asserted when the processor enters debug mode. It remains asserted for the duration
+                     Meaning     of a debug session. that is, during OnCE single-step executions.
+
+   jd_de_b      I    Debug request. Normally the input from the top-level DE_b open-drain bidirectional I/O cell. See
+                     Section 9.5.4, “OnCE Interface Signals.”
+
+                       State Asserted—A debug request is pending.
+                     Meaning Negated—No debug request is pending.
+
+                      Timing Assertion—Not internally synchronized by the core and must meet setup and hold time
+                                 constraints relative to j_tclk. To be recognized, it must be held asserted for a minimum of
+                                 two j_tclk periods, and jd_en_once must be in the asserted state. jd_de_b is synchronized
+                                 to m_clk in the debug module before being sent to the processor (two clocks).
+
+  jd_de_en      O    DE_b active high output enable. Enable for the top-level DE_b open-drain bidirectional I/O cell. See
+                     Section 9.5.4, “OnCE Interface Signals.”
+
+                       State Asserted—the top-level DE_b open-drain bidirectional I/O cell is enabled.
+                     Meaning Negated—the top-level DE_b open-drain bidirectional I/O cell is disabled.
+
+                      Timing Assertion—Asserted for three j_tclk periods upon processor entry into debug mode.
+
+ jd_mclk_on     I    Processor clock on. Driven by system-level clock control logic to indicate the m_clk input state
+
+                       State Asserted—The processor’s m_clk input is active.
+                     Meaning Negated—The processor’s m_clk input is not active.
+
+                      Timing Assertion—Synchronized to j_tclk and provided as an OSR status bit.
+
+jd_watchpoint O      Watchpoint events. Indicate whether a watchpoint occurred. Each debug address compare function
+    [0:7]            (IAC1–IAC4, DAC1–DAC2), and debug counter event (DCNT1–DCNT2) is capable of triggering a
+                     watchpoint output.
+
+                       State Asserted—A watchpoint occurred
+                     Meaning Negated—No watchpoint occurred
+
+
+
+
+                                   e200z3 Power Architecture Core Reference Manual, Rev. 2
+7-24                                                                                                   Freescale Semiconductor
+                                                                                                 External Core Complex Interfaces
+
+
+Table 7-20 lists interface signals that assist in implementing a real-time development tool capability with
+a controller that is external to the core. These signals are described in Section 10.11, “Nexus3/Nexus2+ Pin
+Interface.”
+                             Table 7-20. core Development Support (Nexus3) Signals
+
+                                        Signal         Type              Description
+
+                                       nex_mcko          O    Nexus3 clock output
+
+                                      nex_rdy_b          O    Nexus3 ready output
+
+                                      nex_evto_b         O    Nexus3 event-out output
+
+                                      nex_evti_b          I   Nexus3 event-in input
+
+                                     nex_mdo[n:0]        O    Nexus3 message data output
+
+                                    nex_mseo_b[1:0]      O    Nexus3 message start/end output
+
+Table 7-21 lists the primary JTAG interface signals. These signals are usually connected directly to device
+pins (except for j_tdo, which needs tri-state and edge support logic), unless JTAG TAP controllers are
+concatenated.
+                                       Table 7-21. JTAG Primary Interface Signals
+
+                        Signal Name Type                                Description
+
+                          j_trst_b        I      JTAG test reset
+
+                           j_tclk         I      JTAG test clock
+
+                           j_tms          I      JTAG test mode select
+
+                            j_tdi         I      JTAG test data input
+
+                           j_tdo          O      Test data out to master controller or pad
+
+                          j_tdo_en        O      Enables TDO output buffer. j_tdo_en is asserted when the
+                                                 TAP controller is in the shift_dr or shift_ir state.
+
+Table 7-22 describes JTAG interface signals.
+                                    Table 7-22. Descriptions of JTAG Interface Signals
+
+     Signal       I/O                                                Signal Description
+
+       j_tdi       I     JTAG/OnCE serial input. Provides data and commands to the OnCE controller. Data is latched on the
+                         rising edge of j_tclk. Data is shifted into the OnCE serial port lsb first.
+
+      j_tclk       I     JTAG/OnCE serial clock. Supplies the serial clock to the OnCE control block. The serial clock provides
+                         pulses required to shift data and commands into and out of the OnCE serial port (data is clocked into
+                         the OnCE on the rising edge and is clocked out of the OnCE serial port on the rising edge). The debug
+                         serial clock frequency must not exceed 50% of the processor clock frequency.
+
+
+
+
+                                e200z3 Power Architecture Core Reference Manual, Rev. 2
+Freescale Semiconductor                                                                                                     7-25
+External Core Complex Interfaces
+
+
+                           Table 7-22. Descriptions of JTAG Interface Signals (continued)
+
+       Signal       I/O                                             Signal Description
+
+         j_tdo       O    JTAG/OnCE serial output. Serial data is read from the OnCE block through j_tdo.
+
+                             State Data is shifted out the OnCE serial port lsb first.
+                           Meaning
+
+                             Timing When data is clocked out of the OnCE serial port, j_tdo changes on the rising edge of
+                                    j_tclk. The j_tdo output is always driven. An external system-level TDO pin may be
+                                    three-statable and should be actively driven in the shift-IR and shift-DR controller states.
+                                    j_tdo_en indicates when an external TDO pin should be enabled, and is asserted during
+                                    the shift-IR and shift-DR controller states. In addition, for IEEE1149 compliance, the
+                                    system-level pin should change state on the falling edge of TCLK.
+
+        j_tms        I    JTAG/OnCE test mode select. Used to cycle through states in the OnCE debug controller. Toggling
+                          j_tms while clocking with j_tclk controls transitions through the TAP state controller.
+       j_trst_b      I    JTAG/OnCE test reset. Resets the OnCE controller externally by placing it in the test-logic-reset state.
+                          The following information details additional signals that can support external JTAG data registers using
+                          the core TAP controller.
+                          Signal Name         Type    Description
+                          j_tst_log_rst        O      Indicates the TAP controller is in the test-logic-reset state
+                          j_rti                O      JTAG controller run-test/idle state
+                          j_capture_ir         O      Indicates the TAP controller is in the capture IR state
+                          j_shift_ir           O      Indicates the TAP controller is in shift IR state
+                          j_update_ir          O      Indicates the TAP controller is in update IR state
+                          j_capture_dr         O      Indicates the TAP controller is in the capture DR state
+                          j_shift_dr           O      Indicates the TAP controller is in shift DR state
+                          j_update_gp_reg      O      Updates JTAG controller general-purpose data register
+                          j_gp_regsel[0:11] O         General-purpose external JTAG register select
+                          j_en_once_regsel O          External enable OnCE register select
+                          j_key_in              I     Serial data from external key logic
+                          j_nexus_regsel       O      External Nexus register select
+                          j_lsrl_regsel        O      External LSRL register select
+                          j_serial_data         I     Serial data from external JTAG register(s)
+
+   j_tst_log_rst     O    Test-logic-reset. Indicates whether the TAP controller is in test-logic-reset state.
+
+                             State Asserted—The TAP controller is in test-logic-reset state.
+                           Meaning Negated—The TAP controller is not in test-logic-reset state.
+
+         j_rti       O    Run-test/idle. Indicates whether the TAP controller is in the run-test/idle state.
+
+                             State Asserted—The TAP controller is in run-test/idle state.
+                           Meaning Negated—The TAP controller is not in run-test/idle state.
+
+    j_capture_ir     O    Capture IR. Indicates whether the TAP controller is in the Capture_IR state.
+
+                             State Asserted—The TAP controller is in Capture_IR state.
+                           Meaning Negated—The TAP controller is not in Capture_IR state.
+
+       j_shift_ir    O    Shift IR. Indicates whether the TAP controller is in the Shift_IR state.
+
+                             State Asserted—The TAP controller is in Shift_IR state.
+                           Meaning Negated—The TAP controller is not in Shift_IR state.
+
+    j_update_ir      O    Update IR. Indicates the TAP controller is in the Update_IR state.
+
+                             State Asserted—The TAP controller is in Update_IR state.
+                           Meaning Negated—The TAP controller is not in Update_IR state.
+
+
+
+                                   e200z3 Power Architecture Core Reference Manual, Rev. 2
+7-26                                                                                                      Freescale Semiconductor
+                                                                                                External Core Complex Interfaces
+
+
+                          Table 7-22. Descriptions of JTAG Interface Signals (continued)
+
+     Signal        I/O                                            Signal Description
+
+   j_capture_dr    O     Capture DR. Indicates whether the TAP controller is in the Capture_DR state.
+
+                            State Asserted—The TAP controller is in Capture_DR state.
+                          Meaning Negated—The TAP controller is not in Capture_DR state.
+
+    j_shift_dr     O     Shift DR. Indicates whether the TAP controller is in the Shift_DR state.
+
+                            State Asserted—The TAP controller is in Shift_DR state.
+                          Meaning Negated—The TAP controller is not in Shift_DR state.
+
+ j_update_gp_reg   O     Update DR. Indicates whether the TAP controller is in the Update_DR state.
+
+                            State Asserted—The TAP controller is in the Update_DR state, and OCMD[R/W] is low (write
+                          Meaning     command). j_gp_regsel[0:11] should be monitored to see which register, if any,
+                                      needs updating.
+                                  Negated—The TAP controller is not in the Update_DR state.
+
+   j_gp_regsel     O     Register select. Decoded from the OCMD[RS]. They are used to specify which external
+                         general-purpose JTAG register to access using the core TAP controller.
+                         Signal Name         Type       RS
+                         j_gp_regsel[0]       O         0x70
+                         j_gp_regsel[1]       O         0x71
+                         j_gp_regsel[2]       O         0x72
+                         j_gp_regsel[3]       O         0x73
+                         j_gp_regsel[4]       O         0x74
+                         j_gp_regsel[5]       O         0x75
+                         j_gp_regsel[6]       O         0x76
+                         j_gp_regsel[7]       O         0x77
+                         j_gp_regsel[8]       O         0x78
+                         j_gp_regsel[9]       O         0x79
+                         j_gp_regsel[10]      O         0x7A
+                         j_gp_regsel[11]      O         0x7B
+
+j_en_once_regsel   O     Enable once register select. This control signal can be used by external security logic to help control
+                         jd_enable_once. The external enable_OnCE register should be muxed onto the j_serial_data input.
+                         During the Shift_DR state, j_serial_data is supplied to j_tdo.
+
+                            State Asserted—A decode of OCMD[RS] indicates an external enable_OnCE register is
+                          Meaning     selected (0b1111110 encoding) for access using the core TAP controller.
+
+  j_nexus_regsel   O     External Nexus register select.
+
+                            State Asserted—A decode of OCMD[RS] indicates an external Nexus register is selected
+                          Meaning     (0b1111100 encoding) for access using the core TAP controller.
+                                  Negated—No Nexus register is selected.
+
+   j_lsrl_regsel   O     LSRL register select.
+
+                            State Asserted—A decode of OCMD[RS] indicates an external LSRL register is selected
+                          Meaning     (0b1111101 encoding) for access using the core TAP controller.
+
+
+
+
+                                e200z3 Power Architecture Core Reference Manual, Rev. 2
+Freescale Semiconductor                                                                                                      7-27
+External Core Complex Interfaces
+
+
+                              Table 7-22. Descriptions of JTAG Interface Signals (continued)
+
+       Signal          I/O                                             Signal Description
+
+   j_serial_data        I    Serial data. Receives serial data from external JTAG registers. All external registers share this serial
+                             output back to the core. Therefore it must be muxed using j_gp_regsel[0:11], j_lsrl_regsel, and
+                             j_en_once_regsel. The data is internally routed to j_tdo.
+       j_key_in         I    Key data in. Receives serial data from logic to indicate a key or other value to be scanned out in the
+                             Shift_IR state when the current value in the IR is the Enable_OnCE instruction. This input is provided
+                             to assist in implementing security logic outside of the core, which conditionally asserts jd_en_once.
+                             During the Shift_IR state, when jd_en_once is negated, this input is sampled on the rising edge of
+                             j_tclk, and, after a 2-clock delay, the data is internally routed to j_tdo. This allows provision of a key
+                             value via the j_tdo output following a transition from Capture_IR to Shift_IR. j_key_in provides the key
+                             value.
+
+
+Figure 7-2 shows an example for designing an external JTAG register set using the inputs and outputs
+provided along with the JTAG primary inputs. The main components are a clock generation unit, a JTAG
+shifter (load, shift, hold, clr), the registers (load, hold, clr), and an input mux to the shifter for the serial
+output back to the core.The shifter and the registers may be as wide as the application warrants [0:x]. The
+length determines the number of states the TAP controller is held in Shift_DR (x+1).
+
+
+                                                                               1             0
+                                               j_gp_regsel[1:0]           S
+
+
+
+                                       j_tdi                      SI                D
+                                 j_shift_dr                       SHIFT
+                              j_capture_dr                        LOAD                           Shifter
+
+         j_tclk                                     clk_shfter1                                                    j_serial_data
+                                                                                   Q                       SO
+
+        j_gp_regsel[1:0]                                                               Data
+
+        j_capture_dr
+                                      CLK            clk_reg02                     D
+                                                                                                    REG0
+                                      GEN
+                                                                                         Q
+        j_shift_dr                                                                                                     reg0_dat
+
+
+        j_update_gp_reg                              clk_reg13
+                                                                                   D
+                                                                                                    REG1
+                                                                                        Q
+                                                                                                                       reg1_dat
+                                                   j_trst_b
+          NOTES:
+             1. clk_shfter = j_tclk & (j_shift_dr | j_capture_dr)
+             2. clk_reg0 = j_tclk & j_update_gp_reg & j_gp_regsel[0]
+             3. clk_reg1 = j_tclk & j_update_gp_reg & j_gp_regsel[1]
+
+                                     Figure 7-2. Example External JTAG Register Design
+
+
+
+
+                                    e200z3 Power Architecture Core Reference Manual, Rev. 2
+7-28                                                                                                            Freescale Semiconductor
+                                                                                                        External Core Complex Interfaces
+
+
+7.3.2         JTAG ID Signals
+Table 7-23 shows the JTAG ID register unique to Freescale as specified by the IEEE 1149.1 JTAG
+Specification. Note that bit 31 is the msb of this register.
+                                                 Table 7-23. JTAG Register ID Fields
+
+              Bit Field                 Type                        Description                               Value
+
+               [31:28]                Variable     Version number                                            Variable
+
+               [27:22]                 Fixed       Design center number (e200z3)                             01_1111
+
+               [21:12]                Variable     Sequence number                                           Variable
+
+                [11:1]                 Fixed       Motorola manufacturer ID                              000_0000_1110
+
+                     0                 Fixed       JTAG ID register identification bit                           1
+
+The core shifts out a 1 as the first bit on j_tdo if the Shift_DR state is entered directly from the
+test-logic-reset state, per the JTAG specification, and informs any JTAG controller that an ID register
+exists on the part. The JTAG ID register is accessed by writing the OCMR (OnCE command register) with
+the value 0x02 in OCMD[RS].
+The JTAG ID bit, manufacturer ID field, and design center number are fixed by the JTAG Consortium or
+Freescale. The version numbers and the 2 msbs of the sequence number are variable and brought out to
+external ports. The 8 lsbs of the sequence number are variable and are strapped internally to track
+variations in processor deliverables.
+Table 7-24 shows the inputs to the JTAG ID register that are input ports on the core. These bits can help a
+customer track revisions of a device using the core.
+                                                 Table 7-24. JTAG ID Register Inputs
+
+                              Signal Name             Type                           Description
+
+                         j_id_sequence[0:1]             I       JTAG ID register (2 msbs of sequence field)
+
+                          j_id_version[0:3]             I       JTAG ID register version field
+
+Table 7-25 describes the JTAG ID signals.
+                                            Table 7-25. Descriptions of JTAG ID Signals
+
+     Signal              I/O                                              Signal Description
+
+j_id_sequence[0:1]        I     JTAG ID sequence. Corresponds to the two msbs of the 10-bit sequence number in the JTAG ID
+                                register. These inputs are normally static and are provided for the integrator for further component
+                                variation identification.
+
+j_id_sequence[2:9]        I     JTAG ID sequence. Internally strapped by EPS to track variations in processor and module
+                                deliverables. Each core deliverable has a unique sequence number. Additionally, each revision of
+                                these modules can be identified by unique sequence numbers. EPS maintains a database of the
+                                sequence numbers.
+
+ j_id_version[0:3]        I     JTAG ID version. Corresponds to the 4-bit version number in the JTAG ID register. These inputs are
+                                normally static. They are provided to the customer for strapping to facilitate identification of component
+                                variants.
+
+
+
+                                      e200z3 Power Architecture Core Reference Manual, Rev. 2
+Freescale Semiconductor                                                                                                               7-29
+External Core Complex Interfaces
+
+
+7.4          Internal Signals
+Table 7-26 lists internal signals that are mentioned in this manual. These signals are not directly accessible
+to the user, but are used in this document to help describe the general behavior of the core.
+                                         Table 7-26. Internal Signal Descriptions
+
+ Signal Name                                                       Description
+
+ p_addr[0:31] Address bus. Provides the address for a bus transfer.
+    p_ta_b      Transfer acknowledge. Indicates completion of a requested data transfer operation. An external device asserts
+                p_ta_b to terminate the transfer. For the core to accept the transfer as successful, p_tea_b must remain high
+                while p_ta_b is asserted.
+
+   p_tea_b      Transfer error acknowledge. Indicates that a transfer error condition has occurred and causes the core to
+                immediately terminate the transfer. An external device asserts p_tea_b to terminate the transfer with error.
+                p_tea_b has higher priority than p_ta_b.
+   p_treq_b     Transfer request. The core drives this output to indicate that a new access has been requested.
+
+   p_xfail_b    Store exclusive failure. An external agent causes assertion of p_xfail_b to indicate a failure of the store portion
+                of an stwcx. for the current transfer. p_xfail_b is ignored if p_tea_b is asserted, because the store terminated
+                with an error.
+                Assertion of p_xfail_b with p_ta_b does not cause an exception; it indicates that the store was not performed
+                due to a loss of reservation (determined by an external agent). The CPU updates the condition code accordingly
+                and clears any outstanding reservation. p_xfail_b may be asserted by reservation logic or as a result of a system
+                bus transfer with a failure response that is passed back to the CPU from the BIU. The AMBA XFAIL response
+                is signaled back to the CPU using this signal. See Section 3.7, “Memory Synchronization and Reservation
+                Instructions.” p_xfail_b is ignored for all transfers other than an stwcx..
+
+
+7.5          Timing Diagrams
+The following sections discuss various types of timing diagrams.
+
+7.5.1          Processor Instruction/Data Transfers
+Transfer of data between the core and peripherals involves the address bus, data buses, and control and
+attribute signals. The address and data buses are parallel, non-multiplexed buses, supporting byte, half
+word, 3-byte, word, and double-word transfers. All bus inputs and outputs are sampled and driven with
+respect to the rising edge of m_clk. The core moves data on the bus by issuing control signals and using a
+handshake protocol to ensure correct data movement.
+The memory interface operates in a pipelined fashion to allow additional access time for memory and
+peripherals. AHB transfers consist of an address phase that lasts only one cycle, followed by the data phase
+that may last for one or more cycles, depending on the state of p_[d,i]_hready.
+Read transfers consist of the following:
+   • A request cycle, where address and attributes are driven along with a transfer request
+   • One or more memory access cycles to perform accesses and return data to the CPU for alignment,
+       sign or zero extension, and forwarding.
+
+
+
+
+                                   e200z3 Power Architecture Core Reference Manual, Rev. 2
+7-30                                                                                                     Freescale Semiconductor
+                                                                                      External Core Complex Interfaces
+
+
+Write transfers consist of a request cycle, in which address and attributes are driven along with a transfer
+request; and of one or more data drive cycles, in which write data is driven and external devices accept
+write data for the access.
+To support sustained single-cycle transfers, access requests can overlap. Up to two access requests may be
+in progress during any cycle—one access outstanding and a second in the pending request phase. If access
+retraction is enabled via HID1[ARD] = 0, the BIU is free to change the current request at any time, even
+if part of a burst transfer.
+Access requests are assumed to be accepted as long as either no access is in progress or an access is
+terminated during the same cycle when a new request is active (p_[d,i]_hready asserted). When an access
+is accepted, the BIU is free to change the current request.
+The local memory control logic is responsible for proper pipelining and latching of all interface signals to
+initiate memory accesses.
+The system hardware can use p_hresp[2:0] to signal, using the ERROR response encoding, that the current
+bus cycle has an error when a fault is detected. ERROR assertion requires a 2-cycle response. In the first
+cycle of the response, p_hresp[2:0] are driven to indicate ERROR and p_[d,i]_hready must be negated.
+During the following cycle, the ERROR response must continue to be driven, and p_[d,i]_hready must be
+asserted. When the core recognizes a bus error condition for an access at the end of the first cycle of the
+2-cycle error response, a subsequent pending access request may be removed by the BIU driving
+p_[d,i]_htrans[2:0] to the IDLE state in the second cycle of the 2-cycle error response. Not all pending
+requests are removed, however.
+When a bus cycle is terminated with a bus error, the core can enter storage error exception processing
+immediately following the bus cycle, or it can defer processing the exception.
+The instruction prefetch mechanism requests instruction words from the instruction memory unit before it
+is ready to execute them. If a bus error occurs on an instruction fetch, the core does not take the exception
+until it attempts to use the instruction. Should an intervening instruction cause a branch, or should a task
+switch occur, the storage error exception for the unused access does not occur. A bus error termination for
+any write access or read access that references data specifically requested by the execution unit causes the
+core to begin exception processing.
+
+
+
+
+                            e200z3 Power Architecture Core Reference Manual, Rev. 2
+Freescale Semiconductor                                                                                          7-31
+External Core Complex Interfaces
+
+
+7.5.1.1           Basic Read Transfer Cycles
+During a read transfer, the core receives data from a memory or peripheral device. Figure 7-3 shows
+functional timing for basic read transfers, and clock-by-clock descriptions of activity follow.
+                                    1                   2                  3                 4              5
+                  m_clk
+
+               p_htrans              nonseq              nonseq             nonseq                   idle
+
+       p_addr,p_hprot                   addr x              addr y             addr z
+
+               p_hsize,
+
+           p_hbstrb, etc
+
+               p_hburst                 single              single             single
+
+            p_hunalign
+
+               p_hwrite
+
+               p_hrdata                                       data x             data y          data z
+
+              p_hwdata
+
+              p_hready
+
+               p_hresp                    okay                 okay              okay            okay
+                           Figure 7-3. Basic Read Transfer—Single-Cycle Reads, Full Pipelining
+
+       •    Clock 1 (C1)—The first read transfer starts in clock cycle 1. During C1, the core places valid values
+            on the address bus and transfer attributes. The burst type (p_[d,i]_hburst[2:0]), protection control
+            (p_[d,i]_hprot[5:0]), and transfer type (p_[d,i]_htrans[1:0]) attributes identify the specific access
+            type. The transfer size attributes (p_[d,i]_hsize[1:0]) indicate the size of the transfer. The byte
+            strobes (p_[d,i]_hbstrb[7:0]) are driven to indicate active byte lanes. The write (p_[d,i]_hwrite)
+            signal is driven low for a read cycle.
+            The core asserts a transfer request (p_[d,i]_htrans= NONSEQ) during C1 to indicate that a transfer
+            is being requested. Because the bus is currently idle, (0 transfers outstanding), the first read request
+            to addrx is considered taken at the end of C1. The default slave drives a ready/OKAY response for
+            the current idle cycle.
+       •    Clock 2 (C2)—During C2, the addrx memory access takes place, using the address and attribute
+            values that were driven during C1 to enable reading of 1 or more bytes of memory. Read data from
+            the slave device is provided on the p_[d,i]_hrdata inputs. The slave device responds by asserting
+            p_[d,i]_hready to indicate that the cycle is completing, and it drives an OKAY response.
+            Another read transfer request is made during C2 to addry (p_[d,i]_htrans = NONSEQ), and
+            because the access to addrx is completing, it is considered taken at the end of C2.
+       •    Clock 3 (C3)—During C3, the addry memory access takes place, using the address and attribute
+            values that were driven during C2 to enable reading of one or more bytes of memory. Read data
+
+
+                                   e200z3 Power Architecture Core Reference Manual, Rev. 2
+7-32                                                                                         Freescale Semiconductor
+                                                                                          External Core Complex Interfaces
+
+
+         from the slave device for addry is provided on the p_[d,i]_hrdata inputs. The slave device responds
+         by asserting p_[d,i]_hready to indicate the cycle is completing, and it drives an OKAY response.
+         Another read transfer request is made during C3 to addrz (p_[d,i]_htrans = NONSEQ), and
+         because the access to addry is completing, it is considered taken at the end of C3.
+    •    Clock 4 (C4)—During C4, the addrz memory access takes place, using the address and attribute
+         values that were driven during C3 to enable reading of one or more bytes of memory. Read data
+         from the slave device for addrz is provided on the p_[d,i]_hrdata inputs. The slave device responds
+         by asserting p_[d,i]_hready to indicate the cycle is completing, and it drives an OKAY response.
+         Because the CPU has no additional outstanding requests, p_[d,i]_htrans indicates IDLE and the
+         address and attribute signals are undefined.
+
+7.5.1.2        Read Transfer with Wait State
+Figure 7-4 shows an example of wait state operation. Because signal p_[d,i]_hready for the first request
+(addrx) is not asserted during C2, a wait state is inserted until p_[d,i]_hready is recognized (during C3).
+Meanwhile, a subsequent request was generated by the CPU for addry which is not taken in C2, because
+the previous transaction is still outstanding. The address and transfer attributes remain driven in cycle C3
+and are taken at the end of C3 because the previous access is completing. Data for addrx and a ready/OKAY
+response are driven back by the slave device. In cycle C4, a request for addrz is made. The request for
+access to addrz is taken at the end of C4, and during C5, the slave device provides the data and a
+ready/OKAY response. In cycle C5, no further accesses are requested.
+                                1              2                   3            4                   5             6
+               m_clk
+
+            p_htrans            nonseq                    nonseq                nonseq                     idle
+
+    p_addr,p_hprot               addr x                   addr y                 addr z
+
+            p_hsize,
+
+        p_hbstrb, etc
+
+            p_hburst             single                   single                 single
+
+         p_hunalign
+
+            p_hwrite
+
+            p_hrdata                                                   data x       data y              data z
+
+           p_hwdata
+
+           p_hready
+
+            p_hresp                 okay           okay                okay         okay                okay
+                        Figure 7-4. Read with Wait-State, Single-Cycle Reads, Full Pipelining
+
+
+
+
+                                e200z3 Power Architecture Core Reference Manual, Rev. 2
+Freescale Semiconductor                                                                                               7-33
+External Core Complex Interfaces
+
+
+7.5.1.3           Basic Write Transfer Cycles
+During a write transfer, the core provides write data to a memory or peripheral device. Figure 7-5 shows
+functional timing for basic write transfers. Clock-by-clock descriptions of activity in Figure 7-5 follow.
+
+                                    1                   2                  3                 4                   5
+                  m_clk
+
+               p_htrans              nonseq              nonseq             nonseq                        idle
+
+       p_addr,p_hprot                   addr x              addr y             addr z
+
+               p_hsize,
+
+           p_hbstrb, etc
+
+               p_hburst                 single              single             single
+
+            p_hunalign
+
+               p_hwrite
+
+               p_hrdata
+
+              p_hwdata                                      data x             data y            data z
+
+              p_hready
+
+               p_hresp                    okay                 okay              okay              okay
+                       Figure 7-5. Basic Write Transfers—Single-Cycle Writes, Full Pipelining
+
+       •    Clock 1 (C1)—The first write transfer starts in clock cycle 1. During C1, the core places valid
+            values on the address bus and transfer attributes. The burst type (p_[d,i]_hburst[2:0]), protection
+            control (p_[d,i]_hprot[5:0]), and transfer type (p_[d,i]_htrans[1:0]) attributes identify the specific
+            access type. The transfer size attributes (p_[d,i]_hsize[1:0]) indicate the size of the transfer. The
+            byte strobes (p_[d,i]_hbstrb[7:0]) are driven to indicate active byte lanes. The write
+            (p_[d,i]_hwrite) signal is driven high for a write cycle.
+            The core asserts transfer request (p_[d,i]_htrans= NONSEQ) during C1 to indicate that a transfer
+            is being requested. Because the bus is idle, (0 transfers outstanding), the first read request to addrx
+            is considered taken at the end of C1. The default slave drives a ready/OKAY response for the
+            current idle cycle.
+       •    Clock 2 (C2)—During C2, the write data for the access is driven and the addrx memory access
+            occurs using the address and attribute values (driven during C1) to enable writing of one or more
+            bytes of memory. The slave device responds by asserting p_[d,i]_hready to indicate the cycle is
+            completing and drives an OKAY response.
+            Another write transfer request is made during C2 to addry (p_[d,i]_htrans = NONSEQ), and
+            because the access to addrx is completing, it is considered taken at the end of C2.
+       •    Clock 3 (C3)—During C3, write data for addry is driven, and the addry memory access takes place
+            using the address and attribute values (driven during C2) to enable writing of one or more bytes of
+
+                                   e200z3 Power Architecture Core Reference Manual, Rev. 2
+7-34                                                                                         Freescale Semiconductor
+                                                                                          External Core Complex Interfaces
+
+
+         memory. The slave device responds by asserting p_[d,i]_hready to indicate the cycle is completing
+         and drives an OKAY response.
+         Another write transfer request is made during C3 to addrz (p_[d,i]_htrans = NONSEQ), and
+         because the access to addry is completing, it is considered taken at the end of C3.
+    •    Clock 4 (C4)—During C4, write data for addrz is driven, and the addrz memory access takes place
+         using the address and attribute values (driven during C3) to enable reading of one or more bytes of
+         memory. The slave device responds by asserting p_[d,i]_hready to indicate the cycle is completing
+         and drives an OKAY response.
+         Because the CPU has no more outstanding requests, p_[d,i]_htrans indicates IDLE and the address
+         and attribute signals are undefined.
+
+7.5.1.4         Write Transfer with Wait States
+Figure 7-6 shows an example write wait state operation. Because p_[d,i]_hready for the first request
+(addrx) is not asserted during C2, a wait state is inserted until p_[d,i]_hready is recognized (during C3).
+                                1               2                   3           4                   5            6
+               m_clk
+
+            p_htrans            nonseq                     nonseq               nonseq                    idle
+
+    p_addr,p_hprot               addr x                    addr y                addr z
+
+             p_hsize,
+
+        p_hbstrb, etc
+
+            p_hburst                single                 single                single
+
+          p_hunalign
+
+             p_hwrite
+
+            p_hrdata
+
+           p_hwdata                                        data x                data y              data z
+
+            p_hready
+
+             p_hresp                  okay          okay                okay        okay                okay
+
+                        Figure 7-6. Write with Wait-state, Single-Cycle Writes, Full Pipelining
+
+Meanwhile, the core generates a subsequent request for addry which is not taken in C2, because the
+previous transaction is outstanding. The address, transfer attributes, and write data remain driven in cycle
+C3 and are taken at the end of C3 because a ready/OKAY response is driven back by the slave device for
+the previous access. In cycle C4, a request for addrz is made. The request for access to addrz is taken at the
+end of C4, and during C5, the slave device provides a ready/OKAY response. In C5, no further accesses
+are requested.
+
+
+
+                                e200z3 Power Architecture Core Reference Manual, Rev. 2
+Freescale Semiconductor                                                                                              7-35
+External Core Complex Interfaces
+
+
+7.5.1.5         Read and Write Transfers
+Figure 7-7 shows a sequence of read and write cycles.
+
+                                    1                   2                   3                4                   5
+                m_clk
+
+             p_htrans                nonseq              nonseq              nonseq                       idle
+
+       p_addr,p_hprot                   addr x              addr y              addr z
+
+             p_hsize,
+
+         p_hbstrb, etc
+
+             p_hburst                   single              single              single
+
+          p_hunalign
+
+             p_hwrite
+
+             p_hrdata                                        data x               data y
+
+            p_hwdata                                                                             data z
+
+            p_hready
+
+             p_hresp                      okay                okay                 okay             okay
+                         Figure 7-7. Single-Cycle Reads, Single-Cycle Write, Full Pipelining
+
+The first read request (addrx) is taken at the end of cycle C1 because the bus is idle. The second read request
+(addry) is taken at the end of C2 because a ready/OKAY response is asserted during C2 for the first read
+access (addrx). During C3, a request is generated for a write to addry which is taken at the end of C3
+because the second access is terminating.
+Data for the addrz write cycle is driven in C4, the cycle after the access is taken, and a ready/OKAY
+response is signaled to complete the write cycle to addrz.
+Figure 7-8 shows another sequence of read and write cycles. This example shows an interleaved write
+access between two reads.
+
+
+
+
+                                   e200z3 Power Architecture Core Reference Manual, Rev. 2
+7-36                                                                                         Freescale Semiconductor
+                                                                                       External Core Complex Interfaces
+
+
+
+                              1                   2                  3                      4                5
+              m_clk
+
+           p_htrans            nonseq              nonseq             nonseq                          idle
+
+    p_addr,p_hprot                addr x              addr y             addr z
+
+           p_hsize,
+
+      p_hbstrb, etc
+
+           p_hburst               single              single             single
+
+        p_hunalign
+
+           p_hwrite
+
+           p_hrdata                                    data x                                   data z
+
+          p_hwdata                                                       data y
+
+          p_hready
+
+           p_hresp                  okay                okay               okay                   okay
+                          Figure 7-8. Single-Cycle Read, Write, Read—Full Pipelining
+
+The first read request (addrx) is taken at the end of cycle C1 because the bus is idle. The first write request
+(addry) is taken at the end of C2 because the first access is terminating (addrx). Data for the addry write
+cycle is driven in C3, the cycle after the access is taken. Also during C3, a request is generated for a read
+to addrz, which is taken at the end of C3 because the write access is terminating.
+During C4, the addry write access is terminated, and no further access is requested.
+Figure 7-9 shows another sequence of read and write cycles. In this example, reads incur a single wait
+state.
+
+
+
+
+                             e200z3 Power Architecture Core Reference Manual, Rev. 2
+Freescale Semiconductor                                                                                           7-37
+External Core Complex Interfaces
+
+
+
+                             1              2           3            4           5            6            7           8
+                m_clk
+
+             p_htrans        nonseq                nonseq                   nonseq            nonseq            idle
+
+       p_addr,p_hprot        addr x                addr y                   addr z            addr w
+
+             p_hsize,
+
+         p_hbstrb, etc
+
+             p_hburst        single                single                   single            single
+
+          p_hunalign
+
+             p_hwrite
+
+             p_hrdata                                       data x                   data y
+
+            p_hwdata                                                                          data z      data w
+
+            p_hready
+
+             p_hresp             okay           okay        okay         okay        okay         okay         okay
+             Figure 7-9. Multiple-Cycle Reads with Wait-State, Single-Cycle Writes, Full Pipelining
+
+The first read request (addrx) is taken at the end of cycle C1 because the bus is idle. The second read request
+(addry) is not taken at the end of cycle C2 because no ready response is signaled and only one access can
+be outstanding (addrx). It is taken at the end of C3 once the first read request has signaled a ready/OKAY
+response.
+The first write request (addrz) is not taken during C4 because a ready response is not asserted during C4
+for the second read access (addry). During C5, the request for a write to addrz is taken because the second
+access is terminating.
+Data for the addrz write cycle is driven in C6, the cycle after the access is taken. During C6, the addrz write
+access is terminated and the addrw write request is taken.
+During C7, data for the addrw write access is driven, and a ready/OKAY response is asserted to complete
+the write cycle to addrw.
+Figure 7-10 shows another sequence of read and write cycles. In this example, reads incur a single wait
+state.
+
+
+
+
+                                   e200z3 Power Architecture Core Reference Manual, Rev. 2
+7-38                                                                                                Freescale Semiconductor
+                                                                                        External Core Complex Interfaces
+
+
+
+                          1            2           3            4          5             6            7           8
+              m_clk
+
+           p_htrans       nonseq              nonseq            nonseq            nonseq                   idle
+
+    p_addr,p_hprot        addr x              addr y            addr z             addr w
+
+           p_hsize,
+
+      p_hbstrb, etc
+
+           p_hburst       single              single            single             single
+
+        p_hunalign
+
+           p_hwrite
+
+           p_hrdata                                    data x                  data z
+
+          p_hwdata                                              data y                               data w
+
+          p_hready
+
+           p_hresp            okay         okay        okay         okay       okay          okay         okay
+Figure 7-10. Multi-Cycle Read with Wait-State, Single-Cycle Write, Read with Wait-State, Single-Cycle Write,
+                                               Full Pipelining
+
+The first read request (addrx) is taken at the end of cycle C1 because the bus is idle.
+The first write request (addry) is not taken at the end of cycle C2 because no ready response is signaled
+and only one access can be outstanding (addrx). It is taken at the end of C3 once the first read request has
+signaled a ready/OKAY response.
+Data for the addry write cycle is driven in C4, the cycle after the access is taken. The second read request
+(addrz) is taken during C4 because the addry write is terminating.
+A second write request (addrw) is not taken at the end of C5 because the second read access is not
+terminating, and it continues to drive the address and attributes into cycle C6. During C6, the addrz read
+access is terminated and the addrw write access is taken.
+In cycle C7, data for the addrw write access is driven. During C7, a ready/OKAY response is asserted to
+complete the write cycle to addrw. No further accesses are requested, so p_[d,i]_htrans signals IDLE.
+
+7.5.1.6       Misaligned Accesses
+Figure 7-11 shows functional timing for a misaligned read transfer. The read to addrx is misaligned across
+a 64-bit boundary. Note that only half-word and word transfers may be misaligned; double-word transfers
+are always aligned.
+
+
+
+
+                              e200z3 Power Architecture Core Reference Manual, Rev. 2
+Freescale Semiconductor                                                                                               7-39
+External Core Complex Interfaces
+
+
+
+                                    1                   2                  3                 4              5
+                m_clk
+
+             p_htrans                nonseq                 nonseq          nonseq                   idle
+
+       p_addr,p_hprot                   addr x           addr x+               addr y
+
+             p_hsize,
+
+         p_hbstrb, etc
+
+             p_hburst                   single              single             single
+
+          p_hunalign                                          **
+
+             p_hwrite
+
+             p_hrdata                                         data x            data x+          data y
+
+            p_hwdata
+
+            p_hready
+
+             p_hresp                      okay                 okay              okay            okay
+                                   Figure 7-11. Misaligned Read, Read, Full Pipelining
+
+The first portion of the misaligned read transfer starts in C1. During C1, the core places valid values on
+the address bus and transfer attributes. The p_[d,i]_hwrite signal is driven low for a read cycle. The
+transfer size attributes (p_[d,i]_hsize) indicate the size of the transfer. Even though the transfer is
+misaligned, the size value driven corresponds to the size of the entire misaligned data item.
+p_[d,i]_hunalign is driven high to indicate that the access is misaligned. The p_[d,i]_hbstrb outputs are
+asserted to indicate the active byte lanes for the read, which may not correspond to size and low-order
+address outputs. p_[d,i]_htrans is driven to NONSEQ.
+During C2, the addrx memory access takes place using the address and attribute values which were driven
+during C1 to enable reading of one or more bytes of memory.
+The second portion of the misaligned read transfer request is made during C2 to addrx+ (which is aligned
+to the next higher 64-bit boundary), and because the first portion of the misaligned access is completing,
+it is taken at the end of C2. The p_[d,i]_htrans signals indicate NONSEQ. The size value driven is the size
+of the remaining bytes of data in the misaligned read, rounded up (for the 3-byte case) to the next higher
+power of 2. The p_[d,i]_hbstrb signals indicate the active byte lanes. For the second portion of a
+misaligned transfer, p_[d,i]_hunalign is driven high for the 3-byte case (low for all others). The next read
+access is requested in C3 and p_[d,i]_htrans indicates NONSEQ. p_[d,i]_hunalign is negated, because
+this access is aligned.
+Figure 7-12 shows functional timing for a misaligned write transfer. The write to addrx is misaligned
+across a 64-bit boundary. Note that only half-word and word transfers may be misaligned; double-word
+transfers are always aligned.
+
+
+
+                                   e200z3 Power Architecture Core Reference Manual, Rev. 2
+7-40                                                                                         Freescale Semiconductor
+                                                                                     External Core Complex Interfaces
+
+
+
+                             1                  2                  3                      4                5
+              m_clk
+
+           p_htrans           nonseq                nonseq          nonseq                        idle
+
+    p_addr,p_hprot               addr x          addr x+               addr y
+
+           p_hsize,
+
+      p_hbstrb, etc
+
+           p_hburst              single             single             single
+
+        p_hunalign                                    **
+
+           p_hwrite
+
+           p_hrdata
+
+          p_hwdata                                  data x             data x+                data y
+
+          p_hready
+
+           p_hresp                 okay               okay                okay                 okay
+                           Figure 7-12. Misaligned Write, Write, Full Pipelining
+
+The first portion of the misaligned write transfer starts in C1. During C1, the core places valid values on
+the address bus and transfer attributes. The p_[d,i]_hwrite signal is driven high for a write cycle. The
+transfer size attribute (p_[d,i]_hsize) indicates the size of the transfer. Even though the transfer is
+misaligned, the size value driven corresponds to the size of the entire misaligned data item.
+p_[d,i]_hunalign is driven high to indicate that the access is misaligned. The p_[d,i]_hbstrb outputs are
+asserted to indicate the active byte lanes for the write, which may not correspond to size and low-order
+address outputs. p_[d,i]_htrans is driven to NONSEQ.
+During C2, data for addrx is driven, and the addrx memory access takes place using the address and
+attribute values that were driven during C1 to enable writing of one or more bytes of memory.
+The second portion of the misaligned write transfer request is made during C2 to addrx+ (which is aligned
+to the next higher 64-bit boundary), and because the first portion of the misaligned access is completing,
+it is taken at the end of C2. The p_[d,i]_htrans signals indicate NONSEQ. The size value driven is the size
+of the remaining bytes of data in the misaligned write, rounded up (for the 3-byte case) to the next higher
+power-of-2. The p_[d,i]_hbstrb signals indicate the active byte lanes. For the second portion of a
+misaligned transfer, p_[d,i]_hunalign is driven high for the 3-byte case (low for all others).
+The next write access is requested in C3 and p_[d,i]_htrans indicates NONSEQ. p_[d,i]_hunalign is
+negated, because this access is aligned.
+An example of a misaligned write cycle followed by an aligned read cycle is shown in Figure 7-13. It is
+similar to the example in Figure 7-12.
+
+
+
+                           e200z3 Power Architecture Core Reference Manual, Rev. 2
+Freescale Semiconductor                                                                                         7-41
+External Core Complex Interfaces
+
+
+
+                                    1                   2                  3                 4             5
+                m_clk
+
+             p_htrans                nonseq                 nonseq           nonseq                idle
+
+       p_addr,p_hprot                   addr x           addr x+               addr y
+
+             p_hsize,
+
+         p_hbstrb, etc
+
+             p_hburst                   single              single             single
+
+          p_hunalign                                          **
+
+             p_hwrite
+
+             p_hrdata                                                                            data y
+
+            p_hwdata                                        data x             data x+
+
+            p_hready
+
+             p_hresp                      okay                 okay               okay           okay
+                    Figure 7-13. Misaligned Write, Single Cycle Read Transfer, Full Pipelining
+
+
+
+
+                                   e200z3 Power Architecture Core Reference Manual, Rev. 2
+7-42                                                                                         Freescale Semiconductor
+                                                                                     External Core Complex Interfaces
+
+
+7.5.2        Burst Accesses
+Figure 7-14 shows functional timing for a burst read transfer.
+
+                                                          Burst Read
+                           1               2                3               4                   5               6
+              m_clk
+
+           p_htrans        nonseq              seq               seq            seq                    ...
+
+    p_addr,p_hprot          addr x         addr x+8            addr x+16    addr x+24
+
+           p_hsize,
+
+      p_hbstrb, etc
+
+           p_hburst                                     INCR
+
+        p_hunalign
+
+           p_hwrite
+
+           p_hrdata                            data x            data x+8       data x+16           data x+24
+
+          p_hwdata
+
+          p_hready
+
+           p_hresp             okay            okay               okay          okay                okay
+                                      Figure 7-14. Burst Read Transfer
+
+The p_[d,i]_hburst signals indicate INCR for all burst transfers. The p_[d,i]_hunalign signal is negated.
+p_[d,i]_hsize indicates 64-bits, and all eight p_[d,i]_hbstrb signals are asserted. The burst address is
+aligned to a 64-bit boundary and increments by double words. Note that in this example four beats are
+shown, but in operation the burst may be of any length including only a single beat.
+                                                   NOTE
+                Bursts can be interrupted immediately at any time and can be followed by
+                any type of cycle. No idle cycle is required.
+
+
+
+
+                           e200z3 Power Architecture Core Reference Manual, Rev. 2
+Freescale Semiconductor                                                                                             7-43
+External Core Complex Interfaces
+
+
+Figure 7-15 shows functional timing for a burst read with wait-state transfer.
+
+                                                           Burst Read with wait-state
+                              1                2             3             4            5               6           7
+                m_clk
+
+             p_htrans         nonseq                      seq                seq            seq               ...
+
+       p_addr,p_hprot          addr x                 addr x+8            addr x+16     addr x+24
+
+             p_hsize,
+
+         p_hbstrb, etc
+
+             p_hburst                                           incr
+
+          p_hunalign
+
+             p_hwrite
+
+             p_hrdata                                            data x     data x+8        data x+16       data x+24
+
+            p_hwdata
+
+            p_hready
+
+             p_hresp               okay            okay          okay        okay           okay            okay
+                                     Figure 7-15. Burst Read with Wait-state Transfer
+
+The first cycle of the burst incurs a single wait-state.
+
+
+
+
+                                   e200z3 Power Architecture Core Reference Manual, Rev. 2
+7-44                                                                                               Freescale Semiconductor
+                                                                                     External Core Complex Interfaces
+
+
+Figure 7-16 shows functional timing for a burst write transfer.
+
+                                                               Burst Write
+                           1               2                     3            4                 5               6
+              m_clk
+
+           p_htrans        nonseq              seq                  seq           seq                  ...
+
+    p_addr,p_hprot          addr x         addr x+8             addr x+16     addr x+24
+
+           p_hsize,
+
+      p_hbstrb, etc
+
+           p_hburst                                     incr
+
+        p_hunalign
+
+           p_hwrite
+
+           p_hrdata
+
+          p_hwdata                             data x              data x+8       data x+16         data x+24
+
+          p_hready
+
+           p_hresp             okay            okay                 okay          okay              okay
+                                      Figure 7-16. Burst Write Transfer
+
+
+
+
+                           e200z3 Power Architecture Core Reference Manual, Rev. 2
+Freescale Semiconductor                                                                                             7-45
+External Core Complex Interfaces
+
+
+Figure 7-15 shows functional timing for a burst write with wait-state transfer.
+
+                                                             Burst Write with Wait-state
+                              1                2               3              4            5               6           7
+                m_clk
+
+             p_htrans         nonseq                        seq                seq             seq               ...
+
+       p_addr,p_hprot          addr x                 addr x+8              addr x+16      addr x+24
+
+             p_hsize,
+
+         p_hbstrb, etc
+
+             p_hburst                                             incr
+
+          p_hunalign
+
+             p_hwrite
+
+             p_hrdata
+
+            p_hwdata                               data x                      data x+8        data x+16       data x+24
+
+            p_hready
+
+             p_hresp               okay            okay            okay         okay           okay            okay
+                                    Figure 7-17. Burst Write with Wait-State Transfer
+
+The first cycle of the burst incurs a single wait-state. Data for the second beat of the burst is valid the cycle
+after the second beat is taken.
+
+
+
+
+                                   e200z3 Power Architecture Core Reference Manual, Rev. 2
+7-46                                                                                                  Freescale Semiconductor
+                                                                                       External Core Complex Interfaces
+
+
+Figure 7-18 shows functional timing for a pair of burst read transfers.
+
+                                                                Burst Read
+                           1                2                     3            4                  5              6
+              m_clk
+
+           p_htrans        nonseq               seq                  nonseq        seq                   ...
+
+    p_addr,p_hprot          addr x          addr x+8              addr y       addr y+8
+
+           p_hsize,
+
+      p_hbstrb, etc
+
+           p_hburst                                      incr
+
+        p_hunalign
+
+           p_hwrite
+
+           p_hrdata                             data x              data x+8       data y             data y+8
+
+          p_hwdata
+
+          p_hready
+
+           p_hresp             okay             okay                 okay           okay              okay
+                                      Figure 7-18. Burst Read Transfers
+
+Note that in this example the first burst is two beats long and is followed immediately by a second burst
+which is unrelated to the first.
+                                                  NOTE
+                Bursts may be of any length (including a single beat) and may be followed
+                immediately by any type of transfer. No idle cycles are required.
+
+
+
+
+                           e200z3 Power Architecture Core Reference Manual, Rev. 2
+Freescale Semiconductor                                                                                              7-47
+External Core Complex Interfaces
+
+
+Figure 7-19 shows functional timing for a burst read with wait-state transfer where the second beat to addr
+x+8 is retracted and replaced with a new burst transfer.
+
+                                                          Burst Read with wait-state
+                              1                2            3             4            5               6            7
+                m_clk
+
+             p_htrans         nonseq           seq         nonseq           seq            seq               idle
+
+       p_addr,p_hprot          addr x        addr x+8      addr y        addr y+8      addr y+16
+
+             p_hsize,
+
+         p_hbstrb, etc
+
+             p_hburst                                        incr
+
+          p_hunalign
+
+             p_hwrite
+
+             p_hrdata                                         data x       data y          data y+8        data y+16
+
+            p_hwdata
+
+            p_hready
+
+             p_hresp               okay            okay        okay         okay           okay            okay
+                           Figure 7-19. Burst Read with Wait-State Transfer, Retraction
+
+The first cycle of the burst incurs a single wait state, and the burst is replaced by another burst.
+
+
+
+
+                                   e200z3 Power Architecture Core Reference Manual, Rev. 2
+7-48                                                                                              Freescale Semiconductor
+                                                                                       External Core Complex Interfaces
+
+
+Figure 7-20 shows functional timing for a burst write transfer. The second burst is only one beat long.
+
+                                                               Burst Write
+                           1               2                     3            4                   5              6
+              m_clk
+
+           p_htrans         nonseq             seq                  seq           nonseq                  idle
+
+    p_addr,p_hprot          addr x         addr x+8             addr x+16     addr y
+
+           p_hsize,
+
+      p_hbstrb, etc
+
+           p_hburst                                     incr
+
+        p_hunalign
+
+           p_hwrite
+
+           p_hrdata
+
+          p_hwdata                             data x              data x+8       data x+16           data y
+
+          p_hready
+
+           p_hresp             okay            okay                 okay          okay                 okay
+                           Figure 7-20. Burst Write Transfers, Single-Beat burst
+
+This same scenario can occur for read bursts as well.
+
+7.5.3        Address Retraction
+Address retraction is the process of replacing a request with a new unrelated one. Although the AMBA
+AHB protocol requires an access request to remain driven unchanged once presented on the bus, higher
+system performance may be obtained if this aspect of the protocol is modified to allow an access request
+to be changed before being taken. Figure 7-27 shows an example of address retraction during wait state
+operation. Signal p_[d,i]_hready for the first request (addrx) is not asserted during C2, so a wait state is
+inserted during C3 until p_[d,i]_hready is recognized.
+Meanwhile, a subsequent request has been generated by the CPU for addry which is not taken in C2 since
+the previous transaction is still outstanding. The address and transfer attributes are retracted in cycle C3,
+and a new access request to addrz is requested and are taken at the end of C3 because the previous access
+is completing. Data for addrx and a ready/OKAY response is driven back by the slave device. In cycle C4,
+a request for addrw is made. The request for access to addrw is taken at the end of C4; during C5, the data
+and a ready/OKAY response is provided by the slave device. In cycle C5, no further accesses are requested.
+
+
+
+
+                           e200z3 Power Architecture Core Reference Manual, Rev. 2
+Freescale Semiconductor                                                                                              7-49
+External Core Complex Interfaces
+
+
+
+                                              Read with wait-state, address retraction
+                                   1               2                 3                4                5            6
+              m_clk
+
+           p_htrans                 nonseq           nonseq            nonseq         nonseq                 idle
+
+    p_addr,p_hprot                  addr x           addr y            addr z         addr w
+
+           p_hsize,
+
+       p_hbstrb, etc
+
+           p_hburst                 single                    single                  single
+
+        p_hunalign
+
+           p_hwrite
+
+           p_hrdata                                                     data x            data z           data w
+
+          p_hwdata
+
+          p_hready
+
+            p_hresp                    okay            okay              okay             okay             okay
+                         Figure 7-21. Read Transfer with Wait-State, Address Retraction
+
+
+
+
+                                   e200z3 Power Architecture Core Reference Manual, Rev. 2
+7-50                                                                                               Freescale Semiconductor
+                                                                                          External Core Complex Interfaces
+
+
+Figure 7-28 shows functional timing for a burst read with wait-state transfer where the second beat to addr
+x+8 is retracted and replaced with a new burst transfer.
+
+                                                       Burst Read with wait-state
+                            1               2            3             4            5                 6            7
+              m_clk
+
+           p_htrans         nonseq          seq         nonseq           seq            seq                 idle
+
+    p_addr,p_hprot          addr x        addr x+8      addr y        addr y+8      addr y+16
+
+           p_hsize,
+
+      p_hbstrb, etc
+
+           p_hburst                                       incr
+
+        p_hunalign
+
+           p_hwrite
+
+           p_hrdata                                        data x       data y          data y+8          data y+16
+
+          p_hwdata
+
+          p_hready
+
+           p_hresp              okay            okay        okay         okay           okay              okay
+                          Figure 7-22. Burst Read with Wait-State Transfer, Retraction
+
+The first cycle of the burst incurs a single wait-state, and the burst is replaced by another burst.
+Replacement by a single access is also possible.
+Address retraction does not occur on a requested write cycle, only on read cycles. It also may occur any
+time during a burst cycle.
+
+7.5.3.1       Error Termination Operation
+The p_[d,i]_hresp[2:0] inputs signal an error termination for an access in progress. The ERROR encoding
+is used with the assertion of p_[d,i]_hready to terminate a cycle with error. Error termination is a two-cycle
+termination; the first cycle consists of signaling the ERROR response on p_[d,i]_hresp[2:0] while holding
+p_[d,i]_hready negated, and during the second cycle, asserting p_[d,i]_hready while continuing to drive
+the ERROR response on p_[d,i]_hresp[2:0]. This 2-cycle termination allows the BIU to retract a pending
+access if it desires to do so. p_[d,i]_htrans may be driven to IDLE during the second cycle of the two-cycle
+error response, or may change to any other value, and a new access unrelated to the pending access may
+be requested. The cycle that may have been previously pending while waiting for a response that
+terminates with error may be changed. It is not required to remain unchanged when an error response is
+received.
+
+
+
+
+                                e200z3 Power Architecture Core Reference Manual, Rev. 2
+Freescale Semiconductor                                                                                                7-51
+External Core Complex Interfaces
+
+
+Figure 7-23 shows an example of error termination.
+
+                               1                  2                    3            4               5            6
+                m_clk
+
+             p_htrans              nonseq                     nonseq                nonseq                idle
+
+       p_addr,p_hprot              addr x                     addr y                    addr z
+
+             p_hsize,
+
+         p_hbstrb, etc
+
+             p_hburst              single                     single                    single
+
+          p_hunalign
+
+             p_hwrite
+
+             p_hrdata                                                      data x        data y
+
+            p_hwdata                                                                                    data z
+
+            p_hready
+
+             p_hresp                 okay             error                error         okay           okay
+             Figure 7-23. Read and Write Transfers: Instruction Read with Error, Data Read, Write,
+                                               Full Pipelining
+
+The first read request (addrx) is taken at the end of cycle C1 because the bus is idle. It is an instruction
+prefetch.
+The second read request (addry) is not taken at the end of C2 because the first access is still outstanding
+(no p_[d,i]_hready assertion). An error response is signaled by the addressed slave for addrx by driving
+ERROR onto the p_[d,i]_hresp[2:0] inputs. This is the first cycle of the two cycle error response protocol.
+p_[d,i]_hready is asserted during C3 for the first read access (addrx) while the ERROR encoding remains
+driven on p_[d,i]_hresp[2:0], terminating the access. The read data bus is undefined.
+In this example of error termination, the CPU continues to request an access to addry. It is taken at the end
+of C3. During C4, read data is supplied for the addry read, and the access is terminated normally during C4.
+Also during C4, a request is generated for a write to addrz, which is taken at the end of C4 because the
+second access is terminating.
+Data for the addrz write cycle is driven in C5, the cycle after the access is taken.
+During C5, a ready/OKAY response is signaled to complete the write cycle to addrz.
+In this example of error termination, a subsequent access remained requested. This does not always occur
+when certain types of transfers are terminated with error. The following figures outline cases where an
+error termination for a given cycle causes a pending request to be aborted prior to initiation.
+
+
+
+                                   e200z3 Power Architecture Core Reference Manual, Rev. 2
+7-52                                                                                              Freescale Semiconductor
+                                                                                      External Core Complex Interfaces
+
+
+Figure 7-24 shows another example of error termination.
+
+                            1               2              3               4                   5            6
+              m_clk
+
+           p_htrans         nonseq          nonseq             idle         nonseq                   idle
+
+    p_addr,p_hprot           addr x         addr y                             addr z
+
+           p_hsize,
+
+      p_hbstrb, etc
+
+           p_hburst          single          single                            single
+
+        p_hunalign
+
+           p_hwrite
+
+           p_hrdata                                            data x                              data z
+
+          p_hwdata
+
+          p_hready
+
+           p_hresp              okay            error          error            okay               okay
+         Figure 7-24. Data Read with Error, Data Write Retracted, Instruction Read, Full Pipelining
+
+The first read request (addrx) is taken at the end of cycle C1 because the bus is idle. It is a data read.
+The second request (write to addry) is not taken at the end of C2 because the first access is still outstanding
+(no p_[d,i]_hready assertion). An error response is signaled by the addressed slave for addrx by driving
+ERROR onto the p_[d,i]_hresp[2:0] inputs. This is the first cycle of the two cycle error response protocol.
+p_[d,i]_hready is asserted during C3 for the first read access (addrx) while the ERROR encoding remains
+driven on p_[d,i]_hresp[2:0], terminating the access. The read data bus is undefined.
+In this example of error termination, the CPU retracts the requested access to addry by driving
+p_[d,i]_htrans signals to the IDLE state during the second cycle of the two-cycle error response.
+A different access to addrz is requested during C4 and is taken at the end of C4. During C5, read data is
+supplied for the addrz read, and the access is terminated normally.
+In this example of error termination, a subsequent access was aborted.
+
+
+
+
+                            e200z3 Power Architecture Core Reference Manual, Rev. 2
+Freescale Semiconductor                                                                                          7-53
+External Core Complex Interfaces
+
+
+Figure 7-25 shows another example of error termination, this time on the initial portion of a misaligned
+write.
+
+                             1            2           3           4          5             6           7          8
+                m_clk
+
+             p_htrans       nonseq        nonseq          idle    nonseq         seq            seq        seq        idle
+
+       p_addr,p_hprot       addr x        addr x+                 addr w     addr w+8      addr w+16   addr w+24
+
+             p_hsize,
+
+         p_hbstrb, etc
+
+             p_hburst        single       single                                       wrap 4
+
+          p_hunalign                          **
+
+             p_hwrite
+
+             p_hrdata                                                            data w         w+8        w+16       w +24
+
+            p_hwdata                      data x
+
+            p_hready
+
+             p_hresp             okay         error       error       okay       okay           okay       okay       okay
+                   Figure 7-25. Misaligned Write with Error, Data Write Retracted, Burst Read
+                                          Substituted, Full Pipelining
+
+The first portion of the misaligned write request is terminated with error. The second portion is aborted by
+the CPU during the second cycle of the two cycle error response, and a subsequent burst read access to
+addrw becomes pending instead.
+Figure 7-26 shows another example of error termination, this time on the initial portion of a burst read.
+The aborted burst is followed by a burst write.
+
+
+
+
+                                   e200z3 Power Architecture Core Reference Manual, Rev. 2
+7-54                                                                                                   Freescale Semiconductor
+                                                                                                   External Core Complex Interfaces
+
+
+
+                          1            2           3            4          5             6               7          8
+              m_clk
+
+           p_htrans       nonseq           seq         idle     nonseq         seq           seq             seq        idle
+
+    p_addr,p_hprot        addr x      addr x+8                  addr y     addr y+8      addr y+16      addr y+24
+
+           p_hsize,
+
+      p_hbstrb, etc
+
+           p_hburst                wrap4                                             wrap4
+
+        p_hunalign
+
+           p_hwrite
+
+           p_hrdata                                    data x
+
+          p_hwdata                                                             data y        y+8             y+16       y+24
+
+          p_hready
+
+           p_hresp            okay         error       error        okay       okay          okay            okay       okay
+                          Figure 7-26. Burst Read with Error Termination, Burst Write
+
+The first portion of the burst read request is terminated with error. The second portion is aborted by the
+CPU during the second cycle of the two cycle error response, and a subsequent burst write access to addry
+becomes pending instead.
+
+7.5.4        Address Retraction
+Address retraction is the process of replacing a request with a new unrelated one. Although the AMBA
+AHB protocol requires an access request to remain driven unchanged once presented on the bus, higher
+system performance may be obtained if this aspect of the protocol is modified to allow an access request
+to be changed before being taken. Figure 7-27 shows an example of address retraction during wait state
+operation. Signal p_hready for the first request (addrx) is not asserted during C2, so a wait state is inserted
+during C3 until p_hready is recognized.
+Meanwhile, a subsequent request has been generated by the CPU for addry which is not taken in C2 since
+the previous transaction is still outstanding. The address and transfer attributes are retracted in cycle C3,
+and a new access to addrz is requested and made at the end of C3 because the previous access is
+completing. Data for addrx and a ready/OKAY response are driven back by the slave device. In cycle C4,
+a request for addrw is made. The request for access to addrw is taken at the end of C4; during C5, the data
+and a ready/OKAY response are provided by the slave device. In cycle C5, no further accesses are
+requested.
+
+
+
+
+                               e200z3 Power Architecture Core Reference Manual, Rev. 2
+Freescale Semiconductor                                                                                                        7-55
+External Core Complex Interfaces
+
+
+
+                                              Read with wait-state, address retraction
+                                   1               2                 3                4                5            6
+              m_clk
+
+           p_htrans                 nonseq           nonseq            nonseq         nonseq                 idle
+
+    p_addr,p_hprot                  addr x           addr y            addr z         addr w
+
+           p_hsize,
+
+       p_hbstrb, etc
+
+           p_hburst                 single                    single                  single
+
+        p_hunalign
+
+           p_hwrite
+
+           p_hrdata                                                     data x            data z           data w
+
+          p_hwdata
+
+          p_hready
+
+            p_hresp                    okay            okay              okay             okay             okay
+                         Figure 7-27. Read Transfer with Wait-State, Address Retraction
+
+
+
+
+                                   e200z3 Power Architecture Core Reference Manual, Rev. 2
+7-56                                                                                               Freescale Semiconductor
+                                                                                          External Core Complex Interfaces
+
+
+Figure 7-28 shows functional timing for a burst read with wait-state transfer where the second beat to addr
+x+8 is retracted and replaced with a new burst transfer.
+
+                                                       Burst Read with wait-state
+                            1               2            3             4            5                 6            7
+              m_clk
+
+           p_htrans         nonseq          seq         nonseq           seq            seq                 idle
+
+    p_addr,p_hprot          addr x        addr x+8      addr y        addr y+8      addr y+16
+
+           p_hsize,
+
+      p_hbstrb, etc
+
+           p_hburst                                       incr
+
+         p_hunalign
+
+           p_hwrite
+
+           p_hrdata                                        data x       data y          data y+8          data y+16
+
+          p_hwdata
+
+          p_hready
+
+            p_hresp             okay            okay        okay         okay           okay              okay
+                          Figure 7-28. Burst Read with Wait-State Transfer, Retraction
+
+The first cycle of the burst incurs a single wait-state, and the burst is replaced by another burst.
+Replacement by a single access is also possible.
+Address retraction does not occur on a requested write cycle, only on read cycles. It also may occur any
+time during a burst cycle.
+
+7.5.5        Power Management
+Figure 7-29 shows the relationship of the wake-up control signal p_wakeup to the relevant input signals.
+
+          m_clk
+      p_extint_b
+      p_critint_b
+       jd_de_b,
+         p_ude,
+    OCR[WKUP]
+      p_wakeup
+
+                                  Figure 7-29. Wakeup Control Signal (p_wakeup)
+
+
+
+
+                                e200z3 Power Architecture Core Reference Manual, Rev. 2
+Freescale Semiconductor                                                                                                7-57
+External Core Complex Interfaces
+
+
+7.5.6            Interrupt Interface
+Figure 7-30 shows the relationship of the interrupt input signals to the CPU clock. The p_avec_b,
+p_extint_b, p_critint_b, and p_voffset[0:15] inputs must meet setup and hold timing relative to the rising
+edge of m_clk. In addition, during each clock cycle in which either p_extint_b or p_critint_b is asserted,
+p_avec_b and p_voffset[0:15] are required to be in a valid state for the highest priority interrupt requested.
+
+
+                     m_clk
+             p_extint_b
+             p_critint_b
+              p_avec_b
+
+
+
+            p_voffset[0:15]
+
+
+                                       Figure 7-30. Interrupt Interface Input Signals
+
+Figure 7-31 shows the relationship between p_ipend and the interrupt request inputs. Note that p_ipend is
+asserted combinationally from the p_extint_b and p_critint_b inputs.
+
+
+           m_clk
+
+       p_extint_b
+       p_critint_b
+
+                                                                                  Exception vector fetch
+
+
+
+       p_ipend
+
+
+
+
+                                         Figure 7-31. Interrupt Pending Operation
+
+
+
+
+                                   e200z3 Power Architecture Core Reference Manual, Rev. 2
+7-58                                                                                            Freescale Semiconductor
+                                                                                      External Core Complex Interfaces
+
+
+Figure 7-32 shows the relationships among p_iack, the interrupt request inputs, and exception vector
+fetching.
+
+                           1               2                3                 4                   5
+            m_clk
+
+        p_critint_b
+
+        p_extint_b
+
+   p_voffset[0:15]             vec A                                        vec B
+
+      sample point
+
+            p_iack
+
+         p_avec_b
+
+         p_treq_b
+
+           p_addr                                               A handler           A +8                A +16
+
+         attributes
+
+             p_r/w
+
+        p_tbusy_b                          idle                              1 outst.            2 outst.
+
+        p_data_in                                                                                     1st inst pair
+                                                                                                       pair
+           p_ta_b
+
+      mmu access                                                    int A handlr        A hand + 8
+
+     cache access                                                     int A hand addr int A hand + 8
+
+       cache miss
+                           Figure 7-32. Interrupt Acknowledge Operation Case 1
+
+In this example, an external input interrupt is requested in cycle 1. The p_voffset[0:15] inputs are driven
+with the vector offset for ‘A’, and p_avec_b is negated, indicating vectoring is desired. For this example,
+the bus is idle at the time of assertion. The CPU may sample a requested interrupt as early as the cycle in
+which it is initially requested, and it does so in this example. The interrupt request,the vector offset, and
+the autovector input are sampled at the end of cycle 1. In cycle 3, the interrupt is acknowledged by the
+assertion of the p_iack output, indicating that the values present on interrupt inputs at the beginning of
+cycle 2 have been internally latched and committed for servicing. Note that the interrupt vector lines have
+changed to a value of ‘B’ during cycle 2, and the p_critint_b input has been asserted by the interrupt
+controller. The vector number and autovector signals must be consistent with the higher priority critical
+input request, and thus must change when the state of the interrupt request inputs change. The p_iack
+output assertion in cycle 3 indicates that the values present at the rise of cycle 2 (vector ‘A’) have been
+committed to. During cycle 3, the CPU begins instruction fetching of the handler for vector ‘A’. The new
+
+                            e200z3 Power Architecture Core Reference Manual, Rev. 2
+Freescale Semiconductor                                                                                           7-59
+External Core Complex Interfaces
+
+
+request for a subsequent critical interrupt ‘B’ was not received in time to be acted on first. It is
+acknowledged after the fetch for the external input interrupt handler is completed and has entered decode.
+Note that the time between assertion of an interrupt request input and the acknowledgment of an interrupt
+may be multiple cycles, and the interrupt inputs may change during that interval. The CPU asserts the
+p_iack output to indicate the cycle at which an interrupt is committed to. In the following example, because
+the CPU was unable to acknowledge the external input interrupt during cycle 2 due to internal or external
+execution conditions, the critical input request was sampled. This case is shown in Figure 7-33.
+
+                             1                 2              3              4                 5
+                m_clk
+
+           p_critint_b
+
+           p_extint_b
+
+       p_voffset[0:15]             vec A                                  vec B
+
+         sample point
+
+               p_iack
+
+            p_avec_b
+
+             p_treq_b
+
+              p_addr                                                              B handler          B +8
+
+            attributes
+
+                p_r/w
+
+           p_tbusy_b                                  idle                                    1 outst.      2 outst.
+
+           p_data_in
+
+               p_ta_b
+
+         mmu access                                                                   int B handlr       B hand + 8
+
+        cache access                                                                   int B hand addr int B hand + 8
+
+          cache miss
+
+                                 Figure 7-33. Interrupt Acknowledge Operation Case 2
+
+
+
+
+                                   e200z3 Power Architecture Core Reference Manual, Rev. 2
+7-60                                                                                                 Freescale Semiconductor

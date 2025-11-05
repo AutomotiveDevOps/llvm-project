@@ -1,0 +1,208 @@
+[TITLE:e200z3 Manual Extracted Data - Critical Specifications]
+
+[INTRO]
+This document contains key specifications extracted directly from the e200z3 Power
+Architecture Core Reference Manual for validation against LLVM implementation.
+
+MANUAL_SOURCE: https://www.elektronikjk.com/elementy_czynne/IC/E200Z3.pdf
+MANUAL_VERSION: e200z3 Power Architecture Core Reference Manual, Rev. 2
+EXTRACTION_DATE: 2025-11-02
+EXTRACTION_METHOD: pdftotext + manual review
+
+[CHAPTER-6-TIMING]
+UID: CH6-TIMING
+
+TITLE: Instruction Timing Specifications
+
+LOCATION: Chapter 6.7, Table 6-2 "Instruction Class Cycle Counts"
+
+INTEGER_INSTRUCTIONS:
+- Simple integer (add, sub, shift, rotate, logical, cntlzw): 
+  1 cycle latency, 1 per cycle throughput
+  
+- Compare instructions:
+  1 cycle latency, 1 per cycle throughput
+  
+- Multiply instructions: 
+  Latency: 1 cycle
+  Throughput: 1 per cycle
+  Note: Manual states "32 × 32 hardware multiplier array that supports single cycle 32 × 32 > 32 multiply"
+  
+- Divide instructions:
+  Latency: 6-16 cycles (data dependent)
+  Throughput: 6-16 cycles (not pipelined, blocking)
+  Note: Manual states "Divider logic for signed and unsigned divide in 6–16 clocks with minimized execution timing"
+
+LOAD_STORE_INSTRUCTIONS:
+- Load instructions (non-multiple):
+  Latency: 1 cycle
+  Throughput: 1 per cycle (fully pipelined)
+  Note: Manual states "1-cycle load latency" and "Fully pipelined" and "Zero load-to-use pipeline bubbles"
+  
+- Store instructions (non-multiple):
+  Latency: 1 cycle
+  Throughput: 1 per cycle (fully pipelined)
+  
+- Load multiple:
+  Latency: 1 + n/2 (max) cycles
+  Throughput: 1 + n/2 (max) cycles
+  Note: Timing depends on n (number of words) and address alignment
+  
+- Store multiple:
+  Latency: 1 + n/2 (max) cycles
+  Throughput: 1 + n/2 (max) cycles
+  Note: Timing depends on n (number of words) and address alignment
+
+BRANCH_INSTRUCTIONS:
+- Branch instructions:
+  Latency: 2/1 cycles (taken/not taken)
+  Throughput: 2/1 cycles
+  Note: Conditional branches not taken execute in 1 cycle
+  Note: Branches with successful BTB target prefetching execute in 1 cycle
+  Note: All other taken branches execute in 2 cycles
+
+VALIDATION_STATUS:
+- ✓ Integer simple: 1 cycle - MATCHES
+- ✓ Integer compare: 1 cycle - MATCHES
+- ✗ Multiply: 1 cycle - DISCREPANCY (code said 4 cycles)
+- ✓ Divide: 6-16 cycles worst case 16 - MATCHES (code correctly had 16 cycles)
+- ✗ Load: 1 cycle - DISCREPANCY (code said 2 cycles)
+- ✓ Store: 1 cycle - MATCHES
+- ✓ Branch: 1-2 cycles - MATCHES
+
+[CHAPTER-6-PIPELINE]
+UID: CH6-PIPELINE
+
+TITLE: Pipeline Stages
+
+LOCATION: Chapter 6.3.1
+
+STAGES:
+1. Instruction Fetch (IF)
+2. Instruction Decode (ID)
+3. Execute (EX)
+4. Write Back (WB)
+
+VALIDATION_STATUS: ✓ MATCHES
+- Code has: DIS (dispatch), SU (simple unit), MU (multiply unit), LSU (load/store unit)
+- Manual has: 4-stage pipeline (IF, ID, EX, WB)
+- Code models functional units correctly for 4-stage pipeline
+
+[CHAPTER-4-INTERRUPTS]
+UID: CH4-INTERRUPTS
+
+TITLE: Interrupt Handling
+
+LOCATION: Chapter 4.6 (Interrupt Definitions)
+
+CRITICAL_INTERRUPT (IVOR0):
+- Uses CSRR0/CSRR1 (Critical Save/Restore Registers)
+- Hardware automatically saves:
+  - CSRR0: Instruction address (next instruction if no exception)
+  - CSRR1: MSR contents
+- Return instruction: RFCI (Return From Critical Interrupt)
+- Table 4-9: Critical Input Interrupt Register Settings
+
+EXTERNAL_INTERRUPT (IVOR4):
+- Uses SRR0/SRR1 (Standard Save/Restore Registers)
+- Hardware automatically saves:
+  - SRR0: Instruction address (next instruction if no exception)
+  - SRR1: MSR contents
+- Return instruction: RFI (Return From Interrupt)
+- Table 4-14: External Input Interrupt Register Settings
+
+NOTE: e200z3 manual confirms same pattern as other e200 cores:
+- Critical interrupts use CSRR0/CSRR1 → RFCI
+- External interrupts use SRR0/SRR1 → RFI
+
+VALIDATION_STATUS: ✓ ALREADY IMPLEMENTED
+LLVM_CURRENT_STATE: Interrupt type differentiation implemented in PPCFrameLowering.cpp
+(shared code for all e200 cores) - verified working for e200z3
+
+[CRITICAL-DISCREPANCIES]
+UID: DISCREPANCIES
+
+DISCREPANCY_001: Multiply Instruction Latency
+Manual: 1 cycle latency, 1 per cycle throughput
+Code (before fix): 4 cycles latency
+Impact: WCET analysis was 4x pessimistic for multiply operations
+Priority: HIGH
+STATUS: FIXED - Updated to 1 cycle latency per manual
+
+DISCREPANCY_002: Load Instruction Latency
+Manual: 1 cycle latency, 1 per cycle throughput
+Code (before fix): 2 cycles latency
+Impact: WCET analysis was 2x pessimistic for load operations
+Priority: HIGH
+STATUS: FIXED - Updated to 1 cycle latency per manual
+
+DISCREPANCY_003: Load Updated Instruction Latency
+Manual: 1 cycle latency (same as regular load)
+Code (before fix): 2 cycles latency
+Impact: WCET analysis was 2x pessimistic for load-update operations
+Priority: MEDIUM
+STATUS: FIXED - Updated to 1 cycle latency per manual
+
+[FIXED-ACTIONS]
+UID: FIXED
+
+COMPLETED_FIXES:
+1. ✓ Fixed multiply instruction latencies: 4 cycles → 1 cycle
+   - IIC_IntMulHW: Updated to 1 cycle
+   - IIC_IntMulHWU: Updated to 1 cycle
+   - IIC_IntMulLI: Updated to 1 cycle
+   - Added manual citation comments
+
+2. ✓ Fixed load instruction latencies: 2 cycles → 1 cycle
+   - IIC_LdStLoad: Updated to 1 cycle
+   - IIC_LdStLoadUpd: Updated to 1 cycle
+   - Updated LoadLatency comment to reflect 1 cycle + 1 writeback = 2 total
+
+3. ✓ Fixed divide instruction comment: Updated to clarify 6-16 cycles range
+   - Was: "Latency=4..35, Repeat= 4..35" (confusing)
+   - Now: "Latency = 6-16 (worst case 16), Repeat = 6-16"
+   - Added manual citation
+
+4. ✓ Updated header comments: Added manual references
+   - Chapter 6: Instruction Pipeline and Execution Timing
+   - Table 6-2: Instruction Class Cycle Counts
+   - Chapter 4: Interrupts and Exceptions
+
+[PIPELINE-ARCHITECTURE]
+UID: PIPELINE
+
+TITLE: e200z3 Pipeline Architecture
+
+LOCATION: Chapter 6.3.1
+
+ARCHITECTURE:
+- 4-stage single-issue in-order pipeline
+- Stages: IF (Instruction Fetch), ID (Instruction Decode), EX (Execute), WB (Write Back)
+- Single-issue: Can dispatch 1 instruction per cycle
+- Fully pipelined for most instructions (1 per cycle throughput)
+
+EXECUTION_UNITS:
+- Integer Execution Unit: Handles arithmetic, logical, shift, rotate operations
+- Branch Unit: Handles branch instructions with 8-entry BTB
+- Load/Store Unit (LSU): Handles memory operations
+- Multiply Unit: Integrated in integer unit, single-cycle multiply
+
+VALIDATION_STATUS: ✓ MATCHES
+Code correctly models 4-stage pipeline with appropriate functional units.
+
+[NEXT-ACTIONS]
+UID: ACTIONS
+
+COMPLETED:
+1. ✓ Fixed instruction latencies to match manual Table 6-2
+2. ✓ Verified interrupt type differentiation (already implemented)
+
+OPTIONAL_FUTURE_IMPROVEMENTS:
+1. Add manual citations for all instruction timing entries
+2. Consider extracting Table 6-3 "Instruction Timing by Mnemonic" for per-instruction validation
+3. Validate branch misprediction penalty (currently 3 cycles - verify against manual)
+4. Validate SPR operation timings (mfspr/mtspr have special serialization requirements)
+
+FINALLY:
+5. Update certification improvement document to reflect e200z3 fixes
+

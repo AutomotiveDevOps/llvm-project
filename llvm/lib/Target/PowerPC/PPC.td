@@ -650,6 +650,50 @@ def : ProcessorModel<"e5500", PPCE5500Model,
                   [DirectiveE5500, FeatureMFOCRF, Feature64Bit,
                    FeatureSTFIWX, FeatureICBT, FeatureBookE,
                    FeatureISEL, FeatureMFTB]>;
+// e200 cores: embedded PowerPC e200 variants with VLE support
+// All e200 variants support BookE architecture and Variable Length Encoding (VLE)
+// IMPORTANT: e200 cores MUST use Power ISA 2.07 only, NOT any newer ISAs for PowerPC server chips
+// (ISA 3.0, 3.1, or future ISAs). They are embedded cores with fixed ISA 2.07 support.
+def : ProcessorModel<"e200z0", PPCE500Model,
+                  [DirectiveE500,
+                   FeatureICBT, FeatureBookE,
+                   FeatureISEL, FeatureMFTB, FeatureMSYNC,
+                   FeatureISA2_07]>;
+def : ProcessorModel<"e200z1", PPCE500Model,
+                  [DirectiveE500,
+                   FeatureICBT, FeatureBookE,
+                   FeatureISEL, FeatureMFTB, FeatureMSYNC,
+                   FeatureISA2_07]>;
+def : ProcessorModel<"e200z2", PPCE500Model,
+                  [DirectiveE500,
+                   FeatureICBT, FeatureBookE,
+                   FeatureISEL, FeatureMFTB, FeatureMSYNC, FeatureSPE,
+                   FeatureISA2_07]>;
+def : ProcessorModel<"e200z3", PPCE500Model,
+                  [DirectiveE500,
+                   FeatureICBT, FeatureBookE,
+                   FeatureISEL, FeatureMFTB, FeatureMSYNC, FeatureSPE,
+                   FeatureISA2_07]>;
+def : ProcessorModel<"e200z4", PPCE500Model,
+                  [DirectiveE500,
+                   FeatureICBT, FeatureBookE,
+                   FeatureISEL, FeatureMFTB, FeatureMSYNC, FeatureSPE,
+                   FeatureISA2_07]>;
+def : ProcessorModel<"e200z5", PPCE500Model,
+                  [DirectiveE500,
+                   FeatureICBT, FeatureBookE,
+                   FeatureISEL, FeatureMFTB, FeatureMSYNC,
+                   FeatureISA2_07]>;
+def : ProcessorModel<"e200z6", PPCE500Model,
+                  [DirectiveE500,
+                   FeatureICBT, FeatureBookE,
+                   FeatureISEL, FeatureMFTB, FeatureMSYNC, FeatureSPE,
+                   FeatureISA2_07]>;
+def : ProcessorModel<"e200z7", PPCE500Model,
+                  [DirectiveE500,
+                   FeatureICBT, FeatureBookE,
+                   FeatureISEL, FeatureMFTB, FeatureMSYNC, FeatureSPE,
+                   FeatureISA2_07]>;
 def : ProcessorModel<"a2", PPCA2Model,
                   [DirectiveA2, FeatureICBT, FeatureBookE, FeatureMFOCRF,
                    FeatureFCPSGN, FeatureFSqrt, FeatureFRE, FeatureFRES,

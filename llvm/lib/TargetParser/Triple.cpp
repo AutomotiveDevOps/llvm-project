@@ -336,6 +336,7 @@ StringRef Triple::getEnvironmentTypeName(EnvironmentType Kind) {
   case Cygnus: return "cygnus";
   case EABI: return "eabi";
   case EABIHF: return "eabihf";
+  case EABIVLE: return "eabivle";
   case GNU: return "gnu";
   case GNUT64: return "gnut64";
   case GNUABI64: return "gnuabi64";
@@ -722,6 +723,7 @@ static Triple::OSType parseOS(StringRef OSName) {
 
 static Triple::EnvironmentType parseEnvironment(StringRef EnvironmentName) {
   return StringSwitch<Triple::EnvironmentType>(EnvironmentName)
+      .StartsWith("eabivle", Triple::EABIVLE)
       .StartsWith("eabihf", Triple::EABIHF)
       .StartsWith("eabi", Triple::EABI)
       .StartsWith("gnuabin32", Triple::GNUABIN32)

@@ -1,0 +1,759 @@
+Chapter 9
+Debug Facilities
+This chapter describes the internal debug features defined by the EIS. It does not describe external
+hardware debug features, although processors generally include such a facility.
+
+9.1       Debug Facilities Overview
+Processors provide debug facilities to enable hardware and software debug functions, such as instruction
+and data breakpoints and program single stepping. The debug facilities consist of the following:
+   • A set of debug control registers (DBCR0–DBCR6)
+       See Section 3.13.2, “Debug Control Registers (DBCR0–DBCR6).”
+   • A set of address and data value compare registers (IAC1–IAC8, DAC1, DAC2, DVC1, and DVC2)
+       See Section 9.7.2, “Instruction Address Compare Debug Event,” and Section 9.7.3, “Data Address
+       Compare Debug Event.”
+   • A debug status register (DBSR/DBSRWR) for enabling and recording various debug events
+       See Section 3.13.4, “Debug Status Register (DBSR/DBSRWR).”
+   • A special debug interrupt type built into the interrupt mechanism
+       See Section 7.8.15, “Debug Interrupt.”
+The debug facilities also provide a mechanism for software-controlled processor reset and for controlling
+the timers in a debug environment.
+The mfspr and mtspr instructions (see Section 4.6.1.13.2, “Move to/from Special-Purpose Register
+Instructions”) provide access to the debug SPRs.
+Along with the facilities described here, implementations typically include implementation-specific debug
+facilities, modes, and access mechanisms. For example, implementations typically provide external access
+to the debug facilities through a dedicated interface such as the Test Access Port (JTAG) conforming to
+IEEE Std 1149.1™.
+                                                 NOTE
+               Not all implementations will provide all the debug facilities described here.
+               For more information, see the core reference manual.
+
+9.2       Internal and External Debug
+The internal debug facilities are used by software when the processor is in “internal debug mode”
+(DBCR0[IDM]). Internal debug mode only functions when the processor is not in the halted state.
+Freescale defines another set of debug facilities that are accessible through an external interface to the
+processor, that can access the resources that software normally does as well as extended resources to
+control execution and read/write architected and implementation dependent resources. These facilities are
+defined as the “external debug” facilities and are not defined here, however some instructions and registers
+share internal and external debug roles and are briefly described as necessary. When the processor is in
+external debug mode, DBCR0[EDM] is set. DBCR0[EDM] is only visible to software running on the
+processor and cannot be changed by software. The setting of DBCR0[EDM] takes precedence over
+
+
+         EREF 2.0: A Programmer’s Reference Manual for Freescale Power Architecture® Processors, Rev. 0
+Freescale Semiconductor                                                                                       9-1
+Debug Facilities
+
+
+DBCR0[IDM]. If both are set, the processor is still considered to be in external debug mode, and it is
+implementation dependent how internal debug facilities operate.
+The “halted” state occurs when the processor is controlled through the external debug facility and the
+external debug facility commands the processor to halt or a dnh instruction is executed in the non halted
+state and the external debug facility has enabled dnh instructions to enter the halted state on execution.
+When a processor is in the halted state, normal software instruction execution is frozen, instructions are
+not fetched, interrupts are not taken, and the core does not execute instructions from the architectural
+instruction stream and control of the processor is managed by the external debug facility.
+Unless otherwise mentioned, the rest of this chapter assumes the processor is in internal debug mode.
+
+9.3         Programming Model
+
+9.3.1          Debug Registers
+The internal debug facility registers are fully described in Section 3.13, “Debug Registers.” Several of the
+EIS defined debug facility registers contain implementation-specific fields and registers. Consult the core
+reference manual for processor specific information.
+
+9.3.2          Debug Instructions
+The Debugger Notify Halt instruction dnh) provides a bridge between the execution of instructions on the
+core in a non-halted mode, and the external debug facility. The dnh instruction allows software to
+transition the core from a running state to a halted state if enabled by an external debugger, and to notify
+the external debugger with both a message passed to the external debugger and bits reserved in the
+instruction itself to pass additional information.
+Execution of dnh causes the processor to stop fetching instructions and taking interrupts if the instruction
+has been enabled by the external debug facility to halt on dnh. The contents of the DUI field are sent to
+the external debug facility to identify the reason for the halt. The dnh instruction is described in Chapter 5,
+“Instruction Set.”
+
+9.3.3          Debug Interrupt
+A debug interrupt occurs when no higher priority exception exists, a debug exception is presented to the
+interrupt mechanism, and MSR[DE] = 1. Debug exceptions and interrupts are caused by debug events that
+occur which set specific bits in DBSR.
+The debug interrupt is fully described in Section 7.8.15, “Debug Interrupt.”
+The debug interrupt uses DSRR0 and DSRR1 to save interrupted state when category E.ED is
+implemented. If category E.ED is not implemented, the debug interrupt uses CSRR0 and CSRR1.
+Category E.ED allows the debug features to be used to debug interrupts that use CSRR0 and CSRR1 to
+save interrupted state.
+
+
+
+
+          EREF 2.0: A Programmer’s Reference Manual for Freescale Power Architecture® Processors, Rev. 0
+9-2                                                                                       Freescale Semiconductor
+                                                                                                  Debug Facilities
+
+
+9.4       Enabling Internal Debug Mode
+Debug events can occur as the result of a specific “debug condition” in the processor which are
+appropriately enabled in the DBCRn registers. This includes such things as instruction and data
+breakpoints that, when they occur, set DBSR status bits. A DBSR bit being set is considered a debug
+exception, which, if enabled, causes a debug interrupt. MSR[DE] and the internal debug mode bit
+(DBCR0[IDM]) must both be set to enable debug interrupts:
+    • DBCR0[IDM] = 1 (internal debug mode) and MSR[DE] = 1. Debug events cause debug interrupts.
+       Software at the debug interrupt vector is given control upon the occurrence of a debug event and
+       can access (using standard instructions) all architected resources and controls the processor,
+       gathers status, and interacts with debug hardware connected to the processor.
+    • DBCR0[IDM] = 1 (internal debug mode) and MSR[DE] = 0. Debug conditions do not cause debug
+       events or debug interrupts. Previous versions of the architecture allowed debug events to be
+       recorded in DBSR in this case and when MSR[DE] is later set to 1, cause a delayed imprecise
+       debug interrupt if the DBSR bit(s) are still set. Therefore some processors may support such
+       imprecise debug events, however, newer processors will generally not support such a feature and
+       software which is not processor specific should not depend on such a feature.
+    • DBCR0[IDM] = 0 (internal debug mode disabled). Some processors allow debug events to occur
+       and be recorded in the DBSR from which they can be monitored by software. This capability and
+       software which uses this feature on any given processor is implementation-dependent. A debug
+       interrupt may result later when DBCR0[IDM] is set (if MSR[DE] = 1). Processor behavior when
+       debug events occur while DBCR0[IDM] = 0 is implementation-dependent.
+                                         NOTE: Architecture
+                The “imprecise” or “delayed” debug interrupts other than UDE, will likely
+                be removed from a future version of Power ISA.
+                                         NOTE: Implementation
+                New implementations should only set DBSR bits when a debug condition
+                occurs, the event is enabled, and MSR[DE] = 1 or through a mtspr to
+                DBSRWR <E.HV>.
+
+9.5       External Debug Mode
+In external debug mode, facilities external to the processor can access processor resources and control
+execution. These external debug facilities are not defined here, however some instructions and registers
+share internal and external debug roles and are briefly described as necessary.
+The dnh instruction is provided to stop instruction fetching and execution and to allow the processor to be
+managed by an external debug facility.
+
+9.6       Dealing with Debug Resources
+Software should be aware of these issues when dealing with debug resources.
+
+
+
+
+         EREF 2.0: A Programmer’s Reference Manual for Freescale Power Architecture® Processors, Rev. 0
+Freescale Semiconductor                                                                                       9-3
+Debug Facilities
+
+
+9.6.1          Synchronizing Changes to Debug Facility Registers
+Special care must be taken when manipulating debug registers which control the debug facility. Modifying
+debug facility registers requires special synchronization. This is because many of the debug conditions
+deal with address space, fetch addresses, and data addresses which must be synchronized with respect to
+processor execution. To perform any modification to a debug facility register with mtspr, software must
+perform the following actions to ensure that the change is guaranteed to be synchronized with respect to
+processor execution:
+    • MSR[DE] must transition from 0 to 1;
+    • A context synchronizing instruction or event must occur.
+       See Section 4.5.4.4, “Context Synchronization.”
+The results of the modification are not guaranteed to be seen until both events occur. However, the
+modification may be seen at any time after the debug register was written up until the synchronization is
+completed.
+                                       NOTE: Software Considerations
+                    Software should only make changes to the debug facility registers while in
+                    the debug interrupt handler or when MSR[DE] = 0. Doing so in the debug
+                    interrupt handler works naturally since MSR[DE] is set to 0 on entry to the
+                    handler, and on return the rfci (rfdi <E.ED>) naturally will set MSR[DE] to
+                    1 and perform a context synchronization.
+
+9.6.2          Pre-Completion and Post-Completion Interrupts
+Debug interrupts can occur either before or after execution of an instruction which sets a debug event, as
+described in the following sections.
+
+9.6.2.1            Synchronous Pre-Completion Debug Interrupts
+All debug interrupts, except for those generated by instruction complete exceptions (and any
+implementation-dependent debug events which are defined as post-completion) and UDE which is
+asynchronous are pre-completion exceptions. These exceptions all take the interrupt upon encountering an
+excepting instruction without updating any architectural state other than DBSR and any register updated
+by the interrupt mechanism. That is, the instruction does not complete normally and the results of the
+instruction execution are suppressed for that instruction.
+The CSRR0 (DSRR0 <E.ED>) for this type of exception points to the instruction that encountered the
+exception. This includes IAC, DAC, branch taken, and so on.
+The following steps show how forward progress is made for any pre-completion debug exception:
+   1. Software sets up pre-completion exceptions (for example branch taken debug exceptions) and then
+       returns to normal program operation.
+   2. Hardware takes debug interrupt upon the first branch taken debug exception, pointing to the branch
+       with CSRR0 (DSRR0 <E.ED>)
+
+
+
+          EREF 2.0: A Programmer’s Reference Manual for Freescale Power Architecture® Processors, Rev. 0
+9-4                                                                                       Freescale Semiconductor
+Debug Facilities
+
+
+      3. Software, in the debug handler, sees the branch taken exception type, does whatever
+         logging/analysis it wants to, then clears all debug event enables in the DBCR except for the
+         instruction complete debug event enable.
+      4. Software does an rfci (rfdi <E.HV>)
+      5. Hardware would execute and complete one instruction (the branch taken in this case), and then take
+         a debug interrupt with CSRR0 (DSRR0 <E.ED>) pointing to the target of the branch.
+      6. Software would see the instruction complete interrupt type. It clears the instruction complete event
+         enable, then enables the branch taken interrupt event again.
+      7. Software does an rfci (rfdi <E.HV>)
+      8. Hardware resumes on the target of the taken branch and continues until another taken branch, in
+         which case we end up at step 2 again.
+That two debug interrupts occur for every instance of a pre-completion exception may seem like
+duplication, but this approach ensures forward progress on pre-completion debug exceptions.
+
+9.6.2.2            Synchronous Post-Completion Debug Interrupts
+A post-completion exception is taken after an instruction completes and writes it results to architected
+state. The instruction complete debug exception causes a post-completion debug interrupt. The CSRR0
+(DSRR0 <E.ED>) for this type of exception points to the instruction after the instruction that caused the
+exception (it points to the instruction that would have executed next).
+
+9.6.2.3            Asynchronous Debug Interrupts
+An asynchronous exception is after one instruction completes, but before the next instruction is completed.
+The unconditional debug exception (UDE) causes an asynchronous debug interrupt. The CSRR0 (DSRR0
+<E.ED>) for this type of exception points to the instruction that would have executed next had the
+asynchronous debug interrupt not occurred. The asynchronous interrupt is not associated with an
+instruction since it is considered asynchronous.
+
+9.7         Debug Conditions and Debug Events
+A “debug condition” indicates that a set of specific criteria have been met such that a corresponding debug
+event occurs in the absence of any gating or masking. The criteria for debug conditions are obtained from
+debug control registers. For a specific debug condition to occur, the corresponding debug event enable bit
+must be set in the DBCRn register (see Section 3.13.2, “Debug Control Registers (DBCR0–DBCR6)”) and
+the criteria specific to the debug condition (for example, DBCR0[BRT] must be set and the processor must
+take a branch for the branch taken condition to occur) must be present.
+A “debug event” means the setting of a bit in the debug status register (DBSR) upon the occurrence of the
+associated debug condition. However, a debug condition does not always result in a debug event.
+Conditions are prioritized with respect to exceptions. Exceptions that have higher priority than a debug
+condition prevent the debug condition from being recorded as a debug event. In internal debug mode
+(IDM), debug events cause a debug interrupt if the debug enable bit is set (MSR[DE] = 1).
+
+
+
+          EREF 2.0: A Programmer’s Reference Manual for Freescale Power Architecture® Processors, Rev. 0
+9-5                                                                                       Freescale Semiconductor
+Debug Facilities
+
+
+Debug events are used to cause debug exceptions to be recorded in the DBSR (see Section 3.13.4, “Debug
+Status Register (DBSR/DBSRWR)”). For a debug event to be enabled to set a DBSR bit and thereby cause
+a debug exception, the corresponding event type must be enabled in a DBCRn register (see Section 3.13.2,
+“Debug Control Registers (DBCR0–DBCR6)”). The unconditional debug event (UDE) is an exception to
+this rule and requires no corresponding enable bit in DBCRn. If a DBSRn bit is set and debug interrupts
+are enabled (MSR[DE] = 1), a debug interrupt is generated.
+                                    NOTE: Software Considerations
+                   Software should not depend on any DBSR bit other than UDE being set
+                   when MSR[DE] = 0.
+Debug interrupts are ordered with respect to other interrupt types (Section 7.10, “Interrupt Ordering and
+Masking”). Debug exceptions are prioritized with respect to other exceptions (Section 7.11, “Exception
+Priorities”).
+There are eight types of debug events defined:
+   1. Instruction address compare debug events
+   2. Data address compare debug events
+   3. Trap debug events
+   4. Branch taken debug events
+   5. Instruction complete debug
+   6. Interrupt taken debug events
+   7. Critical interrupt taken debug events <E.ED>
+   8. Interrupt return debug events
+   9. Critical interrupt return debug events <E.ED>
+   10. Unconditional debug events
+
+9.7.1          Suppressing Debug Events in Hypervisor Mode
+Synchronous debug conditions (and thus events) can be suppressed when executing in hypervisor state.
+This prevents debug events from being recorded (and subsequent debug interrupts from occurring) when
+executing in hypervisor state when the guest operating system is using the debug facility.
+When EPCR[DUVD] = 1 and MSR[GS] = 0, all debug conditions, except the unconditional debug
+conditions, are suppressed and are not posted in the DBSR and the associated exceptions do not occur.
+                                               NOTE: Virtualization
+                   The EPCR[DUVD] bit is provided for the hypervisor to give debug control
+                   to the guest operating system because the guest operating system wishes to
+                   use the debug facilities. This prevents the hypervisor from recording false
+                   and spurious debug events (and interrupts) that would be taken by the
+                   hypervisor and filtered out for the guest. While it is possible for the
+                   hypervisor to do this, it is impractical and requires tricky code which may
+                   be in important performance paths.
+
+
+
+          EREF 2.0: A Programmer’s Reference Manual for Freescale Power Architecture® Processors, Rev. 0
+9-6                                                                                       Freescale Semiconductor
+Debug Facilities
+
+
+9.7.2          Instruction Address Compare Debug Event
+One or more instruction address compare debug conditions (IACn) occur if they are enabled and execution
+is attempted of an instruction at an address that meets the criteria specified in the DBCRn and IACn
+registers.
+
+9.7.2.1            Instruction Address Compare User/Supervisor Mode
+DBCR1[IACnUS] specifies whether corresponding IACn debug conditions can occur in user or supervisor
+mode, or both.
+
+9.7.2.2            Effective/Real Address Mode
+DBCR1[IACnER] specifies whether effective addresses, physical addresses, effective addresses and
+MSR[IS] = 0, or effective addresses and MSR[IS] = 1 are used in determining an address match on
+corresponding IACn debug conditions.
+Many processors do not support real address comparisons. Consult the core reference manual.
+
+9.7.2.3            Instruction Address Compare Mode
+DBCR1[IAC12M] specifies whether all or some of the bits of the address of the instruction fetch must
+match the contents of the IAC1 or IAC2, whether the address must be inside a specific range specified by
+the IAC1 and IAC2 or outside a specific range specified by the IAC1 and IAC2 for an IAC1 or IAC2 debug
+condition to occur.
+DBCR1[IAC34M] specifies whether all or some of the bits of the address of the instruction fetch must
+match the contents of the IAC3 or IAC4, whether the address must be inside a specific range specified by
+IAC3 and IAC4 or outside a specific range specified by IAC3 and IAC4 for an IAC3 or IAC4 debug
+condition to occur.
+There are four instruction address compare modes, as follows:
+   • Exact address compare mode.
+       If the address of the instruction fetch matches the value in the enabled IACn, an instruction address
+       match occurs. For 64-bit implementations, the addresses are masked to compare only bits 32–63
+       when the processor is executing in 32-bit mode.
+   • Address bit match mode.
+       For IAC1 and IAC2 debug conditions, if the address of the instruction fetch access, ANDed with
+       the contents of the IAC2, match the contents of the IAC1, also ANDed with the contents of the
+       IAC2, an instruction address match occurs.
+       For IAC3 and IAC4 debug conditions, if the address of the instruction fetch, ANDed with the
+       contents of the IAC4, are equal to the contents of the IAC3, also ANDed with the contents of the
+       IAC4, an instruction address match occurs.
+       For 64-bit implementations, the addresses are masked to compare only bits 32–63 when the
+       processor is executing in 32-bit mode.
+   • Inclusive address range compare mode.
+       For IAC1 and IAC2 debug conditions, if the address of the instruction fetch is greater than or equal
+
+          EREF 2.0: A Programmer’s Reference Manual for Freescale Power Architecture® Processors, Rev. 0
+9-7                                                                                       Freescale Semiconductor
+Debug Facilities
+
+
+          to the contents of the IAC1 and less than the contents of the IAC2, an instruction address match
+          occurs.
+          For IAC3 and IAC4 debug conditions, if the address of the instruction fetch is greater than or equal
+          to the contents of the IAC3 and less than the contents of the IAC4, an instruction address match
+          occurs.
+          For 64-bit implementations, addresses are masked to compare only bits 32–63 when the processor
+          is executing in 32-bit mode.
+      •   Exclusive address range compare mode.
+          For IAC1 and IAC2 debug conditions, if the address of the instruction fetch is less than the contents
+          of the IAC1 or greater than or equal to the contents of the IAC2, an instruction address match
+          occurs.
+          For IAC3 and IAC4 debug conditions, if the address of the instruction fetch is less than the contents
+          of the IAC3 or greater than or equal to the contents of the IAC4, an instruction address match
+          occurs.
+          For 64-bit implementations, the addresses are masked to compare only bits 32–63 when the
+          processor is executing in 32-bit mode.
+
+9.7.2.4            Instruction Address Compare Debug Event Considerations
+<Embedded.Hypervisor>:
+When MSR[GS] = 0 and EPCR[DUVD] = 1, instruction address compare debug conditions are
+suppressed.
+Some processors implement additional IACn registers and additional DBCRn registers for additional
+instruction address compare debug conditions.
+When an instruction address compare debug condition occurs, if DBCR0[IDM] and MSR[DE] are set and
+the instruction address compare debug exception is the highest priority exception, the debug event is said
+to occur and the corresponding DBSR[IACn] bit or bits are set to record the debug exception.
+When the instruction address compare mode is anything other than exact address compare mode, it is
+implementation-dependent if both or either associated DBSR[IACn] bits may be set. For IAC1 and IAC2
+debug events, either or both DBSR[IAC1] and DBSR[IAC2] bits may be set. For IAC3 and IAC4 debug
+events, either or both DBSR[IAC3] and DBSR[IAC4] bits may be set.
+If MSR[DE] = 1 at the time of the instruction address compare debug exception, a debug interrupt occurs
+immediately and execution of the instruction causing the exception is suppressed, and CSRR0
+(DSRR0 <E.ED>) is set to the address of the excepting instruction.
+If a instruction address compare event causes a delayed debug exception, a debug interrupt does not occur,
+and the instruction completes execution (provided the instruction is not causing some other exception
+which generates an enabled interrupt).
+Later, if the delayed debug exception has not been reset by clearing the corresponding DBSR[IACn] bit(s)
+and MSR[DE] is set, a delayed debug interrupt occurs. In this case, CSRR0 (DSRR0 <E.ED>) contains
+the address of the instruction after the one which enabled the debug interrupt by setting MSR[DE].
+Software in the debug interrupt handler can observe DBSR[IDE] to determine how to interpret the value
+in CSRR0 (DSRR0 <E.ED>).
+
+
+          EREF 2.0: A Programmer’s Reference Manual for Freescale Power Architecture® Processors, Rev. 0
+9-8                                                                                       Freescale Semiconductor
+Debug Facilities
+
+
+9.7.3          Data Address Compare Debug Event
+One or more data address compare debug conditions (DAC1R, DAC1W, DAC2R, DAC2W) occur if they
+are enabled, execution is attempted of a data storage access instruction, and the type and address of the
+data storage access meet the criteria specified in the DBCR0, DBCR2, and the DACn registers.
+
+9.7.3.1            Data Address Compare Read/Write Enable
+DBCR0[DACn] specifies whether the corresponding DACnR debug conditions can occur on read-type
+data storage accesses and whether DACnW debug conditions can occur on write-type data storage
+accesses.
+                                            NOTE: Implementation
+                    If a processor implements indexed string instructions (lswx, stswx) for
+                    which the XER field specifies zero bytes as the length of the string, these
+                    should be treated as no-ops and are not allowed to cause data address
+                    compare debug events.
+All load instructions are considered reads with respect to debug conditions, while all store instructions are
+considered writes with respect to debug conditions. Additionally, the cache management instructions, and
+certain special cases, are handled as follows.
+    • dcbt, dcbtls <E.CL>, dcbtep <E.PD>, dcbtst, dcbtstls <E.CL>, dcbtstep <E.PD>, icbt,
+        icbtls <E.CL>, icbi, icblc <E.CL>, dcblc <E.CL>, and icbiep <E.PD> are all considered reads
+        with respect to debug conditions. Note that dcbt, dcbtep <E.PD>, dcbtst, dcbtstep <E.PD>, and
+        icbt are treated as no-ops when they report data storage or data TLB miss exceptions, instead of
+        being allowed to cause interrupts. However, these instructions are allowed to cause debug
+        conditions, even when they would otherwise have been no-op’ed due to a data storage or data TLB
+        miss exception. It is implementation-dependent if such no-ops cause debug conditions.
+    • dcbz, dcbzl <DEO>, dcbzep <E.PD>, dcbzlep <DEO,E.PD> dcbi, dcbf, dcbfep <E.PD>, dcba,
+        dcbal <DEO>, dcbst, and dcbstep <E.PD> are all considered writes with respect to debug
+        conditions. Note that dcbf, dcbfep <E.PD>, dcbst, and dcbstep <E.PD> are considered reads with
+        respect to data storage exceptions, since they do not actually change the data at a given address.
+        However, since the execution of these instructions may result in write activity on the processor’s
+        data bus, they are treated as writes with respect to debug events.
+
+9.7.3.2            Data Address Compare User/Supervisor Mode
+DBCR2[DACnUS] specifies whether DACnR and DACnW debug conditions can occur in user mode or
+supervisor mode, or both.
+
+9.7.3.3            Effective/Real Address Mode
+DBCR2[DACnER] specifies whether effective addresses, physical addresses, effective addresses and
+MSR[DS] = 0, or effective addresses and MSR[DS] = 1 are used to in determining an address match on
+DACnR and DACnW debug conditions.
+Many processors do not support real address comparisons. Consult the core reference manual.
+
+          EREF 2.0: A Programmer’s Reference Manual for Freescale Power Architecture® Processors, Rev. 0
+9-9                                                                                       Freescale Semiconductor
+Debug Facilities
+
+
+9.7.3.4            Data Address Compare Mode
+DBCR2[DAC12M] specifies whether all or some of the bits of the address of the data storage access must
+match the contents of the DAC1 or DAC2, whether the address must be inside a specific range specified
+by the DAC1 and DAC2 or outside a specific range specified by the DAC1 and DAC2 for a DAC1R,
+DAC1W, DAC2R or DAC2W debug condition to occur.
+There are four data address compare modes.
+   • Exact address compare mode. If the 64-bit address of the data storage access matches the value in
+       the DACn register, a data address match occurs. For 64-bit implementations, the addresses are
+       masked to compare only bits 32–63 when the processor is executing in 32-bit mode.
+       The address must exactly match and not merely be affected by the storage access. Instructions
+       whose data address and associated access size encompasses the address specified by a DACn
+       register for which the address specified by the instruction does not exactly match the DACn
+       register, will not cause a data address compare condition.
+                                       NOTE: Software Considerations
+                    For example, in exact address compare mode, a storage access of a word (4
+                    bytes) to address 0x1000 will not cause a data address compare debug
+                    condition for DAC1 if DAC1 contains the value 0x1001. The same
+                    constraints apply to any storage access including cache management
+                    instructions and load/store multiple instructions.
+       •   Address bit match mode. If the address of the data storage access, ANDed with the contents of the
+           DAC2, are equal to the contents of the DAC1, also ANDed with the contents of the DAC2, a data
+           address match occurs. For 64-bit implementations, addresses are masked to compare only bits
+           32–63 when the processor is executing in 32-bit mode.
+       •   Inclusive address range compare mode. If the 64-bit address of the data storage access is greater
+           than or equal to the contents of the DAC1 and less than the contents of the DAC2, a data address
+           match occurs. For 64-bit implementations, the addresses are masked to compare only bits 32–63
+           when the processor is executing in 32-bit mode.
+       •   Exclusive address range compare mode. If the 64-bit address of the data storage access is less than
+           the contents of the DAC1 or greater than or equal to the contents of the DAC2, a data address match
+           occurs. For 64-bit implementations, the addresses are masked to compare only bits 32–63 when the
+           processor is executing in 32-bit mode.
+
+9.7.3.5            Data Value Compare Mode
+DBCR2DVC1M and DBCR2DVC1BE specify whether and how the data value being accessed by the storage
+access must match the contents of the DVC1 for a DAC1R or DAC1W debug condition to occur.
+DBCR2DVC2M and DBCR2DVC2BE specify whether and how the data value being accessed by the storage
+access must match the contents of the DVC2 for a DAC2R or DAC2W debug condition to occur.
+
+
+
+
+           EREF 2.0: A Programmer’s Reference Manual for Freescale Power Architecture® Processors, Rev. 0
+9-10                                                                                       Freescale Semiconductor
+Debug Facilities
+
+
+9.7.3.6            Data Address Compare Debug Event Considerations
+The description of DBCR0 (see Section 3.13.2.1, “Debug Control Register 0 (DBCR0)”) and DBCR2 (see
+Section 3.13.2.3, “Debug Control Register 2 (DBCR2)”) control the modes for detecting data address
+compare debug events.
+<Embedded.Hypervisor>:
+When MSR[GS] = 0 and EPCR[DUVD] = 1, data address compare debug conditions are suppressed.
+<Embedded.Hypervisor, Embedded.External PID>:
+When MSR[GS] = 0 and EPCR[DUVD] = 1, data address debug compare conditions are suppressed when
+external PID instructions are used, even if the external PID instructions target a context where EPSC[EGS]
+or EPLC[EGS] is set to 1.
+When a data address compare debug condition occurs, if DBCR0[IDM] and MSR[DE] are set and the data
+address compare debug exception is the highest priority exception, the debug event is said to occur and the
+corresponding DBSR[DACnR,DACnW] bit or bits are set to record the debug exception. On processors
+that support delayed debug interrupts, if MSR[DE] = 0, the corresponding DBSR[IACn] bit or bits are set
+to record the debug exception and DBSR[IDE] is set to record the imprecise debug event and a delayed
+debug exception is pending until MSR[DE] is later set.
+When the data address compare mode is anything other than exact address compare mode, it is
+implementation-dependent if both or either associated DBSR[DACn] bits may be set. For DAC1 and
+DAC2 debug events, either or both DBSR[DAC1] and DBSR[DAC2] bits may be set.
+If MSR[DE] = 1 at the time of the data address compare debug exception, a debug interrupt occurs
+immediately and execution of the instruction causing the exception is suppressed, and CSRR0
+(DSRR0 <E.ED>) is set to the address of the excepting instruction. Depending on the type of instruction
+and/or the alignment of the data access, the instruction causing the exception may have been partially
+executed (see Section 7.9, “Partially Executed Instructions”).
+If a data address compare event causes a delayed debug exception, a debug interrupt does not occur, and
+the instruction completes execution (provided the instruction is not causing some other exception which
+generates an enabled interrupt).
+Later, if the delayed debug exception has not been reset by clearing the corresponding
+DBSR[DACnR,DACnW] bit(s) and MSR[DE] is set, a delayed debug interrupt occurs. In this case,
+CSRR0 (DSRR0 <E.ED>) contains the address of the instruction after the one which enabled the debug
+interrupt by setting MSR[DE]. Software in the debug interrupt handler can observe DBSR[IDE] to
+determine how to interpret the value in CSRR0 (DSRR0 <E.ED>).
+
+9.7.4          Trap Debug Event
+A trap debug condition (TRAP) occurs if DBCR0[TRAP] = 1 (that is trap debug events are enabled) and
+a trap instruction (tw, twi, td <64>, tdi <64>) is executed and the conditions specified by the instruction
+for the trap are met.
+<Embedded.Hypervisor>:
+When MSR[GS] = 0 and EPCR[DUVD] = 1, trap debug conditions are suppressed.
+
+
+          EREF 2.0: A Programmer’s Reference Manual for Freescale Power Architecture® Processors, Rev. 0
+9-11                                                                                      Freescale Semiconductor
+Debug Facilities
+
+
+When a trap debug condition occurs, if DBCR0[IDM] and MSR[DE] are set and the trap debug exception
+is the highest priority exception, the debug event is said to occur and the corresponding DBSR[TRAP] bit
+is set to record the debug exception.
+When a trap debug condition occurs, if DBCR0[IDM] = 1 and MSR[DE] = 0, a debug interrupt does not
+occur and a trap exception type program interrupt occurs instead. On processors that support delayed
+debug interrupts, the corresponding DBSR[TRAP] bit is set to record the debug exception and
+DBSR[IDE] is set to record the imprecise debug event and a delayed debug exception is pending until
+MSR[DE] is later set.
+If MSR[DE] = 1 at the time of the trap debug exception, a debug interrupt occurs immediately and
+execution of the instruction causing the exception is suppressed, and CSRR0 (DSRR0 <E.ED>) is set to
+the address of the excepting instruction.
+If a trap debug event causes a delayed debug exception, a debug interrupt does not occur, and the
+instruction completes execution (provided the instruction is not causing some other exception which
+generates an enabled interrupt).
+Later, if the delayed debug exception has not been reset by clearing the corresponding DBSR[TRAP] bit
+and MSR[DE] is set, a delayed debug interrupt occurs. In this case, CSRR0 (DSRR0 <E.ED>) contains
+the address of the instruction after the one which enabled the debug interrupt by setting MSR[DE].
+Software in the debug interrupt handler can observe DBSR[IDE] to determine how to interpret the value
+in CSRR0 (DSRR0 <E.ED>).
+
+9.7.5          Branch Taken Debug Event
+A branch taken debug condition (BRT) occurs if DBCR0[BRT] = 1 (that is branch taken debug events are
+enabled), execution is attempted of a branch instruction whose direction is taken (that is, either an
+unconditional branch, or a conditional branch whose branch condition is met), and MSR[DE] = 1.
+<Embedded.Hypervisor>:
+When MSR[GS] = 0 and EPCR[DUVD] = 1, branch taken debug conditions are suppressed.
+When a branch taken debug condition occurs, if DBCR0[IDM] and MSR[DE] are set and the branch taken
+debug exception is the highest priority exception, the debug event is said to occur and the corresponding
+DBSR[BRT] bit is set to record the debug exception.
+If DBCR0[IDM] and MSR[DE] are not set when a branch taken debug condition occurs, no event is
+recorded in DBSR[BRT]. DBSR[IDE] cannot be set by a branch taken debug event. This is because branch
+instructions occur very frequently. Allowing these common events to be recorded as exceptions in the
+DBSR while debug interrupts are disabled via MSR[DE] has little value.
+If MSR[DE] = 1 at the time of the branch taken debug exception, a debug interrupt occurs immediately
+and execution of the instruction causing the exception is suppressed, and CSRR0 (DSRR0 <E.ED>) is set
+to the address of the excepting instruction.
+
+
+
+
+          EREF 2.0: A Programmer’s Reference Manual for Freescale Power Architecture® Processors, Rev. 0
+9-12                                                                                      Freescale Semiconductor
+                                                                                                    Debug Facilities
+
+
+9.7.6        Instruction Complete Debug Event
+An instruction complete debug condition (ICMP) occurs if DBCR0[ICMP] = 1 (that is instruction
+complete debug events are enabled), execution of any instruction is completed, and MSR[DE] = 1.
+<Embedded.Hypervisor>:
+When MSR[GS] = 0 and EPCR[DUVD] = 1, instruction complete debug conditions are suppressed.
+When an instruction complete debug condition occurs, if DBCR0[IDM] and MSR[DE] are set and the
+instruction complete debug exception is the highest priority exception, the debug event is said to occur and
+the corresponding DBSR[ICMP] bit is set to record the debug exception. Note that if execution of an
+instruction is suppressed due to the instruction causing some other exception which is enabled to generate
+an interrupt, then the attempted execution of that instruction does not cause an instruction complete debug
+event. The sc instruction does not fall into the type of an instruction whose execution is suppressed, since
+the instruction actually completes execution and then generates a system call interrupt. In this case, the
+instruction complete debug exception is also set.
+If DBCR0[IDM] and MSR[DE] are not set when an instruction complete debug condition occurs, no event
+is recorded in DBSR[ICMP]. DBSR[IDE] cannot be set by an instruction complete debug event. This is
+because instruction completion occurs on most processor cycles. Allowing these common events to be
+recorded as exceptions in the DBSR while debug interrupts are disabled via MSR[DE] has little value.
+If MSR[DE] = 1 at the time of the instruction complete debug exception, a debug interrupt occurs
+immediately and execution of the instruction causing the exception is suppressed, and CSRR0
+(DSRR0 <E.ED>) is set to the address of the excepting instruction.
+                                   NOTE: Software Considerations
+                When an return from interrupt instruction or mtmsr is executed, the state of
+                MSR[DE] at the time the instruction begins execution is used to determine
+                if a debug event occurs. While the return from interrupt or mtmsr
+                instruction modifies the MSR[DE] bit and the instruction complete debug
+                event occurs after the execution of the instruction, the instruction complete
+                debug event uses MSR[DE] at the beginning of instruction execution.
+                This behavior is useful since the debug interrupt handler will have
+                DBCR0[ICMP] set and will execute a return from interrupt instruction that
+                transitions MSR[DE] from 0 to 1 to single step an instruction. The
+                instruction complete interrupt will not occur immediately after the return
+                from interrupt, but instead after the first instruction after the return has been
+                executed.
+
+9.7.7        Interrupt Taken Debug Event
+An interrupt taken debug condition (IRPT) occurs if DBCR0[IRPT] = 1 (that is interrupt taken debug
+events are enabled) and a base class interrupt (an interrupt that sets SRR0/1 (or GSRR0/1 <E.ED>))
+occurs.
+<Embedded.Hypervisor>:
+When MSR[GS] = 0 and EPCR[DUVD] = 1, interrupt taken debug conditions are suppressed.
+
+         EREF 2.0: A Programmer’s Reference Manual for Freescale Power Architecture® Processors, Rev. 0
+Freescale Semiconductor                                                                                        9-13
+Debug Facilities
+
+
+When an interrupt taken debug condition occurs, if DBCR0[IDM] and MSR[DE] are set and the interrupt
+taken debug exception is the highest priority exception, the debug event is said to occur and the
+corresponding DBSR[IRPT] bit is set to record the debug exception.
+When an interrupt taken debug condition occurs, if DBCR0[IDM] = 1 and MSR[DE] = 0, a debug interrupt
+does not occur. On processors that support delayed debug interrupts, the corresponding DBSR[IRPT] bit
+is set to record the debug exception and DBSR[IDE] is set to record the imprecise debug event and a
+delayed debug exception is pending until MSR[DE] is later set.
+If MSR[DE] = 1 at the time of the interrupt taken debug exception, a debug interrupt occurs immediately
+and CSRR0 (DSRR0 <E.ED>) is set to the address of the first instruction of the base class interrupt that
+occurred.
+If an interrupt taken debug event causes a delayed debug exception, a debug interrupt does not occur, and
+the instruction completes execution (provided the instruction is not causing some other exception which
+generates an enabled interrupt).
+Later, if the delayed debug exception has not been reset by clearing the corresponding DBSR[IRPT] bit
+and MSR[DE] is set, a delayed debug interrupt occurs. In this case, CSRR0 (DSRR0 <E.ED>) contains
+the address of the instruction after the one which enabled the debug interrupt by setting MSR[DE].
+Software in the debug interrupt handler can observe DBSR[IDE] to determine how to interpret the value
+in CSRR0 (DSRR0 <E.ED>).\
+Note that only base class interrupts set the interrupt taken debug condition. Other classes of interrupts
+(critical, debug <E.ED>, or machine check) do not cause interrupt taken debug conditions.
+
+9.7.8          Critical Interrupt Taken Debug Event <E.ED>
+A critical interrupt taken debug condition (IRPT) occurs if DBCR0[CIRPT] = 1 (that is critical interrupt
+taken debug events are enabled) and a critical class interrupt (an interrupt that sets CSRR0/1) occurs.
+<Embedded.Hypervisor>:
+When MSR[GS] = 0 and EPCR[DUVD] = 1, critical interrupt taken debug conditions are suppressed.
+When a critical interrupt taken debug condition occurs, if DBCR0[IDM] and MSR[DE] are set and the
+critical interrupt taken debug exception is the highest priority exception, the debug event is said to occur
+and the corresponding DBSR[CIRPT] bit is set to record the debug exception.
+When a critical interrupt taken debug condition occurs, if DBCR0[IDM] = 1 and MSR[DE] = 0, a debug
+interrupt does not occur. On processors that support delayed debug interrupts, the corresponding
+DBSR[CIRPT] bit is set to record the debug exception and DBSR[IDE] is set to record the imprecise debug
+event and a delayed debug exception is pending until MSR[DE] is later set.
+If MSR[DE] = 1 at the time of the critical interrupt taken debug exception, a debug interrupt occurs
+immediately and DSRR0 is set to the address of the first instruction of the critical class interrupt that
+occurred.
+If a critical interrupt taken debug event causes a delayed debug exception, a debug interrupt does not occur,
+and the instruction completes execution (provided the instruction is not causing some other exception
+which generates an enabled interrupt).
+
+
+          EREF 2.0: A Programmer’s Reference Manual for Freescale Power Architecture® Processors, Rev. 0
+9-14                                                                                      Freescale Semiconductor
+                                                                                                  Debug Facilities
+
+
+Later, if the delayed debug exception has not been reset by clearing the corresponding DBSR[CIRPT] bit
+and MSR[DE] is set, a delayed debug interrupt occurs. In this case, DSRR0 contains the address of the
+instruction after the one which enabled the debug interrupt by setting MSR[DE]. Software in the debug
+interrupt handler can observe DBSR[IDE] to determine how to interpret the value in DSRR0.
+Note that only critical class interrupts set the critical interrupt taken debug condition. Other classes of
+interrupts (base, debug or machine check) do not cause critical interrupt taken debug conditions.
+
+9.7.9        Return Debug Event
+A return debug condition (RET) occurs if DBCR0[RET] = 1 (that is return debug events are enabled) and
+an attempt is made to execute an rfi (or rfgi <E.HV>) instruction.
+<Embedded.Hypervisor>:
+When MSR[GS] = 0 and EPCR[DUVD] = 1, return debug conditions are suppressed.
+When a return debug condition occurs, if DBCR0[IDM] and MSR[DE] are set and the return debug
+exception is the highest priority exception, the debug event is said to occur and the corresponding
+DBSR[RET] bit is set to record the debug exception.
+When a return debug condition occurs, if DBCR0[IDM] = 1 and MSR[DE] = 0, a debug interrupt does not
+occur. On processors that support delayed debug interrupts, the corresponding DBSR[RET] bit is set to
+record the debug exception and DBSR[IDE] is set to record the imprecise debug event and a delayed debug
+exception is pending until MSR[DE] is later set.
+If MSR[DE] = 1 at the time of the return debug exception, a debug interrupt occurs immediately and
+execution of the instruction causing the exception is suppressed, and CSRR0 (DSRR0 <E.ED>) is set to
+the address of the rfi (or rfgi <E.HV>).
+If a return debug event causes a delayed debug exception, a debug interrupt does not occur, and the
+instruction completes execution (provided the instruction is not causing some other exception which
+generates an enabled interrupt).
+Later, if the delayed debug exception has not been reset by clearing the corresponding DBSR[RET] bit and
+MSR[DE] is set, a delayed debug interrupt occurs. In this case, CSRR0 (DSRR0 <E.ED>) contains the
+address of the instruction after the one which enabled the debug interrupt by setting MSR[DE]. Software
+in the debug interrupt handler can observe DBSR[IDE] to determine how to interpret the value in CSRR0
+(DSRR0 <E.ED>) .
+
+9.7.10       Critical Interrupt Return Debug Event <E.ED>
+A critical interrupt return debug condition (CRET) occurs if DBCR0[CRET] = 1 (that is critical interrupt
+return debug events are enabled) and an attempt is made to execute an rfci instruction.
+<Embedded.Hypervisor>:
+When MSR[GS] = 0 and EPCR[DUVD] = 1, critical interrupt return debug conditions are suppressed.
+When a critical interrupt return debug condition occurs, if DBCR0[IDM] and MSR[DE] are set and the
+critical interrupt return debug exception is the highest priority exception, the debug event is said to occur
+and the corresponding DBSR[CRET] bit is set to record the debug exception.
+
+         EREF 2.0: A Programmer’s Reference Manual for Freescale Power Architecture® Processors, Rev. 0
+Freescale Semiconductor                                                                                      9-15
+Debug Facilities
+
+
+When a critical interrupt return debug condition occurs, if DBCR0[IDM] = 1 and MSR[DE] = 0, a debug
+interrupt does not occur. On processors that support delayed debug interrupts, the corresponding
+DBSR[CRET] bit is set to record the debug exception and DBSR[IDE] is set to record the imprecise debug
+event and a delayed debug exception is pending until MSR[DE] is later set.
+If MSR[DE] = 1 at the time of the critical interrupt return debug exception, a debug interrupt occurs
+immediately and execution of the instruction causing the exception is suppressed, and DSRR0 is set to the
+address of the rfci.
+If a critical interrupt return debug event causes a delayed debug exception, a debug interrupt does not
+occur, and the instruction completes execution (provided the instruction is not causing some other
+exception which generates an enabled interrupt).
+Later, if the delayed debug exception has not been reset by clearing the corresponding DBSR[CRET] bit
+and MSR[DE] is set, a delayed debug interrupt occurs. In this case, DSRR0 contains the address of the
+instruction after the one which enabled the debug interrupt by setting MSR[DE]. Software in the debug
+interrupt handler can observe DBSR[IDE] to determine how to interpret the value in DSRR0.
+
+9.7.11         Unconditional Debug Event (UDE)
+An unconditional debug condition (UDE) occurs when the UDE signal is activated by the debug
+mechanism. The exact definition of the UDE signal and how it is activated is implementation-dependent.
+The unconditional debug condition is the only debug event which does not have a corresponding enable
+bit for the event in DBCR0 (hence the name of the event). The unconditional debug condition can occur
+regardless of the setting of MSR[DE].
+When an unconditional debug condition occurs, if DBCR0[IDM] and MSR[DE] are set and the
+unconditional debug exception is the highest priority exception, the debug event is said to occur and the
+corresponding DBSR[UDE] bit is set to record the debug exception and DBSR[IDE] is set to record the
+imprecise debug event. Note that DBSR[UDE] is always set regardless of MSR[DE] because UDE is an
+asynchronous interrupt and is not associated with an instruction in the instruction stream.
+When an unconditional debug condition occurs, if DBCR0[IDM] = 1 and MSR[DE] = 0, a debug interrupt
+does not occur. On processors that support delayed debug interrupts, the corresponding DBSR[UDE] bit
+is set to record the debug exception and DBSR[IDE] is set to record the imprecise debug event and a
+delayed debug exception is pending until MSR[DE] is later set.
+If MSR[DE] = 1 at the time of the unconditional debug exception, a debug interrupt occurs immediately
+and execution of the instruction causing the exception is suppressed, and CSRR0 (DSRR0 <E.ED>) is set
+to the address of the instruction that would have executed next had the interrupt not occurred.
+If an unconditional debug event causes a delayed debug exception, a debug interrupt does not occur, and
+the instruction completes execution (provided the instruction is not causing some other exception which
+generates an enabled interrupt).
+Later, if the delayed debug exception has not been reset by clearing the corresponding DBSR[UDE] bit
+and MSR[DE] is set, a delayed debug interrupt occurs. In this case, CSRR0 (DSRR0 <E.ED>) contains
+the address of the instruction after the one which enabled the debug interrupt by setting MSR[DE].
+
+
+
+          EREF 2.0: A Programmer’s Reference Manual for Freescale Power Architecture® Processors, Rev. 0
+9-16                                                                                      Freescale Semiconductor
+                                                                                                  Debug Facilities
+
+
+<Embedded.Hypervisor>:
+When MSR[GS] = 0 and EPCR[DUVD] = 1, it is implementation-dependent whether unconditional debug
+conditions are suppressed.
+
+9.7.12       DAC and IAC Linking
+Some processors support the ability to “link” an instruction address compare condition and a data address
+compare condition such that when both occur, a data address compare event occurs.
+If DBCR2[DACLINK1] is set, IAC1 debug events do not occur, and DAC1 debug events occur only if a
+data address compare 1 condition and an instruction address compare 1 condition occur on the same
+instruction. Both IAC1 and DAC1 address compare modes must be set to exact address compare mode, or
+the results are boundedly undefined. Similarly if DBCR2[DACLINK2] is set, IAC2 debug events do not
+occur, and DAC2 debug events occur only if a data address compare 1 condition and an instruction address
+compare 1 condition occur on the same instruction. Both IAC2 and DAC2 address compare modes must
+be set to exact address compare mode, or the results are boundedly undefined.
+
+
+
+
+         EREF 2.0: A Programmer’s Reference Manual for Freescale Power Architecture® Processors, Rev. 0
+Freescale Semiconductor                                                                                      9-17

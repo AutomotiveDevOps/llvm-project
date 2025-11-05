@@ -1,0 +1,943 @@
+Chapter 1
+Overview
+This document describes the programming resources common among those Freescale embedded
+processors that implement the Power ISA™ (embedded category) and the Freescale embedded
+implementation standards (EIS).
+Note that the PowerPC™ architecture, as implemented on e600 and e300 cores, is described in the
+Programming Environments Manual for 32-bit Implementations of the PowerPC™ Architecture.
+This chapter includes overviews of the following:
+   • Power Architecture® Technology and the Freescale Embedded Implementation Standards (EIS)
+   • EREF Programming Model
+   • Exceptions and Interrupt Handling
+   • Memory (Storage) Model
+   • Special Instruction Differences Between Book E and EREF
+
+1.1       Power Architecture® Technology and the Freescale Embedded
+          Implementation Standards (EIS)
+The functionality described in this book was originally defined as the PowerPC Book E architecture and
+the Freescale EIS. It is now defined as the resources defined for the Base and Embedded categories by the
+Power ISA specification as well as for additional categories. Although the structure of the architecture
+specification has changed substantially, the functionality itself is essentially unchanged. The PowerPC
+architecture and the Power ISA now make up the Power Architecture technology.
+
+1.1.1        Understanding Differences in the Book E and EREF Specification
+             Structures
+The reorganization makes the structure of the specification quite different from the PowerPC 1.10, Power
+ISA, and Book E architecture specifications.
+Book I and Book II have been reorganized and amended, with features largely unchanged from Book E,
+the EIS, and IBM’s PowerPC 2.02 specification for server processors. Although Book III-E and Book III-S
+still bear a family resemblance to the original PowerPC Book III definition, they differ in very significant
+ways both from one another and from the PowerPC 1.10 specification.
+The Power ISA definition organizes the specification into shared Books I and II, which largely consists of
+the Base category (see Section 1.1.2, “Introducing the Power ISA Category”). Book III-S and Book III-E
+describe the resources for the privileged modes of the architecture and, although very similar in general
+appearance, contain significant differences. Book III-S is derived from PowerPC 2.02 and describes the
+
+
+         EREF 2.0: A Programmer’s Reference Manual for Freescale Power Architecture® Processors, Rev. 0
+Freescale Semiconductor                                                                                   1-1
+Overview
+
+
+privileged modes of the Server environment. Book III-E is derived from an unpublished version of Book
+E (which redefined the 64-bit instruction set to be compatible with PowerPC 2.02) and describes the
+privileged modes of the Embedded environment.
+This figure shows the structure of Power ISA.
+                                                       Power ISA
+
+                                 Server Environment
+                                 (formerly PowerPC         Embedded Environment
+                                 Architecture, 2.02)        (formerly Book E+EIS)
+
+
+                                  Book I (UISA) restructured and extended
+                                                                              Book VLE
+                                   Book II (VEA) restructured and extended    (extends
+                                                                               Books
+                                     Book III-S:             Book III-E:        I–III)
+                                 (Category: Server)    (Category: Embedded)
+
+                                               Figure 1-1. Power ISA
+
+1.1.2         Introducing the Power ISA Category
+The Power ISA category describes distinct modules within the architecture.
+
+1.1.2.1         Understanding the Base Category
+The Base category is common to both Embedded and Server categories, and it was originally derived from
+the Book I and Book II of the original PowerPC architecture. As Power ISA has evolved, the Base category
+has had features added to make the Base category common to all implementations of Power ISA.
+
+1.1.2.2         Understanding the Embedded and Server Categories
+In addition to the Base category, the Embedded and Server categories define functionality restricted to
+those respective environments. For example, these two categories include separate Book IIIs. In the Power
+ISA, categories also replace the concept of Auxiliary Processing Units (APUs), which were previously
+described by Book E and older versions of EREF, as modules of functionality that were extensions to Book
+E. In some places, this document continues to use the concept of Auxiliary Processing Units (APUs). In
+general, an APU reasonably maps to a category of Power ISA; however, some categories in Power ISA do
+not map to APUs. The concept ‘category’ is useful primarily as an arbitrary convention for structuring of
+the architecture specification itself; it is not particularly useful in understanding the behavior of the
+functionality.
+
+1.1.2.3         Benefits of Categories
+Categories extend the Base and Embedded category programming model. The modularity of categories
+facilitates the development of resources that are useful to some embedded environments but not others.
+Because of the mutually-exclusive nature of such extensions, instructions from multiple categories may be
+assigned the same opcode numbers. Such categories are mutually exclusive for a given implementation
+
+
+           EREF 2.0: A Programmer’s Reference Manual for Freescale Power Architecture® Processors, Rev. 0
+1-2                                                                                        Freescale Semiconductor
+                                                                                                                    Overview
+
+
+unless the implementation provides an implementation-specific method for using one category or the
+other.
+Categories may consist of any combination of instructions, optional behavior of Power ISA-defined
+instructions, registers, register files, fields within Power ISA-defined registers, interrupts, or exception
+conditions within Power ISA-defined interrupts.
+
+1.1.3        Power Architecture Evolution
+The PowerPC architecture is the grandfather to the latest generation of the Power Architecture technology.
+This figure shows the relationship between the different environments.
+                                                     Power Architecture
+
+                                                                                     Power ISA
+
+                                                          Server Environment
+                        Desktop Environment               (formerly PowerPC               Embedded Environment
+                     (PowerPC Architecture 1.10)          Architecture, 2.02)              (formerly Book E/EIS)
+
+
+          User ISA              Book I                        Book I (UISA) restructured and extended
+                                                                                                               Book VLE
+              VEA              Book II                        Book II (VEA) restructured and extended
+                                                                                                                (extends
+              OEA         Book III: (Desktop)                  Book III-S:               Book III-E:           Books I–III)
+                                                           (Category: Server)      (Category: Embedded)
+
+
+                               G2/e300                                                      e500
+   Implementations                                                G5                                              e200
+                               G4/e600                                                      e200
+
+
+   Indicates application-level features that have remained unchanged across all environments and versions of the architecture
+
+
+                                   Figure 1-2. Power Architecture Relationships
+
+The definitions that consist of the Power Architecture technology are as follows:
+   • The PowerPC Instruction Set Architecture (ISA) 1.10. The original architecture defined in the
+       1990s by Apple, IBM, and Motorola’s Semiconductor Products Sector (SPS) (now Freescale). This
+       mature architecture continues to form the basis for developing PowerPC processors that use
+       Freescale’s G2, e300, and e600 processor cores. This version of the architecture is described in
+       Programming Environments Manual for 32-bit Implementations of the PowerPC™ Architecture.
+   • The Power ISA specification. The Power ISA specification brings together the embedded features
+       defined in Book E and the Freescale EIS with the server and desktop resources defined by IBM’s
+       PowerPC architecture 2.02 definition. This architecture continues to evolve.
+
+1.1.4        Freescale Embedded Implementation Standards (EIS)
+The EIS refers to the architecture common to all Freescale embedded devices. It includes the following:
+
+
+         EREF 2.0: A Programmer’s Reference Manual for Freescale Power Architecture® Processors, Rev. 0
+Freescale Semiconductor                                                                                                   1-3
+Overview
+
+
+      •      Power ISA architecture features defined for the embedded environment
+      •      Additional Power ISA features (categories such as Floating-Point, Embedded.Hypervisor,
+             Decorated Storage, etc.)
+      •      Freescale-specific features that, if implemented, are implemented consistently among Freescale
+             embedded devices
+Under Book E, programming model extensions took the form of APUs. A few APUs were strictly specific
+to individual devices, but most, such as the signal processing engine (SPE) and variable-length encoding
+(VLE), were designed to be used by multiple implementations and so were defined as part of the EIS. Most
+of the APUs formerly defined by the EIS are now part of the Power ISA (where they are referred to as
+categories).
+As Figure 1-2 shows, processors designed under the Book E/EIS and PowerPC advanced server 2.02
+architectures remain compliant with the restructured Power ISA architecture.
+
+1.1.5                EIS Use of Power ISA Categories
+Many features formerly defined by the EIS have become part of the Power ISA. These include Freescale’s
+embedded MMU model and many former APUs, such as SPE and VLE. What is new is how these different
+architectures have been joined under a new name that reflects the expansive reach of the diversified
+architecture. Some of these features, such as the Integer Select instruction (isel), have become part of the
+basic programming model (category Base); others that are available to, but not required by, embedded
+processors, are defined by the Power ISA as separate categories.
+This table provides references for categories described briefly in the EREF.
+                                         Table 1-1. References for Related Categories
+
+      Category                              Definition                                              Reference
+
+    Variable length     Variable-length encoding facility, which            The VLE category is implemented in many e200 cores.
+    encoding (VLE)      re-encodes some of the basic instruction set to fit The VLE category in Power ISA is specified in Book VLE.
+                        into 16-bit and 32-bit instructions.
+
+Signal processing A comprehensive set of 64-bit, two-element,                The SPE category extends Book III–defined features, in
+  engine (SPE)    SIMD instructions that share the Book I–defined            particular, the interrupt model.
+                  GPRs extended by the SPE to 64 bits in 32-bit              The EREF provides an overview of the SPE, but a full
+                  implementations, as shown in Figure 1-3.                   description is provided in the SPE PEM.
+
+          Altivec1      This comprehensive 128-bit, four-operand SIMD        The vector category extends the Book III interrupt model.
+                        ISA consists of instructions, a set of 32, 128-bit   For more information, see the AltiVec PEM.
+                        vector registers (vRs), the vector save register
+                        (VRSAVE), and the vector status and control
+                        register (VSCR), which is analogous to the
+                        FPSCR.
+
+Note:
+1
+    AltiVec technology was introduced in 1998 as an extension to (but not formally a part of) the PowerPC architecture.
+
+This figure provides an illustration of the GPRs extended by the SPE to 64 bits in 32-bit implementations.
+
+
+
+
+              EREF 2.0: A Programmer’s Reference Manual for Freescale Power Architecture® Processors, Rev. 0
+1-4                                                                                                         Freescale Semiconductor
+                                                                                                                                  Overview
+
+
+                                                 NOTE
+                 The SPE defines three dependent Embedded Float categories:
+                 •       Embedded Float Scalar Double:
+                         GPR-based floating-point double-precision
+                 •       Embedded Float Scalar Single:
+                         GPR-based floating-point single-precision
+                 •       Embedded Float Vector:
+                         GPR-based floating-point vector single-precision
+                     0        31    32      63
+                         (upper) GPR0 (lower)
+                                GPR1             General-purpose registers (The base category defines only the lower half (bits
+                                GPR2             32-63) for 32-bit implementations.
+                               • • •             (The 64-bit category defines the GPRs as single-element, 64-bit GPRs.)
+
+                               GPR31
+                                                 The signal processing engine category defines the upper 32 bits of the GPRs
+                                                 for use with 64-bit operands
+
+                     Figure 1-3. Extended GPRs as Implemented to Support SPE Instructions
+
+Freescale processors compliant with EREF implement several categories; although, in some instances,
+implementations may not support all instructions, instruction variants, registers, or other parts of the
+architectural definition of the category in Power ISA. This is because:
+    • Power ISA continues to evolve. New versions of the architecture may contain additions to existing
+        categories; Freescale cores were implemented to conform to earlier versions of Power ISA.
+    • The EIS may designate that some features of Power ISA categories are not implemented by
+        Freescale cores. Features of Power ISA categories that are not defined in the EREF, but appear in
+        Power ISA, are examples of this.
+
+1.1.5.1        Category Designations in EIS
+In this document, category designations appear between angled brackets. Text associated with the
+designation applies only if the processor implements the category, or the category abbreviation, inside the
+angled brackets. Category designations appear in other places in the document as well, and are
+documented accordingly; for example, instruction definitions contain a category definition. Any
+definitions or descriptions that appear in this document and have a category designation are considered
+part of the Base category, or as overall descriptions of the architecture itself.
+
+1.1.5.1.1        Category Designation Considerations
+The following example of a category indicates that the sentence applies only to category 64-bit and to
+processors that implement that category:
+   • The upper 32 bits of the register are set to 0. <64-bit>
+When a category designation appears at the end of a section title (for example, “2.8.3 External Proxy
+Register <EXP>”), this means the category designation applies to the entire section (or chapter, if the
+category designation appears at the end of a chapter title).
+
+
+          EREF 2.0: A Programmer’s Reference Manual for Freescale Power Architecture® Processors, Rev. 0
+Freescale Semiconductor                                                                                                                1-5
+Overview
+
+
+When a category designation appears on a separate line, preceding a paragraph, this means that the
+category designation applies to the paragraph that follows. The following example illustrates this point:
+    • <Embedded.Hypervisor>:
+       If the processor is in the guest supervisor state...
+When a category designation appears inside a sentence or phrase (for example, “SPE <SP>/embedded
+floating-point <SP.FD,SP.FV>/vector unavailable interrupt <V>,” this means the category designation
+applies to the previous word or clause.
+
+1.1.5.2         Categories Supported by All Freescale EIS Processors
+All EREF-compliant Freescale processors implement at least the following categories from Power ISA
+2.06:
+    • Base
+    • Embedded
+    • Cache Specification
+In addition to these categories, other features that are not associated with a category but appear in this
+document are also assumed to be implemented by processors compliant with EREF.
+
+1.1.5.3         Categories Supported by Some Freescale EIS Processors
+Many Freescale processors implement additional categories to provide additional functionality or
+acceleration capabilities that are useful for a given solution space, but which may not be applicable to all
+solution spaces. While these categories may be considered “optional,” many processors share a common
+subset of these categories. The mix of supported categories also occurs because the architecture evolves,
+and processor cores developed prior to a new version of the architecture may not contain a category
+developed as part of the new architecture version. In general, Power ISA introduces new functionality as
+categories, and, in later versions, moves them to Base, if so warranted.
+Pieces of the architecture that are not part of a non-Base category may be implemented optionally on a
+given processor. Text that describes the feature indicates whether or not it is optional.
+                                                    NOTE
+                  Power ISA also defines the Embedded category, reflecting the embedded
+                  environment of Power ISA. The Embedded category is assumed by EIS and
+                  is considered to be the same as Base.
+
+
+
+
+           EREF 2.0: A Programmer’s Reference Manual for Freescale Power Architecture® Processors, Rev. 0
+1-6                                                                                        Freescale Semiconductor
+                                                                                                          Overview
+
+
+1.1.5.3.1       PowerISA Category Abbreviations and Acronyms
+This table shows PowerISA categories, and their associated abbreviations, which are considered to be a
+part of EREF and appear on some Freescale processors.
+                          Table 1-2. PowerISA Category Abbreviations and Acronyms
+
+                Acronym                                    PowerISA Category
+
+                   ATB       Alternate Time Base
+
+                   DS        Decorated Storage
+
+                  E.DC       Embedded.Device Control
+
+                  E.ED       Embedded.Enhanced Debug
+
+                  E.PD       Embedded.External PID
+
+                  E.HV       Embedded.Hypervisor
+
+                  E.LE       Embedded.Little-Endian
+
+                  E.PM       Embedded.Performance Monitor
+
+                  E.PC       Embedded.Processor Control
+
+                  E.CL       Embedded.Cache Locking
+
+                   EXP       External Proxy
+
+                   FP        Floating-Point
+
+                   FP.R      Floating-Point.Record
+
+                   SP        SPE
+
+                  SP.FD      SPE.Embedded Float Scalar Double
+
+                  SP.FS      SPE.Embedded Float Scalar Single
+
+                  SP.FV      SPE.Embedded Float Vector
+
+                   VLE       Variable Length Encoding
+
+                    V        Vector
+
+                   WT        Wait
+
+                    64       64-bit
+
+
+1.1.5.3.2       EIS Category Abbreviations and Acronyms
+EIS includes categories that are not defined by PowerISA. The previous version of EIS called these
+Auxiliary Processing Units (APUs).
+This table shows categories defined only by EIS.
+                            Table 1-3. EIS Category Abbreviations and Acronyms
+
+                             Acronym                          EIS Category
+
+                                DCF           Direct Cache Flush
+
+                                CWP           Cache Way Partitioning
+
+
+         EREF 2.0: A Programmer’s Reference Manual for Freescale Power Architecture® Processors, Rev. 0
+Freescale Semiconductor                                                                                        1-7
+Overview
+
+
+                       Table 1-3. EIS Category Abbreviations and Acronyms (continued)
+
+                               Acronym                      EIS Category
+
+                                 DEO       Data Cache Block Extended Operations
+
+                                  ER       Enhanced Reservations
+
+                                 WS        Write Shadow Mode
+
+                                  CS       Cache Stashing
+
+
+1.1.5.4         Categories Not Supported by Freescale EIS Processors
+Some categories present in Power ISA are not part of EREF and are not implemented on Freescale devices.
+The following categories defined by Power ISA 2.06 are not part of EREF:
+   • Server (and any dependent categories)
+   • Decimal Floating-Point
+   • Embedded.Cache.Debug
+   • Embedded.Cache.Initialization
+   • Embedded.Hypervisor.LRAT
+   • Embedded.Multi-Threading
+   • Embedded.Page Table
+   • Embedded.TLB Write Conditional
+   • Legacy Integer Multiply-Accumulate
+   • Legacy Move Assist
+   • Load/Store Quadword
+   • Move Assist
+   • Processor Compatibility
+   • Stream
+   • Strong Access Order
+   • Trace
+   • Vector-Scalar Extension
+   • Vector.Little Endian
+
+1.1.6         Special Instruction Differences Between Book E and EREF
+Some instructions present in Book E have had their definition altered slightly from the Book E
+specification in order to effectively merge these instructions in to Power ISA. In particular, the following
+changes occurred:
+   • The Book E–defined msync instruction has reverted to being the Synchronize instruction sync
+        defined by the PowerPC architecture. In the embedded category, msync is a simplified mnemonic
+        for the sync instruction to ensure compatibility with the Book E msync. The instruction encoding
+        remains the same, and the semantics of sync (without operands) remains the same. The mbar
+
+
+           EREF 2.0: A Programmer’s Reference Manual for Freescale Power Architecture® Processors, Rev. 0
+1-8                                                                                        Freescale Semiconductor
+                                                                                                          Overview
+
+
+        instruction, defined in Book E, remains as part of the embedded category; the equivalent PowerPC
+        architecture 1.10 instruction eieio, which shares the opcode, is defined as part of the Server
+        category.
+    •   The CT field in the dcbt and dcbtst instructions is now renamed as the TH field. The semantic of
+        the field remains the same for values less than 8, which is a cache identifier. Category Stream,
+        which is not supported in EREF, uses values of the TH field which are 8 or greater.
+
+1.2       EREF Programming Model
+
+1.2.1        RISC Architecture Overview
+Power Architecture processors are fundamentally a classic load/store RISC architecture. In general, such
+RISC architectures have fixed-width instruction length, and contain a substantial number of selectable
+registers to provide inputs and outputs of computations. The instructions that are defined are generally less
+complex, with the expectation that those instructions can be implemented simply, and that the
+implementation will more easily be able to execute instructions out of order, resulting in an
+implementation that is smaller, lower in power usage, and less complex.
+The programming model of EREF follows accordingly. Memory accesses load or store data to/from
+memory via registers. Computation instructions use the data in registers as inputs to the computation and
+produce results that are placed in another register. In general, a single instruction does not perform
+computation and memory operations with the exception that in some forms of loads and stores (those with
+“Update” forms), the effective address computed in the instruction is also placed into another register.
+
+1.2.2        EIS Architecture Overview
+EIS is defined as a 64-bit architecture which allows for 32-bit and 64-bit implementations. 64-bit
+implementations can run software in either 64-bit mode or 32-bit mode and can easily handle running a
+mix of both 32-bit and 64-bit contexts when controlled by an appropriately designed operating system or
+hypervisor. It is not possible to run a 64-bit context from an operating system or hypervisor which is
+running in 32-bit mode. Registers in EIS are defined using 64-bit numbering, even though 32-bit
+implementations use bits 32–63 of such registers. Instructions use 32-bit numbering since instructions are
+at most 32 bits long (all instructions are exactly 32 bits except for some VLE mode instructions which are
+16 bits).
+A more complete discussion of 32-bit and 64-bit modes is presented in Chapter 2, “Computation Modes.”
+
+1.2.3        Privilege Model
+EIS provides three privilege levels to provide different levels of protection for software to operate under.
+This allows software to efficiently build systems that provide partitioning, virtualization environments,
+and protection.
+This table provides privilege level definitions.
+
+
+
+
+         EREF 2.0: A Programmer’s Reference Manual for Freescale Power Architecture® Processors, Rev. 0
+Freescale Semiconductor                                                                                        1-9
+Overview
+
+
+                                            Table 1-4. Privilege Level Definitions
+
+         State                                   Definition                                               Use
+
+   Hypervisor state      This is the highest privilege level; it has access to all   The hypervisor state is used to provide
+                         instructions and resources. Also called “hypervisor         partitioning and virtualization for operating
+                         privileged,” “hypervisor mode,” or “hypervisor.”            systems software, which runs as a guest to the
+                                                                                     hypervisor software.
+
+Guest supervisor state This is the supervisor state at which operating systems The guest supervisor state is allowed to
+                       which are hosted by a hypervisor run. Also called the   perform several privileged operations, and
+                       “guest supervisor,” or “supervisor mode.”               access any resources that are not hypervisor
+                                                                               privileged.
+
+       User state        This is the unprivileged state in which a program runs The vast majority of instructions are allowed in
+                         under the control of an operating system. Also called   the user state.
+                         user mode, user, or in Power ISA, called problem state.
+
+
+1.2.3.1             Hypervisor State Considerations
+A software program running in the hypervisor state that is hosting guests in a partitioned environment is
+called a hypervisor. The hypervisor program partitions the system among guest operating systems and
+manages any shared state between the guests in such a manner that prevents the guests from interfering
+with each other. The way in which the hypervisor implements policy decisions with regard to managing
+these shared resources determines the amount of interferance that can occur between guests.
+When the Embedded.Hypervisor category is implemented, the hypervisor state can run a guest operating
+system in guest supervisor state (see Section 1.2.3.2, “Guest Supervisor State Considerations”). If the
+Embedded.Hypervisor category is not implemented on a core, the operating system software runs in the
+equivalent of hypervisor state, and there is no guest supervisor state. Even when the Embedded.Hypervisor
+category is implemented, it is still practical to run an operating system in hypervisor state. This is termed
+running an operating system on “bare metal.” The programming model of running an operating system
+bare metal on a core that implements the Embedded.Hypervisor category is the same as if the category is
+not implemented.
+
+1.2.3.2             Guest Supervisor State Considerations
+Attempting to access hypervisor privileged resources and instructions will cause embedded hypervisor
+privilege interrupts which the hypervisor can service on behalf of the guest to provide appropriate
+emulation. What programming model the guest supervisor state should use depends on how the hypervisor
+is implemented. In general it is practical for the hypervisor to implement the same model (or a model very
+similar to) the programming model of running the guest operating system on bare metal.
+
+1.2.3.3             User State Considerations
+                                                       NOTE
+                     Attempting to access hypervisor or guest supervisor resources or
+                     instructions causes privilege exceptions, which the operating system can
+                     handle appropriately.
+
+
+
+           EREF 2.0: A Programmer’s Reference Manual for Freescale Power Architecture® Processors, Rev. 0
+1-10                                                                                                     Freescale Semiconductor
+                                                                                                           Overview
+
+
+There is no difference in user state privilege when the user state program is running under control of an
+operating system hosted as a guest to a hypervisor, running under control of a hypervisor, or running under
+control of an operating system which is running bare metal. The cases differ only in the manner in which
+some interrupts are directed when the user state program attempts to access a privileged resource. In each
+case, the interrupts are directed to the state that controls the user state program or to the hypervisor state.
+
+1.2.4        Instruction Model
+Except for category VLE, which describes a variable length set of instructions, the instruction set contains
+the following features:
+    • Instructions are 32 bits in length and contain a primary opcode in the first six bits. Instructions are
+        described using 32-bit numbering. For most primary opcode values, bits 21–30 contain the
+        secondary opcode. Instructions which encode large immediate values generally occupy a single
+        primary opcode, and use bits 16–31 to provide a signed or unsigned immediate field.
+    • Most computational instructions are triadic (that is, they contain three register operands). One of
+        the register operands specifies a destination or target (where the output of the computation is
+        placed). The other register operands specify inputs to the computation.
+Chapter 4, “Instruction Model” details how instructions operate and briefly presents the instruction set
+organized by function. The major sections are:
+   • Section 4.1, “Operand Conventions”
+   • Section 4.2, “Instruction Set Characteristics”
+   • Section 4.3, “Classes of Instructions”
+   • Section 4.4, “Forms of Defined Instructions”
+   • Section 4.5, “Instruction-Related Exceptions”
+   • Section 4.6, “Instruction Summary”
+   • Section 4.7, “Instruction Listing”
+Full descriptions of each instruction, including opcode, syntax, affected registers, related interrupts, and
+RTL (register transfer language) are provided in Chapter 5, “Instruction Set”; such descriptions for the
+VLE, SPE, and AltiVec instructions are provided in their respective programming environments manuals
+(PEMs).
+
+1.2.4.1        VLE Instruction Set Overview
+The VLE instruction set is decoded when the processor is in VLE mode. VLE mode is provided by cores
+that implement category VLE. VLE instructions are variable length and provide a significant improvement
+in code density over the standard instruction set, with an increase in code path length. VLE mode is
+generally only implemented on cores that are targeted for markets where code density is important.
+
+1.2.4.2        VLE Instruction Set Features
+The VLE instruction set contains the following features:
+
+
+
+          EREF 2.0: A Programmer’s Reference Manual for Freescale Power Architecture® Processors, Rev. 0
+Freescale Semiconductor                                                                                       1-11
+Overview
+
+
+       •   Instructions are 16-bit or 32-bit in length and instruction decoding is more dynamic in how fields
+           are interpreted.
+       •   Instructions from primary opcode 4 and 31 in the standard instruction set decode the same for the
+           VLE instruction set, making all the instructions in those two primary opcodes available in VLE
+           mode. Note that opcode 4 is used for category SPE instructions as well as category Vector (Altivec)
+           instructions.
+       •   Most instructions are dyadic (that is, they contain two register operands). One of the operands
+           specifies a register as both the destination or target as well as one of the inputs.
+       •   Not all of the registers that are available in the standard instruction set are available to be used for
+           all VLE instructions (that is, some VLE instructions cannot address all of the 32 General Purpose
+           Registers).
+       •   Since VLE instructions can be placed on 16-bit boundaries, the core is capable of branching to a
+           16-bit boundary.
+
+1.2.5          Register Model
+This section summarizes architecture-defined registers implemented by Freescale embedded devices.
+                                                     NOTE
+                   Not all registers are implemented by all processor cores. Whether a register
+                   is implemented depends on what architectural categories the core
+                   implements, and what version of the architecture that the core implements.
+The sets of registers that are provided are briefly shown in this table.
+                                           Table 1-5. Register sets in EIS
+
+Register                                 Bits per
+                 Category       Number                                              Description
+  Set                                    Register
+
+  GPR              Base           32     32 or 64   General Purpose Registers. The primary register set. GPRs are used for
+                                                    a variety of functions including load/store, arithmetic, logical, and address
+                                                    calculation operations. Some categories (SPE.Embedded Floating Point *)
+                                                    also make use of floating-point data. The number of bits per register are
+                                                    64-bits if the implementation is a 64-bit implementation or if category SPE
+                                                    is implemented. Otherwise, the number of bits per register is 32. See
+                                                    Section 3.3.1, “General-Purpose Registers (GPRs).”
+
+   CR              Base           1        32       Condition Register. The condition register is a single 32-bit register,
+                                                    however it is generally used as a set of eight condition register fields (CRn)
+                                                    of four bits each. Condition register bits are used by conditional branch
+                                                    instructions to determine if a branch is to be taken (or used for the isel
+                                                    instruction which input register is to be written to the target register).
+                                                    Condition register fields or bits can be set by compare instructions,
+                                                    condition register logical instructions, or as the result of a record form
+                                                    (instruction mnemonic ending with “.’). See Section 3.5.1, “Condition
+                                                    Register (CR).”
+
+  FPR          Floating Point     32       64       Floating Point Registers. FPRs are used in a variety of functions on floating
+  <FP>                                              point data including load/store, arithmetic, and logical operations.See
+                                                    Section 3.4.1, “Floating-Point Registers (FPR0–FPR31).”
+
+
+
+
+           EREF 2.0: A Programmer’s Reference Manual for Freescale Power Architecture® Processors, Rev. 0
+1-12                                                                                                   Freescale Semiconductor
+                                                                                                                        Overview
+
+
+                                        Table 1-5. Register sets in EIS (continued)
+
+Register                                   Bits per
+                Category         Number                                              Description
+  Set                                      Register
+
+   VR         Vector (Altivec)     32        128      Vector Registers. VRs are used for a variety of functions for processing
+   <V>                                                SIMD vector elements. VRs can contain floating point data, integer data,
+                                                      and more. See the AltiVec PEM.
+
+  SPR               —             1024     32 or 64   Special Purpose Registers. SPRs are used for controlling a variety of
+                                                      functions. A few of the SPRs are available to user mode (such as Link
+                                                      Register, Count Register, Integer Exception Register), however the large
+                                                      majority of them are used by supervisor and hypervisor mode to control
+                                                      various aspects of the processor. SPRs are accessed with mfspr and
+                                                      mtspr instructions. See Section 3.2.2, “Special-Purpose Registers
+                                                      (SPRs).”
+
+  PMR          Embedded.          1024        32      Performance Monitor Registers. PMRs are used for controlling the
+ <E.PM>        Performance                            performance monitor facility which includes control functions and event
+                 Monitor                              counts. Changing the control functions is restricted to supervisor and
+                                                      hypervisor mode however some of the registers can be read in user mode.
+                                                      PMRs are accessed with mfpmr and mtpmr instructions. See
+                                                      Section 3.15.4, “Performance Monitor Counter Registers
+                                                      (PMCn/UPMCn).”
+
+  DCR          Embedded.          1024        32      Device Control Registers. DCRs are registers that exist architecturally
+ <E.DC>       Device Control                          outside the processor and are thus not part of the processor architecture.
+                                                      DCRs are implementation specific and defined in the core reference
+                                                      manual that implements them. DCRs are accessed with mfdcr and mtdcr
+                                                      instructions. See Section 3.18, “Device Control Registers (DCRs).”
+individual          —              —       32 or 64   Individual registers are not a register set, but represent a few registers
+ registers                                            which are similar in nature to SPRs, but have specific instructions defined
+                                                      to access them. Such register include Machine State Register (MSR),
+                                                      Floating-Point Status and Control Register (FPSCR), Accumulator (ACC),
+                                                      and Vector Status and Control Register (VSCR).
+
+
+1.2.6         Exceptions and Interrupt Handling
+The following sections define the interrupt model, including an overview of exception handling as
+implemented in Freescale embedded devices, a brief description of the exception classes, and an overview
+of the registers involved.
+
+1.2.6.1         Understanding Exceptions
+In general, interrupt processing occurs as a result of an exception condition existing in the processor. An
+exception condition occurs when certain external signals are presented, when error conditions are detected,
+or program execution problems are encountered. More than one exception condition may be present during
+execution of a given instruction, and an exception priority mechanism exists to determine the highest
+priority exception condition that can cause an interrupt.
+
+
+
+
+           EREF 2.0: A Programmer’s Reference Manual for Freescale Power Architecture® Processors, Rev. 0
+Freescale Semiconductor                                                                                                     1-13
+Overview
+
+
+1.2.6.2           Interrupts Overview
+When an exception is detected, and the exception condition has an interrupt enable associated with it or
+the exception condition does not require an associated interrupt enable, and it is the highest priority
+exception condition, the processor takes an interrupt. The interrupt causes the critical state of the processor
+to be saved into appropriate save/restore registers and redirects execution of the processor to the interrupt
+vector associated with the interrupt and changes the critical machine state so that it is appropriate for
+executing the interrupt handler.
+
+1.2.6.2.1           Understanding the Four Levels of Interrupts
+There are four levels of interrupts; the levels determine which set of save/restore registers the critical state
+is saved to when the interrupt occurs. The levels are somewhat hierarchical since an interrupt at a “higher”
+level will automatically set critical machine state so that asynchronous interrupts of a “lower” level are
+disabled. Synchronous exceptions are not disabled by critical machine state and can occur if problems
+occur doing instruction execution. System software is responsible for ensuring that no such conditions
+occur until it has safely saved any necessary state before executing instructions that might generate
+synchronous exceptions.
+This table provides the four levels of interrupts from low to high.
+                                              Table 1-6. Four Levels of Interrupts
+
+     Interrupt Level         Registers Used                                      Used to handle...
+
+Standard, non-critical Save and restore           Standard interrupts are used to handle most synchronous program exception
+     interrupts        registers                  conditions. Standard interrupts are also used to handle the asynchronous
+                       (SRR0/SRR1)1               external input exception, programmable asynchronous timer exceptions, and
+                                                  asynchronous doorbell exceptions. Standard interrupts which are
+                                                  asynchronous are enabled or disabled based on the state of the EE bit in the
+                                                  Machine State Register (MSR).
+
+    Critical interrupts   Critical save and       Critical interrupts are used to handle the asynchronous critical input exception,
+                          restore registers       the watchdog timer exceptions, and critical asynchronous doorbell exceptions.
+                          (CSRR0/CSRR1)           Critical interrupts that are asynchronous are enabled or disabled based on the
+                                                  state of the CE bit in the Machine State Register (MSR). Critical interrupts are
+                                                  also used to handle synchronous and asynchronous debug program exception
+                                                  conditions if category Embedded.Enhanced Debug is not implemented.
+
+    Debug interrupts      Debug save and          Debug interrupts are used to handle synchronous and asynchronous debug
+                          restore registers       program exception conditions when category Embedded.Enhanced Debug is
+                          (DSRR0/DSRR1)           implemented. Debug interrupts are enabled or disabled based on the state of
+                                                  the DE bit in the Machine State Register (MSR). <E.ED>
+
+     Machine check        Machine check save      Machine check interrupts are used to handle synchronous program exception
+       interrupts         and restore registers   conditions (called Error Reports) that are detected during execution of an
+                          (MCSRR0/MCSRR1)         instruction. Machine check interrupts are also used to handle the asynchronous
+                                                  machine check exception and the asynchronous non-maskable interrupt
+                                                  exception. Machine check interrupts resulting from asynchronous machine
+                                                  check exceptions are enabled or disabled based on the state of the ME bit in
+                                                  the Machine State Register (MSR).
+
+Note:
+1   For guest operating systems operating under control of a hypervisor, separate guest save and restore registers are provided
+    (GSRR0/GSRR1).
+
+
+           EREF 2.0: A Programmer’s Reference Manual for Freescale Power Architecture® Processors, Rev. 0
+1-14                                                                                                     Freescale Semiconductor
+                                                                                                                    Overview
+
+
+1.2.6.2.2        Interrupt Handling
+Once the interrupt handler is executing, the handler may need to check one or more bits in the exception
+syndrome register (ESR) or in other status and control registers to diagnose the cause of the exception and
+take appropriate action.
+Integrated devices also define error detection, enabling, and reporting bits that the handler would need to
+read to determine specific sources of asynchronous interrupts, which are typically reported as external
+input, critical input, or machine check interrupts. Often these fields are implemented in memory-mapped
+registers and are described in the documentation for the integrated device.
+When an interrupt handler completes its execution, it normally returns to the context that it interrupted by
+way of a return from interrupt instruction (rfi, rfgi <E.HV>, rfci, rfdi <E.ED>, or rfmci), which returns
+execution to the interrupted address and returns the critical machine state to its previous pre-interrupt state.
+The interrupts are described in Section Chapter 7, “Interrupts and Exceptions.”
+
+1.2.7        Memory (Storage) Model
+
+1.2.7.1         Memory Addresses
+An address is required to access locations in storage (memory).
+This table provides the four different types of memory addresses defined by the architecture.
+                                    Table 1-7. Four Types of Memory Addresses
+
+Address Type                                         Definition                                              Used...
+
+   Effective     EAs are generated by load, store, cache management, and other instructions. An EA By software to specify
+ address (EA)    is also generated by branch instructions and the sequential execution of instruction locations in the memory
+                 (that is, the next instruction to be executed or the address of an instruction). The vast map.
+                 majority of software deals only with EAs. EAs are transformed by the processor into
+                 other types of addresses through address translation in the memory management
+                 unit. The memory management unit is normally maintained by the operating system
+                 and/or the hypervisor. EAs are either 32 bits in 32-bit mode, or 64 bits in 64-bit mode.
+
+Virtual Address A VA is formed by taking an EA and adding address space information from the          To find matching
+      (VA)      Machine State Register (MSR[IS,DS], MSR[GS] <E.HV>), the Processes ID                 translations in the
+                Registers (PIDn), and the Logical Partition ID Register (LPIDR) <E.HV>. The           memory management
+                address space information is maintained by the operating system and the hypervisor.   unit.
+                In general, a unique address space is provided for each process or task performed
+                by the operating system. The hypervisor also provides unique address spaces
+                between logical partitions.
+
+
+
+
+          EREF 2.0: A Programmer’s Reference Manual for Freescale Power Architecture® Processors, Rev. 0
+Freescale Semiconductor                                                                                                 1-15
+Overview
+
+
+                             Table 1-7. Four Types of Memory Addresses (continued)
+
+Address Type                                         Definition                                                 Used...
+
+Logical Address LAs apply only to processors that implement logical partitioning (category E.HV).       By the guest operating
+     (LA)       The hypervisor or a Logical to Real Address Translation <E.HV.LRAT> translates the      system as a real
+                LA into the appropriate real address. A guest operating system is unaware of what       address. These
+                its true real addresses are. LAs are always translated to RAs at the time when a TLB    addresses are normally
+                entry is written.                                                                       specified when the guest
+                                                                                                        operating system
+                                                                                                        attempts to write
+                                                                                                        translation lookaside
+                                                                                                        buffer (TLB) entries.
+
+ Real Address    An RA is the actual physical address that is used when the processor performs          To access a location in
+     (RA)        transactions. The RA is normally formed when a VA is translated by the memory          the caches, or to access
+                 management unit. The system interconnect may also provide its own translation of       a storage location
+                 RA to RA; however, these translations are outside the scope of the processor           managed outside the
+                 architecture.                                                                          processor (for example
+                                                                                                        DRAM, a peripheral
+                                                                                                        device, and so on) by
+                                                                                                        sending it out on the
+                                                                                                        system interconnect.
+
+
+1.2.7.2         Weakly Ordered Memory
+To optimize performance, the architecture supports weakly ordered references to memory. On a single
+processor, references to memory always appear to occur in program order. However, when memory is
+shared between multiple processors or between a processor and a device, memory accesses may not occur
+in program order. Thus, software must manage the order and synchronization of memory accesses to
+ensure proper execution when memory is shared between multiple processors or devices. The cache and
+data memory control attributes, along with the Synchronize (sync) and Memory Barrier (mbar)
+instructions, provide the required controls.
+
+1.2.7.3         Memory Management
+The architecture supports demand-paged virtual memory as well other memory management schemes that
+depend on precise control of effective-to-physical address translation and flexible memory protection. The
+mapping mechanism consists of software-managed unified (translate both instruction and data references)
+TLBs that support variable-sized pages with per-page properties and permissions.
+
+1.2.7.3.1         Optional TLB Properties
+Some of the properties that can be configured for each TLB are as follows:
+   • User-mode page execute, read, and write access
+   • Supervisor-mode page execute, read, write access
+   • Hypervisor or guest address space <E.HV>
+   • Logical partition ID <E.HV>
+   • Process ID
+   • Virtualization Fault <E.HV>
+
+           EREF 2.0: A Programmer’s Reference Manual for Freescale Power Architecture® Processors, Rev. 0
+1-16                                                                                                   Freescale Semiconductor
+                                                                                                           Overview
+
+
+    •   Write-through required (W)
+    •   Caching inhibited (I)
+    •   Memory coherency required (M)
+    •   Guarded (G)
+    •   Endianness (E) (big endian or little endian)
+    •   VLE mode <VLE>
+    •   User-definable (U0–U3), a 4-bit implementation-specific field
+
+1.2.7.3.2        How the Architecture Benefits Memory Management
+The architecture provides the ability to have distinct address spaces between user processes, user and
+supervisor, logical partitions, and hypervisor state. The wealth of address spaces and the complete
+separation of address spaces provide flexibility for system software as well as an extra level of protection
+between differing software domains. To facilitate efficient accesses between address spaces, External
+Process ID (PID) instructions are provided for hypervisors and operating systems to perform storage and
+memory operations using another address space to perform translation and protection.
+The architecture provides no ability for software to run in a “real mode,” in which effective address are
+used as real addresses. The requirement that all addresses are translated simplifies implementation and
+provides a strong foundation for partitioning and protection since the state of the MMU guarantees what
+real address the processor may access.
+In addition, processors that implement the Embedded.Hypervisor category are provided with methods of
+hiding and translating real addresses specified by the guest (called logical addresses) into true real
+addresses.
+
+1.2.7.4        Caches
+The architecture supports a variety of cache models including split instruction and data (Harvard) with data
+caches that are kept coherent by hardware and instruction caches that are kept coherent through software
+coherency. Different levels of caches can be implemented, and the instruction set includes the ability to
+reference those cache directly for operations such as touch loads and cache locking.
+Caches have a set of configuration SPRs for system software to understand the geometry and other aspects
+of cache operations. Also control and status SPRs are provided for software to configure the caches and
+perform maintenance and control operations.
+Instructions are provided for performing cache block (line) operations such as locking, flushing,
+invalidating, and zeroing a specific block.
+
+1.3         Timers
+Several timers and timer functions are provided by the architecture. Most of the timers are driven by the
+time base, a 64-bit counter driven by an implementation clock or frequency. The time base can be accessed
+by software through SPRs.
+
+
+
+          EREF 2.0: A Programmer’s Reference Manual for Freescale Power Architecture® Processors, Rev. 0
+Freescale Semiconductor                                                                                       1-17
+Overview
+
+
+Timers that are driven by the time base clock are as follows:
+   • Decrementer (DEC register). The decrementer is a 32-bit counter that counts down. The
+       decrementer can be programmed to cause an interrupt to occur when the decrementer counts down
+       to 0. Typically, software programs the DEC register with the number of time base ticks to elapse
+       before the timer expires and an interrupt occurs. The decrementer also has an auto reload feature
+       which will reload the DEC register from the Decrementer Auto Reload (DECAR) register when
+       the counter expires.
+   • Fixed interval timer
+   • Watchdog timer
+The architecture also provides an alternate time base, another 64-bit counter which is also driven by an
+implementation dependent frequency. In general, the time base and the alternate time base will increment
+on a different frequency. It is customary, but not required by the architecture for the alternate time base to
+be based on the processor clock frequency and the time base based on a frequency supplied external to the
+processor core.
+
+1.4         Debug
+The architecture provides a set of debug capabilities that can be utilized by an operating system,
+hypervisor, or debug agent running with supervisor or hypervisor privileges. The debug facility allows
+control of program execution for operations such as single-step, instruction address breakpoint, data access
+breakpoint, branch taken, and more. The architecture also supports basic integration with an external
+debugger (a debugger that operates independent of the processor). EIS does not define external debugger
+controls; EIS acknowledges the existence of external debugger controls, and provides a method for
+software to know when the processor is controlled by an external debugger.
+
+1.5         Performance Monitoring
+Performance monitoring supports counting of events such as processor clocks, instruction cache misses,
+data cache misses, mispredicted branches, and others. The count of these events may be configured to
+trigger a performance monitor interrupt.
+The register set associated with performance monitoring consists of counter registers, a global control
+register, and local control registers implemented as performance monitor registers (PMRs) which are
+similar to SPRs. PMRs are read/write from supervisor mode, and each register is reflected to a
+corresponding read-only register for user mode. The mtpmr and mfpmr instructions move data to and
+from these registers.
+For more information on performance monitoring, see Chapter 10, “Performance Monitor <E.PM>.”
+
+1.6         Major Additions to this Revision
+This version of EREF contains several additions to support the efficient use of multicore devices. It
+includes the following major additions:
+    • Support for secure partitioning and virtualization through a hypervisor privilege level. Features of
+       the hypervisor privilege level are considered category Embedded.Hypervisor.
+
+           EREF 2.0: A Programmer’s Reference Manual for Freescale Power Architecture® Processors, Rev. 0
+1-18                                                                                       Freescale Semiconductor
+                                                                                                          Overview
+
+
+    •   Full definition of EREF as a 64-bit architecture.
+    •   Another level of interrupts for debug interrupts, with the associated save/restore register pair and
+        rfdi (return from debug interrupt) instructions.
+    •   Topology independent processor-to-processor doorbell messages (interrupts) allowing one
+        processor to send interrupts to other processors in the same coherence domain. This is considered
+        category Embedded.Processor Control.
+    •   The ability for privileged software to perform load and store operations using a specified address
+        space for the translation and permissions. This allows privileged software to use virtual addresses
+        from their processes (or guests). This is considered category Embedded.External PID.
+    •   The ability to perform load and store operations with addresses associated with a device and pass
+        decorations (meta data) about the transaction to the device which can then perform device unique
+        semantics based on the decoration. This is considered category Decorated Storage. Some
+        integrated devices use this to efficiently perform atomic updates to memory.
+    •   Support for integrated backside private or shared L2 caches.
+
+
+
+
+         EREF 2.0: A Programmer’s Reference Manual for Freescale Power Architecture® Processors, Rev. 0
+Freescale Semiconductor                                                                                      1-19

@@ -1,0 +1,31 @@
+     Chapter 5. Floating-Point Operations . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 67
+                         5.1           Overview . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 67
+                         5.2           Registers for Floating-Point Operations . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 69
+                         5.2.1             Floating-Point Registers . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 69
+                         5.2.2             Floating-Point Status and Control Register. . . . . . . . . . . . . . . . . . . . . . . . 69
+                         5.3           Floating-Point Data . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 73
+                         5.3.1             Data Format . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 73
+                         5.3.2             Value Representation . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 74
+                         5.3.3             Sign of Result . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 76
+                         5.3.4             Normalization and Denormalization . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 77
+                         5.3.5             Data Handling and Precision . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 78
+                         5.3.6             Rounding . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 79
+                         5.4           Floating-Point Exceptions . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 81
+                         5.4.1             Invalid Operation Exception . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 85
+                         5.4.2             Zero Divide Exception . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 88
+                         5.4.3             Overflow Exception . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 89
+                         5.4.4             Underflow Exception . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 91
+                         5.4.5             Inexact Exception . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 93
+                         5.5           Floating-Point Execution Models . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 94
+                         5.5.1             Execution Model for IEEE Operations . . . . . . . . . . . . . . . . . . . . . . . . . . . 94
+                         5.5.2             Execution Model for Multiply-Add Type Instructions . . . . . . . . . . . . . . . . 96
+                         5.6           Floating-Point Instructions . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 98
+                         5.6.1             Floating-Point Load Instructions . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 98
+                         5.6.2             Floating-Point Store Instructions . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 100
+                         5.6.3             Floating-Point Move Instructions . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 102
+                         5.6.4             Floating-Point Arithmetic Instructions . . . . . . . . . . . . . . . . . . . . . . . . . . 102
+                         5.6.4.1               Floating-Point Elementary Arithmetic Instructions . . . . . . . . . . . . . . 102
+                         5.6.4.2               Floating-Point Multiply-Add Instructions . . . . . . . . . . . . . . . . . . . . . 102
+                         5.6.5             Floating-Point Rounding and Conversion Instructions . . . . . . . . . . . . . . 103
+                         5.6.6             Floating-Point Compare Instructions . . . . . . . . . . . . . . . . . . . . . . . . . . . 104
+                         5.6.7             Floating-Point Status and Control Register Instructions . . . . . . . . . . . . . 104

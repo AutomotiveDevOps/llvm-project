@@ -1,0 +1,2 @@
+/usr/bin/ar Dqc ../libLLVMDWARFCFIChecker.a CMakeFiles/LLVMDWARFCFIChecker.dir/DWARFCFIAnalysis.cpp.o CMakeFiles/LLVMDWARFCFIChecker.dir/DWARFCFIFunctionFrameAnalyzer.cpp.o CMakeFiles/LLVMDWARFCFIChecker.dir/DWARFCFIFunctionFrameStreamer.cpp.o CMakeFiles/LLVMDWARFCFIChecker.dir/DWARFCFIState.cpp.o
+/usr/bin/ranlib -D ../libLLVMDWARFCFIChecker.a

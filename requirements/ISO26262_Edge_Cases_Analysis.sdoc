@@ -1,0 +1,1287 @@
+[TITLE:ISO 26262 Edge Cases Analysis for PowerPC e200 Cores]
+
+[REQ-ISO26262-EDGE-CASE-001]
+UID: ISO26262-EDGE-CASE-001
+STATUS: Draft
+TITLE: Interrupt Handler Register Context Incomplete Save/Restore
+
+DESCRIPTION:
+The interrupt handler context save logic in PPCFrameLowering.cpp may not preserve all required registers for all e200 variants. The current implementation saves LR, CR, and GPRs based on usage tracking, but edge cases exist where:
+
+1. Special-purpose registers (SPRs) used by interrupt handlers are not tracked
+2. Floating-point registers (FPRs) may not be saved if FPU is used in interrupt handler
+3. Nested interrupt scenarios where context save/restore ordering matters
+4. VLE-specific register save requirements may differ from standard PowerPC
+
+CODE_LOCATION:
+llvm/lib/Target/PowerPC/PPCFrameLowering.cpp:1843-1913
+
+ISO26262_REQUIREMENT:
+ASIL D - Part 6, Table 10: Deterministic interrupt context preservation required for safety-critical systems.
+
+FAILURE_SCENARIO:
+When an interrupt handler modifies a register that is not saved (e.g., a special-purpose register or FPR), the interrupted context's register state is corrupted, leading to unpredictable behavior when execution resumes.
+
+CURRENT_CODE_ANALYSIS:
+The code at lines 1843-1913 (determineCalleeSaves function) handles interrupt handler context save logic. The interrupt-specific code at lines 1855-1913 checks for interrupt attribute and saves LR, CR (if used), and GPRs (both callee-saved and caller-saved if calls are made). However:
+- SPRs (Special Purpose Registers) are not explicitly saved
+- FPRs are not checked for interrupt handlers
+- No differentiation between critical, external, and standard interrupts in register save requirements
+- VLE mode considerations are not addressed
+
+RECOMMENDATION:
+1. Add SPR save/restore logic for interrupt handlers using SPR registers
+2. Add FPR save/restore if FPU operations are detected in interrupt handler
+3. Differentiate register save requirements based on interrupt type (critical vs external)
+4. Document and enforce e200z0/z4/z6/z7 variant-specific register requirements
+5. Add compile-time warnings for unsaved register usage in interrupt handlers
+
+TEST_GAP:
+Missing tests for:
+- Interrupt handlers using SPR registers
+- Interrupt handlers using FPU operations
+- Nested interrupt scenarios
+- e200 variant-specific register requirements
+
+[REQ-ISO26262-EDGE-CASE-002]
+UID: ISO26262-EDGE-CASE-002
+STATUS: Draft
+TITLE: VLE Instruction Encoding Boundary Condition Failures
+
+DESCRIPTION:
+Immediate value range predicates for VLE instructions may cause incorrect instruction selection at boundary values. The predicates check ranges but may allow silent truncation or incorrect encoding when values are at exact boundaries (-32, 31, 0, 127, 15).
+
+CODE_LOCATION:
+llvm/lib/Target/PowerPC/PPCInstrVLE.td:22-50
+llvm/lib/Target/PowerPC/AsmParser/PPCAsmParser.cpp:1190-1215
+llvm/lib/Target/PowerPC/PPCISelDAGToDAG.cpp (instruction selection)
+
+ISO26262_REQUIREMENT:
+ASIL C/D - Part 6, Table 7: Correct instruction encoding required to prevent execution of unintended operations.
+
+FAILURE_SCENARIO:
+1. Immediate value 32 is silently truncated to fit in 6-bit signed field (-32 to 31), causing incorrect arithmetic
+2. Immediate value 128 is truncated to fit in 7-bit unsigned field (0-127), causing incorrect memory addressing
+3. Instruction selector chooses 16-bit VLE form when immediate doesn't fit, generating illegal instruction encoding
+4. Boundary values (-32, 31, 0, 127, 15) are tested with >= or <=, but off-by-one errors may occur in pattern matching
+
+CURRENT_CODE_ANALYSIS:
+The predicates in PPCInstrVLE.td use inclusive ranges:
+- s6imm_pred: Imm >= -32 && Imm <= 31 (correct)
+- u5imm_vle_pred: Imm >= 0 && Imm <= 31 (correct)
+- u7imm_vle_pred: Imm >= 0 && Imm <= 127 (correct)
+- u4imm_vle_pred: Imm >= 0 && Imm <= 15 (correct)
+
+However, the instruction selection logic may not properly validate these at all decision points. The AsmParser validates ranges at lines 1190-1215, but instruction selection in PPCISelDAGToDAG.cpp may bypass these checks.
+
+RECOMMENDATION:
+1. Add explicit boundary value tests for all immediate predicates
+2. Ensure instruction selection rejects patterns when immediate values don't fit exactly
+3. Add compile-time errors (not warnings) when VLE immediate constraints are violated
+4. Verify that 16-bit VLE instruction encoding correctly truncates/extends immediate values
+5. Add runtime validation in disassembler to detect illegal encodings
+
+TEST_GAP:
+Missing tests for:
+- Boundary value immediate testing (-32, 31, 0, 127, 15, -1)
+- Silent truncation detection
+- Instruction selection with boundary values
+- Mixed 16-bit/32-bit VLE instruction sequences with boundary values
+
+[REQ-ISO26262-EDGE-CASE-003]
+UID: ISO26262-EDGE-CASE-003
+STATUS: Draft
+TITLE: RFI vs BLR Instruction Misuse in Interrupt Handlers
+
+DESCRIPTION:
+The code replaces BLR with RFI for interrupt handlers, but doesn't verify VLE mode (e_rfi vs rfi) or check if RFI is actually available for the target variant. The comment indicates e_rfi should be used for VLE mode but it's not implemented.
+
+CODE_LOCATION:
+llvm/lib/Target/PowerPC/PPCFrameLowering.cpp:1662-1676
+llvm/lib/Target/PowerPC/PPCInstrInfo.td (RFI/e_RFI definitions)
+llvm/lib/Target/PowerPC/PPCSubtarget.h (VLE/BookE feature detection)
+
+ISO26262_REQUIREMENT:
+ASIL D - Part 6, Table 11: Correct interrupt return mechanism required for deterministic system recovery.
+
+FAILURE_SCENARIO:
+1. VLE-enabled e200 target uses standard RFI instead of e_rfi, causing instruction encoding error
+2. Target that doesn't support BookE (required for RFI) generates illegal instruction
+3. Critical interrupt handler returns using wrong instruction type, corrupting processor state
+4. Mixed-mode code (standard PowerPC and VLE) uses incorrect return instruction
+
+CURRENT_CODE_ANALYSIS:
+Code at lines 1662-1676 checks for interrupt attribute and replaces BLR with RFI. There's a TODO comment at line 1676 indicating e_rfi should be added for VLE mode. The code checks hasVLE() but still uses RFI. The RFI instruction is defined in PPCInstrInfo.td for BookE targets, but e_rfi is not defined in PPCInstrVLE.td. PPCSubtarget.h provides hasVLE() and BookE feature detection methods.
+
+RECOMMENDATION:
+1. Define e_rfi instruction in PPCInstrVLE.td for VLE mode interrupt returns
+2. Add check to verify BookE feature is available before using RFI
+3. Differentiate between critical and external interrupt return requirements
+4. Add compile-time error if RFI/e_rfi is not available for target
+5. Ensure proper IVOR (Interrupt Vector Offset Register) handling based on interrupt type
+
+TEST_GAP:
+Missing tests for:
+- VLE mode interrupt handler return (e_rfi)
+- Non-BookE target attempting to use RFI
+- Critical vs external interrupt return differentiation
+- Mixed-mode interrupt handler returns
+
+[REQ-ISO26262-EDGE-CASE-004]
+UID: ISO26262-EDGE-CASE-004
+STATUS: Draft
+TITLE: VLE Register Constraint Violation (R0-R7 Requirement)
+
+DESCRIPTION:
+16-bit VLE instructions require registers to be in range R0-R7 (3-bit encoding), but register allocation may not enforce this constraint, causing runtime illegal instruction faults when R8-R31 are used with 16-bit VLE instructions.
+
+CODE_LOCATION:
+llvm/lib/Target/PowerPC/PPCInstrVLE.td:56-66
+llvm/lib/Target/PowerPC/PPCRegisterInfo.td
+llvm/lib/Target/PowerPC/PPCISelDAGToDAG.cpp
+
+ISO26262_REQUIREMENT:
+ASIL C - Part 6, Table 8: Register allocation correctness required for instruction encoding validity.
+
+FAILURE_SCENARIO:
+1. Register allocator assigns R8-R31 to a variable, but instruction selector chooses 16-bit VLE form (SE_* prefix), generating illegal encoding
+2. Optimizer moves value from R0-R7 to R8-R31, but subsequent instruction requires R0-R7, causing fault
+3. Register pressure causes spilling of R0-R7, breaking VLE instruction constraints
+4. Pattern matching selects VLE 16-bit instruction without checking actual register assignment
+
+CURRENT_CODE_ANALYSIS:
+PPCInstrVLE.td defines gprc_vle_r0_r7_pred predicate at lines 60-66, but it always returns true (placeholder). The comment indicates register class constraints should be used, but no GPRC_VLE_R0_R7 register class is defined. The actual register allocation happens in PPCRegisterInfo, but there's no enforcement of R0-R7 constraint for VLE instructions.
+
+RECOMMENDATION:
+1. Define GPRC_VLE_R0_R7 register class restricting to R0-R7 for 16-bit VLE instructions
+2. Add register allocation preference for R0-R7 when VLE optimization is enabled
+3. Add instruction selection predicate that verifies register is in R0-R7 range before selecting 16-bit form
+4. Add compile-time error if register outside R0-R7 is used with 16-bit VLE instruction pattern
+5. Add register scavenging logic to prefer R0-R7 for VLE code size optimization
+
+TEST_GAP:
+Missing tests for:
+- Register allocation with VLE R0-R7 constraint
+- Instruction selection with R8-R31 and 16-bit VLE patterns
+- Register pressure scenarios causing R0-R7 constraint violations
+- Mixed standard/VLE instruction sequences with register constraints
+
+[REQ-ISO26262-EDGE-CASE-005]
+UID: ISO26262-EDGE-CASE-005
+STATUS: Draft
+TITLE: Pipeline Hazard Undetected Stalls in Single-Issue In-Order Pipeline
+
+DESCRIPTION:
+The e200z6 is single-issue in-order (IssueWidth=1), but scheduling model may not account for all resource conflicts or bypass timing, causing timing violations that break worst-case execution time (WCET) guarantees required for ISO 26262.
+
+CODE_LOCATION:
+llvm/lib/Target/PowerPC/PPCScheduleE200Z6.td:17-231
+llvm/lib/Target/PowerPC/PPCScheduleE200Z4.td (dual-issue model)
+llvm/lib/Target/PowerPC/PPCHazardRecognizers.cpp (hazard detection)
+
+ISO26262_REQUIREMENT:
+ASIL D - Part 6, Table 9: Worst-case execution time (WCET) analysis requires accurate pipeline modeling.
+
+FAILURE_SCENARIO:
+1. Load-to-use latency is modeled as 3 cycles (line 160), but actual hardware may have 4+ cycles in worst case
+2. Bypass paths (E200Z6_GPR_Bypass, E200Z6_CR_Bypass) may not cover all forwarding scenarios
+3. Resource conflicts (MUL, FPU, LSU sharing execution unit) not properly modeled causing underestimation
+4. Branch misprediction penalty (3 cycles, line 225) may be incorrect for all branch types
+5. Pipeline stalls due to cache misses not modeled
+
+CURRENT_CODE_ANALYSIS:
+PPCScheduleE200Z6.td models e200z6 as single-issue with:
+- IssueWidth = 1 (correct)
+- LoadLatency = 4 (overridden by itineraries which show 3-cycle latency)
+- CompleteModel = 0 (incomplete model)
+- Bypass paths defined but may not cover all cases
+
+The itinerary shows load latency of 3 cycles (lines 160, 167, 175), but LoadLatency field says 4 cycles. The model is marked incomplete (CompleteModel = 0), indicating missing hazard information.
+
+RECOMMENDATION:
+1. Verify all instruction latencies against e200z6 Core Reference Manual
+2. Model all bypass paths explicitly including edge cases
+3. Add resource conflict detection for shared execution units (MUL, FPU, LSU)
+4. Verify branch misprediction penalty for all branch instruction types
+5. Add cache miss penalty modeling for WCET analysis
+6. Mark CompleteModel = 1 when all hazards are modeled
+7. Add hazard recognizer tests for all edge cases
+
+TEST_GAP:
+Missing tests for:
+- All bypass path scenarios
+- Resource conflict detection
+- Cache miss penalty modeling
+- Branch misprediction timing verification
+- WCET calculation accuracy validation
+
+[REQ-ISO26262-EDGE-CASE-006]
+UID: ISO26262-EDGE-CASE-006
+STATUS: Draft
+TITLE: VLE Instruction Length Decoding Ambiguity
+
+DESCRIPTION:
+VLE uses variable-length encoding (16/32-bit), and misalignment or corrupted instruction streams could cause incorrect instruction boundaries, leading to instruction stream corruption and unpredictable execution.
+
+CODE_LOCATION:
+llvm/lib/Target/PowerPC/PPCInstrVLE.td
+llvm/lib/Target/PowerPC/Disassembler/PPCDisassembler.cpp
+llvm/lib/Target/PowerPC/MCTargetDesc/PPCMCCodeEmitter.cpp
+
+ISO26262_REQUIREMENT:
+ASIL D - Part 6, Table 12: Instruction fetch integrity required for deterministic execution.
+
+FAILURE_SCENARIO:
+1. Instruction decoder starts at wrong alignment (odd byte offset), misinterpreting 16-bit instruction as start of 32-bit instruction
+2. Corrupted instruction word causes decoder to misinterpret length, cascading errors through instruction stream
+3. Mixed standard PowerPC (32-bit fixed) and VLE (16/32-bit variable) code causes boundary misinterpretation
+4. Disassembler incorrectly identifies instruction length, breaking program analysis tools
+5. Code emitter generates incorrect alignment, causing runtime misalignment faults
+
+CURRENT_CODE_ANALYSIS:
+VLE instruction definitions in PPCInstrVLE.td specify 16-bit (SE_*) and 32-bit (E_*) forms, but there's no explicit alignment checking or boundary validation. The disassembler and code emitter must correctly identify instruction length, but error handling for misaligned or corrupted streams may be incomplete.
+
+RECOMMENDATION:
+1. Add explicit alignment checking in instruction decoder (16-bit VLE must be 2-byte aligned)
+2. Add instruction boundary validation to detect corrupted instruction streams
+3. Add disassembler verification that instruction length matches encoding
+4. Add code emitter alignment enforcement for VLE instructions
+5. Add error detection for mixed-mode (standard/VLE) code boundaries
+6. Document instruction stream format requirements
+7. Add instruction stream integrity checks (CRC/checksum for safety-critical code)
+
+TEST_GAP:
+Missing tests for:
+- Misaligned instruction decoding
+- Corrupted instruction stream handling
+- Mixed-mode instruction boundary detection
+- Disassembler length verification
+- Code emitter alignment enforcement
+
+[REQ-ISO26262-EDGE-CASE-007]
+UID: ISO26262-EDGE-CASE-007
+STATUS: Draft
+TITLE: Critical vs External Interrupt Type Handling Differentiation
+
+DESCRIPTION:
+Interrupt attribute accepts "critical" and "external" types with different IVOR entries (IVOR0 for critical, IVOR4 for external), but the code generation may not differentiate context save requirements between them, potentially violating interrupt priority and context management requirements.
+
+CODE_LOCATION:
+clang/include/clang/Basic/AttrDocs.td:1836-1871
+llvm/lib/Target/PowerPC/PPCFrameLowering.cpp (interrupt handler codegen)
+llvm/test/CodeGen/PowerPC/interrupt-handler.ll
+
+ISO26262_REQUIREMENT:
+ASIL D - Part 6, Table 13: Different interrupt priority levels require differentiated context management.
+
+FAILURE_SCENARIO:
+1. Critical interrupt (IVOR0, non-maskable) uses same context save as external interrupt, violating priority requirements
+2. External interrupt handler incorrectly saves context meant only for critical interrupts
+3. Interrupt nesting scenarios where critical interrupt preempts external interrupt lose context differentiation
+4. IVOR table setup requires different handler addresses, but codegen doesn't differentiate
+5. Interrupt attribute type ("critical" vs "external") is documented but not used in codegen
+
+CURRENT_CODE_ANALYSIS:
+AttrDocs.td documents interrupt types ("critical", "external", default) at lines 1850-1853, but PPCFrameLowering.cpp interrupt handler codegen doesn't check the interrupt type attribute value. The test file interrupt-handler.ll shows different interrupt attributes but doesn't verify different code generation. All interrupt handlers receive the same register save treatment regardless of type.
+
+RECOMMENDATION:
+1. Extract interrupt type from function attribute in PPCFrameLowering.cpp
+2. Differentiate context save requirements based on interrupt type:
+   - Critical: Minimal context save (only essential registers)
+   - External: Full context save (all used registers)
+   - Default: Standard context save
+3. Add IVOR table generation support with correct handler addresses
+4. Add interrupt nesting handling for critical interrupts preempting lower-priority interrupts
+5. Add compile-time verification that critical interrupt handlers don't make blocking calls
+6. Document interrupt type usage in code generation
+
+TEST_GAP:
+Missing tests for:
+- Critical interrupt handler code generation
+- External interrupt handler code generation
+- Interrupt type attribute parsing and usage
+- IVOR table generation
+- Interrupt nesting scenarios
+
+[REQ-ISO26262-EDGE-CASE-008]
+UID: ISO26262-EDGE-CASE-008
+STATUS: Draft
+TITLE: Memory Barrier and Cache Coherency for Unified L1 Cache
+
+DESCRIPTION:
+e200z6 has unified 32KB L1 cache, but memory barrier generation (msync/sync) may not account for all memory ordering requirements or cache coherency edge cases required for shared variable visibility in safety-critical systems.
+
+CODE_LOCATION:
+llvm/lib/Target/PowerPC/PPCInstrInfo.td (MSYNC/SYNC instruction definitions)
+llvm/lib/Target/PowerPC/PPCISelLowering.cpp (memory barrier lowering)
+llvm/lib/Target/PowerPC/PPCScheduleE200Z6.td:23 (unified L1 cache model)
+
+ISO26262_REQUIREMENT:
+ASIL D - Part 6, Table 14: Memory consistency and visibility of shared variables required for multi-threaded safety-critical systems.
+
+FAILURE_SCENARIO:
+1. MSYNC instruction (used for BookE targets) may not provide full memory barrier semantics required for some memory models
+2. Cache coherency between instruction fetch and data access (unified cache) not properly handled in memory barriers
+3. Store-before-load ordering not enforced when required for shared variable synchronization
+4. Weak memory ordering assumptions break in presence of cache coherency protocols
+5. Memory barrier placement incorrect for atomic operations, causing race conditions
+
+CURRENT_CODE_ANALYSIS:
+PPCInstrInfo.td defines MSYNC and SYNC instructions at lines 2341-2358. MSYNC is used for BookE targets (including e200), but patterns show MSYNC used for both sync and lwsync operations (lines 2357-2358), which may be incorrect. The unified L1 cache (32KB) architecture may require different memory barrier semantics than separate I/D caches.
+
+RECOMMENDATION:
+1. Verify MSYNC instruction semantics match required memory barrier types (sync vs lwsync)
+2. Add cache coherency modeling for unified L1 cache architecture
+3. Ensure memory barrier placement for atomic operations correctly orders shared variable accesses
+4. Add memory model compliance verification (SC, TSO, etc.)
+5. Document unified cache coherency requirements for e200z6
+6. Add compile-time warnings for potentially incorrect memory barrier usage
+7. Verify memory barrier latency is correctly modeled in scheduling
+
+TEST_GAP:
+Missing tests for:
+- MSYNC vs SYNC semantics verification
+- Unified cache coherency scenarios
+- Memory barrier placement verification
+- Atomic operation ordering correctness
+- Multi-threaded shared variable visibility
+
+[REQ-ISO26262-EDGE-CASE-009]
+UID: ISO26262-EDGE-CASE-009
+STATUS: Draft
+TITLE: Division by Zero and Integer Overflow Exception Handling
+
+DESCRIPTION:
+Integer division instructions have 34-cycle latency (e200z6), but exception handling paths may not be correctly modeled or generated, causing unpredictable behavior on divide-by-zero or integer overflow conditions, violating deterministic exception handling requirements.
+
+CODE_LOCATION:
+llvm/lib/Target/PowerPC/PPCScheduleE200Z6.td:80-86 (IIC_IntDivW latency model)
+llvm/lib/Target/PowerPC/PPCISelLowering.cpp (exception handling)
+llvm/lib/Target/PowerPC/PPCInstrInfo.td (division instruction definitions)
+
+ISO26262_REQUIREMENT:
+ASIL D - Part 6, Table 15: Deterministic exception handling required for arithmetic exceptions.
+
+FAILURE_SCENARIO:
+1. Divide-by-zero exception not caught, causing system crash or undefined behavior
+2. Integer overflow in division not detected, producing incorrect results silently
+3. Exception handling code path not generated, violating exception specification
+4. Division exception latency (34 cycles) not accounted for in WCET analysis
+5. Exception handler not properly registered for division exceptions
+
+CURRENT_CODE_ANALYSIS:
+PPCScheduleE200Z6.td models division latency as 34 cycles (lines 80-86), but doesn't model exception path. PPCISelLowering.cpp may not generate division-by-zero checks. PowerPC architecture requires software checking for divide-by-zero before division instruction execution, as hardware doesn't trap on division by zero in all cases.
+
+RECOMMENDATION:
+1. Add compile-time divide-by-zero detection and error generation
+2. Generate explicit divide-by-zero checks before division instructions when not provably safe
+3. Model division exception path latency in scheduling
+4. Add integer overflow detection for division operations
+5. Ensure exception handlers are properly set up for arithmetic exceptions
+6. Document division exception handling requirements for e200 cores
+7. Add runtime checks with deterministic exception paths
+
+TEST_GAP:
+Missing tests for:
+- Divide-by-zero detection and handling
+- Integer overflow in division
+- Exception path code generation
+- Division exception latency modeling
+- Exception handler registration
+
+[REQ-ISO26262-EDGE-CASE-010]
+UID: ISO26262-EDGE-CASE-010
+STATUS: Draft
+TITLE: Deterministic Execution Timing Violations Due to Optimizations
+
+DESCRIPTION:
+Code size optimizations for VLE may introduce non-deterministic instruction selection or pipeline behavior that violates worst-case execution time (WCET) guarantees required for ISO 26262, making timing analysis impossible or incorrect.
+
+CODE_LOCATION:
+llvm/lib/Target/PowerPC/PPCTargetTransformInfo.cpp:234-281 (VLE code size optimization heuristics)
+llvm/lib/Target/PowerPC/PPCVLEOpt.cpp (VLE-specific optimizations)
+llvm/lib/Target/PowerPC/PPCMachineScheduler.cpp (instruction scheduling)
+
+ISO26262_REQUIREMENT:
+ASIL D - Part 6, Table 16: Deterministic worst-case execution time required for safety-critical systems.
+
+FAILURE_SCENARIO:
+1. VLE code size optimization selects 16-bit instructions based on heuristics, causing unpredictable timing
+2. Register allocation changes between compilation runs, causing different instruction sequences with different timing
+3. Instruction scheduling introduces pipeline-dependent timing variations
+4. Optimization level (-O0, -O1, -O2, -O3) causes different code generation with different WCET
+5. Compiler version changes break WCET assumptions
+
+CURRENT_CODE_ANALYSIS:
+PPCTargetTransformInfo.cpp contains VLE optimization heuristics at lines 234-281 that use cost estimation functions. These heuristics may not be deterministic across compiler runs. PPCVLEOpt.cpp may introduce optimization-dependent instruction selection. PPCMachineScheduler.cpp may introduce timing variations based on optimization level.
+
+RECOMMENDATION:
+1. Make VLE instruction selection deterministic (same input → same output)
+2. Add compiler flag to disable timing-affecting optimizations for safety-critical code
+3. Document WCET analysis requirements and compiler settings
+4. Add deterministic register allocation mode for safety-critical functions
+5. Verify instruction scheduling doesn't introduce non-deterministic timing
+6. Add WCET analysis annotations for compiler-generated code
+7. Ensure optimization level doesn't affect instruction selection for critical paths
+
+TEST_GAP:
+Missing tests for:
+- Deterministic instruction selection verification
+- Optimization level timing consistency
+- Register allocation determinism
+- Instruction scheduling timing analysis
+- WCET calculation reproducibility
+
+[REQ-ISO26262-EDGE-CASE-011]
+UID: ISO26262-EDGE-CASE-011
+STATUS: Draft
+TITLE: Stack Frame Alignment and Red Zone Violation
+
+DESCRIPTION:
+Stack frame alignment requirements may be violated when using red zone optimization, or when interrupt handlers access stack data below the stack pointer. Note: e200 cores use SVR4ABI which has no red zone (0 bytes), so this edge case primarily applies if AIX ABI is used or for future ABI changes. However, stack alignment violations can still occur without red zone.
+
+CODE_LOCATION:
+llvm/lib/Target/PowerPC/PPCFrameLowering.cpp:465-481
+llvm/lib/Target/PowerPC/PPCFrameLowering.cpp:86-94
+
+ISO26262_REQUIREMENT:
+ASIL D - Part 6, Table 17: Stack integrity required to prevent stack corruption leading to system failure.
+
+FAILURE_SCENARIO:
+1. Function uses red zone (if enabled) but interrupt handler saves context in red zone, corrupting local variables
+2. Stack alignment requirements (16-byte for Altivec/VSX) violated when stack pointer is not properly aligned
+3. Dynamic alloca violates stack alignment guarantees causing misaligned memory access
+4. Stack pointer adjustment skipped when it should occur, causing stack overflow or misalignment
+5. Stack frame alignment not enforced for interrupt handlers, causing alignment faults
+
+CURRENT_CODE_ANALYSIS:
+Code at lines 465-481 checks red zone usage conditions. For e200 cores using SVR4ABI, getRedZoneSize() returns 0 (no red zone per PPCSubtarget.h:306-314). However, stack alignment is checked at line 461 but may not be enforced correctly for all cases. Interrupt handler stack usage may not account for alignment requirements.
+
+RECOMMENDATION:
+1. Disable red zone for functions called from interrupt handlers
+2. Verify stack alignment when red zone is used
+3. Add compile-time error if red zone is used with dynamic alloca
+4. Document red zone size for each e200 variant (may differ)
+5. Add stack overflow protection guards when red zone is used
+6. Ensure interrupt handlers never use red zone
+7. Add runtime stack probe when red zone usage exceeds safe threshold
+
+TEST_GAP:
+Missing tests for:
+- Red zone usage with interrupt handlers
+- Stack alignment verification with red zone
+- Dynamic alloca and red zone interaction
+- Stack overflow detection with red zone
+- e200 variant-specific red zone sizes
+
+[REQ-ISO26262-EDGE-CASE-012]
+UID: ISO26262-EDGE-CASE-012
+STATUS: Draft
+TITLE: Floating-Point Exception Handling and Status Register Corruption
+
+DESCRIPTION:
+Floating-point exception handling may not preserve FPSCR (Floating-Point Status and Control Register) state correctly, or may not generate proper exception paths for IEEE 754 exceptions (invalid operation, divide-by-zero, overflow, underflow, inexact) required for deterministic behavior.
+
+CODE_LOCATION:
+llvm/lib/Target/PowerPC/PPCFrameLowering.cpp:1852-1930 (interrupt handler context save)
+llvm/lib/Target/PowerPC/PPCISelLowering.cpp (FPU instruction lowering)
+llvm/lib/Target/PowerPC/PPCInstrInfo.td (FPU instruction definitions)
+
+ISO26262_REQUIREMENT:
+ASIL D - Part 6, Table 18: Deterministic floating-point exception handling required for safety-critical calculations.
+
+FAILURE_SCENARIO:
+1. FPSCR state not saved/restored in function prologue/epilogue, causing exception flags to leak between functions
+2. Floating-point exceptions silently ignored instead of triggering exception handlers
+3. Exception flags (FE_INVALID, FE_DIVBYZERO, etc.) cleared inadvertently, losing diagnostic information
+4. Interrupt handler modifies FPSCR without preserving previous state
+5. Floating-point exception handler not registered or incorrectly configured for e200 cores
+
+CURRENT_CODE_ANALYSIS:
+PowerPC e200 cores have FPSCR (Floating-Point Status and Control Register) that must be managed correctly. The interrupt handler context save logic in PPCFrameLowering.cpp doesn't check for FPU usage or save/restore FPSCR. Function prologue/epilogue may not preserve FPSCR state when FPU operations are used. IEEE 754 exception flags in FPSCR may leak between functions or be lost during context switches.
+
+RECOMMENDATION:
+1. Add FPSCR save/restore in function prologue/epilogue when FPU is used
+2. Add FPSCR save/restore in interrupt handlers when FPU operations are present
+3. Generate explicit exception checks for floating-point divide-by-zero
+4. Ensure floating-point exception handlers are properly configured
+5. Document FPSCR bit layout and exception handling requirements for e200 cores
+6. Add compile-time warnings for unhandled floating-point exceptions
+7. Verify floating-point exception latency in WCET analysis
+
+TEST_GAP:
+Missing tests for:
+- FPSCR save/restore in function calls
+- FPSCR handling in interrupt handlers
+- Floating-point exception generation and handling
+- FPSCR state preservation across context switches
+- IEEE 754 exception compliance verification
+
+[REQ-ISO26262-EDGE-CASE-013]
+UID: ISO26262-EDGE-CASE-013
+STATUS: Draft
+TITLE: Atomic Operation Load-Linked Store-Conditional Race Condition
+
+DESCRIPTION:
+Atomic operations using lwarx (load-linked) and stwcx (store-conditional) may suffer from ABA problem, lost updates, or incorrect memory ordering, causing race conditions in multi-threaded safety-critical systems.
+
+CODE_LOCATION:
+llvm/lib/Target/PowerPC/PPCInstrInfo.td:1981-2015
+llvm/lib/Target/PowerPC/PPCISelLowering.cpp:12044-12098
+
+ISO26262_REQUIREMENT:
+ASIL D - Part 6, Table 19: Correct atomic operation semantics required for multi-threaded safety-critical systems.
+
+FAILURE_SCENARIO:
+1. ABA problem: value changes from A to B and back to A between lwarx and stwcx, causing incorrect update
+2. Lost update: two threads both read same value, both update, but only one write succeeds, losing other update
+3. Memory ordering violation: atomic operation doesn't enforce required memory ordering (acquire, release, sequentially consistent)
+4. Store-conditional failure not properly handled, causing infinite retry loops
+5. Reservation granule violation: lwarx reservation lost due to unrelated memory access to same cache line
+
+CURRENT_CODE_ANALYSIS:
+PPCInstrInfo.td defines lwarx/stwcx at lines 1981-2015. PPCISelLowering.cpp contains complex atomic operation expansion at lines 12044-12098 that handles sub-word atomics. The code generates retry loops but may not handle all edge cases correctly. Memory ordering may not be properly enforced for all atomic operations.
+
+RECOMMENDATION:
+1. Verify memory ordering barriers (sync, lwsync, isync) are correctly placed around atomic operations
+2. Add ABA problem detection or prevention mechanisms
+3. Ensure store-conditional failure is always detected and retry logic is bounded
+4. Document reservation granule size for e200 cores (typically 32 bytes)
+5. Add compile-time verification that atomic operations have proper memory ordering
+6. Test atomic operations under high contention scenarios
+7. Verify atomic operation latency in WCET analysis
+
+TEST_GAP:
+Missing tests for:
+- ABA problem scenarios
+- Lost update detection
+- Memory ordering correctness verification
+- Store-conditional failure handling
+- Reservation granule boundary testing
+- High-contention atomic operation scenarios
+
+[REQ-ISO26262-EDGE-CASE-014]
+UID: ISO26262-EDGE-CASE-014
+STATUS: Draft
+TITLE: Instruction Cache Invalidation and Synchronization Timing
+
+DESCRIPTION:
+Instruction cache invalidation (icbi) and data cache flush (dcbf) synchronization may not be correctly sequenced, causing execution of stale instructions or incorrect instruction fetch after code modification, violating instruction stream integrity.
+
+CODE_LOCATION:
+llvm/lib/Support/Unix/Memory.inc:236-250
+llvm/lib/Target/PowerPC/PPCInstrInfo.td:4223-4224
+llvm/test/CodeGen/PowerPC/vle-e-icbi.ll
+
+ISO26262_REQUIREMENT:
+ASIL D - Part 6, Table 20: Instruction stream integrity required for correct program execution after code modification.
+
+FAILURE_SCENARIO:
+1. Code modification followed by icbi without proper sync/isync, causing execution of stale instructions
+2. Instruction cache invalidation not aligned to cache line boundaries, leaving stale instructions
+3. Timing violation: instruction fetch occurs before icbi completes, fetching stale code
+4. Data cache flush (dcbf) not performed before icbi, causing data/instruction cache coherency issues
+5. isync not executed after icbi, allowing prefetched stale instructions to execute
+
+CURRENT_CODE_ANALYSIS:
+Memory.inc shows icbi/dcbf sequence at lines 236-250, but the sequence may not be correct for all e200 variants. The code performs dcbf, sync, icbi, isync, but timing and alignment may be incorrect. PPCInstrInfo.td defines ICBI at line 4223 but doesn't enforce synchronization requirements.
+
+RECOMMENDATION:
+1. Ensure proper sequence: dcbf all modified lines, sync, icbi all modified lines, isync
+2. Verify cache line alignment for icbi operations (32-byte alignment for e200)
+3. Document cache invalidation requirements for each e200 variant
+4. Add compile-time verification that code modification is followed by proper cache invalidation
+5. Add runtime checks to verify cache invalidation completed before code execution
+6. Test cache invalidation under timing-sensitive scenarios
+7. Verify cache invalidation latency in WCET analysis
+
+TEST_GAP:
+Missing tests for:
+- Cache invalidation sequence correctness
+- Cache line alignment verification
+- Timing-sensitive cache invalidation scenarios
+- Instruction fetch after cache invalidation
+- Data/instruction cache coherency verification
+
+[REQ-ISO26262-EDGE-CASE-015]
+UID: ISO26262-EDGE-CASE-015
+STATUS: Draft
+TITLE: Stack Pointer Corruption and Overflow Detection Failure
+
+DESCRIPTION:
+Stack pointer (R1) corruption or stack overflow may not be detected, leading to memory corruption, security vulnerabilities, or system crashes. Stack overflow detection mechanisms may be incomplete or incorrectly implemented.
+
+CODE_LOCATION:
+llvm/lib/Target/PowerPC/PPCFrameLowering.cpp:448-494
+llvm/lib/Target/PowerPC/PPCRegisterInfo.cpp:80-121
+
+ISO26262_REQUIREMENT:
+ASIL D - Part 6, Table 21: Stack integrity protection required to prevent stack overflow leading to system failure.
+
+FAILURE_SCENARIO:
+1. Stack overflow not detected before stack pointer adjustment, causing memory corruption
+2. Stack pointer corrupted by buffer overflow, leading to arbitrary code execution
+3. Stack probe not generated for large stack frames, allowing silent stack overflow
+4. Red zone usage masks stack overflow detection, allowing stack to grow into protected memory
+5. Interrupt handler stack usage not accounted for, causing stack overflow during interrupt
+
+CURRENT_CODE_ANALYSIS:
+PPCFrameLowering.cpp calculates frame size at lines 448-494 but doesn't show explicit stack overflow detection. Stack pointer is managed by register allocation but corruption detection may be missing. No stack probe generation found for large frames.
+
+RECOMMENDATION:
+1. Generate stack probes for large stack frames (> 1KB recommended)
+2. Add stack canary protection for stack overflow detection
+3. Verify stack pointer integrity at function entry/exit
+4. Account for interrupt handler stack usage in WCET analysis
+5. Add compile-time warnings for potentially large stack frames
+6. Document stack size limits for each e200 variant
+7. Add runtime stack overflow detection mechanisms
+
+TEST_GAP:
+Missing tests for:
+- Stack overflow detection
+- Stack pointer corruption scenarios
+- Stack probe generation verification
+- Large stack frame handling
+- Interrupt handler stack usage accounting
+
+[REQ-ISO26262-EDGE-CASE-016]
+UID: ISO26262-EDGE-CASE-016
+STATUS: Draft
+TITLE: Calling Convention Violation and Register Clobbering
+
+DESCRIPTION:
+Calling convention violations may occur when caller-saved registers are not properly saved before function calls, or when callee-saved registers are not restored in function epilogue, causing register corruption and unpredictable behavior.
+
+CODE_LOCATION:
+llvm/lib/Target/PowerPC/PPCRegisterInfo.cpp:141-150
+llvm/lib/Target/PowerPC/PPCFrameLowering.cpp:96-2447
+
+ISO26262_REQUIREMENT:
+ASIL C/D - Part 6, Table 22: Correct calling convention implementation required for function interface correctness.
+
+FAILURE_SCENARIO:
+1. Caller-saved registers (R3-R10, R11-R12) not saved before function call, causing register corruption
+2. Callee-saved registers not restored in function epilogue, corrupting caller's register state
+3. Floating-point registers not saved/restored according to calling convention
+4. Condition register (CR) fields not properly managed according to ABI requirements
+5. Link register (LR) not saved when function makes nested calls
+
+CURRENT_CODE_ANALYSIS:
+PPCRegisterInfo.cpp defines callee-saved registers at lines 141-150. PPCFrameLowering.cpp handles register save/restore but calling convention may not be fully enforced. Register clobbering may occur if register allocation doesn't respect calling convention.
+
+RECOMMENDATION:
+1. Verify caller-saved register save before all function calls
+2. Verify callee-saved register restore in all function epilogues
+3. Add compile-time checks for calling convention violations
+4. Document calling convention requirements for e200 cores
+5. Test register save/restore in all calling scenarios (leaf functions, nested calls, interrupt handlers)
+6. Verify register usage doesn't violate ABI requirements
+7. Add runtime checks for register corruption detection
+
+TEST_GAP:
+Missing tests for:
+- Caller-saved register preservation
+- Callee-saved register restoration
+- Floating-point register calling convention
+- Condition register ABI compliance
+- Link register handling
+- Register clobbering detection
+
+[REQ-ISO26262-EDGE-CASE-017]
+UID: ISO26262-EDGE-CASE-017
+STATUS: Draft
+TITLE: Endianness Handling for Memory Operations and Byte Ordering
+
+DESCRIPTION:
+Big-endian memory access handling may be incorrect for multi-byte operations, causing byte ordering errors when accessing data structures, network protocols, or hardware registers that require specific byte ordering.
+
+CODE_LOCATION:
+llvm/include/llvm/Support/Endian.h:22-413
+llvm/lib/CodeGen/SelectionDAG/DAGCombiner.cpp:6687-6746
+
+ISO26262_REQUIREMENT:
+ASIL C - Part 6, Table 23: Correct byte ordering required for data structure access and hardware interface compliance.
+
+FAILURE_SCENARIO:
+1. Multi-byte load/store operations byte-swapped incorrectly, corrupting data
+2. Structure member access assumes wrong byte order, reading incorrect values
+3. Network protocol data not byte-swapped correctly, causing communication failures
+4. Hardware register access uses wrong byte order, causing device malfunction
+5. Floating-point value byte order incorrect, producing wrong numerical results
+
+CURRENT_CODE_ANALYSIS:
+Endian.h provides byte swapping utilities but PowerPC e200 is big-endian, so byte order handling must be consistent. DAGCombiner.cpp handles endianness at lines 6687-6746 but may not cover all cases. Memory access patterns may not account for endianness correctly.
+
+RECOMMENDATION:
+1. Verify all multi-byte memory accesses preserve correct byte order
+2. Add compile-time checks for potential endianness issues
+3. Document byte order requirements for e200 cores (big-endian)
+4. Test data structure access with different byte orders
+5. Verify network protocol byte order handling
+6. Add runtime byte order verification for critical data structures
+7. Ensure floating-point byte order is correct in memory
+
+TEST_GAP:
+Missing tests for:
+- Multi-byte load/store byte ordering
+- Structure member access byte order
+- Network protocol byte order handling
+- Hardware register byte order
+- Floating-point byte order verification
+
+[REQ-ISO26262-EDGE-CASE-018]
+UID: ISO26262-EDGE-CASE-018
+STATUS: Draft
+TITLE: Branch Prediction Hint Misuse and Misprediction Penalty
+
+DESCRIPTION:
+Branch prediction hints may be incorrectly applied, or branch misprediction penalties may be underestimated in WCET analysis, causing timing violations and incorrect worst-case execution time calculations.
+
+CODE_LOCATION:
+llvm/lib/Target/PowerPC/PPCISelDAGToDAG.cpp:532-575
+llvm/lib/Target/PowerPC/PPCPredicates.h:61-82
+llvm/lib/Target/PowerPC/PPCScheduleE200Z6.td:225
+
+ISO26262_REQUIREMENT:
+ASIL D - Part 6, Table 24: Accurate branch prediction modeling required for correct WCET analysis.
+
+FAILURE_SCENARIO:
+1. Branch hint (taken/non-taken) incorrectly applied, causing increased misprediction rate
+2. Branch misprediction penalty underestimated (3 cycles in model vs actual hardware)
+3. Conditional branch timing not accounted for in WCET analysis
+4. Branch prediction state not considered, causing timing variations
+5. Speculative execution effects not modeled, leading to incorrect timing analysis
+
+CURRENT_CODE_ANALYSIS:
+PPCISelDAGToDAG.cpp generates branch hints at lines 532-575 based on profile data, but hints may be incorrect. PPCScheduleE200Z6.td models 3-cycle misprediction penalty at line 225, but this may be incorrect for all branch types. Branch prediction state is not modeled.
+
+RECOMMENDATION:
+1. Verify branch misprediction penalty matches e200z6 hardware specification
+2. Document branch prediction behavior for each e200 variant
+3. Add worst-case branch timing analysis (always assume misprediction for WCET)
+4. Disable branch hints for safety-critical code requiring deterministic timing
+5. Test branch timing under various prediction scenarios
+6. Verify branch prediction doesn't affect functional correctness
+7. Add compile-time option to disable branch prediction hints
+
+TEST_GAP:
+Missing tests for:
+- Branch hint correctness verification
+- Branch misprediction penalty validation
+- Conditional branch timing analysis
+- Branch prediction state modeling
+- Speculative execution timing effects
+
+[REQ-ISO26262-EDGE-CASE-019]
+UID: ISO26262-EDGE-CASE-019
+STATUS: Draft
+TITLE: Special-Purpose Register Access Violation and Privilege Escalation
+
+DESCRIPTION:
+Special-Purpose Registers (SPRs) may be accessed incorrectly, or access control may be violated, causing privilege escalation, system state corruption, or security vulnerabilities. SPR access instructions (mtspr, mfspr) may not enforce proper access restrictions.
+
+CODE_LOCATION:
+llvm/lib/Target/PowerPC/PPCInstrInfo.td:1998-2109
+llvm/lib/Target/PowerPC/PPCRegisterInfo.td:47-50
+
+ISO26262_REQUIREMENT:
+ASIL D - Part 6, Table 25: Correct SPR access control required to prevent privilege escalation and system state corruption.
+
+FAILURE_SCENARIO:
+1. SPR accessed without proper privilege level, causing exception or undefined behavior
+2. Critical SPR (MSR, IVORs) modified incorrectly, corrupting system state
+3. Debug registers (DBCR) accessed in production code, causing security vulnerability
+4. SPR access not validated, allowing invalid register numbers to be accessed
+5. SPR state not preserved across context switches, losing system configuration
+
+CURRENT_CODE_ANALYSIS:
+PPCInstrInfo.td defines SPR access instructions but doesn't show access control enforcement. PPCRegisterInfo.td defines SPR class at lines 47-50 but access validation may be missing. No compile-time checks found for SPR access restrictions.
+
+RECOMMENDATION:
+1. Add compile-time verification that SPR accesses are valid for target privilege level
+2. Document SPR access requirements and restrictions for e200 cores
+3. Add runtime checks for SPR access privilege validation
+4. Ensure critical SPRs (MSR, IVORs) are only modified in privileged code
+5. Prevent debug register access in production code
+6. Verify SPR state preservation across context switches
+7. Add warnings for potentially dangerous SPR modifications
+
+TEST_GAP:
+Missing tests for:
+- SPR access privilege validation
+- Critical SPR modification protection
+- Debug register access prevention
+- SPR access validation
+- SPR state preservation
+
+[REQ-ISO26262-EDGE-CASE-020]
+UID: ISO26262-EDGE-CASE-020
+STATUS: Draft
+TITLE: Instruction Reordering and Memory Model Compliance Violation
+
+DESCRIPTION:
+Instruction reordering by compiler or processor may violate memory model requirements, causing incorrect memory visibility ordering and race conditions in multi-threaded safety-critical systems.
+
+CODE_LOCATION:
+llvm/lib/Target/PowerPC/PPCMachineScheduler.cpp:1-84
+llvm/lib/Target/PowerPC/PPCISelLowering.cpp:11031-11058
+llvm/lib/Target/PowerPC/PPCInstrInfo.td:3389-3392
+
+ISO26262_REQUIREMENT:
+ASIL D - Part 6, Table 26: Correct memory model compliance required for multi-threaded system correctness.
+
+FAILURE_SCENARIO:
+1. Load/store operations reordered incorrectly, violating acquire/release semantics
+2. Memory barrier (sync/lwsync) not generated when required, causing memory ordering violations
+3. Atomic operation ordering not enforced correctly, causing race conditions
+4. Store-before-load reordering causes incorrect data visibility
+5. Instruction reordering across function calls violates memory model
+
+CURRENT_CODE_ANALYSIS:
+PPCISelLowering.cpp handles memory barriers at lines 11031-11058 (emitLeadingFence, emitTrailingFence). PPCMachineScheduler.cpp implements scheduling heuristics that may reorder instructions (e.g., addi-load fusion at lines 19-43). PPCInstrInfo.td defines atomic_fence patterns at lines 3389-3392. Instruction reordering by scheduler may violate memory ordering constraints even when memory barriers are present.
+
+RECOMMENDATION:
+1. Verify memory barriers are generated for all required memory ordering constraints
+2. Document memory model requirements for e200 cores (typically weak ordering)
+3. Add compile-time verification that memory ordering is correct
+4. Test instruction reordering scenarios under memory model constraints
+5. Verify atomic operation memory ordering correctness
+6. Ensure function calls don't violate memory ordering requirements
+7. Add runtime memory ordering verification for critical sections
+
+TEST_GAP:
+Missing tests for:
+- Memory barrier generation verification
+- Memory model compliance testing
+- Instruction reordering scenarios
+- Atomic operation ordering verification
+- Function call memory ordering
+
+[REQ-ISO26262-EDGE-CASE-021]
+UID: ISO26262-EDGE-CASE-021
+STATUS: Draft
+TITLE: Register Spill/Fill Timing and WCET Violation
+
+DESCRIPTION:
+Register spill and fill operations (storing/loading registers to/from stack) may not be accounted for in worst-case execution time (WCET) analysis. Spill operations add memory access latency that can break timing guarantees required for safety-critical systems.
+
+CODE_LOCATION:
+llvm/lib/Target/PowerPC/PPCInstrInfo.cpp:1095-1118
+llvm/lib/Target/PowerPC/PPCInstrInfo.cpp:1157-1176
+llvm/lib/Target/PowerPC/PPCFrameLowering.cpp:2269-2311
+
+ISO26262_REQUIREMENT:
+ASIL D - Part 6, Table 27: Accurate register spill/fill timing required for correct WCET analysis.
+
+FAILURE_SCENARIO:
+1. Register spill operation latency not modeled in scheduling, causing WCET underestimation
+2. Stack frame access for spilled registers causes cache misses not accounted for in timing
+3. Register pressure causes excessive spilling, breaking deterministic execution timing
+4. Spill slot allocation alignment requirements add hidden timing overhead
+5. Interrupt handler context save/restore spills not accounted for in WCET
+
+CURRENT_CODE_ANALYSIS:
+PPCInstrInfo.cpp generates spill/fill operations using StoreRegToStackSlot and LoadRegFromStackSlot at lines 1095-1118 and 1157-1176. These operations create memory accesses (stw, lwz) but their latency may not be properly modeled in the scheduling model. The spill operations are marked with frame references but timing analysis may not account for the additional memory access cycles.
+
+RECOMMENDATION:
+1. Model register spill/fill latency explicitly in instruction scheduling
+2. Account for cache miss penalties when accessing spill slots
+3. Add WCET annotations for functions with register spills
+4. Limit register spilling in safety-critical functions
+5. Verify spill slot alignment doesn't add timing overhead
+6. Document spill/fill timing requirements for each e200 variant
+7. Add timing analysis verification for spilled register accesses
+
+TEST_GAP:
+Missing tests for:
+- Register spill/fill timing verification
+- Cache miss penalty in spill operations
+- WCET accuracy with register spilling
+- Spill slot alignment timing
+- Interrupt handler spill timing
+
+[REQ-ISO26262-EDGE-CASE-022]
+UID: ISO26262-EDGE-CASE-022
+STATUS: Draft
+TITLE: Volatile Memory Access Ordering and Compiler Optimization Violation
+
+DESCRIPTION:
+Volatile memory accesses must not be optimized away or reordered, but compiler optimizations may violate these requirements, causing incorrect behavior for memory-mapped I/O (MMIO) registers or shared variables in safety-critical systems.
+
+CODE_LOCATION:
+llvm/docs/LangRef.rst:2506-2552
+llvm/lib/Target/PowerPC/PPCISelLowering.cpp (volatile load/store lowering)
+
+ISO26262_REQUIREMENT:
+ASIL C/D - Part 6, Table 28: Correct volatile memory access semantics required for hardware register access and shared variable visibility.
+
+FAILURE_SCENARIO:
+1. Volatile load/store optimized away by dead code elimination
+2. Volatile memory accesses reordered relative to each other
+3. Volatile access merged with non-volatile access, losing ordering
+4. MMIO register access optimized incorrectly, causing hardware malfunction
+5. Volatile barrier not generated when required for hardware synchronization
+
+CURRENT_CODE_ANALYSIS:
+LangRef.rst documents volatile semantics at lines 2506-2552, stating that volatile operations may be reordered relative to non-volatile operations but not relative to each other. However, the PowerPC backend may not enforce these semantics correctly for all memory access patterns. MMIO register accesses may be incorrectly optimized.
+
+RECOMMENDATION:
+1. Verify volatile load/store instructions are never optimized away
+2. Enforce ordering constraints for volatile memory accesses
+3. Prevent volatile access merging with non-volatile accesses
+4. Generate appropriate memory barriers for volatile MMIO access
+5. Add compile-time verification that volatile semantics are preserved
+6. Document volatile access requirements for e200 cores
+7. Test volatile access ordering in all optimization levels
+
+TEST_GAP:
+Missing tests for:
+- Volatile access ordering verification
+- Dead code elimination of volatile accesses
+- Volatile access merging prevention
+- MMIO register access correctness
+- Volatile barrier generation
+
+[REQ-ISO26262-EDGE-CASE-023]
+UID: ISO26262-EDGE-CASE-023
+STATUS: Draft
+TITLE: Link Register Corruption and Return Address Integrity
+
+DESCRIPTION:
+Link Register (LR) save/restore may be incomplete or incorrectly sequenced, causing return address corruption and unpredictable control flow. LR must be preserved across function calls, interrupts, and context switches.
+
+CODE_LOCATION:
+llvm/lib/Target/PowerPC/PPCFrameLowering.cpp:1642-1655
+llvm/lib/Target/PowerPC/PPCFrameLowering.cpp:1856-1858
+llvm/lib/Target/PowerPC/PPCRegisterInfo.td:217-220
+
+ISO26262_REQUIREMENT:
+ASIL D - Part 6, Table 29: Correct return address preservation required for deterministic control flow.
+
+FAILURE_SCENARIO:
+1. LR not saved before function call, corrupting return address
+2. LR restored incorrectly in function epilogue, jumping to wrong address
+3. LR corrupted by interrupt handler not saving it properly
+4. Nested function calls lose LR chain, breaking return sequence
+5. LR save/restore timing violation causes incorrect return address
+
+CURRENT_CODE_ANALYSIS:
+PPCFrameLowering.cpp handles LR save/restore at lines 1642-1655 (epilogue) and 1856-1858 (interrupt handler). LR is defined as SPR register 8 at PPCRegisterInfo.td:217-220. The code checks MustSaveLR flag but may not handle all edge cases correctly, especially in nested call scenarios or when LR is modified before restore.
+
+RECOMMENDATION:
+1. Verify LR is always saved before all function calls
+2. Ensure LR restore happens in correct order in epilogue
+3. Add LR save/restore verification in interrupt handlers
+4. Handle nested function call LR preservation correctly
+5. Add compile-time checks for LR corruption scenarios
+6. Document LR save/restore requirements for e200 cores
+7. Add runtime verification of return address integrity
+
+TEST_GAP:
+Missing tests for:
+- LR save before function calls
+- LR restore in epilogue
+- Interrupt handler LR preservation
+- Nested call LR handling
+- Return address integrity verification
+
+[REQ-ISO26262-EDGE-CASE-024]
+UID: ISO26262-EDGE-CASE-024
+STATUS: Draft
+TITLE: Condition Register Field Usage Violation and ABI Non-Compliance
+
+DESCRIPTION:
+Condition Register (CR) fields CR0-CR7 must be used according to PowerPC ABI requirements. CR0 is volatile (caller-saved), CR1-CR4 are callee-saved, and CR5-CR7 have specific usage rules. Violations can cause incorrect condition code propagation.
+
+CODE_LOCATION:
+llvm/lib/Target/PowerPC/PPCRegisterInfo.td:206-215
+llvm/lib/Target/PowerPC/PPCFrameLowering.cpp:1860-1893
+llvm/lib/Target/PowerPC/PPCInstrInfo.cpp:1643-1653
+
+ISO26262_REQUIREMENT:
+ASIL C - Part 6, Table 30: Correct condition register field usage required for ABI compliance and condition code correctness.
+
+FAILURE_SCENARIO:
+1. CR0 used as callee-saved register, losing condition codes across calls
+2. CR1-CR4 not saved/restored in function prologue/epilogue when used
+3. CR field usage violates ABI requirements, causing linking errors
+4. Condition codes from one CR field leak into another, causing incorrect branches
+5. CR save/restore incomplete in interrupt handlers
+
+CURRENT_CODE_ANALYSIS:
+PPCRegisterInfo.td defines CR0-CR7 at lines 206-215. PPCFrameLowering.cpp handles CR saving for interrupt handlers at lines 1860-1893, saving CR2-CR4. PPCInstrInfo.cpp contains CR usage logic at lines 1643-1653. The code may not fully enforce ABI requirements for CR field usage across all code generation scenarios.
+
+RECOMMENDATION:
+1. Enforce ABI requirements for CR field usage (CR0 volatile, CR1-CR4 callee-saved)
+2. Verify CR save/restore in all function prologues/epilogues
+3. Add compile-time checks for CR field usage violations
+4. Document CR field usage requirements for e200 cores
+5. Ensure CR fields are not incorrectly shared between functions
+6. Verify CR save/restore in interrupt handlers
+7. Add runtime verification of condition code integrity
+
+TEST_GAP:
+Missing tests for:
+- CR field ABI compliance verification
+- CR save/restore in prologue/epilogue
+- CR field usage across function calls
+- CR integrity in interrupt handlers
+- Condition code propagation correctness
+
+[REQ-ISO26262-EDGE-CASE-025]
+UID: ISO26262-EDGE-CASE-025
+STATUS: Draft
+TITLE: Indirect Call and Function Pointer Safety Violation
+
+DESCRIPTION:
+Indirect calls using function pointers or through registers (BCTRL, MTCTR) may not properly validate target addresses or preserve required register state (e.g., TOC pointer), causing incorrect execution or security vulnerabilities.
+
+CODE_LOCATION:
+llvm/lib/Target/PowerPC/PPCISelLowering.cpp:5226-5238
+llvm/lib/Target/PowerPC/PPCISelLowering.cpp:6574-6598
+llvm/lib/Target/PowerPC/PPCInstrInfo.td:1461-1477
+
+ISO26262_REQUIREMENT:
+ASIL D - Part 6, Table 31: Correct indirect call handling required for function pointer safety and control flow integrity.
+
+FAILURE_SCENARIO:
+1. Indirect call target address not validated, allowing execution of arbitrary code
+2. TOC pointer not preserved across indirect calls, causing incorrect data access
+3. Function pointer corrupted before indirect call, jumping to wrong address
+4. Indirect call through CTR register loses required context (R12 for ELFv2)
+5. Indirect call security checks bypassed, causing privilege escalation
+
+CURRENT_CODE_ANALYSIS:
+PPCISelLowering.cpp handles indirect calls at lines 5226-5238 (call opcode selection) and 6574-6598 (TOC save/restore). PPCInstrInfo.td defines BCTR and BCTRL at lines 1461-1477. The code handles TOC pointer save/restore for indirect calls but may not validate target addresses or enforce security constraints.
+
+RECOMMENDATION:
+1. Add target address validation for indirect calls
+2. Verify TOC pointer preservation across indirect calls
+3. Ensure R12 contains target address for ELFv2 ABI indirect calls
+4. Add compile-time checks for function pointer corruption
+5. Document indirect call requirements for e200 cores
+6. Add runtime verification of indirect call targets
+7. Implement control flow integrity checks for indirect calls
+
+TEST_GAP:
+Missing tests for:
+- Indirect call target validation
+- TOC pointer preservation
+- Function pointer corruption detection
+- ELFv2 indirect call requirements
+- Control flow integrity verification
+
+[REQ-ISO26262-EDGE-CASE-026]
+UID: ISO26262-EDGE-CASE-026
+STATUS: Draft
+TITLE: Alignment Fault Handling and Misaligned Memory Access
+
+DESCRIPTION:
+PowerPC e200 cores may generate alignment faults for misaligned memory accesses, but the exception handling may not be correctly implemented or the compiler may generate instructions that cause alignment faults at runtime.
+
+CODE_LOCATION:
+llvm/lib/Target/PowerPC/PPCISelLowering.cpp:14389-14423
+llvm/lib/Target/PowerPC/PPCInstrInfo.td:425-469
+llvm/lib/Target/PowerPC/PPCTargetTransformInfo.cpp:1163-1177
+
+ISO26262_REQUIREMENT:
+ASIL C - Part 6, Table 32: Correct alignment handling required to prevent alignment faults and ensure memory access correctness.
+
+FAILURE_SCENARIO:
+1. Misaligned load/store instruction generated, causing alignment fault
+2. Alignment requirement not checked before memory access
+3. Unaligned vector access not properly decomposed, causing fault
+4. Alignment fault exception handler not registered, causing system crash
+5. Alignment check optimization removes required alignment verification
+
+CURRENT_CODE_ANALYSIS:
+PPCISelLowering.cpp handles unaligned vector loads at lines 14389-14423, decomposing them into aligned loads with permutation. PPCInstrInfo.td defines alignment predicates at lines 425-469. PPCTargetTransformInfo.cpp models alignment costs at lines 1163-1177. However, the code may not handle all misalignment cases correctly or may generate instructions requiring alignment that isn't guaranteed.
+
+RECOMMENDATION:
+1. Verify all load/store instructions respect alignment requirements
+2. Add compile-time alignment checking for memory accesses
+3. Decompose misaligned accesses into aligned operations when needed
+4. Ensure alignment fault handlers are properly registered
+5. Document alignment requirements for each e200 variant
+6. Add runtime alignment verification for critical memory accesses
+7. Prevent alignment check removal by optimizations
+
+TEST_GAP:
+Missing tests for:
+- Alignment fault generation
+- Misaligned access handling
+- Alignment requirement verification
+- Alignment fault exception handling
+- Unaligned vector access decomposition
+
+[REQ-ISO26262-EDGE-CASE-027]
+UID: ISO26262-EDGE-CASE-027
+STATUS: Draft
+TITLE: Stack Unwinding and Exception Propagation Integrity
+
+DESCRIPTION:
+Exception handling and stack unwinding may not correctly preserve or restore register state, causing incorrect exception propagation or loss of context during exception handling in safety-critical systems.
+
+CODE_LOCATION:
+llvm/lib/Target/PowerPC/PPCFrameLowering.cpp (EH frame handling)
+llvm/docs/ExceptionHandling.rst:824-861
+llvm/lib/Target/PowerPC/PPCISelLowering.cpp (EH lowering)
+
+ISO26262_REQUIREMENT:
+ASIL D - Part 6, Table 33: Correct exception handling and stack unwinding required for deterministic error recovery.
+
+FAILURE_SCENARIO:
+1. Exception handler register state not preserved correctly during unwinding
+2. Stack unwinding fails to restore correct frame pointer
+3. Exception propagation loses context, making error recovery impossible
+4. EH frame descriptors incorrect or missing, preventing stack unwinding
+5. Personality function not correctly invoked, breaking exception handling
+
+CURRENT_CODE_ANALYSIS:
+ExceptionHandling.rst documents exception handling requirements at lines 824-861, requiring CFI directives and exception pointer/selector registers. The PowerPC backend must implement getExceptionPointerRegister and getExceptionSelectorRegister, but EH frame generation may not be complete or correct for all scenarios.
+
+RECOMMENDATION:
+1. Verify CFI directives are correctly generated for all functions
+2. Ensure exception pointer/selector registers are correctly handled
+3. Add EH frame descriptor validation
+4. Verify personality function invocation correctness
+5. Document exception handling requirements for e200 cores
+6. Add runtime verification of stack unwinding correctness
+7. Test exception propagation in all scenarios
+
+TEST_GAP:
+Missing tests for:
+- Exception handler register preservation
+- Stack unwinding correctness
+- EH frame descriptor validation
+- Exception propagation scenarios
+- Personality function invocation
+
+[REQ-ISO26262-EDGE-CASE-028]
+UID: ISO26262-EDGE-CASE-028
+STATUS: Draft
+TITLE: Instruction Prefetch and Cache State Corruption
+
+DESCRIPTION:
+Instruction prefetch operations (dcbt, icbt) and cache state management may not be correctly synchronized, causing execution of stale instructions or incorrect cache coherency, violating instruction stream integrity.
+
+CODE_LOCATION:
+llvm/lib/Target/PowerPC/PPCInstrInfo.td:1815-1846
+llvm/lib/Support/Unix/Memory.inc:236-250
+
+ISO26262_REQUIREMENT:
+ASIL D - Part 6, Table 34: Correct instruction prefetch and cache management required for instruction stream integrity.
+
+FAILURE_SCENARIO:
+1. Instruction prefetch (icbt) prefetches stale instructions after code modification
+2. Data cache prefetch (dcbt) interferes with instruction cache, causing coherency issues
+3. Cache state not properly invalidated before code execution
+4. Prefetch hints incorrect, causing cache pollution and performance degradation
+5. Prefetch timing violation causes instruction fetch of wrong instructions
+
+CURRENT_CODE_ANALYSIS:
+PPCInstrInfo.td defines prefetch instructions (DCBT, DCBTST, ICBT) at lines 1815-1846. Memory.inc shows cache invalidation sequences at lines 236-250. However, prefetch operations may not be properly synchronized with code modifications or cache invalidation, potentially causing execution of stale instructions.
+
+RECOMMENDATION:
+1. Ensure instruction prefetch is followed by proper cache invalidation when needed
+2. Synchronize data and instruction cache operations correctly
+3. Verify cache state before code execution after modifications
+4. Validate prefetch hint correctness
+5. Document cache management requirements for e200 cores
+6. Add runtime verification of cache coherency
+7. Test prefetch scenarios with code modification
+
+TEST_GAP:
+Missing tests for:
+- Instruction prefetch synchronization
+- Cache coherency verification
+- Cache invalidation correctness
+- Prefetch hint validation
+- Code modification and prefetch interaction
+
+[REQ-ISO26262-EDGE-CASE-029]
+UID: ISO26262-EDGE-CASE-029
+STATUS: Draft
+TITLE: Register Allocation Pressure and Spill Decision Non-Determinism
+
+DESCRIPTION:
+Register allocation decisions may be non-deterministic or may cause excessive spilling under register pressure, violating deterministic execution timing requirements and WCET guarantees.
+
+CODE_LOCATION:
+llvm/lib/Target/PowerPC/PPCRegisterInfo.cpp:80-121
+llvm/lib/Target/PowerPC/PPCInstrInfo.cpp:1095-1118
+llvm/lib/CodeGen/PrologEpilogInserter.cpp:404-458
+
+ISO26262_REQUIREMENT:
+ASIL D - Part 6, Table 35: Deterministic register allocation required for reproducible code generation and WCET analysis.
+
+FAILURE_SCENARIO:
+1. Register allocation differs between compiler runs, breaking WCET assumptions
+2. Register pressure causes non-deterministic spill decisions
+3. Excessive spilling breaks timing guarantees required for safety-critical code
+4. Register allocation order affects code generation, violating determinism
+5. Spill slot allocation not deterministic, causing different stack layouts
+
+CURRENT_CODE_ANALYSIS:
+PPCRegisterInfo.cpp defines register allocation at lines 80-121. PPCInstrInfo.cpp handles spill operations at lines 1095-1118. PrologEpilogInserter.cpp allocates spill slots at lines 404-458. Register allocation may use heuristics that are not fully deterministic, and spill slot allocation may vary between compilation runs.
+
+RECOMMENDATION:
+1. Make register allocation deterministic (same input → same output)
+2. Ensure spill slot allocation is deterministic
+3. Limit register spilling in safety-critical functions
+4. Document register allocation requirements for WCET analysis
+5. Add compile-time verification of register allocation determinism
+6. Verify spill decisions don't break timing guarantees
+7. Test register allocation reproducibility
+
+TEST_GAP:
+Missing tests for:
+- Register allocation determinism verification
+- Spill decision reproducibility
+- Register pressure handling
+- Spill slot allocation determinism
+- WCET impact of register spilling
+
+[REQ-ISO26262-EDGE-CASE-030]
+UID: ISO26262-EDGE-CASE-030
+STATUS: Draft
+TITLE: Compiler Intrinsic Safety and Side Effect Handling
+
+DESCRIPTION:
+Compiler intrinsics (e.g., __builtin functions, LLVM intrinsics) may have side effects or timing characteristics that are not properly documented or modeled, causing incorrect behavior in safety-critical code or WCET violations.
+
+CODE_LOCATION:
+llvm/lib/Target/PowerPC/PPCISelLowering.cpp (intrinsic lowering)
+llvm/lib/Target/PowerPC/PPCInstrInfo.td (intrinsic patterns)
+
+ISO26262_REQUIREMENT:
+ASIL C/D - Part 6, Table 36: Correct compiler intrinsic behavior required for safety-critical code correctness and timing analysis.
+
+FAILURE_SCENARIO:
+1. Compiler intrinsic has undocumented side effects, corrupting system state
+2. Intrinsic timing not modeled correctly, breaking WCET analysis
+3. Intrinsic generates code with non-deterministic behavior
+4. Intrinsic safety properties not verified, causing security vulnerabilities
+5. Intrinsic usage violates safety-critical coding standards
+
+CURRENT_CODE_ANALYSIS:
+PPCISelLowering.cpp handles intrinsic lowering, but intrinsic behavior, side effects, and timing characteristics may not be fully documented. PPCInstrInfo.td defines patterns for intrinsics but may not capture all safety properties. Intrinsics used in safety-critical code must have verified behavior and documented timing.
+
+RECOMMENDATION:
+1. Document all compiler intrinsic side effects and timing characteristics
+2. Verify intrinsic behavior matches documentation
+3. Model intrinsic timing in WCET analysis
+4. Add safety verification for intrinsics used in critical code
+5. Document intrinsic usage restrictions for safety-critical systems
+6. Add compile-time checks for unsafe intrinsic usage
+7. Test intrinsic behavior in all safety-critical scenarios
+
+TEST_GAP:
+Missing tests for:
+- Intrinsic side effect verification
+- Intrinsic timing modeling
+- Intrinsic safety property verification
+- Intrinsic behavior documentation
+- Unsafe intrinsic usage detection
+
