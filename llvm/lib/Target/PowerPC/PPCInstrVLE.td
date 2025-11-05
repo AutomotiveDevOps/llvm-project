@@ -455,6 +455,86 @@ def E_STW : VLE_DForm_Store<21,
                              IIC_LdStStore,
                              [(store i32:$RS, DForm:$dst)]>;
 
+// e_lbz: Load Byte and Zero
+// Loads byte from memory address (RA)+D, zero-extends, stores in RT
+// Primary opcode: 12 (0x0C = 0x30000000 >> 26)
+def E_LBZ : VLE_DForm_Load<12,
+                            (outs gprc:$RT),
+                            (ins (memri $D, $RA):$addr),
+                            "e_lbz $RT, $addr",
+                            IIC_LdStLoad,
+                            [(set i32:$RT, (zextloadi8 DForm:$addr))]>,
+                            ZExt32To64, SExt32To64;
+
+// e_lhz: Load Halfword and Zero
+// Loads halfword from memory address (RA)+D, zero-extends, stores in RT
+// Primary opcode: 22 (0x16 = 0x58000000 >> 26)
+def E_LHZ : VLE_DForm_Load<22,
+                            (outs gprc:$RT),
+                            (ins (memri $D, $RA):$addr),
+                            "e_lhz $RT, $addr",
+                            IIC_LdStLoad,
+                            [(set i32:$RT, (zextloadi16 DForm:$addr))]>,
+                            ZExt32To64, SExt32To64;
+
+// e_lwz: Load Word and Zero
+// Loads word from memory address (RA)+D, stores in RT
+// Primary opcode: 20 (0x14 = 0x50000000 >> 26)
+def E_LWZ : VLE_DForm_Load<20,
+                            (outs gprc:$RT),
+                            (ins (memri $D, $RA):$addr),
+                            "e_lwz $RT, $addr",
+                            IIC_LdStLoad,
+                            [(set i32:$RT, (load DForm:$addr))]>,
+                            ZExt32To64;
+
+// e_stb: Store Byte
+// Stores byte from RS to memory address (RA)+D
+// Primary opcode: 13 (0x0D = 0x34000000 >> 26)
+def E_STB : VLE_DForm_Store<13,
+                             (outs),
+                             (ins gprc:$RS, (memri $D, $RA):$dst),
+                             "e_stb $RS, $dst",
+                             IIC_LdStStore,
+                             [(truncstorei8 i32:$RS, DForm:$dst)]>;
+
+// e_sth: Store Halfword
+// Stores halfword from RS to memory address (RA)+D
+// Primary opcode: 23 (0x17 = 0x5C000000 >> 26)
+def E_STH : VLE_DForm_Store<23,
+                             (outs),
+                             (ins gprc:$RS, (memri $D, $RA):$dst),
+                             "e_sth $RS, $dst",
+                             IIC_LdStStore,
+                             [(truncstorei16 i32:$RS, DForm:$dst)]>;
+
+//===----------------------------------------------------------------------===//
+// VLE Load/Store Multiple Instructions
+//===----------------------------------------------------------------------===//
+
+// e_lmw: Load Multiple Word
+// Loads consecutive words from memory starting at (RA)+D8 into RT through R31
+// Primary opcode: 6, Extended opcode: 8 (bits 16-19 = 0x8)
+// Encoding: D8 form, same base as update instructions but different XO
+// From manual: 06 RT RA 08 D8
+def E_LMW : VLE_D8Form_Load<0b1000,
+                             (outs gprc:$RT),
+                             (ins (memri $D8, $RA):$src),
+                             "e_lmw $RT, $src",
+                             IIC_LdStLMW,
+                             []>;
+
+// e_stmw: Store Multiple Word
+// Stores consecutive words from RS through R31 to memory starting at (RA)+D8
+// Primary opcode: 6, Extended opcode: 9 (bits 16-19)
+// Encoding: D8 form, same base as update instructions but different XO
+def E_STMW : VLE_D8Form_Store<0b1001,
+                                (outs),
+                                (ins gprc:$RS, (memri $D8, $RA):$dst),
+                                "e_stmw $RS, $dst",
+                                IIC_LdStLMW,
+                                []>;
+
 //===----------------------------------------------------------------------===//
 // VLE Move Instructions
 //===----------------------------------------------------------------------===//
